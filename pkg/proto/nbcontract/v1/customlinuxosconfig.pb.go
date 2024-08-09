@@ -142,14 +142,15 @@ type SysctlConfig struct {
 	NetIpv4NeighDefaultGcThresh3   *int32  `protobuf:"varint,18,opt,name=NetIpv4NeighDefaultGcThresh3,proto3,oneof" json:"NetIpv4NeighDefaultGcThresh3,omitempty"`
 	NetNetfilterNfConntrackMax     *int32  `protobuf:"varint,19,opt,name=NetNetfilterNfConntrackMax,proto3,oneof" json:"NetNetfilterNfConntrackMax,omitempty"`
 	NetNetfilterNfConntrackBuckets *int32  `protobuf:"varint,20,opt,name=NetNetfilterNfConntrackBuckets,proto3,oneof" json:"NetNetfilterNfConntrackBuckets,omitempty"`
-	FsInotifyMaxUserWatches        *int32  `protobuf:"varint,21,opt,name=FsInotifyMaxUserWatches,proto3,oneof" json:"FsInotifyMaxUserWatches,omitempty"`
-	FsFileMax                      *int32  `protobuf:"varint,22,opt,name=FsFileMax,proto3,oneof" json:"FsFileMax,omitempty"`
-	FsAioMaxNr                     *int32  `protobuf:"varint,23,opt,name=FsAioMaxNr,proto3,oneof" json:"FsAioMaxNr,omitempty"`
-	FsNrOpen                       *int32  `protobuf:"varint,24,opt,name=FsNrOpen,proto3,oneof" json:"FsNrOpen,omitempty"`
-	KernelThreadsMax               *int32  `protobuf:"varint,25,opt,name=KernelThreadsMax,proto3,oneof" json:"KernelThreadsMax,omitempty"`
-	VMMaxMapCount                  *int32  `protobuf:"varint,26,opt,name=VMMaxMapCount,proto3,oneof" json:"VMMaxMapCount,omitempty"`
-	VMSwappiness                   *int32  `protobuf:"varint,27,opt,name=VMSwappiness,proto3,oneof" json:"VMSwappiness,omitempty"`
-	VMVfsCachePressure             *int32  `protobuf:"varint,28,opt,name=VMVfsCachePressure,proto3,oneof" json:"VMVfsCachePressure,omitempty"`
+	FsInotifyMaxUserInstances      *int32  `protobuf:"varint,21,opt,name=FsInotifyMaxUserInstances,proto3,oneof" json:"FsInotifyMaxUserInstances,omitempty"`
+	FsInotifyMaxUserWatches        *int32  `protobuf:"varint,22,opt,name=FsInotifyMaxUserWatches,proto3,oneof" json:"FsInotifyMaxUserWatches,omitempty"`
+	FsFileMax                      *int32  `protobuf:"varint,23,opt,name=FsFileMax,proto3,oneof" json:"FsFileMax,omitempty"`
+	FsAioMaxNr                     *int32  `protobuf:"varint,24,opt,name=FsAioMaxNr,proto3,oneof" json:"FsAioMaxNr,omitempty"`
+	FsNrOpen                       *int32  `protobuf:"varint,25,opt,name=FsNrOpen,proto3,oneof" json:"FsNrOpen,omitempty"`
+	KernelThreadsMax               *int32  `protobuf:"varint,26,opt,name=KernelThreadsMax,proto3,oneof" json:"KernelThreadsMax,omitempty"`
+	VMMaxMapCount                  *int32  `protobuf:"varint,27,opt,name=VMMaxMapCount,proto3,oneof" json:"VMMaxMapCount,omitempty"`
+	VMSwappiness                   *int32  `protobuf:"varint,28,opt,name=VMSwappiness,proto3,oneof" json:"VMSwappiness,omitempty"`
+	VMVfsCachePressure             *int32  `protobuf:"varint,29,opt,name=VMVfsCachePressure,proto3,oneof" json:"VMVfsCachePressure,omitempty"`
 }
 
 func (x *SysctlConfig) Reset() {
@@ -320,6 +321,13 @@ func (x *SysctlConfig) GetNetNetfilterNfConntrackMax() int32 {
 func (x *SysctlConfig) GetNetNetfilterNfConntrackBuckets() int32 {
 	if x != nil && x.NetNetfilterNfConntrackBuckets != nil {
 		return *x.NetNetfilterNfConntrackBuckets
+	}
+	return 0
+}
+
+func (x *SysctlConfig) GetFsInotifyMaxUserInstances() int32 {
+	if x != nil && x.FsInotifyMaxUserInstances != nil {
+		return *x.FsInotifyMaxUserInstances
 	}
 	return 0
 }
