@@ -199,6 +199,7 @@ var AvailableGen2Distros = []Distro{
 	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2Gen2FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
