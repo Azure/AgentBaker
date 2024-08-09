@@ -1,5 +1,6 @@
 #!/bin/bash
-SIG_IMAGE_NAME=AzureLinux5
+SIG_IMAGE_NAME=AzureLinux5 
+GIT_VERSION=main
 BUILD_PERF_DATA_FILE=BUILD_PERFORMANCE_DATA_FILE.json
 echo -e "\nGenerating ${SIG_IMAGE_NAME} build performance data from ${BUILD_PERF_DATA_FILE}...\n"
 
