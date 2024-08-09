@@ -37,7 +37,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
 
-	nonHostPodName, err := getNonHostDebugPodName(ctx, opts.clusterConfig.Kube, podNetworkDebugAppLabel, vmssName)
+	nonHostPodName, err := findDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, podNetworkDebugAppLabel, vmssName)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}

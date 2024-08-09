@@ -36,7 +36,7 @@ func getDebugPodName(ctx context.Context, kube *Kubeclient, appLabel string) (st
 
 // Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
-func getNonHostDebugPodName(ctx context.Context, kube *Kubeclient, labelName, vmssName string) (string, error) {
+func findDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, labelName, vmssName string) (string, error) {
 	podList := corev1.PodList{}
 	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": labelName}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)

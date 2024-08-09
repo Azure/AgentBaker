@@ -90,6 +90,7 @@ func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
 func getDebugDaemonsetManifests() []string {
 	return []string{
 		getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true),
+		// "nodepool2"  label is used to deploy a pod on all ab e2e nodes running actual test cases
 		getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false),
 	}
 }
