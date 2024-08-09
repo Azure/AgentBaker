@@ -28,6 +28,18 @@
   ],
   "Packages": [
     {
+      "name": "k3s",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.22.2+k3s1"
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {

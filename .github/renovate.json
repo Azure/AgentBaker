@@ -20,7 +20,26 @@
     }
   ],
   "customManagers": [
-    
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/test_components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        ".*?\"downloadURL\":\\s*\"(?<registryUrl>[^/]+)/(?<packageName>[^:]+)[\\s\\S]*?\"multiArchVersions\": \\[\\s*\"(?<currentValue>[^\\\"]+)\".*"
+      ],
+      "datasourceTemplate": "docker",
+      "registryUrlTemplate": "https://mcr.microsoft.com"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["parts/linux/cloud-init/artifacts/test_components.json"],
+      "matchStrings": ["(?<currentValue>\\S+)"],
+      "depNameTemplate": "k3s",
+      "versioningTemplate": "semver-coerced",
+      "datasourceTemplate": "custom.k3s"
+    },
     {
       "customType": "regex",
       "fileMatch": [
@@ -40,6 +59,12 @@
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": [{\"version\": \"1.1.13\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
+      ]
+    },
+    "k3s": {
+      "defaultRegistryUrlTemplate": "https://update.k3s.io/v1-release/channels",
+      "transformTemplates": [
+        "{\"releases\":[{\"version\": $$.(data[id = 'stable'].latest),\"sourceUrl\":\"https://github.com/k3s-io/k3s\",\"changelogUrl\":$join([\"https://github.com/k3s-io/k3s/releases/tag/\",data[id = 'stable'].latest])}],\"sourceUrl\": \"https://github.com/k3s-io/k3s\",\"homepage\": \"https://k3s.io/\"}"
       ]
     }
   }
