@@ -164,6 +164,7 @@ EOF
   systemctl restart containerd
 }
 
+# this simply generates a self-signed certificate used for serving by the kubelet
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
@@ -247,7 +248,12 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
+    # generate a kubelet serving certificate if we aren't relying on 
+    # TLS bootstrapping to generate one for us
+    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
+        configureKubeletServerCert
+    fi
+
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
