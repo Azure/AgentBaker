@@ -63,7 +63,7 @@
       ]
     },
     "containerd": {
-      "defaultRegistryUrlTemplate": "https://34.filelu.com/d/rj3gxqdqjqqnjjta22mnci7zq7v5ker4levcebl534kcigonc6ytwhnv3gsa7yxleaxsjj3x/packages_test",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/",
       "format": "json",
       "transformTemplates": [
         "{\"releases\":$map($match($, /Package:\\s*moby-containerd\\s*Version:\\s*([^\\s]+)/g), function($v) {\"version\": $v.groups[0]})}"
