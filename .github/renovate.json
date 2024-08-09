@@ -36,15 +36,6 @@
       "customType": "regex",
       "fileMatch": ["parts/linux/cloud-init/artifacts/test_components.json"],
       "matchStrings": [
-        "\"name\":\\s*\"(?<packageName>[^\"]+)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
-      ],
-      "versioningTemplate": "semver-coerced",
-      "datasourceTemplate": "custom.k3s"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": ["parts/linux/cloud-init/artifacts/test_components.json"],
-      "matchStrings": [
         "\"name\":\\s*\"(?<packageName>containerd)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "versioningTemplate": "semver",
