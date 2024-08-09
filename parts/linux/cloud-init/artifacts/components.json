@@ -72,17 +72,10 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.52",
-        "v1.5.26",
         "v1.5.32",
         "v1.6.0"
       ],
       "prefetchOptimizations": [
-        {
-          "version": "v1.5.26",
-          "binaries": [
-            "usr/local/bin/azure-cns"
-          ]
-        },
         {
           "version": "v1.5.32",
           "binaries": [
