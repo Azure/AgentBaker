@@ -23,7 +23,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/test_components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -35,7 +35,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/test_components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
