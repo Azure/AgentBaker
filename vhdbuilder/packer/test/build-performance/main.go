@@ -14,7 +14,7 @@ func main() {
 	sourceBranch := os.Getenv("SOURCE_BRANCH")
 	kustoEndpoint := os.Getenv("KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
-	buildPerformanceData := os.Getenv("VHD_BUILD_PERFORMANCE_DATA_FILE")
+	buildPerformanceDataFile := os.Getenv("VHD_BUILD_PERFORMANCE_DATA_FILE")
 	buildPerformanceTable := os.Getenv("KUSTO_TABLE_NAME")
 
 	// Create Connection String
@@ -31,13 +31,16 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 
-		if _, err := ingestionClient.FromFile(ctx, buildPerformanceData); err != nil {
+		if _, err := ingestionClient.FromFile(
+			ctx,
+			buildPerformanceDataFile,
+			azkustoingest.IngestionMappingRef("buildPerfMapping", azkustoingest.JSON)); err != nil {
 			panic("Failed to ingest build performance data.")
 		}
 
 		return
 	} else {
-		// will add some logic here
+
 	}
 	//dataPlaneClient, err := azkustodata.New(kcsb)
 	//if err != nil {
