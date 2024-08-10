@@ -121,3 +121,7 @@ build-nbcparser-binary:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
+
+build-performance-binary:
+@echo "Building build performance binary for $(GOARCH)"
+@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/kustoProgram main.go && popd"
