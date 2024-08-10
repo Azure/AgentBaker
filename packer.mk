@@ -121,4 +121,7 @@ build-lister-binary:
 build-performance-binary:
 	@echo "Building build performance binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/kustoProgram main.go && popd"
-	@$(MAKE) -f packer.mk evaluate-build-performance
+
+evaluate-build-performance: az-login
+	@echo "Evaluating build performance"
+	@./vhdbuilder/packer/test/build-performance/evaluate-build-performance.sh
