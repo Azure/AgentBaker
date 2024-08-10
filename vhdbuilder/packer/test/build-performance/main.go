@@ -22,9 +22,10 @@ func main() {
 	var err error
 
 	// Create Connection String
-	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint)
+	kustoConnectionString := kcsb.WithSystemManagedIdentity()
 
-	ingestionClient, err := kusto.New(kcsb)
+	ingestionClient, err := kusto.New(kustoConnectionString)
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	}
