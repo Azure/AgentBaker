@@ -19,20 +19,20 @@ func main() {
 	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
 	buildPerformanceDataFile := sigImageName + "-build-performance.json"
+	var err error
 
 	// Create Connection String
-	kustoConnectionString := kusto.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
 
-	ingestionClient, err := ingest.New(kustoConnectionString)
-
+	ingestionClient, err := kusto.New(kcsb)
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	}
 	defer ingestionClient.Close()
 
 	ingestor, err := ingest.New(ingestionClient, kustoDatabase, kustoTable)
-
 	if err != nil {
+		ingestionClient.Close()
 		log.Fatalf("Kusto ingestor could not be created.")
 	}
 	defer ingestor.Close()
@@ -47,6 +47,7 @@ func main() {
 
 	if err != nil {
 		cancel()
+		ingestor.Close()
 		ingestionClient.Close()
 		log.Fatalf("Failed to ingest build performance data.")
 	}
