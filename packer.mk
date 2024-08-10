@@ -123,6 +123,6 @@ build-lister-binary:
 	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
 
 build-performance-binary:
-@echo "Building build performance binary for $(GOARCH)"
-@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/kustoProgram main.go && popd"
-@$(MAKE) -f packer.mk evaluate-build-performance
+	@echo "Building build performance binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/kustoProgram main.go && popd"
+	@$(MAKE) -f packer.mk evaluate-build-performance
