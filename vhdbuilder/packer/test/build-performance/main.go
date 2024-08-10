@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/Azure/azure-kusto-go/azkustodata"
-	"github.com/Azure/azure-kusto-go/azkustoingest"
+	"github.com/Azure/azure-kusto-go/kusto"
+	"github.com/Azure/azure-kusto-go/kusto/ingest"
 )
 
 func main() {
@@ -21,31 +21,36 @@ func main() {
 	buildPerformanceDataFile := sigImageName + "-build-performance.json"
 
 	// Create Connection String
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
+	kustoConnectionString := kusto.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
 
-	ingestionClient, err := azkustoingest.New(
-		kustoConnectionString,
-		azkustoingest.WithDefaultTable(kustoTable),
-		azkustoingest.WithDefaultDatabase(kustoDatabase))
+	ingestionClient, err := ingest.New(kustoConnectionString)
 
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	}
 	defer ingestionClient.Close()
 
+	ingestor, err := ingest.New(ingestionClient, kustoDatabase, kustoTable)
+
+	if err != nil {
+		log.Fatalf("Kusto ingestor could not be created.")
+	}
+	defer ingestor.Close()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
-	_, err = ingestionClient.FromFile(
+	_, err = ingestor.FromFile(
 		ctx,
 		buildPerformanceDataFile,
-		azkustoingest.IngestionMappingRef("buildPerfMapping", azkustoingest.JSON))
+		ingest.IngestionMappingRef("buildPerfMapping", ingest.JSON))
 
 	if err != nil {
 		cancel()
 		ingestionClient.Close()
 		log.Fatalf("Failed to ingest build performance data.")
 	}
+	defer ingestor.Close()
 
 	fmt.Println("Successfully ingested build performance data.")
 }
