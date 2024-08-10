@@ -18,7 +18,7 @@ func main() {
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
 	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	buildPerformanceDataFile := sigImageName + "-build-performance"
+	buildPerformanceDataFile := sigImageName + "-build-performance.json"
 
 	// Create Connection String
 	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
