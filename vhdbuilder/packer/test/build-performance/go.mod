@@ -1,6 +1,6 @@
-module go.goms.io/aks/agentBaker/vhdbuilder/packer/test/build-performance
+module github.com/Azure/agentbaker/vhdbuilder/packer/test/build-performance
 
-go 1.22
+go 1.23
 
 require (
 	github.com/Azure/azure-kusto-go/azkustodata v1.0.0-preview-3
