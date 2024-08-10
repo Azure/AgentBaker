@@ -71,6 +71,7 @@ steps:
         echo MODE=$(MODE) && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -v /usr/local/bin/packer:/usr/local/bin/packer \
         -w /go/src/github.com/Azure/AgentBaker \
         -e POOL_NAME=$(POOL_NAME) \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
@@ -263,7 +264,7 @@ steps:
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
         -e CAPTURED_SIG_VERSION=${captured_sig_version} \
         -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-        -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_STRING) \
+        -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_ID) \
         ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
