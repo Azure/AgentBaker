@@ -46,9 +46,9 @@ func main() {
 		ingest.IngestionMappingRef("buildPerfMapping", ingest.JSON))
 
 	if err != nil {
-		cancel()
 		ingestor.Close()
 		ingestionClient.Close()
+		cancel()
 		log.Fatalf("Failed to ingest build performance data.")
 	}
 	defer ingestor.Close()
