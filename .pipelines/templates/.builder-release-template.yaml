@@ -31,16 +31,14 @@ steps:
       if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
         echo "destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}"
         exit 1
-      else
-        echo Found file to overwrite: ${COMPONENT_JSON_DEST}
       fi
+      echo "Found file to overwrite: ${COMPONENT_JSON_DEST}"
 
       if [ ! -f "${COMPONENT_JSON_SRC}" ]; then
-        echo src components.json file does not exist, not copying: ${COMPONENT_JSON_SRC}
+        echo "src components.json file does not exist, not copying: ${COMPONENT_JSON_SRC}"
         exit 1
-      else
-        echo Found source components.json to use for overrides: ${COMPONENT_JSON_SRC}
       fi
+      echo "Found source components.json to use for overrides: ${COMPONENT_JSON_SRC}"
       
       echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
       cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
