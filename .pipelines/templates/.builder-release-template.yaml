@@ -29,7 +29,7 @@ steps:
       COMPONENT_JSON_SRC=$(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
       COMPONENT_JSON_DEST=./parts/linux/cloud-init/artifacts/components.json
       if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
-        echo destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}
+        echo "destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}"
         exit 1
       else
         echo Found file to overwrite: ${COMPONENT_JSON_DEST}
