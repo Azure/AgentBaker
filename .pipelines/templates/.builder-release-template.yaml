@@ -24,8 +24,7 @@ steps:
   - bash: |
       set -euo pipefail
       # Just copy components.json. If anything else is needed, then someone can modify the pipeline in an emergency.
-      # we check for existence of both src and destination file. As this pipeline will only be run if an override is happening,
-      # then we it's an error to not do an override.
+      # we check for existence of both src and destination file because if neither of those exist then the override will fail.
       COMPONENT_JSON_SRC=$(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
       COMPONENT_JSON_DEST=./parts/linux/cloud-init/artifacts/components.json
       if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
