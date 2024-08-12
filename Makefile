@@ -218,6 +218,6 @@ unit-tests:
 
 .PHONY: validate-components
 validate-components:
-	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/components.json
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
 
 include versioning.mk

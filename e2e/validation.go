@@ -32,9 +32,14 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube)
+	hostPodName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, hostNetworkDebugAppLabel)
 	if err != nil {
-		return fmt.Errorf("While running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
+		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
+	}
+
+	nonHostPodName, err := findDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, podNetworkDebugAppLabel, vmssName)
+	if err != nil {
+		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}
 
 	validators := commonLiveVMValidators()
@@ -46,9 +51,18 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		desc := validator.Description
 		command := validator.Command
 		isShellBuiltIn := validator.IsShellBuiltIn
+		isNonHostValidator := validator.IsPodNetwork
+
 		t.Logf("running live VM validator on %s: %q", vmssName, desc)
 
-		execResult, err := pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
+		var execResult *podExecResult
+		var err error
+		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
+		if isNonHostValidator {
+			execResult, err = execOnUnprivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, command)
+		} else {
+			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, command, isShellBuiltIn)
+		}
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
 		}
@@ -102,5 +116,39 @@ func commonLiveVMValidators() []*LiveVMValidator {
 				"cloud-config.txt",
 			},
 		),
+		// this check will run from host's network - we expect it to succeed
+		{
+			Description: "check that curl to wireserver succeeds from host's network",
+			Command:     "curl http://168.63.129.16:32526/vmSettings",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "0" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 0 (succeeded)", code)
+				}
+				return nil
+			},
+		},
+		// CURL goes to port 443 by default for HTTPS
+		{
+			Description: "check that curl to wireserver fails",
+			Command:     "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "28" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
+				}
+				return nil
+			},
+			IsPodNetwork: true,
+		},
+		{
+			Description: "check that curl to wireserver port 32526 fails",
+			Command:     "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
+			Asserter: func(code, stdout, stderr string) error {
+				if code != "28" {
+					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
+				}
+				return nil
+			},
+			IsPodNetwork: true,
+		},
 	}
 }

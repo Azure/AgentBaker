@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,10 +14,15 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	hostNetworkDebugAppLabel = "debug"
+	podNetworkDebugAppLabel  = "debugnonhost"
+)
+
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
+func getDebugPodName(ctx context.Context, kube *Kubeclient, appLabel string) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": "debug"}); err != nil {
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": appLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 
@@ -26,6 +32,26 @@ func getDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
 
 	podName := podList.Items[0].Name
 	return podName, nil
+}
+
+// Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
+// the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
+func findDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, labelName, vmssName string) (string, error) {
+	podList := corev1.PodList{}
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": labelName}); err != nil {
+		return "", fmt.Errorf("failed to list debug pod: %w", err)
+	}
+
+	if len(podList.Items) < 1 {
+		return "", fmt.Errorf("failed to find debug pod, list by selector returned no results")
+	}
+
+	for _, pod := range podList.Items {
+		if strings.Contains(pod.Spec.NodeName, vmssName) {
+			return pod.Name, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find non host debug pod on node %s", vmssName)
 }
 
 func applyPodManifest(ctx context.Context, namespace string, kube *Kubeclient, manifest string) error {
