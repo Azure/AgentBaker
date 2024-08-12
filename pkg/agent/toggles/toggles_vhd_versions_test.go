@@ -18,17 +18,8 @@ var _ = Describe("GetLinuxNodeImageVersion tests", func() {
 	BeforeEach(func() {
 		tgls = &Toggles{
 			Maps: map[string]MapToggle{
-				"vhd-types": func(entity *Entity) map[string]string {
-					if entity.Fields["region"] == "region-with-vhd" {
-						return map[string]string{"vhd-type": "east-us-vhd"}
-					}
-					if entity.Fields["region"] == "region-with-bad-vhd" {
-						return map[string]string{"vhd-type": "vhd-doesnt-exist"}
-					}
-					return nil
-				},
 				"linux-node-image-version": func(entity *Entity) map[string]string {
-					if entity.Fields["vhd-type"] == "east-us-vhd" {
+					if entity.Fields["region"] == "region-with-vhd" {
 						return map[string]string{
 							"imageName": "imageVersion",
 						}
