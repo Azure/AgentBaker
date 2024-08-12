@@ -14,6 +14,7 @@ import (
 func main() {
 
 	kustoTable := os.Getenv("KUSTO_TABLE_NAME")
+	clientID := os.Getenv("CLIENT_ID")
 	kustoEndpoint := os.Getenv("KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
 	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
@@ -21,7 +22,7 @@ func main() {
 	buildPerformanceDataFile := sigImageName + "-build-performance"
 
 	// Create Connection String
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(clientID)
 
 	ingestionClient, err := azkustoingest.New(
 		kustoConnectionString,

@@ -124,6 +124,7 @@ steps:
         -e KUSTO_ENDPOINT=$(KUSTO_ENDPOINT) \
         -e KUSTO_DATABASE_NAME=$(KUSTO_DATABASE_NAME) \
         -e KUSTO_TABLE_NAME=$(KUSTO_TABLE_NAME) \
+        -e KUSTO_CLIENT_ID=$(KUSTO_CLIENT_ID) \
         ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
     displayName: Check Build Performance
   - bash: |
