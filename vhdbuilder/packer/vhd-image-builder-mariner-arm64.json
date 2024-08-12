@@ -90,6 +90,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/lister/bin/lister",
+      "destination": "/home/packer/lister"
+    },
+    {
+      "type": "file",
       "source": "nbcparser/bin/nbcparser-arm64",
       "destination": "/home/packer/nbcparser"
     },
@@ -275,7 +280,7 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/components.json",
+      "source": "parts/linux/cloud-init/artifacts/components.json",
       "destination": "/home/packer/components.json"
     },
     {

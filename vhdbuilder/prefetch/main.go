@@ -11,29 +11,29 @@ import (
 func main() {
 	var (
 		// program args
-		componentListPath                string
-		containerImagePrefetchScriptPath string
+		componentsPath string
+		outputPath     string
 	)
-	flag.StringVar(&componentListPath, "components", "", "path to the component list JSON file.")
-	flag.StringVar(&containerImagePrefetchScriptPath, "container-image-prefetch-script", "", "where to place the newly generated container image prefetch script.")
+	flag.StringVar(&componentsPath, "components-path", "", "path to the component list JSON file.")
+	flag.StringVar(&outputPath, "output-path", "", "where to place the newly generated container image prefetch script.")
 	flag.Parse()
 
-	if componentListPath == "" {
+	if componentsPath == "" {
 		fmt.Println("path to the component list must be specified")
 		os.Exit(1)
 	}
-	if containerImagePrefetchScriptPath == "" {
+	if outputPath == "" {
 		fmt.Println("CNI prefetch script destination path must be specified")
 		os.Exit(1)
 	}
 
-	components, err := container.ParseComponents(componentListPath)
+	components, err := container.ParseComponents(componentsPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	if err = container.Generate(components, containerImagePrefetchScriptPath); err != nil {
+	if err = container.Generate(components, outputPath); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
