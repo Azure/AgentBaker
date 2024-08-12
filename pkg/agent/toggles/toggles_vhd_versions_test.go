@@ -27,7 +27,7 @@ var _ = Describe("GetLinuxNodeImageVersion tests", func() {
 					}
 					return nil
 				},
-				"linux-node-image-versions": func(entity *Entity) map[string]string {
+				"linux-node-image-version": func(entity *Entity) map[string]string {
 					if entity.Fields["vhd-type"] == "east-us-vhd" {
 						return map[string]string{
 							"imageName": "imageVersion",
