@@ -19,9 +19,7 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
 '. as $orig | [{"sig_image_name":$sig}, {"build_datetime":$date}, {"commit":$commit}, {"scripts": $orig}]' \
 ${VHD_BUILD_PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
-pushd /home/packer
   chmod +x kustoProgram
   ./kustoProgram
-popd
 
 echo -e "\nBuild performance evaluation successfully completed"

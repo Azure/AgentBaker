@@ -5,7 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-performance-binary build-nbcparser-all build-lister-binary
+build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -123,6 +123,6 @@ build-performance-binary:
 	@echo "Building build performance binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/kustoProgram main.go && popd"
 
-evaluate-build-performance: az-login
+evaluate-build-performance: az-login build-performance-binary
 	@echo "Evaluating build performance"
 	@./vhdbuilder/packer/test/build-performance/evaluate-build-performance.sh
