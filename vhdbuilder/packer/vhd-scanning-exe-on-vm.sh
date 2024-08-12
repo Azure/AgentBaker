@@ -13,7 +13,7 @@ ENABLE_TRUSTED_LAUNCH=$9
 
 if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
     sudo apt-get install -y azure-cli
-elif [[ "$OS_SKU" == "Ubuntu" ]] && { [[ "$OS_VERSION" == "22.04" ]] || [[ "$OS_VERSION" == "24.04" ]]; } && [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "22.04" ]] && [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     sudo apt update
     sudo apt install -y python3-pip
     pip install azure-cli
@@ -23,6 +23,12 @@ elif [[ "$OS_SKU" == "Ubuntu" ]] && { [[ "$OS_VERSION" == "22.04" ]] || [[ "$OS_
         echo "Azure CLI is not installed properly."
         exit 1
     fi
+elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "24.04" ]] && [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+    sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
+    curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+    echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+    sudo apt-get update -y && sudo apt-get upgrade -y
+    sudo apt-get install -y azure-cli
 elif [[ "$OS_SKU" == "Ubuntu" ]] && { [[ "$OS_VERSION" == "22.04" ]] || [[ "$OS_VERSION" == "24.04" ]]; } && [[ "${ARCHITECTURE,,}" != "arm64" ]]; then
     sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
     curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
