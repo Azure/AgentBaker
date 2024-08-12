@@ -199,6 +199,24 @@ retrycmd_get_tarball() {
         fi
     done
 }
+retrycmd_get_tarball_from_registry() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    echo "${tar_retries} retries"
+    for i in $(seq 1 $tar_retries); do
+        tar -tzf $tarball && break || \
+        if [ $i -eq $tar_retries ]; then
+            return 1
+        else
+            response=$(curl 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F' -H Metadata:true -s)
+            access_token=$(echo $response | python -c 'import sys, json; print (json.load(sys.stdin)["access_token"])')
+            timeout 60 oras pull $url --identity-token $access_token -o $tarball > $CURL_OUTPUT 2>&1
+            if [[ $? != 0 ]]; then
+                cat $CURL_OUTPUT
+            fi
+            sleep $wait_sleep
+        fi
+    done
+}
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
