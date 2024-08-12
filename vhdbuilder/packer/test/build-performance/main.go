@@ -22,10 +22,9 @@ func main() {
 	var err error
 
 	// Create Connection String
-	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint)
-	kustoConnectionString := kcsb.WithDefaultAzureCredential()
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
 
-	ingestionClient, err := kusto.New(kustoConnectionString)
+	ingestionClient, err := kusto.New(kcsb)
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	}
@@ -38,7 +37,7 @@ func main() {
 	}
 	defer ingestor.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
 
 	_, err = ingestor.FromFile(
