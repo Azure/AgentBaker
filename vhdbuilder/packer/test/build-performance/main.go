@@ -23,7 +23,7 @@ func main() {
 
 	// Create Connection String
 	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint)
-	kustoConnectionString := kcsb.WithSystemManagedIdentity()
+	kustoConnectionString := kcsb.WithDefaultAzureCredential()
 
 	ingestionClient, err := kusto.New(kustoConnectionString)
 	if err != nil {
