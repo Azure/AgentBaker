@@ -964,8 +964,14 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
 		},
+		"GetAzurePrivateRegistryServer": func() string {
+			return config.ContainerService.Properties.SecurityProfile.GetContainerRegistryServer()
+		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
+		},
+		"GetOutboundType": func() string {
+			return config.OutboundType
 		},
 		"EnableIMDSRestriction": func() bool {
 			return config.EnableIMDSRestriction

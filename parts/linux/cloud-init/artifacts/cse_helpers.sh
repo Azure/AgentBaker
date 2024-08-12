@@ -207,9 +207,8 @@ retrycmd_get_tarball_from_registry() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            response=$(curl 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F' -H Metadata:true -s)
-            access_token=$(echo $response | python -c 'import sys, json; print (json.load(sys.stdin)["access_token"])')
-            timeout 60 oras pull $url --identity-token $access_token -o $tarball > $CURL_OUTPUT 2>&1
+            # TODO: support private acr via kubelet identity
+            timeout 60 oras pull $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
