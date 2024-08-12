@@ -406,6 +406,17 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
+
+    # TODO: self-contained VHD too?
+    ipv4NodeInternalIP=""
+    # TODO: is this right?
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
+        # TODO: handle errors gracefully here...
+        ipv4NodeInternalIP=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" | jq ".network.interface[0].ipv4.ipAddress[0].privateIpAddress")
+    fi
+    # TODO: handle dualstack
+    echo "KUBELET_NODE_IP=${ipv4NodeInternalIP}" >> "${KUBELET_DEFAULT_FILE}"
+
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
