@@ -16,6 +16,28 @@ sure the new VM's kubelet is posting NodeReady to the cluster's apiserver, and t
 run on it. Lastly, a set of validation commands are remotely executed on the VM to ensure its live state (file
 existsnce, sysctl settings, etc.) is as expected.
 
+```mermaid
+sequenceDiagram
+    E2E->>+ARM: Get or Create AKS Cluster
+    ARM-->>-E2E: Cluster details
+    E2E->>+AgentBakerCode: Fetch VM Configuration (include CSE)
+    AgentBakerCode-->>-E2E: VM Configuration
+    E2E->>+ARM: Create VM using fetched VM Config in cluster network
+    ARM-->>-E2E: VM instance
+    E2E->>+KubeAPI: Create test Pod
+    KubeAPI->>+TestPod: Perform healthcheck
+    TestPod-->>-KubeAPI: Healthcheck OK
+    KubeAPI-->>-E2E: Test Pod ready
+    E2E->>+KubeAPI: Execute test validators
+    KubeAPI->>+DebugPod: Execute test validator
+    DebugPod->>+VM: Execute test validator
+    VM-->>-DebugPod: Test results
+    DebugPod-->>-KubeAPI: Test results
+    KubeAPI-->>-E2E: Final results
+```
+
+
+
 ## Running Locally
 
 **Note: if you have changed code or artifacts used to generate custom data or custom script extension payloads, you
@@ -43,7 +65,7 @@ To run a specific test, use the test name:
 ```bash
 TAGS_TO_RUN="name=Test_azurelinuxv2" ./e2e-local.sh
 # or
-go test -run Test_azurelinuxv2 -v -timeout 20m
+go test -run Test_azurelinuxv2 -v -timeout 90m
 ```
 
 
@@ -74,11 +96,11 @@ Azure resources are deleted periodically by an external garbage collector. Local
 
 ### Global Settings
 
-Set `GOFLAGS="-timeout=30m -parallel=100"` in your shell configuration file.
+Set `GOFLAGS="-timeout=90m -parallel=100"` in your shell configuration file.
 
 ### GoLand
 
-In **Run > Edit Configurations...**, set `-timeout=60m -parallel=100` in the Go tool arguments field.
+In **Run > Edit Configurations...**, set `-timeout=90m -parallel=100` in the Go tool arguments field.
 
 ### VSCode
 
@@ -86,8 +108,8 @@ Add to `settings.json`:
 
 ```json
 {
-  "go.testFlags": ["-parallel=100"],
-  "go.testTimeout": "30m"
+  "go.testFlags": ["-parallel=100", "-v"],
+  "go.testTimeout": "90m"
 }
 ```
 

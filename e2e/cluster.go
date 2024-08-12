@@ -117,8 +117,8 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	if err := ensureDebugDaemonset(ctx, kube); err != nil {
-		return nil, fmt.Errorf("ensure debug damonset for %q: %w", *cluster.Name, err)
+	if err := ensureDebugDaemonsets(ctx, kube); err != nil {
+		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
 	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)

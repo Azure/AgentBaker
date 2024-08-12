@@ -181,6 +181,30 @@ downloadContainerdWasmShims() {
     done
 }
 
+installOras() {
+    ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
+    ORAS_EXTRACTED_DIR=${1} 
+    ORAS_DOWNLOAD_URL=${2}
+    ORAS_VERSION=${3}
+
+    mkdir -p $ORAS_DOWNLOAD_DIR
+
+    echo "Installing Oras version $ORAS_VERSION..."
+    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin #
+    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
+
+    if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
+        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
+        exit $ERR_ORAS_DOWNLOAD_ERROR
+    fi
+
+    echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
+    sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
+    rm -r "$ORAS_DOWNLOAD_DIR"
+    echo "Oras version $ORAS_VERSION installed successfully."
+
+}
+
 evalPackageDownloadURL() {
     local url=${1:-}
     if [[ -n "$url" ]]; then

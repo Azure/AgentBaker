@@ -159,9 +159,9 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.2-1",
         "v1.4.3",
-        "v1.4.3-2"
+        "v1.4.3-2",
+        "v1.4.4"
       ]
     },
     {
@@ -169,7 +169,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.5.2",
-        "v1.5.1"
+        "v1.5.3"
       ]
     },
     {
@@ -256,10 +256,10 @@
       "multiArchVersions": [
         "v1.28.11",
         "v1.28.12",
-        "v1.29.5",
         "v1.29.6",
-        "v1.30.2",
-        "v1.30.3"
+        "v1.29.7",
+        "v1.30.3",
+        "v1.30.5"
       ]
     },
     {
@@ -367,6 +367,20 @@
     }
   ],
   "Packages": [
+    {
+      "name": "oras",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.2.0"
+            ],
+            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
     {
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",

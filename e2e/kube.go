@@ -76,32 +76,30 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func ensureDebugDaemonset(ctx context.Context, kube *Kubeclient) error {
-	manifest := getDebugDaemonset()
-	var ds v1.DaemonSet
-
-	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
-		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
-	}
-
-	desired := ds.DeepCopy()
-	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &ds, func() error {
-		ds = *desired
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to apply debug daemonset: %w", err)
+func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
+	manifests := getDebugDaemonsetManifests()
+	for _, manifest := range manifests {
+		if err := createDebugDeployment(ctx, kube, manifest); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func getDebugDaemonset() string {
-	return `apiVersion: apps/v1
-kind: Deployment
+func getDebugDaemonsetManifests() []string {
+	return []string{
+		getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true),
+		// "nodepool2"  label is used to deploy a pod on all ab e2e nodes running actual test cases
+		getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false),
+	}
+}
+
+func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork bool) string {
+	return fmt.Sprintf(`apiVersion: apps/v1
+kind: DaemonSet
 metadata:
-  name: &name debug
+  name: &name %[1]s 
   namespace: default
   labels:
     app: *name
@@ -115,9 +113,9 @@ spec:
       labels:
         app: *name
     spec:
-      hostNetwork: true
+      hostNetwork: %[2]t 
       nodeSelector:
-        kubernetes.azure.com/agentpool: nodepool1
+        kubernetes.azure.com/agentpool: %[3]s 
       hostPID: true
       containers:
       - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
@@ -130,7 +128,26 @@ spec:
           privileged: true
           capabilities:
             add: ["SYS_PTRACE", "SYS_RAWIO"]
-`
+`, deploymentName, isHostNetwork, targetNodeLabel)
+}
+
+func createDebugDeployment(ctx context.Context, kube *Kubeclient, manifest string) error {
+	var ds v1.DaemonSet
+
+	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
+		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
+	}
+
+	desired := ds.DeepCopy()
+	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &ds, func() error {
+		ds = *desired
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to apply debug daemonset: %w for manifest %s", err, manifest)
+	}
+	return nil
 }
 
 func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
