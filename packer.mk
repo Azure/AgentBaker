@@ -105,6 +105,12 @@ scanning-vhd: az-login
 test-scan-and-cleanup:
 	@$(MAKE) -s -f packer.mk cleanup test-building-vhd scanning-vhd -j3 --output-sync=target
 
+generate-prefetch-scripts:
+ifeq (${MODE},linuxVhdMode)
+	@echo "${MODE}: Generating prefetch scripts"
+	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+endif
+
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
