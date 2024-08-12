@@ -153,6 +153,7 @@ steps:
         SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
         docker run --rm \
         -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+        -v /usr/bin/go:/usr/bin/go \
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
