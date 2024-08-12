@@ -1,8 +1,8 @@
 module github.com/Azure/agentbaker/vhdbuilder/packer/test/build-performance
 
-go 1.22.2
+go 1.21
 
-require github.com/Azure/azure-kusto-go v0.16.1
+require github.com/Azure/azure-kusto-go v0.16.0
 
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
