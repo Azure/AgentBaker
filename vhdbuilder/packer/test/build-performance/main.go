@@ -18,7 +18,7 @@ func main() {
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
 	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	buildPerformanceDataFile := sigImageName + "-build-performance.json"
+	buildPerformanceDataFile := "vhdbuilder/packer/test/build-performance-" + sigImageName + "-build-performance.json"
 	var err error
 
 	// Create Connection String
