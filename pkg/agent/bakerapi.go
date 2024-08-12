@@ -78,8 +78,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		e := toggles.NewEntityFromNodeBootstrappingConfiguration(config)
 		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
 		if imageVersion := imageVersionOverrides[string(distro)]; imageVersion != "" {
-		    nodeBootstrapping.SigImageConfig.Version = imageVersion
-		}
+			nodeBootstrapping.SigImageConfig.Version = imageVersion
+
 			if imageVersion != "" {
 				nodeBootstrapping.SigImageConfig.Version = imageVersion
 			}
