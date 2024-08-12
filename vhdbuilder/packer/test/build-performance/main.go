@@ -22,7 +22,7 @@ func main() {
 	buildPerformanceDataFile := sigImageName + "-build-performance"
 
 	// Create Connection String
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(clientID)
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
 
 	ingestionClient, err := azkustoingest.New(
 		kustoConnectionString,
