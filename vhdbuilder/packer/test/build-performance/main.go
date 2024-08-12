@@ -46,6 +46,7 @@ func main() {
 		ingest.IngestionMappingRef("buildPerfMapping", ingest.JSON))
 
 	if err != nil {
+		fmt.Printf("Ingestion failed: %v\n", err)
 		ingestor.Close()
 		ingestionClient.Close()
 		cancel()
