@@ -73,7 +73,7 @@ type paramsMap map[string]interface{}
 const numInPair = 2
 
 const (
-	SERIALIZE_IMAGE_PULLS = "--serialize-image-pulls"
+	serializeImagePulls = "--serialize-image-pulls"
 )
 
 func addValue(m paramsMap, k string, v interface{}) {
@@ -347,7 +347,7 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 		// RP doesnt currently set the flag --serialize-image-pulls in KubeletConfig.
 		// We will only set it with K8s 1.31 and above
 		// The following condition can therefore never happen but is added as a safeguard
-		if key == SERIALIZE_IMAGE_PULLS && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.31.0") {
+		if key == serializeImagePulls && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.31.0") {
 			continue
 		}
 
