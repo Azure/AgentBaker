@@ -404,12 +404,12 @@ ensureKubelet() {
         imdsOutput=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2> /dev/null)
         if [[ $? -eq 0 ]]; then
             nodeIPAddrs=()
-            ipv4Addr=$(imdsOutput | jq -r '.network.interface[0].ipv4.ipAddress[0].privateIpAddress // ""')
-            [ -z "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
-            ipv6Addr=$(imdsOutput | jq -r '.network.interface[0].ipv6.ipAddress[0].privateIpAddress // ""')
-            [ -z "ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+            ipv4Addr=$(echo $imdsOutput | jq -r '.network.interface[0].ipv4.ipAddress[0].privateIpAddress // ""')
+            [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+            ipv6Addr=$(echo $imdsOutput | jq -r '.network.interface[0].ipv6.ipAddress[0].privateIpAddress // ""')
+            [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
             nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
-            if [ -z nodeIPArg ]; then
+            if [ -n nodeIPArg ]; then
                 KUBELET_FLAGS = "$KUBELET_FLAGS --node-ip=$nodeIPArg"
             fi
         fi
