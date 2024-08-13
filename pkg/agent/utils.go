@@ -465,6 +465,13 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		ResolverConfig:                 kc["--resolv-conf"],
 		ContainerLogMaxSize:            kc["--container-log-max-size"],
 	}
+
+	// Serialize Image Pulls will only be set for k8s >= 1.31, currently RP doesnt pass this flag
+	// It will starting with k8s 1.31
+	if value, exists := kc["--serialize-image-pulls"]; exists {
+		kubeletConfig.SerializeImagePulls = strToBoolPtr(value)
+	}
+
 	return kubeletConfig
 }
 
