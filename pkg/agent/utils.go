@@ -344,6 +344,13 @@ func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.Contai
 	keys := []string{}
 	ommitedKubletConfigFlags := datamodel.GetCommandLineOmittedKubeletConfigFlags()
 	for key := range k {
+		// RP doesnt currently set the flag --serialize-image-pulls in KubeletConfig.
+		// We will only set it with K8s 1.31 and above
+		// The following condition can therefore never happen but is added as a safeguard
+		if key == SERIALIZE_IMAGE_PULLS && !IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.31.0") {
+			continue
+		}
+
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			if !ommitedKubletConfigFlags[key] {
 				keys = append(keys, key)
