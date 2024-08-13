@@ -415,7 +415,10 @@ ensureKubelet() {
             ipv6Addr=$(echo $imdsOutput | jq -r '.network.interface[0].ipv6.ipAddress[0].privateIpAddress // ""')
             [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
             nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
-            [ -n "$nodeIPArg" ] && KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
+            if [ -n "$nodeIPArg" ]; then
+                echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+                KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
+            fi
         fi
     fi
 
