@@ -341,32 +341,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return correct value for existing distro when linux node image version override is provided", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "202402.27.0",
-					}
-				},
-			}
-			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			agentBaker = agentBaker.WithToggles(toggles)
-
-			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
-				SubscriptionID: config.SubscriptionID,
-				TenantID:       config.TenantID,
-				Region:         cs.Location,
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
-			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
-			Expect(sigImageConfig.Definition).To(Equal("1604"))
-			Expect(sigImageConfig.Version).To(Equal("202402.27.0"))
-		})
-
-		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"vhd-types": func(entity *agenttoggles.Entity) map[string]string {
+				"linux-node-vhd-type": func(entity *agenttoggles.Entity) map[string]string {
 					return map[string]string{
 						"vhd-type": "override",
 					}
@@ -375,6 +350,41 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 					if entity.Fields["vhd-type"] == "override" {
 						return map[string]string{
 							string(datamodel.AKSUbuntu1804): "202402.27.0",
+							string(datamodel.AKSUbuntu1604): "",
+						}
+					}
+					return nil
+				},
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1804, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
+			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
+			Expect(sigImageConfig.Definition).To(Equal("1804"))
+			Expect(sigImageConfig.Version).To(Equal("202402.27.0"))
+		})
+
+		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
+			toggles.Maps = map[string]agenttoggles.MapToggle{
+				"linux-node-vhd-type": func(entity *agenttoggles.Entity) map[string]string {
+					return map[string]string{
+						"vhd-type": "override",
+					}
+				},
+				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+					if entity.Fields["vhd-type"] == "override" {
+						return map[string]string{
+							string(datamodel.AKSUbuntu1804): "202402.27.0",
+							string(datamodel.AKSUbuntu1604): "",
 						}
 					}
 					return nil
