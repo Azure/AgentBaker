@@ -399,7 +399,13 @@ ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
 
-    # TODO: explain this
+    # In k8s >= 1.29 kubelet no longer sets node internalIP when using external cloud provider
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    # This regresses node startup performance in Azure CNI Overlay and Podsubnet clusters, which require the node to be
+    # assigned an internal IP before configuring pod networking.
+    # To improve node startup performance, explicitly set `--node-ip` to the IP returned from IMDS so kubelet sets
+    # the internal IP when it registers the node.
+    # If this fails, skip setting --node-ip, which is safe because cloud-node-manager will assign it later anyway.
     if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
         imdsOutput=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2> /dev/null)
         if [[ $? -eq 0 ]]; then
@@ -409,8 +415,8 @@ ensureKubelet() {
             ipv6Addr=$(echo $imdsOutput | jq -r '.network.interface[0].ipv6.ipAddress[0].privateIpAddress // ""')
             [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
             nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
-            if [ -n nodeIPArg ]; then
-                KUBELET_FLAGS = "$KUBELET_FLAGS --node-ip=$nodeIPArg"
+            if [ -n "$nodeIPArg" ]; then
+                KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
             fi
         fi
     fi
