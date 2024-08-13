@@ -113,13 +113,14 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.2",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.22", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.17", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.19", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.9", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.11", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.4", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.5", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.9", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.1", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.5", # for k8s 1.30.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.23",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
