@@ -16,8 +16,8 @@ done
 jq --arg sig "${SIG_IMAGE_NAME}" \
 --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
 --arg commit "${GIT_VERSION}" \
-'. as $orig | [{"sig_image_name":$sig}, {"build_datetime":$date}, {"commit":$commit}, {"scripts": $orig}]' \
-${VHD_BUILD_PERFORMANCE_DATA_FILE} > /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/test/build-performance/${SIG_IMAGE_NAME}-build-performance.json
+'. as $orig | [{"sig_image_name":$sig}, {"build_datetime":$date}, {"commit":$commit}, {"scripts": ($orig | reduce .[] as $item ({}; . + $item) | map_values(map_values(.total_time_elapsed)))}] | add' \
+${BUILD_PERF_DATA_FILE} > /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/test/build-performance/${SIG_IMAGE_NAME}-build-performance.json
 
 pushd vhdbuilder/packer/test/build-performance 
 	go build -o kustoProgram main.go
