@@ -104,7 +104,7 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 	if !distro.IsWindowsDistro() {
 		e := toggles.NewEntityFromEnvironmentInfo(envInfo)
 		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
-		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok && imageVersion != "" {
 			sigImageConfig.Version = imageVersion
 		}
 	}
@@ -127,28 +127,28 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok && version != "" {
 			sigConfig.Version = version
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok && version != "" {
 			sigConfig.Version = version
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok && version != "" {
 			sigConfig.Version = version
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
+		if version, ok := linuxImageVersionOverrides[string(distro)]; ok && version != "" {
 			sigConfig.Version = version
 		}
 		allDistros[distro] = sigConfig
