@@ -65,11 +65,16 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--fail-swap-on":                      true,
 	"--container-log-max-size":            true,
 	"--container-log-max-files":           true,
+	"--serialize-image-pulls":             true,
 }
 
 type paramsMap map[string]interface{}
 
 const numInPair = 2
+
+const (
+	SERIALIZE_IMAGE_PULLS = "--serialize-image-pulls"
+)
 
 func addValue(m paramsMap, k string, v interface{}) {
 	m[k] = paramsMap{
