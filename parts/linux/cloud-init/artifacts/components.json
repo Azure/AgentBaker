@@ -267,7 +267,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.22.7",
+        "v1.24.3",
         "v1.22.8",
         "v1.23.5",
         "v1.23.7",
