@@ -48,6 +48,7 @@ func main() {
 	status, err := ingestor.FromFile(
 		ctx,
 		buildPerformanceDataFile,
+		ingest.IngestionMappingRef("oneMapToRuleThemAll", ingest.MultiJSON),
 		ingest.ReportResultToTable())
 
 	if err != nil {
