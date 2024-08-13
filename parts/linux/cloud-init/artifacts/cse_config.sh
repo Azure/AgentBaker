@@ -407,7 +407,7 @@ ensureKubelet() {
     # the internal IP when it registers the node.
     # If this fails, skip setting --node-ip, which is safe because cloud-node-manager will assign it later anyway.
     if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
-        imdsOutput=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2> /dev/null)
+        imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance?api-version=2021-02-01" 2> /dev/null)
         if [[ $? -eq 0 ]]; then
             nodeIPAddrs=()
             ipv4Addr=$(echo $imdsOutput | jq -r '.network.interface[0].ipv4.ipAddress[0].privateIpAddress // ""')
