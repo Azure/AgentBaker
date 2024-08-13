@@ -48,7 +48,8 @@ func main() {
 	status, err := ingestor.FromFile(
 		ctx,
 		buildPerformanceDataFile,
-		ingest.IngestionMappingRef("buildPerfMapping", ingest.JSON))
+		ingest.IngestionMappingRef("buildPerfMapping1", ingest.JSON),
+		ingest.ReportResultToTable())
 
 	if err != nil {
 		fmt.Printf("Ingestion failed: %v\n", err)
