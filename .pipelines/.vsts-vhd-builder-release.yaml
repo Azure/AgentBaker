@@ -44,7 +44,7 @@ parameters:
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
-    default: true
+    default: false
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
@@ -68,7 +68,7 @@ parameters:
   - name: buildAzureLinuxV3gen1fips
     displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
@@ -80,7 +80,7 @@ parameters:
   - name: buildAzureLinuxV3gen2fips
     displayName: Build AzureLinuxV3 Gen2 FIPS
     type: boolean
-    default: true
+    default: false
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
@@ -100,7 +100,7 @@ parameters:
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
-    default: true
+    default: false
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
