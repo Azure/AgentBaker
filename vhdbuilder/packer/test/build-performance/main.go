@@ -73,6 +73,8 @@ func main() {
 		ingestionClient.Close()
 		cancel()
 		log.Fatalf("Ingestion failed to be completed")
+	} else {
+		fmt.Printf("Ingestion successful, error == nil\n")
 	}
 
 	fmt.Println("Successfully ingested build performance data.")
