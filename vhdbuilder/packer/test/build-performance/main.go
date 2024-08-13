@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	} else {
-		fmt.Printf("Ingestion client successfully created")
+		fmt.Printf("Ingestion client successfully created\n")
 	}
 	defer ingestionClient.Close()
 
