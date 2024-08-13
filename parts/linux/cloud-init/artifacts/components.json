@@ -237,7 +237,8 @@
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.1.11"
+        "v0.1.11",
+        "v0.1.13"
       ]
     },
     {
@@ -402,6 +403,11 @@
           "r2204": {
             "versions": [
               "1.1.12-ubuntu22.04u1"
+            ]
+          },
+          "r2404": {
+            "versions": [
+              "1.1.12-ubuntu24.04u1"
             ]
           }
         },
