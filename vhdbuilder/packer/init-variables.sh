@@ -472,12 +472,6 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
-# For Azure Linux 3.0, waagent is installed in /usr/sbin/waagent
-AZURELINUX_WAAGENT_BINDIR="/usr/bin/waagent"
-if [[ "${OS_SKU}" == "AzureLinux" && "${OS_VERSION//./}" == "V3" ]]; then
-	AZURELINUX_WAAGENT_BINDIR="/usr/sbin/waagent"
-fi
-
 # windows_image_version refers to the version from azure gallery
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
@@ -513,8 +507,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
-  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}",
-  "azurelinux_waagent_bindir": "${AZURELINUX_WAAGENT_BINDIR}"
+  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }
 EOF
 
