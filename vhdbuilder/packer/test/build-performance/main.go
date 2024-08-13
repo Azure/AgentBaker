@@ -42,7 +42,7 @@ func main() {
 	}
 	defer ingestor.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
 	status, err := ingestor.FromFile(
