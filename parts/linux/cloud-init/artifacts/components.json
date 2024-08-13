@@ -16,8 +16,8 @@
       "name": "nvidia-cuda",
       "type": "containerimages //extend to OCI |Tar|tgz when merging with packages,
       "action": "cacheandfetch|fetchonly|config",  //where cacheandfetch is cached at build time and also to fetch at provisioning time if not cached. fetchonly is only fetching at provisioning time but not caching. config is neither cache nor fetch but just for storing data for other purpose. Open to change the names of the values.
-    "registryURL": "mcr.microsoft.com/",
-    "fullPackageName": "aks/aks-gpu",
+      "registryURL": "mcr.microsoft.com/",
+      "fullPackageName": "aks/aks-gpu",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "cuda-550.90.07-sha-b40b85"
@@ -29,6 +29,7 @@
       "name": "containerd",
       "type": "OCI |Tar|tgz|custom",
       "downloadLocation": "/opt/containerd/downloads",
+      "deps": ["runc", "<another package>"],
       "downloadURIs": {
         "ubuntu": {
           "current": {
