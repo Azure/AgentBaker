@@ -16,13 +16,14 @@ func main() {
 	kustoTable := os.Getenv("KUSTO_TABLE_NAME")
 	kustoEndpoint := os.Getenv("KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
+	clientID := os.Getenv("CLIENT_ID")
 	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
 	buildPerformanceDataFile := "/go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/test/build-performance/" + sigImageName + "-build-performance.json"
 	var err error
 
 	// Create Connection String
-	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithSystemManagedIdentity()
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(clientID)
 
 	ingestionClient, err := kusto.New(kcsb)
 	if err != nil {
