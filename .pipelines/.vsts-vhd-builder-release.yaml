@@ -184,3 +184,20 @@ stages:
       ARCHITECTURE: X86_64
       ENABLE_TRUSTED_LAUNCH: false
       SGX_INSTALL: false
+  - template: ./templates/.builder-release-template.yaml
+    parameters:
+      STAGE_NAME: build1804gen2containerd
+      DRY_RUN: ${{parameters.dryrun}}
+      OS_SKU: Ubuntu
+      OS_VERSION: 18.04
+      IMG_PUBLISHER: Canonical
+      IMG_OFFER: UbuntuServer
+      IMG_SKU: 18_04-LTS-GEN2
+      IMG_VERSION: latest
+      HYPERV_GENERATION: V2
+      AZURE_VM_SIZE: Standard_D16ds_v5
+      FEATURE_FLAGS: None
+      CONTAINER_RUNTIME: containerd
+      ARCHITECTURE: X86_64
+      ENABLE_TRUSTED_LAUNCH: false
+      SGX_INSTALL: true
