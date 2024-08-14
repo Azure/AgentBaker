@@ -147,7 +147,7 @@ steps:
       -e IMAGE_VERSION=${IMAGE_VERSION} \
       -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
       -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
-        ${CONTAINER_IMAGE} make -f packer.mk run-packer
+      ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
   - bash: |
