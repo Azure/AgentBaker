@@ -8,6 +8,36 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: DRY_RUN
+    type: boolean
+    default: false
+  - name: OS_SKU
+    type: string
+  - name: OS_VERSION
+    type: string
+  - name: IMG_PUBLISHER
+    type: string
+  - name: IMG_OFFER
+    type: string
+  - name: IMG_SKU
+    type: string
+  - name: IMG_VERSION
+    type: string
+  - name: HYPERV_GENERATION
+    type: string
+  - name: AZURE_VM_SIZE
+    type: string
+  - name: FEATURE_FLAGS
+    type: string
+  - name: CONTAINER_RUNTIME
+    type: string
+  - name: ARCHITECTURE
+    type: string
+  - name: ENABLE_TRUSTED_LAUNCH
+    type: string
+  - name: SGX_INSTALL
+    type: boolean
+    default: false
 
 jobs:
   - job: build
