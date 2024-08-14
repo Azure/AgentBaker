@@ -55,9 +55,6 @@ switch -Regex ($windowsSku) {
         $global:patchIDs = @()
 
         $global:imagesToPull = @(
-            # This is for test purpose only to reduce the test duration.
-            "mcr.microsoft.com/windows/servercore/iis:latest",
-
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809"
         )
@@ -67,9 +64,6 @@ switch -Regex ($windowsSku) {
         $global:patchIDs = @()
 
         $global:imagesToPull = @(
-            # This is for test purpose only to reduce the test duration.
-            "mcr.microsoft.com/windows/servercore/iis:latest",
-
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
 
@@ -94,6 +88,8 @@ switch -Regex ($windowsSku) {
 
 $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
+    # This is for test purpose only to reduce the test duration.
+    "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.0", # for k8s 1.27+
