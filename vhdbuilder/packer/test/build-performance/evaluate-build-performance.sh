@@ -13,8 +13,8 @@ jq -C '. | {sig_image_name, build_datetime, commit}' ${SIG_IMAGE_NAME}-build-per
 echo "##[endgroup]"
 
 scripts=()
-for key in $(jq -r '.scripts | keys[]' ${SIG_IMAGE_NAME}-build-performance.json); do
-  scripts+=("$key")
+for entry in $(jq -rc '.scripts | to_entries[]' ${SIG_IMAGE_NAME}-build-performance.json); do
+  scripts+=("$(echo "$entry" | jq -r '.key')")
 done
 
 for script in "${scripts[@]}"; do
