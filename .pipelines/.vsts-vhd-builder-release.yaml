@@ -170,7 +170,7 @@ stages:
   - stage: build1804containerd
     dependsOn: []
     - template: ./templates/.builder-release-template.yaml
-      parametes:
+      parameters:
         DRY_RUN: ${{parameters.dryrun}}
         OS_SKU: Ubuntu
         OS_VERSION: 18.04
