@@ -25,9 +25,8 @@ done
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/test/build-performance
 pushd vhdbuilder/packer/test/build-performance 
-	go build -o kustoProgram main.go
-  chmod +x kustoProgram
-  ./kustoProgram
+  chmod +x buildPerformanceDataIngestor
+  ./buildPerformanceDataIngestor
 popd
 
 echo -e "\nBuild performance evaluation script completed."
