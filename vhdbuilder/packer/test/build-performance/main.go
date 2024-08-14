@@ -62,5 +62,5 @@ func main() {
 	}
 	defer ingestor.Close()
 
-	fmt.Println("Successfully ingested build performance data.\n")
+	fmt.Println("Successfully ingested build performance data.")
 }
