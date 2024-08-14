@@ -13,18 +13,20 @@ import (
 
 func main() {
 
+	// kusto variables
 	kustoTable := os.Getenv("KUSTO_TABLE_NAME")
 	kustoEndpoint := os.Getenv("KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
-	clientID := os.Getenv("CLIENT_ID")
-	//sourceBranchName := os.Getenv("SOURCE_BRANCH_NAME")
+	kustoClientID := os.Getenv("KUSTO_CLIENT_ID")
+	// build data variables
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	buildPerformanceDataFile := "/go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/test/build-performance/" + sigImageName + "-build-performance.json"
+	buildPerformanceDataFile := sigImageName + "-build-performance.json"
 	var err error
 
 	// Create Connection String
-	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(clientID)
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientID)
 
+	// Create Ingestion Client
 	ingestionClient, err := kusto.New(kcsb)
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
@@ -33,6 +35,7 @@ func main() {
 	}
 	defer ingestionClient.Close()
 
+	// Create Ingestor
 	ingestor, err := ingest.New(ingestionClient, kustoDatabase, kustoTable)
 	if err != nil {
 		ingestionClient.Close()
@@ -42,41 +45,22 @@ func main() {
 	}
 	defer ingestor.Close()
 
+	// Create Context
 	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
 	defer cancel()
 
-	status, err := ingestor.FromFile(
-		ctx,
-		buildPerformanceDataFile,
-		ingest.IngestionMappingRef("oneMapToRuleThemAll", ingest.JSON),
-		ingest.ReportResultToTable(),
-	)
-
+	// Ingest Data
+	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef("oneMapToRuleThemAll", ingest.MultiJSON))
 	if err != nil {
 		fmt.Printf("Ingestion failed: %v\n", err)
 		ingestor.Close()
 		ingestionClient.Close()
 		cancel()
-		log.Fatalf("Igestion command failed to be sent")
+		log.Fatalf("Igestion command failed to be sent\n")
 	} else {
 		fmt.Printf("Ingestion started successfully\n")
 	}
 	defer ingestor.Close()
 
-	err = <-status.Wait(ctx)
-	if err != nil {
-		fmt.Printf("Ingestion failed: %v\n", err)
-		statusCode, _ := ingest.GetIngestionStatus(err)
-		failureStatus, _ := ingest.GetIngestionFailureStatus(err)
-		fmt.Printf("Ingestion status code: %v\n", statusCode)
-		fmt.Printf("Ingestion failure status: %v\n", failureStatus)
-		ingestor.Close()
-		ingestionClient.Close()
-		cancel()
-		log.Fatalf("Ingestion failed to be completed")
-	} else {
-		fmt.Printf("Ingestion successful, error == nil\n")
-	}
-
-	fmt.Println("Successfully ingested build performance data.")
+	fmt.Println("Successfully ingested build performance data.\n")
 }
