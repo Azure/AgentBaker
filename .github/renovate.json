@@ -44,7 +44,7 @@
       "matchStrings": [
         "\"name\":\\s*\"(?<packageName>containerd)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "versioningTemplate": "semver-coerced",
+      "versioningTemplate": "loose",
       "datasourceTemplate": "custom.containerd"
     },
     {
@@ -57,7 +57,7 @@
         "\"name\":\\s*\"(?<packageName>moby-runc)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.moby-runc",
-      "versioningTemplate": "semver-coerced"
+      "versioningTemplate": "semver"
     }
   ],
   "customDatasources": {
