@@ -55,6 +55,9 @@ switch -Regex ($windowsSku) {
         $global:patchIDs = @()
 
         $global:imagesToPull = @(
+            # This is for test purpose only to reduce the test duration.
+            "mcr.microsoft.com/windows/servercore/iis:latest",
+
             "mcr.microsoft.com/windows/servercore:ltsc2019",
             "mcr.microsoft.com/windows/nanoserver:1809"
         )
@@ -64,6 +67,9 @@ switch -Regex ($windowsSku) {
         $global:patchIDs = @()
 
         $global:imagesToPull = @(
+            # This is for test purpose only to reduce the test duration.
+            "mcr.microsoft.com/windows/servercore/iis:latest",
+
             "mcr.microsoft.com/windows/servercore:ltsc2022",
             "mcr.microsoft.com/windows/nanoserver:ltsc2022",
 
@@ -88,8 +94,6 @@ switch -Regex ($windowsSku) {
 
 $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
-    # This is for test purpose only to reduce the test duration.
-    "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.0", # for k8s 1.27+
@@ -137,7 +141,6 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.43.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.44.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.45.zip"
     );
