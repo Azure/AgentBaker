@@ -4,7 +4,7 @@ echo -e "\nGenerating ${SIG_IMAGE_NAME} build performance data from ${BUILD_PERF
 
 jq --arg sig "${SIG_IMAGE_NAME}" \
 --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
---arg commit "${GIT_VERSION}" \
+--arg commit "${GIT_BRANCH}" \
 '. as $orig | {"sig_image_name":$sig, "build_datetime":$date, "commit":$commit, "scripts": ($orig | reduce .[] as $item ({}; . + $item) | map_values(map_values(.total_time_elapsed)))}' \
 ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
