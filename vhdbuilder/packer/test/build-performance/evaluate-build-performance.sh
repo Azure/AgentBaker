@@ -2,22 +2,26 @@
 
 echo -e "\nGenerating ${SIG_IMAGE_NAME} build performance data from ${BUILD_PERF_DATA_FILE}...\n"
 
+jq --arg sig "${SIG_IMAGE_NAME}" \
+--arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+--arg commit "${GIT_VERSION}" \
+'. as $orig | {"sig_image_name":$sig, "build_datetime":$date, "commit":$commit, "scripts": ($orig | reduce .[] as $item ({}; . + $item) | map_values(map_values(.total_time_elapsed)))}' \
+${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
+
+echo "##[group]Build Information"
+jq -C '. | {sig_image_name, build_datetime, commit}' ${SIG_IMAGE_NAME}-build-performance.json
+echo "##[endgroup]"
+
 scripts=()
-for key in $(jq -r '.[] | keys[]' ${BUILD_PERF_DATA_FILE}); do
+for key in $(jq -r '.scripts | keys[]' ${SIG_IMAGE_NAME}-build-performance.json); do
   scripts+=("$key")
 done
 
 for script in "${scripts[@]}"; do
   echo "##[group]${script}"
-  jq -C ".[] | select(has(\"$script\"))" ${BUILD_PERF_DATA_FILE}
+  jq -C ".scripts.\"$script\"" ${SIG_IMAGE_NAME}-build-performance.json
   echo "##[endgroup]"
 done
-
-jq --arg sig "${SIG_IMAGE_NAME}" \
---arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
---arg commit "${GIT_VERSION}" \
-'. as $orig | [{"sig_image_name":$sig}, {"build_datetime":$date}, {"commit":$commit}, {"scripts": ($orig | reduce .[] as $item ({}; . + $item) | map_values(map_values(.total_time_elapsed)))}] | add' \
-${BUILD_PERF_DATA_FILE} > /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/test/build-performance/${SIG_IMAGE_NAME}-build-performance.json
 
 pushd vhdbuilder/packer/test/build-performance 
 	go build -o kustoProgram main.go
@@ -25,4 +29,4 @@ pushd vhdbuilder/packer/test/build-performance
   ./kustoProgram
 popd
 
-echo -e "\nBuild performance evaluation successfully completed"
+echo -e "\nBuild performance evaluation script completed."
