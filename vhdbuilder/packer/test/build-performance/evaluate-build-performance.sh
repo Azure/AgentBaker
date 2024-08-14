@@ -26,8 +26,8 @@ echo -e "\n\n"
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/test/build-performance
 pushd vhdbuilder/packer/test/build-performance 
-  chmod +x buildPerformanceDataIngestor
-  ./buildPerformanceDataIngestor
+  chmod +x PerformanceDataIngestor
+  ./PerformanceDataIngestor
 popd
 
 echo -e "\nBuild performance evaluation script completed."
