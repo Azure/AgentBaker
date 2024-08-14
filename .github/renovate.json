@@ -4,6 +4,12 @@
   "prConcurrentLimit": 50,
   "prHourlyLimit": 20,
   "branchConcurrentLimit": 50,
+  "logLevelRemap": [
+    {
+      "matchMessage": "/^Custom manager fetcher/",
+      "newLogLevel": "info"
+    }
+  ],
   "packageRules": [
     {
       "matchUpdateTypes": [
