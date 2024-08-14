@@ -100,6 +100,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.7-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.8-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.2-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.3-windows-hp", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.11-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.6-windows-hp", # for k8s 1.28.x
@@ -112,13 +113,14 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.2",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.26.22", # for k8s 1.26.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.17", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.19", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.9", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.11", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.4", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.5", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.9", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.1", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.5", # for k8s 1.30.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.23",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
@@ -135,7 +137,6 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.43.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.44.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.45.zip"
     );
