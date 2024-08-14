@@ -30,7 +30,7 @@
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
     "branch": "{{env `BRANCH`}}",
     "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}",
-    "shallow_replication": "{{env `SHALLOW_REPLICATION`}}"
+    "use_shallow_replication": "{{env `USE_SHALLOW_REPLICATION`}}"
   },
   "builders": [
     {
@@ -64,7 +64,7 @@
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_storage_account_type": "Premium_LRS",
       "shared_image_gallery_destination": {
-        "use_shallow_replication": "{{user `shallow_replication`}}",
+        "use_shallow_replication": "{{user `use_shallow_replication`}}",
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
