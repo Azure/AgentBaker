@@ -121,7 +121,7 @@ build-lister-binary:
 
 build-performance-data-ingestor-binary:
 	@echo "Building performance data ingestor binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/PerformanceDataIngestor main.go && popd"
+	@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o PerformanceDataIngestor main.go && popd"
 
 evaluate-build-performance: az-login
 	@echo "Evaluating build performance"
