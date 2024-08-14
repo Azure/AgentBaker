@@ -72,7 +72,7 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": ($index:= releases#$i[version=\"Package: moby-containerd\"].$i;$map($index, function($i) { releases[$i + 1] }))}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: moby-containerd\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
       ]
     },
     "k3s": {
