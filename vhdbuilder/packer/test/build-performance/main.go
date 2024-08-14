@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	} else {
-		fmt.Printf("Ingestion client successfully created\n")
+		fmt.Printf("Created ingestion client...\n\n")
 	}
 	defer ingestionClient.Close()
 
@@ -41,7 +41,7 @@ func main() {
 		ingestionClient.Close()
 		log.Fatalf("Kusto ingestor could not be created.")
 	} else {
-		fmt.Printf("Ingestor created successfully\n")
+		fmt.Printf("Created ingestor...\n\n")
 	}
 	defer ingestor.Close()
 
@@ -56,11 +56,11 @@ func main() {
 		ingestor.Close()
 		ingestionClient.Close()
 		cancel()
-		log.Fatalf("Igestion command failed to be sent\n")
+		log.Fatalf("Igestion command failed to be sent.\n")
 	} else {
-		fmt.Printf("Ingestion started successfully\n")
+		fmt.Printf("Ingestion started successfully.\n")
 	}
 	defer ingestor.Close()
 
-	fmt.Println("Successfully ingested build performance data.")
+	fmt.Printf("Successfully ingested build performance data.\n")
 }

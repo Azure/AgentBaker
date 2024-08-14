@@ -22,6 +22,7 @@ for script in "${scripts[@]}"; do
   jq -C ".scripts.\"$script\"" ${SIG_IMAGE_NAME}-build-performance.json
   echo "##[endgroup]"
 done
+echo -e "\n\n"
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/test/build-performance
 pushd vhdbuilder/packer/test/build-performance 
