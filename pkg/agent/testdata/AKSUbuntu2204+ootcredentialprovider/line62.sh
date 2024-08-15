@@ -2,12 +2,34 @@
 
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
+cleanupTMP() {
+    rm -rf /tmp/*
+}
+
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
+}
+
+removeCurl() {
+    apt_get_purge 10 5 300 curl
+}
+
+installLatestCurlManually() {
+    
+    version="8.9.0"
+    deb_file="/tmp/curl.deb"
+    removeCurl || exit $ERR_CURL_REMOVE_TIMEOUT
+    retrycmd_if_failure 10 5 10 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 10 5 10 tar -xvf $deb_file -C /tmp || exit $ERR_CURL_EXTRACT_TIMEOUT
+    retrycmd_if_failure 10 5 10 apt-get install -y libssl1.1=1.1.1-1ubuntu2.1~18.04.23 || exit $ERR_CURL_DOWNGRADE_LIBSSL
+    retrycmd_if_failure 10 5 10 apt-get install -y libssl-dev autoconf libtool || exit $ERR_CURL_DOWNLOAD_DEV_TIMEOUT
+    retrycmd_if_failure 10 5 10 cd /tmp/curl-${version} && ./configure --with-ssl && make && make install && cp /usr/local/src/curl-${version}/src/.libs/curl /usr/bin/curl && ldconfig || exit $ERR_CURL_INSTALL_TIMEOUT
+    curl -V | grep $version || exit $ERR_CURL_VERSION_MISMATCH
+    cleanupTMP
 }
 
 installDeps() {
@@ -52,6 +74,10 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
+
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        installLatestCurlManually
+    fi
 }
 
 updateAptWithMicrosoftPkg() {
