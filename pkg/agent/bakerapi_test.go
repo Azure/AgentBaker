@@ -10,16 +10,26 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type TestAgentToggles struct {
+	LinuxNodeImageVersion map[string]string
+}
+
+func (t *TestAgentToggles) GetLinuxNodeImageVersion(entity *agenttoggles.Entity) map[string]string {
+	return t.LinuxNodeImageVersion
+}
+
 var _ = Describe("AgentBaker API implementation tests", func() {
 	var (
 		cs        *datamodel.ContainerService
 		config    *datamodel.NodeBootstrappingConfiguration
 		sigConfig *datamodel.SIGConfig
-		toggles   *agenttoggles.Toggles
+		toggles   *TestAgentToggles
 	)
 
 	BeforeEach(func() {
-		toggles = agenttoggles.New()
+		toggles = &TestAgentToggles{
+			LinuxNodeImageVersion: map[string]string{},
+		}
 
 		cs = &datamodel.ContainerService{
 			Location: "southcentralus",
@@ -183,12 +193,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return the correct bootstrapping data when linux node image version override is present", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "202402.27.0",
-					}
-				},
+			toggles.LinuxNodeImageVersion = map[string]string{
+				string(datamodel.AKSUbuntu1604): "202402.27.0",
 			}
 
 			agentBaker, err := NewAgentBaker()
@@ -210,12 +216,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return the correct bootstrapping data when linux node image version override is an empty string", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "",
-					}
-				},
+			toggles.LinuxNodeImageVersion = map[string]string{
+				string(datamodel.AKSUbuntu1604): "",
 			}
 
 			agentBaker, err := NewAgentBaker()
@@ -237,12 +239,8 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return the correct bootstrapping data when linux node image version is present but does not specify for distro", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1804): "202402.27.0",
-					}
-				},
+			toggles.LinuxNodeImageVersion = map[string]string{
+				string(datamodel.AKSUbuntu1804): "202402.27.0",
 			}
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
@@ -340,22 +338,11 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return correct value for existing distro when linux node image version override is provided", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-vhd-type": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						"vhd-type": "override",
-					}
-				},
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					if entity.Fields["vhd-type"] == "override" {
-						return map[string]string{
-							string(datamodel.AKSUbuntu1804): "202402.27.0",
-							string(datamodel.AKSUbuntu1604): "",
-						}
-					}
-					return nil
-				},
+			toggles.LinuxNodeImageVersion = map[string]string{
+				string(datamodel.AKSUbuntu1804): "202402.27.0",
+				string(datamodel.AKSUbuntu1604): "",
 			}
+
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 			agentBaker = agentBaker.WithToggles(toggles)
@@ -374,21 +361,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-vhd-type": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						"vhd-type": "override",
-					}
-				},
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					if entity.Fields["vhd-type"] == "override" {
-						return map[string]string{
-							string(datamodel.AKSUbuntu1804): "202402.27.0",
-							string(datamodel.AKSUbuntu1604): "",
-						}
-					}
-					return nil
-				},
+			toggles.LinuxNodeImageVersion = map[string]string{
+				string(datamodel.AKSUbuntu1804): "202402.27.0",
+				string(datamodel.AKSUbuntu1604): "",
 			}
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
@@ -524,11 +499,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			for _, distro := range azureLinuxDistros {
 				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
 			}
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return imageVersionOverrides
-				},
-			}
+			toggles.LinuxNodeImageVersion = imageVersionOverrides
 
 			agentBaker, err := NewAgentBaker()
 			Expect(err).To(BeNil())

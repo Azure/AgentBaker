@@ -18,18 +18,18 @@ type AgentBaker interface {
 }
 
 type agentBakerImpl struct {
-	toggles *toggles.Toggles
+	toggles toggles.Toggles
 }
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
-		toggles: toggles.New(),
+		toggles: toggles.EmptyToggles{},
 	}, nil
 }
 
-func (agentBaker *agentBakerImpl) WithToggles(toggles *toggles.Toggles) *agentBakerImpl {
+func (agentBaker *agentBakerImpl) WithToggles(toggles toggles.Toggles) *agentBakerImpl {
 	agentBaker.toggles = toggles
 	return agentBaker
 }
