@@ -28,7 +28,7 @@ for KUBE_BINARY_VERSION in $KUBE_BINARY_VERSIONS; do
     K8S_TGZ_TMP=${KUBE_BINARY_URL##*/}
     echo "debugggggggg log: ${OUTBOUND_TYPE}, ${AZURE_PRIVATE_REGISTRY_SERVER}"
     if [ ${OUTBOUND_TYPE} = "none" ]; then
-        registry_url="${AZURE_PRIVATE_REGISTRY_SERVER}/oss/binaries/kubernetes/kubernetes-node:${KUBE_BINARY_VERSION}-linux-amd64"
+        registry_url="${AZURE_PRIVATE_REGISTRY_SERVER}/aks-addon-mcr/oss/binaries/kubernetes/kubernetes-node:${KUBE_BINARY_VERSION}-linux-amd64"
         echo "detected OUTBOUND_TYPE is ${OUTBOUND_TYPE}, using ${registry_url} to download kubernetes-node"
         retrycmd_get_tarball 120 5 "$K8S_DOWNLOADS_DIR/${K8S_TGZ_TMP}" $registry_url || exit 120
     fi
