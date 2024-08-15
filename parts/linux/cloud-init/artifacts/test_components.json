@@ -35,19 +35,19 @@
           "r1804": {
             "tag": "name=moby-runc os=ubuntu release=18.04",
             "versions": [
-              "1.1.11"
+              "1.1.0"
             ]
           },
           "r2004": {
             "tag": "name=moby-runc os=ubuntu release=20.04",
             "versions": [
-              "1.1.11"
+              "1.1.0"
             ]
           },
           "r2204": {
             "tag": "name=moby-runc os=ubuntu release=22.04",
             "versions": [
-              "1.1.11"
+              "1.1.0"
             ]
           }
         },
