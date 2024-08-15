@@ -61,4 +61,12 @@ for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
 done
 wait ${SCRIPT_PIDS[@]}
 
+echo -e "Checking exit codes for each script...\n"
+for PID in "${SCRIPT_PIDS[@]}"; do
+  wait $PID
+  EXIT_CODE=$?
+  if [ ${EXIT_CODE} -ne 0 ]; then
+    exit 1
+  fi
+done
 echo -e "\n\n\nTest, Scan, and Cleanup script completed.\n\n\n"
