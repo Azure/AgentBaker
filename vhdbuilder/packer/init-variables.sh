@@ -114,6 +114,14 @@ if [ -z "${SUBNET_NAME}" ]; then
 	SUBNET_NAME="packer"
 fi
 
+USE_SHALLOW_REPLICATION="false"
+if [[ "${OS_TYPE,,}" == "linux" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
+  # only use shallow replication in test for now
+  USE_SHALLOW_REPLICATION="true"
+fi
+
+echo "SHALLOW_REPLICATION set to: ${USE_SHALLOW_REPLICATION}"
+
 echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 
 echo "CAPTURED_SIG_VERSION set to: ${CAPTURED_SIG_VERSION}"
@@ -477,6 +485,7 @@ fi
 # aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
+  "use_shallow_replication": "${USE_SHALLOW_REPLICATION}",
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
