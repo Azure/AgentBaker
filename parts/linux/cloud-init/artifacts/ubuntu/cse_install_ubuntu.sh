@@ -18,12 +18,18 @@ removeCurl() {
     apt_get_purge 10 5 300 curl
 }
 
-installLatestCurlManually() {
+installLatestCurlManuallyIfNotPresent() {
     # Too Risky to manage within the components.json file since curl is required for the bootstrap logic to work
     # currently this logic is only needed for 18.04, we will be able to remove this logic once we no longer support 18.04
     
     # renovate: datasource=github-releases depName=curl/curl
     version="8.9.0"
+
+    if curl -V | grep $version > /dev/null; then
+        echo "curl is already installed and at the right version, skipping manual installation"
+        return
+    fi
+    
     deb_file="/tmp/curl.deb"
     removeCurl || exit $ERR_CURL_REMOVE_TIMEOUT
     retrycmd_if_failure 10 5 10 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
@@ -86,7 +92,7 @@ installDeps() {
 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
         # curl version on 18.04 is buggy when targetting http/2 TLS endpoint, manually installing a newer version
-        installLatestCurlManually
+        installLatestCurlManuallyIfNotPresent
     fi
 }
 
