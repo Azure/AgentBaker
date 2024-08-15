@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eux
-
+exit 1
 OS_SKU=$1
 OS_VERSION=$2
 SCAN_VM_ADMIN_USERNAME=$3
