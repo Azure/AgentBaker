@@ -54,8 +54,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"tag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\"",
-        "\"tag\":\\s*\"(?<packageName>moby-runc) os=ubuntu release=20\\.04\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"name=(?<packageName>[^ ]+) os=ubuntu release=18\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.mobyrunc",
       "versioningTemplate": "semver"
