@@ -1,5 +1,4 @@
 #!/bin/bash
-exit 1
 set -x
 
 EXPIRATION_IN_HOURS=168
