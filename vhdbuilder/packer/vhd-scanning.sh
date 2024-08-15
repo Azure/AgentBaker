@@ -53,7 +53,7 @@ function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
-trap cleanup EXIT
+# trap cleanup EXIT
 
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D2pds_V5"
@@ -75,8 +75,6 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity $UMSI_ID
-
-echo "KUSTO_ENDPOINT: ${KUSTO_ENDPOINT} KUSTO_DATABASE: ${KUSTO_DATABASE} KUSTO_TABLE: ${KUSTO_TABLE}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -106,7 +104,9 @@ az vm run-command invoke \
         "ACCOUNT_NAME"=${ACCOUNT_NAME} \
         "BLOB_URL"=${BLOB_URL} \
         "SEVERITY"=${SEVERITY} \
-        "MODULE_VERSION"=${MODULE_VERSION}
+        "MODULE_VERSION"=${MODULE_VERSION} \
+        "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
+        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID}
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login

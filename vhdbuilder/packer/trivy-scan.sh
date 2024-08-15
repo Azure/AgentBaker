@@ -28,6 +28,8 @@ ACCOUNT_NAME=${15}
 BLOB_URL=${16}
 SEVERITY=${17}
 MODULE_VERSION=${18}
+UMSI_PRINCIPAL_ID=${19}
+UMSI_CLIENT_ID=${20}
 
 install_azure_cli() {
     OS_SKU=${1}
@@ -72,7 +74,7 @@ install_azure_cli() {
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
 if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-    az login --identity --allow-no-subscriptions
+    az login --identity --allow-no-subscriptions --username ${UMSI_PRINCIPAL_ID}
 else
     az login --identity
 fi
@@ -94,7 +96,7 @@ mkdir -p "$(dirname "${TRIVY_REPORT_DIRNAME}")"
 wget "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 tar -xvzf "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
 rm "trivy_${TRIVY_VERSION}_${TRIVY_ARCH}.tar.gz"
-chmod a+x trivy 
+chmod a+x trivy
 
 # pull vuln-to-kusto binary
 az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
@@ -115,6 +117,7 @@ if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
         --kusto-endpoint=${KUSTO_ENDPOINT} \
         --kusto-database=${KUSTO_DATABASE} \
         --kusto-table=${KUSTO_TABLE} \
+        --kusto-managed-identity-client-id=${UMSI_CLIENT_ID} \
         ${TRIVY_REPORT_ROOTFS_JSON_PATH}
 fi
 
@@ -141,6 +144,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
             --kusto-endpoint=${KUSTO_ENDPOINT} \
             --kusto-database=${KUSTO_DATABASE} \
             --kusto-table=${KUSTO_TABLE} \
+            --kusto-managed-identity-client-id=${UMSI_CLIENT_ID} \
             ${TRIVY_REPORT_IMAGE_JSON_PATH} || true
 
         rm ${TRIVY_REPORT_IMAGE_JSON_PATH} || true
