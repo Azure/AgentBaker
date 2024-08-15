@@ -28,33 +28,24 @@
   ],
   "Packages": [
     {
-      "name": "k3s",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "1.22.2+k3s1"
-            ]
-          }
-        }
-      }
-    },
-    {
       "name": "moby-runc",
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {
         "ubuntu": {
           "r1804": {
+            "tag": "name=moby-runc os=ubuntu release=18.04",
             "versions": [
               "1.1.12"
             ]
           },
           "r2004": {
+            "tag": "name=moby-runc os=ubuntu release=20.04",
             "versions": [
               "1.1.12"
             ]
           },
           "r2204": {
+            "tag": "name=moby-runc os=ubuntu release=22.04",
             "versions": [
               "1.1.12"
             ]
@@ -62,6 +53,7 @@
         },
         "mariner": {
           "current": {
+            "tag": "moby-runc.mariner.current",
             "versions": [
               "1.1.9-5.cm2"
             ]

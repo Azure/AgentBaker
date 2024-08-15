@@ -54,7 +54,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name\":\\s*\"(?<packageName>moby-runc)\"[^}]*\"r2004\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"tag\":\\s*\"name=(?P<packageName>[^ ]+) os=ubuntu release=18\\.04\".*?\"versions\":\\s*\\[\\s*\"(?P<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.moby-runc",
       "versioningTemplate": "semver"
