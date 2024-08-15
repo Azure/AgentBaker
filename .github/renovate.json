@@ -44,7 +44,7 @@
       "matchStrings": [
         "\"name\":\\s*\"(?<packageName>containerd)\"[^}]*\"current\"[^}]*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "versioningTemplate": "loose",
+      "versioningTemplate": "semver-coerced",
       "datasourceTemplate": "custom.containerd"
     },
     {
@@ -57,7 +57,7 @@
         "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.mobyrunc",
-      "versioningTemplate": "semver"
+      "versioningTemplate": "semver-coerced"
     }
   ],
   "customDatasources": {
