@@ -54,7 +54,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name=(?<packageName>[^ ]+) os=ubuntu release=18\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.mobyrunc",
       "versioningTemplate": "semver"
