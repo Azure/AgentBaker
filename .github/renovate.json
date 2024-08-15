@@ -54,7 +54,8 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"tag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"tag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\"",
+        "\"tag\":\\s*\"(?<packageName>moby-runc) os=ubuntu release=20\\.04\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.mobyrunc",
       "versioningTemplate": "semver"
@@ -73,12 +74,6 @@
       "format": "plain",
       "transformTemplates": [
         "{\"releases\": $map(($index := releases#$i[version=\"Package: moby-containerd\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
-      ]
-    },
-    "k3s": {
-      "defaultRegistryUrlTemplate": "https://update.k3s.io/v1-release/channels",
-      "transformTemplates": [
-        "{\"releases\": [{\"version\": \"1.30.3\"},{\"version\": \"1.1.14\"},{\"version\": \"1.1.4+azure-ubuntu22.04u5\"}]}"
       ]
     }
   }
