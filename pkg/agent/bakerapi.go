@@ -25,7 +25,7 @@ var _ AgentBaker = (*agentBakerImpl)(nil)
 
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
-		toggles: toggles.EmptyToggles{},
+		toggles: toggles.NewDefaultToggles(),
 	}, nil
 }
 

@@ -18,10 +18,14 @@ type Toggles interface {
 	GetLinuxNodeImageVersion(entity *Entity) map[string]string
 }
 
-type EmptyToggles struct{}
+type defaultToggles struct{}
 
-func (t EmptyToggles) GetLinuxNodeImageVersion(entity *Entity) map[string]string {
+func (t *defaultToggles) GetLinuxNodeImageVersion(entity *Entity) map[string]string {
 	return map[string]string{}
+}
+
+func NewDefaultToggles() Toggles {
+	return &defaultToggles{}
 }
 
 // NewEntity constructs a new Entity from the specified fields.
