@@ -7,7 +7,7 @@ retrycmd_if_failure() {
   for i in $(seq 1 ${retries}); do
     ${cmd} >> ${target%.*}-output.txt 2>&1 && break ||
     if [ ${i} -eq ${retries} ]; then
-      echo -e "${target} failed ${i} times\n"
+      sed -i "5i ${target} failed ${i} times" ${target%.*}-output.txt
       cat ${target%.*}-output.txt
       exit 1
     else
