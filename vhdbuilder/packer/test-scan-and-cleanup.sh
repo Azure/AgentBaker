@@ -1,21 +1,22 @@
 #!/bin/bash
 
 retrycmd_if_failure() {
-  retries=$1; wait_sleep=$2; cmd=$3; target=$(basename $(echo $3))
+  retries=${1}; wait_sleep=${2}; cmd=${3}; target=$(basename $(echo ${3}))
   echo -e "\n\n==========================================================="
-  echo -e "Running $cmd with $retries retries"
-  for i in $(seq 1 $retries); do
-    $cmd >> ${target%.*}-output.txt 2>&1 && break ||
-    if [ $i -eq $retries ]; then
-      echo -e "$target failed $i times\n"
+  echo -e "Running ${cmd} with ${retries} retries"
+  for i in $(seq 1 ${retries}); do
+    ${cmd} >> ${target%.*}-output.txt 2>&1 && break ||
+    if [ ${i} -eq ${retries} ]; then
+      echo -e "${target} failed ${i} times\n"
       cat ${target%.*}-output.txt
       exit 1
     else
-      sleep $wait_sleep
+      sleep ${wait_sleep}
       echo -e "\n\n\nNext Attempt:\n\n\n" >> ${target%.*}-output.txt
     fi
   done
   cat ${target%.*}-output.txt
+  rm ${target%.*}-output.txt
 }
 
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
@@ -33,7 +34,7 @@ SIG_VERSION=$(az sig image-version show \
 --query id --output tsv || true)
 
 if [ -z "${SIG_VERSION}" ]; then
-  echo -e "Build step did not produce an image version. Running cleanup adn then exiting.\n\n\n"
+  echo -e "Build step did not produce an image version. Running cleanup and then exiting.\n\n\n"
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
   EXIT_CODE=$?
   exit ${EXIT_CODE}
@@ -52,6 +53,7 @@ else
   echo -e "Skipping scanning for 18.04\n\n\n"
 fi
 
+echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
 SCRIPT_PIDS=()
 for TARGET in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${TARGET}" &
