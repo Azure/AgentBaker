@@ -23,8 +23,7 @@ if [[ -z "$SIG_GALLERY_NAME" ]]; then
 fi
 
 TARGET_ARRAY=()
-TARGET_ARRAY+=("cleanup") # Always run cleanup
-MAKE_CMD_PREFIX="make -f packer.mk"
+TARGET_ARRAY+=("./vhdbuilder/packer/cleanup.sh") # Always run cleanup
 
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show \
@@ -36,19 +35,19 @@ SIG_VERSION=$(az sig image-version show \
 
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "Build step did not produce an image version. Running cleanup adn then exiting.\n\n\n"
-  retrycmd_if_failure 2 3 "${MAKE_CMD_PREFIX} ${TARGET_ARRAY[@]}"
+  retrycmd_if_failure 2 3 ./vhdbuilder/packer/cleanup.sh
   EXIT_CODE=$?
   exit ${EXIT_CODE}
 fi
 
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
-  TARGET_ARRAY+=("test-building-vhd")
+  TARGET_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 else
   echo -e "Skipping tests for CVM 20.04\n\n\n"
 fi
 
 if [ "$OS_VERSION" != "18.04" ]; then
-  TARGET_ARRAY+=("scanning-vhd")
+  TARGET_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
   # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
   echo -e "Skipping scanning for 18.04\n\n\n"
@@ -56,7 +55,7 @@ fi
 
 TARGET_PIDS=()
 for TARGET in "${TARGET_ARRAY[@]}"; do
-  retrycmd_if_failure 2 3 "${MAKE_CMD_PREFIX} ${TARGET}" &
+  retrycmd_if_failure 2 3 "${TARGET}" &
   TARGET_PIDS+=($!)
 done
 wait ${TARGET_PIDS[@]}
