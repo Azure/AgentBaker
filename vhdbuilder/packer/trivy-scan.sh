@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euxo pipefail
-
+exit 1
 TRIVY_REPORT_JSON_PATH=/opt/azure/containers/trivy-report.json
 TRIVY_REPORT_TABLE_PATH=/opt/azure/containers/trivy-images-table.txt
 TRIVY_VERSION="0.53.0"
