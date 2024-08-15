@@ -37,8 +37,10 @@ SIG_VERSION=$(az sig image-version show \
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "Build step did not produce an image version. Running cleanup adn then exiting.\n\n\n"
   retrycmd_if_failure 2 3 "${MAKE_CMD_PREFIX} ${TARGET_ARRAY[@]}"
+  EXIT_CODE=$?
+  exit ${EXIT_CODE}
 fi
-echo "Continuing with tests and scans"
+
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   TARGET_ARRAY+=("test-building-vhd")
 else
