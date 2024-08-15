@@ -34,7 +34,7 @@ SIG_VERSION=$(az sig image-version show \
 --query id --output tsv || true)
 
 if [ -z "${SIG_VERSION}" ]; then
-  echo -e "Build step did not produce an image version. Running cleanup and then exiting.\n\n\n"
+  echo -e "Build step did not produce an image version. Running cleanup and then exiting.\n"
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
   EXIT_CODE=$?
   exit ${EXIT_CODE}
