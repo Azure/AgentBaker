@@ -56,12 +56,12 @@
       "matchStrings": [
         "\"tag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\".*?\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "datasourceTemplate": "custom.moby-runc",
+      "datasourceTemplate": "custom.mobyrunc",
       "versioningTemplate": "semver"
     }
   ],
   "customDatasources": {
-    "moby-runc": {
+    "mobyrunc": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
