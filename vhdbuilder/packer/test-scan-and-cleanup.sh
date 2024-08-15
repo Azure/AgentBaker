@@ -15,7 +15,7 @@ retrycmd_if_failure() {
         echo -e "\n\n\nNext Attempt:\n\n\n" >> output-${target%.*}.txt
       fi
     done
-    cat output-${target%.*}.txt
+  cat output-${target%.*}.txt
 }
 
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
