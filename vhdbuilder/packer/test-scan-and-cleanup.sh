@@ -35,7 +35,7 @@ SIG_VERSION=$(az sig image-version show \
 
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "Build step did not produce an image version. Running cleanup and then exiting.\n"
-  az login && retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
+  make -f -s packer.mk az-login && retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
   EXIT_CODE=$?
   exit ${EXIT_CODE}
 fi
@@ -56,7 +56,7 @@ fi
 echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
 SCRIPT_PIDS=()
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
-  az login && retrycmd_if_failure 2 3 "${SCRIPT}" &
+  make -f -s packer.mk az-login && retrycmd_if_failure 2 3 "${SCRIPT}" &
   SCRIPT_PIDS+=($!)
 done
 wait ${SCRIPT_PIDS[@]}
