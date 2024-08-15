@@ -9,16 +9,6 @@
       ]
     },
     {
-      "name": "nvidia-cuda",
-      "type": "containerimages|<extend to OCI |Tar|tgz when merging with packages>",
-      "action": "cache|fetch|config",
-      "downloadURL": "mcr.microsoft.com/aks/aks-gpu:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "cuda-550.90.07-sha-b40b85"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
