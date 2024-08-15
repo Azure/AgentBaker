@@ -35,6 +35,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
+		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
 		"--resolv-conf":                       "/etc/resolv.conf",
@@ -121,6 +122,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
+		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
 		"--resolv-conf":                       "/etc/resolv.conf",
@@ -156,6 +158,7 @@ var expectedKubeletJSON = `{
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
     "rotateCertificates": true,
+    "serverTLSBootstrap": true,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
@@ -315,6 +318,7 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
     "rotateCertificates": true,
+    "serverTLSBootstrap": true,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"

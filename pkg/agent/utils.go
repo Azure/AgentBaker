@@ -492,6 +492,7 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
 		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
+		ServerTLSBootstrap:             strToBool(kc["--rotate-server-certificates"]),
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
 		ResolverConfig:                 kc["--resolv-conf"],
