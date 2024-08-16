@@ -132,7 +132,6 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4"
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.2.0"
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.32"
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.0"
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.3"
 )
 
@@ -195,7 +194,6 @@ $global:map = @{
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.32/binaries/azure-vnet-cni-windows-amd64-v1.5.32.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.6.0/binaries/azure-vnet-cni-windows-amd64-v1.6.0.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.6.3/binaries/azure-vnet-cni-windows-amd64-v1.6.3.zip",
         # Azure CNI v2 (pod subnet)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.54/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.54.zip",
