@@ -77,5 +77,6 @@ done
 if [[ "${STEP_FAILED}" == true ]]; then
   echo -e "\nOne or more scripts failed. Exiting with exit code 1."
   exit 1
+else
+  echo -e "\nTest, Scan, and Cleanup script successfully completed.\n"
 fi
-echo -e "\n\n\nTest, Scan, and Cleanup script completed.\n\n\n"
