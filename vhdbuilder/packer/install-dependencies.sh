@@ -207,11 +207,11 @@ for p in ${packages[*]}; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${isKata}" == "true" ]]; then
-    OS=${MARINER_KATA_OS_NAME}
+    local os=${MARINER_KATA_OS_NAME}
   fi
-  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  returnPackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
   
   # if ${PACKAGE_VERSIONS[@]} count is 0, skip to next package
