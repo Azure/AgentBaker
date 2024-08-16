@@ -9,6 +9,10 @@ pool:
   name: $(POOL_NAME)
 
 parameters:
+  - name: useShallowReplication
+    displayName: Use Shallow Replication
+    type: boolean
+    default: true
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -17,10 +21,6 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
-  - name: useShallowReplication
-    displayName: Use Shallow Replication
-    type: boolean
-    default: true
   - name: build1804containerd
     displayName: Build 1804 containerd
     type: boolean
