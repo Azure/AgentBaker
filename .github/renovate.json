@@ -45,7 +45,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name=(?<packageName>[^ ]+) os=ubuntu release=(?<testname>\\d{2}\\.\\d{2})\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.runc_containerd",
       "versioningTemplate": "semver-coerced"
