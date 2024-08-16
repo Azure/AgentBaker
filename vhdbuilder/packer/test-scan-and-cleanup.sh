@@ -54,7 +54,7 @@ else
   echo -e "\n\nSkipping scanning for 18.04"
 fi
 
-echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}"
+echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
 declare -A SCRIPT_PIDS
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${SCRIPT}" &
@@ -63,7 +63,7 @@ for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
 done
 wait ${SCRIPT_PIDS[@]}
 
-echo -e "Checking exit codes for each script..."
+echo -e "\nChecking exit codes for each script..."
 STEP_FAILED=false
 for SCRIPT in "${!SCRIPT_PIDS[@]}"; do
   PID=${SCRIPT_PIDS[$SCRIPT]}
