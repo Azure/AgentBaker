@@ -40,6 +40,7 @@ cleanupContainerdDlFiles() {
 }
 
 installContainerdWithComponentsJson() {
+    local isKata=${1:-false}
     os=${UBUNTU_OS_NAME}
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
@@ -50,12 +51,16 @@ installContainerdWithComponentsJson() {
     
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
-    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}" "${isKata}"
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+    fi
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
+        echo "INFO: containerd package versions array is empty. Skipping containerd installation"
+        return 0
     fi
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
@@ -95,13 +100,14 @@ installContainerdWithManifestJson() {
 }
 
 installContainerRuntime() {
+    local isKata=${1:-false}
     echo "in installContainerRuntime - KUBERNETES_VERSION = ${KUBERNETES_VERSION}"
     if [[ "${NEEDS_CONTAINERD}" != "true" ]]; then
         installMoby 
     fi
     if [ -f "$COMPONENTS_FILEPATH" ] && jq '.Packages[] | select(.name == "containerd")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "Package \"containerd\" exists in $COMPONENTS_FILEPATH."
-        installContainerdWithComponentsJson
+        installContainerdWithComponentsJson $isKata
 		return
     fi
     echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."

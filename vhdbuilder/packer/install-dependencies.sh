@@ -12,8 +12,9 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-  OS=$MARINER_KATA_OS_NAME
+  IS_KATA="true"
 fi
   
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -205,9 +206,9 @@ for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
-  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  returnPackageVersions ${p} ${OS} ${OS_VERSION} ${IS_KATA}
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION} ${IS_KATA}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package

@@ -526,6 +526,10 @@ returnPackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
+    local isKata="${4:-false}"
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${isKata}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
@@ -551,6 +555,10 @@ returnPackageDownloadURL() {
     local package=$1
     local os=$2
     local osVersion=$3
+    local isKata="${4:-false}"
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${isKata}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
