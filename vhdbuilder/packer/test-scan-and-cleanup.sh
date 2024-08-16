@@ -3,23 +3,21 @@
 retrycmd_if_failure() {
   retries=${1}; wait_sleep=${2}; cmd=${3}; target=$(basename $(echo ${3}))
   echo "##[group]$target"
-  echo -e "\n\n===========================================================" >> ${target%.*}-output.txt
   echo -e "Running ${cmd} with ${retries} retries" >> ${target%.*}-output.txt
   for i in $(seq 1 ${retries}); do
     ${cmd} >> ${target%.*}-output.txt 2>&1 && break ||
     if [ ${i} -eq ${retries} ]; then
-      sed -i "5i ${target} failed ${i} times" ${target%.*}-output.txt
+      sed -i "3i ${target} failed ${i} times" ${target%.*}-output.txt
       echo "##[endgroup]$target" >> ${target%.*}-output.txt
-      cat ${target%.*}-output.txt
+      cat ${target%.*}-output.txt && rm ${target%.*}-output.txt
       exit 1
     else
       sleep ${wait_sleep}
       echo -e "\n\n\nNext Attempt:\n\n\n" >> ${target%.*}-output.txt
     fi
   done
-  echo "##[endgroup]$target">> ${target%.*}-output.txt
-  cat ${target%.*}-output.txt
-  rm ${target%.*}-output.txt
+  echo "##[endgroup]$target" >> ${target%.*}-output.txt
+  cat ${target%.*}-output.txt && rm ${target%.*}-output.txt
 }
 
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
@@ -57,14 +55,16 @@ else
 fi
 
 echo -e "\nRunning the following scripts: ${SCRIPT_ARRAY[@]}"
-SCRIPT_PIDS=()
+declare -A SCRIPT_PIDS
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${SCRIPT}" &
-  SCRIPT_PIDS+=($!)
+  PID=$!
+  SCRIPT_PIDS[$SCRIPT]=${PID}
 done
 wait ${SCRIPT_PIDS[@]}
 
 echo -e "Checking exit codes for each script...\n"
+declare -A SCRIPT_EXIT_CODES
 for PID in "${SCRIPT_PIDS[@]}"; do
   wait $PID
   EXIT_CODE=$?
