@@ -2,12 +2,40 @@
 
 echo "Sourcing cse_install_distro.sh for Ubuntu"
 
+cleanupTMP() {
+    rm -rf /tmp/*
+}
+
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
 
 removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
+}
+
+removeCurl() {
+    apt_get_purge 10 5 300 curl
+}
+
+installLatestCurlManuallyIfNotPresent() {
+    
+    version="8.9.0"
+
+    if curl -V | grep $version > /dev/null; then
+        echo "curl is already installed and at the right version, skipping manual installation"
+        return
+    fi
+    
+    deb_file="/tmp/curl.deb"
+    removeCurl || exit $ERR_CURL_REMOVE_TIMEOUT
+    retrycmd_if_failure 10 5 10 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 10 5 10 tar -xvf $deb_file -C /tmp || exit $ERR_CURL_EXTRACT_TIMEOUT
+    retrycmd_if_failure 10 5 10 apt-get install -y libssl1.1=1.1.1-1ubuntu2.1~18.04.23 || exit $ERR_CURL_DOWNGRADE_LIBSSL
+    retrycmd_if_failure 10 5 10 apt-get install -y libssl-dev autoconf libtool || exit $ERR_CURL_DOWNLOAD_DEV_TIMEOUT
+    retrycmd_if_failure 10 5 10 cd /tmp/curl-${version} && ./configure --with-ssl && make && make install && cp /usr/local/src/curl-${version}/src/.libs/curl /usr/bin/curl && ldconfig || exit $ERR_CURL_INSTALL_TIMEOUT
+    curl -V | grep $version || exit $ERR_CURL_VERSION_MISMATCH
+    cleanupTMP
 }
 
 installDeps() {
@@ -22,7 +50,7 @@ installDeps() {
     aptmarkWALinuxAgent hold
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
 
-    pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
+    pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
         pkg_list+=(dnsutils)
@@ -52,6 +80,10 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
+
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        installLatestCurlManuallyIfNotPresent
+    fi
 }
 
 updateAptWithMicrosoftPkg() {
