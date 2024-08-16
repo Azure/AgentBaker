@@ -13,7 +13,7 @@ retrycmd_if_failure() {
       exit 1
     else
       sleep ${wait_sleep}
-      echo -e "\n\n\nNext Attempt:\n\n\n" >> ${target%.*}-output.txt
+      echo -e "\n\nNext Attempt:\n\n" >> ${target%.*}-output.txt
     fi
   done
   echo "##[endgroup]$target" >> ${target%.*}-output.txt
@@ -35,7 +35,7 @@ SIG_VERSION=$(az sig image-version show \
 --query id --output tsv || true)
 
 if [ -z "${SIG_VERSION}" ]; then
-  echo -e "Build step did not produce an image version. Running cleanup and then exiting."
+  echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
   EXIT_CODE=$?
   exit ${EXIT_CODE}
@@ -54,7 +54,7 @@ else
   echo -e "\n\nSkipping scanning for 18.04"
 fi
 
-echo -e "\nRunning the following scripts: ${SCRIPT_ARRAY[@]}"
+echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}"
 declare -A SCRIPT_PIDS
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${SCRIPT}" &
@@ -63,18 +63,18 @@ for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
 done
 wait ${SCRIPT_PIDS[@]}
 
-echo -e "Checking exit codes for each script...\n"
-FAIL=false
+echo -e "Checking exit codes for each script..."
+STEP_FAILED=false
 for SCRIPT in "${!SCRIPT_PIDS[@]}"; do
   PID=${SCRIPT_PIDS[$SCRIPT]}
   wait $PID
   EXIT_CODE=$?
   if [ ${EXIT_CODE} -ne 0 ]; then
-    FAIL=true
+    STEP_FAILED=true
   fi
   echo -e "${SCRIPT} exited with code ${EXIT_CODE}"
 done
-if [ "$FAIL" = true ]; then
+if [[ "${STEP_FAILED}" == true ]]; then
   echo "One or more scripts failed. Exiting with exit code 1."
   exit 1
 fi
