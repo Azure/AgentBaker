@@ -51,6 +51,7 @@ function cleanup() {
         az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
         echo "Role assignment deleted."
     fi
+    echo -e "Trivy Scan Script Completed\n\n\n"
 }
 trap cleanup EXIT
 
@@ -112,5 +113,3 @@ az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
-
-echo -e "Trivy Scan Script Completed\n\n\n"
