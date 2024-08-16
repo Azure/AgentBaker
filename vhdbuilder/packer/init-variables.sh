@@ -113,13 +113,7 @@ if [ -z "${SUBNET_NAME}" ]; then
 	SUBNET_NAME="packer"
 fi
 
-USE_SHALLOW_REPLICATION="false"
-if [[ "${OS_TYPE,,}" == "linux" ]] && [[ "${ENVIRONMENT,,}" == "test" ]]; then
-  # only use shallow replication in test for now
-  USE_SHALLOW_REPLICATION="true"
-fi
-
-echo "SHALLOW_REPLICATION set to: ${USE_SHALLOW_REPLICATION}"
+echo "USE_SHALLOW_REPLICATION set to: ${USE_SHALLOW_REPLICATION}"
 
 echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
 
