@@ -42,9 +42,10 @@ package components
 }
 
 #Package: {
-	name:              string
-	downloadLocation:  string
-	downloadURIs:      #DownloadURIs
+	name:                 string
+	downloadLocation:     string
+	downloadURIs:         #DownloadURIs
+	excludeFeatureFlags?: string
 }
 
 #Components: {
