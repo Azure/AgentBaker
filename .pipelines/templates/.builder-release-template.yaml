@@ -8,6 +8,9 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+  - name: useShallowReplication
+    type: boolean
+    default: true
 steps:
   - checkout: self
     # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
