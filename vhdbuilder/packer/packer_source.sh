@@ -206,6 +206,10 @@ copyPackerFiles() {
   NO_DUP_SVC_DEST=/etc/systemd/system/ensure-no-dup.service
   cpAndMode $NO_DUP_SVC_SRC $NO_DUP_SVC_DEST 600
 
+  NMAGENT_PRIMARY_IP_SRC=/home/packer/nmagent-primary-ip.py
+  NMAGENT_PRIMARY_IP_DEST=/opt/azure/containers/nmagent-primary-ip.py
+  cpAndMode $NMAGENT_PRIMARY_IP_SRC $NMAGENT_PRIMARY_IP_DEST 0755
+
   TELED_SRC=/home/packer/teleportd.service
   TELED_DEST=/etc/systemd/system/teleportd.service
   cpAndMode $TELED_SRC $TELED_DEST 600

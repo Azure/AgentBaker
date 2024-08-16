@@ -241,6 +241,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nmagent-primary-ip.py",
+      "destination": "/home/packer/nmagent-primary-ip.py"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/teleportd.service",
       "destination": "/home/packer/teleportd.service"
     },
