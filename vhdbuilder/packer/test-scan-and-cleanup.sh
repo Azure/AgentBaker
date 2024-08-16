@@ -2,12 +2,14 @@
 
 retrycmd_if_failure() {
   retries=${1}; wait_sleep=${2}; cmd=${3}; target=$(basename $(echo ${3}))
+  echo "##[group]$target"
   echo -e "\n\n===========================================================" >> ${target%.*}-output.txt
   echo -e "Running ${cmd} with ${retries} retries" >> ${target%.*}-output.txt
   for i in $(seq 1 ${retries}); do
     ${cmd} >> ${target%.*}-output.txt 2>&1 && break ||
     if [ ${i} -eq ${retries} ]; then
       sed -i "5i ${target} failed ${i} times" ${target%.*}-output.txt
+      echo "##[endgroup]$target" >> ${target%.*}-output.txt
       cat ${target%.*}-output.txt
       exit 1
     else
@@ -15,6 +17,7 @@ retrycmd_if_failure() {
       echo -e "\n\n\nNext Attempt:\n\n\n" >> ${target%.*}-output.txt
     fi
   done
+  echo "##[endgroup]$target">> ${target%.*}-output.txt
   cat ${target%.*}-output.txt
   rm ${target%.*}-output.txt
 }
