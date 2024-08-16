@@ -2,7 +2,7 @@
 
 retrycmd_if_failure() {
   retries=${1}; wait_sleep=${2}; cmd=${3}; target=$(basename $(echo ${3}))
-  echo "##[group]$target"
+  echo "##[group]$target" >> ${target%.*}-output.txt
   echo -e "Running ${cmd} with ${retries} retries" >> ${target%.*}-output.txt
   for i in $(seq 1 ${retries}); do
     ${cmd} >> ${target%.*}-output.txt 2>&1 && break ||
