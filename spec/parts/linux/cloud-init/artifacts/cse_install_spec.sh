@@ -72,6 +72,12 @@ Describe 'cse_install.sh'
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
             The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
+
+        It 'returns downloadURIs.default.current.versions of package containerd for MARINERKATA'
+            package=$(readPackage "containerd")
+            When call returnPackageVersions "$package" "MARINERKATA" "some_mariner_version"
+            The value ${#PACKAGE_VERSIONS[@]} should equal 0
+        End
     End
     Describe 'returnPackageDownloadURL'
         It 'returns downloadURIs.ubuntu."r2004".downloadURL of package runc for UBUNTU 20.04'
@@ -185,6 +191,13 @@ Describe 'cse_install.sh'
         It 'returns release version current for package runc in Mariner'
             package=$(readPackage "runc")
             os="MARINER"
+            osVersion=""
+            When call returnRelease "$package" "$os" "$osVersion"
+            The variable RELEASE should equal "current"
+        End
+        It 'returns release version current for package runc in MarinerKata'
+            package=$(readPackage "runc")
+            os="MARINERKATA"
             osVersion=""
             When call returnRelease "$package" "$os" "$osVersion"
             The variable RELEASE should equal "current"

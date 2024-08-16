@@ -114,6 +114,7 @@ fi
 
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
@@ -481,7 +482,7 @@ returnRelease() {
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
+    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" ]]; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
@@ -496,6 +497,7 @@ returnPackageVersions() {
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
 
     #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 

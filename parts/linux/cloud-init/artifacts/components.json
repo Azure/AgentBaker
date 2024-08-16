@@ -443,6 +443,11 @@
             ]
           }
         },
+        "marinerkata": {
+          "current": {
+            "versions": []
+          }
+        },
         "default": {
           "current": {
             "versions": [
