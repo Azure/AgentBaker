@@ -37,7 +37,7 @@
           "r2204": {
             "tag": "name=moby-runc os=ubuntu release=22.04",
             "versions": [
-              "1.1.12-ubuntu22.04u1"
+              "1.1.11-ubuntu22.04u1"
             ]
           }
         },
