@@ -43,17 +43,17 @@ fi
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 else
-  echo -e "Skipping tests for CVM 20.04\n\n\n"
+  echo -e "\n\nSkipping tests for CVM 20.04"
 fi
 
 if [ "$OS_VERSION" != "18.04" ]; then
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
   # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-  echo -e "Skipping scanning for 18.04\n\n\n"
+  echo -e "\n\nSkipping scanning for 18.04"
 fi
 
-echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
+echo -e "\nRunning the following scripts: ${SCRIPT_ARRAY[@]}"
 SCRIPT_PIDS=()
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${SCRIPT}" &
