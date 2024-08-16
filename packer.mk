@@ -1,7 +1,5 @@
 SHELL=/bin/bash -o pipefail
 
-include retry-function.mk
-
 GOARCH=amd64
 ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
@@ -97,7 +95,7 @@ convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
 test-building-vhd: az-login
-	@/vhdbuilder/packer/test/run-test.sh
+	@./vhdbuilder/packer/test/run-test.sh
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
