@@ -132,6 +132,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4"
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.2.0"
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.26"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.32"
 )
 
 $global:map = @{
