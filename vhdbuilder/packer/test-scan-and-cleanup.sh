@@ -1,23 +1,23 @@
 #!/bin/bash
 
 retrycmd_if_failure() {
-  retries=${1}; wait_sleep=${2}; cmd=${3}; target=$(basename $(echo ${3}))
-  echo "##[group]$target" >> ${target%.*}-output.txt
-  echo -e "Running ${cmd} with ${retries} retries" >> ${target%.*}-output.txt
-  for i in $(seq 1 ${retries}); do
-    ${cmd} >> ${target%.*}-output.txt 2>&1 && break ||
-    if [ ${i} -eq ${retries} ]; then
-      sed -i "3i ${target} failed ${i} times" ${target%.*}-output.txt
-      echo "##[endgroup]$target" >> ${target%.*}-output.txt
-      cat ${target%.*}-output.txt && rm ${target%.*}-output.txt
+  RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename $(echo ${3}))
+  echo "##[group]$TARGET" >> ${TARGET%.*}-output.txt
+  echo -e "Running ${CMD} with ${RETRIES} retries" >> ${TARGET%.*}-output.txt
+  for i in $(seq 1 ${RETRIES}); do
+    ${CMD} >> ${TARGET%.*}-output.txt 2>&1 && break ||
+    if [ ${i} -eq ${RETRIES} ]; then
+      sed -i "3i ${TARGET} failed ${i} times" ${TARGET%.*}-output.txt
+      echo "##[endgroup]$TARGET" >> ${TARGET%.*}-output.txt
+      cat ${TARGET%.*}-output.txt && rm ${TARGET%.*}-output.txt
       exit 1
     else
-      sleep ${wait_sleep}
-      echo -e "\n\nNext Attempt:\n\n" >> ${target%.*}-output.txt
+      sleep ${WAIT_SLEEP}
+      echo -e "\n\nNext Attempt:\n\n" >> ${TARGET%.*}-output.txt
     fi
   done
-  echo "##[endgroup]$target" >> ${target%.*}-output.txt
-  cat ${target%.*}-output.txt && rm ${target%.*}-output.txt
+  echo "##[endgroup]$TARGET" >> ${TARGET%.*}-output.txt
+  cat ${TARGET%.*}-output.txt && rm ${TARGET%.*}-output.txt
 }
 
 if [[ -z "$SIG_GALLERY_NAME" ]]; then
