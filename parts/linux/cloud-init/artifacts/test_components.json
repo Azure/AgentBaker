@@ -57,7 +57,7 @@
       "downloadURIs": {
         "ubuntu": {
           "current": {
-            "tag": "name=moby-containerd os=ubuntu release=20.04",
+            "tag": "name=moby-containerd os=ubuntu release=22.04",
             "versions": [
               "1.3.20"
             ]
