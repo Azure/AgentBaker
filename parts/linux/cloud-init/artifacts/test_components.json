@@ -52,7 +52,7 @@
       }
     },
     {
-      "name": "containerd",
+      "name": "moby-containerd",
       "downloadLocation": "/opt/containerd/downloads",
       "downloadURIs": {
         "ubuntu": {
