@@ -1,1 +1,1 @@
-pkg/agent/testdata/* linguist-generated=true diff=testdata
+pkg/agent/testdata/**/*  linguist-generated=true 
