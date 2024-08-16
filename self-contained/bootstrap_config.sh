@@ -386,6 +386,24 @@ ensureDHCPv6() {
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
+
+    # In k8s >= 1.29 kubelet no longer sets node internalIP when using external cloud provider
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    # This regresses node startup performance in Azure CNI Overlay and Podsubnet clusters, which require the node to be
+    # assigned an internal IP before configuring pod networking.
+    # To improve node startup performance, explicitly set `--node-ip` to the IP returned from nmagent (via wireserver)
+    # so kubelet sets the internal IP when it registers the node.
+    # If this fails for some reason, skip setting --node-ip; cloud-node-manager will assign it later anyway.
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
+        nodeIPAddr=$(./opt/azure/containers/nmagent-primary-ip.py)
+        if [[ "$?" -eq 0 ]]; then
+            if [ -n "$nodeIPAddr" ]; then
+                echo "Setting kubelet --node-ip=$nodeIPAddr from nmagent primary IP"
+                KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPAddr"
+            fi
+        fi
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
