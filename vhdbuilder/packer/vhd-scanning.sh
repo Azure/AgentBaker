@@ -1,20 +1,5 @@
 #!/bin/bash
-set -eu
-
-if [[ -z "$SIG_GALLERY_NAME" ]]; then
-    SIG_GALLERY_NAME="PackerSigGalleryEastUS"
-fi
-# Check to ensure the build step succeeded
-SIG_VERSION=$(az sig image-version show -e ${CAPTURED_SIG_VERSION} -i ${SIG_IMAGE_NAME} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --query id --output tsv || true)
-if [ -z "${SIG_VERSION}" ]; then
-    echo -e "Build step did not produce an image version. Exiting $(basename $0) with exit code 0...\n\n\n"
-    exit 0
-elif [ "$OS_VERSION" == "18.04" ]; then
-    # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-    echo -e "Skipping scanning for 18.04\n\n\n"
-    exit 0
-fi
-set -x
+set -eux
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
