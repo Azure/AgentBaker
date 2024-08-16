@@ -15,67 +15,67 @@ Describe 'cse_install.sh'
     Describe 'returnPackageVersions'
         It 'returns downloadURIs.ubuntu."r2004".versions of package runc for UBUNTU 20.04'
             package=$(readPackage "runc")
-            When call returnPackageVersions "$package" "UBUNTU" "20.04"
+            When call returnPackageVersions "$package" "UBUNTU" "20.04" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.1.12-ubuntu20.04u1"
         End
 
         It 'returns downloadURIs.ubuntu.current.versions of package containerd for UBUNTU 22.04'
             package=$(readPackage "containerd")
-            When call returnPackageVersions "$package" "UBUNTU" "22.04"
+            When call returnPackageVersions "$package" "UBUNTU" "22.04" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.7.20"
         End
 
         It 'returns downloadURIs.ubuntu."r1804".versions of package containerd for UBUNTU 18.04'
             package=$(readPackage "containerd")
-            When call returnPackageVersions "$package" "UBUNTU" "18.04"
+            When call returnPackageVersions "$package" "UBUNTU" "18.04" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.7.1-1"
         End
 
         It 'returns downloadURIs.default.current.versions of package cni-plugins for UBUNTU 20.04'
             package=$(readPackage "cni-plugins")
-            When call returnPackageVersions "$package" "UBUNTU" "20.04"
+            When call returnPackageVersions "$package" "UBUNTU" "20.04" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.4.1"
         End
 
         It 'returns downloadURIs.default.current.versions of package azure-cni for UBUNTU 20.04'
             package=$(readPackage "azure-cni")
-            When call returnPackageVersions "$package" "UBUNTU" "20.04"
+            When call returnPackageVersions "$package" "UBUNTU" "20.04" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
 
         It 'returns downloadURIs.default.current.versions of package oras for UBUNTU 20.04'
             package=$(readPackage "oras")
-            When call returnPackageVersions "$package" "UBUNTU" "20.04"
+            When call returnPackageVersions "$package" "UBUNTU" "20.04" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.2.0"
         End
 
         It 'returns downloadURIs.mariner.current.versions of package runc for MARINER'
             package=$(readPackage "runc")
-            When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
+            When call returnPackageVersions "$package" "MARINER" "some_mariner_version" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.1.9-5.cm2"
         End
 
         It 'returns downloadURIs.mariner.current.versions of package containerd for MARINER'
             package=$(readPackage "containerd")
-            When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
+            When call returnPackageVersions "$package" "MARINER" "some_mariner_version" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.6.26-5.cm2"
         End
 
         It 'returns downloadURIs.default.current.versions of package cni-plugins for MARINER'
             package=$(readPackage "cni-plugins")
-            When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
+            When call returnPackageVersions "$package" "MARINER" "some_mariner_version" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.4.1"
         End
 
         It 'returns downloadURIs.default.current.versions of package azure-cni for MARINER'
             package=$(readPackage "azure-cni")
-            When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
+            When call returnPackageVersions "$package" "MARINER" "some_mariner_version" "false"
             The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
 
         It 'returns downloadURIs.default.current.versions of package containerd for MARINERKATA'
             package=$(readPackage "containerd")
-            When call returnPackageVersions "$package" "MARINERKATA" "some_mariner_version"
+            When call returnPackageVersions "$package" "MARINER" "some_mariner_version" "true"
             The value ${#PACKAGE_VERSIONS[@]} should equal 0
         End
     End
