@@ -1,3 +1,0 @@
-[diff "testdata"]
-    binary = true
-    textconv = cat
