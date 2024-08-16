@@ -445,7 +445,9 @@
         },
         "marinerkata": {
           "current": {
-            "versions": []
+            "versions": [
+              "<SKIP>"
+            ]
           }
         },
         "default": {
