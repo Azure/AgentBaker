@@ -347,7 +347,7 @@ installCNI() {
         os_version="current"
     fi
     os_version="${UBUNTU_RELEASE}"
-    if [[ "${os}" == "${MARINER_OS_NAME}" && "${isKata}" == "true" ]]; then
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
     fi
     PACKAGE_VERSIONS=()

@@ -206,7 +206,7 @@ for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
-  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${isKata}" == "true" ]]; then
+  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
   returnPackageVersions ${p} ${os} ${OS_VERSION}
