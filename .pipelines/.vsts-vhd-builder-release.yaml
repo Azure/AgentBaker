@@ -10,11 +10,9 @@ pool:
 
 parameters:
   - name: useShallowReplication
-    displayName: Use Shallow Replication
+    displayName: Use Shallow Replication (Only check this box if you will be running E2E in the same region as the build)
     type: boolean
     default: true
-    metadata:
-      description: Uncheck this box if you want to run an E2E test in a different Azure region after this build.
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
