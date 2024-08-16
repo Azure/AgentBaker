@@ -18,9 +18,15 @@ removeCurl() {
     apt_get_purge 10 5 300 curl
 }
 
-installLatestCurlManually() {
+installLatestCurlManuallyIfNotPresent() {
     
     version="8.9.0"
+
+    if curl -V | grep $version > /dev/null; then
+        echo "curl is already installed and at the right version, skipping manual installation"
+        return
+    fi
+    
     deb_file="/tmp/curl.deb"
     removeCurl || exit $ERR_CURL_REMOVE_TIMEOUT
     retrycmd_if_failure 10 5 10 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
@@ -76,7 +82,7 @@ installDeps() {
     done
 
     if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        installLatestCurlManually
+        installLatestCurlManuallyIfNotPresent
     fi
 }
 
