@@ -210,6 +210,12 @@ for p in ${packages[*]}; do
   PACKAGE_DOWNLOAD_URL=""
   returnPackageDownloadURL ${p} ${OS} ${OS_VERSION} ${IS_KATA}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  
+  # if ${PACKAGE_VERSIONS[@]} count is 0, skip to next package
+  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
+    echo "No versions found for package ${name}. Skipping caching/installing..."
+    continue
+  fi
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
