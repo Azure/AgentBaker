@@ -399,11 +399,13 @@ ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
 
-    nodeIPAddr=$(./opt/azure/containers/nmagent-primary-ip.py)
-    if [[ "$?" -eq 0 ]]; then
-        if [ -n "$nodeIPAddr" ]; then
-            echo "Setting kubelet --node-ip=$nodeIPAddr from nmagent primary IP"
-            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIP"
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
+        nodeIPAddr=$(./opt/azure/containers/nmagent-primary-ip.py)
+        if [[ "$?" -eq 0 ]]; then
+            if [ -n "$nodeIPAddr" ]; then
+                echo "Setting kubelet --node-ip=$nodeIPAddr from nmagent primary IP"
+                KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIP"
+            fi
         fi
     fi
 
