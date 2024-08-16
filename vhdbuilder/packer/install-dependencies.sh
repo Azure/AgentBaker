@@ -7,15 +7,17 @@ script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 
 declare -a benchmarks=()
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-if [[ "$(echo "${FEATURE_FLAGS}" | tr '[:upper:]' '[:lower:]')" == *"kata"* ]]; then
-  OS+="KATA"
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+  OS=$MARINER_KATA_OS_NAME
 fi
   
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
-UBUNTU_OS_NAME="UBUNTU"
-MARINER_OS_NAME="MARINER"
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 source /home/packer/provision_installs.sh
