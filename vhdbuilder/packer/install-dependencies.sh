@@ -207,7 +207,7 @@ for p in ${packages[*]}; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${isKata}" == "true" ]]; then
-    local os=${MARINER_KATA_OS_NAME}
+    os=${MARINER_KATA_OS_NAME}
   fi
   returnPackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
