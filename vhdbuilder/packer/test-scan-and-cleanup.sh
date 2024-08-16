@@ -64,12 +64,18 @@ done
 wait ${SCRIPT_PIDS[@]}
 
 echo -e "Checking exit codes for each script...\n"
-declare -A SCRIPT_EXIT_CODES
-for PID in "${SCRIPT_PIDS[@]}"; do
+FAIL=false
+for SCRIPT in "${!SCRIPT_PIDS[@]}"; do
+  PID=${SCRIPT_PIDS[$SCRIPT]}
   wait $PID
   EXIT_CODE=$?
   if [ ${EXIT_CODE} -ne 0 ]; then
-    exit 1
+    FAIL=true
   fi
+  echo -e "${SCRIPT} exited with code ${EXIT_CODE}"
 done
+if [ "$FAIL" = true ]; then
+  echo "One or more scripts failed. Exiting with exit code 1."
+  exit 1
+fi
 echo -e "\n\n\nTest, Scan, and Cleanup script completed.\n\n\n"
