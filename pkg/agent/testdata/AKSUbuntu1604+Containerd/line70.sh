@@ -388,6 +388,15 @@ ensureDHCPv6() {
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
+
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
+        nodeIPAddr=$(./opt/azure/containers/nmagent-primary-ip.py)
+        if [[ "$?" -eq 0 && -n "$nodeIPAddr" ]]; then
+            echo "Setting kubelet --node-ip=$nodeIPAddr from nmagent primary IP"
+            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPAddr"
+        fi
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"

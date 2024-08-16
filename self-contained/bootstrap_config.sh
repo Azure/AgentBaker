@@ -396,11 +396,9 @@ ensureKubelet() {
     # If this fails for some reason, skip setting --node-ip; cloud-node-manager will assign it later anyway.
     if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
         nodeIPAddr=$(./opt/azure/containers/nmagent-primary-ip.py)
-        if [[ "$?" -eq 0 ]]; then
-            if [ -n "$nodeIPAddr" ]; then
-                echo "Setting kubelet --node-ip=$nodeIPAddr from nmagent primary IP"
-                KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPAddr"
-            fi
+        if [[ "$?" -eq 0 && -n "$nodeIPAddr" ]]; then
+            echo "Setting kubelet --node-ip=$nodeIPAddr from nmagent primary IP"
+            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPAddr"
         fi
     fi
 
