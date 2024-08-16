@@ -32,11 +32,20 @@ installLatestCurlManuallyIfNotPresent() {
     
     deb_file="/tmp/curl.deb"
     removeCurl || exit $ERR_CURL_REMOVE_TIMEOUT
-    retrycmd_if_failure 10 5 10 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
-    retrycmd_if_failure 10 5 10 tar -xvf $deb_file -C /tmp || exit $ERR_CURL_EXTRACT_TIMEOUT
-    retrycmd_if_failure 10 5 10 apt-get install -y --allow-downgrades libssl1.1=1.1.1-1ubuntu2.1~18.04.23 || exit $ERR_CURL_DOWNGRADE_LIBSSL
-    retrycmd_if_failure 10 5 10 apt-get install -y libssl-dev autoconf libtool || exit $ERR_CURL_DOWNLOAD_DEV_TIMEOUT
-    retrycmd_if_failure 10 5 10 /bin/sh -c -- "cd /tmp/curl-${version} && ./configure --with-ssl && make && make install && cp /usr/local/src/curl-${version}/src/.libs/curl /usr/bin/curl && ldconfig" || exit $ERR_CURL_INSTALL_TIMEOUT
+    retrycmd_if_failure 3 5 5 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 3 5 5 tar -xvf $deb_file -C /tmp || exit $ERR_CURL_EXTRACT_TIMEOUT
+    retrycmd_if_failure 3 5 5 apt-get install -y --allow-downgrades libssl1.1=1.1.1-1ubuntu2.1~18.04.23 || exit $ERR_CURL_DOWNGRADE_LIBSSL
+    retrycmd_if_failure 3 5 5 apt-get install -y libssl-dev autoconf libtool || exit $ERR_CURL_DOWNLOAD_DEV_TIMEOUT
+    cd /tmp/curl-${version}
+    df -h
+    retrycmd_if_failure 3 5 5 ./configure --with-ssl || exit $ERR_CURL_INSTALL_TIMEOUT
+    df -h
+    retrycmd_if_failure 3 5 5 make || exit $ERR_CURL_INSTALL_TIMEOUT
+    df -h
+    retrycmd_if_failure 3 5 5 make install || exit $ERR_CURL_INSTALL_TIMEOUT
+    df -h
+    cp /usr/local/src/curl-${version}/src/.libs/curl /usr/bin/curl || exit $ERR_CURL_INSTALL_TIMEOUT
+    ldconfig || exit $ERR_CURL_INSTALL_TIMEOUT
     curl -V | grep $version || exit $ERR_CURL_VERSION_MISMATCH
     cleanupTMP
 }
