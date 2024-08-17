@@ -7,11 +7,18 @@ script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 
 declare -a benchmarks=()
-
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+IS_KATA="false"
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+  IS_KATA="true"
+fi
+  
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 source /home/packer/provision_installs.sh
@@ -199,10 +206,20 @@ for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
-  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  os=${OS}
+  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+    os=${MARINER_KATA_OS_NAME}
+  fi
+  returnPackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  
+  # if ${PACKAGE_VERSIONS[@]} count is 0, skip to next package
+  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
+    echo "No versions found for package ${name}. Skipping caching/installing..."
+    continue
+  fi
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
