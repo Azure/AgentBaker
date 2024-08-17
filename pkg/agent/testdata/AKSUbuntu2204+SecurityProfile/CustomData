@@ -312,3 +312,9 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAA/5yQQYsaQRCF7/MrKsZDcmjbFSTXDDpBQVeZUQK5NGVPjXbs6Zauko3Z+N/D7uwlq6dcCurx3uPxffygdy7oHfIhYxJQvzKO52QJev3nSVWYWbFYF2Vlvs0XxTrfzK69d4bpvNqUq3u+jOwhQg+gDqyYMNkD9J8n22qzWpqqyMvJzExXy3z+aB7zZXHtwR8QIlAImsTqQPIU01G7IJQatMSDWo+Hyvp4rpULTga22Wd8YaHWijeJWDAJjIYwhochvBW4sM+e0IlpYjJ4EuOjPXKWSNLFtrVxjWnQ+XOil9AYHkZDwJOo/QuPC7jAgt5DIvRtDczcHSUxegbGdofKxraNoXv+lU4XOcQwGnx5k73bMZzQHnFPRyf3lnXc3qMqi3yxNOu8qr6vyukrrddJ8DO6AGp7w7YLbKuivH7tf7pfesM/gUb1W4PO1Q/9Gf4zl/0NAAD///uJhCVYAgAA
+- path: /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    [host."https://testserver.azurecr.io"]
+      capabilities = ["pull", "resolve"]
