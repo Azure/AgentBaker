@@ -47,12 +47,12 @@
       "matchStrings": [
         "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "datasourceTemplate": "custom.runc_containerd",
+      "datasourceTemplate": "custom.runc_containerd123",
       "versioningTemplate": "semver-coerced"
     }
   ],
   "customDatasources": {
-    "runc_containerd": {
+    "runc_containerd123": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
