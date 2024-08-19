@@ -36,9 +36,10 @@ package components
 }
 
 #DownloadURIs: {
-	default?: #DefaultOSDistro
-	ubuntu?:  #UbuntuOSDistro
-	mariner?: #MarinerOSDistro
+	default?:      #DefaultOSDistro
+	ubuntu?:       #UbuntuOSDistro
+	mariner?:      #MarinerOSDistro
+	marinerkata?:  #MarinerOSDistro
 }
 
 #Package: {
