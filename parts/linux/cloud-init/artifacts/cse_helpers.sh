@@ -479,7 +479,7 @@ process_benchmarks() {
   
   # create script object from data held in the section array for the overall script
   # each section object within the script will later be appended to this script object
-  script_object=$(jq -n --arg script_name "$(basename $0)" --arg total_time_elapsed "${script_stats[0]}" '{($script_name): {"overall": {"total_time_elapsed": $total_time_elapsed}}}')
+  script_object=$(jq -n --arg script_name "$(basename $0)" --arg total_time_elapsed "${script_stats[0]}" '{($script_name): "overall": $total_time_elapsed}')
 
   unset script_stats[@]
   unset -n script_stats
