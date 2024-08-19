@@ -120,4 +120,4 @@ build-lister-binary:
 
 build-cacher-binary:
 	@echo "${MODE}: Building cacher binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/cacher && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/cacher cmd/cacher/main && popd"
+	@bash -c "pushd vhdbuilder/cacher/cmd/cacher && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o ../../bin/cacher main.go && popd"
