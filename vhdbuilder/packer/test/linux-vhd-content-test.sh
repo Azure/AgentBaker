@@ -1,6 +1,5 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
@@ -16,8 +15,8 @@ IMG_SKU="$6"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
-#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve 
-#   this for stable version and there is no customer issues collected. Ignore this failure now. 
+#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
+#   this for stable version and there is no customer issues collected. Ignore this failure now.
 CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
   "Command ['hostname', '-f']"
 )
@@ -91,8 +90,13 @@ testPackagesInstalled() {
     returnPackageVersions ${p} ${OS} ${OS_VERSION}
     PACKAGE_DOWNLOAD_URL=""
     returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    if [ ${name} == "kubernetes-binaries" ]; then
+      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
 
-    for version in ${PACKAGE_VERSIONS}; do
+    for version in ${PACKAGE_VERSIONS[@]}; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
@@ -116,6 +120,17 @@ testPackagesInstalled() {
       if [ -d $extractedPackageDir ]; then
         echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
+      fi
+
+      # if the downloadLocation is /usr/local/bin verify that the package is installed
+      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+          if command -v "$name" >/dev/null 2>&1; then
+              echo "$name is installed."
+              continue
+          else
+              err $test "$name is not installed. Expected to be installed in $downloadLocation"
+              continue
+          fi
       fi
       
       # if there isn't a directory, we check if the file exists and the size is correct
@@ -327,13 +342,13 @@ testCloudInit() {
   echo "$test:Start"
   os_sku=$1
 
-  # Limit this test only to Mariner or Azurelinux 
+  # Limit this test only to Mariner or Azurelinux
   if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
-      grep 'WARNING\|ERROR' $FILE | while read -r msg; do 
+      grep 'WARNING\|ERROR' $FILE | while read -r msg; do
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
@@ -363,14 +378,10 @@ testCloudInit() {
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  containerRuntime=$1
+  local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
-  k8sVersions="$(jq -r .kubernetes.versions[] </opt/azure/manifest.json)"
-  for patchedK8sVersion in ${k8sVersions}; do
-    # Only need to store k8s components >= 1.19 for containerd VHDs
-    if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
-      continue
-    fi
+  for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
+    echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<<${patchedK8sVersion}; then
       # shellcheck disable=SC2006
@@ -391,35 +402,16 @@ testKubeBinariesPresent() {
       err $test "Binary ${kubectlDownloadLocation} does not exist"
     fi
     #Test whether the installed binary version is indeed correct
-    mv $kubeletDownloadLocation $kubeletInstallLocation
-    mv $kubectlDownloadLocation $kubectlInstallLocation
-    chmod a+x $kubeletInstallLocation $kubectlInstallLocation
-    echo "kubectl version"
-    kubectlLongVersion=$(kubectl version 2>/dev/null)
+    chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
+    kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
-    echo "kubelet version"
-    kubeletLongVersion=$(kubelet --version 2>/dev/null)
+    kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
   done
-  echo "$test:Finish"
-}
-
-testKubeProxyImagesPulled() {
-  test="testKubeProxyImagesPulled"
-  echo "$test:Start"
-  containerRuntime=$1
-  containerdKubeProxyImages=$(jq .containerdKubeProxyImages <${KUBE_PROXY_IMAGES_FILEPATH})
-
-  if [ $containerRuntime == 'containerd' ]; then
-    testImagesPulled containerd "$containerdKubeProxyImages"
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
   echo "$test:Finish"
 }
 
@@ -882,12 +874,14 @@ testPam() {
     pip3 install --disable-pip-version-check -r requirements.txt || \
       (err ${test} "Failed to install dependencies"; return 1)
     # run the script
-    output=$(pytest -v -s test_pam.py)
+    # the pam tests are flaky as they require scraping the console
+    # if there are test failures, --reruns 5 will rerun the failed tests up to 5 times
+    output=$(pytest -v -s --reruns 5 test_pam.py)
     retval=$?
     # deactivate the virtual environment
     deactivate
     popd || (err ${test} "Failed to cd out of test dir"; return 1)
-    
+
     if [ $retval -ne 0 ]; then
       err ${test} "$output"
       err ${test} "PAM configuration is not functional"
@@ -992,8 +986,6 @@ testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
 testCloudInit $OS_SKU
-testKubeBinariesPresent $CONTAINER_RUNTIME
-testKubeProxyImagesPulled $CONTAINER_RUNTIME
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.

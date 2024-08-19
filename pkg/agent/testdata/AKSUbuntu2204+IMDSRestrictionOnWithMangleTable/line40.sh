@@ -4,6 +4,7 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
+#TODO pull this out of componetns.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
@@ -43,10 +44,15 @@ installContainerdWithComponentsJson() {
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
         os_version="current"
+    else
+        os_version="${UBUNTU_RELEASE}"
     fi
-    os_version="${UBUNTU_RELEASE}"
+    
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
     returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
     #Containerd's versions array is expected to have only one element.
@@ -54,13 +60,17 @@ installContainerdWithComponentsJson() {
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
     fi
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+        echo "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+        return 0
+    fi
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
     array_size=${#sortedPackageVersions[@]}
     [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
     packageVersion=${sortedPackageVersions[${last_index}]}
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -f2)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
@@ -109,17 +119,10 @@ installNetworkPlugin() {
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         installAzureCNI
     fi
-    installCNI
-    rm -rf $CNI_DOWNLOADS_DIR &
+    installCNI #reference plugins. Mostly for kubenet but loopback plugin is used by containerd until containerd 2
+    rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
-downloadCNI() {
-    downloadDir=${1:-${CNI_DOWNLOADS_DIR}}
-    mkdir -p $downloadDir
-    CNI_PLUGINS_URL=${2:-$CNI_PLUGINS_URL}
-    cniTgzTmp=${CNI_PLUGINS_URL##*/}
-    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-}
 
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
@@ -183,6 +186,30 @@ downloadContainerdWasmShims() {
             chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
         fi
     done
+}
+
+installOras() {
+    ORAS_DOWNLOAD_DIR="/opt/oras/downloads"
+    ORAS_EXTRACTED_DIR=${1} 
+    ORAS_DOWNLOAD_URL=${2}
+    ORAS_VERSION=${3}
+
+    mkdir -p $ORAS_DOWNLOAD_DIR
+
+    echo "Installing Oras version $ORAS_VERSION..."
+    ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin #
+    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
+
+    if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
+        echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
+        exit $ERR_ORAS_DOWNLOAD_ERROR
+    fi
+
+    echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
+    sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
+    rm -r "$ORAS_DOWNLOAD_DIR"
+    echo "Oras version $ORAS_VERSION installed successfully."
+
 }
 
 evalPackageDownloadURL() {
@@ -280,18 +307,51 @@ setupCNIDirs() {
     chmod 755 $CNI_CONFIG_DIR
 }
 
+
 installCNI() {
-    CNI_TGZ_TMP=${CNI_PLUGINS_URL##*/} # Use bash builtin #
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}    
 
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+        return 
+    fi
+   
+    #always just use what is listed in components.json so we don't have to sync.
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+    
+    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
+    os=${UBUNTU_OS_NAME} 
+    if [[ -z "$UBUNTU_RELEASE" ]]; then
+        os=${MARINER_OS_NAME}
+        os_version="current"
+    fi
+    os_version="${UBUNTU_RELEASE}"
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
+    PACKAGE_VERSIONS=()
+    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
+    
+    #should change to ne
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    packageVersion=${PACKAGE_VERSIONS[0]}
+
+    if [[ $(isARM64) == 1 ]]; then 
+        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
+    else 
+        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
+    fi
+    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
-        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            logs_to_events "AKS.CSE.installCNI.downloadCNI" downloadCNI
-        fi
-
-        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+        echo "CNI tarball should already be unzipped by components.json"
+        exit $ERR_CNI_VERSION_INVALID
     fi
 
     chown -R root:root $CNI_BIN_DIR
@@ -318,6 +378,7 @@ extractKubeBinaries() {
     local k8s_version="$1"
     local kube_binary_url="$2"
     local is_private_url="$3"
+    local k8s_downloads_dir="$4"
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
@@ -332,8 +393,8 @@ extractKubeBinaries() {
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        k8s_tgz_tmp="${K8S_DOWNLOADS_DIR}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${K8S_DOWNLOADS_DIR}
+        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
+        mkdir -p ${k8s_downloads_dir}
 
         retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
         if [[ ! -f ${k8s_tgz_tmp} ]]; then
@@ -387,11 +448,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure_nostdout 2 1 120 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 60 1 1200 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 

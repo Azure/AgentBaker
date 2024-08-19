@@ -1,12 +1,11 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer: build-nbcparser-all
-ifeq (${MODE},linuxVhdMode)
-	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
-	@echo "${MODE}: Building cacher"
-	@bash -c "pushd vhdbuilder/cacher; make build; popd"
+GOARCH=amd64
+ifeq (${ARCHITECTURE},ARM64)
+	GOARCH=arm64
 endif
+
+build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary build-cacher-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -101,6 +100,12 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
+generate-prefetch-scripts:
+ifeq (${MODE},linuxVhdMode)
+	@echo "${MODE}: Generating prefetch scripts"
+	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+endif
+
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
@@ -108,3 +113,11 @@ build-nbcparser-all:
 build-nbcparser-binary:
 	@echo "Building nbcparser binary"
 	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
+
+build-lister-binary:
+	@echo "Building lister binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
+
+build-cacher-binary:
+	@echo "${MODE}: Building cacher binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/cacher && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/cacher cmd/cacher/main && popd"

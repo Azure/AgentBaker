@@ -131,8 +131,7 @@ if [ "$MODE" != "linuxVhdMode" ]; then
 		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
 		az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
 		echo "creating new container system"
-		key=$(az storage account keys list -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME | jq -r '.[0].value')
-		az storage container create --name system --account-key=$key --account-name=$STORAGE_ACCOUNT_NAME
+		az storage container create --name system --account-name=$STORAGE_ACCOUNT_NAME --auth-mode login
 	else
 		echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
 	fi
@@ -181,12 +180,66 @@ echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG
 # If we're building a Linux VHD or we're building a windows VHD in windowsVhdMode, ensure SIG resources
 if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	echo "SIG existence checking for $MODE"
-	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
-	if [ -z "$id" ]; then
+
+	is_need_create=true
+	state=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} | jq -r '.provisioningState') || state=""
+
+	# {
+	#   "description": null,
+	#   "id": "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.Compute/galleries/WSGallery240719",
+	#   "identifier": {
+	#     "uniqueName": "xxx-WSGALLERY240719"
+	#   },
+	#   "location": "eastus",
+	#   "name": "WSGallery240719",
+	#   "provisioningState": "Failed",
+	#   "resourceGroup": "xxx",
+	#   "sharingProfile": null,
+	#   "sharingStatus": null,
+	#   "softDeletePolicy": null,
+	#   "tags": {},
+	#   "type": "Microsoft.Compute/galleries"
+	# }
+	if [ -n "$state" ]; then
+		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+
+		if [[ $state == "Failed" ]]; then
+			echo "Gallery ${SIG_GALLERY_NAME} is in a failed state, deleting and recreating"
+
+			image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq -r '.[] | select(.osType == "Windows").name')
+			for image_definition in $image_defs; do
+				echo "Finding sig image versions associated with ${image_definition} in gallery ${SIG_GALLERY_NAME}"
+				image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq -r '.[].name')
+				for image_version in $image_versions; do
+					echo "Deleting sig image-version ${image_version} ${image_definition} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+					az sig image-version delete -e $image_version -i ${image_definition} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --no-wait false
+				done
+				image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq -r '.[].name')
+				echo "image versions are $image_versions"
+				if [[ -z "${image_versions}" ]]; then
+					echo "Deleting sig image-definition ${image_definition} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+					az sig image-definition delete --gallery-image-definition ${image_definition} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --no-wait false
+				fi
+			done
+			image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq -r '.[] | select(.osType == "Windows").name')
+
+			if [[ -n $image_defs ]]; then
+				echo $image_defs
+			fi
+
+			echo "Deleting gallery ${gallery}"
+			az sig delete --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --no-wait false
+
+			is_need_create=true
+		else
+			echo "Gallery ${SIG_GALLERY_NAME} is in a $state state"
+			is_need_create=false
+		fi
+	fi
+
+	if $is_need_create ; then
 		echo "Creating gallery ${SIG_GALLERY_NAME} in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
 		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
-	else
-		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
 	fi
 
 	id=$(az sig image-definition show \

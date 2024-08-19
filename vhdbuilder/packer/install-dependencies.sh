@@ -7,11 +7,18 @@ script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 
 declare -a benchmarks=()
-
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+IS_KATA="false"
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+  IS_KATA="true"
+fi
+  
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 source /home/packer/provision_installs.sh
@@ -165,15 +172,8 @@ if [[ $OS == $MARINER_OS_NAME ]]; then
     activateNfConntrack
 fi
 
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
-echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
-
-# doing this at vhd allows CSE to be faster with just mv
-unpackAzureCNI() {
+# doing this at vhd allows CSE to be faster with just mv 
+unpackTgzToCNIDownloadsDIR() {
   local URL=$1
   CNI_TGZ_TMP=${URL##*/}
   CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}
@@ -183,20 +183,48 @@ unpackAzureCNI() {
   echo "  - Ran tar -xzf on the CNI downloaded then rm -rf to clean up"
 }
 
+#this is the reference cni it is only ever downloaded in caching for build not at provisioning time
+#but conceptually it is very similiar to downloadAzureCNI in that it takes a url and puts in CNI_DOWNLOADS_DIR
+downloadCNI() {
+    downloadDir=${1}
+    mkdir -p $downloadDir
+    CNI_PLUGINS_URL=${2}
+    cniTgzTmp=${CNI_PLUGINS_URL##*/}
+    retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+}
+
+
+downloadContainerdWasmShims
+echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
-  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  os=${OS}
+  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+    os=${MARINER_KATA_OS_NAME}
+  fi
+  returnPackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
-  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
+  echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  
+  # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
+  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+    echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
+    continue
+  fi
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCrictl "${downloadDir}" "${evaluatedURL}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -207,30 +235,30 @@ for p in ${packages[*]}; do
       done
       ;;
     "azure-cni")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackAzureCNI "${evaluatedURL}"
+        unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "cni-plugins")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackAzureCNI "${evaluatedURL}"
+        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
         echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "runc")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
         echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     "containerd")
-      for version in $PACKAGE_VERSIONS; do
+      for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
@@ -238,6 +266,27 @@ for p in ${packages[*]}; do
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "oras")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+        # ORAS will be used to install other packages for network isolated clusters, it must go first.
+      done
+      ;;
+    "kubernetes-binaries")
+      # kubelet and kubectl
+      # need to cover previously supported version for VMAS scale up scenario
+      # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
+      # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
+      # Please do not use the .1 suffix, because that's only for the base image patches
+      # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -291,11 +340,11 @@ capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-2d4c96"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.54.15-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-b40b85"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.07-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
-  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG > /dev/null
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
@@ -402,7 +451,7 @@ capture_benchmark "configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
-v0.13.0.7
+v0.14.5
 "
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
@@ -418,7 +467,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   DEST="/usr/local/nvidia/bin"
   mkdir -p $DEST
-  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.14.5" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
   chmod a+x $DEST/nvidia-device-plugin
   echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
@@ -455,34 +504,8 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-# this is used by kube-proxy and need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we keep multiple files per k8s patch version as kubeproxy version is decided by CCP.
 
-# kube-proxy regular versions >=v1.17.0  hotfixes versions >= 20211009 are 'multi-arch'. All versions in kube-proxy-images.json are 'multi-arch' version now.
-
-KUBE_PROXY_IMAGE_VERSIONS=$(jq -r '.containerdKubeProxyImages.ContainerImages[0].multiArchVersions[]' <"$THIS_DIR/kube-proxy-images.json")
-
-declare -a kube_proxy_pids=()
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-  kube_proxy_pids+=($!)
-  while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
-      wait -n
-  done
-done
-wait ${kube_proxy_pids[@]} # Wait for all parallel pulls to finish
-
-for KUBE_PROXY_IMAGE_VERSION in ${KUBE_PROXY_IMAGE_VERSIONS}; do
-  CONTAINER_IMAGE="mcr.microsoft.com/oss/kubernetes/kube-proxy:v${KUBE_PROXY_IMAGE_VERSION}"
-  ctr --namespace k8s.io run --rm ${CONTAINER_IMAGE} checkTask /bin/sh -c "iptables --version" | grep -v nf_tables && echo "kube-proxy contains no nf_tables"
-
-  # shellcheck disable=SC2181
-  echo "  - ${CONTAINER_IMAGE}" >>${VHD_LOGS_FILEPATH}
-done
-capture_benchmark "configure_telemetry_create_logging_directory_and_download_kubeproxy_images"
+capture_benchmark "configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -546,21 +569,7 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
-# kubelet and kubectl
-# need to cover previously supported version for VMAS scale up scenario
-# So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-# NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-# Please do not use the .1 suffix, because that's only for the base image patches
-# regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-KUBE_BINARY_VERSIONS="$(jq -r .kubernetes.versions[] manifest.json)"
-
-for PATCHED_KUBE_BINARY_VERSION in ${KUBE_BINARY_VERSIONS}; do
-  KUBERNETES_VERSION=$(echo ${PATCHED_KUBE_BINARY_VERSION} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
-  extractKubeBinaries $KUBERNETES_VERSION "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz" false
-done
-
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
-capture_benchmark "download_kubernetes_binaries"
 echo "install-dependencies step completed successfully"
 capture_benchmark "overall_script" true
 process_benchmarks

@@ -89,7 +89,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "nodepool2",
-						VMSize:              "Standard_DS1_v2",
+						VMSize:              "Standard_D2ds_v5",
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
 						DNSPrefix:           "",
@@ -261,7 +261,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
-			VMSize:              "Standard_DS1_v2",
+			VMSize:              "Standard_D2ds_v5",
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",
 			DNSPrefix:           "",
@@ -451,12 +451,16 @@ func getNginxPodTemplate(nodeName string) string {
 kind: Pod
 metadata:
   name: %[1]s-nginx
-  namespace: default
 spec:
   containers:
   - name: nginx
     image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
     imagePullPolicy: IfNotPresent
+    readinessProbe:
+      periodSeconds: 1
+      httpGet:
+        path: /
+        port: 80
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)
@@ -467,7 +471,6 @@ func getWasmSpinPodTemplate(nodeName string) string {
 kind: Pod
 metadata:
   name: %[1]s-wasm-spin
-  namespace: default
 spec:
   runtimeClassName: wasmtime-spin
   containers:
@@ -482,31 +485,11 @@ spec:
       requests:
         cpu: 100m
         memory: 128Mi
-  nodeSelector:
-    kubernetes.io/hostname: %[1]s
-`, nodeName)
-}
-
-func getWasmSlightPodTemplate(nodeName string) string {
-	return fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %[1]s-wasm-slight
-  namespace: default
-spec:
-  runtimeClassName: wasmtime-slight
-  containers:
-  - name: slight-hello
-    image: ghcr.io/deislabs/containerd-wasm-shims/examples/slight-rust-hello:v0.5.1
-    imagePullPolicy: IfNotPresent
-    command: ["/"]
-    resources: # limit the resources to 128Mi of memory and 100m of CPU
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+    readinessProbe:
+      periodSeconds: 1
+      httpGet:
+        path: /hello
+        port: 80
   nodeSelector:
     kubernetes.io/hostname: %[1]s
 `, nodeName)

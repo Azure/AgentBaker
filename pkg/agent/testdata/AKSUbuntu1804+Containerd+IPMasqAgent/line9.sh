@@ -28,6 +28,7 @@ ERR_CONTAINERD_VERSION_INVALID=39
 ERR_CNI_DOWNLOAD_TIMEOUT=41 
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 
+ERR_ORAS_DOWNLOAD_ERROR=45 
 ERR_SYSTEMD_INSTALL_FAIL=48 
 ERR_MODPROBE_FAIL=49 
 ERR_OUTBOUND_CONN_FAIL=50 
@@ -102,10 +103,18 @@ ERR_SYSTEMCTL_MASK_FAIL=2
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+ERR_CNI_VERSION_INVALID=206 
+
+if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+else
+    echo "/etc/*-release not found"
+fi
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
@@ -127,6 +136,19 @@ retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+retrycmd_if_failure_nostdout() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" > /dev/null && break || \
         if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
@@ -394,7 +416,10 @@ check_array_size() {
 
 capture_benchmark() {
   set +x
-  benchmarks+=($1)
+  local title="$1"
+  title="${title//[[:space:]]/_}"
+  title="${title//-/_}"
+  benchmarks+=($title)
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
@@ -470,7 +495,7 @@ returnRelease() {
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
+    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" ]]; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
@@ -485,10 +510,14 @@ returnPackageVersions() {
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
 
     #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        if jq -e ".downloadURIs.${osLowerCase}.${RELEASE}.versions | length == 0" <<< "${package}" > /dev/null; then
+            return
+        fi
         versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
         for version in ${versions[@]}; do
             PACKAGE_VERSIONS+=("${version}")

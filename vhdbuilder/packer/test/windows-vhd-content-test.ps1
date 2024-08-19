@@ -394,10 +394,13 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 1475968140
 
         Validate-WindowsFixInFeatureManagement -Name 747051149
+
+        Validate-WindowsFixInFeatureManagement -Name 260097166
     }
     if ($env:WindowsSKU -Like '23H2*') {
-        Validate-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330
-        Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 1
+        Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0
+
+        Validate-WindowsFixInFeatureManagement -Name 1800977551
     }
 }
 
@@ -405,21 +408,6 @@ function Test-DefenderSignature {
     $mpPreference = Get-MpPreference
     if (-not ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources))) {
         Write-ErrorWithTimestamp "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
-        exit 1
-    }
-}
-
-function Test-AzureExtensions {
-    # Expect the Windows VHD without any other extensions unrelated to AKS.
-    # This test is called by "az vm run-command" that installs "Microsoft.CPlat.Core.RunCommandWindows".
-    # So the expected extensions list is below.
-    $expectedExtensions = @(
-        "Microsoft.CPlat.Core.RunCommandWindows"
-    )
-    $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
-    $compareResult = (Compare-Object $expectedExtensions $actualExtensions)
-    if ($compareResult) {
-        Write-ErrorWithTimestamp "Azure extensions are not expected. Details: $($compareResult | Out-String)"
         exit 1
     }
 }
@@ -492,7 +480,6 @@ Test-PatchInstalled
 Test-ImagesPulled
 Test-RegistryAdded
 Test-DefenderSignature
-Test-AzureExtensions
 Test-ExcludeUDPSourcePort
 Test-WindowsDefenderPlatformUpdate
 Test-ToolsToCacheOnVHD

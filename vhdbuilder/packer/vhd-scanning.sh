@@ -4,11 +4,15 @@ set -eux
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 TEST_RESOURCE_PREFIX="vhd-scanning"
-VM_NAME="$TEST_RESOURCE_PREFIX-vm"
+VM_NAME="$TEST_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
 TEST_VM_ADMIN_USERNAME="azureuser"
+
+# we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
+VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+SUBNET_NAME="scanning"
 
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
 # We must be sure this location matches the location used by packer when delivering the output image
@@ -16,7 +20,14 @@ TEST_VM_ADMIN_USERNAME="azureuser"
 if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
     exit 1
-fi 
+fi
+
+# We assign this identity to the scanning VM so that it has permission
+# to push the trivy output to the storage blob.
+if [ -z "$SCANNING_MSI_RESOURCE_ID" ]; then
+    echo "SCANNING_MSI_RESOURCE_ID must be set to run VHD scanning"
+    exit 1
+fi
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
@@ -49,19 +60,13 @@ fi
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-
-    if [ -n "${VM_PRINCIPLE_ID}" ]; then
-        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
-        echo "Role assignment deleted."
-    fi 
 }
 trap cleanup EXIT
 
-VM_OPTIONS="--size Standard_DS1_v2"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    VM_OPTIONS="--size Standard_D2pds_v5"
-elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
-    VM_OPTIONS="--size Standard_D4ds_v5"
+    VM_OPTIONS="--size Standard_D2pds_V5"
+else
+    VM_OPTIONS="--size Standard_D2ds_v5"
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
@@ -71,14 +76,13 @@ fi
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
+    --vnet-name $VNET_NAME \
+    --subnet $SUBNET_NAME \
     --admin-username $TEST_VM_ADMIN_USERNAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "[system]"
-
-VM_PRINCIPLE_ID=$(az vm identity show --name $VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
+    --assign-identity "${SCANNING_MSI_RESOURCE_ID}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)

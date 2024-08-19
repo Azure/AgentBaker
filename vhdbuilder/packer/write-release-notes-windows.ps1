@@ -131,7 +131,6 @@ $wuRegistryNames = @(
     "HnsPreallocatePortRange",
     "4154935436",
     "124082829",
-    "NamespaceExcludedUdpPorts",
     "PortExclusionChange",
     "2290715789",
     "3152880268",
@@ -150,7 +149,9 @@ $wuRegistryNames = @(
     "2540111500",
     "50261647",
     "1475968140",
-    "747051149"
+    "747051149",
+    "260097166",
+    "1800977551"
 )
 
 foreach ($key in $wuRegistryKeys) {
@@ -158,9 +159,9 @@ foreach ($key in $wuRegistryKeys) {
     if ($($systemInfo.CurrentBuildNumber) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers") {
         continue
     }
-    Log ("`t{0}" -f $key)
     $regPath=(Get-Item -Path $key -ErrorAction Ignore)
     if ($regPath) {
+        Log ("`t{0}" -f $key)
         Get-Item -Path $key |
         Select-Object -ExpandProperty property |
         ForEach-Object {
@@ -168,8 +169,6 @@ foreach ($key in $wuRegistryKeys) {
                 Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
             }
         }
-    } else {
-        Log "$key doesn't exist in current OS."
     }
 }
 Log ""

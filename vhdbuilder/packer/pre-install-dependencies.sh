@@ -29,11 +29,9 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
 VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
-cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 echo '[]' > ${VHD_BUILD_PERF_DATA}
 
@@ -101,22 +99,14 @@ else
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
 
-  # CVM breaks on kernel image updates due to nullboot package post-install.
-  # it relies on boot measurements from real tpm hardware.
-  # building on a real CVM would solve this, but packer doesn't support it.
-  # we could make upstream changes but that takes time, and we are broken now.
-  # so we just hold the kernel image packages for now on CVM.
-  # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
-    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
-    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
-    # Therefore keeping this to 22.04 only for now
-    if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
-      sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
-    fi
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+  # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
+  # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
+  # Therefore keeping this to 22.04 only for now
+  if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+    sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
   fi
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
@@ -142,7 +132,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   # Install lts-22.04 kernel
   DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
-  
+
   update-grub
 fi
 capture_benchmark "handle_azureLinux_and_cgroupV2"

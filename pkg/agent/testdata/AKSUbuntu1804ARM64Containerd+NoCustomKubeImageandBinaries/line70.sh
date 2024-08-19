@@ -128,6 +128,7 @@ configureHTTPProxyCA() {
         cert_dest="/usr/local/share/ca-certificates"
         update_cmd="update-ca-certificates"
     fi
+    HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
     echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
     $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
@@ -507,6 +508,7 @@ EOF
 #
 #
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 EOF
 
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
@@ -619,7 +621,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG > /dev/null
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then

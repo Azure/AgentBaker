@@ -30,6 +30,7 @@ ERR_CNI_DOWNLOAD_TIMEOUT=41 # Timeout waiting for CNI downloads
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 # Failed to add repo pkg file
 # ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED
+ERR_ORAS_DOWNLOAD_ERROR=45 # Unable to install oras
 ERR_SYSTEMD_INSTALL_FAIL=48 # Unable to install required systemd version
 ERR_MODPROBE_FAIL=49 # Unable to load a kernel module using modprobe
 ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
@@ -106,10 +107,22 @@ ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid version in components.json
+
+# For both Ubuntu and Mariner, /etc/*-release should exist.
+# For unit tests, the OS and OS_VERSION will be set in the unit test script.
+# So whether it's if or else actually doesn't matter to our unit test.
+if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+else
+# This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
+    echo "/etc/*-release not found"
+fi
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -135,6 +148,19 @@ retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+retrycmd_if_failure_nostdout() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" > /dev/null && break || \
         if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
@@ -413,7 +439,10 @@ check_array_size() {
 
 capture_benchmark() {
   set +x
-  benchmarks+=($1)
+  local title="$1"
+  title="${title//[[:space:]]/_}"
+  title="${title//-/_}"
+  benchmarks+=($title)
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   # use nameref variable to hold the current section's array for later reference
   declare -n current_section="${benchmarks[last_index]}"
@@ -498,7 +527,7 @@ returnRelease() {
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
+    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" ]]; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
@@ -513,10 +542,15 @@ returnPackageVersions() {
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
 
     #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        # Check if there are any versions available for the specific OS
+        if jq -e ".downloadURIs.${osLowerCase}.${RELEASE}.versions | length == 0" <<< "${package}" > /dev/null; then
+            return
+        fi
         versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
         for version in ${versions[@]}; do
             PACKAGE_VERSIONS+=("${version}")

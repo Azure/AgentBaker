@@ -392,12 +392,15 @@ write_files:
     # for TCP protocol (which http uses)
     #
     # 168.63.129.16 contains protected settings that have priviledged info.
+    # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.  
+    # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
     #
     # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
     #
     # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
     # for DNS.
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
@@ -412,3 +415,13 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+{{- if (ne GetBootstrapProfileContainerRegistryServer "") }}
+# TODO(binxi): need to update for sovereign cloud.
+- path: /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
+      capabilities = ["pull", "resolve"]
+{{- end}}

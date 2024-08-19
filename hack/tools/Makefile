@@ -25,8 +25,8 @@ $(LOCALBIN)/buf:
 
 $(LOCALBIN)/shellspec:
 	cd $(LOCALBIN) && \
-	git clone https://github.com/shellspec/shellspec.git ./Shellspec/ && \
-	ln -s $(LOCALBIN)/Shellspec/shellspec $(LOCALBIN)/
+	git clone https://github.com/shellspec/shellspec.git ./shellspecsrc/ && \
+	ln -s $(LOCALBIN)/shellspecsrc/shellspec $(LOCALBIN)/
 
 .PHONY: reload
 reload: clean install

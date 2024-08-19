@@ -134,6 +134,7 @@ configureHTTPProxyCA() {
         cert_dest="/usr/local/share/ca-certificates"
         update_cmd="update-ca-certificates"
     fi
+    HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
     echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
     $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
@@ -517,12 +518,15 @@ EOF
 # for TCP protocol (which http uses)
 #
 # 168.63.129.16 contains protected settings that have priviledged info.
+# HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.
+# IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
 #
 # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
 #
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 EOF
 
     # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
@@ -640,7 +644,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG > /dev/null
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then

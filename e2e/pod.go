@@ -3,8 +3,10 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
 
-	"github.com/Azure/agentbakere2e/cluster"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -12,10 +14,15 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	hostNetworkDebugAppLabel = "debug"
+	podNetworkDebugAppLabel  = "debugnonhost"
+)
+
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getDebugPodName(kube *cluster.Kubeclient) (string, error) {
+func getDebugPodName(ctx context.Context, kube *Kubeclient, appLabel string) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(context.Background(), &podList, client.MatchingLabels{"app": "debug"}); err != nil {
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": appLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
 
@@ -27,37 +34,33 @@ func getDebugPodName(kube *cluster.Kubeclient) (string, error) {
 	return podName, nil
 }
 
-func getPodIP(ctx context.Context, kube *cluster.Kubeclient, namespaceName, podName string) (string, error) {
-	pod, err := kube.Typed.CoreV1().Pods(namespaceName).Get(ctx, podName, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("unable to get pod %s/%s: %w", namespaceName, podName, err)
+// Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
+// the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
+func findDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, labelName, vmssName string) (string, error) {
+	podList := corev1.PodList{}
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": labelName}); err != nil {
+		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
-	return pod.Status.PodIP, nil
+
+	if len(podList.Items) < 1 {
+		return "", fmt.Errorf("failed to find debug pod, list by selector returned no results")
+	}
+
+	for _, pod := range podList.Items {
+		if strings.Contains(pod.Spec.NodeName, vmssName) {
+			return pod.Name, nil
+		}
+	}
+	return "", fmt.Errorf("failed to find non host debug pod on node %s", vmssName)
 }
 
-func ensureTestNginxPod(ctx context.Context, kube *cluster.Kubeclient, nodeName string) (string, error) {
-	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
-	nginxPodManifest := getNginxPodTemplate(nodeName)
-	if err := ensurePod(ctx, kube, nginxPodName, nginxPodManifest); err != nil {
-		return "", fmt.Errorf("failed to ensure test nginx pod %q: %w", nginxPodName, err)
-	}
-	return nginxPodName, nil
-}
-
-func ensureWasmPods(ctx context.Context, kube *cluster.Kubeclient, nodeName string) (string, error) {
-	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
-	spinPodManifest := getWasmSpinPodTemplate(nodeName)
-	if err := ensurePod(ctx, kube, spinPodName, spinPodManifest); err != nil {
-		return "", fmt.Errorf("failed to ensure wasm spin pod %q: %w", spinPodName, err)
-	}
-	return spinPodName, nil
-}
-
-func applyPodManifest(ctx context.Context, kube *cluster.Kubeclient, manifest string) error {
+func applyPodManifest(ctx context.Context, namespace string, kube *Kubeclient, manifest string) error {
 	var podObj corev1.Pod
 	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
 		return fmt.Errorf("failed to unmarshal Pod manifest: %w", err)
 	}
+
+	podObj.Namespace = namespace
 
 	desired := podObj.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &podObj, func() error {
@@ -72,12 +75,21 @@ func applyPodManifest(ctx context.Context, kube *cluster.Kubeclient, manifest st
 	return nil
 }
 
-func ensurePod(ctx context.Context, kube *cluster.Kubeclient, podName, manifest string) error {
-	if err := applyPodManifest(ctx, kube, manifest); err != nil {
+func ensurePod(ctx context.Context, t *testing.T, namespace string, kube *Kubeclient, podName, manifest string) error {
+	if err := applyPodManifest(ctx, namespace, kube, manifest); err != nil {
 		return fmt.Errorf("failed to ensure pod: %w", err)
 	}
-	if err := waitUntilPodRunning(ctx, kube, podName); err != nil {
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+		defer cancel()
+		err := kube.Typed.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
+		if err != nil {
+			t.Logf("couldn't not delete pod %s: %v", podName, err)
+		}
+	})
+	if err := waitUntilPodReady(ctx, kube, podName); err != nil {
 		return fmt.Errorf("failed to wait for pod to be in running state: %w", err)
 	}
+
 	return nil
 }
