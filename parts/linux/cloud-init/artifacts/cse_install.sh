@@ -344,7 +344,7 @@ installCNI() {
     #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
-        os=${MARINER_OS_NAME}
+        os=${OS}
         os_version="current"
     fi
     os_version="${UBUNTU_RELEASE}"
