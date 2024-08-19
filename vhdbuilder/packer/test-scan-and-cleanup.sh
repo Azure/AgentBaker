@@ -46,7 +46,7 @@ else
   echo -e "\n\nSkipping tests for CVM 20.04"
 fi
 
-if [ "$OS_VERSION" != "18.04" ] && [ "$IMG_SKU" != "azure-linux-3" ]; then
+if [ "$OS_VERSION" != "18.04" ] && [ "$OS_VERSION" != "V3" ]; then
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
   # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
