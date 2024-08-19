@@ -449,6 +449,7 @@ capture_benchmark() {
   else
     local start_time=$section_start_stopwatch
   fi
+  
   total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
   benchmarks[$title]=${total_time_elapsed}
   benchmarks_order+=($title) # use this array to maintain order of benchmarks
