@@ -215,9 +215,9 @@ for p in ${packages[*]}; do
   returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
   
-  # if ${PACKAGE_VERSIONS[@]} count is 0, skip to next package
-  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 ]]; then
-    echo "No versions found for package ${name}. Skipping caching/installing..."
+  # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
+  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+    echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
