@@ -19,12 +19,17 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:   "ComponentsPath is empty",
-			config: &Config{},
+			config: &Config{ComponentsPath: "", ImagePullParallelism: 1},
 			err:    fmt.Errorf("--components-path must be specified"),
 		},
 		{
-			name:   "ComponentsPath is non-empty",
-			config: &Config{ComponentsPath: "path"},
+			name:   "ImagePullParallelism is < 1",
+			config: &Config{ComponentsPath: "path", ImagePullParallelism: 0},
+			err:    fmt.Errorf("--image-pull-parallelism must at least be 1"),
+		},
+		{
+			name:   "Config is valid",
+			config: &Config{ComponentsPath: "path", ImagePullParallelism: 1},
 		},
 	}
 

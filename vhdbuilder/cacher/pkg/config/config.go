@@ -3,8 +3,9 @@ package config
 import "fmt"
 
 type Config struct {
-	ComponentsPath string
-	Dryrun         bool
+	ComponentsPath       string
+	Dryrun               bool
+	ImagePullParallelism int
 }
 
 func (c *Config) Validate() error {
@@ -13,6 +14,9 @@ func (c *Config) Validate() error {
 	}
 	if c.ComponentsPath == "" {
 		return fmt.Errorf("--components-path must be specified")
+	}
+	if c.ImagePullParallelism < 1 {
+		return fmt.Errorf("--image-pull-parallelism must at least be 1")
 	}
 	return nil
 }
