@@ -12,6 +12,7 @@ import (
 
 type options struct {
 	componentsPath string
+	dryrun         bool
 }
 
 func (o *options) validate() error {
@@ -27,6 +28,7 @@ var (
 
 func parseFlags() {
 	flag.StringVar(&opts.componentsPath, "components-path", "", "Path to the components file.")
+	flag.BoolVar(&opts.dryrun, "dry-run", false, "Enable dry-run mode, where no bash commands will actually be executed.")
 	flag.Parse()
 }
 
@@ -45,11 +47,11 @@ func main() {
 	components, err := model.LoadComponents(opts.componentsPath)
 	handle(err)
 
-	ctrInstaller, err := containerimage.NewInstaller("ctr", &containerimage.InstallerConfig{
+	installer, err := containerimage.NewDockerInstaller(&containerimage.InstallerConfig{
 		Parallelism: 2,
 	})
 	handle(err)
 
-	err = ctrInstaller.Install(components.ContainerImages)
+	err = installer.Install(components.ContainerImages)
 	handle(err)
 }

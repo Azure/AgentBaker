@@ -19,11 +19,14 @@ func init() {
 }
 
 func getOSTypeFromEnv() OSType {
-	osType := os.Getenv(osTypeEnvKey)
-	if strings.EqualFold(osType, "mariner") {
+	if strings.EqualFold(os.Getenv(osTypeEnvKey), "mariner") {
 		return Mariner
 	}
 	return Ubuntu
+}
+
+func IsAMD() bool {
+	return runtime.GOARCH == "amd64"
 }
 
 func IsARM() bool {

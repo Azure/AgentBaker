@@ -44,7 +44,7 @@ type DownloadURICollection struct {
 }
 
 type Package struct {
-	Name                   string                   `json:"name"`
-	DownloadLocation       string                   `json:"downloadLocation"`
-	DownloadURICollections []*DownloadURICollection `json:"downloadURIs,omitempty"`
+	Name             string                 `json:"name"`
+	DownloadLocation string                 `json:"downloadLocation"`
+	DownloadURIs     *DownloadURICollection `json:"downloadURIs,omitempty"`
 }
