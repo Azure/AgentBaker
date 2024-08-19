@@ -74,7 +74,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity $UMSI_ID
+    --assign-identity $UMSI_RESOURCE_ID
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
