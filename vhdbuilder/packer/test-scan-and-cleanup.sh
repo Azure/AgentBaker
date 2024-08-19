@@ -32,13 +32,11 @@ SIG_VERSION=$(az sig image-version show \
 -i ${SIG_IMAGE_NAME} \
 -r ${SIG_GALLERY_NAME} \
 -g ${AZURE_RESOURCE_GROUP_NAME} \
---query id --output tsv || true)
+--query id --output tsv)
 
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
-  retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
-  EXIT_CODE=$?
-  exit ${EXIT_CODE}
+  retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}" || exit $?
 fi
 
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
@@ -61,7 +59,6 @@ for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   PID=$!
   SCRIPT_PIDS[$SCRIPT]=${PID}
 done
-wait ${SCRIPT_PIDS[@]}
 
 echo -e "\nChecking exit codes for each script..."
 STEP_FAILED=false
@@ -78,6 +75,6 @@ done
 if [[ "${STEP_FAILED}" == true ]]; then
   echo -e "\nOne or more scripts failed. Exiting with exit code 1.\n"
   exit 1
-else
-  echo -e "\nTest, Scan, and Cleanup script successfully completed.\n"
 fi
+
+echo -e "\nTest, Scan, and Cleanup script successfully completed.\n"
