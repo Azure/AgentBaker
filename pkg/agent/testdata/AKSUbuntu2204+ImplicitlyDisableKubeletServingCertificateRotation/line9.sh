@@ -105,7 +105,7 @@ ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205
 
 ERR_CNI_VERSION_INVALID=206 
 
-if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
@@ -378,12 +378,20 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+isMarinerOrAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
+
 installJq() {
   output=$(jq --version)
   if [ -n "$output" ]; then
     echo "$output"
   else
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
       sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
       apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"

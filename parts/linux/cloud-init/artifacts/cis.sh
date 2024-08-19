@@ -173,7 +173,7 @@ fixUmaskSettings() {
     # it does no harm and works with the tools.
     # Note that we use printf to avoid a trailing newline.
     local umask_sh="/etc/profile.d/umask.sh"
-    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]] || [[ "${OS}" == "${AZURELINUX_OS_NAME}" && "${OS_VERSION}" == "3.0" ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         if [[ -f "${umask_sh}" ]]; then
             printf "umask 027" >${umask_sh}
         fi
@@ -193,7 +193,7 @@ function addFailLockDir() {
     # Mariner/AzureLinux uses pamd faillocking, which requires a directory to store the faillock files.
     # Default is /var/run/faillock, but that's a tmpfs, so we need to use /var/log/faillock instead.
     # But we need to leave settings alone for other skus.
-    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]] || [[ "${OS}" == "${AZURELINUX_OS_NAME}" && "${OS_VERSION}" == "3.0" ]] ; then
+    if isMarinerOrAzureLinux "$OS" ; then
         # Replace or append the dir setting in /etc/security/faillock.conf
         # Docs: https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
         #
