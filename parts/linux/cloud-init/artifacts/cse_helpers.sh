@@ -476,7 +476,7 @@ process_benchmarks() {
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   
   # create script object, each section object within the script will later be appended to this script object
-  script_object=$(jq -n --arg script_name "$(basename $0)" '($script_name): {}')
+  script_object=$(jq -n --arg script_name "$(basename $0)" '{($script_name): {}}')
 
   unset script_stats[@]
   unset -n script_stats
