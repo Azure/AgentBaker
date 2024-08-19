@@ -257,8 +257,6 @@ steps:
       -e OFFER_NAME="Windows" \
       -e IMAGE_VERSION=${AKS_WINDOWS_IMAGE_VERSION} \
       -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
-      -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
       -e OS_TYPE="Windows" \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
