@@ -15,13 +15,13 @@ type Entity struct {
 }
 
 type Toggles interface {
-	GetLinuxNodeImageVersion(entity *Entity) map[string]string
+	GetLinuxNodeImageVersion(entity *Entity, distro datamodel.Distro) string
 }
 
 type defaultToggles struct{}
 
-func (t *defaultToggles) GetLinuxNodeImageVersion(entity *Entity) map[string]string {
-	return map[string]string{}
+func (t *defaultToggles) GetLinuxNodeImageVersion(entity *Entity, distro datamodel.Distro) string {
+	return ""
 }
 
 func NewDefaultToggles() Toggles {
