@@ -190,6 +190,7 @@ steps:
       -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
       -e CLASSIC_BLOB=${CLASSIC_BLOB} \
       -e BUILD_ID=$(Build.BuildId) \
+      -e SCANNING_MSI_RESOURCE_ID=${SCANNING_MSI_RESOURCE_ID} \
       ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
