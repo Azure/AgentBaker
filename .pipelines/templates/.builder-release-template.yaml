@@ -205,7 +205,7 @@ steps:
       -e GIT_VERSION=$(Build.SourceVersion) \
       -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
       ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
-  displayName: Check Build Performance
+    displayName: Check Build Performance
   - task: Bash@3
     inputs:
       targetType: 'inline'
