@@ -474,23 +474,20 @@ capture_benchmark() {
 process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  # use nameref variable to reference overall_script section
-  declare -n script_stats="${benchmarks[last_index]}"
   
-  # create script object from data held in the section array for the overall script
-  # each section object within the script will later be appended to this script object
-  script_object=$(jq -n --arg script_name "$(basename $0)" --arg total_time_elapsed "${script_stats[0]}" '{($script_name): {"overall": {"total_time_elapsed": $total_time_elapsed}}}')
+  # create script object, each section object within the script will later be appended to this script object
+  script_object=$(jq -n --arg script_name "$(basename $0)" '{($script_name): {}}')
 
   unset script_stats[@]
   unset -n script_stats
 
-  for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
+  for ((i=0; i<${#benchmarks[@]}; i+=1)); do
       
     # iterate over the benchmarks array and assign a nameref variable to the current section array in order to operate on the data held within it
     declare -n section_name="${benchmarks[i]}"
      
     # create section object and append to script object
-    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg total_time_elapsed "${section_name[0]}" '{($section_name): {"total_time_elapsed": $total_time_elapsed}}')
+    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg total_time_elapsed "${section_name[0]}" '{($section_name): $total_time_elapsed'})
       
     script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" '$script_object | .[$script_name] += $section_object')
     
@@ -498,8 +495,11 @@ process_benchmarks() {
     unset -n section_name
 
   done
+
+  echo "Benchmarks:"
+  echo "$script_object" | jq -C .
  
-  jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
+  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
 }
 
