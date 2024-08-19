@@ -52,9 +52,13 @@ func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
 }
 
 func execute(c *Command) (*Result, error) {
-	cmd := exec.Command(c.app, c.args...)
-
 	log.Printf("executing command: %q", c)
+
+	if c.cfg.Dryrun {
+		return &Result{}, nil
+	}
+
+	cmd := exec.Command(c.app, c.args...)
 	stdout, err := cmd.Output()
 	if err != nil {
 		var exitErr *exec.ExitError

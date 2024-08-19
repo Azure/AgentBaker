@@ -30,6 +30,7 @@ type CommandConfig struct {
 	Timeout    *time.Duration
 	Wait       *time.Duration
 	MaxRetries int
+	Dryrun     bool
 }
 
 func (cc *CommandConfig) validate() {

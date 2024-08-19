@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/env"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/exec"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/model"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"go.uber.org/multierr"
 )
 
 type InstallerConfig struct {
 	Parallelism int
+	Dryrun      bool
 }
 
 type Installer struct {
@@ -105,4 +108,33 @@ func (i *Installer) getPuller(repo, tag string) puller {
 		log.Printf("pulled container image %q: %s", image, res)
 		return nil
 	}
+}
+
+type puller func() error
+
+func pullInParallel(pullers []puller, maxParallelism int) error {
+	guard := make(chan struct{}, maxParallelism)
+	errs := make([]error, len(pullers))
+	wg := sync.WaitGroup{}
+
+	for idx, p := range pullers {
+		guard <- struct{}{}
+		wg.Add(1)
+		go func(p puller, idx int) {
+			defer wg.Done()
+			errs[idx] = p()
+			<-guard
+		}(p, idx)
+	}
+
+	// wait for any outstanding pullers to complete
+	wg.Wait()
+
+	var merr error
+	for _, err := range errs {
+		if err != nil {
+			merr = multierr.Append(merr, err)
+		}
+	}
+	return merr
 }
