@@ -21,6 +21,14 @@ type Installer struct {
 	cfg      *InstallerConfig
 }
 
+func NewContainerdInstaller(cfg *InstallerConfig) (*Installer, error) {
+	return NewInstaller("ctr", cfg)
+}
+
+func NewDockerInstaller(cfg *InstallerConfig) (*Installer, error) {
+	return NewInstaller("docker", cfg)
+}
+
 func NewInstaller(cliTool string, cfg *InstallerConfig) (*Installer, error) {
 	var (
 		template    string
@@ -63,12 +71,13 @@ func NewInstaller(cliTool string, cfg *InstallerConfig) (*Installer, error) {
 func (i *Installer) Install(images []*model.ContainerImage) error {
 	var pullers []puller
 	for _, image := range images {
-		tags := image.MultiArchTags
-		if !env.IsARM() {
-			tags = append(tags, image.AMD64OnlyTags...)
-		}
-		for _, tag := range tags {
+		for _, tag := range image.MultiArchTags {
 			pullers = append(pullers, i.getPuller(image.Repo, tag))
+		}
+		if env.IsAMD() {
+			for _, tag := range image.AMD64OnlyTags {
+				pullers = append(pullers, i.getPuller(image.Repo, tag))
+			}
 		}
 	}
 	return pullInParallel(pullers, i.cfg.Parallelism)
@@ -76,21 +85,24 @@ func (i *Installer) Install(images []*model.ContainerImage) error {
 
 func (i *Installer) getPuller(repo, tag string) puller {
 	return func() error {
-		imageString := strings.ReplaceAll(repo, "*", tag)
-		commandString := fmt.Sprintf(i.template, imageString)
-		command, err := exec.NewCommand(commandString, &exec.CommandConfig{
-			MaxRetries: 60,
-			Wait:       to.Ptr(1 * time.Second),
-			Timeout:    to.Ptr(1200 * time.Second),
+		image := strings.ReplaceAll(repo, "*", tag)
+		pull := fmt.Sprintf(i.template, image)
+		cmd, err := exec.NewCommand(pull, &exec.CommandConfig{
+			MaxRetries: 10,
+			Wait:       to.Ptr(time.Second),
+			Timeout:    to.Ptr(120 * time.Second),
 		})
 		if err != nil {
 			return err
 		}
-		res, err := command.Execute()
+		res, err := cmd.Execute()
 		if err != nil {
 			return err
 		}
-		log.Printf("pulled container image %q: %s", imageString, res)
+		if err := res.AsError(); err != nil {
+			return err
+		}
+		log.Printf("pulled container image %q: %s", image, res)
 		return nil
 	}
 }

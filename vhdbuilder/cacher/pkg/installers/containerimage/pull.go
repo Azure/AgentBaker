@@ -10,20 +10,21 @@ type puller func() error
 
 func pullInParallel(pullers []puller, maxParallelism int) error {
 	guard := make(chan struct{}, maxParallelism)
-	wg := sync.WaitGroup{}
 	errs := make([]error, len(pullers))
+	wg := sync.WaitGroup{}
 
 	for idx, p := range pullers {
 		guard <- struct{}{}
 		wg.Add(1)
 		go func(p puller, idx int) {
-			if err := p(); err != nil {
-				errs[idx] = err
-			}
+			errs[idx] = p()
 			<-guard
 			wg.Done()
 		}(p, idx)
 	}
+
+	// wait for any outstanding pullers to complete
+	wg.Wait()
 
 	var merr error
 	for _, err := range errs {
