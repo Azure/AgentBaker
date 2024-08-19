@@ -173,7 +173,7 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk scanning-vhd
     retryCountOnTaskFailure: 2
     displayName: Scanning VHD
-  condition: not(eq(variables.IMG_OFFER, 'azure-linux-3'))
+    condition: not(eq(variables.IMG_OFFER, 'azure-linux-3'))
   - script: |
       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
