@@ -56,7 +56,7 @@ func fake() backendFunc {
 }
 
 func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
-	cfg.validate()
+	cfg.validateAndDefault()
 
 	if commandString == "" {
 		return nil, fmt.Errorf("cannot execute empty command")
@@ -77,10 +77,7 @@ func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("specified command %q is malformed, expected to be in format \"app args...\"", commandString)
 	}
-
-	if cfg != nil {
-		parts = withTimeout(parts, cfg.Timeout)
-	}
+	parts = append(cfg.timeoutParts(), parts...)
 
 	cmd.app = parts[0]
 	cmd.args = parts[1:]
@@ -121,11 +118,4 @@ func executeWithRetries(c *Command) (*Result, error) {
 		return nil, err
 	}
 	return res, nil
-}
-
-func withTimeout(parts []string, timeout *time.Duration) []string {
-	if timeout == nil {
-		return parts
-	}
-	return append([]string{"timeout", fmt.Sprintf("%.0f", timeout.Seconds())}, parts...)
 }

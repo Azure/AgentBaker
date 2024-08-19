@@ -26,7 +26,7 @@ type CommandConfig struct {
 	MaxRetries int
 }
 
-func (cc *CommandConfig) validate() {
+func (cc *CommandConfig) validateAndDefault() {
 	if cc == nil {
 		return
 	}
@@ -42,7 +42,14 @@ func (cc *CommandConfig) validate() {
 }
 
 func (cc *CommandConfig) backoff() retry.Backoff {
-	return retry.WithMaxRetries(uint64(cc.MaxRetries-1), retry.NewConstant(*cc.Wait))
+	return retry.WithMaxRetries(uint64(cc.MaxRetries), retry.NewConstant(*cc.Wait))
+}
+
+func (cc *CommandConfig) timeoutParts() []string {
+	if cc == nil || cc.Timeout == nil {
+		return []string{}
+	}
+	return []string{"timeout", fmt.Sprintf("%.0f", cc.Timeout.Seconds())}
 }
 
 type Result struct {
