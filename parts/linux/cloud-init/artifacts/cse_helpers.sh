@@ -490,7 +490,7 @@ process_benchmarks() {
     declare -n section_name="${benchmarks[i]}"
      
     # create section object and append to script object
-    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg total_time_elapsed "${section_name[0]}" '{($section_name): {"total_time_elapsed": $total_time_elapsed}}')
+    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg total_time_elapsed "${section_name[0]}" '($section_name): $total_time_elapsed')
       
     script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" '$script_object | .[$script_name] += $section_object')
     
