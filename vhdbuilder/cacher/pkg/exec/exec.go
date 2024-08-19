@@ -2,10 +2,8 @@ package exec
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -18,42 +16,6 @@ const (
 	defaultCommandTimeout = 10 * time.Second
 	defaultCommandWait    = 3 * time.Second
 )
-
-var (
-	backend = shell()
-)
-
-func UseFakeBackend() {
-	backend = fake()
-}
-
-// backend represents an execution backend, capable of executing arbitrary commands
-type backendFunc func(c *Command) (*Result, error)
-
-// shell is a backendFunc which uses golang's "os/exec" package for command execution
-func shell() backendFunc {
-	return func(c *Command) (*Result, error) {
-		cmd := exec.Command(c.app, c.args...)
-		stdout, err := cmd.Output()
-		if err != nil {
-			var exitErr *exec.ExitError
-			if !errors.As(err, &exitErr) {
-				return nil, fmt.Errorf("executing command %q: %w", c.raw, err)
-			}
-			return resultFromExitError(exitErr), nil
-		}
-		return &Result{
-			Stdout: string(stdout),
-		}, nil
-	}
-}
-
-// fake is a backendFunc which performs a no-op in place of command execution
-func fake() backendFunc {
-	return func(c *Command) (*Result, error) {
-		return &Result{}, nil
-	}
-}
 
 func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
 	cfg.validateAndDefault()
@@ -85,23 +47,21 @@ func NewCommand(commandString string, cfg *CommandConfig) (*Command, error) {
 }
 
 func (c *Command) Execute() (*Result, error) {
-	if c.cfg != nil && c.cfg.MaxRetries > 0 {
-		return executeWithRetries(c)
-	}
 	return execute(c)
 }
 
 func execute(c *Command) (*Result, error) {
-	log.Printf("executing command: %q", c)
-	return backend(c)
-}
+	backoff := c.cfg.backoff()
+	if backoff == nil {
+		log.Printf("executing command: %q", c)
+		return backend(c)
+	}
 
-// executeWithRetries attempts to emulate: https://github.com/Azure/AgentBaker/blob/master/parts/linux/cloud-init/artifacts/cse_helpers.sh#L133-L145
-func executeWithRetries(c *Command) (*Result, error) {
 	var res *Result
-	err := retry.Do(context.TODO(), c.cfg.backoff(), func(ctx context.Context) error {
+	err := retry.Do(context.TODO(), backoff, func(ctx context.Context) error {
+		log.Printf("executing command: %q", c)
 		var err error
-		res, err = execute(c)
+		res, err = backend(c)
 		if err != nil {
 			// don't retry if we weren't able to execute the command at all
 			return err

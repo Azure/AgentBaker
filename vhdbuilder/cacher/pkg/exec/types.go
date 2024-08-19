@@ -42,6 +42,9 @@ func (cc *CommandConfig) validateAndDefault() {
 }
 
 func (cc *CommandConfig) backoff() retry.Backoff {
+	if cc == nil || cc.MaxRetries == 0 {
+		return nil
+	}
 	return retry.WithMaxRetries(uint64(cc.MaxRetries), retry.NewConstant(*cc.Wait))
 }
 
