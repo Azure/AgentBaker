@@ -167,7 +167,7 @@ EOF
         # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
         # ND96 seems to require fabric manager *even when not using mig partitions*
         # while it fails to install on NC24.
-        if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+        if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -229,7 +229,7 @@ fi
 
 # For systemd in Azure Linux, UseDomains= is by default disabled for security purposes. Enable this
 # configuration within Azure Linux AKS that operates on trusted networks to support hostname resolution
-if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
@@ -314,7 +314,7 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] || [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
@@ -395,7 +395,7 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
-    elif [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
