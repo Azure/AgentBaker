@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/sethvargo/go-retry"
 )
 
 type Command struct {
@@ -19,18 +20,10 @@ func (c *Command) String() string {
 	return c.raw
 }
 
-func (c *Command) Execute() (*Result, error) {
-	if c.cfg != nil && c.cfg.MaxRetries > 0 {
-		return executeWithRetries(c)
-	}
-	return execute(c)
-}
-
 type CommandConfig struct {
 	Timeout    *time.Duration
 	Wait       *time.Duration
 	MaxRetries int
-	Dryrun     bool
 }
 
 func (cc *CommandConfig) validate() {
@@ -46,6 +39,10 @@ func (cc *CommandConfig) validate() {
 	if cc.MaxRetries < 0 {
 		cc.MaxRetries = 0
 	}
+}
+
+func (cc *CommandConfig) backoff() retry.Backoff {
+	return retry.WithMaxRetries(uint64(cc.MaxRetries-1), retry.NewConstant(*cc.Wait))
 }
 
 type Result struct {

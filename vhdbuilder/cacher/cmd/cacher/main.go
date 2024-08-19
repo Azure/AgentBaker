@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/config"
+	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/exec"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/containerimage"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/model"
 )
@@ -32,12 +33,15 @@ func main() {
 	err := cfg.Validate()
 	handle(err)
 
+	if cfg.Dryrun {
+		exec.UseFakeBackend()
+	}
+
 	components, err := model.LoadComponents(cfg.ComponentsPath)
 	handle(err)
 
 	installer, err := containerimage.NewContainerdInstaller(&containerimage.InstallerConfig{
-		Parallelism: 2,
-		Dryrun:      cfg.Dryrun,
+		Parallelism: 10,
 	})
 	handle(err)
 

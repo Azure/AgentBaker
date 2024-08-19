@@ -16,7 +16,6 @@ import (
 
 type InstallerConfig struct {
 	Parallelism int
-	Dryrun      bool
 }
 
 type Installer struct {
@@ -100,12 +99,14 @@ func (i *Installer) getPuller(repo, tag string) puller {
 		}
 		res, err := cmd.Execute()
 		if err != nil {
+			log.Printf("unable to pull container image %q: %s", image, err)
 			return err
 		}
 		if err := res.AsError(); err != nil {
+			log.Printf("unable to pull container image %q: %s", image, err)
 			return err
 		}
-		log.Printf("pulled container image %q: %s", image, res)
+		log.Printf("successfully pulled container image %q", image)
 		return nil
 	}
 }
