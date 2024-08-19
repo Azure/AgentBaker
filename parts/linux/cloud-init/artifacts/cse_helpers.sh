@@ -441,11 +441,6 @@ capture_benchmark() {
   local title="$1"
   title="${title//[[:space:]]/_}"
   title="${title//-/_}"
-  benchmarks+=($title)
-
-  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  # use nameref variable to hold the current section's array for later reference
-  declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
@@ -455,7 +450,8 @@ capture_benchmark() {
     local start_time=$section_start_stopwatch
   fi
   total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
-  current_section+=($total_time_elapsed)
+  benchmarks[$title]=$total_time_elapsed
+  benchmarks_order+=($title) # use this array to maintain order of benchmarks
 
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
@@ -464,21 +460,18 @@ capture_benchmark() {
 process_benchmarks() {
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   
-  # create script object, each section object within the script will later be appended to this script object
+  # create script object, then append each section object to it in the for loop
   script_object=$(jq -n --arg script_name "$(basename $0)" '{($script_name): {}}')
 
-  for ((i=0; i<${#benchmarks[@]}; i+=1)); do
-    # iterate over the benchmarks array and assign a nameref variable to the current section array in order to operate on the data held within it
-    declare -n section_name="${benchmarks[i]}"
-    # create section object and append to script object
-    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg total_time_elapsed "${section_name[0]}" '{($section_name): $total_time_elapsed'})
-    
+  for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
+    section_name=${benchmarks_order[i]}
+    section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
+    '{($section_name): $total_time_elapsed'})
     script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" \
     '$script_object | .[$script_name] += $section_object')
   done
  
   jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
-  chmod 755 ${VHD_BUILD_PERF_DATA}
 }
 
 #return proper release metadata for the package based on the os and osVersion
