@@ -103,7 +103,7 @@ generate: bootstrap
 	@$(MAKE) validate-shell
 	@echo "Running shellspec tests to validate shell/bash scripts"
 	@$(MAKE) shellspec
-	@echo "Validating if components.json conforms to the schema components.cue."
+	@echo "Validating if components.json conforms to the schema schemas/components.cue."
 	@echo "Error will be shown if any."
 	@$(MAKE) validate-components
 

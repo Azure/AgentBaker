@@ -72,6 +72,12 @@ Describe 'cse_install.sh'
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
             The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
         End
+
+        It 'returns downloadURIs.default.current.versions of package containerd for MARINERKATA'
+            package=$(readPackage "containerd")
+            When call returnPackageVersions "$package" "MARINERKATA" "some_mariner_version"
+            The variable PACKAGE_VERSIONS[@] should equal "<SKIP>"
+        End
     End
     Describe 'returnPackageDownloadURL'
         It 'returns downloadURIs.ubuntu."r2004".downloadURL of package runc for UBUNTU 20.04'
@@ -164,6 +170,13 @@ Describe 'cse_install.sh'
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
         End
+        It 'skips the containerd installation for Mariner with Kata'
+            UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
+            containerdPackage=$(readPackage "containerd")
+            IS_KATA="true"
+            When call installContainerRuntime
+            The output line 3 should equal "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."            
+        End
         It 'skips validation if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"
             installContainerdWithManifestJson() {
@@ -185,6 +198,13 @@ Describe 'cse_install.sh'
         It 'returns release version current for package runc in Mariner'
             package=$(readPackage "runc")
             os="MARINER"
+            osVersion=""
+            When call returnRelease "$package" "$os" "$osVersion"
+            The variable RELEASE should equal "current"
+        End
+        It 'returns release version current for package runc in MarinerKata'
+            package=$(readPackage "runc")
+            os="MARINERKATA"
             osVersion=""
             When call returnRelease "$package" "$os" "$osVersion"
             The variable RELEASE should equal "current"

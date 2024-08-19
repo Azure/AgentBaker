@@ -2702,3 +2702,44 @@ func TestSecurityProfileGetProxyAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
+	testContainerRegistryServer := "https://testserver.azurecr.io"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress disabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: false}},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress enabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: true, ContainerRegistryServer: testContainerRegistryServer}},
+			expected:        testContainerRegistryServer,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetPrivateEgressContainerRegistryServer()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
