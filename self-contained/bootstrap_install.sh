@@ -11,6 +11,7 @@ CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
@@ -180,7 +181,7 @@ installCNI() {
     #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
-        os=${MARINER_OS_NAME}
+        os=${OS}
         os_version="current"
     fi
     os_version="${UBUNTU_RELEASE}"
