@@ -27,10 +27,6 @@ func NewContainerdInstaller(cfg *InstallerConfig) (*Installer, error) {
 	return NewInstaller("ctr", cfg)
 }
 
-func NewDockerInstaller(cfg *InstallerConfig) (*Installer, error) {
-	return NewInstaller("docker", cfg)
-}
-
 func NewInstaller(cliTool string, cfg *InstallerConfig) (*Installer, error) {
 	var (
 		template    string
