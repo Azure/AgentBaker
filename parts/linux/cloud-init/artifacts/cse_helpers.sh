@@ -498,6 +498,9 @@ process_benchmarks() {
     unset -n section_name
 
   done
+
+  echo "Benchmarks:"
+  echo "$script_object" | jq -C .
  
   jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
