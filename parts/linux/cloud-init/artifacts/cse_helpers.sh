@@ -449,12 +449,9 @@ capture_benchmark() {
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
-  local end_timestamp=$(date +%H:%M:%S)
   if [[ "$is_final_section" == true ]]; then
-    local start_timestamp=$script_start_timestamp
     local start_time=$script_start_stopwatch
   else
-    local start_timestamp=$section_start_timestamp
     local start_time=$section_start_stopwatch
   fi
 
@@ -465,18 +462,13 @@ capture_benchmark() {
   local elapsed_seconds=$(($difference_in_seconds%60))
   printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
 
-  # add current section benchmarks to relevant section array
-  current_section+=($start_timestamp)
-  current_section+=($end_timestamp)
+  # add current section benchmark to relevant section array
   current_section+=($total_time_elapsed)
 
   unset -n current_section
 
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
-  section_start_timestamp=$(date +%H:%M:%S)
-
-  set -x
 }
 
 process_benchmarks() {
@@ -487,7 +479,7 @@ process_benchmarks() {
   
   # create script object from data held in the section array for the overall script
   # each section object within the script will later be appended to this script object
-  script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
+  script_object=$(jq -n --arg script_name "$(basename $0)" --arg total_time_elapsed "${script_stats[0]}" '{($script_name): {"overall": {"total_time_elapsed": $total_time_elapsed}}}')
 
   unset script_stats[@]
   unset -n script_stats
@@ -498,7 +490,7 @@ process_benchmarks() {
     declare -n section_name="${benchmarks[i]}"
      
     # create section object and append to script object
-    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${section_name[0]}" --arg end_timestamp "${section_name[1]}" --arg total_time_elapsed "${section_name[2]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
+    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg total_time_elapsed "${section_name[0]}" '{($section_name): {"total_time_elapsed": $total_time_elapsed}}')
       
     script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" '$script_object | .[$script_name] += $section_object')
     
@@ -506,13 +498,9 @@ process_benchmarks() {
     unset -n section_name
 
   done
-
-  echo "Benchmarks:"
-  echo "$script_object" | jq -C .
  
   jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
-  set -x
 }
 
 #return proper release metadata for the package based on the os and osVersion
