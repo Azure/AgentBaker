@@ -127,7 +127,7 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
@@ -668,7 +668,7 @@ configGPUDrivers() {
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-    elif [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         downloadGPUDrivers
         installNvidiaContainerRuntime
         enableNvidiaPersistenceMode
@@ -682,7 +682,7 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue
-    if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     

@@ -153,7 +153,7 @@ EOF
     fi
 
     if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-        if [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+        if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -199,7 +199,7 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
@@ -272,7 +272,7 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] || [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
@@ -343,7 +343,7 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
-    elif [[ $OS == $MARINER_OS_NAME ]] || [[ $OS == $AZURELINUX_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
