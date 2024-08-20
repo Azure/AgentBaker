@@ -10,7 +10,7 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
   --arg uri "${BUILD_URI}" \
   --arg branch "${GIT_BRANCH}" \
   --arg commit "${GIT_VERSION}" \
-  '{ sig_image_name: $sig, architecture: $arch, build_id: $build_id, build_datetime: $date,
+  '{sig_image_name: $sig, architecture: $arch, build_id: $build_id, build_datetime: $date,
   build_status: $status, build_uri: $uri, branch: $branch, commit: $commit, scripts: .}' \
   ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
