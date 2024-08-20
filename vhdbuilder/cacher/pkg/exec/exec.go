@@ -50,6 +50,28 @@ func (c *Command) Execute() (*Result, error) {
 	return execute(c)
 }
 
+func NewPipeline(cfg *CommandConfig) *Pipeline {
+	return &Pipeline{
+		cfg:         cfg,
+		rawCommands: []string{},
+	}
+}
+
+func (p *Pipeline) Execute() (*Result, error) {
+	cmd, err := p.AsSingleCommand()
+	if err != nil {
+		return nil, err
+	}
+	res, err := cmd.Execute()
+	if err != nil {
+		return nil, err
+	}
+	if err := res.AsError(); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func execute(c *Command) (*Result, error) {
 	backoff := c.cfg.backoff()
 	if backoff == nil {
@@ -70,6 +92,11 @@ func execute(c *Command) (*Result, error) {
 			// blindly retry in the case where the command executed
 			// but ended up failing
 			log.Printf("command %q failed", c)
+			if c.cfg.OnRetryableFailure != nil {
+				if _, err := execute(c.cfg.OnRetryableFailure); err != nil {
+					return err
+				}
+			}
 			return retry.RetryableError(err)
 		}
 		return nil

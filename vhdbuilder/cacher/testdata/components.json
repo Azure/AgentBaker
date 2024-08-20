@@ -25,6 +25,41 @@
     ],
   "Packages": [
     {
+      "name": "runc",
+      "downloadLocation": "/opt/runc/downloads",
+      "downloadURIs": {
+        "ubuntu": {
+          "r1804": {
+            "versions": [
+              "1.1.12-ubuntu18.04u1"
+            ]
+          },
+          "r2004": {
+            "versions": [
+              "1.1.12-ubuntu20.04u1"
+            ]
+          },
+          "r2204": {
+            "versions": [
+              "1.1.12-ubuntu22.04u1"
+            ]
+          },
+          "r2404": {
+            "versions": [
+              "1.1.12-ubuntu24.04u1"
+            ]
+          }
+        },
+        "mariner": {
+          "current": {
+            "versions": [
+              "1.1.9-5.cm2"
+            ]
+          }
+        }
+      }
+    },
+    {
       "name": "oras",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {

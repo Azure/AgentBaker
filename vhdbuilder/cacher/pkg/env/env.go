@@ -25,6 +25,11 @@ func getOSTypeFromEnv() OSType {
 	return Ubuntu
 }
 
+// TODO(cameissner): actually implement this with config changes
+func UbuntuRelease() string {
+	return "22.04"
+}
+
 func IsUbuntu() bool {
 	return OS == Ubuntu
 }

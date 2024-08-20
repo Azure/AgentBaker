@@ -5,10 +5,12 @@ import (
 
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/azurecni"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/cni"
+	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/containerd"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/critools"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/getter"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/k8sbinaries"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/oras"
+	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages/runc"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/model"
 )
 
@@ -19,6 +21,8 @@ type Installer struct {
 func NewInstaller() (*Installer, error) {
 	return &Installer{
 		getters: map[string]getter.Getter{
+			"containerd":          containerd.Getter(),
+			"runc":                runc.Getter(),
 			"oras":                oras.Getter(),
 			"cni-plugins":         cni.Getter(),
 			"azure-cni":           azurecni.Getter(),

@@ -31,6 +31,7 @@ type UbuntuOSDistro struct {
 	R1804 *ReleaseDownloadURI `json:"r1804,omitempty"`
 	R2004 *ReleaseDownloadURI `json:"r2004,omitempty"`
 	R2204 *ReleaseDownloadURI `json:"r2204,omitempty"`
+	R2404 *ReleaseDownloadURI `json:"r2404,omitempty"`
 }
 
 type MarinerOSDistro struct {

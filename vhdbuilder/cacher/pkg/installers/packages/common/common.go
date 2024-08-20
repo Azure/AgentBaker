@@ -12,14 +12,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
 
-func AptGetInstall() error {
-	return nil
-}
-
-func WaitForAptLocks() error {
-	return nil
-}
-
 func GetTarball(path, fallbackURL string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := DownloadWithCurl(path, fallbackURL); err != nil {
@@ -78,17 +70,34 @@ func GetRelevantDownloadURI(pkg *model.Package) *model.ReleaseDownloadURI {
 
 func getMarinerURI(pkg *model.Package) *model.ReleaseDownloadURI {
 	if pkg.DownloadURIs.Mariner == nil {
-		return pkg.DownloadURIs.Default.Current
+		return getDefaultURI(pkg)
 	}
 	return pkg.DownloadURIs.Mariner.Current
 }
 
 func getUbuntuURI(pkg *model.Package) *model.ReleaseDownloadURI {
 	if pkg.DownloadURIs.Ubuntu == nil {
-		return pkg.DownloadURIs.Default.Current
+		return getDefaultURI(pkg)
 	}
-	// TODO: resolve based on ubuntu release version instead of always taking current
-	return pkg.DownloadURIs.Ubuntu.Current
+	switch env.UbuntuRelease() {
+	case "18.04":
+		return pkg.DownloadURIs.Ubuntu.R1804
+	case "20.04":
+		return pkg.DownloadURIs.Ubuntu.R2004
+	case "22.04":
+		return pkg.DownloadURIs.Ubuntu.R2204
+	case "24.04":
+		return pkg.DownloadURIs.Ubuntu.R2404
+	default:
+		return pkg.DownloadURIs.Ubuntu.Current
+	}
+}
+
+func getDefaultURI(pkg *model.Package) *model.ReleaseDownloadURI {
+	if pkg.DownloadURIs.Default == nil {
+		return nil
+	}
+	return pkg.DownloadURIs.Default.Current
 }
 
 func EvaluateDownloadURL(url, version string) string {

@@ -3,11 +3,25 @@ package exec
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/sethvargo/go-retry"
 )
+
+type Pipeline struct {
+	rawCommands []string
+	cfg         *CommandConfig
+}
+
+func (p *Pipeline) AddCommand(cmd string) {
+	p.rawCommands = append(p.rawCommands, cmd)
+}
+
+func (p *Pipeline) AsSingleCommand() (*Command, error) {
+	return NewCommand(strings.Join(p.rawCommands, " && "), p.cfg)
+}
 
 type Command struct {
 	raw  string
@@ -21,9 +35,10 @@ func (c *Command) String() string {
 }
 
 type CommandConfig struct {
-	Timeout    *time.Duration
-	Wait       *time.Duration
-	MaxRetries int
+	Timeout            *time.Duration
+	Wait               *time.Duration
+	MaxRetries         int
+	OnRetryableFailure *Command
 }
 
 func (cc *CommandConfig) validateAndDefault() {
