@@ -2,14 +2,19 @@
 
 echo -e "\nGenerating ${SIG_IMAGE_NAME} build performance data from ${BUILD_PERF_DATA_FILE}...\n"
 
-jq --arg sig_image_name "${SIG_IMAGE_NAME}" \
-   --arg build_datetime "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-   --arg commit "$GIT_VERSION" \
-   '{sig_image_name: $sig_image_name, build_datetime: $build_datetime, commit: $commit, scripts: .}' ${BUILD_PERF_DATA_FILE} \
-   >> ${SIG_IMAGE_NAME}-build-performance.json
+jq --arg sig "${SIG_IMAGE_NAME}" \
+  --arg arch "${ARCHITECTURE}" \
+  --arg build_id "${BUILD_ID}" \
+  --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg status "${JOB_STATUS}" \
+  --arg uri "${BUILD_URI}" \
+  --arg branch "${GIT_BRANCH}" \
+  --arg commit "${GIT_VERSION}" \
+   '{sig_image_name":$sig, "architecture":$arch, "build_id":$build_id, "build_datetime":$date, "build_status":$status, "build_uri":$uri, "branch":$branch, "commit":$commit, "scripts": .}' \
+   ${BUILD_PERF_DATA_FILE} >> ${SIG_IMAGE_NAME}-build-performance.json
 
 echo "##[group]Build Information"
-jq -C '. | {sig_image_name, build_datetime, commit}' ${SIG_IMAGE_NAME}-build-performance.json
+jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, build_uri, git_branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 scripts=()
