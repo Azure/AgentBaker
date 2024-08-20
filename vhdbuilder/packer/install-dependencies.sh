@@ -201,6 +201,14 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
+pushd /opt/azure/containers || exit $?
+  echo "installing packages with cacher binary (not containerd)..."
+  chmod +x ./cacher
+  ./cacher --download-packages --components-path "$COMPONENTS_FILEPATH" || exit $?
+popd || exit $?
+
+echo "installing containerd normally..."
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   #getting metadata for each package
@@ -223,40 +231,6 @@ for p in ${packages[*]}; do
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
-    "cri-tools")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCrictl "${downloadDir}" "${evaluatedURL}"
-        echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
-        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-        CRICTL_VERSION=${version} 
-        CRICTL_VERSIONS=${version}
-      done
-      ;;
-    "azure-cni")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
-        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "cni-plugins")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
-        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "runc")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
-        echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
     "containerd")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -266,27 +240,6 @@ for p in ${packages[*]}; do
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "oras")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # ORAS will be used to install other packages for network isolated clusters, it must go first.
-      done
-      ;;
-    "kubernetes-binaries")
-      # kubelet and kubectl
-      # need to cover previously supported version for VMAS scale up scenario
-      # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-      # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-      # Please do not use the .1 suffix, because that's only for the base image patches
-      # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
-        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -340,7 +293,7 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 pushd /opt/azure/containers || exit $?
   echo "installing container images with cacher binary..."
   chmod +x ./cacher
-  ./cacher --components-path "$COMPONENTS_FILEPATH" --image-pull-parallelism $parallel_container_image_pull_limit
+  ./cacher --pull-images --components-path "$COMPONENTS_FILEPATH" --image-pull-parallelism $parallel_container_image_pull_limit || exit $?
 popd || exit $?
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
