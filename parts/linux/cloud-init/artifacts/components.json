@@ -35,7 +35,7 @@
       "downloadURL": "mcr.microsoft.com/mirror/docker/library/busybox:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "1.35"
+        "1.36.1"
       ]
     },
     {
