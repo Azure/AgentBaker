@@ -156,7 +156,7 @@ steps:
         -w /go/src/github.com/Azure/AgentBaker \
         -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
         -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-        -e GIT_BRANCH=$(Build.SourceBranchName) \
+        -e GIT_BRANCH=$(Build.SourceBranch) \
         -e GIT_VERSION=$(Build.SourceVersion) \
         -e BUILD_ID=$(Build.BuildId) \
         -e BUILD_URI=$(Build.BuildUri) \
