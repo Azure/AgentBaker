@@ -34,7 +34,12 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	require.NoError(t, err)
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
+	cse := nodeBootstrapping.CSE
+	if opts.scenario.CSEOverride != "" {
+		cse = opts.scenario.CSEOverride
+	}
+
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, cse, opts)
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)

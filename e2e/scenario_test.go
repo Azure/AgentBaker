@@ -901,3 +901,17 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 		},
 	})
 }
+
+func Test_ubuntu2204Installer(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using installer can be properly bootstrapepd",
+		Config: Config{
+			Cluster:     ClusterKubenet,
+			VHD:         config.VHDUbuntu2204Gen2Containerd,
+			CSEOverride: "/opt/azure/installer",
+			LiveVMValidators: []*LiveVMValidator{
+				textValidator("/opt/azure/installer.log", "Starting installer"),
+			},
+		},
+	})
+}

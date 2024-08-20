@@ -93,6 +93,11 @@
     },
     {
       "type": "file",
+      "source": "dist/installer-linux-amd64",
+      "destination": "/home/packer/installer"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
     },

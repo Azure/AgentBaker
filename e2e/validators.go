@@ -254,6 +254,21 @@ func containerdVersionValidator(version string) *LiveVMValidator {
 	}
 }
 
+func textValidator(path string, expected string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Command: "cat " + path,
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+			if !strings.Contains(stdout, expected) {
+				return fmt.Errorf("expected to find %q in %q, got: %q", expected, path, stdout)
+			}
+			return nil
+		},
+	}
+}
+
 func runcVersionValidator(version string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert runc version",
