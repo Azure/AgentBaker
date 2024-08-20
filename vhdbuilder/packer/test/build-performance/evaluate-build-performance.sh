@@ -10,12 +10,13 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
   --arg uri "${BUILD_URI}" \
   --arg branch "${GIT_BRANCH}" \
   --arg commit "${GIT_VERSION}" \
-  "{sig_image_name: $sig, architecture: $arch, build_id: $build_id, build_datetime: $date, '\'
-  build_status: $status, build_uri: $uri, branch: $branch, commit: $commit, scripts: .}"
+  '{ sig_image_name: $sig, architecture: $arch, build_id: $build_id, build_datetime: $date,
+  build_status: $status, build_uri: $uri, branch: $branch, commit: $commit, scripts: .}' \
   ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
+rm ${BUILD_PERF_DATA_FILE}
 
 echo "##[group]Build Information"
-jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, build_uri, git_branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
+jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, build_uri, branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 scripts=()
@@ -36,4 +37,5 @@ echo -e "\n\n"
   #./PerformanceDataIngestor
 #popd
 
+rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."
