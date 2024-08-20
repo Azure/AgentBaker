@@ -217,6 +217,23 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
+  - bash: |
+      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e GIT_BRANCH=$(Build.SourceBranch) \
+      -e GIT_VERSION=$(Build.SourceVersion) \
+      -e BUILD_ID=$(Build.BuildId) \
+      -e BUILD_URI=$(Build.BuildUri) \
+      -e JOB_STATUS=$(Agent.JobStatus) \
+      -e ARCHITECTURE=${ARCHITECTURE} \
+      -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
+      ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
+    displayName: Check Build Performance
   - task: Bash@3
     inputs:
       targetType: 'inline'
