@@ -6,7 +6,7 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
   --arg arch "${ARCHITECTURE}" \
   --arg build_id "${BUILD_ID}" \
   --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-  --arg status "${BUILD_STATUS}" \
+  --arg status "${JOB_STATUS}" \
   --arg uri "${BUILD_URI}" \
   --arg branch "${GIT_BRANCH}" \
   --arg commit "${GIT_VERSION}" \
