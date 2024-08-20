@@ -7,6 +7,8 @@ type Config struct {
 	ComponentsPath       string
 	Dryrun               bool
 	ImagePullParallelism int
+	PullImages           bool
+	DownloadPackages     bool
 }
 
 func (c *Config) Validate() error {

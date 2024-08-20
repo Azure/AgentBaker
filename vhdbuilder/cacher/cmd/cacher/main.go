@@ -19,6 +19,8 @@ var (
 func parseFlags() {
 	flag.StringVar(&cfg.ComponentsPath, "components-path", "", "Path to the components file.")
 	flag.BoolVar(&cfg.Dryrun, "dry-run", false, "Enable dry-run mode, where no bash commands will actually be executed.")
+	flag.BoolVar(&cfg.PullImages, "pull-images", false, "Whether to pull container images.")
+	flag.BoolVar(&cfg.DownloadPackages, "download-packages", false, "Whether to download packages.")
 	flag.IntVar(&cfg.ImagePullParallelism, "image-pull-parallelism", 1, "Max parallelism to be used while pulling container images.")
 	flag.Parse()
 }
@@ -42,17 +44,25 @@ func main() {
 	components, err := model.LoadComponents(cfg.ComponentsPath)
 	handle(err)
 
-	imageInstaller, err := containerimage.NewContainerdInstaller(&containerimage.InstallerConfig{
-		Parallelism: cfg.ImagePullParallelism,
-	})
-	handle(err)
+	if cfg.PullImages {
+		log.Println("pulling container images...")
 
-	err = imageInstaller.Install(components.ContainerImages)
-	handle(err)
+		imageInstaller, err := containerimage.NewContainerdInstaller(&containerimage.InstallerConfig{
+			Parallelism: cfg.ImagePullParallelism,
+		})
+		handle(err)
 
-	packageInstaller, err := packages.NewInstaller()
-	handle(err)
+		err = imageInstaller.Install(components.ContainerImages)
+		handle(err)
+	}
 
-	err = packageInstaller.Install(components.Packages)
-	handle(err)
+	if cfg.DownloadPackages {
+		log.Println("downloading packages...")
+
+		packageInstaller, err := packages.NewInstaller()
+		handle(err)
+
+		err = packageInstaller.Install(components.Packages)
+		handle(err)
+	}
 }
