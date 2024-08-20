@@ -148,6 +148,7 @@ steps:
       -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer
     displayName: Building VHD
+    retryCountOnTaskFailure: 3
   - bash: |
       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
