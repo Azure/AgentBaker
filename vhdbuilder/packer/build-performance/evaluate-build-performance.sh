@@ -16,7 +16,7 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
 rm ${BUILD_PERF_DATA_FILE}
 
 echo "##[group]Build Information"
-jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, build_uri, branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
+jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 scripts=()
