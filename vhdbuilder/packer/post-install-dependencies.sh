@@ -2,8 +2,6 @@
 
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
-SCRIPT_NAME=$(basename $0 .sh)
-SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
 
