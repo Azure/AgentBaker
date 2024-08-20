@@ -84,8 +84,6 @@ else
 fi
 
 vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}"
-
-# Do not log sas token
 echo "COPY ME ---> ${vhd_url}"
 
 # Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
