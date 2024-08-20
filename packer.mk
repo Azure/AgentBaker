@@ -5,7 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary build-performance-data-ingestor-binary
+build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -118,10 +118,6 @@ build-nbcparser-binary:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
-
-build-performance-data-ingestor-binary:
-	@echo "Building performance data ingestor binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/packer/test/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o PerformanceDataIngestor main.go && popd"
 
 evaluate-build-performance: az-login
 	@echo "Evaluating build performance"
