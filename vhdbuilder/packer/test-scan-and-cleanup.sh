@@ -36,7 +36,8 @@ SIG_VERSION=$(az sig image-version show \
 
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
-  retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"; exit $?
+  retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
+  exit $?
 fi
 
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
