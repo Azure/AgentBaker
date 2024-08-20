@@ -39,8 +39,8 @@ type MarinerOSDistro struct {
 
 type DownloadURICollection struct {
 	Default *DefaultOSDistro `json:"default,omitempty"`
-	Ubuntu  *DefaultOSDistro `json:"ubuntu,omitempty"`
-	Mariner *DefaultOSDistro `json:"mariner,omitempty"`
+	Ubuntu  *UbuntuOSDistro  `json:"ubuntu,omitempty"`
+	Mariner *MarinerOSDistro `json:"mariner,omitempty"`
 }
 
 type Package struct {

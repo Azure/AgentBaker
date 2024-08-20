@@ -11,7 +11,8 @@ const (
 )
 
 var (
-	OS OSType
+	OS            OSType
+	UbuntuRelease = 1
 )
 
 func init() {
@@ -25,10 +26,22 @@ func getOSTypeFromEnv() OSType {
 	return Ubuntu
 }
 
+func IsUbuntu() bool {
+	return OS == Ubuntu
+}
+
+func IsMariner() bool {
+	return OS == Mariner
+}
+
 func IsAMD() bool {
 	return runtime.GOARCH == "amd64"
 }
 
 func IsARM() bool {
 	return runtime.GOARCH == "arm"
+}
+
+func GetArchString() string {
+	return runtime.GOARCH
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/config"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/exec"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/containerimage"
+	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/installers/packages"
 	"github.com/Azure/agentbaker/vhdbuilder/cacher/pkg/model"
 )
 
@@ -41,11 +42,17 @@ func main() {
 	components, err := model.LoadComponents(cfg.ComponentsPath)
 	handle(err)
 
-	installer, err := containerimage.NewContainerdInstaller(&containerimage.InstallerConfig{
+	imageInstaller, err := containerimage.NewContainerdInstaller(&containerimage.InstallerConfig{
 		Parallelism: cfg.ImagePullParallelism,
 	})
 	handle(err)
 
-	err = installer.Install(components.ContainerImages)
+	err = imageInstaller.Install(components.ContainerImages)
+	handle(err)
+
+	packageInstaller, err := packages.NewInstaller(nil)
+	handle(err)
+
+	err = packageInstaller.Install(components.Packages)
 	handle(err)
 }

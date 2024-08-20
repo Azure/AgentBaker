@@ -22,5 +22,21 @@
           "3.6"
         ]
       }
-    ]
+    ],
+  "Packages": [
+    {
+      "name": "cni-plugins",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.4.1"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+          }
+        }
+      }
+    }
+  ]
 }
