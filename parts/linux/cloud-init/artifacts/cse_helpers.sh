@@ -473,6 +473,7 @@ process_benchmarks() {
   done
  
   jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
+  chmod 755 ${VHD_BUILD_PERF_DATA}
 }
 
 #return proper release metadata for the package based on the os and osVersion

@@ -31,7 +31,6 @@ cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 echo '{}' > ${VHD_BUILD_PERF_DATA}
-chmod 755 ${VHD_BUILD_PERF_DATA}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
