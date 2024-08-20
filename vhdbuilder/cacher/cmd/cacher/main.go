@@ -50,7 +50,7 @@ func main() {
 	err = imageInstaller.Install(components.ContainerImages)
 	handle(err)
 
-	packageInstaller, err := packages.NewInstaller(nil)
+	packageInstaller, err := packages.NewInstaller()
 	handle(err)
 
 	err = packageInstaller.Install(components.Packages)

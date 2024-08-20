@@ -12,27 +12,41 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
 
+func AptGetInstall() error {
+	return nil
+}
+
+func WaitForAptLocks() error {
+	return nil
+}
+
 func GetTarball(path, fallbackURL string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		if err := DownloadWithCurl(path, fallbackURL); err != nil {
 			return err
 		}
 	}
-	untar := fmt.Sprintf("tar -tzf %s", path)
-	return RunCommand(untar, &exec.CommandConfig{
-		MaxRetries: 3,
-		Wait:       to.Ptr(time.Second),
-		Timeout:    to.Ptr(time.Minute),
-	})
+	return RunCommand(fmt.Sprintf("sudo tar -tzf %s", path), nil)
+}
+
+func ExtractTarball(path, targetPath string) error {
+	return RunCommand(fmt.Sprintf("sudo tar -zxf %s -C %s", path, targetPath), nil)
 }
 
 func DownloadWithCurl(outputPath, downloadURL string) error {
-	download := fmt.Sprintf("curl -fsSLv %s -o %s", downloadURL, outputPath)
-	return RunCommand(download, &exec.CommandConfig{
+	return RunCommand(fmt.Sprintf("curl -fsSLv %s -o %s", downloadURL, outputPath), &exec.CommandConfig{
 		MaxRetries: 10,
 		Wait:       to.Ptr(3 * time.Second),
 		Timeout:    to.Ptr(time.Minute),
 	})
+}
+
+func EnsureDirectory(dir string) error {
+	return RunCommand(fmt.Sprintf("mkdir -p %s", dir), nil)
+}
+
+func Remove(path string) error {
+	return RunCommand(fmt.Sprintf("rm -rf %s", path), nil)
 }
 
 func RunCommand(cmdString string, cmdConfig *exec.CommandConfig) error {
@@ -75,14 +89,6 @@ func getUbuntuURI(pkg *model.Package) *model.ReleaseDownloadURI {
 	}
 	// TODO: resolve based on ubuntu release version instead of always taking current
 	return pkg.DownloadURIs.Ubuntu.Current
-}
-
-func EnsureDirectory(dir string) error {
-	return RunCommand(fmt.Sprintf("mkdir -p %s", dir), &exec.CommandConfig{
-		MaxRetries: 3,
-		Timeout:    to.Ptr(time.Second),
-		Wait:       to.Ptr(time.Second),
-	})
 }
 
 func EvaluateDownloadURL(url, version string) string {
