@@ -162,7 +162,6 @@ steps:
       -e BUILD_ID=$(Build.BuildId) \
       -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
       -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-      -e SCANNING_MSI_RESOURCE_ID=${SCANNING_MSI_RESOURCE_ID} \
       -e OS_VERSION=${OS_VERSION} \
       -e OS_SKU=${OS_SKU} \
       -e OS_TYPE="Linux" \
