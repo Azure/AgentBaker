@@ -1,6 +1,10 @@
 #!/bin/bash
 set -eux
 
+if [ "${OS_VERSION}" == "18.04" ]; then
+  exit 1
+fi
+
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
