@@ -1,12 +1,9 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
-
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
-
-declare -a benchmarks=()
+declare -A benchmarks=()
+declare -a benchmarks_order=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -33,7 +30,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-echo '[]' > ${VHD_BUILD_PERF_DATA}
+echo '{}' > ${VHD_BUILD_PERF_DATA}
 
 if [[ $OS == $MARINER_OS_NAME ]]; then
   chmod 755 /opt
