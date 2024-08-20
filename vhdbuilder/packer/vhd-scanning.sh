@@ -73,6 +73,8 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+STORAGE_ACCOUNT_ID="$(az storage account show --name "${STORAGE_ACCOUNT_NAME}" --query id --output tsv)"
+
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $VM_NAME \
     --image $VHD_IMAGE \
@@ -82,7 +84,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $TEST_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "${SCANNING_MSI_RESOURCE_ID}"
+    --assign-identity \
+    --scope "${STORAGE_ACCOUNT_ID}" \
+    --role "Storage Blob Data Contributor"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
