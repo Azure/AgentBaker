@@ -13,7 +13,7 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
   '{ sig_image_name: $sig, architecture: $arch, build_id: $build_id, build_datetime: $date,
   build_status: $status, build_uri: $uri, branch: $branch, commit: $commit, scripts: .}' \
   ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
-  
+
 rm ${BUILD_PERF_DATA_FILE}
 
 echo "##[group]Build Information"
@@ -30,7 +30,6 @@ for script in "${scripts[@]}"; do
   jq -C ".scripts.\"$script\"" ${SIG_IMAGE_NAME}-build-performance.json
   echo "##[endgroup]"
 done
-echo -e "\n\n"
 
 rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."
