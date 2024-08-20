@@ -503,17 +503,18 @@ capture_benchmark() {
 process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
+  
+  script_object=$(jq -n --arg script_name "$(basename $0)" '{($script_name): {}}')
 
   for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
     section_name=${benchmarks_order[i]}
     section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
     '{($section_name): $total_time_elapsed'})
-    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${SCRIPT_NAME}" \
+    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" \
     '$script_object | .[$script_name] += $section_object')
   done
  
-  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
+  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
 }
 
