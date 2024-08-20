@@ -234,7 +234,6 @@ steps:
       -e GIT_BRANCH=$(Build.SourceBranch) \
       -e GIT_VERSION=$(Build.SourceVersion) \
       -e BUILD_ID=$(Build.BuildId) \
-      -e BUILD_URI=$(Build.BuildUri) \
       -e JOB_STATUS=$(Agent.JobStatus) \
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
