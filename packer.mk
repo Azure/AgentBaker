@@ -118,7 +118,3 @@ build-nbcparser-binary:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
-
-evaluate-build-performance: az-login
-	@echo "Evaluating build performance"
-	@./vhdbuilder/packer/test/build-performance/evaluate-build-performance.sh
