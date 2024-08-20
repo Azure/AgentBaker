@@ -1,5 +1,5 @@
 #!/bin/bash
-
+exit 1
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 declare -A benchmarks=()
