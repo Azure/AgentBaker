@@ -19,7 +19,7 @@ func GetTarball(path, fallbackURL string) error {
 		}
 	}
 	untar := fmt.Sprintf("tar -tzf %s", path)
-	return runCommand(untar, &exec.CommandConfig{
+	return RunCommand(untar, &exec.CommandConfig{
 		MaxRetries: 3,
 		Wait:       to.Ptr(time.Second),
 		Timeout:    to.Ptr(time.Minute),
@@ -28,14 +28,14 @@ func GetTarball(path, fallbackURL string) error {
 
 func DownloadWithCurl(outputPath, downloadURL string) error {
 	download := fmt.Sprintf("curl -fsSLv %s -o %s", downloadURL, outputPath)
-	return runCommand(download, &exec.CommandConfig{
+	return RunCommand(download, &exec.CommandConfig{
 		MaxRetries: 10,
 		Wait:       to.Ptr(3 * time.Second),
 		Timeout:    to.Ptr(time.Minute),
 	})
 }
 
-func runCommand(cmdString string, cmdConfig *exec.CommandConfig) error {
+func RunCommand(cmdString string, cmdConfig *exec.CommandConfig) error {
 	cmd, err := exec.NewCommand(cmdString, cmdConfig)
 	if err != nil {
 		return fmt.Errorf("constructing command: %w", err)
@@ -50,6 +50,7 @@ func runCommand(cmdString string, cmdConfig *exec.CommandConfig) error {
 	return nil
 }
 
+// TODO: actually do this correctly
 func GetRelevantDownloadURI(pkg *model.Package) *model.ReleaseDownloadURI {
 	switch {
 	case env.IsMariner():
@@ -62,6 +63,9 @@ func GetRelevantDownloadURI(pkg *model.Package) *model.ReleaseDownloadURI {
 }
 
 func getMarinerURI(pkg *model.Package) *model.ReleaseDownloadURI {
+	if pkg.DownloadURIs.Mariner == nil {
+		return pkg.DownloadURIs.Default.Current
+	}
 	return pkg.DownloadURIs.Mariner.Current
 }
 
@@ -69,21 +73,20 @@ func getUbuntuURI(pkg *model.Package) *model.ReleaseDownloadURI {
 	if pkg.DownloadURIs.Ubuntu == nil {
 		return pkg.DownloadURIs.Default.Current
 	}
+	// TODO: resolve based on ubuntu release version instead of always taking current
 	return pkg.DownloadURIs.Ubuntu.Current
 }
 
-func GetURLBase(url string) string {
-	if !strings.Contains(url, "/") {
-		return url
-	}
-	parts := strings.Split(strings.TrimSpace(url), "/")
-	return parts[len(parts)-1]
-}
-
 func EnsureDirectory(dir string) error {
-	return runCommand(fmt.Sprintf("mkdir -p %s", dir), &exec.CommandConfig{
+	return RunCommand(fmt.Sprintf("mkdir -p %s", dir), &exec.CommandConfig{
 		MaxRetries: 3,
 		Timeout:    to.Ptr(time.Second),
 		Wait:       to.Ptr(time.Second),
 	})
+}
+
+func EvaluateDownloadURL(url, version string) string {
+	url = strings.ReplaceAll(url, "${CPU_ARCH}", env.GetArchString())
+	url = strings.ReplaceAll(url, "${version}", version)
+	return url
 }

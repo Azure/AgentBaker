@@ -2,6 +2,7 @@ package config
 
 import "fmt"
 
+// TODO: use config file
 type Config struct {
 	ComponentsPath       string
 	Dryrun               bool

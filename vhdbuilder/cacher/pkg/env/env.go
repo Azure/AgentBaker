@@ -11,8 +11,7 @@ const (
 )
 
 var (
-	OS            OSType
-	UbuntuRelease = 1
+	OS OSType
 )
 
 func init() {

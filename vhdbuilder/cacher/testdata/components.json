@@ -25,6 +25,36 @@
     ],
   "Packages": [
     {
+      "name": "cri-tools",
+      "downloadLocation": "/opt/crictl/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.29.0"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "azure-cni",
+      "downloadLocation": "/opt/cni/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.4.54",
+              "1.5.28",
+              "1.5.32"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+          }
+        }
+      }
+    },
+    {
       "name": "cni-plugins",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
