@@ -100,6 +100,9 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
+test-scan-and-cleanup: az-login
+	@./vhdbuilder/packer/test-scan-and-cleanup.sh
+
 generate-prefetch-scripts:
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
