@@ -82,7 +82,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for AZURELINUX'
             package=$(readPackage "azure-cni")
             When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.28 1.5.32"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3"
         End
 
         It 'returns downloadURIs.azurelinux.current.versions of package runc for AZURELINUX'
