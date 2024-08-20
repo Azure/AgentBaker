@@ -1,15 +1,20 @@
 #!/bin/bash
 
-echo -e "\nGenerating ${SIG_IMAGE_NAME} build performance data from ${BUILD_PERF_DATA_FILE}...\n"
+echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
 
 jq --arg sig "${SIG_IMAGE_NAME}" \
---arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
---arg commit "${GIT_VERSION}" \
-'. as $orig | {"sig_image_name":$sig, "build_datetime":$date, "commit":$commit, "scripts": ($orig | reduce .[] as $item ({}; . + $item) | map_values(map_values(.total_time_elapsed)))}' \
-${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
+  --arg arch "${ARCHITECTURE}" \
+  --arg build_id "${BUILD_ID}" \
+  --arg date "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  --arg status "${BUILD_STATUS}" \
+  --arg uri "${BUILD_URI}" \
+  --arg branch "${GIT_BRANCH}" \
+  --arg commit "${GIT_VERSION}" \
+  '. as $orig | {"sig_image_name":$sig, "architecture":$arch, "build_id":$build_id, "build_datetime":$date, "build_status":$status, "build_uri":$uri, "branch":$branch, "commit":$commit, "scripts": ($orig | reduce .[] as $item ({}; . + $item) | map_values(map_values(.total_time_elapsed)))}' \
+  ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
 echo "##[group]Build Information"
-jq -C '. | {sig_image_name, build_datetime, commit}' ${SIG_IMAGE_NAME}-build-performance.json
+jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, build_uri, git_branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 scripts=()
