@@ -157,19 +157,6 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
-retrycmd_if_failure_nostdout() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" > /dev/null && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-    echo Executed \"$@\" $i times;
-}
 retrycmd_nslookup() {
     wait_sleep=$1; timeout=$2; total_timeout=$3; record=$4
     start_time=$(date +%s)

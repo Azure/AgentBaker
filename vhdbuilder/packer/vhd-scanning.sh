@@ -20,14 +20,7 @@ SUBNET_NAME="scanning"
 if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
     exit 1
-fi
-
-# We assign this identity to the scanning VM so that it has permission
-# to push the trivy output to the storage blob.
-if [ -z "$SCANNING_MSI_RESOURCE_ID" ]; then
-    echo "SCANNING_MSI_RESOURCE_ID must be set to run VHD scanning"
-    exit 1
-fi
+fi 
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
@@ -53,6 +46,11 @@ az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+
+    if [ -n "${VM_PRINCIPLE_ID}" ]; then
+        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
+        echo "Role assignment deleted."
+    fi
 }
 trap cleanup EXIT
 
@@ -74,7 +72,10 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "${SCANNING_MSI_RESOURCE_ID}"
+    --assign-identity "[system]"
+
+VM_PRINCIPLE_ID=$(az vm identity show --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
+az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
