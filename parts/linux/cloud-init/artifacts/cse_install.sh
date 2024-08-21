@@ -13,6 +13,7 @@ RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 UBUNTU_RELEASE=$(lsb_release -r -s)
+# For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
