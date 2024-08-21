@@ -30,7 +30,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-echo '{' > ${VHD_BUILD_PERF_DATA}
+echo '{}' > ${VHD_BUILD_PERF_DATA}
 
 if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt
