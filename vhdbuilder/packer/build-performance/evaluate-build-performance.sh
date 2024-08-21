@@ -1,21 +1,21 @@
 #!/bin/bash
 
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};] \
-  No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+  echo "No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+  echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
 if [[ $? -ne 0 ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};] \
-  ${BUILD_PERF_DATA_FILE} contains invalid json."
+  echo "${BUILD_PERF_DATA_FILE} contains invalid json."
+  echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
 
 if [[ ${SCRIPT_COUNT} == 0 ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};] \
-  Build performance data file is empty. Skipping build performance evaluation."
+  echo "Build performance data file is empty. Skipping build performance evaluation."
+  echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
 
