@@ -1,8 +1,12 @@
 #!/bin/bash
 
-KEY_COUNT=$(jq 'keys | length' ${BUILD_PERF_DATA_FILE})
+SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
+if [ $? -ne 0 ]; then
+  echo "##[warning]${BUILD_PERF_DATA_FILE} contains invalid json."
+  exit 0
+fi
 
-if [[ ! -f ${BUILD_PERF_DATA_FILE} || ${KEY_COUNT} == 0 ]]; then
+if [[ ! -f ${BUILD_PERF_DATA_FILE} || ${SCRIPT_COUNT} == 0 ]]; then
   echo "##[warning]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
   exit 0
 fi
