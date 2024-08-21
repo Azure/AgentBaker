@@ -73,7 +73,7 @@ installNvidiaFabricManager() {
     done
 }
 
-installNvidiaContainerRuntime() {
+installNvidiaContainerToolkit() {
     MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.13.0"
     MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.15.0"
 
