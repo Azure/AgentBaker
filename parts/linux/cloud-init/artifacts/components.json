@@ -101,7 +101,7 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-ipam:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v0.2.0"
+        "v0.3.0"
       ],
       "prefetchOptimizations": [
         {
