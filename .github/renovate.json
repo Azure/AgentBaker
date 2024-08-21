@@ -48,7 +48,7 @@
         "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.runc_containerd",
-      "versioningTemplate": "debian"
+      "versioningTemplate": "deb"
     }
   ],
   "customDatasources": {
