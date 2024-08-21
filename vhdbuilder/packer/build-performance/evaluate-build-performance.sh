@@ -6,7 +6,7 @@ fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
 if [[ $? -ne 0 ]]; then
-  log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json"
+  log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json" true
 fi
 
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
@@ -49,7 +49,11 @@ echo -e "\nBuild performance evaluation script completed."
 log_and_exit () {
   local FILE=${1}
   local ERR=${2}
+  local SHOW_FILE=${3:-false}
   echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${FILE} ${ERR}. Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
+  if [[ ${SHOW_FILE} == "true" ]]; then
+    cat ${FILE}
+  fi
   exit 0
 }
