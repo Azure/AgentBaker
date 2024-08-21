@@ -38,6 +38,8 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
   build_status: $status, branch: $branch, commit: $commit, scripts: .}' \
   ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
+cat ${SIG_IMAGE_NAME}-build-performance.json | jq -C .
+
 rm ${BUILD_PERF_DATA_FILE}
 
 echo "##[group]Build Information"
