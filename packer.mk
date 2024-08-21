@@ -29,8 +29,13 @@ else
 	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
 endif
 ifeq (${OS_SKU},Ubuntu)
-	@echo "Using packer template file: vhd-image-builder-base.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+  ifeq (${IMG_SKU},20_04-lts-cvm)
+    @echo "Using packer template file vhd-image-builder-cvm.json"
+    @packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+  else
+    @echo "Using packer template file vhd-image-builder-base.json"
+    @packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+  endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
@@ -76,7 +81,7 @@ init-packer:
 	@./vhdbuilder/packer/init-variables.sh
 
 run-packer: az-login
-	@@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl
+	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl
 	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
