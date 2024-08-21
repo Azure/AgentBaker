@@ -457,11 +457,10 @@ func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datam
 // TODO(cameissner): revisit whether to add a negative label for the disabled case,
 // e.g. "kubernetes.azure.com/kubelet-serving-ca=self", before this feature is rolled out.
 func getKubeletServingCALabel(config *datamodel.NodeBootstrappingConfiguration) string {
-	var label string
 	if IsKubeletServingCertificateRotationEnabled(config) {
-		label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+		return "kubernetes.azure.com/kubelet-serving-ca=cluster"
 	}
-	return label
+	return ""
 }
 
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
