@@ -745,7 +745,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("true"))
 			}),
 
-		Entry("AKSUbuntu2204 with kubelet serving certificate rotation disabled and custom kubelet config", "AKSUbuntu2204+DisableKubeletServingCertificateRotation+CustomKubeletConfig", "1.29.7",
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation disabled and custom kubelet config",
+			"AKSUbuntu2204+DisableKubeletServingCertificateRotation+CustomKubeletConfig", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
 				failSwapOn := false
@@ -770,7 +771,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(kubeletConfigFileContent).ToNot(ContainSubstring("serverTLSBootstrap")) // because of: "bool `json:"serverTLSBootstrap,omitempty"`"
 			}),
 
-		Entry("AKSUbuntu2204 with kubelet serving certificate rotation enabled and custom kubelet config", "AKSUbuntu2204+KubeletServingCertificateRotation+CustomKubeletConfig", "1.29.7",
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation enabled and custom kubelet config",
+			"AKSUbuntu2204+KubeletServingCertificateRotation+CustomKubeletConfig", "1.29.7",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableKubeletConfigFile = false
 				failSwapOn := false
