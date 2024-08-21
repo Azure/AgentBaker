@@ -2096,6 +2096,13 @@ type AKSKubeletConfiguration struct {
 	Default: []
 	+optional. */
 	AllowedUnsafeSysctls []string `json:"allowedUnsafeSysctls,omitempty"`
+	// serializeImagePulls when enabled, tells the Kubelet to pull images one
+	// at a time. We recommend *not* changing the default value on nodes that
+	// run docker daemon with version  < 1.9 or an Aufs storage backend.
+	// Issue #10959 has more details.
+	// Default: true
+	// +optional
+	SerializeImagePulls *bool `json:"serializeImagePulls,omitempty"`
 }
 
 type Duration string
