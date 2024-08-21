@@ -88,11 +88,9 @@ installNvidiaContainerToolkit() {
     done
 
     if [[ $OS_VERSION == "2.0" ]]; then
-      for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION}; do
-        if ! dnf_install 30 1 600 $nvidia_package; then
-          exit $ERR_APT_INSTALL_TIMEOUT
-        fi
-      done
+      if ! dnf_install 30 1 600 nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION}; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
     fi
 }
 
