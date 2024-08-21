@@ -148,7 +148,7 @@ $global:ErrorCodeNames = @(
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
-# Althouth the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
+# Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
 $global:StableContainerdPackage = "v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
