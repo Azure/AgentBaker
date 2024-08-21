@@ -454,6 +454,8 @@ func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datam
 // When the flag is set, this label will in the form of "kubernetes.azure.com/kubelet-serving-ca=cluster",
 // indicating the CA that signed the kubelet's serving certificate is the cluster CA.
 // Otherwise, this will return an empty string, and no extra labels will be added to the node.
+// TODO(cameissner): revisit whether to add a negative label for the disabled case,
+// e.g. "kubernetes.azure.com/kubelet-serving-ca=self", before this feature is rolled out.
 func getKubeletServingCALabel(config *datamodel.NodeBootstrappingConfiguration) string {
 	var label string
 	if IsKubeletServingCertificateRotationEnabled(config) {
