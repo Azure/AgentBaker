@@ -65,6 +65,7 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--fail-swap-on":                      true,
 	"--container-log-max-size":            true,
 	"--container-log-max-files":           true,
+	"--serialize-image-pulls":             true,
 }
 
 type paramsMap map[string]interface{}

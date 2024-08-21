@@ -877,6 +877,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Expect(o.vars["BLOCK_OUTBOUND_NETWORK"]).To(Equal("false"))
 		}),
 
+		Entry("AKSUbuntu2204 with SerializeImagePulls=false and k8s 1.31", "AKSUbuntu2204+SerializeImagePulls", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.KubeletConfig["--serialize-image-pulls"] = "false"
+		}, func(o *nodeBootstrappingOutput) {
+			Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
+			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--serialize-image-pulls=false")).To(BeTrue())
+		}),
+
 		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 				CustomCATrustCerts: []string{encodedTestCert, encodedTestCert, encodedTestCert},
