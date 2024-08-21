@@ -208,6 +208,7 @@ steps:
   - bash: |
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
+      chmod 755 ${VHD_BUILD_PERF_DATA} && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \

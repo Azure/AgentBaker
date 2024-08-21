@@ -556,3 +556,4 @@ fi
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
+chmod 755 ${VHD_BUILD_PERF_DATA}
