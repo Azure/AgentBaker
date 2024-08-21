@@ -1,8 +1,7 @@
 #!/bin/bash
 
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]No build performance data file found for ${SIG_IMAGE_NAME}. \
-  Skipping build performance evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} not found. Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
@@ -16,7 +15,7 @@ fi
 
 echo "Script count is ${SCRIPT_COUNT}"
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
-  echo "Build performance data file is empty. Skipping build performance evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} is empty. Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
