@@ -1,21 +1,24 @@
 #!/bin/bash
 
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} not found. Skipping build performance evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} not found. \
+  Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
 if [[ $? -ne 0 ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} contains invalid json."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} contains invalid json. \
+  Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
 
 echo "Script count is ${SCRIPT_COUNT}"
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
-  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} is empty. Skipping build performance evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${BUILD_PERF_DATA_FILE} is empty. \
+  Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
