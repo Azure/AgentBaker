@@ -146,13 +146,6 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE"
 )
 
-# NOTE: KubernetesVersion does not contain "v"
-$global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
-# DEPRECATED: The contianerd package url will be set in AKS RP code. We will remove the following variables in the future.
-$global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
-# The latest containerd version
-$global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
-
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
 $global:TaskTimeStamp = ""
@@ -396,24 +389,7 @@ function Install-Containerd-Based-On-Kubernetes-Version {
 
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion"
 
-  # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
-  # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
-  # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
-  #   1. Current behavior to set the full URL
-  #   2. Setting containerd package in toggle for test purpose or hotfix
-  if ($ContainerdUrl.EndsWith("/")) {
-    Write-Log "ContainerdURL is $ContainerdUrl"
-    $containerdPackage=$global:StableContainerdPackage
-    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
-        $containerdPackage=$global:LatestContainerdPackage
-        Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
-    } else {
-      Write-Log "Kubernetes version $KubernetesVersion is less than $global:MinimalKubernetesVersionWithLatestContainerd so the stable containerd version $containerdPackage is used"
-    }
-    $ContainerdUrl = $ContainerdUrl + $containerdPackage
-  }
+  # Currently, we set containerd package url in AKS RP code
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerd" -TaskMessage "Start to install ContainerD. ContainerdUrl: $ContainerdUrl"
   Install-Containerd -ContainerdUrl $ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
