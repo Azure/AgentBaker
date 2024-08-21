@@ -494,6 +494,18 @@ func TestGetAgentKubernetesLabels(t *testing.T) {
 			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
 		},
 		{
+			name:    "config disables serving certificate rotation and profile is nil",
+			profile: nil,
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "false",
+				},
+			},
+			expected: "",
+		},
+		{
 			name: "config enables serving certificate rotation",
 			profile: &datamodel.AgentPoolProfile{
 				Name: "nodepool1",
