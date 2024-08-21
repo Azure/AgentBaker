@@ -149,7 +149,7 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
-  - script: |
+  - bash: |
       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
