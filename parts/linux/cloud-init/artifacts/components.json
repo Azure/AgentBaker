@@ -42,17 +42,11 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.5.28",
         "v1.5.32",
-        "v1.6.0"
+        "v1.6.0",
+        "v1.6.3"
       ],
       "prefetchOptimizations": [
-        {
-          "version": "v1.5.28",
-          "binaries": [
-            "dropgz"
-          ]
-        },
         {
           "version": "v1.5.32",
           "binaries": [
@@ -61,6 +55,12 @@
         },
         {
           "version": "v1.6.0",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.6.3",
           "binaries": [
             "dropgz"
           ]
@@ -72,17 +72,11 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.4.52",
-        "v1.5.26",
         "v1.5.32",
-        "v1.6.0"
+        "v1.6.0",
+        "v1.6.3"
       ],
       "prefetchOptimizations": [
-        {
-          "version": "v1.5.26",
-          "binaries": [
-            "usr/local/bin/azure-cns"
-          ]
-        },
         {
           "version": "v1.5.32",
           "binaries": [
@@ -91,6 +85,12 @@
         },
         {
           "version": "v1.6.0",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.6.3",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -217,7 +217,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.27.17",
-        "v1.27.19",
+        "v1.27.20",
         "v1.28.9",
         "v1.28.11",
         "v1.29.4",
@@ -443,6 +443,13 @@
             ]
           }
         },
+        "marinerkata": {
+          "current": {
+            "versions": [
+              "<SKIP>"
+            ]
+          }
+        },
         "default": {
           "current": {
             "versions": [
@@ -474,8 +481,8 @@
           "current": {
             "versions": [
               "1.4.54",
-              "1.5.28",
-              "1.5.32"
+              "1.5.32",
+              "1.6.3"
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }

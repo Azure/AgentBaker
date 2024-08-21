@@ -50,12 +50,19 @@ installContainerdWithComponentsJson() {
     
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
     returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+    fi
+    if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+        echo "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
+        return 0
     fi
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
@@ -320,6 +327,9 @@ installCNI() {
         os_version="current"
     fi
     os_version="${UBUNTU_RELEASE}"
+    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
     PACKAGE_VERSIONS=()
     returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
     
