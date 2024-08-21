@@ -238,6 +238,7 @@ steps:
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
       ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
+    condition: always()
     displayName: Check Build Performance
   - task: Bash@3
     inputs:
