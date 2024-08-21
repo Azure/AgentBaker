@@ -663,7 +663,7 @@ configGPUDrivers() {
         fi
     elif isMarinerOrAzureLinux "$OS"; then
         downloadGPUDrivers
-        installNvidiaContainerRuntime
+        installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
