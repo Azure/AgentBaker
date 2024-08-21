@@ -96,4 +96,3 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   fi
 fi
 echo "post-install-dependencies step completed successfully"
-chmod 755 ${VHD_BUILD_PERF_DATA}
