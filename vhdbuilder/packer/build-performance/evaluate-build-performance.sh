@@ -1,7 +1,8 @@
 #!/bin/bash
 
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  echo "No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]No build performance data file found for ${SIG_IMAGE_NAME}. \
+  Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
 fi
