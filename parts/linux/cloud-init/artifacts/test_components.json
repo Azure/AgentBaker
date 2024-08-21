@@ -71,7 +71,7 @@
         },
         "mariner": {
           "current": {
-            "tag": "name=moby-runc os=mariner release=current",
+            "tag": "name=moby-containerd os=mariner release=current",
             "versions": [
               "1.6.26-5.cm2"
             ]
@@ -79,7 +79,7 @@
         },
         "default": {
           "current": {
-            "tag": "name=moby-runc os=default release=current",
+            "tag": "name=moby-containerd os=default release=current",
             "versions": [
               "1.7.20"
             ]
