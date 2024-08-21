@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ ! -f ${BUILD_PERF_DATA_FILE} ]; then
+  echo "##[warning]No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+  exit 0
+fi
+
 echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
 
 jq --arg sig "${SIG_IMAGE_NAME}" \
