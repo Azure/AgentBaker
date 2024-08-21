@@ -451,7 +451,7 @@ func TestGetAgentKubernetesLabels(t *testing.T) {
 			name:     "profile and config are nil",
 			profile:  nil,
 			config:   nil,
-			expected: "kubernetes.azure.com/kubelet-serving-ca=self",
+			expected: "",
 		},
 		{
 			name:    "profile is nil",
@@ -474,7 +474,7 @@ func TestGetAgentKubernetesLabels(t *testing.T) {
 				},
 			},
 			config:   nil,
-			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value,kubernetes.azure.com/kubelet-serving-ca=self",
+			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
 		},
 		{
 			name: "config disables serving certificate rotation",
@@ -491,7 +491,7 @@ func TestGetAgentKubernetesLabels(t *testing.T) {
 					"--rotate-server-certificates": "false",
 				},
 			},
-			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value,kubernetes.azure.com/kubelet-serving-ca=self",
+			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
 		},
 		{
 			name: "config enables serving certificate rotation",
