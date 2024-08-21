@@ -13,7 +13,8 @@ if [[ $? -ne 0 ]]; then
   exit 0
 fi
 
-if [[ ${SCRIPT_COUNT} == 0 ]]; then
+echo "Script count is ${SCRIPT_COUNT}"
+if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
   echo "Build performance data file is empty. Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
   exit 0
