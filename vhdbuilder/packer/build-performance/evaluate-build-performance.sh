@@ -7,7 +7,8 @@ if [ $? -ne 0 ]; then
 fi
 
 if [[ ! -f ${BUILD_PERF_DATA_FILE} || ${SCRIPT_COUNT} == 0 ]]; then
-  echo "##[warning]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+  #echo "##[warning]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
   exit 0
 fi
 
