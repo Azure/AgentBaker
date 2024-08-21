@@ -21,7 +21,6 @@ if [[ $? -ne 0 ]]; then
   log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json" true
 fi
 
-echo "Script count: ${SCRIPT_COUNT}"
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
   log_and_exit ${BUILD_PERF_DATA_FILE} "contains no scripts"
 fi
