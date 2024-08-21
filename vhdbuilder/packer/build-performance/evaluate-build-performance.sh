@@ -1,7 +1,9 @@
 #!/bin/bash
 
-if [ ! -f ${BUILD_PERF_DATA_FILE} ]; then
-  echo "##[warning]No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+KEY_COUNT=$(jq 'keys | length' ${BUILD_PERF_DATA_FILE})
+
+if [ ! -f ${BUILD_PERF_DATA_FILE} || ${KEY_COUNT} == 0 ]; then
+  echo "##[warning]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
   exit 0
 fi
 
