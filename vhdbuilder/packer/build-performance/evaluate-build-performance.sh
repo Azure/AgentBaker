@@ -1,16 +1,16 @@
 #!/bin/bash
 
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  log_warn_and_exit ${BUILD_PERF_DATA_FILE} "not found"
+  log_and_exit ${BUILD_PERF_DATA_FILE} "not found"
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
 if [[ $? -ne 0 ]]; then
-  log_warn_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json"
+  log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json"
 fi
 
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
-  log_warn_and_exit ${BUILD_PERF_DATA_FILE} "contains no scripts"
+  log_and_exit ${BUILD_PERF_DATA_FILE} "contains no scripts"
 fi
 
 echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
@@ -46,7 +46,7 @@ done
 rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."
 
-log_warn_and_exit () {
+log_and_exit () {
   local FILE=${1}
   local ERR=${2}
   echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${FILE} ${ERR}. Skipping build performance evaluation."
