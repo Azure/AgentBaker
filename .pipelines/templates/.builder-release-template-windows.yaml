@@ -146,6 +146,7 @@ steps:
       -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
       -e TEST_VM_RESOURCE_GROUP_NAME=${TEST_VM_RESOURCE_GROUP_NAME} \
       -e ARCHITECTURE=${ARCHITECTURE} \
+      -e GIT_BRANCH=$(Build.SourceBranch) \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
 
@@ -256,8 +257,6 @@ steps:
       -e OFFER_NAME="Windows" \
       -e IMAGE_VERSION=${AKS_WINDOWS_IMAGE_VERSION} \
       -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e OUTPUT_STORAGE_ACCOUNT_NAME=${OUTPUT_STORAGE_ACCOUNT_NAME} \
-      -e OUTPUT_STORAGE_CONTAINER_NAME=${OUTPUT_STORAGE_CONTAINER_NAME} \
       -e OS_TYPE="Windows" \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI

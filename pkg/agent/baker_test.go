@@ -1259,19 +1259,6 @@ oom_score = 0
 			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-config=/var/lib/kubelet/credential-provider-config.yaml")).To(BeTrue())
 			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--image-credential-provider-bin-dir=/var/lib/kubelet/credential-provider")).To(BeTrue())
 		}),
-		Entry("AKSUbuntu2204 with SerializeImagePulls=false and k8s 1.31", "AKSUbuntu2204+SerializeImagePulls", "1.31.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.KubeletConfig["--serialize-image-pulls"] = "false"
-		}, func(o *nodeBootstrappingOutput) {
-			Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
-			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--serialize-image-pulls=false")).To(BeTrue())
-		}),
-		Entry("AKSUbuntu2204 with no serializeImagePull in kubelet flag", "AKSUbuntu2204+NoSerializeImagePulls", "1.29.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			// for k8s < 1.31, this will never happen but adding a case where it is set somehow, we should skip that in KUBELET_FLAGS
-			config.KubeletConfig["--serialize-image-pulls"] = "false"
-		}, func(o *nodeBootstrappingOutput) {
-			Expect(o.vars["KUBELET_FLAGS"]).NotTo(BeEmpty())
-			Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--serialize-image-pulls")).To(BeFalse())
-		}),
 		Entry("AKSUbuntu2204 custom cloud and OOT credentialprovider", "AKSUbuntu2204+CustomCloud+ootcredentialprovider", "1.29.10",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
@@ -1368,11 +1355,16 @@ oom_score = 0
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled:      true,
-						ProxyAddress: "https://test-pe-proxy",
+						Enabled:                 true,
+						ProxyAddress:            "https://test-pe-proxy",
+						ContainerRegistryServer: "testserver.azurecr.io",
 					},
 				}
-			}, nil),
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent := o.files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"].value
+				Expect(strings.Contains(containerdConfigFileContent, "[host.\"https://testserver.azurecr.io\"]")).To(BeTrue())
+				Expect(strings.Contains(containerdConfigFileContent, "capabilities = [\"pull\", \"resolve\"]")).To(BeTrue())
+			}),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true
