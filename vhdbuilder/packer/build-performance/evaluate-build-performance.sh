@@ -1,14 +1,21 @@
 #!/bin/bash
 
-SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
-if [ $? -ne 0 ]; then
-  echo "##[warning]${BUILD_PERF_DATA_FILE} contains invalid json."
+if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
+  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};] \
+  No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
   exit 0
 fi
 
-if [[ ! -f ${BUILD_PERF_DATA_FILE} || ${SCRIPT_COUNT} == 0 ]]; then
-  #echo "##[warning]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
-  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};]No build performance data found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
+if [[ $? -ne 0 ]]; then
+  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};] \
+  ${BUILD_PERF_DATA_FILE} contains invalid json."
+  exit 0
+fi
+
+if [[ ${SCRIPT_COUNT} == 0 ]]; then
+  echo "##vso[task.logissue type=warning;sourcepath=${BUILD_PERF_DATA_FILE};] \
+  Build performance data file is empty. Skipping build performance evaluation."
   exit 0
 fi
 
