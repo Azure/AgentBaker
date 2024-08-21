@@ -1344,6 +1344,29 @@ oom_score = 0
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
 			}),
+		Entry("AKSUbuntu2204 with k8s 1.31 and custom kubeletConfig and serializeImagePull flag", "AKSUbuntu2204+CustomKubeletConfig+SerializeImagePulls", "1.31.0",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableKubeletConfigFile = false
+				failSwapOn := false
+				config.KubeletConfig["--serialize-image-pulls"] = "false"
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					CPUManagerPolicy:      "static",
+					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuotaPeriod:     "200ms",
+					ImageGcHighThreshold:  to.Int32Ptr(90),
+					ImageGcLowThreshold:   to.Int32Ptr(70),
+					TopologyManagerPolicy: "best-effort",
+					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					FailSwapOn:            &failSwapOn,
+					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+					ContainerLogMaxFiles:  to.Int32Ptr(99),
+					PodMaxPids:            to.Int32Ptr(12345),
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+				Expect(err).To(BeNil())
+				Expect(kubeletConfigFileContent).To(ContainSubstring(`"serializeImagePulls": false`))
+			}),
 		Entry("AKSUbuntu2204 with SecurityProfile", "AKSUbuntu2204+SecurityProfile", "1.26.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
