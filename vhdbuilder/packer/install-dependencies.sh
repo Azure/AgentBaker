@@ -208,7 +208,7 @@ for p in ${packages[*]}; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+  if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
   returnPackageVersions ${p} ${os} ${OS_VERSION}
