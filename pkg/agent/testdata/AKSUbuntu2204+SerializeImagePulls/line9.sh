@@ -105,7 +105,7 @@ ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205
 
 ERR_CNI_VERSION_INVALID=206 
 
-if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
@@ -115,6 +115,7 @@ fi
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
@@ -377,12 +378,20 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+isMarinerOrAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
+
 installJq() {
   output=$(jq --version)
   if [ -n "$output" ]; then
     echo "$output"
   else
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
       sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
       apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
@@ -481,8 +490,8 @@ returnRelease() {
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #For MARINER/AZURELINUX, the release is always set to "current" now.
+    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" ]] || isMarinerOrAzureLinux "${os}"; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
