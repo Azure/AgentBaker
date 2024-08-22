@@ -342,6 +342,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+			// RP doesn't currently set these flags for windows, though we filter them out anyways just to be safe
 			delete(kubeletFlags, "--tls-cert-file")
 			delete(kubeletFlags, "--tls-private-key-file")
 		}
