@@ -55,10 +55,11 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 
 func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision": "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                          "journalctl -u kubelet",
-		"/var/log/azure/cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out": "sysctl -a",
+		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet":                      "journalctl -u kubelet",
+		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out":                   "sysctl -a",
+		"installer":                    "cat /var/log/azure/installer.log",
 	}
 
 	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube)

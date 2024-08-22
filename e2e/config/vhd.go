@@ -145,7 +145,7 @@ func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersion
 	}
 	version := newSIGImageVersionFromResourceID(rid)
 
-	resp, err := Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
+	resp, err := Azure.GalleryImageVersion.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
@@ -169,7 +169,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 	}
 	definition := newSIGImageDefinitionFromResourceID(rid)
 
-	pager := Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
+	pager := Azure.GalleryImageVersion.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -233,7 +233,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
 
-	resp, err := Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
+	resp, err := Azure.GalleryImageVersion.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}
