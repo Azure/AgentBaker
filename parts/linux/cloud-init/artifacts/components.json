@@ -414,19 +414,19 @@
       "downloadURIs": {
         "ubuntu": {
           "r1804": {
-            "tag": "name=moby-runc os=ubuntu release=18.04",
+            "renovateTag": "name=moby-runc os=ubuntu release=18.04",
             "versions": [
               "1.1.12-ubuntu18.04u1"
             ]
           },
           "r2004": {
-            "tag": "name=moby-runc os=ubuntu release=20.04",
+            "renovateTag": "name=moby-runc os=ubuntu release=20.04",
             "versions": [
               "1.1.12-ubuntu20.04u1"
             ]
           },
           "r2204": {
-            "tag": "name=moby-runc os=ubuntu release=22.04",
+            "renovateTag": "name=moby-runc os=ubuntu release=22.04",
             "versions": [
               "1.1.12-ubuntu22.04u1"
             ]
@@ -434,7 +434,6 @@
         },
         "mariner": {
           "current": {
-            "tag": "name=moby-runc os=ubuntu release=current",
             "versions": [
               "1.1.9-5.cm2"
             ]
@@ -448,19 +447,19 @@
       "downloadURIs": {
         "ubuntu": {
           "r1804": {
-            "tag": "name=moby-containerd os=ubuntu release=18.04",
+            "renovateTag": "name=moby-containerd os=ubuntu release=18.04",
             "versions": [
               "1.7.1-1"
             ]
           },
           "2004": {
-            "tag": "name=moby-containerd os=ubuntu release=20.04",
+            "renovateTag": "name=moby-containerd os=ubuntu release=20.04",
             "versions": [
               "1.7.20"
             ]
           },
           "2204": {
-            "tag": "name=moby-containerd os=ubuntu release=22.04",
+            "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
             "versions": [
               "1.7.20"
             ]
@@ -468,7 +467,6 @@
         },
         "mariner": {
           "current": {
-            "tag": "name=moby-containerd os=mariner release=current",
             "versions": [
               "1.6.26-5.cm2"
             ]
@@ -476,7 +474,6 @@
         },
         "default": {
           "current": {
-            "tag": "name=moby-containerd os=default release=current",
             "versions": [
               "1.7.20"
             ]

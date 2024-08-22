@@ -45,7 +45,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name=(?<packageName>[^ ]+) os=ubuntu release=18\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=18\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.deb1804",
       "versioningTemplate": "deb"
@@ -57,7 +57,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.deb2004",
       "versioningTemplate": "deb"
@@ -69,7 +69,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb"
