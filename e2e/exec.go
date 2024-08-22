@@ -71,6 +71,11 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
 		execResult, err := execOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
+		if err != nil {
+			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
+			return nil, err
+		}
+
 		if execResult.stdout != nil {
 			out := execResult.stdout.String()
 			if out != "" {
@@ -83,10 +88,6 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 			if out != "" {
 				result[file+".stderr.txt"] = out
 			}
-		}
-
-		if err != nil {
-			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
 		}
 	}
 	return result, nil
