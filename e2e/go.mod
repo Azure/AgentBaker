@@ -4,9 +4,9 @@ go 1.22.2
 
 require (
 	github.com/Azure/agentbaker v0.0.0-00010101000000-000000000000
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.6.0
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute v1.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.13.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6 v6.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice v1.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork v1.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
@@ -17,7 +17,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.17.1
-	golang.org/x/crypto v0.24.0
+	golang.org/x/crypto v0.25.0
 	k8s.io/api v0.28.5
 	k8s.io/apimachinery v0.28.5
 	k8s.io/client-go v0.28.5
@@ -28,7 +28,7 @@ require (
 require github.com/pmezard/go-difflib v1.0.0 // indirect
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.9.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
@@ -61,10 +61,10 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/term v0.21.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

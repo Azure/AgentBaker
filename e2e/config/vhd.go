@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
 const (
@@ -245,7 +245,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 }
 
 func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
-	if *version.Properties.ProvisioningState != armcompute.GalleryImageVersionPropertiesProvisioningStateSucceeded {
+	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
 		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
 	}
 	return nil
