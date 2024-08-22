@@ -111,7 +111,7 @@ spec:
         kubernetes.azure.com/agentpool: %[3]s 
       hostPID: true
       containers:
-      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
+      - image: mcr.microsoft.com/cbl-mariner/base/core:2.0
         name: ubuntu
         command: ["sleep", "infinity"]
         resources:

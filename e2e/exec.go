@@ -139,7 +139,7 @@ func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName
 }
 
 func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command string) (*podExecResult, error) {
-	privilegedCommand := append(nsenterCommandArray(), command)
+	privilegedCommand := append(privelegedCommandArray(), command)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
@@ -195,12 +195,10 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 	}, nil
 }
 
-func nsenterCommandArray() []string {
+func privelegedCommandArray() []string {
 	return []string{
-		"nsenter",
-		"-t",
-		"1",
-		"-m",
+		"chroot",
+		"/proc/1/root",
 		"bash",
 		"-c",
 	}

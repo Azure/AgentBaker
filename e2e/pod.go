@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	hostNetworkDebugAppLabel = "debug"
-	podNetworkDebugAppLabel  = "debugnonhost"
+	hostNetworkDebugAppLabel = "debug-mariner"
+	podNetworkDebugAppLabel  = "debugnonhost-mariner"
 )
 
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
