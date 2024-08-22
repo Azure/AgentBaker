@@ -237,6 +237,10 @@ steps:
       -e JOB_STATUS=$(Agent.JobStatus) \
       -e ARCHITECTURE=${ARCHITECTURE} \
       -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
+      -e KUSTO_ENDPOINT=$(KUSTO_ENDPOINT) \
+      -e KUSTO_DATABASE_NAME=$(KUSTO_DATABASE_NAME) \
+      -e KUSTO_TABLE_NAME=$(KUSTO_TABLE_NAME) \
+      -e KUSTO_CLIENT_ID=$(KUSTO_CLIENT_ID) \
       ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
