@@ -57,8 +57,8 @@ done
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
 pushd vhdbuilder/packer/build-performance 
-  chmod +x PerformanceDataIngestor
-  ./PerformanceDataIngestor
+  chmod +x buildPerformance
+  ./buildPerformance
 popd
 
 rm ${SIG_IMAGE_NAME}-build-performance.json
