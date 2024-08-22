@@ -1,36 +1,44 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/Azure/go-armbalancer"
 )
 
 type AzureClient struct {
-	Core                      *azcore.Client
-	VMSS                      *armcompute.VirtualMachineScaleSetsClient
-	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
-	VNet                      *armnetwork.VirtualNetworksClient
-	Resource                  *armresources.Client
-	ResourceGroup             *armresources.ResourceGroupsClient
-	AKS                       *armcontainerservice.ManagedClustersClient
-	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
-	SecurityGroup             *armnetwork.SecurityGroupsClient
-	Subnet                    *armnetwork.SubnetsClient
-	GalleryImageVersionClient *armcompute.GalleryImageVersionsClient
+	AKS                 *armcontainerservice.ManagedClustersClient
+	Blob                *azblob.Client
+	Core                *azcore.Client
+	Credential          *azidentity.DefaultAzureCredential
+	GalleryImageVersion *armcompute.GalleryImageVersionsClient
+	Maintenance         *armcontainerservice.MaintenanceConfigurationsClient
+	Resource            *armresources.Client
+	ResourceGroup       *armresources.ResourceGroupsClient
+	SecurityGroup       *armnetwork.SecurityGroupsClient
+	Subnet              *armnetwork.SubnetsClient
+	VMSS                *armcompute.VirtualMachineScaleSetsClient
+	VMSSVM              *armcompute.VirtualMachineScaleSetVMsClient
+	VNet                *armnetwork.VirtualNetworksClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -101,22 +109,22 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	// purely for telemetry, entirely unused today
 	cloud.Core, err = azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create core client: %w", err)
+		return nil, fmt.Errorf("create core client: %w", err)
 	}
 
 	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create security group client: %w", err)
+		return nil, fmt.Errorf("create security group client: %w", err)
 	}
 
 	cloud.Subnet, err = armnetwork.NewSubnetsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create subnet client: %w", err)
+		return nil, fmt.Errorf("create subnet client: %w", err)
 	}
 
 	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create aks client: %w", err)
+		return nil, fmt.Errorf("create aks client: %w", err)
 	}
 
 	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(subscription, credential, opts)
@@ -126,35 +134,72 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 
 	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vmss client: %w", err)
+		return nil, fmt.Errorf("create vmss client: %w", err)
 	}
 
 	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vmss vm client: %w", err)
+		return nil, fmt.Errorf("create vmss vm client: %w", err)
 	}
 
 	cloud.Resource, err = armresources.NewClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource client: %w", err)
+		return nil, fmt.Errorf("create resource client: %w", err)
 	}
 
 	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource group client: %w", err)
+		return nil, fmt.Errorf("create resource group client: %w", err)
 	}
 
 	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vnet client: %w", err)
+		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersionClient, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, opts)
+	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a new images client: %v", err)
+		return nil, fmt.Errorf("create a new images client: %v", err)
 	}
+
+	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccount, credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create blob container client: %w", err)
+	}
+
+	cloud.Credential = credential
 
 	return cloud, nil
+}
+
+// UploadAndGetLink uploads the data to the blob storage and returns the signed link to download the blob
+// If the blob already exists, it will be overwritten
+func (a *AzureClient) UploadAndGetLink(ctx context.Context, blobName string, file *os.File) (string, error) {
+	_, err := a.Blob.UploadFile(ctx, Config.BlobContainer, blobName, file, nil)
+	if err != nil {
+		return "", fmt.Errorf("upload blob: %w", err)
+	}
+
+	udc, err := a.Blob.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
+		Expiry: to.Ptr(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
+		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("get user delegation credential: %w", err)
+	}
+
+	sig, err := sas.BlobSignatureValues{
+		Protocol:      sas.ProtocolHTTPS,
+		ExpiryTime:    time.Now().Add(time.Hour),
+		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
+		ContainerName: Config.BlobContainer,
+		BlobName:      blobName,
+	}.SignWithUserDelegation(udc)
+	if err != nil {
+		return "", fmt.Errorf("sign blob: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccount, Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
 func DefaultRetryOpts() policy.RetryOptions {
