@@ -56,7 +56,7 @@ for script in "${scripts[@]}"; do
 done
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
-pushd vhdbuilder/packer/build-performance 
+pushd /home
   chmod +x buildPerformance
   ./buildPerformance
 popd
