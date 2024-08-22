@@ -18,10 +18,7 @@
         "pin",
         "digest"
       ],
-      "automerge": false
-    },
-    {
-      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": false,
       "assignees": ["devinwong"]
     }
   ],
