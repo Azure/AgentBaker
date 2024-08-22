@@ -57,8 +57,7 @@ done
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
 pushd vhdbuilder/packer/build-performance
-  chmod +x buildPerformance
-  ./bin/buildPerformance
+  buildPerformance
   rm ${SIG_IMAGE_NAME}-build-performance.json
 popd
 
