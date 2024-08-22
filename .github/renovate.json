@@ -4,6 +4,9 @@
   "prConcurrentLimit": 50,
   "prHourlyLimit": 20,
   "branchConcurrentLimit": 50,
+  "postUpgradeTasks": {
+    "commands": ["whoami"]
+  },
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
