@@ -186,7 +186,7 @@ func createAirgapSecurityGroup(ctx context.Context, cluster *armcontainerservice
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := poller.PollUntilDone(ctx, nil)
+	nsg, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 	if err != nil {
 		return err
 	}
-	_, err = poller.PollUntilDone(ctx, nil)
+	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return err
 	}

@@ -59,9 +59,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 		cleanupVMSS(ctx, t, vmssName, opts, privateKeyBytes)
 	})
 
-	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
-		Frequency: 10 * time.Second,
-	})
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	// fail test, but continue to extract debug information
 	require.NoError(t, err, "create vmss %q, check %s for vm logs", vmssName, testDir(t))
 	return &vmssResp.VirtualMachineScaleSet

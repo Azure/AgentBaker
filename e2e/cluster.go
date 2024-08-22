@@ -182,7 +182,7 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
 	}
 
-	clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
+	clusterResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}

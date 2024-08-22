@@ -237,7 +237,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}
-	if _, err := resp.PollUntilDone(ctx, nil); err != nil {
+	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
 		return fmt.Errorf("updating image version target regions: %w", err)
 	}
 
