@@ -45,14 +45,52 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
+        "\"name=(?<packageName>[^ ]+) os=ubuntu release=18\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "custom.runc_containerd1804",
+      "versioningTemplate": "deb"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "custom.runc_containerd2004",
+      "versioningTemplate": "deb"
+    }
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
         "\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
       ],
-      "datasourceTemplate": "custom.runc_containerd",
+      "datasourceTemplate": "custom.runc_containerd2204",
       "versioningTemplate": "deb"
     }
   ],
   "customDatasources": {
-    "runc_containerd": {
+    "runc_containerd1804": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+      ]
+    },
+    "runc_containerd2004": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+      ]
+    },
+    "runc_containerd2204": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
