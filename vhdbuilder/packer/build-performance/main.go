@@ -20,7 +20,7 @@ func main() {
 	kustoClientID := os.Getenv("KUSTO_CLIENT_ID")
 	// build data variables
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	buildPerformanceDataFile := sigImageName + "-build-performance.json"
+	buildPerformanceDataFile := "../" + sigImageName + "-build-performance.json"
 	var err error
 
 	fmt.Printf("\nRunning build performance program for %s...\n\n", sigImageName)
