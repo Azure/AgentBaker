@@ -78,11 +78,11 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
 	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true)
-	if err := createDebugDeployment(ctx, kube, hostDS); err != nil {
+	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
 		return err
 	}
 	nonHostDS := getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false)
-	if err := createDebugDeployment(ctx, kube, nonHostDS); err != nil {
+	if err := createDebugDaemonset(ctx, kube, nonHostDS); err != nil {
 		return err
 	}
 	return nil
@@ -112,7 +112,7 @@ spec:
       hostPID: true
       containers:
       - image: mcr.microsoft.com/cbl-mariner/base/core:2.0
-        name: ubuntu
+        name: mariner
         command: ["sleep", "infinity"]
         resources:
           requests: {}
@@ -124,7 +124,7 @@ spec:
 `, deploymentName, isHostNetwork, targetNodeLabel)
 }
 
-func createDebugDeployment(ctx context.Context, kube *Kubeclient, manifest string) error {
+func createDebugDaemonset(ctx context.Context, kube *Kubeclient, manifest string) error {
 	var ds v1.DaemonSet
 
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {

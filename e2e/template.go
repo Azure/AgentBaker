@@ -455,8 +455,8 @@ metadata:
   name: %s
 spec:
   containers:
-  - name: busybox
-    image: mcr.microsoft.com/azurelinux/busybox:1.36
+  - name: mariner
+    image: mcr.microsoft.com/cbl-mariner/busybox:2.0
     imagePullPolicy: IfNotPresent
     command: ["sh", "-c"]
     args:
