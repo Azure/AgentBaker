@@ -55,7 +55,7 @@ for script in "${scripts[@]}"; do
   echo "##[endgroup]"
 done
 
-mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
+#mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
 pushd /home
   chmod +x buildPerformance
   ./buildPerformance
