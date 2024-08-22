@@ -414,7 +414,7 @@
       "downloadURIs": {
         "ubuntu": {
           "r1804": {
-            "renovateTag": "name=moby-runc os=ubuntu release=18.04",
+            "renovateTag": "<do not update>",
             "versions": [
               "1.1.12-ubuntu18.04u1"
             ]
@@ -434,6 +434,7 @@
         },
         "mariner": {
           "current": {
+            "renovateTag": "<do not update>",
             "versions": [
               "1.1.9-5.cm2"
             ]
@@ -447,7 +448,7 @@
       "downloadURIs": {
         "ubuntu": {
           "r1804": {
-            "renovateTag": "name=moby-containerd os=ubuntu release=18.04",
+            "renovateTag": "<do not update>",
             "versions": [
               "1.7.1-1"
             ]
@@ -467,6 +468,7 @@
         },
         "mariner": {
           "current": {
+            "renovateTag": "<do not update>",
             "versions": [
               "1.6.26-5.cm2"
             ]
@@ -474,6 +476,7 @@
         },
         "default": {
           "current": {
+            "renovateTag": "<do not update>",
             "versions": [
               "1.7.20"
             ]
