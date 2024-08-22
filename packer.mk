@@ -126,4 +126,4 @@ build-lister-binary:
 
 build-performance-binary:
 	@echo "Building build performance binary for $(GOARCH)"
-	@bash -c "pushd vhdbuilder/packer/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/buildPerformance main.go && popd"
+	@bash -c "pushd vhdbuilder/packer/build-performance && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o buildPerformance main.go && popd"
