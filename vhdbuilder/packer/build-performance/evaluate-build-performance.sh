@@ -55,6 +55,12 @@ for script in "${scripts[@]}"; do
   echo "##[endgroup]"
 done
 
+mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
+pushd vhdbuilder/packer/build-performance 
+  chmod +x PerformanceDataIngestor
+  ./PerformanceDataIngestor
+popd
+
 rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."
 #!/bin/bash
