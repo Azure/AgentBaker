@@ -22,6 +22,13 @@ if [ -z "$PACKER_BUILD_LOCATION" ]; then
     exit 1
 fi 
 
+# We assign this identity to the scanning VM so that it has permission
+# to push the trivy output to the storage blob and to export output to the Kusto table.
+if [ -z "$UMSI_RESOURCE_ID" ]; then
+    echo "UMSI_RESOURCE_ID must be set to run VHD scanning"
+    exit 1
+fi
+
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
 BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
@@ -46,11 +53,6 @@ az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
-
-    if [ -n "${VM_PRINCIPLE_ID}" ]; then
-        az role assignment delete --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
-        echo "Role assignment deleted."
-    fi
 }
 trap cleanup EXIT
 
@@ -72,45 +74,45 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "[system]"
-
-VM_PRINCIPLE_ID=$(az vm identity show --name $SCAN_VM_NAME --resource-group $RESOURCE_GROUP_NAME --query principalId --output tsv)
-az role assignment create --assignee $VM_PRINCIPLE_ID --role "Storage Blob Data Contributor" --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}"
+    --assign-identity "${UMSI_RESOURCE_ID}"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
-az vm run-command invoke \
-    --command-id RunShellScript \
-    --name $SCAN_VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$TRIVY_SCRIPT_PATH
-
 
 TIMESTAMP=$(date +%s%3N)
-TRIVY_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
-TRIVY_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
-EXE_SCRIPT_PATH="$CDIR/$EXE_SCRIPT_PATH"
+TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
+TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $SCAN_VM_NAME \
     --resource-group $RESOURCE_GROUP_NAME \
-    --scripts @$EXE_SCRIPT_PATH \
+    --scripts @$TRIVY_SCRIPT_PATH \
     --parameters "OS_SKU=${OS_SKU}" \
         "OS_VERSION=${OS_VERSION}" \
         "SCAN_VM_ADMIN_USERNAME=${SCAN_VM_ADMIN_USERNAME}" \
         "ARCHITECTURE=${ARCHITECTURE}" \
-        "TRIVY_REPORT_NAME=${TRIVY_REPORT_NAME}" \
-        "TRIVY_TABLE_NAME=${TRIVY_TABLE_NAME}" \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
-        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH}
+        "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
+        "VHD_NAME"=${VHD_NAME} \
+        "SKU_NAME"=${SKU_NAME} \
+        "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \
+        "KUSTO_DATABASE"=${KUSTO_DATABASE} \
+        "KUSTO_TABLE"=${KUSTO_TABLE} \
+        "TRIVY_UPLOAD_REPORT_NAME"=${TRIVY_UPLOAD_REPORT_NAME} \
+        "TRIVY_UPLOAD_TABLE_NAME"=${TRIVY_UPLOAD_TABLE_NAME} \
+        "ACCOUNT_NAME"=${ACCOUNT_NAME} \
+        "BLOB_URL"=${BLOB_URL} \
+        "SEVERITY"=${SEVERITY} \
+        "MODULE_VERSION"=${MODULE_VERSION} \
+        "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
+        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID}
 
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
-az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
-
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_REPORT_NAME} --auth-mode login
-az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login
 
 echo -e "Trivy Scan Script Completed\n\n\n"
