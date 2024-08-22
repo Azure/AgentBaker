@@ -56,7 +56,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		if validator.IsPodNetwork {
 			execResult, err = execOnUnprivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, validator.Command)
 		} else {
-			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
+			execResult, err = execOnVM(ctx, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, validator.Command, err)

@@ -20,82 +20,6 @@ const (
 	defaultPollInterval = time.Second
 )
 
-func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
-	var execResult *podExecResult
-	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
-		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command, isShellBuiltIn)
-		if err != nil {
-			t.Logf("unable to execute command on VM: %s", err)
-
-			// fail hard on non-retriable error
-			if strings.Contains(err.Error(), "error extracting exit code") {
-				return false, err
-			}
-			return false, nil
-		}
-
-		// this denotes a retriable SSH failure
-		if res.exitCode == "255" {
-			return false, nil
-		}
-
-		execResult = res
-		return true, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return execResult, nil
-}
-
-// Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
-	var clusterParams map[string]string
-	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
-		params, err := extractClusterParameters(ctx, t, kube)
-		if err != nil {
-			t.Logf("error extracting cluster parameters: %s", err)
-			return false, nil
-		}
-		clusterParams = params
-		return true, nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return clusterParams, nil
-}
-
-// Wraps extractLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
-func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
-	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
-		t.Logf("on %s attempting to extract VM logs", vmssName)
-
-		logFiles, err := extractLogsFromVM(ctx, t, vmssName, privateIP, string(privateKeyBytes), opts)
-		if err != nil {
-			t.Logf("on %s error extracting VM logs: %q", vmssName, err)
-			return false, nil
-		}
-
-		if err = dumpFileMapToDir(t, logFiles); err != nil {
-			t.Logf("on %s error extracting VM logs: %q", vmssName, err)
-			return false, nil
-		}
-
-		return true, nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
 	var nodeName string
 	nodeStatus := corev1.NodeStatus{}
@@ -176,7 +100,7 @@ func waitUntilClusterReady(ctx context.Context, rg, name string) (*armcontainers
 		switch *cluster.ManagedCluster.Properties.ProvisioningState {
 		case "Succeeded":
 			return true, nil
-		case "Updating", "Assigned":
+		case "Updating", "Assigned", "Creating":
 			return false, nil
 		default:
 			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)

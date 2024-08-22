@@ -85,7 +85,7 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
