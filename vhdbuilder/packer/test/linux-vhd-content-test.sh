@@ -273,7 +273,7 @@ testChrony() {
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
-  #if mariner check chronyd, else check chrony
+  #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
   if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     os_chrony="chronyd"
@@ -670,7 +670,7 @@ testPamDSettings() {
   local settings_file=/etc/security/faillock.conf
   echo "$test:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -861,7 +861,7 @@ testPam() {
   local retval=0
   echo "${test}:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
