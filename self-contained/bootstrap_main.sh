@@ -378,7 +378,7 @@ else
                 # only be done reliably via image updates as of now so never enable automatic updates.
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
             else
-                # By default the dnf-automatic is service is notify only in Mariner.
+                # By default the dnf-automatic is service is notify only in Mariner/AzureLinux.
                 # Enable the automatic install timer and the check-restart timer.
                 # Stop the notify only dnf timer since we've enabled the auto install one.
                 # systemctlDisableAndStop adds .service to the end which doesn't work on timers.

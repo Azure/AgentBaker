@@ -125,6 +125,7 @@ fi
 capture_benchmark "handle_mariner_and_fips_configurations"
 
 # Handle Azure Linux + CgroupV2
+# CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
