@@ -1,22 +1,28 @@
 #!/bin/bash
 
-if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  echo "No build performance data file found for ${SIG_IMAGE_NAME}. Skipping build performance evaluation."
+log_and_exit () {
+  local FILE=${1}
+  local ERR=${2}
+  local SHOW_FILE=${3:-false}
+  echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${FILE} ${ERR}. Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
+  if [[ ${SHOW_FILE} == true ]]; then
+    cat ${FILE}
+  fi
   exit 0
+}
+
+if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
+  log_and_exit ${BUILD_PERF_DATA_FILE} "not found"
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
 if [[ $? -ne 0 ]]; then
-  echo "${BUILD_PERF_DATA_FILE} contains invalid json."
-  echo "##vso[task.complete result=SucceededWithIssues;]"
-  exit 0
+  log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json" true
 fi
 
-if [[ ${SCRIPT_COUNT} == 0 ]]; then
-  echo "Build performance data file is empty. Skipping build performance evaluation."
-  echo "##vso[task.complete result=SucceededWithIssues;]"
-  exit 0
+if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
+  log_and_exit ${BUILD_PERF_DATA_FILE} "contains no scripts"
 fi
 
 echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
