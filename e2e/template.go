@@ -448,31 +448,39 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 	}
 }
 
-func getNginxPodTemplate(nodeName string) string {
+func getHTTPServerTemplate(podName, nodeName string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
-  name: %[1]s-nginx
+  name: %s
 spec:
   containers:
-  - name: nginx
-    image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
+  - name: busybox
+    image: mcr.microsoft.com/azurelinux/busybox:1.36
     imagePullPolicy: IfNotPresent
-    readinessProbe:
+    command: ["sh", "-c"]
+    args:
+    - |
+      mkdir -p /www &&
+      echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html &&
+      httpd -f -p 80 -h /www
+    ports:
+    - containerPort: 80
+  nodeSelector:
+    kubernetes.io/hostname: %s
+  readinessProbe:
       periodSeconds: 1
       httpGet:
         path: /
         port: 80
-  nodeSelector:
-    kubernetes.io/hostname: %[1]s
-`, nodeName)
+`, podName, nodeName)
 }
 
-func getWasmSpinPodTemplate(nodeName string) string {
+func getWasmSpinPodTemplate(podName, nodeName string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
-  name: %[1]s-wasm-spin
+  name: %s
 spec:
   runtimeClassName: wasmtime-spin
   containers:
@@ -493,6 +501,6 @@ spec:
         path: /hello
         port: 80
   nodeSelector:
-    kubernetes.io/hostname: %[1]s
-`, nodeName)
+    kubernetes.io/hostname: %s
+`, podName, nodeName)
 }

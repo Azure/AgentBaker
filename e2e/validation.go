@@ -11,9 +11,9 @@ import (
 
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
 	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
-	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
-	nginxPodManifest := getNginxPodTemplate(nodeName)
-	err := ensurePod(ctx, t, defaultNamespace, kube, nginxPodName, nginxPodManifest)
+	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
+	testPodManifest := getHTTPServerTemplate(testPodName, nodeName)
+	err := ensurePod(ctx, t, defaultNamespace, kube, testPodName, testPodManifest)
 	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)
 	return nodeName
 }
@@ -25,8 +25,8 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 	require.NoError(t, err)
 	err = ensureWasmRuntimeClasses(ctx, kube)
 	require.NoError(t, err)
-	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
-	spinPodManifest := getWasmSpinPodTemplate(nodeName)
+	spinPodName := fmt.Sprintf("wasm-spin-%s", nodeName)
+	spinPodManifest := getWasmSpinPodTemplate(spinPodName, nodeName)
 	err = ensurePod(ctx, t, defaultNamespace, kube, spinPodName, spinPodManifest)
 	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
 }
