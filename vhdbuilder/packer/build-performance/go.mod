@@ -1,6 +1,6 @@
 module go.goms.io/aks/agentBaker/vhdbuilder/packer/build-performance
 
-go 1.22.2
+go 1.21
 
 require github.com/Azure/azure-kusto-go v0.16.1
 
