@@ -56,10 +56,10 @@ for script in "${scripts[@]}"; do
 done
 
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
-pushd vhdbuilder/packer/build-performance/bin
+pushd vhdbuilder/packer/build-performance
   chmod +x buildPerformance
-  ./buildPerformance
-  rm ../${SIG_IMAGE_NAME}-build-performance.json
+  ./bin/buildPerformance
+  rm ${SIG_IMAGE_NAME}-build-performance.json
 popd
 
 echo -e "\nBuild performance evaluation script completed."
