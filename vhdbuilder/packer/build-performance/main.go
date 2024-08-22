@@ -23,6 +23,7 @@ func main() {
 	buildPerformanceDataFile := sigImageName + "-build-performance.json"
 	var err error
 
+	fmt.Printf("\nRunning build performance program for %s...\n\n", sigImageName)
 	// Create Connection String
 	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientID)
 
@@ -50,15 +51,15 @@ func main() {
 	defer cancel()
 
 	// Ingest Data
-	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef("oneMapToRuleThemAll", ingest.MultiJSON))
+	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef("buildPerfMap", ingest.MultiJSON))
 	if err != nil {
-		fmt.Printf("Ingestion failed: %v\n", err)
+		fmt.Printf("Ingestion failed: %v\n\n", err)
 		ingestor.Close()
 		ingestionClient.Close()
 		cancel()
 		log.Fatalf("Igestion command failed to be sent.\n")
 	} else {
-		fmt.Printf("Ingestion started successfully.\n")
+		fmt.Printf("Ingestion started successfully.\n\n")
 	}
 	defer ingestor.Close()
 
