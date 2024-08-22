@@ -17,18 +17,12 @@ import (
 )
 
 const (
-	// Polling intervals
-	execOnVMPollInterval                 = 5 * time.Second
-	extractClusterParametersPollInterval = 5 * time.Second
-	extractVMLogsPollInterval            = 5 * time.Second
-	waitUntilPodRunningPollInterval      = 5 * time.Second
-	waitUntilNodeReadyPollingInterval    = 5 * time.Second
-	waitUntilClusterReadyPollingInterval = 5 * time.Second
+	defaultPollInterval = time.Second
 )
 
 func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
 	var execResult *podExecResult
-	err := wait.PollUntilContextCancel(ctx, execOnVMPollInterval, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		res, err := execOnVM(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, command, isShellBuiltIn)
 		if err != nil {
 			t.Logf("unable to execute command on VM: %s", err)
@@ -59,7 +53,7 @@ func pollExecOnVM(ctx context.Context, t *testing.T, kube *Kubeclient, vmPrivate
 // Wraps extractClusterParameters in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
 	var clusterParams map[string]string
-	err := wait.PollUntilContextCancel(ctx, extractClusterParametersPollInterval, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		params, err := extractClusterParameters(ctx, t, kube)
 		if err != nil {
 			t.Logf("error extracting cluster parameters: %s", err)
@@ -78,7 +72,7 @@ func pollExtractClusterParameters(ctx context.Context, t *testing.T, kube *Kubec
 
 // Wraps extractLogsFromVM and dumpFileMapToDir in a poller with a 15-second wait interval and 5-minute timeout
 func pollExtractVMLogs(ctx context.Context, t *testing.T, vmssName, privateIP string, privateKeyBytes []byte, opts *scenarioRunOpts) error {
-	err := wait.PollUntilContextCancel(ctx, extractVMLogsPollInterval, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		t.Logf("on %s attempting to extract VM logs", vmssName)
 
 		logFiles, err := extractLogsFromVM(ctx, t, vmssName, privateIP, string(privateKeyBytes), opts)
@@ -109,7 +103,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 	t.Logf("waiting for node %s to be ready", vmssName)
 
-	err := wait.PollUntilContextCancel(ctx, waitUntilNodeReadyPollingInterval, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		nodes, err := kube.Typed.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, err
@@ -141,7 +135,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 }
 
 func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) error {
-	return wait.PollUntilContextCancel(ctx, waitUntilPodRunningPollInterval, true, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
@@ -167,7 +161,7 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) er
 
 func waitUntilClusterReady(ctx context.Context, rg, name string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
-	err := wait.PollUntilContextCancel(ctx, waitUntilClusterReadyPollingInterval, true, func(ctx context.Context) (bool, error) {
+	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		var err error
 		cluster, err = config.Azure.AKS.Get(ctx, rg, name, nil)
 		if err != nil {
