@@ -11,10 +11,10 @@ import (
 
 func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
 	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
-	nginxPodName := fmt.Sprintf("%s-nginx", nodeName)
-	nginxPodManifest := getNginxPodTemplate(nodeName)
-	err := ensurePod(ctx, t, defaultNamespace, kube, nginxPodName, nginxPodManifest)
-	require.NoError(t, err, "failed to validate node health, unable to ensure nginx pod on node %q", nodeName)
+	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
+	testPodManifest := getHTTPServerTemplate(testPodName, nodeName)
+	err := ensurePod(ctx, t, defaultNamespace, kube, testPodName, testPodManifest)
+	require.NoError(t, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
 	return nodeName
 }
 
@@ -25,19 +25,19 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 	require.NoError(t, err)
 	err = ensureWasmRuntimeClasses(ctx, kube)
 	require.NoError(t, err)
-	spinPodName := fmt.Sprintf("%s-wasm-spin", nodeName)
-	spinPodManifest := getWasmSpinPodTemplate(nodeName)
+	spinPodName := fmt.Sprintf("wasm-spin-%s", nodeName)
+	spinPodManifest := getWasmSpinPodTemplate(spinPodName, nodeName)
 	err = ensurePod(ctx, t, defaultNamespace, kube, spinPodName, spinPodManifest)
 	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	hostPodName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, hostNetworkDebugAppLabel)
+	hostPodName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
 
-	nonHostPodName, err := findDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, podNetworkDebugAppLabel, vmssName)
+	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, vmssName)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}
@@ -48,23 +48,18 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 	}
 
 	for _, validator := range validators {
-		desc := validator.Description
-		command := validator.Command
-		isShellBuiltIn := validator.IsShellBuiltIn
-		isNonHostValidator := validator.IsPodNetwork
-
-		t.Logf("running live VM validator on %s: %q", vmssName, desc)
+		t.Logf("running live VM validator on %s: %q", vmssName, validator.Description)
 
 		var execResult *podExecResult
 		var err error
 		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
-		if isNonHostValidator {
-			execResult, err = execOnUnprivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, command)
+		if validator.IsPodNetwork {
+			execResult, err = execOnUnprivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, validator.Command)
 		} else {
-			execResult, err = pollExecOnVM(ctx, t, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, command, isShellBuiltIn)
+			execResult, err = execOnVM(ctx, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
 		}
 		if err != nil {
-			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, command, err)
+			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, validator.Command, err)
 		}
 
 		if validator.Asserter != nil {

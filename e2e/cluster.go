@@ -15,7 +15,7 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
@@ -85,7 +85,7 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
@@ -182,7 +182,7 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
 	}
 
-	clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
+	clusterResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
