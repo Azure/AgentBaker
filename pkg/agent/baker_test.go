@@ -724,6 +724,84 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("token:"))
 			}),
 
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation implicitly disabled", "AKSUbuntu2204+ImplicitlyDisableKubeletServingCertificateRotation", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("false"))
+			}),
+
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation explicitly disabled", "AKSUbuntu2204+DisableKubeletServingCertificateRotation", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletConfig["--rotate-server-certificates"] = "false"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("false"))
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--rotate-server-certificates=false")).To(BeTrue())
+			}),
+
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation enabled", "AKSUbuntu2204+KubeletServingCertificateRotation", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletConfig["--rotate-server-certificates"] = "true"
+				config.KubeletConfig["--tls-cert-file"] = "cert.crt"
+				config.KubeletConfig["--tls-private-key-file"] = "cert.key"
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("true"))
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--rotate-server-certificates=true")).To(BeTrue())
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--tls-cert-file")).To(BeFalse())
+				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--tls-private-key-file")).To(BeFalse())
+			}),
+
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation disabled and custom kubelet config",
+			"AKSUbuntu2204+DisableKubeletServingCertificateRotation+CustomKubeletConfig", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableKubeletConfigFile = false
+				failSwapOn := false
+				config.KubeletConfig["--rotate-server-certificates"] = "false"
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					CPUManagerPolicy:      "static",
+					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuotaPeriod:     "200ms",
+					ImageGcHighThreshold:  to.Int32Ptr(90),
+					ImageGcLowThreshold:   to.Int32Ptr(70),
+					TopologyManagerPolicy: "best-effort",
+					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					FailSwapOn:            &failSwapOn,
+					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+					ContainerLogMaxFiles:  to.Int32Ptr(99),
+					PodMaxPids:            to.Int32Ptr(12345),
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("false"))
+				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+				Expect(err).To(BeNil())
+				Expect(kubeletConfigFileContent).ToNot(ContainSubstring("serverTLSBootstrap")) // because of: "bool `json:"serverTLSBootstrap,omitempty"`"
+			}),
+
+		Entry("AKSUbuntu2204 with kubelet serving certificate rotation enabled and custom kubelet config",
+			"AKSUbuntu2204+KubeletServingCertificateRotation+CustomKubeletConfig", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.EnableKubeletConfigFile = false
+				failSwapOn := false
+				config.KubeletConfig["--rotate-server-certificates"] = "true"
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = &datamodel.CustomKubeletConfig{
+					CPUManagerPolicy:      "static",
+					CPUCfsQuota:           to.BoolPtr(false),
+					CPUCfsQuotaPeriod:     "200ms",
+					ImageGcHighThreshold:  to.Int32Ptr(90),
+					ImageGcLowThreshold:   to.Int32Ptr(70),
+					TopologyManagerPolicy: "best-effort",
+					AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+					FailSwapOn:            &failSwapOn,
+					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
+					ContainerLogMaxFiles:  to.Int32Ptr(99),
+					PodMaxPids:            to.Int32Ptr(12345),
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("true"))
+				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+				Expect(err).To(BeNil())
+				Expect(kubeletConfigFileContent).To(ContainSubstring(`"serverTLSBootstrap": true`))
+			}),
+
 		Entry("AKSUbuntu1804 with DisableCustomData = true", "AKSUbuntu1804+DisableCustomData", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
@@ -1703,6 +1781,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows2019 with kubelet client TLS bootstrapping enabled", "AKSWindows2019+KubeletClientTLSBootstrapping", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
+			}),
+		Entry("AKSWindows2019 with kubelet serving certificate rotation enabled", "AKSWindows2019+KubeletServingCertificateRotation", "1.29.7",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.KubeletConfig["--rotate-server-certificates"] = "true"
 			}),
 		Entry("AKSWindows2019 with k8s version 1.19 + FIPS", "AKSWindows2019+K8S119+FIPS", "1.19.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
