@@ -1836,6 +1836,14 @@ type AKSKubeletConfiguration struct {
 	Default: false
 	+optional. */
 	RotateCertificates bool `json:"rotateCertificates,omitempty"`
+	// serverTLSBootstrap enables server certificate bootstrap. Instead of self
+	// signing a serving certificate, the Kubelet will request a certificate from
+	// the 'certificates.k8s.io' API. This requires an approver to approve the
+	// certificate signing requests (CSR). The RotateKubeletServerCertificate feature
+	// must be enabled when setting this field.
+	// Default: false
+	// +optional
+	ServerTLSBootstrap bool `json:"serverTLSBootstrap,omitempty"`
 	/* authentication specifies how requests to the Kubelet's server are authenticated
 	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
 	it may disrupt components that interact with the Kubelet server.
