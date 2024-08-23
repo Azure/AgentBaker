@@ -22,7 +22,7 @@
     },
     {
       "matchPackageNames": ["moby-runc"],
-      "assignees": ["devinwong"]
+      "assignees": ["lilypan26"]
     },
     {
       "matchPackageNames": ["moby-containerd"],
