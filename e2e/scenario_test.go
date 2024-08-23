@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/toolkit"
@@ -908,7 +910,12 @@ func Test_noEchoedSecretsInProvisionLog(t *testing.T) {
 	secretContent := "**** this secret should not be logged ****"
 	clientPrivateKey := base64.StdEncoding.EncodeToString([]byte("ClientPrivateKey: " + secretContent))
 	spSecret := base64.StdEncoding.EncodeToString([]byte("ServicePrincipalSecret: " + secretContent))
-	bootstrapToken := base64.StdEncoding.EncodeToString([]byte("BootstrapToken: " + secretContent))
+
+	// Getting the cluster so we can also check for the bootstrap token.
+	cluster, err := ClusterKubenet(newTestCtx(t), t)
+	require.NoError(t, err)
+
+	bootstrapToken := *cluster.NodeBootstrappingConfiguration.KubeletClientTLSBootstrapToken
 
 	RunScenario(t, &Scenario{
 		Description: "tests that none of this set of secrets have been echoed into the provision log",
@@ -918,7 +925,6 @@ func Test_noEchoedSecretsInProvisionLog(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = clientPrivateKey
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = spSecret
-				nbc.KubeletClientTLSBootstrapToken = &bootstrapToken
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				FileExcludesContentsValidator(logPath, clientPrivateKey, "client private key"),
