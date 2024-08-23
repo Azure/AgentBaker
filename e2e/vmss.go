@@ -18,7 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -59,9 +59,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 		cleanupVMSS(ctx, t, vmssName, opts, privateKeyBytes)
 	})
 
-	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
-		Frequency: 10 * time.Second,
-	})
+	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	// fail test, but continue to extract debug information
 	require.NoError(t, err, "create vmss %q, check %s for vm logs", vmssName, testDir(t))
 	return &vmssResp.VirtualMachineScaleSet
@@ -88,8 +86,11 @@ func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scena
 	require.NoError(t, err)
 
 	require.NoError(t, err, "get vm private IP %v", vmssName)
-	err = pollExtractVMLogs(ctx, t, vmssName, vmPrivateIP, privateKeyBytes, opts)
-	require.NoError(t, err, "extract vm logs %v", vmssName)
+	logFiles, err := extractLogsFromVM(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
+	require.NoError(t, err, "extract logs from vm %v", vmssName)
+
+	err = dumpFileMapToDir(t, logFiles)
+	require.NoError(t, err, "dump file map to dir %v", vmssName)
 
 }
 
