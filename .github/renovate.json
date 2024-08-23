@@ -22,8 +22,15 @@
         "pin",
         "digest"
       ],
-      "automerge": false,
+      "automerge": false
+    },
+    {
+      "matchPackageNames": ["moby-runc"],
       "assignees": ["devinwong"]
+    },
+    {
+      "matchPackageNames": ["moby-containerd"],
+      "assignees": ["lilypan26"]
     }
   ],
   "customManagers": [
