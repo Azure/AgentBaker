@@ -14,10 +14,10 @@ import (
 func main() {
 
 	// kusto variables
-	kustoTable := os.Getenv("KUSTO_TABLE_NAME")
-	kustoEndpoint := os.Getenv("KUSTO_ENDPOINT")
-	kustoDatabase := os.Getenv("KUSTO_DATABASE_NAME")
-	kustoClientID := os.Getenv("KUSTO_CLIENT_ID")
+	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
+	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
+	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
+	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
 	// build data variables
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
 	buildPerformanceDataFile := sigImageName + "-build-performance.json"
