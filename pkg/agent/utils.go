@@ -51,6 +51,7 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--enforce-node-allocatable":          true,
 	"--streaming-connection-idle-timeout": true,
 	"--rotate-certificates":               true,
+	"--rotate-server-certificates":        true,
 	"--read-only-port":                    true,
 	"--feature-gates":                     true,
 	"--protect-kernel-defaults":           true,
@@ -424,6 +425,44 @@ func GetTLSBootstrapTokenForKubeConfig(tlsBootstrapToken *string) string {
 	return *tlsBootstrapToken
 }
 
+func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil || config.KubeletConfig == nil {
+		return false
+	}
+	return config.KubeletConfig["--rotate-server-certificates"] == "true"
+}
+
+func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
+	var labels string
+	if profile != nil {
+		labels = profile.GetKubernetesLabels()
+	}
+	kubeletServingSignerLabel := getKubeletServingCALabel(config)
+
+	if labels == "" {
+		return kubeletServingSignerLabel
+	}
+	if kubeletServingSignerLabel == "" {
+		return labels
+	}
+	return fmt.Sprintf("%s,%s", labels, kubeletServingSignerLabel)
+}
+
+// getKubeletServingCALabel determines the value of the special kubelet serving CA label,
+// based on the specified NodeBootstrappingConfiguration. This label is used to denote, out-of-band from RP-set
+// CustomNodeLabels, whether or not the given kubelet is started with the --rotate-server-certificates flag.
+// When the flag is set, this label will in the form of "kubernetes.azure.com/kubelet-serving-ca=cluster",
+// indicating the CA that signed the kubelet's serving certificate is the cluster CA.
+// Otherwise, this will return an empty string, and no extra labels will be added to the node.
+// TODO(cameissner): revisit whether to add a negative label for the disabled case,
+// e.g. "kubernetes.azure.com/kubelet-serving-ca=self", before this feature is rolled out.
+func getKubeletServingCALabel(config *datamodel.NodeBootstrappingConfiguration) string {
+	if IsKubeletServingCertificateRotationEnabled(config) {
+		return "kubernetes.azure.com/kubelet-serving-ca=cluster"
+	}
+	return ""
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
@@ -449,6 +488,7 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 		EnforceNodeAllocatable:         strings.Split(kc["--enforce-node-allocatable"], ","),
 		StreamingConnectionIdleTimeout: datamodel.Duration(kc["--streaming-connection-idle-timeout"]),
 		RotateCertificates:             strToBool(kc["--rotate-certificates"]),
+		ServerTLSBootstrap:             strToBool(kc["--rotate-server-certificates"]),
 		ReadOnlyPort:                   strToInt32(kc["--read-only-port"]),
 		ProtectKernelDefaults:          strToBool(kc["--protect-kernel-defaults"]),
 		ResolverConfig:                 kc["--resolv-conf"],
