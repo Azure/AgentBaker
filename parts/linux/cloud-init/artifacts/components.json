@@ -160,9 +160,9 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.4.3",
         "v1.4.3-2",
-        "v1.4.4"
+        "v1.4.4",
+        "v1.4.5"
       ]
     },
     {
@@ -282,16 +282,16 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.12.0",
-        "v2.13.0"
+        "v2.13.0",
+        "v2.13.1"
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v2.10.1",
-        "v2.11.0"
+        "v2.11.0",
+        "v2.11.1"
       ]
     },
     {
