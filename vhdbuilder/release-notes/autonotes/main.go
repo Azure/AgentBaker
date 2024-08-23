@@ -162,13 +162,13 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	artifacts := []buildArtifact{
 		{
-			name:       fmt.Sprintf("vhd-release-notes-%s", sku),
+			name:       sku,
 			tempName:   "release-notes.txt",
 			outName:    fmt.Sprintf("%s.txt", fl.date),
 			latestName: "latest.txt",
 		},
 		{
-			name:       fmt.Sprintf("vhd-image-bom-%s", sku),
+			name:       sku,
 			tempName:   "image-bom.json",
 			outName:    fmt.Sprintf("%s-image-list.json", fl.date),
 			latestName: "latest-image-list.json",
@@ -257,16 +257,18 @@ func (a buildArtifact) process(fl *flags, outdir, tmpdir string) error {
 		return fmt.Errorf("failed to rename file %s to %s, err: %s", tempPath, outPath, err)
 	}
 
-	if !fl.skipLatest {
-		data, err := os.ReadFile(outPath)
-		if err != nil {
-			return fmt.Errorf("failed to read file %s for copying, err: %s", outPath, err)
-		}
+	if fl.skipLatest {
+		return nil
+	}
 
-		latestPath := filepath.Join(outdir, a.latestName)
-		if err = os.WriteFile(latestPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to copy data from file %s to latest version %s, err: %s", outPath, latestPath, err)
-		}
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s for copying, err: %s", outPath, err)
+	}
+
+	latestPath := filepath.Join(outdir, a.latestName)
+	if err = os.WriteFile(latestPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to copy data from file %s to latest version %s, err: %s", outPath, latestPath, err)
 	}
 
 	return nil
