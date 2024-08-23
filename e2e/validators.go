@@ -125,6 +125,19 @@ func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator
 	}
 }
 
+func FileExcludesContentsValidator(fileName string, contents string, contentsName string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: fmt.Sprintf("Assert that %s does not contain string", fileName),
+		Command:     fmt.Sprintf("(sudo cat %s | grep -q --invert-match --fixed-strings '%s')", fileName, contents),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("expected to find a file '%s' without %s but did not", fileName, contentsName)
+			}
+			return nil
+		},
+	}
+}
+
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
 func cleanse(str string) string {
 	str = strings.Replace(str, "'", "", -1)
