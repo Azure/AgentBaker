@@ -20,6 +20,7 @@ import (
 )
 
 func TestInstaller(t *testing.T) {
+	cleanTestDir(t)
 	if _, ok := os.LookupEnv("ENABLE_INSTALLER_TEST"); !ok {
 		t.Skip("ENABLE_INSTALLER_TEST is not set")
 	}
