@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,6 +21,10 @@ func main() {
 	ctx := context.Background()
 	if err := run(ctx); err != nil {
 		slog.Error("Installer finished with error", "error", err.Error())
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
 		os.Exit(1)
 	}
 	slog.Info("Installer finished")
@@ -43,10 +48,10 @@ func provisionStart(ctx context.Context, config Config) error {
 		return fmt.Errorf("cse script: %w", err)
 	}
 	slog.Info("Running command", "command", cse)
-	cmd := exec.CommandContext(ctx, "/bin/bash", cse)
+	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
 	cmd.Dir = "/"
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
