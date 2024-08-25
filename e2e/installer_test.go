@@ -38,7 +38,6 @@ func TestInstaller(t *testing.T) {
 	}
 	vmssName := getVmssName(t)
 	vm := createInstallerVMSSS(ctx, t, vmssName, privateKeyBytes, publicKeyBytes, script)
-	time.Sleep(2 * time.Minute)
 	t.Logf("VMSS %q created", *vm.ID)
 }
 
@@ -48,7 +47,7 @@ func installerScript(ctx context.Context, t *testing.T) string {
 	require.NoError(t, err)
 	// content of /var/log/azure/cluster-provision-cse-output.log is automatically exported from the VM by the test helpers
 	// we want to check the installer stderr
-	return fmt.Sprintf(`bash -c "(curl -L -o ./installer '%s' && chmod +x ./installer && mkdir -p /var/log/azure && ./installer) > /var/log/azure/installer.log 2>&1"`, url)
+	return fmt.Sprintf(`bash -c "(curl -L -o installer '%s' && chmod +x installer && mkdir -p /var/log/azure && installer) > /var/log/azure/installer.log 2>&1"`, url)
 }
 
 func compileInstaller(t *testing.T) *os.File {
