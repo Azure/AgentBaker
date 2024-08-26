@@ -215,6 +215,11 @@ steps:
       -e BLOB_URL=${BLOB_URL} \
       -e SEVERITY=${SEVERITY} \
       -e MODULE_VERSION=${MODULE_VERSION} \
+      -e BUILD_REPOSITORY_NAME=$(Build.Repository.Name) \
+      -e BUILD_SOURCEVERSION=$(Build.SourceVersion) \
+      -e SYSTEM_COLLECTIONURI=$(System.CollectionUri) \
+      -e SYSTEM_TEAMPROJECT=$(System.TeamProject) \
+      -e BUILD_RUN_NUMBER=$(Build.BuildNumber) \
       ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup

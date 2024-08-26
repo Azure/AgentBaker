@@ -20,13 +20,6 @@ SUBNET_NAME="scanning"
 if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
     exit 1
-fi 
-
-# We assign this identity to the scanning VM so that it has permission
-# to push the trivy output to the storage blob and to export output to the Kusto table.
-if [ -z "$UMSI_RESOURCE_ID" ]; then
-    echo "UMSI_RESOURCE_ID must be set to run VHD scanning"
-    exit 1
 fi
 
 # Use the domain name from the classic blob URL to get the storage account name.
@@ -83,6 +76,9 @@ TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 TIMESTAMP=$(date +%s%3N)
 TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
+
+# Extract date, revision from build number
+BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $SCAN_VM_NAME \
@@ -107,7 +103,14 @@ az vm run-command invoke \
         "SEVERITY"=${SEVERITY} \
         "MODULE_VERSION"=${MODULE_VERSION} \
         "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
-        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID}
+        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID} \
+        "BUILD_RUN_NUMBER"=${BUILD_RUN_NUMBER} \
+        "BUILD_REPOSITORY_NAME"=${BUILD_REPOSITORY_NAME} \
+        "BUILD_SOURCEBRANCH"=${GIT_BRANCH} \
+        "BUILD_SOURCEVERSION"=${BUILD_SOURCEVERSION} \
+        "SYSTEM_COLLECTIONURI"=${SYSTEM_COLLECTIONURI} \
+        "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
+        "BUILDID"=${BUILD_ID}
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
