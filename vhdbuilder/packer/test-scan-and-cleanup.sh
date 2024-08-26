@@ -26,7 +26,8 @@ if [[ -z "$SIG_GALLERY_NAME" ]]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 fi
 
-SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh") # Always run cleanup
+# Always run cleanup
+SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh")
 
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show \
@@ -42,12 +43,14 @@ if [ -z "${SIG_VERSION}" ]; then
   exit $?
 fi
 
+# Setup tests
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 else
   echo -e "\n\nSkipping tests for CVM 20.04"
 fi
 
+# Setup scanning
 echo -e "\n\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
 if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
   echo -e "\n\nRunning scanning step"
