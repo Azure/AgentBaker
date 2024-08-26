@@ -27,7 +27,7 @@ if [[ -z "$SIG_GALLERY_NAME" ]]; then
 fi
 
 # Always run cleanup
-SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh")
+SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh" "./vhdbuilder/packer/test/run-test.sh")
 
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show \
@@ -41,13 +41,6 @@ if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
   exit $?
-fi
-
-# Setup tests
-if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
-  SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
-else
-  echo -e "\n\nSkipping tests for CVM 20.04"
 fi
 
 # Setup scanning
