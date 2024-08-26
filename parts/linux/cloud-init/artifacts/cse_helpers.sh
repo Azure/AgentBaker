@@ -123,6 +123,7 @@ fi
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -514,7 +515,7 @@ returnRelease() {
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
     #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" ]]; then
+    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" || "${os}" == "${AZURELINUX_OS_NAME}" ]]; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
