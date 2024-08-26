@@ -5,6 +5,8 @@ param (
 )
 # param must be at the beginning of the script, add more param if needed
 
+Write-Host "parameters: enableAll=$enableAll, enableSnapshotSize=$enableSnapshotSize, disableContainerdInfo=$disableContainerdInfo"
+
 # NOTE: Please also update staging/cse/windows/provisioningscripts/loggenerator.ps1 when collecting new logs.
 
 # SilentlyContinue mode suppresses errors and continues the script execution.
