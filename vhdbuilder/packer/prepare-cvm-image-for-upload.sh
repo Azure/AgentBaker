@@ -53,7 +53,7 @@ az vm wait -g $CVM_IMAGE_RG -n $VM_NAME --created
 
 ret=$(az vm run-command invoke --command-id RunShellScript \
   --name $VM_NAME \
-  --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
+  --resource-group $CVM_IMAGE_RG \
   --scripts "sudo waagent -force -deprovision+user" \
     "sudo rm -f ~/.bash_history")
 
@@ -74,3 +74,5 @@ az sig image-version create \
   --gallery-image-definition $SKU_NAME \
   --gallery-image-version $SIG_IMAGE_VERSION \
   --virtual-machine /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$CVM_IMAGE_RG/providers/Microsoft.Compute/virtualMachines/$VM_NAME
+
+echo "CVM image prepared to be converted to a vhd blob."
