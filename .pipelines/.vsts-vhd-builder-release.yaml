@@ -3,13 +3,16 @@ trigger: none
 
 variables:
   - name: CONTAINER_IMAGE
-    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
-  - group: aks-vuln-to-kusto
+    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.0'
 
 pool:
   name: $(POOL_NAME)
 
 parameters:
+  - name: useShallowReplication
+    displayName: Use Shallow Replication (Only check this box if you will be running E2E in the same region as the build)
+    type: boolean
+    default: true
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
@@ -193,6 +196,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-containerd
@@ -219,6 +223,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gen2-containerd
@@ -245,6 +250,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gpu-containerd
@@ -271,6 +277,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gen2-gpu-containerd
@@ -299,6 +306,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1
@@ -327,6 +335,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1
@@ -355,6 +364,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2
@@ -383,6 +393,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2
@@ -411,6 +422,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1-fips
@@ -439,6 +451,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1-fips
@@ -467,6 +480,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-fips
@@ -495,6 +509,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-fips
@@ -523,6 +538,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-arm64
@@ -551,6 +567,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-arm64
@@ -579,6 +596,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata
@@ -607,6 +625,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata
@@ -635,6 +654,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-trustedlaunch
@@ -663,6 +683,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-trustedlaunch
@@ -691,6 +712,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata-trustedlaunch
@@ -719,6 +741,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
@@ -746,6 +769,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-fips-containerd
@@ -773,6 +797,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-fips-gen2-containerd
@@ -800,6 +825,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-containerd
@@ -827,6 +853,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-gen2-containerd
@@ -855,6 +882,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-containerd
@@ -883,6 +911,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-gen2-containerd
@@ -910,6 +939,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-arm64-gen2-containerd
@@ -937,6 +967,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gen2-containerd
@@ -963,6 +994,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-containerd
@@ -989,6 +1021,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-gen2-containerd
@@ -1015,6 +1048,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-containerd
@@ -1041,6 +1075,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-gen2-containerd
@@ -1067,6 +1102,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-cvm-gen2-containerd
@@ -1093,6 +1129,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-tl-gen2-containerd
@@ -1119,6 +1156,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen1-containerd
@@ -1145,6 +1183,7 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useShallowReplication: ${{ parameters.useShallowReplication }}
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
