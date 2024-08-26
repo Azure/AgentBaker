@@ -4,50 +4,78 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base32"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestInstaller(t *testing.T) {
-	cleanTestDir(t)
+func Test_ubuntu2204Installer(t *testing.T) {
 	if _, ok := os.LookupEnv("ENABLE_INSTALLER_TEST"); !ok {
 		t.Skip("ENABLE_INSTALLER_TEST is not set")
 	}
-	t.Parallel()
-	ctx := newTestCtx(t)
-	script := installerScript(ctx, t)
-	t.Log(script)
-	err := ensureResourceGroup(ctx)
+	cluster, err := ClusterKubenet(context.TODO(), t)
 	require.NoError(t, err)
-
-	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
-	assert.NoError(t, err)
-	if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
-		t.Logf("failed to private ssh key to disk: %s", err)
-	}
-	vmssName := getVmssName(t)
-	vm := createInstallerVMSSS(ctx, t, vmssName, privateKeyBytes, publicKeyBytes, script)
-	t.Logf("VMSS %q created", *vm.ID)
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator("1.7.20-1"),
+				runcVersionValidator("1.1.12-1"),
+			},
+			CSEOverride:        installerScript(context.TODO(), t, cluster.Kube),
+			CustomDataOverride: to.Ptr(""),
+		},
+	})
 }
 
-func installerScript(ctx context.Context, t *testing.T) string {
+type InstallerConfig struct {
+	Location                       string `json:"Location"`
+	CACertificate                  string `json:"CACertificate"`
+	KubeletClientTLSBootstrapToken string `json:"KubeletClientTLSBootstrapToken"`
+	FQDN                           string `json:"FQDN"`
+}
+
+func installerScript(ctx context.Context, t *testing.T, kube *Kubeclient) string {
+	clusterParams, err := extractClusterParameters(ctx, t, kube)
+	require.NoError(t, err)
+
+	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
+	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
+	require.NoError(t, err)
+	bootstrapToken, err = strconv.Unquote(bootstrapToken)
+	require.NoError(t, err)
+	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
+	require.NoError(t, err)
+	tokens := strings.Split(server, ":")
+	require.Len(t, tokens, 3)
+	fqdn := tokens[1][2:]
+
+	installerConfig := InstallerConfig{
+		CACertificate:                  clusterParams["/etc/kubernetes/certs/ca.crt"],
+		Location:                       config.Config.Location,
+		FQDN:                           fqdn,
+		KubeletClientTLSBootstrapToken: bootstrapToken,
+	}
+
+	installerConfigJSON, err := json.Marshal(installerConfig)
+	require.NoError(t, err)
+
 	binary := compileInstaller(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, "installer-"+hashFile(t, binary.Name()), binary)
 	require.NoError(t, err)
-	// content of /var/log/azure/cluster-provision-cse-output.log is automatically exported from the VM by the test helpers
-	// we want to check the installer stderr
-	return fmt.Sprintf(`bash -c "(curl -L -o installer '%s' && chmod +x installer && mkdir -p /var/log/azure && installer) > /var/log/azure/installer.log 2>&1"`, url)
+	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./installer '%s' && chmod +x ./installer && mkdir -p /var/log/azure && ./installer) > /var/log/azure/installer.log 2>&1"`, base64.StdEncoding.EncodeToString(installerConfigJSON), url)
 }
 
 func compileInstaller(t *testing.T) *os.File {
@@ -86,35 +114,4 @@ func hashFile(t *testing.T, filePath string) string {
 
 	// Return the first 5 characters of the encoded hash
 	return encodedHash[:5]
-}
-
-func createInstallerVMSSS(ctx context.Context, t *testing.T, vmssName string, privateKeyBytes, publicKeyBytes []byte, script string) *armcompute.VirtualMachineScaleSet {
-	clusterConfig, err := ClusterKubenet(ctx, t)
-	require.NoError(t, err)
-	t.Logf("creating VMSS %q in resource group %q", vmssName, *clusterConfig.Model.Properties.NodeResourceGroup)
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), "", script, clusterConfig)
-	imageID, err := config.VHDUbuntu2204Gen2Containerd.VHDResourceID(ctx, t)
-	require.NoError(t, err)
-	model.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(imageID)),
-	}
-
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
-		ctx,
-		*clusterConfig.Model.Properties.NodeResourceGroup,
-		vmssName,
-		model,
-		nil,
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, clusterConfig, privateKeyBytes)
-	})
-
-	vmssResp, err := operation.PollUntilDone(ctx, &runtime.PollUntilDoneOptions{
-		Frequency: 10 * time.Second,
-	})
-	// fail test, but continue to extract debug information
-	require.NoError(t, err, "create vmss %q, check %s for vm logs", vmssName, testDir(t))
-	return &vmssResp.VirtualMachineScaleSet
 }
