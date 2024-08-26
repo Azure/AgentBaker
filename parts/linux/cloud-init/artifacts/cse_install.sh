@@ -138,6 +138,7 @@ downloadCredentalProvider() {
     DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 
     if $BLOCK_OUTBOUND_NETWORK; then
+        # TODO (alburgess) change from mcr.microsoft.com to user passed in repo
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         DOWNLOAD_COMMAND="oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
     fi
@@ -172,17 +173,34 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
+
 downloadContainerdWasmShims() {
+    DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
+    DOWNLOAD_URL="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
+    #  oras pull aksvhdtestcr.azurecr.io/aks/oss/binaries/deislabs/containerd-wasm-shims:v0.8.0-linux-arm64  
+
+
     declare -a wasmShimPids=()
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
-        local containerd_wasm_filepath="/usr/local/bin"
-        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
-        if [[ $(isARM64) == 1 ]]; then
-            containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
-        fi
+        local containerd_wasm_filepath="/usr/local/bin" 
+        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
 
-        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+        installWithOras() {
+            CONTAINERD_WASM_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:v${shim_version}-linux-${CPU_ARCH}"
+            WASM_TMP="wasm-tmp"
+            mkdir -p $WASM_TMP
+            oras pull $CONTAINERD_WASM_DOWNLOAD_URL -o $WASM_TMP || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+
+            if [ -f "$WASM_TMP/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz" ]; then
+                tar -xzvf "$WASM_TMP/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz" -C $containerd_wasm_filepath
+            else
+                echo "containerd wasm shims tarball not found"
+                exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            fi
+            rm -r $WASM_TMP
+        }
+        installWithCurl() {
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             wasmShimPids+=($!)
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -191,8 +209,15 @@ downloadContainerdWasmShims() {
                 retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
                 wasmShimPids+=($!)
             fi
+        }
+
+        if $BLOCK_OUTBOUND_NETWORK; then
+            installWithOras
+        elif [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+            installWithCurl
         fi
     done
+
     wait ${wasmShimPids[@]}
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
