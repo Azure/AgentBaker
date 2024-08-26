@@ -175,6 +175,8 @@ configureK8s() {
     chown root:root "${AZURE_JSON_PATH}"
 
     mkdir -p "/etc/kubernetes/certs"
+
+    set +x
     if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
         echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
     fi
@@ -185,7 +187,6 @@ configureK8s() {
         echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
     fi
 
-    set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     # Perform the required JSON escaping
     SP_FILE="/etc/kubernetes/sp.txt"

@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -42,7 +43,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}
 
-	validators := commonLiveVMValidators()
+	validators := commonLiveVMValidators(opts)
 	if opts.scenario.LiveVMValidators != nil {
 		validators = append(validators, opts.scenario.LiveVMValidators...)
 	}
@@ -74,8 +75,8 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 	return nil
 }
 
-func commonLiveVMValidators() []*LiveVMValidator {
-	return []*LiveVMValidator{
+func commonLiveVMValidators(opts *scenarioRunOpts) []*LiveVMValidator {
+	validators := []*LiveVMValidator{
 		{
 			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
 			Command:     "cat /etc/default/kubelet",
@@ -145,5 +146,27 @@ func commonLiveVMValidators() []*LiveVMValidator {
 			},
 			IsPodNetwork: true,
 		},
+	}
+	validators = append(validators, leakedSecretsValidators(opts)...)
+	return validators
+}
+
+func leakedSecretsValidators(opts *scenarioRunOpts) []*LiveVMValidator {
+	logPath := "/var/log/azure/cluster-provision.log"
+	clientPrivateKey := opts.nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey
+	spSecret := opts.nbc.ContainerService.Properties.ServicePrincipalProfile.Secret
+	bootstrapToken := *opts.nbc.KubeletClientTLSBootstrapToken
+
+	b64Encoded := func(val string) string {
+		return base64.StdEncoding.EncodeToString([]byte(val))
+	}
+	return []*LiveVMValidator{
+		// Base64 encoded in baker.go (GetKubeletClientKey)
+		FileExcludesContentsValidator(logPath, b64Encoded(clientPrivateKey), "client private key"),
+		// Base64 encoded in baker.go (GetServicePrincipalSecret)
+		FileExcludesContentsValidator(logPath, b64Encoded(spSecret), "service principal secret"),
+		// Bootstrap token is already encoded so we don't need to
+		// encode it again here.
+		FileExcludesContentsValidator(logPath, bootstrapToken, "bootstrap token"),
 	}
 }
