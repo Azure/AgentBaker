@@ -43,7 +43,7 @@ fi
 az vm create \
   --resource-group $CVM_IMAGE_RG \
   --name $VM_NAME \
-  --image $IMG_DEF \
+  --image $MANAGED_SIG_ID \
   --admin-username $TEST_VM_ADMIN_USERNAME \
   --admin-password $TEST_VM_ADMIN_PASSWORD \
   --public-ip-address "" \
