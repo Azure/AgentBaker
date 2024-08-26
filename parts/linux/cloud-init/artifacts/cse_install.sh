@@ -370,8 +370,7 @@ installCNI() {
     PACKAGE_VERSIONS=()
     returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
 
-    # TODO change to ne 
-    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+    if [[ ${#PACKAGE_VERSIONS[@]} -ne 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
