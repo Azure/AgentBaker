@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: assert required variables are set
+
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
   echo "##[group]$TARGET" >> ${TARGET}-output.txt
@@ -46,11 +48,12 @@ else
   echo -e "\n\nSkipping tests for CVM 20.04"
 fi
 
-if [ "$OS_VERSION" != "18.04" ]; then
+echo -e "\n\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
+if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
+  echo -e "\n\nRunning scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
-  # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-  echo -e "\n\nSkipping scanning for 18.04"
+  echo -e "\n\nSkipping scanning step"
 fi
 
 echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
