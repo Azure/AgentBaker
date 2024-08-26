@@ -134,7 +134,6 @@ installNetworkPlugin() {
 
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-
     if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
         # TODO (alburgess) change from mcr.microsoft.com to user passed in repo
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
@@ -269,8 +268,12 @@ downloadAzureCNI() {
         echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
         return
     fi
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+
+    else
+        CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    fi
 }
 
 downloadCrictl() {
@@ -423,6 +426,10 @@ extractKubeBinaries() {
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
 
+    if ["BLOCK_OUTBOUND_NETWORK" = "true"]; then
+        local kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v${k8s_version}-linux-${CPU_ARCH}"
+    fi
+
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
     # if the private URL is specified and if the kube package is cached already, extract the package, return otherwise
@@ -442,7 +449,12 @@ extractKubeBinaries() {
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
 
-        retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+            oras pull $kube_binary_url -o $k8s_tgz_tmp || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        else
+            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        fi
+
         if [[ ! -f ${k8s_tgz_tmp} ]]; then
             exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
         fi
