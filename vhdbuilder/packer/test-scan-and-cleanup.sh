@@ -51,15 +51,15 @@ else
 fi
 
 # Setup scanning
-echo -e "\n\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
+echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
 if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
-  echo -e "\n\nRunning scanning step"
+  echo -e "Running scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
-  echo -e "\n\nSkipping scanning step"
+  echo -e "Skipping scanning step"
 fi
 
-echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
+echo -e "\nRunning the following scripts: ${SCRIPT_ARRAY[@]}\n"
 declare -A SCRIPT_PIDS
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${SCRIPT}" &
