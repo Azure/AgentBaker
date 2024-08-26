@@ -178,11 +178,9 @@ downloadContainerdWasmShims() {
     declare -a wasmShimPids=()
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
-        local containerd_wasm_filepath="/usr/local/bin" 
-        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
 
         installWithOras() {
-            CONTAINERD_WASM_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:v${shim_version}-linux-${CPU_ARCH}"
+            CONTAINERD_WASM_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:v${binary_version}-linux-${CPU_ARCH}"
             WASM_TMP="wasm-tmp"
             mkdir -p $WASM_TMP
             oras pull $CONTAINERD_WASM_DOWNLOAD_URL -o $WASM_TMP || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
@@ -197,6 +195,8 @@ downloadContainerdWasmShims() {
             rm -r $WASM_TMP
         }
         installWithCurl() {
+            local containerd_wasm_filepath="/usr/local/bin" 
+            local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             wasmShimPids+=($!)
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -378,7 +378,7 @@ installCNI() {
 
     if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
         CNI_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v${packageVersion}-linux-${CPU_ARCH}"
-        oras pull $CNI_DOWNLOAD_URL --output $CNI_DOWNLOADS_DIR
+        oras pull $CNI_DOWNLOAD_URL -o $CNI_DOWNLOADS_DIR
         local downloaded_file="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz" 
         mv "${CNI_DOWNLOADS_DIR}/${downloaded_file}" "${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
     else
