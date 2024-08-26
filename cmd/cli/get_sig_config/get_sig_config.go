@@ -16,6 +16,7 @@ var (
 		//SubscriptionID: config.SubscriptionID,
 		//TenantID:       config.TenantID,
 		//Region:         config.Region,
+		K8sComponents:    &datamodel.K8sComponents{},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{},
 		SIGConfig: datamodel.SIGConfig{
 			Galleries: map[string]datamodel.SIGGalleryConfig{
@@ -44,11 +45,26 @@ var (
 			TenantID:       "sig tenant id",
 		},
 		ContainerService: &datamodel.ContainerService{
+			Location: "",
 			Properties: &datamodel.Properties{
+				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{},
+				CertificateProfile: &datamodel.CertificateProfile{
+					APIServerCertificate: "",
+					ClientCertificate:    "",
+					ClientPrivateKey:     "",
+					CaCertificate:        "",
+				},
+				HostedMasterProfile: &datamodel.HostedMasterProfile{
+					DNSPrefix: "",
+				},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
-					KubernetesConfig: &datamodel.KubernetesConfig{},
+					OrchestratorType: "Kubernetes",
+					KubernetesConfig: &datamodel.KubernetesConfig{
+						DNSServiceIP: "",
+					},
 				},
 				WindowsProfile: &datamodel.WindowsProfile{},
+				CustomCloudEnv: &datamodel.CustomCloudEnv{},
 			},
 		},
 		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{},
@@ -64,10 +80,18 @@ func Execute() {
 	startCmd.Flags().StringVarP(&nbc.SubscriptionID, "subscriptionId", "s", "", "subscription id of cluster")
 	startCmd.Flags().StringVarP(&nbc.TenantID, "tenantId", "t", "", "tenant id of cluster")
 	startCmd.Flags().StringVarP(&nbc.CloudSpecConfig.CloudName, "cloud", "c", "AzurePublicCloud", "tenant id of cluster")
-	startCmd.Flags().StringVar(&nbc.OSSKU, "ossku", "", "region of cluster")
+	startCmd.Flags().StringVar(&nbc.ContainerService.Location, "location", "eastus", "location")
+	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.DNSServiceIP, "kubeDNSServiceIP", "192.168.0.1", "DNS Service IP")
+	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.HostedMasterProfile.DNSPrefix, "masterEndpointDNSNamePrefix", "bob.azure.com", "DNS Service IP")
+	startCmd.Flags().StringVar(&nbc.OSSKU, "ossku", "", "OS SKU")
 	startCmd.Flags().StringVar(&agentPoolProfileOsType, "ostype", "Windows", "os type - Windows or not")
 	startCmd.Flags().StringVarP(&distro, "distro", "d", "CustomizedWindowsOSImage", "Distro")
-	startCmd.Flags().StringVar(&produce, "produce", "custom-script-command", "Produce which file. Values are custom-script-command (for the custom script to run) and custom-script-data for the script that's invoked ")
+	startCmd.Flags().StringVar(&produce, "produce", "custom-script-command", "Produce which file. Values are custom-script-command (for the custom script to run) and custom-script-data for the script that's invoked")
+
+	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey, "clientPrivateKey", "clientPrivateKey", "clientPrivateKey")
+	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.ServicePrincipalProfile.ClientID, "servicePrincipalClientId", "servicePrincipalClientId", "servicePrincipalClientId")
+	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.ServicePrincipalProfile.Secret, "encodedServicePrincipalClientSecret", "encodedServicePrincipalClientSecret", "encodedServicePrincipalClientSecret")
+	startCmd.Flags().StringVar(&nbc.UserAssignedIdentityClientID, "userAssignedIdentityID", "userAssignedIdentityID", "userAssignedIdentityID")
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)
@@ -123,6 +147,7 @@ func startHelper(_ *cobra.Command, args []string) error {
 	case "custom-script-data":
 		fmt.Println(bootstrapping.CustomData)
 		break
+
 	}
 
 	return nil

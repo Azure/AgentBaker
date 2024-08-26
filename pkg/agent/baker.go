@@ -56,6 +56,24 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
 
+func (t *TemplateGenerator) GetFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
+	if config.AgentPoolProfile.IsWindows() {
+		validateAndSetWindowsNodeBootstrappingConfiguration(config)
+	} else {
+		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+	}
+	// get parameters
+	parameters := getParameters(config)
+	// get variable custom data
+	if config.AgentPoolProfile.IsWindows() {
+		variables := getWindowsCustomDataVariables(config)
+		return getBakerFuncMap(config, parameters, variables)
+	} else {
+		variables := getCSECommandVariables(config)
+		return getBakerFuncMap(config, parameters, variables)
+	}
+}
+
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
 // { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -838,15 +856,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"CloseBraces": func() string {
 			return "}}"
 		},
-		"BoolPtrToInt": func(p *bool) int {
-			if p == nil {
-				return 0
-			}
-			if v := *p; v {
-				return 1
-			}
-			return 0
-		},
+		//"BoolPtrToInt": func(p *bool) int {
+		//	if p == nil {
+		//		return 0
+		//	}
+		//	if v := *p; v {
+		//		return 1
+		//	}
+		//	return 0
+		//},
 		"UserAssignedIDEnabled": func() bool {
 			// TODO(qinhao): we need to move this to NodeBootstrappingConfiguration as cs.Properties
 			//               is to be moved away from NodeBootstrappingConfiguration
