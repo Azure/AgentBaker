@@ -134,7 +134,7 @@ installNetworkPlugin() {
 
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+    if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
         # TODO (alburgess) change from mcr.microsoft.com to user passed in repo
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
@@ -206,7 +206,7 @@ downloadContainerdWasmShims() {
             fi
         }
 
-        if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+        if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
             installWithOras
         elif [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
             installWithCurl
@@ -375,7 +375,7 @@ installCNI() {
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+    if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
         CNI_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v${packageVersion}-linux-${CPU_ARCH}"
         oras pull $CNI_DOWNLOAD_URL -o $CNI_DOWNLOADS_DIR
         local downloaded_file="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz" 
@@ -422,7 +422,7 @@ extractKubeBinaries() {
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
 
-    if ["BLOCK_OUTBOUND_NETWORK" = "true"]; then
+    if ["${BLOCK_OUTBOUND_NETWORK:-false}" = "true"]; then
         local kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v${k8s_version}-linux-${CPU_ARCH}"
     fi
 
@@ -445,7 +445,7 @@ extractKubeBinaries() {
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
 
-        if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+        if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
             oras pull $kube_binary_url -o $k8s_tgz_tmp || exit $ERR_K8S_DOWNLOAD_TIMEOUT
         else
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
