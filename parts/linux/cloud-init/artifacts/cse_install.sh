@@ -134,19 +134,17 @@ installNetworkPlugin() {
 
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
-    DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 
     if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
         # TODO (alburgess) change from mcr.microsoft.com to user passed in repo
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
-        DOWNLOAD_COMMAND="oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
+        oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    else
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+        CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     fi
-
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    eval $DOWNLOAD_COMMAND
 }
 
 installCredentalProvider() {
@@ -356,26 +354,10 @@ setupCNIDirs() {
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
-    # oras pull mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v1.4.1-linux-arm64
-    # alburgess right here
-
-    # HARD_CODED_CNI_VERSION="v1.4.1" 
-    # CNI_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cni-plugins/v$HARD_CODED_CNI_VERSION/binaries/cni-plugins-linux-amd64-$HARD_CODED_CNI_VERSION.tgz"
-    # CNI_DOWNLOAD_TMP="${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
-
-    # if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-    #    echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
-        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
-        # definitely not handling arm here.
-    #     retrycmd_get_tarball 120 5 "$CNI_DOWNLOAD_TMP $CNI_DOWNLOAD_URL" || exit
-    #    tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
-    #     return 
-    # fi
-   
-    # always just use what is listed in components.json so we don't have to sync.
+    # install cri using components.json
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    # CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
+    # vars needed for components.json extraction
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
@@ -387,13 +369,25 @@ installCNI() {
     fi
     PACKAGE_VERSIONS=()
     returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
-    
-    # should change to ne
+
+    # TODO change to ne 
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
+
+    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+        CNI_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v${packageVersion}-linux-${CPU_ARCH}"
+        oras pull $CNI_DOWNLOAD_URL --output $CNI_DOWNLOADS_DIR
+        local downloaded_file="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz" 
+        mv "${CNI_DOWNLOADS_DIR}/${downloaded_file}" "${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
+    else
+        CNI_DOWNLOAD_TMP="${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
+        CNI_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cni-plugins/v${packageVersion}/binaries/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz"
+        retrycmd_get_tarball 120 5 "$CNI_DOWNLOAD_TMP $CNI_DOWNLOAD_URL" || exit
+    fi
+    tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
 
     CNI_DIR_TMP="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
