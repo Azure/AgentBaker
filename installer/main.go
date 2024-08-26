@@ -13,7 +13,12 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
+// Config is the interface for the installer configuration
+// Breaking changes are not allowed
+// For any potential breaking changes, a new version of the Config struct should be created
+// all Config versions should be tested and maintained
 type Config struct {
+	Version                        string `json:"Version"`
 	Location                       string `json:"Location"`
 	CACertificate                  string `json:"CACertificate"`
 	KubeletClientTLSBootstrapToken string `json:"KubeletClientTLSBootstrapToken"`
@@ -22,6 +27,9 @@ type Config struct {
 
 func (c *Config) Validate() error {
 	errs := make([]error, 0)
+	if c.Version != "0" {
+		errs = append(errs, errors.New("Version must be 0"))
+	}
 	if c.Location == "" {
 		errs = append(errs, errors.New("Location is required"))
 	}
@@ -53,8 +61,7 @@ func main() {
 
 func run(ctx context.Context) error {
 	var config *Config
-	// TODO: should it be absolute path?
-	// We probably want to limit configuration ability.
+
 	configFile, err := os.Open("config.json")
 	if err != nil {
 		return fmt.Errorf("failed to open config file: %w", err)
@@ -117,11 +124,7 @@ func baseTemplate(config *Config) *datamodel.NodeBootstrappingConfiguration {
 	)
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
-			ID:       "",
 			Location: config.Location,
-			Name:     "",
-			Plan:     nil,
-			Tags:     map[string]string(nil),
 			Type:     "Microsoft.ContainerService/ManagedClusters",
 			Properties: &datamodel.Properties{
 				ClusterID:         "",
@@ -155,11 +158,7 @@ func baseTemplate(config *Config) *datamodel.NodeBootstrappingConfiguration {
 					{
 						Name:                "nodepool2",
 						VMSize:              "Standard_D2ds_v5",
-						KubeletDiskType:     "",
-						WorkloadRuntime:     "",
-						DNSPrefix:           "",
 						OSType:              "Linux",
-						Ports:               nil,
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
 						VnetSubnetID:        "",
@@ -188,16 +187,13 @@ func baseTemplate(config *Config) *datamodel.NodeBootstrappingConfiguration {
 					},
 				},
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-					ClientID:          "msi",
-					Secret:            "msi",
-					ObjectID:          "",
-					KeyvaultSecretRef: nil,
+					ClientID: "msi",
+					Secret:   "msi",
+					ObjectID: "",
 				},
 				CertificateProfile: &datamodel.CertificateProfile{
 					CaCertificate: config.CACertificate,
 				},
-				AADProfile:    nil,
-				CustomProfile: nil,
 				HostedMasterProfile: &datamodel.HostedMasterProfile{
 					FQDN: config.FQDN,
 				},
@@ -236,7 +232,6 @@ func baseTemplate(config *Config) *datamodel.NodeBootstrappingConfiguration {
 			EndpointConfig: datamodel.AzureEndpointConfig{
 				ResourceManagerVMDNSSuffix: "cloudapp.azure.com",
 			},
-			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
 			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
@@ -310,7 +305,6 @@ func baseTemplate(config *Config) *datamodel.NodeBootstrappingConfiguration {
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 			"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
 		},
-		KubeproxyConfig: map[string]string(nil),
 		SIGConfig: datamodel.SIGConfig{
 			TenantID:       "tenantID",
 			SubscriptionID: "subID",
