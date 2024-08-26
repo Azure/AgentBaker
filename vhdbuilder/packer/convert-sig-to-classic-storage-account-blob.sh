@@ -44,6 +44,10 @@ if [[ -z "$SIG_IMAGE_VERSION" ]]; then
   SIG_IMAGE_VERSION=${CAPTURED_SIG_VERSION}
 fi
 
+if [[ "$IMG_SKU" = "20_04-lts-cvm" ]]; then
+  SIG_IMAGE_NAME=$SKU_NAME
+fi
+
 # Use $SIG_IMAGE_VERSION for the sig resource, and $CAPTURED_SIG_VERSION (a random number) for the disk resource
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
