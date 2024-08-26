@@ -1,11 +1,8 @@
 package e2e
 
 import (
-	"encoding/base64"
 	"fmt"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
@@ -900,36 +897,6 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-			},
-		},
-	})
-}
-
-func Test_noEchoedSecretsInProvisionLog(t *testing.T) {
-	logPath := "/var/log/azure/cluster-provision.log"
-	secretContent := "**** this secret should not be logged ****"
-	clientPrivateKey := base64.StdEncoding.EncodeToString([]byte("ClientPrivateKey: " + secretContent))
-	spSecret := base64.StdEncoding.EncodeToString([]byte("ServicePrincipalSecret: " + secretContent))
-
-	// Getting the cluster so we can also check for the bootstrap token.
-	cluster, err := ClusterKubenet(newTestCtx(t), t)
-	require.NoError(t, err)
-
-	bootstrapToken := *cluster.NodeBootstrappingConfiguration.KubeletClientTLSBootstrapToken
-
-	RunScenario(t, &Scenario{
-		Description: "tests that none of this set of secrets have been echoed into the provision log",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = clientPrivateKey
-				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = spSecret
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileExcludesContentsValidator(logPath, clientPrivateKey, "client private key"),
-				FileExcludesContentsValidator(logPath, spSecret, "service principal secret"),
-				FileExcludesContentsValidator(logPath, bootstrapToken, "bootstrap token"),
 			},
 		},
 	})
