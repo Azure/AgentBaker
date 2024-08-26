@@ -133,10 +133,24 @@ installNetworkPlugin() {
 }
 
 
-downloadCredentalProvider() {
+downloadCredentalProviderOLD() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+}
+
+downloadCredentialProvider() {
+    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+    DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
+
+    if $BLOCK_OUTBOUND_NETWORK; then
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        DOWNLOAD_COMMAND="oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
+    fi
+
+    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    eval $DOWNLOAD_COMMAND
 }
 
 installCredentalProvider() {
@@ -219,7 +233,6 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
-
 }
 
 evalPackageDownloadURL() {
