@@ -481,13 +481,6 @@ CREDENTIAL_PROVIDER_VERSIONS="
 1.29.2
 1.30.0
 "
-
-#for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-#  CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-#  downloadCredentalProviderOLD $CREDENTIAL_PROVIDER_DOWNLOAD_URL
-#  echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
-#done
-
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
     downloadCredentalProvider
     echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}

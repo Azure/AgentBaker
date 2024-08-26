@@ -132,14 +132,7 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
-
-downloadCredentalProviderOLD() {
-    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-}
-
-downloadCredentialProvider() {
+downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
     DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
