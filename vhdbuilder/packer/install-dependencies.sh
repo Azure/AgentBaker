@@ -286,7 +286,7 @@ for p in ${packages[*]}; do
       # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+        #extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
         echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
