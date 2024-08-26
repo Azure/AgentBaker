@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [ -z "$PACKER_BUILD_LOCATION" ]; then
-  echo "PACKER_BUILD_LOCATION must be set for linux builds"
+  echo "PACKER_BUILD_LOCATION must be set."
   exit 1
 fi
 
@@ -50,7 +50,6 @@ az vm create \
   ${TARGET_COMMAND_STRING}
     
 az vm wait -g $CVM_IMAGE_RG -n $VM_NAME --created
-
 
 ret=$(az vm run-command invoke --command-id RunShellScript \
   --name $VM_NAME \
