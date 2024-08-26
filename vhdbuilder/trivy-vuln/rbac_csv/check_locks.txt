@@ -1,0 +1,2918 @@
+[
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-27_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-27_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-11_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-11_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-94_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-94_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-23_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-23_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-100_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-100_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-101_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-101_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-107_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-107_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-131_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-131_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/sqlpaulyuebld67897228/providers/Microsoft.Authorization/locks/ipv6sql",
+    "level": "CanNotDelete",
+    "name": "ipv6sql",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "sqlpaulyuebld67897228",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-35_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-35_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-122_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-122_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-53_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-53_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-3_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-3_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/Cocostorageaccount/providers/Microsoft.Authorization/locks/donotdelete",
+    "level": "CanNotDelete",
+    "name": "donotdelete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "Cocostorageaccount",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-125_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-125_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-46_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-46_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_paulyuebld71327944_mts_eastus/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodes-14398910-vmss/providers/Microsoft.Authorization/locks/multitenancyset",
+    "level": "CanNotDelete",
+    "name": "multitenancyset",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_paulyuebld71327944_mts_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-143_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-143_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-118_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-118_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-121_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-121_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-136_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-136_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/cameissnerg/providers/Microsoft.ContainerService/managedClusters/thisisfine/providers/Microsoft.Authorization/locks/del",
+    "level": "CanNotDelete",
+    "name": "del",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "cameissnerg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_doliu0110_mik_uksouth/providers/Microsoft.Authorization/locks/kmstest",
+    "level": "CanNotDelete",
+    "name": "kmstest",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_doliu0110_mik_uksouth",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-127_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-127_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/doliu1209/providers/Microsoft.Authorization/locks/kep",
+    "level": "CanNotDelete",
+    "name": "kep",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "doliu1209",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_weizhichen-cilium_weizhichen-cilium_eastus/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "MC_weizhichen-cilium_weizhichen-cilium_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/daxatest/providers/Microsoft.Storage/storageAccounts/privatemcr/providers/Microsoft.Authorization/locks/dontdeletethis",
+    "level": "CanNotDelete",
+    "name": "dontdeletethis",
+    "notes": "agentbaker test",
+    "owners": null,
+    "resourceGroup": "daxatest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/daxatest/providers/Microsoft.ManagedIdentity/userAssignedIdentities/privatekubetest/providers/Microsoft.Authorization/locks/dontdeletethis",
+    "level": "CanNotDelete",
+    "name": "dontdeletethis",
+    "notes": "agentbakertest",
+    "owners": null,
+    "resourceGroup": "daxatest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/daxatest/providers/Microsoft.Network/bastionHosts/abtestbastion/providers/Microsoft.Authorization/locks/dontdeletethis",
+    "level": "CanNotDelete",
+    "name": "dontdeletethis",
+    "notes": "test",
+    "owners": null,
+    "resourceGroup": "daxatest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/fleetnetbugbash/providers/Microsoft.ContainerRegistry/registries/fleetnetbugbash/providers/Microsoft.Authorization/locks/bugbash",
+    "level": "CanNotDelete",
+    "name": "bugbash",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "fleetnetbugbash",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-149_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-149_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-71_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-71_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-139_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-139_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-30_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-30_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-115_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-115_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-19_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-19_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-68_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-68_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-90_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-90_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_paulyuebld69318236_ipv6linux_eastus2euap/providers/Microsoft.Authorization/locks/ipv6linux",
+    "level": "CanNotDelete",
+    "name": "ipv6linux",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_paulyuebld69318236_ipv6linux_eastus2euap",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-39_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-39_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-78_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-78_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-42_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-42_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-64_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-64_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-76_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-76_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-113_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-113_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-2_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-2_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/yewimagetest/providers/Microsoft.Authorization/locks/test",
+    "level": "CanNotDelete",
+    "name": "test",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "yewimagetest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-135_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-135_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-99_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-99_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-31_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-31_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-92_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-92_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_doliu1001_ta0a_westcentralus/providers/Microsoft.Authorization/locks/ta-test",
+    "level": "CanNotDelete",
+    "name": "ta-test",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_doliu1001_ta0a_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-38_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-38_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_coco6_coaks-csi_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_coco6_coaks-csi_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/corednslongresponsefore2e/providers/Microsoft.Authorization/locks/lockingfore2e",
+    "level": "CanNotDelete",
+    "name": "lockingfore2e",
+    "notes": "locking for e2e test that will be conducted for coreDNS",
+    "owners": null,
+    "resourceGroup": "corednslongresponsefore2e",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-104_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-104_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-79_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-79_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-97_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-97_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/paulcentrauluseuap/providers/Microsoft.Authorization/locks/da1",
+    "level": "CanNotDelete",
+    "name": "da1",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "paulcentrauluseuap",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/paulcentrauluseuap/providers/Microsoft.ContainerService/managedClusters/dualstackoverlaycluster/providers/Microsoft.Authorization/locks/donotdelete",
+    "level": "CanNotDelete",
+    "name": "donotdelete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "paulcentrauluseuap",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-66_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-66_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/cameissner-storage/providers/Microsoft.Authorization/locks/tls-bootstrap-testing",
+    "level": "CanNotDelete",
+    "name": "tls-bootstrap-testing",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "cameissner-storage",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-137_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-137_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-21_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-21_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-73_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-73_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-28_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-28_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-5_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-5_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-89_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-89_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_WS220322_aks2_eastus/providers/Microsoft.Authorization/locks/CanNotDelete",
+    "level": "CanNotDelete",
+    "name": "CanNotDelete",
+    "notes": "CanNotDelete",
+    "owners": null,
+    "resourceGroup": "MC_WS220322_aks2_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/doliu1001/providers/Microsoft.Authorization/locks/ta test",
+    "level": "CanNotDelete",
+    "name": "ta test",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "doliu1001",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-138_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-138_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-129_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-129_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_e2erg-junjiezhebld91814465-Rsx_e2eaks-VUt_eastus/providers/Microsoft.Authorization/locks/delete-lock",
+    "level": "CanNotDelete",
+    "name": "delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_e2erg-junjiezhebld91814465-Rsx_e2eaks-VUt_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-128_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-128_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-144_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-144_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-148_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-148_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-16_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-16_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-24_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-24_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_andy-auroratest123_andy-auroratest123_westus/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_andy-auroratest123_andy-auroratest123_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_yewimagetest_yewtestsource_eastus/providers/Microsoft.Authorization/locks/test",
+    "level": "CanNotDelete",
+    "name": "test",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_yewimagetest_yewtestsource_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/fleet-demo/providers/Microsoft.Authorization/locks/demo",
+    "level": "CanNotDelete",
+    "name": "demo",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "fleet-demo",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-43_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-43_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-6_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-6_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/robbie/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "robbie",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-67_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-67_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-29_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-29_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-37_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-37_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-105_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-105_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-48_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-48_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-103_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-103_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-98_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-98_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/imagebuilderinputs/providers/Microsoft.Authorization/locks/prefetchtest",
+    "level": "CanNotDelete",
+    "name": "prefetchtest",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Storage/storageAccounts/vhdbuildereastustest/providers/Microsoft.Authorization/locks/vhdbuild",
+    "level": "CanNotDelete",
+    "name": "vhdbuild",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/prefetchtester/providers/Microsoft.Authorization/locks/prefetchtest",
+    "level": "CanNotDelete",
+    "name": "prefetchtest",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804/versions/1.1682012057.13416/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804/versions/1.1690306630.16906/providers/Microsoft.Authorization/locks/delete lock Agentbaker",
+    "level": "CanNotDelete",
+    "name": "delete lock Agentbaker",
+    "notes": "testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1701292513.6426/providers/Microsoft.Authorization/locks/name",
+    "level": "CanNotDelete",
+    "name": "name",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1711058377.30895/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1707351621.9878/providers/Microsoft.Authorization/locks/ab e2e lock",
+    "level": "CanNotDelete",
+    "name": "ab e2e lock",
+    "notes": "Add delete lock so it is not garbage collected since it is needed for AB e2es.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1716223064.13587/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1712787807.28137/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1717454216.7199/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1694137195.23451/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2/versions/1.1699020620.29300/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1685035242.19267/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1711051003.16083/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1682621802.25811/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1707351626.25667/providers/Microsoft.Authorization/locks/ab e2e lock",
+    "level": "CanNotDelete",
+    "name": "ab e2e lock",
+    "notes": "Add delete lock so it is not garbage collected since it is needed for AB e2es.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1682012051.29633/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1681426752.11311/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1712787820.21615/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1699146990.16638/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1687293288.20788/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1679939588.23459/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "This image is used by the agentbaker e2e test pipeline and thus should not be deleted",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1717454213.4440/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2Arm64/versions/1.1716223061.6536/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV1Gen2/versions/1.1687293295.23327/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1711050975.24443/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1699146996.11679/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1716223050.23568/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1707351609.8691/providers/Microsoft.Authorization/locks/AB e2e lock",
+    "level": "CanNotDelete",
+    "name": "AB e2e lock",
+    "notes": "Add delete lock so it is not garbage collected since it is needed for AB e2es.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1679939579.29526/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "This image is used by the agentbaker e2e test pipeline and thus should not be deleted",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1685035255.32065/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1712787796.17656/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1682621781.28065/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1687293304.23474/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2Arm64/versions/1.1682012036.1699/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1711058378.5173/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1685035247.20461/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1690306639.7053/providers/Microsoft.Authorization/locks/Delete lock",
+    "level": "CanNotDelete",
+    "name": "Delete lock",
+    "notes": "Agentbaker e2e test",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1690306639.7053/providers/Microsoft.Authorization/locks/Delete lock for ab e2e",
+    "level": "CanNotDelete",
+    "name": "Delete lock for ab e2e",
+    "notes": "For agentbaker e2e testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1712787789.1362/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/202401.24.0/providers/Microsoft.Authorization/locks/prefetch",
+    "level": "CanNotDelete",
+    "name": "prefetch",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1682012054.32086/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1704411049.2812/providers/Microsoft.Authorization/locks/dontdelete",
+    "level": "CanNotDelete",
+    "name": "dontdelete",
+    "notes": "Don't delete this VHD. Used for E2E testing in AgentBaker.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1707351742.21148/providers/Microsoft.Authorization/locks/ab e2e lock",
+    "level": "CanNotDelete",
+    "name": "ab e2e lock",
+    "notes": "Add delete lock so it is not garbage collected since it is needed for AB e2es.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1679939578.12283/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "This image is used by the agentbaker e2e test pipeline and thus should not be deleted",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1689701330.24963/providers/Microsoft.Authorization/locks/Delete lock",
+    "level": "CanNotDelete",
+    "name": "Delete lock",
+    "notes": "To prevent deletion",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1696379987.6292/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for h100 testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1687293262.1409/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1716223047.9966/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1699020621.21398/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1695928254.2295/providers/Microsoft.Authorization/locks/ab e2e",
+    "level": "CanNotDelete",
+    "name": "ab e2e",
+    "notes": "To prevent deletion",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1706077342.29385/providers/Microsoft.Authorization/locks/prefetch",
+    "level": "CanNotDelete",
+    "name": "prefetch",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204Gen2/versions/1.1682621807.3288/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64/versions/1.1717454213.5735/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64/versions/1.1712787785.1412/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64/versions/1.1699146999.31863/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64/versions/1.1707351611.19505/providers/Microsoft.Authorization/locks/ab e2e lock",
+    "level": "CanNotDelete",
+    "name": "ab e2e lock",
+    "notes": "Add delete lock so it is not garbage collected since it is needed for AB e2es.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2Gen2Arm64/versions/1.1711050992.12578/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1699020623.27601/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1677169694.31375/providers/Microsoft.Authorization/locks/d",
+    "level": "CanNotDelete",
+    "name": "d",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/0.999999999.00000/providers/Microsoft.Authorization/locks/prefetch",
+    "level": "CanNotDelete",
+    "name": "prefetch",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1711058371.9154/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1712787825.26381/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1698274007.11649/providers/Microsoft.Authorization/locks/prefetch",
+    "level": "CanNotDelete",
+    "name": "prefetch",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1716223055.6413/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1682621800.12742/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1707351757.24005/providers/Microsoft.Authorization/locks/abe2e delete lock",
+    "level": "CanNotDelete",
+    "name": "abe2e delete lock",
+    "notes": "Adding a lock for the image to not be GC'ed because its used in AB e2e",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1690306643.6535/providers/Microsoft.Authorization/locks/delete lock",
+    "level": "CanNotDelete",
+    "name": "delete lock",
+    "notes": "for agentbaker e2e testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1687293275.3742/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1685035266.21555/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/1804Gen2/versions/1.1666631350.18026/providers/Microsoft.Authorization/locks/AB e2e Image",
+    "level": "CanNotDelete",
+    "name": "AB e2e Image",
+    "notes": "Prevent deleting image for AB e2e purpose",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV1/versions/1.1679939595.17588/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "this image is used within the ab e2e pipeline and should not be deleted",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV1/versions/1.1682621811.11528/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV1/versions/1.1681426732.4729/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV1/versions/1.1682012047.5518/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV1/versions/1.1685035254.9252/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204/versions/1.1696380119.21138/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for h100 testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204/versions/1.1691429007.3026/providers/Microsoft.Authorization/locks/Delete lock",
+    "level": "CanNotDelete",
+    "name": "Delete lock",
+    "notes": "For agentbaker e2e",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2kataGen2/versions/1.1679939567.7755/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "This VHD is used as a part of the agentbaker e2e test pipline and thus should not be deleted",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2004Gen2/versions/1.1679939587.10044/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1685035241.23880/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1707351721.29111/providers/Microsoft.Authorization/locks/ab e2e lock",
+    "level": "CanNotDelete",
+    "name": "ab e2e lock",
+    "notes": "Add delete lock so it is not garbage collected since it is needed for AB e2es.",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1687293291.4523/providers/Microsoft.Authorization/locks/abe2e-delete-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1716223000.9308/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1699020635.14957/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "for testing",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1682621803.10426/providers/Microsoft.Authorization/locks/abe2e-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1712787804.29363/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1682012028.25576/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1679939582.10768/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "this image is used within the ab e2e pipeline and should not be deleted",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1681426743.3181/providers/Microsoft.Authorization/locks/abe2e-del-lock",
+    "level": "CanNotDelete",
+    "name": "abe2e-del-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1717454171.27526/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/CBLMarinerV2Gen2/versions/1.1711051012.17839/providers/Microsoft.Authorization/locks/abe2e",
+    "level": "CanNotDelete",
+    "name": "abe2e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aksvhdtestbuildrg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-96_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-96_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-55_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-55_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-4_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-4_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-86_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-86_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_charlilirg_charliliaks_eastus/providers/Microsoft.Authorization/locks/AzD-BM",
+    "level": "CanNotDelete",
+    "name": "AzD-BM",
+    "notes": "AzD bare metal POC",
+    "owners": null,
+    "resourceGroup": "MC_charlilirg_charliliaks_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/weizhichenOverlayCNI/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "weizhichenOverlayCNI",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-134_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-134_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-130_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-130_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-146_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-146_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-69_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-69_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/peni-playground/providers/Microsoft.Authorization/locks/do-not-delete",
+    "level": "CanNotDelete",
+    "name": "do-not-delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "peni-playground",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/peni-playground/providers/Microsoft.CognitiveServices/accounts/aicot/providers/Microsoft.Authorization/locks/del",
+    "level": "CanNotDelete",
+    "name": "del",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "peni-playground",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-108_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-108_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-65_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-65_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-85_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-85_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-12_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-12_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aks-yxytest_group/providers/Microsoft.ContainerService/managedClusters/aks-yxytest/providers/Microsoft.Authorization/locks/lock",
+    "level": "CanNotDelete",
+    "name": "lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "aks-yxytest_group",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_tosi1_tosiazurecni_eastus/providers/Microsoft.Authorization/locks/moretesttime",
+    "level": "CanNotDelete",
+    "name": "moretesttime",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_tosi1_tosiazurecni_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_weizhichenOverlayCNI_weizhichenOverlayCNI_eastus/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "MC_weizhichenOverlayCNI_weizhichenOverlayCNI_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-88_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-88_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-93_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-93_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-112_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-112_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-141_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-141_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-132_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-132_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-147_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-147_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-54_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-54_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-142_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-142_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_e2erg-aleldeibebld67894491-ulL_e2eaks-tHf_eastus/providers/Microsoft.Authorization/locks/e",
+    "level": "CanNotDelete",
+    "name": "e",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "MC_e2erg-aleldeibebld67894491-ulL_e2eaks-tHf_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_e2erg-aleldeibebld67894491-ulL_e2eaks-tHf_eastus/providers/Microsoft.Compute/virtualMachineScaleSets/aks-agentpool0-42369099-vmss/providers/Microsoft.Authorization/locks/e",
+    "level": "ReadOnly",
+    "name": "e",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_e2erg-aleldeibebld67894491-ulL_e2eaks-tHf_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_e2erg-aleldeibebld67894491-ulL_e2eaks-tHf_eastus/providers/Microsoft.Compute/virtualMachineScaleSets/aks-agentpool0-42369099-vmss/providers/Microsoft.Authorization/locks/s",
+    "level": "CanNotDelete",
+    "name": "s",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_e2erg-aleldeibebld67894491-ulL_e2eaks-tHf_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-58_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-58_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-123_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-123_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-14_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-14_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/hcppaulyuebld67897228-eastus/providers/Microsoft.Authorization/locks/ipv6cluster",
+    "level": "CanNotDelete",
+    "name": "ipv6cluster",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "hcppaulyuebld67897228-eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/hcppaulyuebld67897228-eastus/providers/Microsoft.Authorization/locks/ipv6windowscluster",
+    "level": "CanNotDelete",
+    "name": "ipv6windowscluster",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "hcppaulyuebld67897228-eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-133_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-133_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-1_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-1_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/tosi1/providers/Microsoft.Authorization/locks/moretesttime",
+    "level": "CanNotDelete",
+    "name": "moretesttime",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "tosi1",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-56_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-56_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-75_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-75_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-7_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-7_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-116_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-116_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/yewtest/providers/Microsoft.Authorization/locks/longlive",
+    "level": "CanNotDelete",
+    "name": "longlive",
+    "notes": "Long live server for upgrade testing",
+    "owners": null,
+    "resourceGroup": "yewtest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-40_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-40_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-44_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-44_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_yife-node_yife-win_eastus/providers/Microsoft.Authorization/locks/d",
+    "level": "CanNotDelete",
+    "name": "d",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_yife-node_yife-win_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-8_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-8_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/chenyu1-asciinema/providers/Microsoft.Authorization/locks/Demo",
+    "level": "CanNotDelete",
+    "name": "Demo",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "chenyu1-asciinema",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-72_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-72_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/mc_aks-yxytest_group_aks-yxytest_eastus/providers/Microsoft.Storage/storageAccounts/faa35c7207ee44114a2d646/providers/Microsoft.Authorization/locks/AzureBackupProtectionLock",
+    "level": "CanNotDelete",
+    "name": "AzureBackupProtectionLock",
+    "notes": "Auto-created by Azure Backup for storage accounts registered with a Recovery Services Vault. This lock is intended to guard against deletion of backups due to accidental deletion of the storage account.",
+    "owners": null,
+    "resourceGroup": "mc_aks-yxytest_group_aks-yxytest_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/mc_aks-yxytest_group_aks-yxytest_eastus/providers/Microsoft.Storage/storageAccounts/f77ea2c70c7bf45778fc475/providers/Microsoft.Authorization/locks/AzureBackupProtectionLock",
+    "level": "CanNotDelete",
+    "name": "AzureBackupProtectionLock",
+    "notes": "Auto-created by Azure Backup for storage accounts registered with a Recovery Services Vault. This lock is intended to guard against deletion of backups due to accidental deletion of the storage account.",
+    "owners": null,
+    "resourceGroup": "mc_aks-yxytest_group_aks-yxytest_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/qisutest/providers/Microsoft.ContainerRegistry/registries/qisuacr3/providers/Microsoft.Authorization/locks/aks test",
+    "level": "CanNotDelete",
+    "name": "aks test",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "qisutest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-61_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-61_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/edgezonetest/providers/Microsoft.Compute/galleries/edgezonetest/images/1804gen2/versions/0.0.1/providers/Microsoft.Authorization/locks/lock",
+    "level": "CanNotDelete",
+    "name": "lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "edgezonetest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/zhecheng-522/providers/Microsoft.Authorization/locks/d",
+    "level": "CanNotDelete",
+    "name": "d",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "zhecheng-522",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/weizhichen-playground/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "weizhichen-playground",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-47_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-47_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/zhecheng-ai/providers/Microsoft.Storage/storageAccounts/zhechengaistorage/providers/Microsoft.Authorization/locks/AzureBackupProtectionLock",
+    "level": "CanNotDelete",
+    "name": "AzureBackupProtectionLock",
+    "notes": "Auto-created by Azure Backup for storage accounts registered with a Recovery Services Vault. This lock is intended to guard against deletion of backups due to accidental deletion of the storage account.",
+    "owners": null,
+    "resourceGroup": "zhecheng-ai",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-70_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-70_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/andy-auroratest123/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "andy-auroratest123",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/perftest/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "perftest",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-126_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-126_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-77_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-77_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_paulyuebld67897228_ipv6d_eastus/providers/Microsoft.Authorization/locks/ipv6windowscluster",
+    "level": "CanNotDelete",
+    "name": "ipv6windowscluster",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_paulyuebld67897228_ipv6d_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_paulyuebld67897228_ipv6d_eastus/providers/Microsoft.Authorization/locks/ipv6windowssetup",
+    "level": "CanNotDelete",
+    "name": "ipv6windowssetup",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_paulyuebld67897228_ipv6d_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/e2etestgroup/providers/Microsoft.KeyVault/vaults/e2etestvault123/providers/Microsoft.Authorization/locks/Delete-lock",
+    "level": "CanNotDelete",
+    "name": "Delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "e2etestgroup",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-106_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-106_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_fleet-demo_smartfish_eastus/providers/Microsoft.Authorization/locks/demo",
+    "level": "CanNotDelete",
+    "name": "demo",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_fleet-demo_smartfish_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-33_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-33_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-80_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-80_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_chenyu1-asciinema_bravelion_eastus/providers/Microsoft.Authorization/locks/Demo",
+    "level": "CanNotDelete",
+    "name": "Demo",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_chenyu1-asciinema_bravelion_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-0_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "perfformance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-0_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-10_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-10_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_yife-node_yife-win2_eastus/providers/Microsoft.Authorization/locks/d",
+    "level": "CanNotDelete",
+    "name": "d",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_yife-node_yife-win2_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_e2erg-junjiezhebld81831793-Jwn_e2eaks-jCd_eastus/providers/Microsoft.Authorization/locks/delete-lock",
+    "level": "CanNotDelete",
+    "name": "delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_e2erg-junjiezhebld81831793-Jwn_e2eaks-jCd_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-119_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-119_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-32_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-32_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-117_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-117_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_hub_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_hub_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/karpenter-e2e-gpu-581217745/providers/Microsoft.ContainerService/managedClusters/mc/providers/Microsoft.Authorization/locks/pls no murder",
+    "level": "CanNotDelete",
+    "name": "pls no murder",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "karpenter-e2e-gpu-581217745",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-57_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-57_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-114_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-114_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-52_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-52_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/charlilirg/providers/Microsoft.Authorization/locks/AzD-BM",
+    "level": "CanNotDelete",
+    "name": "AzD-BM",
+    "notes": "AzD bare metal POC",
+    "owners": null,
+    "resourceGroup": "charlilirg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-109_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-109_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-124_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-124_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-63_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-63_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/pkr-Resource-Group-7e6v7xy2lq/providers/Microsoft.Authorization/locks/de",
+    "level": "CanNotDelete",
+    "name": "de",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "pkr-Resource-Group-7e6v7xy2lq",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-9_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-9_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-25_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-25_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourcegroups/aks-repo-renovate-test/providers/Microsoft.Authorization/locks/keep-resource",
+    "level": "CanNotDelete",
+    "name": "keep-resource",
+    "notes": "chuhua",
+    "owners": null,
+    "resourceGroup": "aks-repo-renovate-test",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-51_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-51_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/doliu0110/providers/Microsoft.Authorization/locks/kmstest",
+    "level": "CanNotDelete",
+    "name": "kmstest",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "doliu0110",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-36_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-36_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-120_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-120_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-15_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-15_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_fleet-demo_bravelion_eastus/providers/Microsoft.Authorization/locks/demo",
+    "level": "CanNotDelete",
+    "name": "demo",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_fleet-demo_bravelion_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-82_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-82_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-50_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-50_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-20_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-20_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-91_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-91_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-83_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-83_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-13_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-13_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-87_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-87_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_doliu1209_h1_eastus/providers/Microsoft.Authorization/locks/kep",
+    "level": "CanNotDelete",
+    "name": "kep",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_doliu1209_h1_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/chenyu1-oncall/providers/Microsoft.Authorization/locks/oncall",
+    "level": "CanNotDelete",
+    "name": "oncall",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "chenyu1-oncall",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/chenyu1-oncall/providers/Microsoft.Storage/storageAccounts/tcpdumpdata/providers/Microsoft.Authorization/locks/oncall",
+    "level": "CanNotDelete",
+    "name": "oncall",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "chenyu1-oncall",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-26_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-26_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-62_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-62_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_e2erg-junjiezhebld81831793-Ela_e2eaks-AzJ_eastus/providers/Microsoft.Compute/virtualMachineScaleSets/aksapwin0/providers/Microsoft.Authorization/locks/delete-lock",
+    "level": "CanNotDelete",
+    "name": "delete-lock",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_e2erg-junjiezhebld81831793-Ela_e2eaks-AzJ_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-45_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-45_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-41_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-41_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_WS220322_aks1_eastus/providers/Microsoft.Authorization/locks/CanNotDelete",
+    "level": "CanNotDelete",
+    "name": "CanNotDelete",
+    "notes": "CanNotDelete",
+    "owners": null,
+    "resourceGroup": "MC_WS220322_aks1_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_fleet-demo_jumpingcat_eastus/providers/Microsoft.Authorization/locks/demo",
+    "level": "CanNotDelete",
+    "name": "demo",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_fleet-demo_jumpingcat_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_weizhichen-playground_weizhichen-playground_eastus2euap/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "MC_weizhichen-playground_weizhichen-playground_eastus2euap",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-111_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-111_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/nodesigtest-agent-pool/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "nodesigtest-agent-pool",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_andy-auroratest_andy-auroratest_eastus/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "MC_andy-auroratest_andy-auroratest_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/weizhichen-cilium/providers/Microsoft.Authorization/locks/no delete",
+    "level": "CanNotDelete",
+    "name": "no delete",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "weizhichen-cilium",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-34_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-34_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-84_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-84_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-18_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-18_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-17_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-17_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-102_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-102_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/e2erg-mumanskiebld92052472-fxg/providers/Microsoft.Authorization/locks/locktest",
+    "level": "CanNotDelete",
+    "name": "locktest",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "e2erg-mumanskiebld92052472-fxg",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/yife-node/providers/Microsoft.Authorization/locks/d",
+    "level": "CanNotDelete",
+    "name": "d",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "yife-node",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-59_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-59_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/paulcentraluseuaptest824/providers/Microsoft.Authorization/locks/donotedelete",
+    "level": "CanNotDelete",
+    "name": "donotedelete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "paulcentraluseuaptest824",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-140_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-140_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-22_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-22_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-49_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-49_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-95_centralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. WIll delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-95_centralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-145_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "Performance Testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-145_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/coco6/providers/Microsoft.Authorization/locks/read",
+    "level": "CanNotDelete",
+    "name": "read",
+    "notes": null,
+    "owners": null,
+    "resourceGroup": "coco6",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/coco6/providers/Microsoft.ContainerService/managedClusters/coaks-csi/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "coco6",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/coco6/providers/Microsoft.Compute/virtualMachines/linuxvmdocker/providers/Microsoft.Authorization/locks/read",
+    "level": "ReadOnly",
+    "name": "read",
+    "notes": "",
+    "owners": null,
+    "resourceGroup": "coco6",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-60_eastus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-60_eastus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-74_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-74_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-81_westus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-81_westus",
+    "type": "Microsoft.Authorization/locks"
+  },
+  {
+    "id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/MC_workloadperftest_member-110_westcentralus/providers/Microsoft.Authorization/locks/delete",
+    "level": "CanNotDelete",
+    "name": "delete",
+    "notes": "performance testing. Will delete when done.",
+    "owners": null,
+    "resourceGroup": "MC_workloadperftest_member-110_westcentralus",
+    "type": "Microsoft.Authorization/locks"
+  }
+]
