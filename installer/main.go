@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,7 +14,27 @@ import (
 )
 
 type Config struct {
-	Location string `json:"location"`
+	Location                       string `json:"Location"`
+	CACertificate                  string `json:"CACertificate"`
+	KubeletClientTLSBootstrapToken string `json:"KubeletClientTLSBootstrapToken"`
+	FQDN                           string `json:"FQDN"`
+}
+
+func (c *Config) Validate() error {
+	errs := make([]error, 0)
+	if c.Location == "" {
+		errs = append(errs, errors.New("Location is required"))
+	}
+	if c.CACertificate == "" {
+		errs = append(errs, errors.New("CACertificate is required"))
+	}
+	if c.KubeletClientTLSBootstrapToken == "" {
+		errs = append(errs, errors.New("KubeletClientTLSBootstrapToken is required"))
+	}
+	if c.FQDN == "" {
+		errs = append(errs, errors.New("FQDN is required"))
+	}
+	return errors.Join(errs...)
 }
 
 func main() {
@@ -31,16 +52,29 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	config := Config{
-		Location: "westus3",
+	var config *Config
+	// TODO: should it be absolute path?
+	// We probably want to limit configuration ability.
+	configFile, err := os.Open("config.json")
+	if err != nil {
+		return fmt.Errorf("failed to open config file: %w", err)
 	}
+	defer configFile.Close()
+
+	if err := json.NewDecoder(configFile).Decode(&config); err != nil {
+		return fmt.Errorf("failed to decode config file: %w", err)
+	}
+	if err := config.Validate(); err != nil {
+		return fmt.Errorf("config validation: %w", err)
+	}
+
 	if err := provisionStart(ctx, config); err != nil {
 		return fmt.Errorf("provision start: %w", err)
 	}
 	return nil
 }
 
-func provisionStart(ctx context.Context, config Config) error {
+func provisionStart(ctx context.Context, config *Config) error {
 	slog.Info("Running provision_start.sh")
 	defer slog.Info("Finished provision_start.sh")
 	cse, err := CSEScript(ctx, config)
@@ -55,7 +89,7 @@ func provisionStart(ctx context.Context, config Config) error {
 	return cmd.Run()
 }
 
-func CSEScript(ctx context.Context, config Config) (string, error) {
+func CSEScript(ctx context.Context, config *Config) (string, error) {
 	tmpl := baseTemplate(config)
 	nbc, err := getNodeBootstrappingForValidation(ctx, tmpl)
 	if err != nil {
@@ -76,7 +110,7 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 	return nodeBootstrapping, nil
 }
 
-func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplate(config *Config) *datamodel.NodeBootstrappingConfiguration {
 	var (
 		trueConst  = true
 		falseConst = false
@@ -94,41 +128,11 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 				ProvisioningState: "",
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.26.0",
+					OrchestratorVersion: "1.29.6",
 					KubernetesConfig: &datamodel.KubernetesConfig{
-						KubernetesImageBase:               "",
-						MCRKubernetesImageBase:            "",
-						ClusterSubnet:                     "",
-						NetworkPolicy:                     "",
 						NetworkPlugin:                     "kubenet",
-						NetworkMode:                       "",
-						ContainerRuntime:                  "",
-						MaxPods:                           0,
-						DockerBridgeSubnet:                "",
-						DNSServiceIP:                      "",
-						ServiceCIDR:                       "",
-						UseManagedIdentity:                false,
-						UserAssignedID:                    "",
-						UserAssignedClientID:              "",
-						CustomHyperkubeImage:              "",
 						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
 						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
-						MobyVersion:                       "",
-						ContainerdVersion:                 "",
-						WindowsNodeBinariesURL:            "",
-						WindowsContainerdURL:              "",
-						WindowsSdnPluginURL:               "",
-						UseInstanceMetadata:               &trueConst,
-						EnableRbac:                        nil,
-						EnableSecureKubelet:               nil,
-						PrivateCluster:                    nil,
-						GCHighThreshold:                   0,
-						GCLowThreshold:                    0,
-						EnableEncryptionWithExternalKms:   nil,
-						Addons:                            nil,
-						ContainerRuntimeConfig:            map[string]string(nil),
-						ControllerManagerConfig:           map[string]string(nil),
-						SchedulerConfig:                   map[string]string(nil),
 						CloudProviderBackoffMode:          "v2",
 						CloudProviderBackoff:              &trueConst,
 						CloudProviderBackoffRetries:       6,
@@ -141,15 +145,10 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 						CloudProviderRateLimitBucket:      100,
 						CloudProviderRateLimitBucketWrite: 100,
 						CloudProviderDisableOutboundSNAT:  &falseConst,
-						NodeStatusUpdateFrequency:         "",
 						LoadBalancerSku:                   "Standard",
 						ExcludeMasterFromStandardLB:       nil,
 						AzureCNIURLLinux:                  "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
-						AzureCNIURLARM64Linux:             "",
-						AzureCNIURLWindows:                "",
 						MaximumLoadBalancerRuleCount:      250,
-						PrivateAzureRegistryServer:        "",
-						NetworkPluginMode:                 "",
 					},
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
@@ -166,73 +165,14 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 						VnetSubnetID:        "",
 						Distro:              "aks-ubuntu-containerd-18.04-gen2",
 						CustomNodeLabels: map[string]string{
+							"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 							"kubernetes.azure.com/mode":               "system",
 							"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
 						},
 						PreprovisionExtension: nil,
 						KubernetesConfig: &datamodel.KubernetesConfig{
-							KubernetesImageBase:               "",
-							MCRKubernetesImageBase:            "",
-							ClusterSubnet:                     "",
-							NetworkPolicy:                     "",
-							NetworkPlugin:                     "",
-							NetworkMode:                       "",
-							ContainerRuntime:                  "containerd",
-							MaxPods:                           0,
-							DockerBridgeSubnet:                "",
-							DNSServiceIP:                      "",
-							ServiceCIDR:                       "",
-							UseManagedIdentity:                false,
-							UserAssignedID:                    "",
-							UserAssignedClientID:              "",
-							CustomHyperkubeImage:              "",
-							CustomKubeProxyImage:              "",
-							CustomKubeBinaryURL:               "",
-							MobyVersion:                       "",
-							ContainerdVersion:                 "",
-							WindowsNodeBinariesURL:            "",
-							WindowsContainerdURL:              "",
-							WindowsSdnPluginURL:               "",
-							UseInstanceMetadata:               nil,
-							EnableRbac:                        nil,
-							EnableSecureKubelet:               nil,
-							PrivateCluster:                    nil,
-							GCHighThreshold:                   0,
-							GCLowThreshold:                    0,
-							EnableEncryptionWithExternalKms:   nil,
-							Addons:                            nil,
-							ContainerRuntimeConfig:            map[string]string(nil),
-							ControllerManagerConfig:           map[string]string(nil),
-							SchedulerConfig:                   map[string]string(nil),
-							CloudProviderBackoffMode:          "",
-							CloudProviderBackoff:              nil,
-							CloudProviderBackoffRetries:       0,
-							CloudProviderBackoffJitter:        0.0,
-							CloudProviderBackoffDuration:      0,
-							CloudProviderBackoffExponent:      0.0,
-							CloudProviderRateLimit:            nil,
-							CloudProviderRateLimitQPS:         0.0,
-							CloudProviderRateLimitQPSWrite:    0.0,
-							CloudProviderRateLimitBucket:      0,
-							CloudProviderRateLimitBucketWrite: 0,
-							CloudProviderDisableOutboundSNAT:  nil,
-							NodeStatusUpdateFrequency:         "",
-							LoadBalancerSku:                   "",
-							ExcludeMasterFromStandardLB:       nil,
-							AzureCNIURLLinux:                  "",
-							AzureCNIURLARM64Linux:             "",
-							AzureCNIURLWindows:                "",
-							MaximumLoadBalancerRuleCount:      0,
-							PrivateAzureRegistryServer:        "",
-							NetworkPluginMode:                 "",
+							ContainerRuntime: "containerd",
 						},
-						VnetCidrs:               nil,
-						WindowsNameVersion:      "",
-						CustomKubeletConfig:     nil,
-						CustomLinuxOSConfig:     nil,
-						MessageOfTheDay:         "",
-						NotRebootWindowsNode:    nil,
-						AgentPoolWindowsProfile: nil,
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -246,13 +186,7 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 							},
 						},
 					},
-					Secrets:            nil,
-					Distro:             "",
-					CustomSearchDomain: nil,
 				},
-				WindowsProfile:     nil,
-				ExtensionProfiles:  nil,
-				DiagnosticsProfile: nil,
 				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
 					ClientID:          "msi",
 					Secret:            "msi",
@@ -260,28 +194,13 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 					KeyvaultSecretRef: nil,
 				},
 				CertificateProfile: &datamodel.CertificateProfile{
-					CaCertificate:         "",
-					APIServerCertificate:  "",
-					ClientCertificate:     "",
-					ClientPrivateKey:      "",
-					KubeConfigCertificate: "",
-					KubeConfigPrivateKey:  "",
+					CaCertificate: config.CACertificate,
 				},
 				AADProfile:    nil,
 				CustomProfile: nil,
 				HostedMasterProfile: &datamodel.HostedMasterProfile{
-					FQDN:                    "",
-					IPAddress:               "",
-					DNSPrefix:               "",
-					FQDNSubdomain:           "",
-					Subnet:                  "",
-					APIServerWhiteListRange: nil,
-					IPMasqAgent:             true,
+					FQDN: config.FQDN,
 				},
-				AddonProfiles:       map[string]datamodel.AddonProfile(nil),
-				FeatureFlags:        nil,
-				CustomCloudEnv:      nil,
-				CustomConfiguration: nil,
 			},
 		},
 		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
@@ -323,110 +242,27 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
 			HyperkubeImageURL:         "mcr.microsoft.com/oss/kubernetes/",
 			WindowsPackageURL:         "windowspackage",
-			LinuxPrivatePackageURL:    "",
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
 			VMSize:              "Standard_D2ds_v5",
-			KubeletDiskType:     "",
-			WorkloadRuntime:     "",
-			DNSPrefix:           "",
 			OSType:              "Linux",
-			Ports:               nil,
 			AvailabilityProfile: "VirtualMachineScaleSets",
 			StorageProfile:      "ManagedDisks",
-			VnetSubnetID:        "",
 			Distro:              "aks-ubuntu-containerd-18.04-gen2",
 			CustomNodeLabels: map[string]string{
+				"kubernetes.azure.com/cluster":            "test-cluster", // Some AKS daemonsets require that this exists, but the value doesn't matter.
 				"kubernetes.azure.com/mode":               "system",
 				"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
 			},
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{
-				KubernetesImageBase:               "",
-				MCRKubernetesImageBase:            "",
-				ClusterSubnet:                     "",
-				NetworkPolicy:                     "",
-				NetworkPlugin:                     "",
-				NetworkMode:                       "",
-				ContainerRuntime:                  "containerd",
-				MaxPods:                           0,
-				DockerBridgeSubnet:                "",
-				DNSServiceIP:                      "",
-				ServiceCIDR:                       "",
-				UseManagedIdentity:                false,
-				UserAssignedID:                    "",
-				UserAssignedClientID:              "",
-				CustomHyperkubeImage:              "",
-				CustomKubeProxyImage:              "",
-				CustomKubeBinaryURL:               "",
-				MobyVersion:                       "",
-				ContainerdVersion:                 "",
-				WindowsNodeBinariesURL:            "",
-				WindowsContainerdURL:              "",
-				WindowsSdnPluginURL:               "",
-				UseInstanceMetadata:               nil,
-				EnableRbac:                        nil,
-				EnableSecureKubelet:               nil,
-				PrivateCluster:                    nil,
-				GCHighThreshold:                   0,
-				GCLowThreshold:                    0,
-				EnableEncryptionWithExternalKms:   nil,
-				Addons:                            nil,
-				ContainerRuntimeConfig:            map[string]string(nil),
-				ControllerManagerConfig:           map[string]string(nil),
-				SchedulerConfig:                   map[string]string(nil),
-				CloudProviderBackoffMode:          "",
-				CloudProviderBackoff:              nil,
-				CloudProviderBackoffRetries:       0,
-				CloudProviderBackoffJitter:        0.0,
-				CloudProviderBackoffDuration:      0,
-				CloudProviderBackoffExponent:      0.0,
-				CloudProviderRateLimit:            nil,
-				CloudProviderRateLimitQPS:         0.0,
-				CloudProviderRateLimitQPSWrite:    0.0,
-				CloudProviderRateLimitBucket:      0,
-				CloudProviderRateLimitBucketWrite: 0,
-				CloudProviderDisableOutboundSNAT:  nil,
-				NodeStatusUpdateFrequency:         "",
-				LoadBalancerSku:                   "",
-				ExcludeMasterFromStandardLB:       nil,
-				AzureCNIURLLinux:                  "",
-				AzureCNIURLARM64Linux:             "",
-				AzureCNIURLWindows:                "",
-				MaximumLoadBalancerRuleCount:      0,
-				PrivateAzureRegistryServer:        "",
-				NetworkPluginMode:                 "",
+				ContainerRuntime: "containerd",
 			},
-			VnetCidrs:               nil,
-			WindowsNameVersion:      "",
-			CustomKubeletConfig:     nil,
-			CustomLinuxOSConfig:     nil,
-			MessageOfTheDay:         "",
-			NotRebootWindowsNode:    nil,
-			AgentPoolWindowsProfile: nil,
 		},
-		TenantID:                       "",
-		SubscriptionID:                 "",
-		ResourceGroupName:              "",
-		UserAssignedIdentityClientID:   "",
-		OSSKU:                          "",
-		ConfigGPUDriverIfNeeded:        true,
-		Disable1804SystemdResolved:     false,
-		EnableGPUDevicePluginIfNeeded:  false,
-		EnableKubeletConfigFile:        false,
-		EnableNvidia:                   false,
-		EnableACRTeleportPlugin:        false,
-		TeleportdPluginURL:             "",
-		ContainerdVersion:              "",
-		RuncVersion:                    "",
-		ContainerdPackageURL:           "",
-		RuncPackageURL:                 "",
-		KubeletClientTLSBootstrapToken: nil,
+		KubeletClientTLSBootstrapToken: &config.KubeletClientTLSBootstrapToken,
 		FIPSEnabled:                    false,
 		HTTPProxyConfig: &datamodel.HTTPProxyConfig{
-			HTTPProxy:  nil,
-			HTTPSProxy: nil,
 			NoProxy: &[]string{
 				"localhost",
 				"127.0.0.1",
@@ -445,8 +281,8 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 			"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
 			"--cgroups-per-qos":                   "true",
 			"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
-			"--cloud-config":                      "/etc/kubernetes/azure.json",
-			"--cloud-provider":                    "azure",
+			"--cloud-config":                      "",
+			"--cloud-provider":                    "external",
 			"--cluster-dns":                       "10.0.0.10",
 			"--cluster-domain":                    "cluster.local",
 			"--dynamic-config-dir":                "/var/lib/kubelet",
@@ -474,10 +310,7 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 			"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 			"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
 		},
-		KubeproxyConfig:     map[string]string(nil),
-		EnableRuncShimV2:    false,
-		GPUInstanceProfile:  "",
-		PrimaryScaleSetName: "",
+		KubeproxyConfig: map[string]string(nil),
 		SIGConfig: datamodel.SIGConfig{
 			TenantID:       "tenantID",
 			SubscriptionID: "subID",
@@ -504,10 +337,6 @@ func baseTemplate(config Config) *datamodel.NodeBootstrappingConfiguration {
 				},
 			},
 		},
-		IsARM64:                   false,
-		CustomCATrustConfig:       nil,
 		DisableUnattendedUpgrades: true,
-		SSHStatus:                 0,
-		DisableCustomData:         false,
 	}
 }
