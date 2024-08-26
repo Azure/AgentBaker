@@ -135,11 +135,13 @@ installNetworkPlugin() {
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
     DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 
     if $BLOCK_OUTBOUND_NETWORK; then
         # TODO (alburgess) change from mcr.microsoft.com to user passed in repo
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
         DOWNLOAD_COMMAND="oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
     fi
 
