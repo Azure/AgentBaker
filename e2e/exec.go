@@ -61,7 +61,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		"sysctl-out": "sysctl -a",
 	}
 
-	podName, err := getDebugPodName(ctx, opts.clusterConfig.Kube, hostNetworkDebugAppLabel)
+	podName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -100,7 +100,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
 	}
 
-	podName, err := getDebugPodName(ctx, kube, hostNetworkDebugAppLabel)
+	podName, err := getHostNetworkDebugPodName(ctx, kube)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName
 }
 
 func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command string) (*podExecResult, error) {
-	privilegedCommand := append(nsenterCommandArray(), command)
+	privilegedCommand := append(privelegedCommandArray(), command)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
@@ -195,12 +195,10 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 	}, nil
 }
 
-func nsenterCommandArray() []string {
+func privelegedCommandArray() []string {
 	return []string{
-		"nsenter",
-		"-t",
-		"1",
-		"-m",
+		"chroot",
+		"/proc/1/root",
 		"bash",
 		"-c",
 	}

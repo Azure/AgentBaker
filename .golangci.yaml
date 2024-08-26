@@ -68,6 +68,9 @@ linters-settings:
       - "^google.golang.org/protobuf/.+Options$"
       - "^gopkg.in/yaml.v3.Node$"
 
+  goconst:
+    ignore-strings: "(true|false)"
+
   funlen:
     # Checks the number of lines in a function.
     # If lower than 0, disable the check.
