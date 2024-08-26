@@ -138,7 +138,7 @@ downloadCredentalProvider() {
     CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
     DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
 
-    if $BLOCK_OUTBOUND_NETWORK; then
+    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
         # TODO (alburgess) change from mcr.microsoft.com to user passed in repo
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
@@ -209,7 +209,7 @@ downloadContainerdWasmShims() {
             fi
         }
 
-        if $BLOCK_OUTBOUND_NETWORK; then
+        if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
             installWithOras
         elif [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
             installWithCurl
@@ -357,20 +357,25 @@ setupCNIDirs() {
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
     # oras pull mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v1.4.1-linux-arm64
+    # alburgess right here
 
-    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
+    # HARD_CODED_CNI_VERSION="v1.4.1" 
+    # CNI_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cni-plugins/v$HARD_CODED_CNI_VERSION/binaries/cni-plugins-linux-amd64-$HARD_CODED_CNI_VERSION.tgz"
+    # CNI_DOWNLOAD_TMP="${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
+
+    # if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+    #    echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
-        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
-        return 
-    fi
+    #     retrycmd_get_tarball 120 5 "$CNI_DOWNLOAD_TMP $CNI_DOWNLOAD_URL" || exit
+    #    tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+    #     return 
+    # fi
    
-    #always just use what is listed in components.json so we don't have to sync.
+    # always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
+    # CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
@@ -390,10 +395,9 @@ installCNI() {
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-
     CNI_DIR_TMP="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        #n ot clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+        # not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         echo "CNI tarball should already be unzipped by components.json"
