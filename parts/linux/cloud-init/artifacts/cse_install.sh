@@ -177,11 +177,6 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 
 
 downloadContainerdWasmShims() {
-    DOWNLOAD_COMMAND="retrycmd_get_tarball 120 5 \"$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP\" \"$CREDENTIAL_PROVIDER_DOWNLOAD_URL\" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT"
-    DOWNLOAD_URL="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
-    #  oras pull aksvhdtestcr.azurecr.io/aks/oss/binaries/deislabs/containerd-wasm-shims:v0.8.0-linux-arm64  
-
-
     declare -a wasmShimPids=()
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
@@ -194,8 +189,9 @@ downloadContainerdWasmShims() {
             mkdir -p $WASM_TMP
             oras pull $CONTAINERD_WASM_DOWNLOAD_URL -o $WASM_TMP || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
 
-            if [ -f "$WASM_TMP/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz" ]; then
-                tar -xzvf "$WASM_TMP/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz" -C $containerd_wasm_filepath
+            local containerd_wasm_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
+            if [ -f "$WASM_TMP/$containerd_wasm_filename" ]; then
+                tar -xzvf "$WASM_TMP/$containerd_wasm_filename" -C $containerd_wasm_filepath
             else
                 echo "containerd wasm shims tarball not found"
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
@@ -360,6 +356,7 @@ setupCNIDirs() {
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
+    # oras pull mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v1.4.1-linux-arm64
 
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
@@ -386,22 +383,17 @@ installCNI() {
     PACKAGE_VERSIONS=()
     returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
     
-    #should change to ne
+    # should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-    # Is there a ${arch} variable I can use instead of the iff
-    if [[ $(isARM64) == 1 ]]; then 
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else 
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
-    fi
-    
+
+    CNI_DIR_TMP="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+        #n ot clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         echo "CNI tarball should already be unzipped by components.json"
