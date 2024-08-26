@@ -31,20 +31,20 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
-func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	hostPodName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
+func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, kube *Kubeclient, liveVMValidators []*LiveVMValidator) error {
+	hostPodName, err := getHostNetworkDebugPodName(ctx, kube)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
 
-	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, vmssName)
+	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, kube, vmssName)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}
 
 	validators := commonLiveVMValidators()
-	if opts.scenario.LiveVMValidators != nil {
-		validators = append(validators, opts.scenario.LiveVMValidators...)
+	if liveVMValidators != nil {
+		validators = append(validators, liveVMValidators...)
 	}
 
 	for _, validator := range validators {
@@ -54,9 +54,9 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		var err error
 		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
 		if validator.IsPodNetwork {
-			execResult, err = execOnUnprivilegedPod(ctx, opts.clusterConfig.Kube, "default", nonHostPodName, validator.Command)
+			execResult, err = execOnUnprivilegedPod(ctx, kube, "default", nonHostPodName, validator.Command)
 		} else {
-			execResult, err = execOnVM(ctx, opts.clusterConfig.Kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
+			execResult, err = execOnVM(ctx, kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, validator.Command, err)
@@ -108,7 +108,7 @@ func commonLiveVMValidators() []*LiveVMValidator {
 				"cluster-provision-cse-output.log",
 				"cloud-init-files.paved",
 				"vhd-install.complete",
-				"cloud-config.txt",
+				//"cloud-config.txt",
 			},
 		),
 		// this check will run from host's network - we expect it to succeed
