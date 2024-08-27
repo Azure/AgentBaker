@@ -82,6 +82,7 @@ $kLogFiles = @(
     "containerd.err.log",
     "hnsremediator.log",
     "windowslogscleanup.log",
+    "windowsnodereset.log",
     "credential-provider-config.yaml",
     "windows-exporter.err.log",
     "windows-exporter.log"
