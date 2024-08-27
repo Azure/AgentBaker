@@ -1608,7 +1608,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 			"--hairpin-mode":                      "promiscuous-bridge",
 			"--image-gc-high-threshold":           "85",
 			"--image-gc-low-threshold":            "80",
-			"--keep-terminated-pod-volumes":       "false",
 			"--kube-reserved":                     "cpu=100m,memory=1843Mi",
 			"--kubeconfig":                        "c:\\k\\config",
 			"--max-pods":                          "30",
