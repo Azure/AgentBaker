@@ -48,7 +48,6 @@ if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 else
   echo -e "\n\nSkipping tests for CVM 20.04"
-  SCRIPT_ARRAY+=("./vhdbuilder/packer/prepare-cvm-image-for-upload.sh")
 fi
 
 # Setup scanning
