@@ -11,10 +11,15 @@ import (
 )
 
 type TestAgentToggles struct {
-	LinuxNodeImageVersion string
+	LinuxNodeImageVersion  string
+	LinuxNodeImageVersions map[string]string
 }
 
 func (t *TestAgentToggles) GetLinuxNodeImageVersion(entity *agenttoggles.Entity, distro datamodel.Distro) string {
+	if version := t.LinuxNodeImageVersions[string(distro)]; version != "" {
+		return version
+	}
+
 	return t.LinuxNodeImageVersion
 }
 
@@ -411,5 +416,62 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				Expect(config.Gallery).To(Equal("aksazurelinux"))
 			}
 		})
+
+		It("should return correct value for all existing distros with linux node image version override", func() {
+			var (
+				ubuntuOverrideVersion     = "202402.25.0"
+				marinerOverrideVersion    = "202402.25.1"
+				azureLinuxOverrideVersion = "202402.25.2"
+			)
+			imageVersionOverrides := map[string]string{}
+			for _, distro := range ubuntuDistros {
+				imageVersionOverrides[string(distro)] = ubuntuOverrideVersion
+			}
+			for _, distro := range marinerDistros {
+				imageVersionOverrides[string(distro)] = marinerOverrideVersion
+			}
+			for _, distro := range azureLinuxDistros {
+				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
+			}
+			toggles.LinuxNodeImageVersions = imageVersionOverrides
+
+			agentBaker, err := NewAgentBaker()
+			Expect(err).To(BeNil())
+			agentBaker = agentBaker.WithToggles(toggles)
+
+			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
+				SubscriptionID: config.SubscriptionID,
+				TenantID:       config.TenantID,
+				Region:         cs.Location,
+			})
+			Expect(err).To(BeNil())
+
+			for _, distro := range allLinuxDistros {
+				Expect(configs).To(HaveKey(distro))
+				config := configs[distro]
+				Expect(config.ResourceGroup).To(Equal("resourcegroup"))
+				Expect(config.SubscriptionID).To(Equal("somesubid"))
+				Expect(config.Definition).ToNot(BeEmpty())
+			}
+
+			for _, distro := range ubuntuDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksubuntu"))
+				Expect(config.Version).To(Equal(ubuntuOverrideVersion))
+			}
+
+			for _, distro := range marinerDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("akscblmariner"))
+				Expect(config.Version).To(Equal(marinerOverrideVersion))
+			}
+
+			for _, distro := range azureLinuxDistros {
+				config := configs[distro]
+				Expect(config.Gallery).To(Equal("aksazurelinux"))
+				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
+			}
+		})
+
 	})
 })
