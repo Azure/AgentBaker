@@ -538,7 +538,7 @@ process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   # create script object, then append each section object to it in the for loop
-  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}}" '{($script_name): {}}')
+  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
 
   for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
     section_name=${benchmarks_order[i]}
