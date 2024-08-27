@@ -115,7 +115,6 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 	var done = make(chan struct{})
 
 	for sku, path := range artifactsToDownload {
-
 		if strings.Contains(path, "AKSWindows") {
 			go getReleaseNotesWindows(sku, path, fl, errc, done)
 		} else {
@@ -177,7 +176,7 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 
 	for _, artifact := range artifacts {
 		if err := artifact.process(fl, artifactsDirOut, tmpdir); err != nil {
-			fmt.Printf("processing artifact %s for sku %s", artifact.name, sku)
+			fmt.Printf("processing artifact %s for sku %s\n", artifact.name, sku)
 			errc <- fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
 			return
 		}

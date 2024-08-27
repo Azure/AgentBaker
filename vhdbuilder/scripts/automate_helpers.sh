@@ -27,7 +27,7 @@ set_git_config() {
 create_branch() {
     # Create PR branch
     echo "Create branch named $1"
-    git checkout master
+    git checkout cameissner/bundle-artifacts
     git pull
     git checkout -b $1
 }
