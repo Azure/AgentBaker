@@ -4,6 +4,7 @@ script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 declare -A benchmarks=()
 declare -a benchmarks_order=()
+set_script_name
 
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
