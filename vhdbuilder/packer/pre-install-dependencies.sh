@@ -142,5 +142,5 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
 fi
 capture_benchmark "handle_azureLinux_and_cgroupV2"
 echo "pre-install-dependencies step finished successfully"
-capture_benchmark "overall_script" true
+capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
