@@ -4,6 +4,7 @@ script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 declare -A benchmarks=()
 declare -a benchmarks_order=()
+set_script_name
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
