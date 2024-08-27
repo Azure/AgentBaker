@@ -413,7 +413,6 @@ installJq() {
   fi
 }
 
-
 check_array_size() {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
