@@ -12,11 +12,9 @@ SKIP_LATEST="${SKIP_LATEST:-false}"
 
 generate_release_notes() {
     included_skus=""
-    for artifact in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
-        if [[ $artifact == *"vhd-release-notes"* ]]; then
-            sku=$(echo $artifact | cut -d "-" -f4-) # Format of artifact is vhd-release-notes-<name of sku>
-            included_skus+="$sku,"
-        fi
+    for artifact_name in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
+        # VHD build artifacts are folders named after the correpsonding SKU they were generated for
+        included_skus+="$artifact_name,"
     done
     echo "SKUs for release notes are $included_skus"
     if [ "${SKIP_LATEST,,}" == "true" ]; then
