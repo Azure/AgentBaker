@@ -159,7 +159,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		fi
 		if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-			SIG_IMAGE_NAME+="TESTDEF"
+			SIG_IMAGE_NAME+="New"
 	  fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
