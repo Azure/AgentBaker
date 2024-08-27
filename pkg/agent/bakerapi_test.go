@@ -12,11 +12,11 @@ import (
 
 type TestAgentToggles struct {
 	LinuxNodeImageVersion  string
-	LinuxNodeImageVersions map[string]string
+	LinuxNodeImageVersions map[datamodel.Distro]string
 }
 
 func (t *TestAgentToggles) GetLinuxNodeImageVersion(entity *agenttoggles.Entity, distro datamodel.Distro) string {
-	if version := t.LinuxNodeImageVersions[string(distro)]; version != "" {
+	if version := t.LinuxNodeImageVersions[distro]; version != "" {
 		return version
 	}
 
@@ -423,15 +423,15 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				marinerOverrideVersion    = "202402.25.1"
 				azureLinuxOverrideVersion = "202402.25.2"
 			)
-			imageVersionOverrides := map[string]string{}
+			imageVersionOverrides := map[datamodel.Distro]string{}
 			for _, distro := range ubuntuDistros {
-				imageVersionOverrides[string(distro)] = ubuntuOverrideVersion
+				imageVersionOverrides[distro] = ubuntuOverrideVersion
 			}
 			for _, distro := range marinerDistros {
-				imageVersionOverrides[string(distro)] = marinerOverrideVersion
+				imageVersionOverrides[distro] = marinerOverrideVersion
 			}
 			for _, distro := range azureLinuxDistros {
-				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
+				imageVersionOverrides[distro] = azureLinuxOverrideVersion
 			}
 			toggles.LinuxNodeImageVersions = imageVersionOverrides
 
