@@ -202,10 +202,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						GalleryName:   "AKSWindows",
 						ResourceGroup: "AKS-Windows",
 					},
-					"AKSUbuntuEdgeZone": {
-						GalleryName:   "AKSUbuntuEdgeZone",
-						ResourceGroup: "AKS-Ubuntu-EdgeZone",
-					},
 				},
 			},
 		}
@@ -1658,10 +1654,6 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					"AKSWindows": {
 						GalleryName:   "AKSWindows",
 						ResourceGroup: "AKS-Windows",
-					},
-					"AKSUbuntuEdgeZone": {
-						GalleryName:   "AKSUbuntuEdgeZone",
-						ResourceGroup: "AKS-Ubuntu-EdgeZone",
 					},
 				},
 			},
