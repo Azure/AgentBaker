@@ -4,7 +4,6 @@ script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 declare -A benchmarks=()
 declare -a benchmarks_order=()
-set_script_name
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -16,6 +15,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 
+set_script_name
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
