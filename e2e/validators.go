@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"fmt"
+	"net"
+	"regexp"
 	"strings"
 )
 
@@ -280,6 +282,40 @@ func runcVersionValidator(version string) *LiveVMValidator {
 			if !strings.Contains(stdout, "runc version "+version) {
 				return fmt.Errorf(fmt.Sprintf("expected to find runc version %s, got: %s", version, stdout))
 			}
+			return nil
+		},
+	}
+}
+
+// K8s 1.29+ should set --node-ip in kubelet flags due to behavior change in
+// https://github.com/kubernetes/kubernetes/pull/121028
+func kubeletNodeIPValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert /etc/default/kubelet has --node-ip flag set",
+		Command:     "cat /etc/default/kubelet",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+
+			// Search for "--node-ip" flag and its value.
+			matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
+			if matches == nil || len(matches) < 2 {
+				return fmt.Errorf("Could not find kubelet flag --node-ip")
+			}
+
+			ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
+			if len(ipAddresses) == 0 || len(ipAddresses) > 2 {
+				return fmt.Errorf("Expected one or two --node-ip addresses, but got %d", len(ipAddresses))
+			}
+
+			// Check that each IP is a valid address.
+			for _, ipAddress := range ipAddresses {
+				if parsedIP := net.ParseIP(ipAddress); parsedIP == nil {
+					return fmt.Errorf("--node-ip value %q is not a valid IP address", ipAddress)
+				}
+			}
+
 			return nil
 		},
 	}
