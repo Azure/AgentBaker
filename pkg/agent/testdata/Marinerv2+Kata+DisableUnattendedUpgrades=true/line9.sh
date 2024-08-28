@@ -380,7 +380,7 @@ should_skip_nvidia_drivers() {
 
 isMarinerOrAzureLinux() {
     local os=$1
-    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
         return 0
     fi
     return 1
@@ -491,7 +491,7 @@ returnRelease() {
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
     #For MARINER/AZURELINUX, the release is always set to "current" now.
-    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" ]] || isMarinerOrAzureLinux "${os}"; then
+    if isMarinerOrAzureLinux "${os}"; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
