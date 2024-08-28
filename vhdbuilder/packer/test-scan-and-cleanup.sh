@@ -8,7 +8,6 @@ required_env_vars=(
   "SIG_GALLERY_NAME"
   "OS_VERSION"
   "SIG_IMAGE_NAME"
-  "SIG_VERSION"
 )
 
 for v in "${required_env_vars[@]}"; do
