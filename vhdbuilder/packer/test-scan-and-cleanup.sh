@@ -27,21 +27,24 @@ if [[ -z "$SIG_GALLERY_NAME" ]]; then
 fi
 
 # Always run cleanup
-SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh" "./vhdbuilder/packer/test/run-test.sh")
+SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh")
 
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show \
--e ${CAPTURED_SIG_VERSION} \
--i ${SIG_IMAGE_NAME} \
--r ${SIG_GALLERY_NAME} \
--g ${AZURE_RESOURCE_GROUP_NAME} \
---query id --output tsv)
+  -e ${CAPTURED_SIG_VERSION} \
+  -i ${SIG_IMAGE_NAME} \
+  -r ${SIG_GALLERY_NAME} \
+  -g ${AZURE_RESOURCE_GROUP_NAME} \
+  --query id --output tsv)
 
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
   retrycmd_if_failure 2 3 "${SCRIPT_ARRAY[@]}"
   exit $?
 fi
+
+# Setup testing
+SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
