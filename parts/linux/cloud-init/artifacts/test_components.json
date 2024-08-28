@@ -188,7 +188,6 @@
                 "version": "1.27.16"
               }
             ],
-
             "Versions": {
               "1.29": {
                 "renovateTag": "name=kubernetes-binaries os=default release=current",
@@ -203,7 +202,6 @@
                 "version": "1.27.16"
               }
             }
-            "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${version}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
           }
         }
       }
