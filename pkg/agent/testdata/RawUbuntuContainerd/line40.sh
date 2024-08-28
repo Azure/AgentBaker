@@ -123,11 +123,17 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
-
 downloadCredentalProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
+        oras pull $CREDENTIAL_PROVIDER_DOWNLOAD_URL -o $CREDENTIAL_PROVIDER_TGZ_TMP || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    else
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+        CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin #
+        retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    fi
 }
 
 installCredentalProvider() {
@@ -156,17 +162,30 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
+
 downloadContainerdWasmShims() {
     declare -a wasmShimPids=()
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
-        local containerd_wasm_filepath="/usr/local/bin"
-        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
-        if [[ $(isARM64) == 1 ]]; then
-            containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
-        fi
 
-        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+        installWithOras() {
+            CONTAINERD_WASM_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:v${binary_version}-linux-${CPU_ARCH}"
+            WASM_TMP="wasm-tmp"
+            mkdir -p $WASM_TMP
+            oras pull $CONTAINERD_WASM_DOWNLOAD_URL -o $WASM_TMP || exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+
+            local containerd_wasm_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
+            if [ -f "$WASM_TMP/$containerd_wasm_filename" ]; then
+                tar -xzvf "$WASM_TMP/$containerd_wasm_filename" -C $containerd_wasm_filepath
+            else
+                echo "containerd wasm shims tarball not found"
+                exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            fi
+            rm -r $WASM_TMP
+        }
+        installWithCurl() {
+            local containerd_wasm_filepath="/usr/local/bin" 
+            local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             wasmShimPids+=($!)
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -175,8 +194,15 @@ downloadContainerdWasmShims() {
                 retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
                 wasmShimPids+=($!)
             fi
+        }
+
+        if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+            installWithOras
+        elif [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+            installWithCurl
         fi
     done
+
     wait ${wasmShimPids[@]}
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
@@ -209,7 +235,6 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
-
 }
 
 evalPackageDownloadURL() {
@@ -229,8 +254,12 @@ downloadAzureCNI() {
         echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
         return
     fi
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+
+    else
+        CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
+        retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    fi
 }
 
 downloadCrictl() {
@@ -309,18 +338,8 @@ setupCNIDirs() {
 
 
 installCNI() {
-
-    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
-        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
-        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
-        return 
-    fi
-   
-    #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
@@ -332,22 +351,27 @@ installCNI() {
     fi
     PACKAGE_VERSIONS=()
     returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
-    
-    #should change to ne
-    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+
+    if [[ ${#PACKAGE_VERSIONS[@]} -ne 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-    if [[ $(isARM64) == 1 ]]; then 
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
-    else 
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
+    if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+        CNI_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v${packageVersion}-linux-${CPU_ARCH}"
+        oras pull $CNI_DOWNLOAD_URL -o $CNI_DOWNLOADS_DIR
+        local downloaded_file="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz" 
+        mv "${CNI_DOWNLOADS_DIR}/${downloaded_file}" "${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
+    else
+        CNI_DOWNLOAD_TMP="${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
+        CNI_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cni-plugins/v${packageVersion}/binaries/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz"
+        retrycmd_get_tarball 120 5 "$CNI_DOWNLOAD_TMP $CNI_DOWNLOAD_URL" || exit
     fi
-    
+    tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+
+    CNI_DIR_TMP="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         echo "CNI tarball should already be unzipped by components.json"
@@ -380,6 +404,10 @@ extractKubeBinaries() {
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
 
+    if ["BLOCK_OUTBOUND_NETWORK" = "true"]; then
+        local kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v${k8s_version}-linux-${CPU_ARCH}"
+    fi
+
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
     if [[ $is_private_url == true ]]; then
@@ -396,7 +424,12 @@ extractKubeBinaries() {
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
 
-        retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        if [ "$BLOCK_OUTBOUND_NETWORK" = "true" ]; then
+            oras pull $kube_binary_url -o $k8s_tgz_tmp || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        else
+            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+        fi
+
         if [[ ! -f ${k8s_tgz_tmp} ]]; then
             exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
         fi

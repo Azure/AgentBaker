@@ -80,6 +80,16 @@ if [[ ${ID} != "mariner" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
+ANON_ACCESS_AVAILABLE="true"
+if [ "${ANON_ACCESS_AVAILABLE}" == "false" ]; then
+    TENANTID="72f988bf-86f1-41af-91ab-2d7cd011db47" 
+    ACR_NAME=aksvhdtestcr.azurecr.io
+    PRIVATE_ACR_NAME="aksvhdtestcr"
+    TOKEN=$(curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/" | jq -r .access_token)
+    REFRESH_TOKEN=$(curl -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=aksvhdtestcr.azurecr.io&tenant=$TENANTID&access_token=$TOKEN" https://$PRIVATE_ACR_NAME.azurecr.io/oauth2/exchange | jq -r .refresh_token)
+    echo "$REFRESH_TOKEN" | oras login $ACR_NAME --identity-token-stdin
+fi
+
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
 ret=$?

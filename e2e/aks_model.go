@@ -140,10 +140,15 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, error) {
 	// https://learn.microsoft.com/en-us/azure/aks/outbound-rules-control-egress#azure-global-required-fqdn--application-rules
 	// note that we explicitly exclude packages.microsoft.com
+	//requiredDNSNames := []string{
+	//	"mcr.microsoft.com",
+	//	"management.azure.com",
+	//	"acs-mirror.azureedge.net",
+	//	clusterFQDN,
+	//}
 	requiredDNSNames := []string{
 		"mcr.microsoft.com",
 		"management.azure.com",
-		"acs-mirror.azureedge.net",
 		clusterFQDN,
 	}
 	var rules []*armnetwork.SecurityRule
