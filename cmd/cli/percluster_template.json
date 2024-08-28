@@ -1,24 +1,38 @@
 {
-    "ContainerService": {
-        "properties": {
-            "clusterID": "${clusterID}",
-            "servicePrincipalProfile": {
-                "clientId": "${aadClientId}",
-                "secret": "${aadClientSecret}"
-            },
-            "certificateProfile": {
-                "caCertificate": "${caCrt}",
-                "apiServerCertificate": "${apiserverCrt}",
-                "clientPrivateKey": "${clientKey}"
-            },
-            "hostedMasterProfile": {
-                "fqdn": "${fqdn}"
-            }
-        }
-    },
-    "TenantID": "${tenantId}",
-    "SubscriptionID": "${subID}",
-    "ResourceGroupName": "${resourceGroup}",
-    "UserAssignedIdentityClientID": "${userAssignedIdentityID}",
-    "KubeletClientTLSBootstrapToken": "${tlsbootstraptoken}"
-} 
+  "ContainerService": {
+    "properties": {
+      "clusterID": "${clusterID}",
+      "servicePrincipalProfile": {
+        "clientId": "${aadClientId}",
+        "secret": "${aadClientSecret}"
+      },
+      "orchestratorProfile": {
+        "orchestratorVersion": "${orchestratorVersion}",
+        "caCertificate": "${caCrt}",
+        "apiServerCertificate": "${apiserverCrt}",
+        "clientPrivateKey": "${clientKey}"
+      },
+      "hostedMasterProfile": {
+        "fqdn": "${fqdn}"
+      },
+      "windowsProfile": {
+        "cseScriptsPackageURL": "${csePackageURL}",
+        "gpuDriverUrl": "${WINDOWS_GPU_DRIVER_URL}"
+      }
+    }
+  },
+  "K8sComponents": {
+    "WindowsPackageURL": "${windowsPackageURL}"
+  },
+  "ConfigGPUDriverIfNeeded": ${CONFIG_GPU_DRIVER_IF_NEEDED},
+  "TenantID": "${tenantId}",
+  "SubscriptionID": "${subID}",
+  "ResourceGroupName": "${resourceGroup}",
+  "UserAssignedIdentityClientID": "${userAssignedIdentityID}",
+  "KubeletClientTLSBootstrapToken": "${tlsbootstraptoken}",
+  "AgentPoolProfile": {
+    "name": "winnp",
+    "vmSize": "${WINDOWS_E2E_VMSIZE}",
+    "distro": "${WINDOWS_DISTRO}"
+  }
+}

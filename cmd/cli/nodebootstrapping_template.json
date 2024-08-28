@@ -10,7 +10,7 @@
         "orchestratorType": "Kubernetes",
         "orchestratorVersion": "1.24.0",
         "kubernetesConfig": {
-          "networkPlugin": "kubenet",
+          "networkPlugin": "azure",
           "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
           "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
           "useInstanceMetadata": true,
@@ -26,25 +26,33 @@
           "cloudProviderDisableOutboundSNAT": false,
           "loadBalancerSku": "Standard",
           "azureCNIURLLinux": "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
-          "maximumLoadBalancerRuleCount": 250
+          "maximumLoadBalancerRuleCount": 250,
+          "azureCNIURLWindows": "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+          "useCloudControllerManager": true,
+          "useManagedIdentity": true,
+          "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
+          "dnsServiceIP": "10.0.0.10",
+          "clusterSubnet": "10.224.0.0/16",
+          "serviceCidr": "10.0.0.0/16"
         }
       },
       "agentPoolProfiles": [
         {
-          "name": "nodepool1",
-          "vmSize": "Standard_DS1_v2",
-          "osType": "Linux",
+          "name": "winnp",
+          "osType": "Windows",
           "availabilityProfile": "VirtualMachineScaleSets",
           "storageProfile": "ManagedDisks",
-          "distro": "aks-ubuntu-containerd-18.04-gen2",
           "customNodeLabels": {
-            "kubernetes.azure.com/mode": "system"
+            "kubernetes.azure.com/mode": "user"
           },
           "preProvisionExtension": null,
           "kubernetesConfig": {
             "containerRuntime": "containerd",
             "cloudProviderBackoffMode": ""
-          }
+          },
+          "vnetCidrs": [
+            "10.224.0.0/12"
+          ]
         }
       ],
       "linuxProfile": {
@@ -69,6 +77,24 @@
         "subnet": "",
         "apiServerWhiteListRange": null,
         "ipMasqAgent": true
+      },
+      "featureFlags": {
+        "enableWinDSR": true
+      },
+      "windowsProfile": {
+        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+        "enableAutomaticUpdates": false,
+        "enableCSIProxy": true,
+        "hnsRemediatorIntervalInMinutes": 1,
+        "imageVersion": "",
+        "sshEnabled": true,
+        "windowsDockerVersion": "",
+        "windowsImageSourceURL": "",
+        "windowsOffer": "aks-windows",
+        "windowsPublisher": "microsoft-aks",
+        "windowsSku": "",
+        "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+        "alwaysPullWindowsPauseImage": false
       }
     }
   },
@@ -109,20 +135,21 @@
     "WindowsPackageURL": "windowspackage"
   },
   "AgentPoolProfile": {
-    "name": "nodepool1",
+    "name": "winnp",
     "vmSize": "Standard_DS1_v2",
-    "osType": "Linux",
+    "osType": "Windows",
     "availabilityProfile": "VirtualMachineScaleSets",
     "storageProfile": "ManagedDisks",
     "distro": "aks-ubuntu-containerd-18.04-gen2",
     "customNodeLabels": {
-      "kubernetes.azure.com/mode": "system"
+      "kubernetes.azure.com/mode": "user"
     },
     "preProvisionExtension": null,
     "kubernetesConfig": {
       "containerRuntime": "containerd",
       "cloudProviderBackoffMode": ""
-    }
+    },
+    "notRebootWindowsNode": true
   },
   "TenantID": "",
   "OSSKU": "",
@@ -154,42 +181,45 @@
     "--anonymous-auth": "false",
     "--authentication-token-webhook": "true",
     "--authorization-mode": "Webhook",
-    "--azure-container-registry-config": "/etc/kubernetes/azure.json",
-    "--cgroups-per-qos": "true",
-    "--client-ca-file": "/etc/kubernetes/certs/ca.crt",
-    "--cloud-config": "/etc/kubernetes/azure.json",
-    "--cloud-provider": "azure",
+    "--azure-container-registry-config": "c:\\k\\azure.json",
+    "--cgroups-per-qos": "false",
+    "--client-ca-file": "c:\\k\\ca.crt",
+    "--cloud-config": "c:\\k\\azure.json",
+    "--cloud-provider": "external",
     "--cluster-dns": "10.0.0.10",
     "--cluster-domain": "cluster.local",
     "--dynamic-config-dir": "/var/lib/kubelet",
-    "--enforce-node-allocatable": "pods",
+    "--enforce-node-allocatable": "\"\"\"\"",
     "--event-qps": "0",
-    "--eviction-hard": "memory.available\u003c750Mi,nodefs.available\u003c10%,nodefs.inodesFree\u003c5%",
-    "--feature-gates": "RotateKubeletServerCertificate=true",
+    "--eviction-hard": "\"\"\"\"",
+    "--feature-gates": "DynamicKubeletConfig=false",
     "--image-gc-high-threshold": "85",
     "--image-gc-low-threshold": "80",
     "--keep-terminated-pod-volumes": "false",
-    "--kube-reserved": "cpu=100m,memory=1638Mi",
-    "--kubeconfig": "/var/lib/kubelet/kubeconfig",
-    "--max-pods": "110",
+    "--kube-reserved": "cpu=100m,memory=3891Mi",
+    "--kubeconfig": "c:\\k\\config",
+    "--max-pods": "30",
     "--network-plugin": "kubenet",
     "--node-status-update-frequency": "10s",
-    "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+    "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     "--pod-manifest-path": "/etc/kubernetes/manifests",
     "--pod-max-pids": "-1",
     "--protect-kernel-defaults": "true",
     "--read-only-port": "0",
-    "--resolv-conf": "/run/systemd/resolve/resolv.conf",
-    "--rotate-certificates": "false",
+    "--resolv-conf": "\"\"\"\"",
+    "--rotate-certificates": "true",
     "--streaming-connection-idle-timeout": "4h",
     "--tls-cert-file": "/etc/kubernetes/certs/kubeletserver.crt",
     "--tls-cipher-suites": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
-    "--tls-private-key-file": "/etc/kubernetes/certs/kubeletserver.key"
+    "--tls-private-key-file": "/etc/kubernetes/certs/kubeletserver.key",
+    "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",
+    "--cert-dir": "c:\\k\\pki",
+    "--hairpin-mode": "promiscuous-bridge"
   },
   "KubeproxyConfig": null,
   "EnableRuncShimV2": false,
   "GPUInstanceProfile": "",
-  "PrimaryScaleSetName": "",
+  "PrimaryScaleSetName": "akswin30",
   "SIGConfig": {
     "tenantID": "tenantID",
     "subscriptionID": "subId",

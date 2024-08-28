@@ -18,9 +18,8 @@ export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
 export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
 
 envsubst < percluster_template.json > _percluster_config.json
-envsubst < property-windows-template.json > _property-windows-config.json
 
-jq -s '.[0] * .[1]' nodebootstrapping_template.json _percluster_config.json > _nodebootstrapping-config-part1.json
-jq -s '.[0] * .[1]' _nodebootstrapping-config-part1.json _property-windows-config.json > _nodebootstrapping-config.json
-# go run main.go getCustomScript < _nodebootstrapping-config.json
-go run main.go getCustomScriptData < _nodebootstrapping-config.json
+jq -s '.[0] * .[1]' nodebootstrapping_template.json _percluster_config.json  > _nodebootstrapping-config.json
+
+go run main.go getCustomScript < _nodebootstrapping-config.json
+#go run main.go getCustomScriptData < _nodebootstrapping-config.json
