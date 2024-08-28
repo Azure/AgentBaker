@@ -19,7 +19,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "3.6"
+        "3.9"
       ]
     },
     {
