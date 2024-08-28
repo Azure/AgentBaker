@@ -19,7 +19,7 @@ export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
 
 envsubst < percluster_template.json > _percluster_config.json
 
-jq -s '.[0] * .[1]' nodebootstrapping_template.json _percluster_config.json  > _nodebootstrapping-config.json
+jq -s '.[0] * .[1]' nodebootstrapping_static.json _percluster_config.json  > _nodebootstrapping-config.json
 
 go run main.go getCustomScript < _nodebootstrapping-config.json
 #go run main.go getCustomScriptData < _nodebootstrapping-config.json
