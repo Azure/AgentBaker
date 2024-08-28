@@ -22,5 +22,7 @@ envsubst < percluster_template.json > _percluster_config.json
 
 jq -s '.[0] * .[1]' nodebootstrapping_static.json _percluster_config.json  > _nodebootstrapping-config.json
 
-go run main.go getCustomScript < _nodebootstrapping-config.json
-#go run main.go getCustomScriptData < _nodebootstrapping-config.json
+go run main.go getCustomScript < _nodebootstrapping-config.json > CustomScriptExtension.bat
+go run main.go getCustomScriptData < _nodebootstrapping-config.json | base64 --decode > CustomData.bin
+
+rm _percluster_config.json _nodebootstrapping-config.json
