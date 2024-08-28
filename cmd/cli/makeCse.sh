@@ -7,6 +7,7 @@ export tenantId=tenantId
 export orchestratorVersion=1.30.3
 export WINDOWS_E2E_VMSIZE=Standard_DS1_v2
 export KUBERNETES_VERSION=1.30.3
+export csePackageURL=https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip
 
 export WINDOWS_E2E_IMAGE=2019-containerd
 export WINDOWS_DISTRO=aks-windows-2019-containerd
