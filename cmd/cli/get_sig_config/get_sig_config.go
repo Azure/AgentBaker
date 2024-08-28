@@ -2,6 +2,7 @@
 package get_sig_config
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -12,86 +13,72 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	nbc = &datamodel.NodeBootstrappingConfiguration{
-		//SubscriptionID: config.SubscriptionID,
-		//TenantID:       config.TenantID,
-		//Region:         config.Region,
-		K8sComponents:    &datamodel.K8sComponents{},
-		AgentPoolProfile: &datamodel.AgentPoolProfile{},
-		SIGConfig: datamodel.SIGConfig{
-			Galleries: map[string]datamodel.SIGGalleryConfig{
-				"AKSUbuntu": datamodel.SIGGalleryConfig{
-					GalleryName:   "aksubuntu",
-					ResourceGroup: "resourcegroup",
-				},
-				"AKSCBLMariner": datamodel.SIGGalleryConfig{
-					GalleryName:   "akscblmariner",
-					ResourceGroup: "resourcegroup",
-				},
-				"AKSAzureLinux": datamodel.SIGGalleryConfig{
-					GalleryName:   "aksazurelinux",
-					ResourceGroup: "resourcegroup",
-				},
-				"AKSWindows": datamodel.SIGGalleryConfig{
-					GalleryName:   "AKSWindows",
-					ResourceGroup: "AKS-Windows",
-				},
-				"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
-					GalleryName:   "AKSUbuntuEdgeZone",
-					ResourceGroup: "AKS-Ubuntu-EdgeZone",
-				},
-			},
-			SubscriptionID: "sig sub id",
-			TenantID:       "sig tenant id",
-		},
-		ContainerService: &datamodel.ContainerService{
-			Location: "",
-			Properties: &datamodel.Properties{
-				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{},
-				CertificateProfile: &datamodel.CertificateProfile{
-					APIServerCertificate: "",
-					ClientCertificate:    "",
-					ClientPrivateKey:     "",
-					CaCertificate:        "",
-				},
-				HostedMasterProfile: &datamodel.HostedMasterProfile{
-					DNSPrefix: "",
-				},
-				OrchestratorProfile: &datamodel.OrchestratorProfile{
-					OrchestratorType: "Kubernetes",
-					KubernetesConfig: &datamodel.KubernetesConfig{
-						DNSServiceIP: "",
-					},
-				},
-				WindowsProfile: &datamodel.WindowsProfile{},
-				CustomCloudEnv: &datamodel.CustomCloudEnv{},
-			},
-		},
-		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{},
-	}
-	agentPoolProfileOsType string
-	distro                 string
-	produce                string
+//	nbc = &datamodel.NodeBootstrappingConfiguration{
+//		//SubscriptionID: config.SubscriptionID,
+//		//TenantID:       config.TenantID,
+//		//Region:         config.Region,
+//		K8sComponents:    &datamodel.K8sComponents{},
+//		AgentPoolProfile: &datamodel.AgentPoolProfile{},
+//		SIGConfig: datamodel.SIGConfig{
+//			Galleries: map[string]datamodel.SIGGalleryConfig{
+//				"AKSUbuntu": datamodel.SIGGalleryConfig{
+//					GalleryName:   "aksubuntu",
+//					ResourceGroup: "resourcegroup",
+//				},
+//				"AKSCBLMariner": datamodel.SIGGalleryConfig{
+//					GalleryName:   "akscblmariner",
+//					ResourceGroup: "resourcegroup",
+//				},
+//				"AKSAzureLinux": datamodel.SIGGalleryConfig{
+//					GalleryName:   "aksazurelinux",
+//					ResourceGroup: "resourcegroup",
+//				},
+//				"AKSWindows": datamodel.SIGGalleryConfig{
+//					GalleryName:   "AKSWindows",
+//					ResourceGroup: "AKS-Windows",
+//				},
+//				"AKSUbuntuEdgeZone": datamodel.SIGGalleryConfig{
+//					GalleryName:   "AKSUbuntuEdgeZone",
+//					ResourceGroup: "AKS-Ubuntu-EdgeZone",
+//				},
+//			},
+//			SubscriptionID: "sig sub id",
+//			TenantID:       "sig tenant id",
+//		},
+//		ContainerService: &datamodel.ContainerService{
+//			Location: "",
+//			Properties: &datamodel.Properties{
+//				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{},
+//				CertificateProfile: &datamodel.CertificateProfile{
+//					APIServerCertificate: "",
+//					ClientCertificate:    "",
+//					ClientPrivateKey:     "",
+//					CaCertificate:        "",
+//				},
+//				HostedMasterProfile: &datamodel.HostedMasterProfile{
+//					DNSPrefix: "",
+//				},
+//				OrchestratorProfile: &datamodel.OrchestratorProfile{
+//					OrchestratorType: "Kubernetes",
+//					KubernetesConfig: &datamodel.KubernetesConfig{
+//						DNSServiceIP: "",
+//					},
+//				},
+//				WindowsProfile: &datamodel.WindowsProfile{},
+//				CustomCloudEnv: &datamodel.CustomCloudEnv{},
+//			},
+//		},
+//		CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{},
+//	}
+//
+// serialisedNodeBootstrappingConfiguration string
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
-	rootCmd.AddCommand(startCmd)
-	startCmd.Flags().StringVarP(&nbc.SubscriptionID, "subscriptionId", "s", "", "subscription id of cluster")
-	startCmd.Flags().StringVarP(&nbc.TenantID, "tenantId", "t", "", "tenant id of cluster")
-	startCmd.Flags().StringVarP(&nbc.CloudSpecConfig.CloudName, "cloud", "c", "AzurePublicCloud", "tenant id of cluster")
-	startCmd.Flags().StringVar(&nbc.ContainerService.Location, "location", "eastus", "location")
-	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.DNSServiceIP, "kubeDNSServiceIP", "192.168.0.1", "DNS Service IP")
-	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.HostedMasterProfile.DNSPrefix, "masterEndpointDNSNamePrefix", "bob.azure.com", "DNS Service IP")
-	startCmd.Flags().StringVar(&nbc.OSSKU, "ossku", "", "OS SKU")
-	startCmd.Flags().StringVar(&agentPoolProfileOsType, "ostype", "Windows", "os type - Windows or not")
-	startCmd.Flags().StringVarP(&distro, "distro", "d", "CustomizedWindowsOSImage", "Distro")
-	startCmd.Flags().StringVar(&produce, "produce", "custom-script-command", "Produce which file. Values are custom-script-command (for the custom script to run) and custom-script-data for the script that's invoked")
+	rootCmd.AddCommand(customScriptCommand)
 
-	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey, "clientPrivateKey", "clientPrivateKey", "clientPrivateKey")
-	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.ServicePrincipalProfile.ClientID, "servicePrincipalClientId", "servicePrincipalClientId", "servicePrincipalClientId")
-	startCmd.Flags().StringVar(&nbc.ContainerService.Properties.ServicePrincipalProfile.Secret, "encodedServicePrincipalClientSecret", "encodedServicePrincipalClientSecret", "encodedServicePrincipalClientSecret")
-	startCmd.Flags().StringVar(&nbc.UserAssignedIdentityClientID, "userAssignedIdentityID", "userAssignedIdentityID", "userAssignedIdentityID")
+	rootCmd.AddCommand(customScriptDataCommand)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)
@@ -110,11 +97,11 @@ var rootCmd = &cobra.Command{
 // startCmd represents the start command.
 //
 //nolint:gochecknoglobals
-var startCmd = &cobra.Command{
-	Use:   "getLatestSigImageConfig",
-	Short: "gets the latest sig image config",
+var customScriptCommand = &cobra.Command{
+	Use:   "getCustomScript",
+	Short: "gets the latest custom script",
 	Run: func(cmd *cobra.Command, args []string) {
-		err := startHelper(cmd, args)
+		err := customScriptCommandHelper(cmd, args)
 		if err != nil {
 			log.Println(err.Error())
 			os.Exit(1)
@@ -122,33 +109,62 @@ var startCmd = &cobra.Command{
 	},
 }
 
-func startHelper(_ *cobra.Command, args []string) error {
-	agentBaker, err := agent.NewAgentBaker()
+// startCmd represents the start command.
+//
+//nolint:gochecknoglobals
+var customScriptDataCommand = &cobra.Command{
+	Use:   "getCustomScriptData",
+	Short: "Gets the data for the custom script",
+	Run: func(cmd *cobra.Command, args []string) {
+		err := customScriptDataHelper(cmd, args)
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+	},
+}
+
+func customScriptCommandHelper(_ *cobra.Command, args []string) error {
+	bootstrapping, err := getBootstrapping()
 	if err != nil {
-		log.Println(err.Error())
 		return err
 	}
 
-	nbc.AgentPoolProfile.OSType = datamodel.OSType(agentPoolProfileOsType)
-	nbc.AgentPoolProfile.Distro = datamodel.Distro(distro)
+	fmt.Println(bootstrapping.CSE)
+
+	return nil
+}
+
+func customScriptDataHelper(_ *cobra.Command, args []string) error {
+	bootstrapping, err := getBootstrapping()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(bootstrapping.CustomData)
+
+	return nil
+}
+
+func getBootstrapping() (*datamodel.NodeBootstrapping, error) {
+	nbc := &datamodel.NodeBootstrappingConfiguration{}
+
+	err := json.NewDecoder(os.Stdin).Decode(&nbc)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	agentBaker, err := agent.NewAgentBaker()
+	if err != nil {
+		log.Println(err.Error())
+		return nil, err
+	}
 
 	bootstrapping, err := agentBaker.GetNodeBootstrapping(nil, nbc)
 
 	if err != nil {
 		log.Println(err.Error())
-		return err
+		return nil, err
 	}
-
-	switch produce {
-	case "custom-script-command":
-		fmt.Println(bootstrapping.CSE)
-		break
-
-	case "custom-script-data":
-		fmt.Println(bootstrapping.CustomData)
-		break
-
-	}
-
-	return nil
+	return bootstrapping, nil
 }
