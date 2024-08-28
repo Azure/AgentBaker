@@ -48,6 +48,9 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 					OSDiskSizeGB: to.Ptr[int32](512),
 				},
 			},
+			AutoUpgradeProfile: &armcontainerservice.ManagedClusterAutoUpgradeProfile{
+				UpgradeChannel: to.Ptr(armcontainerservice.UpgradeChannelNodeImage),
+			},
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
 			},
