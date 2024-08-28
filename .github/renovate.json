@@ -64,8 +64,7 @@
         "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*"
       ],
       "datasourceTemplate": "custom.deb2004",
-      "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "testingCurrentValue{{{currentValue}}}, testingNewValue{{{newValue}}}"
+      "versioningTemplate": "deb"      
     },
     {
       "customType": "regex",
@@ -77,8 +76,7 @@
         "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*"
       ],
       "datasourceTemplate": "custom.deb2204",
-      "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "testingCurrentValue{{{currentValue}}}, testingNewValue{{{newValue}}}"
+      "versioningTemplate": "deb"
     }
   ],
   "customDatasources": {
