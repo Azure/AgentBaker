@@ -1,6 +1,21 @@
 #!/bin/bash
 
 # TODO: assert required variables are set
+required_env_vars=(
+  "SIG_IMAGE_NAME"
+  "SUBSCRIPTION_ID"
+  "AZURE_RESOURCE_GROUP_NAME"
+  "CAPTURED_SIG_VERSION"
+  "ENVIRONMENT"
+  "OS_VERSION"
+)
+
+for v in "${required_env_vars[@]}"; do
+  if [ -z "${!v}" ]; then
+    echo "$v was not set!"
+    exit 1
+  fi
+done
 
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
