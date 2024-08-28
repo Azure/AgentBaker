@@ -87,7 +87,7 @@
       "matchStringsStrategy": "any",
       "depNameTemplate": "moby-containerd",
       "matchStrings": ["\"versions\": \\[\\n\\s*{\"version\": \"(?<currentValue>.*)\"},\\n\\s*{\"version\": \".*\"}\\n\\s*\\]"],
-      "autoReplaceStringTemplate": "\"versions\": [\n    {\"version1\": \"{{{newValue}}}\"},\n    {\"version2\": \"{{{currentValue}}}\"}\n]",
+      "autoReplaceStringTemplate": "\"versions\": [\n    {\"version\": \"{{{newValue}}}\"},\n    {\"version\": \"{{{currentValue}}}\"}\n]",
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb"
     }
