@@ -29,11 +29,7 @@ MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
 
 setCPUArch() {
-    if [[ $(isARM64) == 1 ]]; then 
-        CPU_ARCH="arm64"
-    else 
-        CPU_ARCH="amd64"
-    fi
+    CPU_ARCH=$(getCPUArch)
 }
 
 removeManDbAutoUpdateFlagFile() {

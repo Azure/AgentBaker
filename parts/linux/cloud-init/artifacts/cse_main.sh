@@ -8,7 +8,6 @@ if [ -f /opt/azure/containers/provision.complete ]; then
 fi
 
 aptmarkWALinuxAgent hold &
-setCPUArch
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks
@@ -80,6 +79,7 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
+logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
 if [[ ${ID} != "mariner" ]]; then
