@@ -33,7 +33,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/test_components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -45,7 +45,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/test_components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -57,26 +57,28 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/test_components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*"
       ],
       "datasourceTemplate": "custom.deb2004",
-      "versioningTemplate": "deb"
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "testingCurrentValue{{{currentValue}}}, testingNewValue{{{newValue}}}"
     },
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/test_components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*"
       ],
       "datasourceTemplate": "custom.deb2204",
-      "versioningTemplate": "deb"
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "testingCurrentValue{{{currentValue}}}, testingNewValue{{{newValue}}}"
     }
   ],
   "customDatasources": {
