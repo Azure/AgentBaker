@@ -8,6 +8,7 @@ if [ -f /opt/azure/containers/provision.complete ]; then
 fi
 
 aptmarkWALinuxAgent hold &
+setCPUArch
 
 # Setup logs for upload to host
 LOG_DIR=/var/log/azure/aks

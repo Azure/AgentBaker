@@ -26,6 +26,15 @@ MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+CPU_ARCH=""
+
+setCPUArch() {
+    if [[ $(isARM64) == 1 ]]; then 
+        CPU_ARCH="arm64"
+    else 
+        CPU_ARCH="amd64"
+    fi
+}
 
 removeManDbAutoUpdateFlagFile() {
     rm -f $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
@@ -176,7 +185,7 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 downloadContainerdWasmShims() {
     declare -a wasmShimPids=()
     local containerd_wasm_filepath="/usr/local/bin" 
-    
+
     for shim_version in $CONTAINERD_WASM_VERSIONS; do
         binary_version="$(echo "${shim_version}" | tr . -)"
 
@@ -283,7 +292,6 @@ downloadCrictl() {
 }
 
 installCrictl() {
-    CPU_ARCH=$(getCPUArch)
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
@@ -354,10 +362,26 @@ setupCNIDirs() {
 # The version used to be deteremined by RP/toggle but are now just hadcoded in vhd as they rarely change and require a node image upgrade anyways
 # Latest VHD should have the untar, older should have the tgz. And who knows will have neither. 
 installCNI() {
-    # install cri using components.json
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
+        if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
+            CNI_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v${packageVersion}-linux-${CPU_ARCH}"
+            oras pull $CNI_DOWNLOAD_URL -o $CNI_DOWNLOADS_DIR
+            mv "${CNI_DOWNLOADS_DIR}/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz" "${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
+        else
+            echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
+            # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
+            # definitely not handling arm here.
+            retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+            return 
+        fi
+        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+        return
+    fi
+   
+    #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    # vars needed for components.json extraction
+    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
@@ -369,28 +393,23 @@ installCNI() {
     fi
     PACKAGE_VERSIONS=()
     returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
-
-    if [[ ${#PACKAGE_VERSIONS[@]} -ne 1 ]]; then
+    
+    #should change to ne
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
-    if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
-        CNI_DOWNLOAD_URL="mcr.microsoft.com/oss/binaries/containernetworking/cni-plugins:v${packageVersion}-linux-${CPU_ARCH}"
-        oras pull $CNI_DOWNLOAD_URL -o $CNI_DOWNLOADS_DIR
-        local downloaded_file="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz" 
-        mv "${CNI_DOWNLOADS_DIR}/${downloaded_file}" "${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
-    else
-        CNI_DOWNLOAD_TMP="${CNI_DOWNLOADS_DIR}/refcni.tar.gz"
-        CNI_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cni-plugins/v${packageVersion}/binaries/cni-plugins-linux-${CPU_ARCH}-v${packageVersion}.tgz"
-        retrycmd_get_tarball 120 5 "$CNI_DOWNLOAD_TMP $CNI_DOWNLOAD_URL" || exit
+    # Is there a ${arch} variable I can use instead of the iff
+    if [[ $(isARM64) == 1 ]]; then 
+        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
+    else 
+        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
     fi
-    tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
-
-    CNI_DIR_TMP="cni-plugins-linux-${CPU_ARCH}-v${packageVersion}"    
+    
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        # not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         echo "CNI tarball should already be unzipped by components.json"
@@ -422,7 +441,7 @@ extractKubeBinaries() {
     local kube_binary_url="$2"
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
-
+    
     if ["${BLOCK_OUTBOUND_NETWORK:-false}" = "true"]; then
         local kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v${k8s_version}-linux-${CPU_ARCH}"
     fi
