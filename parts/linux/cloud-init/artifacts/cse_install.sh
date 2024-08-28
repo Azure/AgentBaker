@@ -442,7 +442,7 @@ extractKubeBinaries() {
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
     
-    if ["${BLOCK_OUTBOUND_NETWORK:-false}" = "true"]; then
+    if [ "${BLOCK_OUTBOUND_NETWORK:-false}" = "true" ]; then
         local kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v${k8s_version}-linux-${CPU_ARCH}"
     fi
 
