@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# TODO: assert required variables are set
 required_env_vars=(
   "SIG_IMAGE_NAME"
-  "SUBSCRIPTION_ID"
   "AZURE_RESOURCE_GROUP_NAME"
   "CAPTURED_SIG_VERSION"
   "ENVIRONMENT"
+  "SIG_GALLERY_NAME"
   "OS_VERSION"
+  "SIG_IMAGE_NAME"
+  "SIG_VERSION"
 )
 
 for v in "${required_env_vars[@]}"; do
@@ -36,10 +37,6 @@ retrycmd_if_failure() {
   echo "##[endgroup]$TARGET" >> ${TARGET}-output.txt
   cat ${TARGET}-output.txt && rm ${TARGET}-output.txt
 }
-
-if [[ -z "$SIG_GALLERY_NAME" ]]; then
-  SIG_GALLERY_NAME="PackerSigGalleryEastUS"
-fi
 
 # Always run cleanup
 SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh")
