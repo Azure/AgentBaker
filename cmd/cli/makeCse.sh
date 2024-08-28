@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+export fqdn=aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io
 export subID=subID
 export tenantId=tenantId
 export orchestratorVersion=1.30.3
