@@ -85,6 +85,7 @@
         "parts/linux/cloud-init/artifacts/test_components_simple.json"
       ],
       "matchStringsStrategy": "any",
+      "packageName": "moby-containerd",
       "matchStrings": ["\"versions\": \\[\\n\\s*{\"version\": \"(?<currentValue>.*)\"},\\n\\s*{\"version\": \".*\"}\\n\\s*\\]"],
       "autoReplaceStringTemplate": "\"versions\": [\n    {\"version\": \"{{{newValue}}}\"},\n    {\"version\": \"{{{currentValue}}}\"}\n]",
       "datasourceTemplate": "custom.deb2204",
