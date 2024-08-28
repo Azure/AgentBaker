@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: assert required variables are set
+
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
   echo "##[group]$TARGET" >> ${TARGET}-output.txt
@@ -24,7 +26,8 @@ if [[ -z "$SIG_GALLERY_NAME" ]]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 fi
 
-SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh") # Always run cleanup
+# Always run cleanup
+SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh")
 
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show \
@@ -40,20 +43,23 @@ if [ -z "${SIG_VERSION}" ]; then
   exit $?
 fi
 
+# Setup tests
 if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
   SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 else
   echo -e "\n\nSkipping tests for CVM 20.04"
 fi
 
-if [ "$OS_VERSION" != "18.04" ]; then
+# Setup scanning
+echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
+if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
+  echo -e "Running scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
-  # 18.04 VMs don't have access to new enough 'az' versions to be able to run the az commands in vhd-scanning-vm-exe.sh
-  echo -e "\n\nSkipping scanning for 18.04"
+  echo -e "Skipping scanning step"
 fi
 
-echo -e "Running the following scripts: ${SCRIPT_ARRAY[@]}\n"
+echo -e "\nRunning the following scripts: ${SCRIPT_ARRAY[@]}\n"
 declare -A SCRIPT_PIDS
 for SCRIPT in "${SCRIPT_ARRAY[@]}"; do
   retrycmd_if_failure 2 3 "${SCRIPT}" &
