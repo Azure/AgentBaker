@@ -64,13 +64,12 @@
       "vtpm_enabled": true,
       "security_type": "ConfidentialVM",
       "shared_image_gallery_destination": {
-        "specialized": true,
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
         "replication_regions": [
-          "eastus", "westus"
+          "{{user `location`}}"
         ]
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
