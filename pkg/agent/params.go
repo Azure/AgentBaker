@@ -231,7 +231,9 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		certificateProfile := properties.CertificateProfile
 		if certificateProfile != nil {
+			// TODO(cameissner): do we need to keep this around for windows?
 			addSecret(parametersMap, "apiServerCertificate", certificateProfile.APIServerCertificate, true)
+
 			addSecret(parametersMap, "caCertificate", certificateProfile.CaCertificate, true)
 			addSecret(parametersMap, "clientCertificate", certificateProfile.ClientCertificate, true)
 			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)

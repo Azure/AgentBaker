@@ -17,7 +17,6 @@ KUBE_BINARY_URL={{.KubeBinaryConfig.GetKubeBinaryUrl}}
 CUSTOM_KUBE_BINARY_URL={{.KubeBinaryConfig.GetCustomKubeBinaryUrl}}
 PRIVATE_KUBE_BINARY_URL="{{.KubeBinaryConfig.GetPrivateKubeBinaryUrl}}"
 KUBEPROXY_URL={{.GetKubeProxyUrl}}
-APISERVER_PUBLIC_KEY={{.ApiServerConfig.GetApiServerPublicKey}}
 SUBSCRIPTION_ID={{.AuthConfig.GetSubscriptionId}}
 RESOURCE_GROUP={{.ClusterConfig.GetResourceGroup}}
 LOCATION={{.ClusterConfig.GetLocation}}

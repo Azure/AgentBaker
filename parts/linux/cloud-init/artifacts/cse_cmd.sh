@@ -18,7 +18,6 @@ KUBE_BINARY_URL={{GetParameter "kubeBinaryURL"}}
 CUSTOM_KUBE_BINARY_URL={{GetParameter "customKubeBinaryURL"}}
 PRIVATE_KUBE_BINARY_URL="{{GetLinuxPrivatePackageURL}}"
 KUBEPROXY_URL={{GetParameter "kubeProxySpec"}}
-APISERVER_PUBLIC_KEY={{GetParameter "apiServerCertificate"}}
 SUBSCRIPTION_ID={{GetVariable "subscriptionId"}}
 RESOURCE_GROUP={{GetVariable "resourceGroup"}}
 LOCATION={{GetVariable "location"}}
