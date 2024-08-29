@@ -1,7 +1,15 @@
 {
-  "packageName": "moby-containerd",
-  "versions": [
-    {"version": "1.3.0"},
-    {"version": "1.2.9"}
-  ]
+  "Versions_test": [
+              {
+                "aksVersion": "1.30",
+                "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
+                "latestVersion": "1.3.17",
+                "secondLatestVersion": "1.3.16"     
+              },
+              {
+                "aksVersion": "1.29",
+                "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
+                "latestVersion": "1.3.20"   
+              }
+            ]
 }
