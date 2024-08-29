@@ -63,11 +63,6 @@
                 "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
                 "latestVersion": "1.2.99",
                 "secondLatestVersion": "1.2.98"     
-              },
-              {
-                "aksVersion": "1.29",
-                "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
-                "latestVersion": "1.2.20"   
               }
             ]
           },
