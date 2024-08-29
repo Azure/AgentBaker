@@ -68,7 +68,7 @@
               {
                 "aksVersion": "1.29",
                 "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
-                "latestVersion": "1.3.20"   
+                "latestVersion": "1.2.20"   
               }
             ]
           },
