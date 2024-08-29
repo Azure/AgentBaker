@@ -76,8 +76,7 @@
         "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\\S*\\s*\"secondLatestVersion\".*"
       ],
       "datasourceTemplate": "custom.deb2204",
-      "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22\\.04\",\n                \"latestVersion\": \"{{{newValue}}}\",\n                \"secondLatestVersion\": \"{{{currentValue}}}\""
+      "versioningTemplate": "deb"
     }
   ],
   "customDatasources": {
