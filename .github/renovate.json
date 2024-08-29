@@ -77,7 +77,7 @@
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"latestVersion\": \"{{{newValue}}}\",\n\"secondLatestVersion\": \"{{{currentValue}}}\""
+      "autoReplaceStringTemplate": "\"latestVersion\": \"1.999.1\""
     }
   ],
   "customDatasources": {
