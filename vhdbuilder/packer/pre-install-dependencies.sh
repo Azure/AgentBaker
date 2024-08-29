@@ -2,6 +2,8 @@
 
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
 
@@ -22,7 +24,6 @@ source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
 
-set_script_name
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
