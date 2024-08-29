@@ -18,13 +18,13 @@ import (
 func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	switch e2eMode {
 	case "coverage":
-		return getNodeBootstrappingForCoverage(ctx, nbc)
+		return getNodeBootstrappingForCoverage(nbc)
 	default:
 		return getNodeBootstrappingForValidation(ctx, nbc)
 	}
 }
 
-func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForCoverage(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	payload, err := json.Marshal(nbc)
 	if err != nil {
 		log.Fatalf("failed to marshal nbc, error: %s", err)
