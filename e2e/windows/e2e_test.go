@@ -96,8 +96,6 @@ func TestE2EWindows(t *testing.T) {
 
 	config.ContainerService.Properties.CertificateProfile.CaCertificate =
 		decodeCert(config.ContainerService.Properties.CertificateProfile.CaCertificate)
-	config.ContainerService.Properties.CertificateProfile.APIServerCertificate =
-		decodeCert(config.ContainerService.Properties.CertificateProfile.APIServerCertificate)
 	config.ContainerService.Properties.CertificateProfile.ClientPrivateKey =
 		decodeCert(config.ContainerService.Properties.CertificateProfile.ClientPrivateKey)
 	config.ContainerService.Properties.CertificateProfile.ClientCertificate =

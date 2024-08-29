@@ -459,6 +459,9 @@ type CertificateProfile struct {
 	// CaCertificate is the certificate authority certificate.
 	CaCertificate string `json:"caCertificate,omitempty" conform:"redact"`
 	// ApiServerCertificate is the rest api server certificate, and signed by the CA.
+	// NOTE: we are no longer using this field, though we will keep it in the datamodel
+	// for now until we're sure we won't need it later.
+	// TODO(cameissner): remove once we're comfortable
 	APIServerCertificate string `json:"apiServerCertificate,omitempty" conform:"redact"`
 	// ClientCertificate is the certificate used by the client kubelet services and signed by the CA.
 	ClientCertificate string `json:"clientCertificate,omitempty" conform:"redact"`
