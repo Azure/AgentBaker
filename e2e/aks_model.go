@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 )
 
@@ -49,7 +49,8 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 				},
 			},
 			AutoUpgradeProfile: &armcontainerservice.ManagedClusterAutoUpgradeProfile{
-				UpgradeChannel: to.Ptr(armcontainerservice.UpgradeChannelNodeImage),
+				NodeOSUpgradeChannel: to.Ptr(armcontainerservice.NodeOSUpgradeChannelNodeImage),
+				UpgradeChannel:       to.Ptr(armcontainerservice.UpgradeChannelNone),
 			},
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
