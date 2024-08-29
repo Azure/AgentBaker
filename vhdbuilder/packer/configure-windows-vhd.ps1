@@ -793,7 +793,9 @@ function Get-LatestWindowsDefenderPlatformUpdate {
     $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
  
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
-    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+    $doc = New-Object xml
+    $doc.Load("$global:defenderUpdateInfoUrl")
+    $latestDefenderProductVersion = $doc.versions.platform
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
