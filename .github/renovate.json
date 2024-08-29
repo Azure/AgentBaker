@@ -73,7 +73,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*"
+        "renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]\\}"
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
