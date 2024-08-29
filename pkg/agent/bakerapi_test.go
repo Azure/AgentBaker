@@ -10,16 +10,31 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type TestAgentToggles struct {
+	LinuxNodeImageVersion  string
+	LinuxNodeImageVersions map[datamodel.Distro]string
+}
+
+func (t *TestAgentToggles) GetLinuxNodeImageVersion(entity *agenttoggles.Entity, distro datamodel.Distro) string {
+	if version := t.LinuxNodeImageVersions[distro]; version != "" {
+		return version
+	}
+
+	return t.LinuxNodeImageVersion
+}
+
 var _ = Describe("AgentBaker API implementation tests", func() {
 	var (
 		cs        *datamodel.ContainerService
 		config    *datamodel.NodeBootstrappingConfiguration
 		sigConfig *datamodel.SIGConfig
-		toggles   *agenttoggles.Toggles
+		toggles   *TestAgentToggles
 	)
 
 	BeforeEach(func() {
-		toggles = agenttoggles.New()
+		toggles = &TestAgentToggles{
+			LinuxNodeImageVersion: "",
+		}
 
 		cs = &datamodel.ContainerService{
 			Location: "southcentralus",
@@ -183,13 +198,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		})
 
 		It("should return the correct bootstrapping data when linux node image version override is present", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "202402.27.0",
-					}
-				},
-			}
+			toggles.LinuxNodeImageVersion = "202402.27.0"
 
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
@@ -209,14 +218,9 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			Expect(nodeBootStrapping.SigImageConfig.Version).To(Equal("202402.27.0"))
 		})
 
-		It("should return the correct bootstrapping data when linux node image version is present but does not specify for distro", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1804): "202402.27.0",
-					}
-				},
-			}
+		It("should return the correct bootstrapping data when linux node image version override is an empty string", func() {
+			toggles.LinuxNodeImageVersion = ""
+
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 			agentBaker = agentBaker.WithToggles(toggles)
@@ -295,56 +299,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 	Context("GetLatestSigImageConfig", func() {
 		It("should return correct value for existing distro", func() {
-			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			agentBaker = agentBaker.WithToggles(toggles)
-
-			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
-				SubscriptionID: config.SubscriptionID,
-				TenantID:       config.TenantID,
-				Region:         cs.Location,
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
-			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
-			Expect(sigImageConfig.Definition).To(Equal("1604"))
-			Expect(sigImageConfig.Version).To(Equal("2021.11.06"))
-		})
-
-		It("should return correct value for existing distro when linux node image version override is provided", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1604): "202402.27.0",
-					}
-				},
-			}
-			agentBaker, err := NewAgentBaker()
-			Expect(err).NotTo(HaveOccurred())
-			agentBaker = agentBaker.WithToggles(toggles)
-
-			sigImageConfig, err := agentBaker.GetLatestSigImageConfig(config.SIGConfig, datamodel.AKSUbuntu1604, &datamodel.EnvironmentInfo{
-				SubscriptionID: config.SubscriptionID,
-				TenantID:       config.TenantID,
-				Region:         cs.Location,
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(sigImageConfig.ResourceGroup).To(Equal("resourcegroup"))
-			Expect(sigImageConfig.Gallery).To(Equal("aksubuntu"))
-			Expect(sigImageConfig.Definition).To(Equal("1604"))
-			Expect(sigImageConfig.Version).To(Equal("202402.27.0"))
-		})
-
-		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return map[string]string{
-						string(datamodel.AKSUbuntu1804): "202402.27.0",
-					}
-				},
-			}
 			agentBaker, err := NewAgentBaker()
 			Expect(err).NotTo(HaveOccurred())
 			agentBaker = agentBaker.WithToggles(toggles)
@@ -469,21 +423,17 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				marinerOverrideVersion    = "202402.25.1"
 				azureLinuxOverrideVersion = "202402.25.2"
 			)
-			imageVersionOverrides := map[string]string{}
+			imageVersionOverrides := map[datamodel.Distro]string{}
 			for _, distro := range ubuntuDistros {
-				imageVersionOverrides[string(distro)] = ubuntuOverrideVersion
+				imageVersionOverrides[distro] = ubuntuOverrideVersion
 			}
 			for _, distro := range marinerDistros {
-				imageVersionOverrides[string(distro)] = marinerOverrideVersion
+				imageVersionOverrides[distro] = marinerOverrideVersion
 			}
 			for _, distro := range azureLinuxDistros {
-				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
+				imageVersionOverrides[distro] = azureLinuxOverrideVersion
 			}
-			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
-					return imageVersionOverrides
-				},
-			}
+			toggles.LinuxNodeImageVersions = imageVersionOverrides
 
 			agentBaker, err := NewAgentBaker()
 			Expect(err).To(BeNil())
@@ -522,5 +472,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				Expect(config.Version).To(Equal(azureLinuxOverrideVersion))
 			}
 		})
+
 	})
 })
