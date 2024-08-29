@@ -73,11 +73,11 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*\"secondLatestVersion\":\\s*\"(?<depName>[^\"]+)\""
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*\"secondLatestVersion\":\\s*\"(?<registryUrl>[^\"]+)\""
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22.04\",\n\"latestVersion\": \"{{{newVersion}}}\",{{#unless depName}}\n\"secondLatestVersion\": \"{{{currentValue}}}{{/unless}}\""
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22.04\",\n\"latestVersion\": \"{{{newVersion}}}\",{{#unless registryUrl}}\n\"secondLatestVersion\": \"{{{currentValue}}}{{/unless}}\""
     }
   ],
   "customDatasources": {
