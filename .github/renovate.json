@@ -77,7 +77,7 @@
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name=moby-containerd os=ubuntu release=22\\.04\",\n                \"latestVersion\": \"{{{newVersion}}}\",\n                \"secondLatestVersion\": \"{{{currentValue}}}\""
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22\\.04\",\n                \"latestVersion\": \"{{{newValue}}}\",\n                \"secondLatestVersion\": \"{{{currentValue}}}\""
     }
   ],
   "customDatasources": {
