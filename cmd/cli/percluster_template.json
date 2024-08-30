@@ -7,7 +7,7 @@
         "secret": "${aadClientSecret}"
       },
       "orchestratorProfile": {
-        "orchestratorVersion": "${orchestratorVersion}",
+        "orchestratorVersion": "${KUBERNETES_VERSION}",
         "caCertificate": "${caCrt}",
         "apiServerCertificate": "${apiserverCrt}",
         "clientPrivateKey": "${clientKey}"
