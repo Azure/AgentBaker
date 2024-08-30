@@ -38,13 +38,7 @@ export WINDOWS_GPU_DRIVER_SUFFIX=
 export WINDOWS_GPU_DRIVER_URL=""
 export CONFIG_GPU_DRIVER_IF_NEEDED=false
 
-envsubst < percluster_template.json > _percluster_config.json
-
-jq -s '.[0] * .[1]' nodebootstrapping_static.json _percluster_config.json  > _nodebootstrapping-config.json
-
-go run main.go getCustomScript < _nodebootstrapping-config.json > CustomScriptExtension.bat
-go run main.go getCustomScriptData < _nodebootstrapping-config.json | base64 --decode > CustomData.bin
+envsubst < percluster_template.json | jq -s '.[0] * .[1]' nodebootstrapping_static.json - | go run main.go getCustomScript  > CustomScriptExtension.bat
+envsubst < percluster_template.json | jq -s '.[0] * .[1]' nodebootstrapping_static.json - | go run main.go getCustomScriptData | base64 --decode > CustomData.bin
 
 # scp CustomScriptExtension.bat CustomData.bin tim@timmy-win-vm.australiaeast.cloudapp.azure.com:/AzureData/
-
-rm _percluster_config.json _nodebootstrapping-config.json
