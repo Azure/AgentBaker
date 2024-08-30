@@ -40,7 +40,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	require.NoError(t, err, vmssName, opts)
 
 	if isAzureCNI {
-		err = addPodIPConfigsForAzureCNI(ctx, &model, vmssName, opts)
+		err = addPodIPConfigsForAzureCNI(&model, vmssName, opts)
 		require.NoError(t, err)
 	}
 
@@ -115,7 +115,7 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenar
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
-func addPodIPConfigsForAzureCNI(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
+func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
 	maxPodsPerNode, err := opts.clusterConfig.MaxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)

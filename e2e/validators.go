@@ -27,7 +27,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 
 func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 	keysToCheck := make([]string, len(customSysctls))
-	for k, _ := range customSysctls {
+	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
 	// regex used in sed command to remove extra spaces between two numerical values, used to verify correct values for
@@ -199,7 +199,7 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 		Command:     command,
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
-				return fmt.Errorf("service kill and check terminated with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s\n", code, command, stdout, stderr)
+				return fmt.Errorf("service kill and check terminated with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s", code, command, stdout, stderr)
 			}
 			return nil
 		},
@@ -209,7 +209,7 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *LiveVMValidator {
 	steps := []string{
 		// Verify the service is active - print the state then verify so we have logs
-		fmt.Sprintf("%s", commandToExecute),
+		fmt.Sprint(commandToExecute),
 	}
 
 	command := makeExecutableCommand(steps)
@@ -219,10 +219,10 @@ func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *
 		Command:     command,
 		Asserter: func(code, stdout, stderr string) error {
 			if !strings.Contains(stderr, expectedOutput) {
-				return fmt.Errorf("'%s' output did not contain expected string Stdout:\n%s\n\n Stderr:\n%s\n", command, stdout, stderr)
+				return fmt.Errorf("'%s' output did not contain expected string Stdout:\n%s\n\n Stderr:\n%s", command, stdout, stderr)
 			}
 			if code != "0" {
-				return fmt.Errorf("command failed with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s\n", code, command, stdout, stderr)
+				return fmt.Errorf("command failed with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s", code, command, stdout, stderr)
 			}
 			return nil
 		},
@@ -301,12 +301,12 @@ func kubeletNodeIPValidator() *LiveVMValidator {
 			// Search for "--node-ip" flag and its value.
 			matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
 			if matches == nil || len(matches) < 2 {
-				return fmt.Errorf("Could not find kubelet flag --node-ip")
+				return fmt.Errorf("could not find kubelet flag --node-ip")
 			}
 
 			ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
 			if len(ipAddresses) == 0 || len(ipAddresses) > 2 {
-				return fmt.Errorf("Expected one or two --node-ip addresses, but got %d", len(ipAddresses))
+				return fmt.Errorf("expected one or two --node-ip addresses, but got %d", len(ipAddresses))
 			}
 
 			// Check that each IP is a valid address.
