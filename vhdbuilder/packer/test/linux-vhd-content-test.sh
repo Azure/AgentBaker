@@ -933,7 +933,7 @@ testContainerImagePrefetchScript() {
 testBccTools () {
   for line in '- bcc-tools' '- libbcc-examples'; do
     if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
-      echo "BCC tools were not successfully downloaded."
+      err "BCC tools were not successfully downloaded."
       return 1
     fi
   done

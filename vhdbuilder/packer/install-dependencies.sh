@@ -363,20 +363,20 @@ fi
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+#installBpftrace
+#echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
-PRESENT_DIR=$(pwd)
+#PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-(
-  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+#(
+  #cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
-  installBcc
+  #installBcc
 
-  exit $?
-) > /var/log/bcc_installation.log 2>&1 &
+  #exit $?
+#) > /var/log/bcc_installation.log 2>&1 &
 
-BCC_PID=$!
+#BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
@@ -547,18 +547,18 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
 
-wait $BCC_PID
-BCC_EXIT_CODE=$?
+#wait $BCC_PID
+#BCC_EXIT_CODE=$?
 
-if [ $BCC_EXIT_CODE -eq 0 ]; then
-  echo "Bcc tools successfully installed."
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - bcc-tools
-  - libbcc-examples
-EOF
-else
-  echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
-fi
+#if [ $BCC_EXIT_CODE -eq 0 ]; then
+  #echo "Bcc tools successfully installed."
+  #cat << EOF >> ${VHD_LOGS_FILEPATH}
+  #- bcc-tools
+  #- libbcc-examples
+#EOF
+#else
+  #echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
+#fi
 capture_benchmark "finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
