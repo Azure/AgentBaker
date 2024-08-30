@@ -367,7 +367,7 @@ installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
 
 PRESENT_DIR=$(pwd)
-# Run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
 (
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
 
