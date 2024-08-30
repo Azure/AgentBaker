@@ -373,7 +373,7 @@ PRESENT_DIR=$(pwd)
 
   installBcc
 
-  exit 1
+  exit $?
 ) > /var/log/bcc_installation.log 2>&1 &
 
 BCC_PID=$!
