@@ -9,11 +9,13 @@
         "clientId": "${aadClientId}",
         "secret": "${aadClientSecret}"
       },
-      "orchestratorProfile": {
-        "orchestratorVersion": "${KUBERNETES_VERSION}",
+      "certificateProfile": {
         "caCertificate": "${caCrt}",
         "apiServerCertificate": "${apiserverCrt}",
         "clientPrivateKey": "${clientKey}"
+      },
+      "orchestratorProfile": {
+        "orchestratorVersion": "${KUBERNETES_VERSION}"
       },
       "hostedMasterProfile": {
         "fqdn": "${fqdn}"
