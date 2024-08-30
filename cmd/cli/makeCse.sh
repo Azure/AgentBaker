@@ -38,7 +38,10 @@ export WINDOWS_GPU_DRIVER_SUFFIX=
 export WINDOWS_GPU_DRIVER_URL=""
 export CONFIG_GPU_DRIVER_IF_NEEDED=false
 
+export adminUserName=tim
+export adminPublicKeyData="public key data"
+
 envsubst < percluster_template.json | jq -s '.[0] * .[1]' nodebootstrapping_static.json - | go run main.go getCustomScript  > CustomScriptExtension.bat
 envsubst < percluster_template.json | jq -s '.[0] * .[1]' nodebootstrapping_static.json - | go run main.go getCustomScriptData | base64 --decode > CustomData.bin
 
-# scp CustomScriptExtension.bat CustomData.bin tim@timmy-win-vm.australiaeast.cloudapp.azure.com:/AzureData/
+#scp CustomScriptExtension.bat CustomData.bin tim@timmy-win-vm.australiaeast.cloudapp.azure.com:/AzureData/

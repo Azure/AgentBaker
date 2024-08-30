@@ -1,4 +1,7 @@
 {
+  "K8sComponents": {
+    "WindowsPackageURL": "${kubeBinariesSASURL}"
+  },
   "ContainerService": {
     "properties": {
       "clusterID": "${clusterID}",
@@ -18,11 +21,18 @@
       "windowsProfile": {
         "cseScriptsPackageURL": "${csePackageURL}",
         "gpuDriverUrl": "${WINDOWS_GPU_DRIVER_URL}"
+      },
+      "linuxProfile": {
+        "adminUsername": "${adminUserName}",
+        "ssh": {
+          "publicKeys": [
+            {
+              "keyData": "${adminPublicKeyData}"
+            }
+          ]
+        }
       }
     }
-  },
-  "K8sComponents": {
-    "WindowsPackageURL": "${windowsPackageURL}"
   },
   "ConfigGPUDriverIfNeeded": ${CONFIG_GPU_DRIVER_IF_NEEDED},
   "TenantID": "${tenantId}",
