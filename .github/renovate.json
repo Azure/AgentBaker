@@ -77,7 +77,7 @@
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22.04\",\n\"latestVersion\": \"{{{newVersion}}}\"{{#if depType}},\n\"secondLatestVersion\": \"{{{currentValue}}}{{/if}}\""
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22.04\",\n                \"latestVersion\": \"{{{newVersion}}}\"{{#if depType}},\n                \"secondLatestVersion\": \"{{{currentValue}}}{{/if}}\""
     }
   ],
   "customDatasources": {
