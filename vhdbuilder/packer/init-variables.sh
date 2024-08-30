@@ -160,7 +160,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		fi
 		if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
 			SIG_IMAGE_NAME+="Specialized"
-	  fi
+		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
 		echo "Using provided SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}"
