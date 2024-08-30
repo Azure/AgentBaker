@@ -7,7 +7,7 @@ retrycmd_if_failure() {
         "${@}" && break || \
         echo "Failed to execute command \"$@\""
         if [ $i -eq $retries ]; then
-            echo "ERROR: Exhausted all retries (${i}/{$retries}), forcing a failure..."
+            echo "ERROR: Exhausted all retries (${i}/${retries}), forcing a failure..."
             return 1
         else
             echo "$(($retries - $i)) retries remaining"

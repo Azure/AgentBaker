@@ -218,56 +218,40 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
-        echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
-    displayName: 'Check if OS version is not 18.04'
   - task: CopyFiles@2
-    condition: eq(variables['IS_NOT_1804'], 'true')
+    condition: ne(variables['OS_VERSION'], '18.04')
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-report.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy trivy report
+    displayName: Add trivy report to artifact bundle
   - task: CopyFiles@2
-    condition: eq(variables['IS_NOT_1804'], 'true')
+    condition: ne(variables['OS_VERSION'], '18.04')
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-images-table.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy trivy table
-  - task: PublishPipelineArtifact@0
-    inputs:
-      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-      targetPath: 'release-notes.txt'
-    displayName: publish release notes
+    displayName: Add trivy table to artifact bundle
   - task: CopyFiles@2
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'release-notes.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy release notes
-  - task: PublishPipelineArtifact@0
+    displayName: Add release notes to artifact bundle
+  - task: CopyFiles@2
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
-      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-      targetPath: 'image-bom.json'
-    displayName: publish container image list
-  - task: PublishPipelineArtifact@1
-    inputs:
-      artifactName: 'build-performance-data-${{ parameters.artifactName }}'
-      targetPath: 'vhd-build-performance-data.json'
-    displayName: Publish Build Performance Data
-    condition: succeeded()
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'vhd-build-performance-data.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+    displayName: Add perf data to artifact bundle
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'image-bom.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy image bom
+    displayName: Add image BOM to artifact bundle
   - bash: |
       echo MODE=$(MODE) && \
       captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
@@ -317,32 +301,16 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-  - task: PublishPipelineArtifact@1
-    displayName: Publish publishing-info
-    inputs:
-      artifactName: 'publishing-info-${{ parameters.artifactName }}'
-      targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-    displayName: Copy vhd publishing info
-  - task: UniversalPackages@0
-    displayName: Universal Publish
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-    inputs:
-      command: publish
-      publishDirectory: 'vhd-publishing-info.json'
-      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
-      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
-      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
-      versionOption: minor
+    displayName: Add VHD publishing info to artifact bundle
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: '${{ parameters.artifactName }}'
       targetPath: '$(Build.ArtifactStagingDirectory)'
-    displayName: Publish bulk artifacts # these "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
+    displayName: Publish artifact bundle
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
