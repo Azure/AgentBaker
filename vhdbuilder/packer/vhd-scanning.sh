@@ -85,6 +85,8 @@ TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 
 # Extract date, revision from build number
+echo $BUILD_RUN_NUMBER
+echo "heree\n"
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
 az vm run-command invoke \
     --command-id RunShellScript \
