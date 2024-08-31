@@ -52,7 +52,7 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 	if err != nil {
 		return nil, err
 	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
+	nodeBootstrapping, err := ab.GetNodeBootstrappingV2(ctx, nbc)
 	if err != nil {
 		return nil, err
 	}
