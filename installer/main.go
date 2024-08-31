@@ -56,6 +56,7 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 		return fmt.Errorf("cse script: %w", err)
 	}
 	slog.Info("Running command", "command", cse)
+	// TODO: add Windows support
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
 	cmd.Dir = "/"
 	cmd.Stdout = os.Stdout
