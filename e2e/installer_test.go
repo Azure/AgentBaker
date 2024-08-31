@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// test installer binary without rebuilding VHD images.
 func Test_ubuntu2204Installer(t *testing.T) {
 	if _, ok := os.LookupEnv("ENABLE_INSTALLER_TEST"); !ok {
 		t.Skip("ENABLE_INSTALLER_TEST is not set")
