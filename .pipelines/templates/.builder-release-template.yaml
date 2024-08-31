@@ -38,7 +38,7 @@ steps:
         exit 1
       fi
       echo "Found source components.json to use for overrides: ${COMPONENT_JSON_SRC}"
-      
+
       echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
       cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
     displayName: Apply Overrides
@@ -54,19 +54,19 @@ steps:
       command: download
       vstsFeed: ASMPackages
       vstsFeedPackage: asc-baseline
-      vstsPackageVersion: '1.1.0-268'
+      vstsPackageVersion: "1.1.0-268"
       downloadDirectory: vhdbuilder/packer
   - task: DownloadPipelineArtifact@2
-    displayName: 'Download Kata CC UVM artifact'
+    displayName: "Download Kata CC UVM artifact"
     inputs:
       source: specific
       project: CloudNativeCompute
       pipeline: 318279
       specificBuildWithTriggering: true
       allowPartiallySucceededBuilds: true
-      buildVersionToDownload: 'latest'
-      downloadType: 'single'
-      artifactName: 'drop_container_job_sign_uvm'
+      buildVersionToDownload: "latest"
+      downloadType: "single"
+      artifactName: "drop_container_job_sign_uvm"
       itemPattern: |
         **/kata-containers-igvm-debug.img**
         **/igvm-measurement**
@@ -149,6 +149,9 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
+  - displayName: Build Installer
+    bash: |
+      ./installer/build.sh
   - bash: |
       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
@@ -218,53 +221,53 @@ steps:
     displayName: Test, Scan, and Cleanup
   - task: Bash@3
     inputs:
-      targetType: 'inline'
+      targetType: "inline"
       script: |
         IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
         echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
-    displayName: 'Check if OS version is not 18.04'
+    displayName: "Check if OS version is not 18.04"
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'trivy-report.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      SourceFolder: "$(System.DefaultWorkingDirectory)"
+      Contents: "trivy-report.json"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)"
     displayName: Copy trivy report
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'trivy-images-table.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      SourceFolder: "$(System.DefaultWorkingDirectory)"
+      Contents: "trivy-images-table.txt"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)"
     displayName: Copy trivy table
   - task: PublishPipelineArtifact@0
     inputs:
-      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-      targetPath: 'release-notes.txt'
+      artifactName: "vhd-release-notes-${{ parameters.artifactName }}"
+      targetPath: "release-notes.txt"
     displayName: publish release notes
   - task: CopyFiles@2
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'release-notes.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      SourceFolder: "$(System.DefaultWorkingDirectory)"
+      Contents: "release-notes.txt"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)"
     displayName: Copy release notes
   - task: PublishPipelineArtifact@0
     inputs:
-      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-      targetPath: 'image-bom.json'
+      artifactName: "vhd-image-bom-${{ parameters.artifactName }}"
+      targetPath: "image-bom.json"
     displayName: publish container image list
   - task: PublishPipelineArtifact@1
     inputs:
-      artifactName: 'build-performance-data-${{ parameters.artifactName }}'
-      targetPath: 'vhd-build-performance-data.json'
+      artifactName: "build-performance-data-${{ parameters.artifactName }}"
+      targetPath: "vhd-build-performance-data.json"
     displayName: Publish Build Performance Data
     condition: succeeded()
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'image-bom.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      SourceFolder: "$(System.DefaultWorkingDirectory)"
+      Contents: "image-bom.json"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)"
     displayName: Copy image bom
   - bash: |
       echo MODE=$(MODE) && \
@@ -318,29 +321,29 @@ steps:
   - task: PublishPipelineArtifact@1
     displayName: Publish publishing-info
     inputs:
-      artifactName: 'publishing-info-${{ parameters.artifactName }}'
-      targetPath: 'vhd-publishing-info.json'
+      artifactName: "publishing-info-${{ parameters.artifactName }}"
+      targetPath: "vhd-publishing-info.json"
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'vhd-publishing-info.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      SourceFolder: "$(System.DefaultWorkingDirectory)"
+      Contents: "vhd-publishing-info.json"
+      TargetFolder: "$(Build.ArtifactStagingDirectory)"
     displayName: Copy vhd publishing info
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
       command: publish
-      publishDirectory: 'vhd-publishing-info.json'
-      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
-      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
-      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
+      publishDirectory: "vhd-publishing-info.json"
+      vstsFeedPublish: "CloudNativeCompute/AKS-Linux-VHD-Artifacts"
+      vstsFeedPackagePublish: "publishing-info-${{ parameters.artifactName }}"
+      packagePublishDescription: "VHD publishing info ${{ parameters.artifactName }}"
       versionOption: minor
   - task: PublishPipelineArtifact@0
     inputs:
-      artifactName: '${{ parameters.artifactName }}'
-      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: "${{ parameters.artifactName }}"
+      targetPath: "$(Build.ArtifactStagingDirectory)"
     displayName: Publish bulk artifacts # these "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))

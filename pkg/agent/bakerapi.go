@@ -90,7 +90,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingV2(ctx context.Context, co
 	if err != nil {
 		return nil, err
 	}
-	nodeBootstrapping.CSE = "bash -c \"(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && ./installer) > /var/log/azure/installer.log 2>&1" // TODO: simplify this
+	nodeBootstrapping.CSE = "bash -c \"(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && /opt/azure/installer) > /var/log/azure/installer.log 2>&1" // TODO: simplify this
 	nodeBootstrapping.CustomData = ""
 	return nodeBootstrapping, nil
 }
