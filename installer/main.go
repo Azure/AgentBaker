@@ -49,13 +49,14 @@ func run(ctx context.Context) error {
 }
 
 func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {
-	slog.Info("Running provision_start.sh")
-	defer slog.Info("Finished provision_start.sh")
+	// CSEScript can't be logged because it contains sensitive information
+	slog.Info("Running CSE script")
+	defer slog.Info("CSE script finished")
 	cse, err := CSEScript(ctx, config)
 	if err != nil {
 		return fmt.Errorf("cse script: %w", err)
 	}
-	slog.Info("Running command", "command", cse)
+
 	// TODO: add Windows support
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
 	cmd.Dir = "/"
