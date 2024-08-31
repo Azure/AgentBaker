@@ -40,6 +40,8 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to decode config file: %w", err)
 	}
 
+	// TODO: apply UserData from NodeBootstrappingConfiguration or delete it completely
+
 	if err := provisionStart(ctx, config); err != nil {
 		return fmt.Errorf("provision start: %w", err)
 	}
@@ -66,6 +68,7 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 	if err != nil {
 		return "", err
 	}
+
 	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, config)
 	if err != nil {
 		return "", err

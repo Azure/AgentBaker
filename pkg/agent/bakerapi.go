@@ -85,6 +85,16 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	return nodeBootstrapping, nil
 }
 
+func (agentBaker *agentBakerImpl) GetNodeBootstrappingV2(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+	nodeBootstrapping, err := agentBaker.GetNodeBootstrapping(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	nodeBootstrapping.CSE = "bash -c \"(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && ./installer) > /var/log/azure/installer.log 2>&1" // TODO: simplify this
+	nodeBootstrapping.CustomData = ""
+	return nodeBootstrapping, nil
+}
+
 func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SIGConfig,
 	distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error) {
 	sigAzureEnvironmentSpecConfig, err := datamodel.GetSIGAzureCloudSpecConfig(sigConfig, envInfo.Region)
