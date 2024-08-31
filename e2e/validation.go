@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -31,8 +32,8 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
-func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, kube *Kubeclient, liveVMValidators []*LiveVMValidator) error {
-	hostPodName, err := getHostNetworkDebugPodName(ctx, kube)
+func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
+	hostPodName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}

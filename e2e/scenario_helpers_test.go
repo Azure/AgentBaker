@@ -138,7 +138,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	require.NoError(t, err)
 
 	require.NoError(t, err, "get vm private IP %v", vmssName)
-	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts.clusterConfig.Kube, opts.scenario.LiveVMValidators)
+	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
 	require.NoError(t, err)
 
 	t.Logf("node %s bootstrapping succeeded!", vmssName)
