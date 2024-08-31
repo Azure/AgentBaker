@@ -93,7 +93,7 @@
     },
     {
       "type": "file",
-      "source": "dist/installer-linux-amd64",
+      "source": "installer/dist/installer-linux-amd64",
       "destination": "/home/packer/installer"
     },
     {
