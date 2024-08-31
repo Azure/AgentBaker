@@ -22,6 +22,7 @@ func Test_ubuntu2204Installer(t *testing.T) {
 	if _, ok := os.LookupEnv("ENABLE_INSTALLER_TEST"); !ok {
 		t.Skip("ENABLE_INSTALLER_TEST is not set")
 	}
+	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
 	cluster, err := ClusterKubenet(context.TODO(), t)
 	require.NoError(t, err)
 	RunScenario(t, &Scenario{
