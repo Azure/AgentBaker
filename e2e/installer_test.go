@@ -10,8 +10,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
@@ -34,42 +32,14 @@ func Test_ubuntu2204Installer(t *testing.T) {
 				containerdVersionValidator("1.7.20-1"),
 				runcVersionValidator("1.1.12-1"),
 			},
-			CSEOverride:        installerScript(context.TODO(), t, cluster.Kube),
+			CSEOverride:        installerScript(context.TODO(), t, cluster),
 			CustomDataOverride: to.Ptr(""),
 		},
 	})
 }
 
-type InstallerConfig struct {
-	Location                       string `json:"Location"`
-	CACertificate                  string `json:"CACertificate"`
-	KubeletClientTLSBootstrapToken string `json:"KubeletClientTLSBootstrapToken"`
-	FQDN                           string `json:"FQDN"`
-}
-
-func installerScript(ctx context.Context, t *testing.T, kube *Kubeclient) string {
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
-	require.NoError(t, err)
-
-	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
-	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
-	require.NoError(t, err)
-	bootstrapToken, err = strconv.Unquote(bootstrapToken)
-	require.NoError(t, err)
-	server, err := extractKeyValuePair("server", bootstrapKubeconfig)
-	require.NoError(t, err)
-	tokens := strings.Split(server, ":")
-	require.Len(t, tokens, 3)
-	fqdn := tokens[1][2:]
-
-	installerConfig := InstallerConfig{
-		CACertificate:                  clusterParams["/etc/kubernetes/certs/ca.crt"],
-		Location:                       config.Config.Location,
-		FQDN:                           fqdn,
-		KubeletClientTLSBootstrapToken: bootstrapToken,
-	}
-
-	installerConfigJSON, err := json.Marshal(installerConfig)
+func installerScript(ctx context.Context, t *testing.T, cluster *Cluster) string {
+	installerConfigJSON, err := json.Marshal(cluster.NodeBootstrappingConfiguration)
 	require.NoError(t, err)
 
 	binary := compileInstaller(t)
