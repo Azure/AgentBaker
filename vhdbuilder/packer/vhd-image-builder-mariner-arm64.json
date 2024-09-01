@@ -105,6 +105,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/cacher/bin/cacher",
+      "destination": "/home/packer/cacher"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/cleanup-vhd.sh",
       "destination": "/home/packer/cleanup-vhd.sh"
     },

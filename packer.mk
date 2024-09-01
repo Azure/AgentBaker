@@ -5,7 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary
+build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary build-cacher-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -123,3 +123,7 @@ build-nbcparser-binary:
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"
 	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"
+
+build-cacher-binary:
+	@echo "${MODE}: Building cacher binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/cacher/cmd/cacher && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o ../../bin/cacher main.go && popd"

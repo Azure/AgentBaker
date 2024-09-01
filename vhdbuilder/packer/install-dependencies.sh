@@ -201,6 +201,14 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
+pushd /opt/azure/containers || exit $?
+  echo "installing packages with cacher binary (not containerd)..."
+  chmod +x ./cacher
+  ./cacher --download-packages --components-path "$COMPONENTS_FILEPATH" || exit $?
+popd || exit $?
+
+echo "installing containerd normally..."
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   #getting metadata for each package
@@ -223,40 +231,6 @@ for p in ${packages[*]}; do
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
-    "cri-tools")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCrictl "${downloadDir}" "${evaluatedURL}"
-        echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
-        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-        CRICTL_VERSION=${version} 
-        CRICTL_VERSIONS=${version}
-      done
-      ;;
-    "azure-cni")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
-        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "cni-plugins")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
-        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "runc")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
-        echo "  - runc version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
     "containerd")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -266,27 +240,6 @@ for p in ${packages[*]}; do
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      ;;
-    "oras")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # ORAS will be used to install other packages for network isolated clusters, it must go first.
-      done
-      ;;
-    "kubernetes-binaries")
-      # kubelet and kubectl
-      # need to cover previously supported version for VMAS scale up scenario
-      # So keeping as many versions as we can - those unsupported version can be removed when we don't have enough space
-      # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
-      # Please do not use the .1 suffix, because that's only for the base image patches
-      # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
-        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
     *)
@@ -327,9 +280,36 @@ fi
 
 KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
-# k8s will use images in the k8s.io namespaces - create it
-ctr namespace create k8s.io
-cliTool="ctr"
+# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
+# Account for possibility that number of cores is 3 or less
+num_proc=$(nproc)
+if [[ $num_proc -gt 3 ]]; then
+  parallel_container_image_pull_limit=$(nproc --ignore=2)
+else
+  parallel_container_image_pull_limit=1
+fi
+echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
+
+pushd /opt/azure/containers || exit $?
+  echo "installing container images with cacher binary..."
+  chmod +x ./cacher
+  ./cacher --pull-images --components-path "$COMPONENTS_FILEPATH" --image-pull-parallelism $parallel_container_image_pull_limit || exit $?
+popd || exit $?
+
+watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
+watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
+watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
+
+# this image will never get pulled, the tag must be the same across different SHAs.
+# it will only ever be upgraded via node image changes.
+# we do this because the image is used to bootstrap custom CA trust when MCR egress
+# may be intercepted by an untrusted TLS MITM firewall.
+watcherStaticImg=${watcherBaseImg//\*/static}
+
+# can't use cliTool because crictl doesn't support retagging.
+retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
+capture_benchmark "pull_and_retag_container_images"
 
 # also pre-download Teleportd plugin for containerd
 downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
@@ -383,66 +363,6 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
-# Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
-# Account for possibility that number of cores is 3 or less
-num_proc=$(nproc)
-if [[ $num_proc -gt 3 ]]; then
-  parallel_container_image_pull_limit=$(nproc --ignore=2)
-else
-  parallel_container_image_pull_limit=1
-fi
-echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
-
-declare -a image_pids=()
-
-ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for imageToBePulled in ${ContainerImages[*]}; do
-  downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
-  amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
-
-  amd64OnlyVersions=""
-  if [[ ${amd64OnlyVersionsStr} != null ]]; then
-    amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
-  fi
-  multiArchVersions=""
-  if [[ ${multiArchVersionsStr} != null ]]; then
-    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-  fi
-
-  if [[ $(isARM64) == 1 ]]; then
-    versions="${multiArchVersions}"
-  else
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
-  fi
-
-  for version in ${versions}; do
-    CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
-    image_pids+=($!)
-    echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
-      wait -n
-    done
-  done
-done
-wait ${image_pids[@]}
-
-watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
-watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
-watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
-
-# this image will never get pulled, the tag must be the same across different SHAs.
-# it will only ever be upgraded via node image changes.
-# we do this because the image is used to bootstrap custom CA trust when MCR egress
-# may be intercepted by an untrusted TLS MITM firewall.
-watcherStaticImg=${watcherBaseImg//\*/static}
-
-# can't use cliTool because crictl doesn't support retagging.
-retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmark "pull_and_retag_container_images"
-
 # IPv6 nftables rules are only available on Ubuntu or Mariner v2
 if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
   systemctlEnableAndStart ipv6_nftables || exit 1
@@ -455,7 +375,7 @@ v0.14.5
 "
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE}
+    pullContainerImage "ctr" ${CONTAINER_IMAGE}
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 done
 

@@ -123,6 +123,8 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
+  CACHER_BINARY_SRC=/home/packer/cacher
+  CACHER_BINARY_DEST=/opt/azure/containers/cacher
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -354,6 +356,9 @@ copyPackerFiles() {
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
+
+  # Copy cacher binary to the appropriate location
+  cpAndMode $CACHER_BINARY_SRC $CACHER_BINARY_DEST 744
 }
 
 cpAndMode() {
