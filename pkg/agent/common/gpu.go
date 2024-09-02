@@ -255,7 +255,6 @@ func GetGPUDriverVersion(size string) string {
 	return nvidia550CudaDriverVersion
 }
 
-//nolint:gochecknoglobals
 //go:embed gpu_drivers.json
 var gpuDriversJSON []byte
 
@@ -264,6 +263,7 @@ type GPUDrivers struct {
 	Grid string `json:"grid"`
 }
 
+//nolint:gochecknoglobals
 var gpuDrivers GPUDrivers
 
 //nolint:gochecknoinits
