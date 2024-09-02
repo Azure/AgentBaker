@@ -12,10 +12,14 @@
       "certificateProfile": {
         "caCertificate": "${caCrt}",
         "apiServerCertificate": "${apiserverCrt}",
-        "clientPrivateKey": "${clientKey}"
+        "clientPrivateKey": "${clientKey}",
+        "clientCertificate": "${clientCertificate}"
       },
       "orchestratorProfile": {
-        "orchestratorVersion": "${KUBERNETES_VERSION}"
+        "orchestratorVersion": "${KUBERNETES_VERSION}",
+        "kubernetesConfig": {
+          "DNSServiceIP": "${DNSServiceIP}"
+        }
       },
       "hostedMasterProfile": {
         "fqdn": "${fqdn}"
