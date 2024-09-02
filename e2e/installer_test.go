@@ -17,10 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// test installer binary without rebuilding VHD images.
-func Test_ubuntu2204Installer(t *testing.T) {
-	if _, ok := os.LookupEnv("ENABLE_INSTALLER_TEST"); !ok {
-		t.Skip("ENABLE_INSTALLER_TEST is not set")
+// test node-bootstrapper binary without rebuilding VHD images.
+func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
+	if _, ok := os.LookupEnv("ENABLE_NODE_BOOTSTRAPPER_TEST"); !ok {
+		t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
 	cluster, err := ClusterKubenet(context.TODO(), t)
@@ -34,33 +34,33 @@ func Test_ubuntu2204Installer(t *testing.T) {
 				containerdVersionValidator("1.7.20-1"),
 				runcVersionValidator("1.1.12-1"),
 			},
-			CSEOverride:        installerScript(context.TODO(), t, cluster),
+			CSEOverride:        CSENodeBootstrapper(context.TODO(), t, cluster),
 			CustomDataOverride: to.Ptr(""),
 		},
 	})
 }
 
-func installerScript(ctx context.Context, t *testing.T, cluster *Cluster) string {
-	installerConfigJSON, err := json.Marshal(cluster.NodeBootstrappingConfiguration)
+func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) string {
+	configJSON, err := json.Marshal(cluster.NodeBootstrappingConfiguration)
 	require.NoError(t, err)
 
-	binary := compileInstaller(t)
-	url, err := config.Azure.UploadAndGetLink(ctx, "installer-"+hashFile(t, binary.Name()), binary)
+	binary := compileNodeBootstrapper(t)
+	url, err := config.Azure.UploadAndGetLink(ctx, "node-bootstrapper-"+hashFile(t, binary.Name()), binary)
 	require.NoError(t, err)
-	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./installer '%s' && chmod +x ./installer && mkdir -p /var/log/azure && ./installer) > /var/log/azure/installer.log 2>&1"`, base64.StdEncoding.EncodeToString(installerConfigJSON), url)
+	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && mkdir -p /var/log/azure && ./node-bootstrapper) > /var/log/azure/node-bootstrapper.log 2>&1"`, base64.StdEncoding.EncodeToString(configJSON), url)
 }
 
-func compileInstaller(t *testing.T) *os.File {
-	cmd := exec.Command("go", "build", "-o", "installer", "-v")
-	cmd.Dir = "../installer"
+func compileNodeBootstrapper(t *testing.T) *os.File {
+	cmd := exec.Command("go", "build", "-o", "node-bootstrapper", "-v")
+	cmd.Dir = "../node-bootstrapper"
 	cmd.Env = append(os.Environ(),
 		"GOOS=linux",
 		"GOARCH=amd64",
 	)
 	log, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(log))
-	t.Logf("Compiled %s", "../installer")
-	f, err := os.Open("../installer/installer")
+	t.Logf("Compiled %s", "../node-bootstrapper")
+	f, err := os.Open("../node-bootstrapper/node-bootstrapper")
 	require.NoError(t, err)
 	return f
 }
