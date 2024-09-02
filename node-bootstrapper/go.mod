@@ -1,4 +1,4 @@
-module github.com/Azure/agentbaker/installer
+module github.com/Azure/agentbaker/node-bootstrapper
 
 go 1.23.0
 

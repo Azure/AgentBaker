@@ -14,17 +14,17 @@ import (
 )
 
 func main() {
-	slog.Info("Installer started")
+	slog.Info("node-bootstrapper started")
 	ctx := context.Background()
 	if err := run(ctx); err != nil {
-		slog.Error("Installer finished with error", "error", err.Error())
+		slog.Error("node-bootstrapper finished with error", "error", err.Error())
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
 		}
 		os.Exit(1)
 	}
-	slog.Info("Installer finished")
+	slog.Info("node-bootstrapper finished")
 }
 
 func run(ctx context.Context) error {

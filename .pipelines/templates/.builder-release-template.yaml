@@ -108,8 +108,8 @@ steps:
     displayName: Set SKU Name
   - bash: |
       ./build.sh
-    displayName: Build Installer
-    workingDirectory: installer
+    displayName: Build node-bootstrapper
+    workingDirectory: node-bootstrapper
   - bash: |
       echo MODE=$(MODE) && \
       docker run --rm \
