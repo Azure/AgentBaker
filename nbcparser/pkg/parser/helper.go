@@ -546,7 +546,7 @@ func getGpuImageSha(vmSize string) string {
 }
 
 func getGpuDriverVersion(vmSize string) string {
-	return common.GetGPUDriverVersion(vmSize)
+	return common.GetNewGPUDriverVersion(vmSize)
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.

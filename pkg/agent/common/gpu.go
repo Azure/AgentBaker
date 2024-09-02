@@ -17,6 +17,9 @@ limitations under the License.
 package common
 
 import (
+	_ "embed"
+	"encoding/json"
+	"log"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -250,6 +253,33 @@ func GetGPUDriverVersion(size string) string {
 		return nvidia470CudaDriverVersion
 	}
 	return nvidia550CudaDriverVersion
+}
+
+//go:embed gpu_drivers.json
+var gpuDriversJSON []byte
+
+type GPUDrivers struct {
+	Cuda string `json:"cuda"`
+	Grid string `json:"grid"`
+}
+
+var gpuDrivers GPUDrivers
+
+func init() {
+	// Parse the embedded JSON file
+	if err := json.Unmarshal(gpuDriversJSON, &gpuDrivers); err != nil {
+		log.Fatalf("Failed to parse GPU drivers configuration: %v", err)
+	}
+}
+
+func GetNewGPUDriverVersion(size string) string {
+	if useGridDrivers(size) {
+		return gpuDrivers.Grid
+	}
+	if isStandardNCv1(size) {
+		return nvidia470CudaDriverVersion
+	}
+	return gpuDrivers.Cuda
 }
 
 func isStandardNCv1(size string) bool {

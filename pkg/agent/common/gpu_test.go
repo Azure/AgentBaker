@@ -207,7 +207,7 @@ func TestGetGPUDriverVersion(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := GetGPUDriverVersion(test.size)
+			result := GetNewGPUDriverVersion(test.size)
 			assert.Equal(test.output, result, "Failed for size: %s", test.size)
 		})
 	}
