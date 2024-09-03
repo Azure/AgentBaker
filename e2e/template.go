@@ -196,7 +196,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 				},
 				CertificateProfile: &datamodel.CertificateProfile{
 					CaCertificate:         "",
-					APIServerCertificate:  "",
 					ClientCertificate:     "",
 					ClientPrivateKey:      "",
 					KubeConfigCertificate: "",

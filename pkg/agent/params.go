@@ -201,7 +201,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		/**
 		 The following parameters could be either a plain text, or referenced to a secret in a keyvault:
-		 - apiServerCertificate
 		 - clientCertificate
 		 - clientPrivateKey
 		 - kubeConfigCertificate
@@ -231,7 +230,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		certificateProfile := properties.CertificateProfile
 		if certificateProfile != nil {
-			addSecret(parametersMap, "apiServerCertificate", certificateProfile.APIServerCertificate, true)
 			addSecret(parametersMap, "caCertificate", certificateProfile.CaCertificate, true)
 			addSecret(parametersMap, "clientCertificate", certificateProfile.ClientCertificate, true)
 			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)
