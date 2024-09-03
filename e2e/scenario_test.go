@@ -96,9 +96,14 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.IsARM64 = true
 
 				// TODO: define below in the cluster config instead of mutate bootstrapConfig
+				// TODO: define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer = "mcr.microsoft.com"
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.Enabled = true
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
