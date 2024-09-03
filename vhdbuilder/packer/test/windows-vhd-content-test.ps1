@@ -423,7 +423,9 @@ function Test-ExcludeUDPSourcePort {
 
 function Test-WindowsDefenderPlatformUpdate {
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
-    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+    $doc = New-Object xml
+    $doc.Load("$global:defenderUpdateInfoUrl")
+    $latestDefenderProductVersion = $doc.versions.platform
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
