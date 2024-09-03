@@ -45,8 +45,12 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer = "mcr.microsoft.com"
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.Enabled = true
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
 			},
 		},
 	})
@@ -286,8 +290,12 @@ func Test_marinerv2AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer = "mcr.microsoft.com"
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.Enabled = true
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
 			},
 		},
 	})
@@ -332,8 +340,13 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.IsARM64 = true
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer = "mcr.microsoft.com"
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.Enabled = true
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
+
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -637,8 +650,12 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.ContainerRegistryServer = "mcr.microsoft.com"
-				nbc.ContainerService.Properties.SecurityProfile.PrivateEgress.Enabled = true
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
 			},
 		},
 	})
