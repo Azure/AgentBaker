@@ -63,13 +63,31 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(7))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(12))
 
-		azurelinux := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
-		Expect(azurelinux.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(azurelinux.Gallery).To(Equal("aksazurelinux"))
-		Expect(azurelinux.Definition).To(Equal("V2"))
-		Expect(azurelinux.Version).To(Equal(LinuxSIGImageVersion))
+		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
+		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV2.Definition).To(Equal("V2"))
+		Expect(azurelinuxV2.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3]
+		Expect(azurelinuxV3.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3.Definition).To(Equal("V3"))
+		Expect(azurelinuxV3.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV2Gen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2Gen2]
+		Expect(azurelinuxV2Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV2Gen2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV2Gen2.Definition).To(Equal("V2gen2"))
+		Expect(azurelinuxV2Gen2.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Gen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2]
+		Expect(azurelinuxV3Gen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2.Definition).To(Equal("V3gen2"))
+		Expect(azurelinuxV3Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(6))
 
@@ -151,6 +169,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2Arm64.Definition).To(Equal("V2gen2arm64"))
 		Expect(azurelinuxV2Arm64.Version).To(Equal(LinuxSIGImageVersion))
 
+		azurelinuxV3Arm64 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Arm64Gen2]
+		Expect(azurelinuxV3Arm64.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Arm64.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Arm64.Definition).To(Equal("V3gen2arm64"))
+		Expect(azurelinuxV3Arm64.Version).To(Equal(LinuxSIGImageVersion))
+
 		aksUbuntu2204TLGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204TLGen2]
 		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
@@ -213,6 +237,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2FIPS.Definition).To(Equal("V2fips"))
 		Expect(azurelinuxV2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 
+		azurelinuxV3FIPS := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3FIPS]
+		Expect(azurelinuxV3FIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3FIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3FIPS.Definition).To(Equal("V3fips"))
+		Expect(azurelinuxV3FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
 		marinerV2Gen2FIPS := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2Gen2FIPS]
 		Expect(marinerV2Gen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(marinerV2Gen2FIPS.Gallery).To(Equal("akscblmariner"))
@@ -224,6 +254,18 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV2Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV2Gen2FIPS.Definition).To(Equal("V2gen2fips"))
 		Expect(azurelinuxV2Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Gen2FIPS := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2FIPS]
+		Expect(azurelinuxV3Gen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2FIPS.Definition).To(Equal("V3gen2fips"))
+		Expect(azurelinuxV3Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV2Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2Gen2Kata]
+		Expect(azurelinuxV2Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV2Gen2Kata.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV2Gen2Kata.Definition).To(Equal("V2katagen2"))
+		Expect(azurelinuxV2Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuMinimalContainerd2204 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204]
 		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))

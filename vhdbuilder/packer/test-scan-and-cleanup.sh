@@ -59,10 +59,11 @@ SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
-if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
+if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ] && [ "$OS_VERSION" != "V3" ]; then
   echo -e "Running scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
+  # Azurelinux 3.0 does not have an 'az' package - https://microsoft.visualstudio.com/OS/_workitems/edit/52283489
   echo -e "Skipping scanning step"
 fi
 
