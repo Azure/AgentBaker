@@ -79,11 +79,26 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
+logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
 if [[ ${ID} != "mariner" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+fi
+
+ANON_ACCESS_AVAILABLE="true"
+if [ "${ANON_ACCESS_AVAILABLE}" == "false" ]; then
+    # set +x
+    TENANTID="72f988bf-86f1-41af-91ab-2d7cd011db47" # currently cannot work since there is no access to the kublet identity 
+    ACR_NAME=aksvhdtestcr.azurecr.io
+    PRIVATE_ACR_NAME="aksvhdtestcr"
+    TOKEN=$(curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/" | jq -r .access_token)
+    REFRESH_TOKEN=$(curl -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=aksvhdtestcr.azurecr.io&tenant=$TENANTID&access_token=$TOKEN" https://$PRIVATE_ACR_NAME.azurecr.io/oauth2/exchange | jq -r .refresh_token)
+    echo "$REFRESH_TOKEN" | oras login $ACR_NAME --identity-token-stdin
+    # example pull
+    # oras pull "$ACR_NAME"/aks/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.2-linux-arm64
+    # set -x
 fi
 
 export -f should_skip_nvidia_drivers

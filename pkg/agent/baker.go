@@ -926,11 +926,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
-		"BlockOutboundNetwork": func() bool {
+		"BlockOutboundNetwork": func() string {
 			if config.OutboundType == datamodel.OutboundTypeBlock || config.OutboundType == datamodel.OutboundTypeNone {
-				return true
+				return "true"
 			}
-			return false
+			return "false"
 		},
 		"GPUNeedsFabricManager": func() bool {
 			return common.GPUNeedsFabricManager(profile.VMSize)
