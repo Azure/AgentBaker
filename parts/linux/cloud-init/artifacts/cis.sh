@@ -164,7 +164,7 @@ fixUmaskSettings() {
     replaceOrAppendLoginDefs UMASK 027
 
     # It also requires that nothing in etc/profile.d sets umask to anything less restrictive than that.
-    # Mariner sets umask directly in /etc/profile after sourcing everything in /etc/profile.d. But it also has /etc/profile.d/umask.sh
+    # Mariner/AzureLinux sets umask directly in /etc/profile after sourcing everything in /etc/profile.d. But it also has /etc/profile.d/umask.sh
     # which sets umask (but is then ignored). We don't want to simply delete /etc/profile.d/umask.sh, because if we take an update to
     # the package that supplies it, it would just be copied over again.
     # This is complicated by an oddity/bug in the auditing script cis uses, which will flag line in a file with the work umask in the file name
@@ -173,14 +173,16 @@ fixUmaskSettings() {
     # it does no harm and works with the tools.
     # Note that we use printf to avoid a trailing newline.
     local umask_sh="/etc/profile.d/umask.sh"
-    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" && -f "${umask_sh}" ]]; then
-        printf "umask 027" >${umask_sh}
+    if isMarinerOrAzureLinux "$OS"; then
+        if [[ -f "${umask_sh}" ]]; then
+            printf "umask 027" >${umask_sh}
+        fi
     fi
 }
 
 function maskNfsServer() {
     # If nfs-server.service exists, we need to mask it per CIS requirement.
-    # Note that on ubuntu systems, it isn't installed but on mariner we need it
+    # Note that on ubuntu systems, it isn't installed but on mariner/azurelinux we need it
     # due to a dependency, but disable it by default.
     if systemctl list-unit-files nfs-server.service >/dev/null; then
         systemctl --now mask nfs-server || $ERR_SYSTEMCTL_MASK_FAIL
@@ -188,10 +190,10 @@ function maskNfsServer() {
 }
 
 function addFailLockDir() {
-    # Mariner V2 uses pamd faillocking, which requires a directory to store the faillock files.
+    # Mariner/AzureLinux uses pamd faillocking, which requires a directory to store the faillock files.
     # Default is /var/run/faillock, but that's a tmpfs, so we need to use /var/log/faillock instead.
     # But we need to leave settings alone for other skus.
-    if [[ "${OS}" == "${MARINER_OS_NAME}" && "${OS_VERSION}" == "2.0" ]]; then
+    if isMarinerOrAzureLinux "$OS" ; then
         # Replace or append the dir setting in /etc/security/faillock.conf
         # Docs: https://www.man7.org/linux/man-pages/man5/faillock.conf.5.html
         #

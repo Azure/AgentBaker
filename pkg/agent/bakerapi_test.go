@@ -367,11 +367,16 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 			azureLinuxDistros = []datamodel.Distro{
 				datamodel.AKSAzureLinuxV2,
+				datamodel.AKSAzureLinuxV3,
 				datamodel.AKSAzureLinuxV2Gen2,
+				datamodel.AKSAzureLinuxV3Gen2,
 				datamodel.AKSAzureLinuxV2FIPS,
+				datamodel.AKSAzureLinuxV3FIPS,
 				datamodel.AKSAzureLinuxV2Gen2FIPS,
+				datamodel.AKSAzureLinuxV3Gen2FIPS,
 				datamodel.AKSAzureLinuxV2Gen2Kata,
 				datamodel.AKSAzureLinuxV2Arm64Gen2,
+				datamodel.AKSAzureLinuxV3Arm64Gen2,
 				datamodel.AKSAzureLinuxV2Gen2TL,
 			}
 
