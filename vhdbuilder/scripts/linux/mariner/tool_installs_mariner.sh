@@ -36,6 +36,22 @@ skip_if_unavailable=True
 sslverify=1
 EOF
     fi
+
+  if [[ $OS_VERSION == "3.0" ]]; then
+        AZURELINUX_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia.repo"
+        touch "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
+        cat << EOF > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
+[azurelinux-official-nvidia]
+name=Azure Linux Official Nvidia 3.0 x86_64
+baseurl=https://packages.microsoft.com/azurelinux/3.0/prod/nvidia/x86_64/
+gpgkey=file:///etc/pki/rpm-gpg/MICROSOFT-RPM-GPG-KEY file:///etc/pki/rpm-gpg/MICROSOFT-METADATA-GPG-KEY
+gpgcheck=1
+repo_gpgcheck=1
+enabled=1
+skip_if_unavailable=True
+sslverify=1
+EOF
+    fi
 }
 
 forceEnableIpForward() {
@@ -49,7 +65,7 @@ forceEnableIpForward() {
 EOF
 }
 
-# The default 99-dhcp-en config on Mariner attempts to assign an IP address
+# The default 99-dhcp-en config on Mariner/AzureLinux attempts to assign an IP address
 # to the eth1 virtual function device, which delays cluster setup by 2 minutes.
 # This workaround makes it so that dhcp is only enabled on eth0.
 setMarinerNetworkdConfig() {
@@ -63,17 +79,15 @@ setMarinerNetworkdConfig() {
     DHCP=yes
     IPv6AcceptRA=no
 EOF
-# On Mariner 2.0 Marketplace images, the default systemd network config
-# has an additional change that prevents Mariner from changing IP addresses
+# On Mariner/AzureLinux Marketplace images, the default systemd network config
+# has an additional change that prevents Mariner/AzureLinux from changing IP addresses
 # every reboot
-if [[ $OS_VERSION == "2.0" ]]; then 
     cat << EOF >> ${CONFIG_FILEPATH}
 
     [DHCPv4]
     UseDomains=true
     SendRelease=false
 EOF
-fi
 }
 
 
@@ -112,7 +126,7 @@ enableCheckRestart() {
   # will work as expected if it is installed.
   # At 8:000:00 UTC check if a reboot-required package was installed
   # Touch /var/run/reboot-required if a reboot required package was installed.
-  # This helps avoid a Mariner specific reboot check command in kured.
+  # This helps avoid a Mariner/AzureLinux specific reboot check command in kured.
   systemctlEnableAndStart check-restart.timer || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
@@ -137,7 +151,7 @@ LABEL="product_uuid-exit"
 EOF
 
 # /etc/rsyslog.d is 750 but should be 755 so non root users can read the configs
-# This occurs because the umask in Mariner is 0027 and packer_source.sh created the folder
+# This occurs because the umask in Mariner/AzureLinux is 0027 and packer_source.sh created the folder
 # Future base images will already have rsyslog installed with 755 /etc/rsyslog.d
     chmod 755 /etc/rsyslog.d
 }
