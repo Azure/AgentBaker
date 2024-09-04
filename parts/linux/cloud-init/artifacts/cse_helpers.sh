@@ -216,13 +216,14 @@ retrycmd_get_tarball() {
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
+
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
         tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            # TODO: support private acr via kubelet identity
+            # TODO: support private acrå via kubelet identity
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $ORAS_OUTPUT
