@@ -386,6 +386,16 @@ isARM64() {
     fi
 }
 
+isRegistryUrl() {
+    local binary_url=$1
+    registry_regex='^.+\/.+\/.+:.+$'
+    if [[ ${binary_url} =~ $registry_regex ]]; then
+        return 0 # true
+    else
+        return 1 # false
+    fi
+}
+
 logs_to_events() {
     # local vars here allow for nested function tracking
     # installContainerRuntime for example
