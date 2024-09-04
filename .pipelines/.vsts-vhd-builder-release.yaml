@@ -57,7 +57,7 @@ parameters:
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
-    default: true
+    default: false
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
