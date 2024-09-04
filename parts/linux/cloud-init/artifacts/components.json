@@ -414,29 +414,37 @@
       "downloadURIs": {
         "ubuntu": {
           "r1804": {
-            "renovateTag": "<do not update>",
-            "versions": [
-              "1.1.12-ubuntu18.04u1"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.1.12-ubuntu18.04u1"
+              }
             ]
           },
           "r2004": {
-            "renovateTag": "name=moby-runc os=ubuntu release=20.04",
-            "versions": [
-              "1.1.12-ubuntu20.04u1"
+            "pkgVersions": [
+              {
+                "renovateTag": "name=moby-runc os=ubuntu release=20.04",
+                "latestVersion": "1.1.12-ubuntu20.04u1"
+              }
             ]
           },
           "r2204": {
-            "renovateTag": "name=moby-runc os=ubuntu release=22.04",
-            "versions": [
-              "1.1.12-ubuntu22.04u1"
+            "pkgVersions": [
+              {
+                "renovateTag": "name=moby-runc os=ubuntu release=22.04",
+                "latestVersion": "1.1.12-ubuntu22.04u1"
+              }
             ]
           }
         },
         "mariner": {
           "current": {
-            "renovateTag": "<do not update>",
-            "versions": [
-              "1.1.9-5.cm2"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.1.9-5.cm2"
+              }
             ]
           }
         }
@@ -447,38 +455,48 @@
       "downloadLocation": "/opt/containerd/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2204": {
+            "pkgVersions": [
+              {
+                "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
+                "latestVersion": "1.7.20"
+              }
+            ]
+          },
+          "r2004": {
+            "pkgVersions": [
+              {
+                "renovateTag": "name=moby-containerd os=ubuntu release=20.04",
+                "latestVersion": "1.7.20"
+              }
+            ]
+          },
           "r1804": {
-            "renovateTag": "<do not update>",
-            "versions": [
-              "1.7.1-1"
-            ]
-          },
-          "2004": {
-            "renovateTag": "name=moby-containerd os=ubuntu release=20.04",
-            "versions": [
-              "1.7.20"
-            ]
-          },
-          "2204": {
-            "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
-            "versions": [
-              "1.7.20"
+            "pkgVersions": [
+              {                
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.7.1-1"
+              }
             ]
           }
         },
         "mariner": {
           "current": {
-            "renovateTag": "<do not update>",
-            "versions": [
-              "1.6.26-5.cm2"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.6.26-5.cm2"
+              }
             ]
           }
         },
         "default": {
           "current": {
-            "renovateTag": "<do not update>",
-            "versions": [
-              "1.7.20"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.7.20"
+              }
             ]
           }
         }
@@ -490,8 +508,11 @@
       "downloadURIs": {
         "default": {
           "current": {
-            "versions": [
-              "1.4.1"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.4.1"
+              }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
@@ -504,9 +525,15 @@
       "downloadURIs": {
         "default": {
           "current": {
-            "versions": [
-              "1.4.54",
-              "1.5.28"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.4.54"
+              },
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.5.28"
+              }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
@@ -519,8 +546,11 @@
       "downloadURIs": {
         "default": {
           "current": {
-            "versions": [
-              "1.29.0"
+            "pkgVersions": [
+              {
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.29.0"
+              }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
           }
@@ -533,22 +563,31 @@
       "downloadURIs": {
         "default": {
           "current": {
-            "versions": [
-              "1.27.13",
-              "1.27.14",
-              "1.27.15",
-              "1.27.16",
-              "1.28.9",
-              "1.28.10",
-              "1.28.11",
-              "1.28.12",
-              "1.29.4",
-              "1.29.5",
-              "1.29.6",
-              "1.29.7",
-              "1.30.1",
-              "1.30.2",
-              "1.30.3"
+            "pkgVersions": [
+              {
+                "k8sVersion": "1.27",
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.27.16",
+                "previousLatestVersion": "1.27.15"
+              },
+              {
+                "k8sVersion": "1.28",
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.28.12",
+                "previousLatestVersion": "1.28.11"
+              },
+              {
+                "k8sVersion": "1.29",
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.29.7",
+                "previousLatestVersion": "1.29.6"
+              },
+              {
+                "k8sVersion": "1.30",
+                "renovateTag": "<do not update>",
+                "latestVersion": "1.30.3",
+                "previousLatestVersion": "1.30.2"
+              }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${version}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
           }

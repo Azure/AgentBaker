@@ -14,8 +14,15 @@ package components
 
 #Images: [...#ContainerImage]
 #Packages: [...#Package]
+#PkgVersion: {
+	k8sVersion?:           string
+	renovateTag?:          string
+	latestVersion:         string
+	previousLatestVersion?: string
+}
+
 #ReleaseDownloadURI: {
-	versions:     [...string]
+	pkgVersions:   [...#PkgVersion]
 	downloadURL?:  string
 }
 

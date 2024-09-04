@@ -531,17 +531,37 @@ returnPackageVersions() {
     #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
-        for version in ${versions[@]}; do
+        returnPkgVersionsOrVersions "${package}" "${osLowerCase}" "${RELEASE}"
+        return
+    fi
+    returnPkgVersionsOrVersions "${package}" "default" "${RELEASE}"
+    return 0
+}
+
+returnPkgVersionsOrVersions() {
+    local package="$1"
+    local os="$2"
+    local release="$3"
+
+    #jq the versions from the package. If downloadURIs.$os.$release.pkgVersions is not null, then get the versions from there.
+    #Otherwise get the versions from .downloadURIs.$os.$release.versions
+    if [[ $(echo "${package}" | jq ".downloadURIs.${os}.${release}.pkgVersions") != "null" ]]; then
+        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${os}.${release}.pkgVersions[] | select(.latestVersion != null) | .latestVersion"))
+        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${os}.${release}.pkgVersions[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+        for version in ${latestVersions[@]}; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        for version in ${previousLatestVersions[@]}; do
             PACKAGE_VERSIONS+=("${version}")
         done
         return
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.versions[]" -r)
+
+    # Fallback to versions if pkgVersions is null
+    local versions=($(echo "${package}" | jq -r ".downloadURIs.${os}.${release}.versions[]"))
     for version in ${versions[@]}; do
         PACKAGE_VERSIONS+=("${version}")
     done
-    return 0
 }
 
 returnPackageDownloadURL() {

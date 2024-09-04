@@ -5,8 +5,8 @@ lsb_release() {
 
 readPackage() {
     local packageName=$1
-    packages=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
-    echo "$packages"
+    package=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
+    echo "$package"
 }
 
 Describe 'cse_install.sh'
@@ -19,7 +19,7 @@ Describe 'cse_install.sh'
             The variable PACKAGE_VERSIONS[@] should equal "1.1.12-ubuntu20.04u1"
         End
 
-        It 'returns downloadURIs.ubuntu.current.versions of package containerd for UBUNTU 22.04'
+        It 'returns downloadURIs.ubuntu."r2204".versions of package containerd for UBUNTU 22.04'
             package=$(readPackage "containerd")
             When call returnPackageVersions "$package" "UBUNTU" "22.04"
             The variable PACKAGE_VERSIONS[@] should equal "1.7.20"
@@ -185,7 +185,7 @@ Describe 'cse_install.sh'
             os="UBUNTU"
             osVersion="20.04"
             When call returnRelease "$package" "$os" "$osVersion"
-            The variable RELEASE should equal "current"
+            The variable RELEASE should equal "\"r2004\""
         End
         It 'returns release version r1804 for package containerd in UBUNTU 18.04'
             package=$(readPackage "containerd")
@@ -193,6 +193,22 @@ Describe 'cse_install.sh'
             osVersion="18.04"
             When call returnRelease "$package" "$os" "$osVersion"
             The variable RELEASE should equal "\"r1804\""
+        End
+    End
+    Describe 'returnPkgVersionsOrVersions'
+        It 'returns pkgVersions for package kubernetes-binaries in default.current'
+            package=$(readPackage "kubernetes-binaries")
+            os="default"
+            release="current"
+            When call returnPkgVersionsOrVersions "$package" "$os" "$release"
+            The variable PACKAGE_VERSIONS[@] should equal "1.27.16 1.28.12 1.29.7 1.30.3 1.27.15 1.28.11 1.29.6 1.30.2"
+        End
+        It 'returns pkgVersions for package containerd in Ubuntu 22.04'
+            package=$(readPackage "containerd")
+            os="ubuntu"
+            release="r2204"
+            When call returnPkgVersionsOrVersions "$package" "$os" "$release"
+            The variable PACKAGE_VERSIONS[@] should equal "1.7.20"
         End
     End
 End
