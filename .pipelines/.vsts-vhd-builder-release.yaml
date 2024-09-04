@@ -1195,7 +1195,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-gen2-containerd
       - job: build2004cvmgen2containerd
-        condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
+        condition: and(eq(variables.PACKER_BUILD_LOCATION, 'eastus'), eq('${{ parameters.build2004cvmgen2containerd }}', true))
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
