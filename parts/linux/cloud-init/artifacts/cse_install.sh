@@ -460,6 +460,7 @@ extractKubeBinaries() {
 }
 
 installKubeletKubectlAndKubeProxy() {
+    rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
