@@ -23,10 +23,6 @@
     {
       "matchPackageNames": ["moby-runc"],
       "assignees": ["devinwong"]
-    },
-    {
-      "matchPackageNames": ["moby-containerd"],
-      "assignees": ["lilypan26"]
     }
   ],
   "customManagers": [
@@ -76,8 +72,7 @@
         "\"renovateTag\":\\s*\"name=(?<packageName>[^ ]+) os=ubuntu release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2204",
-      "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}} os=ubuntu release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "versioningTemplate": "deb"
     }
   ],
   "customDatasources": {
