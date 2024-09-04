@@ -48,7 +48,7 @@ disableIMDSRestriction() {
     fi
 }
 
-if [[ ${enableIMDSRestriction} == "true" ]]; then
+if [[ "${enableIMDSRestriction,,}" == "true" ]]; then
     ensureIMDSRestrictionRule
 else
     disableIMDSRestriction
