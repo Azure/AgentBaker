@@ -544,7 +544,7 @@ func TestGetAgentKubernetesLabels(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual := getAgentKubernetesLabels(c.profile, c.config)
+			actual := GetAgentKubernetesLabels(c.profile, c.config)
 			assert.Equal(t, c.expected, actual)
 		})
 	}
