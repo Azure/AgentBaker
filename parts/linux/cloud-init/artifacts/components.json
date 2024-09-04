@@ -515,7 +515,7 @@
               "1.4.54",
               "1.5.32",
               "1.5.35",
-              "1.6.3"
+              "1.6.5"
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
