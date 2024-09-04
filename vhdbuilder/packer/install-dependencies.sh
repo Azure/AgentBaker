@@ -10,6 +10,7 @@ declare -a benchmarks_order=()
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
@@ -69,7 +70,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.2.1"
+  BLOBFUSE2_VERSION="2.3.2"
   if [ "${OS_VERSION}" == "18.04" ]; then
     # keep legacy version on ubuntu 18.04
     BLOBFUSE2_VERSION="2.2.0"
@@ -128,7 +129,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if [[ $OS != $MARINER_OS_NAME ]]; then
+if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -155,7 +156,7 @@ SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1
 EOF
 udevadm control --reload
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -262,7 +263,7 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+        elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
@@ -321,6 +322,7 @@ if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
+# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
@@ -443,8 +445,8 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 capture_benchmark "pull_and_retag_container_images"
 
-# IPv6 nftables rules are only available on Ubuntu or Mariner v2
-if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
+# IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
+if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 capture_benchmark "configure_networking_and_interface"
