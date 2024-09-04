@@ -169,6 +169,7 @@ const (
 	AKSAzureLinuxV3Gen2FIPS             Distro = "aks-azurelinux-v3-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
+	AKSAzureLinuxV3Gen2KataCC           Distro = "aks-azurelinux-v3-gen2-kata-cc"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
