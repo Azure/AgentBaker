@@ -28,16 +28,9 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	config := &datamodel.NodeBootstrappingConfiguration{}
-
-	configFile, err := os.Open("config.json")
+	config, err := loadConfig("config.json")
 	if err != nil {
-		return fmt.Errorf("failed to open config file: %w", err)
-	}
-	defer configFile.Close()
-
-	if err := json.NewDecoder(configFile).Decode(config); err != nil {
-		return fmt.Errorf("failed to decode config file: %w", err)
+		return err
 	}
 
 	// TODO: apply UserData from NodeBootstrappingConfiguration or delete it completely
@@ -46,6 +39,20 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("provision start: %w", err)
 	}
 	return nil
+}
+
+func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) {
+	config := &datamodel.NodeBootstrappingConfiguration{}
+	configFile, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer configFile.Close()
+
+	if err := json.NewDecoder(configFile).Decode(config); err != nil {
+		return nil, fmt.Errorf("failed to decode config file: %w", err)
+	}
+	return config, nil
 }
 
 func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {
