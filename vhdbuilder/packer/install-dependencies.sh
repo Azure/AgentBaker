@@ -14,7 +14,8 @@ AZURELINUX_OS_NAME="AZURELINUX"
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
-if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+# specifically 'kata' present in FEATURE_FLAGS
+if grep -Eq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
 fi
   
@@ -163,9 +164,13 @@ if isMarinerOrAzureLinux "$OS"; then
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
-    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+    # specifically 'kata' present in FEATURE_FLAGS
+    if grep -Eq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-      enableMarinerKata
+    fi
+    # specifically 'kata-cc' present in FEATURE_FLAGS
+    if grep -Eq "\bkata-cc\b" <<< "$FEATURE_FLAGS"; then
+      installKataCCDeps
     fi
     disableTimesyncd
     disableDNFAutomatic

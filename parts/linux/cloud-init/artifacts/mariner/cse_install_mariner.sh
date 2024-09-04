@@ -38,6 +38,14 @@ installKataDeps() {
     fi
 }
 
+installKataCCDeps() {
+    if [[ $OS_VERSION != "1.0" ]]; then
+      if ! dnf_install 30 1 600 kata-packages-host-cc; then
+        exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+    fi
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
