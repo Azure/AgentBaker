@@ -106,7 +106,8 @@
     "K8sComponents": {
         "PodInfraContainerImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
         "HyperkubeImageURL": "mcr.microsoft.com/oss/kubernetes/",
-        "WindowsPackageURL": "windowspackage"
+        "WindowsPackageURL": "windowspackage",
+        "LinuxCredentialProviderURL": ""
     },
     "AgentPoolProfile": {
         "name": "nodepool1",
@@ -168,6 +169,8 @@
         "--network-plugin": "kubenet",
         "--node-status-update-frequency": "10s",
         "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+        "--image-credential-provider-config": "\"\"",
+        "--image-credential-provider-bin-dir": "\"\"",
         "--pod-manifest-path": "/etc/kubernetes/manifests",
         "--pod-max-pids": "-1",
         "--protect-kernel-defaults": "true",

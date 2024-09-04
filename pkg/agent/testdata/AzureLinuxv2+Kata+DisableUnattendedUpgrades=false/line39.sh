@@ -131,20 +131,26 @@ installNetworkPlugin() {
 }
 
 downloadCredentialProvider() {
-    CREDENTIAL_PROVIDER_VERSION=${1}
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
-    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    if [[ -z "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
+        CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+    fi
+
+    if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
         if isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
-            CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_TGZ_TMP}" ${CREDENTIAL_PROVIDER_DOWNLOAD_URL} || exit $ERR_ORAS_PULL_K8S_FAIL
-        fi 
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_TGZ_TMP}" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+        else
+            echo "Error: CREDENTIAL_PROVIDER_DOWNLOAD_URL is not in the format of a registry URL. Exiting..."
+            exit $ERR_ORAS_PULL_K8S_FAIL
+        fi
         return 
-    fi 
+    fi
 
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin #
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
 }
 

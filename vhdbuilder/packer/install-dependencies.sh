@@ -485,7 +485,7 @@ CREDENTIAL_PROVIDER_VERSIONS="
 1.30.0
 "
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    downloadCredentialProvider $CREDENTIAL_PROVIDER_VERSION
+    downloadCredentialProvider
     echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 

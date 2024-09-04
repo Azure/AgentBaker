@@ -140,22 +140,32 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
+# downloadCredentialProvider is most-likely called during build time by install-dependencies.sh. 
+# It can be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
-    CREDENTIAL_PROVIDER_VERSION=${1}
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
-    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-        CREDENTIAL_PROVIDER_DOWNLOAD_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
-        if isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
-            CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_TGZ_TMP}" ${CREDENTIAL_PROVIDER_DOWNLOAD_URL} || exit $ERR_ORAS_PULL_K8S_FAIL
-        fi 
-        return 
-    fi 
+    if [[ -z "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
+        # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
+        # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
+        CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+    fi
 
-    # default to acs-mirror if no custom registry is set
+    if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+        # if there is a container registry then oras is needed to download
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
+        if isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_TGZ_TMP}" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+        else
+            echo "Error: CREDENTIAL_PROVIDER_DOWNLOAD_URL is not in the format of a registry URL. Exiting..."
+            exit $ERR_ORAS_PULL_K8S_FAIL
+        fi
+        return 
+    fi
+
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
 }
 
