@@ -301,60 +301,10 @@ write_files:
 
 - path: /opt/azure/containers/ensure_imds_restriction.sh
   permissions: "0755"
+  encoding: gzip
   owner: root
-  content: |
-    #!/bin/bash
-    primaryNicIP="${PRIMARY_NIC_IP}"
-    insertRuleToMangleTable="${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-    enableIMDSRestriction="${ENABLE_IMDS_RESTRICTION}"
-
-    ensureIMDSRestrictionRule() {
-        if [[ $insertRuleToMangleTable == true ]]; then
-            echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
-            iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP'
-            if [[ $? -eq 0 ]]; then
-                echo "IMDS restriction rule already exists in mangle table, returning..."
-                return 0
-            fi
-            echo "Inserting IMDS restriction rule to mangle table..."
-            iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP || exit ${ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE}
-        else
-            echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
-            iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP'
-            if [[ $? -eq 0 ]]; then
-                echo "IMDS restriction rule already exists in filter table, returning..."
-                return 0
-            fi
-            echo "Inserting IMDS restriction rule to filter table..."
-            iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP || exit ${ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE}
-        fi
-    }
-
-    disableIMDSRestriction() {
-        echo "Checking whether IMDS restriction rule exists in mangle table..."
-        iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -ne 0 ]]; then
-            echo "IMDS restriction rule does not exist in mangle table, no need to delete"
-        else
-            echo "Deleting IMDS restriction rule from mangle table..."
-            iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP || exit ${ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE}
-        fi
-
-        echo "Checking whether IMDS restriction rule exists in filter table..."
-        iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -ne 0 ]]; then
-            echo "IMDS restriction rule does not exist in filter table, no need to delete"
-        else
-            echo "Deleting IMDS restriction rule from filter table..."
-            iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature" -j DROP || exit ${ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE}
-        fi
-    }
-
-    if [[ ${enableIMDSRestriction} == "true" ]]; then
-        ensureIMDSRestrictionRule
-    else
-        disableIMDSRestriction
-    fi
+  content: !!binary |
+    H4sIAAAAAAAA/+xXa2/TQBD87l8xPSIVpDp98BAEVShNArJoHnKCEKoqy4nXyVHnLpwvQJXmv6OzU+fltASKBBH+Ystez83Ozu7Zj/YOu1wcdv14YI0UH/rqusF7TuuUFSYt16mX3U9ew6l4TmvKLC5iUtodR9SRdV/0I+r43YhMrNNo19yO59Srbc+ttTuuU+k4zYbnfjiveZ2mVy833pmr8tl5bcosEuZFE+1SrBXvaS6Fwak1TMQazpRZFvUGEqyVkkTDqcBplVBYZM1mQU5CFAYFar4A1DgiaIlhQh7akCihsCGvW7RaQnYNrYRCbhqGqojHavW+wX/8BBMLAHiIiwuwyaa1Dw6mDKenYFqNieHy8jX0gETyrjlSZmcUSkVIMbjo/1zGB+gNqHdl4r8NSA9IGew01I8U+cE16DuPdVwsFlm2JB8lb8ew9S2c3cYN+opGsG3s2wGOX7wqnjx/VpydD5+ewB5B90awh+nJDkZSabw8Mnd6cjgkoWHbt1es/L5t0P0+BSX4QUAButco90noM/+KFHK1RSjVevIh+XqsiMH+jKrbbO3Pc0nkL7yBTV9wtC7vXOJ8RZdlAhcrAivSYyW46C8paI70CY6ymyFfKaqzXTXvrZGDt033Y9mt4hh7sGOw5Z7BX1833NwYpTWOk0QpiumXGyHkkTaGf6BGmMH9b4SsEZYF/sONsLjYvTXauUYIuTW1rIDHObtQttOkWlZWjZ4vaf48y5TdlS1g7npBea6/y/GBpBhC6lSr9dEvJARRYNwZUESa2KahVTWPN9s7VHK43aSvZgZP7L3k7n/R3L/j39zJsCuT+z7/bmng5ZH9sAbeakLvmoGnljX70C9Mcv8V7vrMj2Q/9rT06CsJHSfUi5V2rZjLkOUTN/8VC7SyGm6Jnb/FLACH/EcAAAD//0bODZNJDgAA
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
