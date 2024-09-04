@@ -50,7 +50,7 @@ disableIMDSRestriction() {
 }
 
 if [[ "${enableIMDSRestriction,,}" == "true" ]]; then
-    logs_to_events "AKS.CSE.ensureIMDSRestriction" ensureIMDSRestrictionRule || exit 1
+    ensureIMDSRestrictionRule
 else
-    logs_to_events "AKS.CSE.ensureIMDSRestriction" disableIMDSRestriction || exit 1
+    disableIMDSRestriction
 fi
