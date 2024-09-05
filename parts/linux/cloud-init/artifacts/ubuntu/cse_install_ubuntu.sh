@@ -18,34 +18,6 @@ removeCurl() {
     apt_get_purge 10 5 300 curl
 }
 
-installLatestCurlManuallyIfNotPresent() {
-    # Too Risky to manage within the components.json file since curl is required for the bootstrap logic to work
-    # currently this logic is only needed for 18.04, we will be able to remove this logic once we no longer support 18.04
-    
-    # renovate: datasource=github-releases depName=curl/curl
-    version="8.9.0"
-
-    if snap list curl > /dev/null; then
-        echo "curl is already installed and at the right version, skipping manual installation"
-        return
-    fi
-    
-    deb_file="/tmp/curl.tgz"
-    removeCurl || exit $ERR_CURL_REMOVE_TIMEOUT
-    retrycmd_if_failure 3 5 5 wget https://curl.haxx.se/download/curl-${version}.tar.gz -O $deb_file || exit $ERR_CURL_DOWNLOAD_TIMEOUT
-    retrycmd_if_failure 3 5 5 tar -xf $deb_file -C /tmp || exit $ERR_CURL_EXTRACT_TIMEOUT
-    retrycmd_if_failure 3 5 5 apt-get install -y --allow-downgrades libssl1.1=1.1.1-1ubuntu2.1~18.04.23 || exit $ERR_CURL_DOWNGRADE_LIBSSL
-    retrycmd_if_failure 3 5 5 apt-get install -y libssl-dev autoconf libtool || exit $ERR_CURL_DOWNLOAD_DEV_TIMEOUT
-    cd /tmp/curl-${version}
-    retrycmd_if_failure 3 5 5 ./configure --with-ssl || exit $ERR_CURL_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 5 5 make || exit $ERR_CURL_INSTALL_TIMEOUT
-    retrycmd_if_failure 3 5 5 make install || exit $ERR_CURL_INSTALL_TIMEOUT
-    cp /usr/local/src/curl-${version}/src/.libs/curl /usr/bin/curl || exit $ERR_CURL_INSTALL_TIMEOUT
-    ldconfig || exit $ERR_CURL_INSTALL_TIMEOUT
-    curl -V | grep $version || exit $ERR_CURL_VERSION_MISMATCH
-    cleanupTMP
-}
-
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
         wait_for_apt_locks
@@ -94,11 +66,6 @@ installDeps() {
             exit $ERR_APT_INSTALL_TIMEOUT
         fi
     done
-
-    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        # curl version on 18.04 is buggy when targetting http/2 TLS endpoint, manually installing a newer version
-        installLatestCurlManuallyIfNotPresent
-    fi
 }
 
 updateAptWithMicrosoftPkg() {
