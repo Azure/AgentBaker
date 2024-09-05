@@ -4,6 +4,7 @@
   "prConcurrentLimit": 50,
   "prHourlyLimit": 20,
   "branchConcurrentLimit": 50,
+  "separateMinorPatch": true,
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
@@ -39,7 +40,7 @@
         "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^ ]+)\\s+name=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "docker",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}} name={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}} name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
