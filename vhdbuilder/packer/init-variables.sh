@@ -244,12 +244,35 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		TARGET_COMMAND_STRING=""
+
+    # NVMe disk controller types are only supported for v6 SKUs, which are Gen2 only.
+    # For all Gen2 new image definitions, we want this property set to allow v6 SKU support
+
+    DISK_CONTROLLER_TYPE_FEATURE="DiskControllerTypes=SCSI,NVMe"
+    SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE="SecurityType=TrustedLaunc"
+    SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE="ConfidentialVMSupported"
+
+		# Check Hyper-V generation
+    if [[ ${HYPERV_GENERATION} == "V2" ]]; then
+        # Start building the --features option with the disk controller type feature
+        TARGET_COMMAND_STRING+="--features \"${DISK_CONTROLLER_TYPE_FEATURE}"
+
+        # Check if Trusted Launch or Confidential VM is enabled
+        if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}\""
+        elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}\""
+        else
+            TARGET_COMMAND_STRING+="\""
+        fi
+    fi
+
 		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+		  # Add a leading space if TARGET_COMMAND_STRING is not empty
+      if [[ -n ${TARGET_COMMAND_STRING} ]]; then
+          TARGET_COMMAND_STRING+=" "
+      fi
 			TARGET_COMMAND_STRING+="--architecture Arm64"
-		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-			TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
-		elif [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
 		fi
 
 		az sig image-definition create \
