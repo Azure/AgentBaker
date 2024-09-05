@@ -143,7 +143,8 @@ downloadCredentialProvider() {
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
         if isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/${CREDENTIAL_PROVIDER_TGZ_TMP}" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+            CREDENTIAL_PROVIDER_TGZ_TMP=$(ls "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR" | head -n 1) 
         else
             echo "Error: CREDENTIAL_PROVIDER_DOWNLOAD_URL is not in the format of a registry URL. Exiting..."
             exit $ERR_ORAS_PULL_K8S_FAIL
