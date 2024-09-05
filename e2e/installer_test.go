@@ -13,11 +13,12 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 )
 
 // test node-bootstrapper binary without rebuilding VHD images.
+// it compiles the node-bootstrapper binary and uploads it to Azure Storage.
+// the runs the node-bootstrapper on the VM.
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	if _, ok := os.LookupEnv("ENABLE_NODE_BOOTSTRAPPER_TEST"); !ok {
 		t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
@@ -34,8 +35,8 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 				containerdVersionValidator("1.7.20-1"),
 				runcVersionValidator("1.1.12-1"),
 			},
-			CSEOverride:        CSENodeBootstrapper(context.TODO(), t, cluster),
-			CustomDataOverride: to.Ptr(""),
+			CSEOverride:       CSENodeBootstrapper(context.TODO(), t, cluster),
+			DisableCustomData: true,
 		},
 	})
 }
