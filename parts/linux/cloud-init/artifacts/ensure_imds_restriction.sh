@@ -10,6 +10,12 @@ echo "Primary NIC IP: $primaryNicIP"
 echo "Insert IMDS restriction rule to mangle table: $insertRuleToMangleTable"
 echo "Enable IMDS restriction: $enableIMDSRestriction"
 
+# If any required variable is not set, exit with error
+if [[ -z "$primaryNicIP" || -z "$insertRuleToMangleTable" || -z "$enableIMDSRestriction" ]]; then
+    echo "One or more required variables are not set, exiting..."
+    exit 1
+fi
+
 ensureIMDSRestrictionRule() {
     if [[ "{$insertRuleToMangleTable,,}" == "true" ]]; then
         echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
