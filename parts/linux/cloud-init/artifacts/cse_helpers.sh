@@ -213,7 +213,7 @@ retrycmd_get_tarball() {
         fi
     done
 }
-retrycmd_get_tarball_from_registry_with_oras() {
+retrycmd_get_tarball_from_registry_with_oras_alison_testing() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
 
