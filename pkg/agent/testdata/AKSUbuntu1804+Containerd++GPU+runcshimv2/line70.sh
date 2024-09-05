@@ -537,7 +537,7 @@ iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 EOF
 
-    primaryNicIP=$(getPrimaryNicIP)
+    primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
     ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
     mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
     touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
