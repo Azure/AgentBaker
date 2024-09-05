@@ -93,7 +93,7 @@
     },
     {
       "type": "file",
-      "source": "installer/dist/node-bootstrapper-linux-amd64",
+      "source": "node-bootstrapper/dist/node-bootstrapper-linux-amd64",
       "destination": "/home/packer/node-bootstrapper"
     },
     {

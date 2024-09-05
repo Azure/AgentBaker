@@ -91,7 +91,7 @@
     },
     {
       "type": "file",
-      "source": "installer/dist/node-bootstrapper-linux-arm64",
+      "source": "node-bootstrapper/dist/node-bootstrapper-linux-arm64",
       "destination": "/home/packer/node-bootstrapper"
     },
     {
