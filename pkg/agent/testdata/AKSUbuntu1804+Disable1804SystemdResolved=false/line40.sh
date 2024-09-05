@@ -161,16 +161,6 @@ downloadContainerdWasmShims() {
     done
 }
 
-evalPackageDownloadURL() {
-    local url=${1:-}
-    if [[ -n "$url" ]]; then
-         eval "result=${url}"
-         echo $result
-         return
-    fi
-    echo ""
-}
-
 downloadAzureCNI() {
     mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
     VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}

@@ -373,21 +373,18 @@ ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochro
 for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+  MULTI_ARCH_VERSIONS=()
+  returnMultiArchVersionsV2OrMultiArchVersions "${imageToBePulled}"
 
   amd64OnlyVersions=""
   if [[ ${amd64OnlyVersionsStr} != null ]]; then
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
-  multiArchVersions=""
-  if [[ ${multiArchVersionsStr} != null ]]; then
-    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-  fi
 
   if [[ $(isARM64) == 1 ]]; then
-    versions="${multiArchVersions}"
+    versions="${MULTI_ARCH_VERSIONS}"
   else
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
+    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
   fi
 
   for version in ${versions}; do

@@ -166,16 +166,6 @@ downloadContainerdWasmShims() {
     done
 }
 
-evalPackageDownloadURL() {
-    local url=${1:-}
-    if [[ -n "$url" ]]; then
-         eval "result=${url}"
-         echo $result
-         return
-    fi
-    echo ""
-}
-
 downloadAzureCNI() {
     mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
     # At VHD build time, the VNET_CNI_PLUGINS_URL is usually not set. 
