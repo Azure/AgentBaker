@@ -1,0 +1,32 @@
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
+      "amd64OnlyVersions": [],
+      "prefetchOptimizations": [
+        {
+          "version": "v1.5.28",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.6.0",
+          "binaries": [
+            "dropgz"
+          ]
+        }
+      ],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com name=containernetworking/azure-cni",
+          "latestVersion": "v1.5.28"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com name=containernetworking/azure-cni",
+          "latestVersion": "v1.6.0"
+        }
+      ]
+    }
+  ]
+}

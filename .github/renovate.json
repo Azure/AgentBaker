@@ -17,6 +17,14 @@
     {
       "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
       "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": false
+    },
+    {
+      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
+      "matchUpdateTypes": [
         "patch",
         "pin",
         "digest"
@@ -37,7 +45,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -49,7 +57,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -61,7 +69,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -73,7 +81,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
