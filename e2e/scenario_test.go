@@ -95,6 +95,11 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
+				// trigger oras pull of credential provider during provisioning in cse_config.sh
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
+				nbc.K8sComponents.LinuxCredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-linux-arm64-v1.30.0.tar.gz" // should get overridden by the ContainerRegistryServer URL
+
 				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -659,7 +664,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 
 				// trigger oras pull of credential provider during provisioning in cse_config.sh
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider/"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider"
 				nbc.K8sComponents.LinuxCredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz" // should get overridden by the ContainerRegistryServer URL
 
 				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig

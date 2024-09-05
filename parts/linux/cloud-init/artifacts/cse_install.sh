@@ -12,7 +12,7 @@ CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
-K8S_REGISTRY_REPO="oss/binaries/kubernetes/" # I don't think kubernetes-node should be here 
+K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
@@ -157,7 +157,7 @@ downloadCredentialProvider() {
     # if there is a container registry then oras is needed to download
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
-        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return 
@@ -505,7 +505,7 @@ installKubeletKubectlAndKubeProxy() {
             if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
                 # network isolated cluster
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
-                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}kubernetes-node:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
+                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} $registry_url false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
                 # no egress traffic, default install will fail

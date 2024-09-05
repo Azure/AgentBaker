@@ -213,25 +213,6 @@ retrycmd_get_tarball() {
         fi
     done
 }
-retrycmd_get_tarball_from_registry_with_oras_alison_testing() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    tar_folder=$(dirname "$tarball")
-
-    for i in $(seq 1 $tar_retries); do
-        tarball_in_folder=$(find "$tar_folder" -name "*.tar.gz" -type f | head -n 1)
-        tar -tzf $tarball_in_folder && break || \
-        if [ $i -eq $tar_retries ]; then
-           return 1
-        else
-            # TODO: support private acr via kubelet identity
-            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
-                cat $ORAS_OUTPUT
-            fi
-           sleep $wait_sleep
-        fi
-    done
-}
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
