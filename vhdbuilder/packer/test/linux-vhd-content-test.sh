@@ -33,6 +33,8 @@ err() {
 # Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
+git config advice.objectNameWarning false
+
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
 COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
