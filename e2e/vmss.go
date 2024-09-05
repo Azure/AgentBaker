@@ -40,8 +40,8 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	}
 
 	customData := nodeBootstrapping.CustomData
-	if opts.scenario.CustomDataOverride != nil {
-		customData = *opts.scenario.CustomDataOverride
+	if opts.scenario.DisableCustomData {
+		customData = ""
 	}
 
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
