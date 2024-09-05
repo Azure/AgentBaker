@@ -480,10 +480,7 @@ fi
 capture_benchmark "download_gpu_device_plugin"
 
 # Kubelet credential provider plugins
-CREDENTIAL_PROVIDER_VERSIONS="
-1.29.2
-1.30.0
-"
+CREDENTIAL_PROVIDER_VERSIONS=""
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
     downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
