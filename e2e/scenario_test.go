@@ -659,7 +659,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 
 				// trigger oras pull of credential provider during provisioning in cse_config.sh
 				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/etc/kubernetes/credentialproviders/"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/var/lib/kubelet/credential-provider/"
 				nbc.K8sComponents.LinuxCredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz" // should get overridden by the ContainerRegistryServer URL
 
 				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
