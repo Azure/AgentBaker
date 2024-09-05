@@ -658,9 +658,9 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
 				// trigger oras pull of credential provider during provisioning in cse_config.sh
-				nbc.KubeletConfig["--image-credential-provider-config"] = "/dummy/path"
-				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/dummy/path"
-				nbc.K8sComponents.LinuxCredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-linux-arm64-v1.30.0.tar.gz" // should get overridden by the ContainerRegistryServer URL
+				nbc.KubeletConfig["--image-credential-provider-config"] = "/var/lib/kubelet/credential-provider-config.yaml"
+				nbc.KubeletConfig["--image-credential-provider-bin-dir"] = "/etc/kubernetes/credentialproviders/"
+				nbc.K8sComponents.LinuxCredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz" // should get overridden by the ContainerRegistryServer URL
 
 				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
