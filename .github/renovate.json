@@ -17,14 +17,6 @@
     {
       "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
       "matchUpdateTypes": [
-        "minor"
-      ],
-      "automerge": false,
-      "enabled": false
-    },
-    {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
-      "matchUpdateTypes": [
         "patch",
         "pin",
         "digest"
