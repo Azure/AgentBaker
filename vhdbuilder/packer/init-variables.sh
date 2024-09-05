@@ -244,7 +244,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		TARGET_COMMAND_STRING=""
-
+    TARGET_FEATURE_STRING=""
     # NVMe disk controller types are only supported for v6 SKUs, which are Gen2 only.
     # For all Gen2 new image definitions, we want this property set to allow v6 SKU support
 
@@ -255,39 +255,45 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
     # Check Hyper-V generation
     if [[ ${HYPERV_GENERATION} == "V2" ]]; then
         # Start building the --features option with the disk controller type feature
-        TARGET_COMMAND_STRING+="--features '${DISK_CONTROLLER_TYPE_FEATURE}"
-
+        TARGET_FEATURE_STRING+="${DISK_CONTROLLER_TYPE_FEATURE}"
         # Check if Trusted Launch or Confidential VM is enabled
         if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}'"
+            TARGET_FEATURE_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}"
         elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}'"
-        else
-            TARGET_COMMAND_STRING+="'"
+            TARGET_FEATURE_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}"
         fi
     fi
 
     if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-      # Add a leading space if TARGET_COMMAND_STRING is not empty
-      if [[ -n ${TARGET_COMMAND_STRING} ]]; then
-          TARGET_COMMAND_STRING+=" "
-      fi
       TARGET_COMMAND_STRING+="--architecture Arm64"
     fi
 
-    set +x
-		az sig image-definition create \
-			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-			--gallery-name ${SIG_GALLERY_NAME} \
-			--gallery-image-definition ${SIG_IMAGE_NAME} \
-			--publisher microsoft-aks \
-			--offer ${SIG_GALLERY_NAME} \
-			--sku ${SIG_IMAGE_NAME} \
-			--os-type ${OS_TYPE} \
-			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION} \
-			${TARGET_COMMAND_STRING}
-		set -x
+    if [[ -n "${TARGET_FEATURE_STRING}" ]]; then
+      az sig image-definition create \
+      --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+      --gallery-name ${SIG_GALLERY_NAME} \
+      --gallery-image-definition ${SIG_IMAGE_NAME} \
+      --publisher microsoft-aks \
+      --offer ${SIG_GALLERY_NAME} \
+      --sku ${SIG_IMAGE_NAME} \
+      --os-type ${OS_TYPE} \
+      --hyper-v-generation ${HYPERV_GENERATION} \
+      --location ${AZURE_LOCATION} \
+      --features "${TARGET_FEATURE_STRING}" \
+      ${TARGET_COMMAND_STRING}
+    else
+      az sig image-definition create \
+      --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+      --gallery-name ${SIG_GALLERY_NAME} \
+      --gallery-image-definition ${SIG_IMAGE_NAME} \
+      --publisher microsoft-aks \
+      --offer ${SIG_GALLERY_NAME} \
+      --sku ${SIG_IMAGE_NAME} \
+      --os-type ${OS_TYPE} \
+      --hyper-v-generation ${HYPERV_GENERATION} \
+      --location ${AZURE_LOCATION} \
+      ${TARGET_COMMAND_STRING}
+    fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
