@@ -61,6 +61,13 @@ var (
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
 	}
+
+	VHDUbuntu2204Gen2ContainerdAirgapped = &Image{
+		Name:    "2204gen2containerd",
+		OS:      "ubuntu",
+		Arch:    "amd64",
+		Version: "1.1725544348.4398", // without cached kubelet, kubectl
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
