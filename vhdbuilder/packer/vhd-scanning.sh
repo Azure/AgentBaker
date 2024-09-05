@@ -55,7 +55,12 @@ if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
 fi
 
 if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-    VM_OPTIONS="--size Standard_EC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized"
+VM_OPTIONS="--size Standard_EC8ads_v5 \
+--security-type ConfidentialVM \
+--enable-secure-boot true \
+--enable-vtpm true \
+--os-disk-security-encryption-type VMGuestStateOnly \
+--specialized"
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
