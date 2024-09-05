@@ -371,7 +371,7 @@ PRESENT_DIR=$(pwd)
 (
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
   installBcc
-  exit 1
+  exit $?
 ) > /var/log/bcc_installation.log 2>&1 &
 
 BCC_PID=$!
