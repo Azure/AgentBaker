@@ -39,7 +39,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDAzureLinuxV2Gen2Airgapped,
+			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
@@ -86,7 +86,7 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDAzureLinuxV2Gen2Arm64Airgapped,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
@@ -290,7 +290,7 @@ func Test_marinerv2AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDCBLMarinerV2Gen2Airgapped,
+			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
@@ -337,7 +337,7 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDCBLMarinerV2Gen2Arm64Airgapped,
+			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
@@ -647,6 +647,32 @@ func Test_ubuntu2204(t *testing.T) {
 func Test_ubuntu2204AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2ContainerdAirgapped_NoK8s(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
 		Tags: Tags{
 			Airgap: true,
 		},

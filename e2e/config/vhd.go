@@ -68,30 +68,6 @@ var (
 		Arch:    "amd64",
 		Version: "1.1725544348.4398", // without cached kubelet, kubectl
 	}
-	VHDAzureLinuxV2Gen2Airgapped = &Image{
-		Name:    "AzureLinuxV2gen2",
-		OS:      "azurelinux",
-		Arch:    "amd64",
-		Version: "1.1725544351.5154", // without cached kubelet, kubectl
-	}
-	VHDAzureLinuxV2Gen2Arm64Airgapped = &Image{
-		Name:    "AzureLinuxV2gen2arm64",
-		OS:      "azurelinux",
-		Arch:    "arm64",
-		Version: "1.1725544341.6544", // without cached kubelet, kubectl
-	}
-	VHDCBLMarinerV2Gen2Airgapped = &Image{
-		Name:    "CBLMarinerV2gen2",
-		OS:      "mariner",
-		Arch:    "amd64",
-		Version: "1.1725544340.22666", // without cached kubelet, kubectl
-	}
-	VHDCBLMarinerV2Gen2Arm64Airgapped = &Image{
-		Name:    "CBLMarinerV2gen2arm64",
-		OS:      "mariner",
-		Arch:    "arm64",
-		Version: "1.1725544360.15345", // without cached kubelet, kubectl
-	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
