@@ -133,6 +133,7 @@ installNetworkPlugin() {
 downloadCredentialProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
         CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     else

@@ -202,8 +202,6 @@ retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
 
-    tar_retries=2 
-
     for i in $(seq 1 $tar_retries); do
         tarball_in_folder=$(find "$tar_folder" -name "*.tar.gz" -type f | head -n 1)
         tar -tzf $tarball_in_folder && break || \
