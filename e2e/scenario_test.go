@@ -906,6 +906,7 @@ func Test_ubuntu2204gpuNoDriver(t *testing.T) {
 }
 
 func Test_ubuntu2204privatekubepkg(t *testing.T) {
+	t.Skip("this VHD can't be updated and self-contained logic doesn't work for it")
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
 		Config: Config{
