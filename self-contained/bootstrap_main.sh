@@ -304,6 +304,8 @@ fi
 
 VALIDATION_ERR=0
 
+# TODO: Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
+
 # Edge case scenarios:
 # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
 # high timeout to address high latency for private dns server to forward request to Azure DNS
@@ -331,10 +333,10 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --insecure https://${API_SERVER_NAME}:443" || time curl -v --insecure "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
-    logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --insecure https://${API_SERVER_NAME}:443" || time curl -v --insecure "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
