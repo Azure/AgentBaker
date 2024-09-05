@@ -5,9 +5,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "enabledManagers": ["custom.regex"],
   "prConcurrentLimit": 50,
-  "prHourlyLimit": 20,
+  "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
-  "separateMinorPatch": true,
   "logLevelRemap": [
     {
       "matchMessage": "/^Custom manager fetcher/",
