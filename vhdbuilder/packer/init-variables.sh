@@ -255,15 +255,15 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
     # Check Hyper-V generation
     if [[ ${HYPERV_GENERATION} == "V2" ]]; then
         # Start building the --features option with the disk controller type feature
-        TARGET_COMMAND_STRING+="--features \"${DISK_CONTROLLER_TYPE_FEATURE}"
+        TARGET_COMMAND_STRING+="--features '${DISK_CONTROLLER_TYPE_FEATURE}"
 
         # Check if Trusted Launch or Confidential VM is enabled
         if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}\""
+            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}'"
         elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}\""
+            TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}'"
         else
-            TARGET_COMMAND_STRING+="\""
+            TARGET_COMMAND_STRING+="'"
         fi
     fi
 
@@ -285,7 +285,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 			--os-type ${OS_TYPE} \
 			--hyper-v-generation ${HYPERV_GENERATION} \
 			--location ${AZURE_LOCATION} \
-			"${TARGET_COMMAND_STRING}"
+			${TARGET_COMMAND_STRING}
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
