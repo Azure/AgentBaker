@@ -249,10 +249,10 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
     # For all Gen2 new image definitions, we want this property set to allow v6 SKU support
 
     DISK_CONTROLLER_TYPE_FEATURE="DiskControllerTypes=SCSI,NVMe"
-    SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE="SecurityType=TrustedLaunc"
-    SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE="ConfidentialVMSupported"
+    SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE="SecurityType=TrustedLaunch"
+    SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE="SecurityType=ConfidentialVMSupported"
 
-		# Check Hyper-V generation
+    # Check Hyper-V generation
     if [[ ${HYPERV_GENERATION} == "V2" ]]; then
         # Start building the --features option with the disk controller type feature
         TARGET_COMMAND_STRING+="--features \"${DISK_CONTROLLER_TYPE_FEATURE}"
@@ -267,13 +267,13 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
         fi
     fi
 
-		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-		  # Add a leading space if TARGET_COMMAND_STRING is not empty
+    if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+      # Add a leading space if TARGET_COMMAND_STRING is not empty
       if [[ -n ${TARGET_COMMAND_STRING} ]]; then
           TARGET_COMMAND_STRING+=" "
       fi
-			TARGET_COMMAND_STRING+="--architecture Arm64"
-		fi
+      TARGET_COMMAND_STRING+="--architecture Arm64"
+    fi
 
 		az sig image-definition create \
 			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -285,7 +285,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 			--os-type ${OS_TYPE} \
 			--hyper-v-generation ${HYPERV_GENERATION} \
 			--location ${AZURE_LOCATION} \
-			${TARGET_COMMAND_STRING}
+			"${TARGET_COMMAND_STRING}"
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
