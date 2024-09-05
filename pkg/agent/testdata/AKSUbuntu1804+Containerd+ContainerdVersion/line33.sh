@@ -310,9 +310,11 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
+        ls -la /etc/kubernetes/certs
         logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key https://${API_SERVER_NAME}:443/healthz" || time curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key "https://${API_SERVER_NAME}:443/healthz" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
     fi
 else
+    ls -la /etc/kubernetes/certs
     logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key https://${API_SERVER_NAME}:443/healthz" || time curl -v --cacert /etc/kubernetes/certs/ca.crt --cert /etc/kubernetes/certs/client.crt --key /etc/kubernetes/certs/client.key "https://${API_SERVER_NAME}:443/healthz" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
