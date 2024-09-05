@@ -249,6 +249,7 @@ function Get-ToolsToVHD {
 
     Write-Log "Getting DU (Windows Disk Usage)"
     Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+    Remove-Item -Path "$cacheDir\DU.zip" -Force
 }
 
 function Register-ExpandVolumeTask {
