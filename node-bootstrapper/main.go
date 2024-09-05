@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -89,12 +90,18 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 	return nodeBootstrapping.CSE, nil
 }
 
+// re-implement CustomData + cloud-init logic from AgentBaker
+// only for files not copied during build process
 func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
 	files, err := customData(config)
 	if err != nil {
 		return err
 	}
 	for path, file := range files {
+		dir := filepath.Dir(path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create directory %s: %w", dir, err)
+		}
 		if err := os.WriteFile(path, []byte(file.Content), file.Mode); err != nil {
 			return fmt.Errorf("write file %s: %w", path, err)
 		}
