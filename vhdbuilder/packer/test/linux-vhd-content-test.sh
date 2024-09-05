@@ -33,7 +33,6 @@ err() {
 # Strategy is to clone the repo, fetch the remote branch by ref into a local branch, and then checkout the local branch.
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
-git config advice.objectNameWarning false
 
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
 echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
@@ -49,6 +48,9 @@ if ! pushd ./AgentBaker; then
   err 'git-clone' "Contents of current directory: $(ls -al)"
   exit 1
 fi
+
+git config advice.objectNameWarning false
+
 COMMAND="git fetch --quiet origin ${GIT_BRANCH}:${LOCAL_GIT_BRANCH}"
 if ! ${COMMAND}; then
   err 'git-clone' "Failed to fetch remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
