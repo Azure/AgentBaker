@@ -57,7 +57,7 @@ if ! ${COMMAND}; then
   err 'git-clone' "Used command '${COMMAND}'"
   exit 1
 fi
-COMMAND="git checkout --quiet ${LOCAL_GIT_BRANCH}"
+COMMAND="git -c core.warnAmbiguousRefs=false checkout --quiet ${LOCAL_GIT_BRANCH}"
 if ! ${COMMAND}; then
   err 'git-clone' "Failed to checkout local branch '${LOCAL_GIT_BRANCH}'"
   err 'git-clone' "Used command '${COMMAND}'"
