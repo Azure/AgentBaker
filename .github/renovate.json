@@ -46,7 +46,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -58,7 +58,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -70,7 +70,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -82,7 +82,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/linux/cloud-init/artifacts/components_test.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
