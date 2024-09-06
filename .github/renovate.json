@@ -34,15 +34,6 @@
       "enabled": true
     },
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
-      "matchUpdateTypes": [
-        "minor"
-      ],
-      "matchDepNames": ["updateminor"],
-      "automerge": false,
-      "enabled": true
-    },
-    {
       "matchPackageNames": ["moby-runc"],
       "assignees": ["devinwong"]
     },
