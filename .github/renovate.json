@@ -62,7 +62,7 @@
         "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^ ]+)\\s+name=(?<packageName>[^ ]+)\\s+depname=(?<depName>[^ ]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "docker",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}} name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}} name={{{packageName}}}{{#if depName}} depname={{{depName}}}{{/if}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
