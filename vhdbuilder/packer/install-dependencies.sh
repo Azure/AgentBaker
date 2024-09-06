@@ -473,7 +473,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
 
   systemctlEnableAndStart nvidia-device-plugin || exit 1
-  ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
+  ctr --namespace k8s.io images --rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
 fi
 fi
 capture_benchmark "download_gpu_device_plugin"
