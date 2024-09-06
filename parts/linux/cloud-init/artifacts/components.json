@@ -95,7 +95,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com name=containernetworking/azure-cns",
-         "latestVersion": "v1.6.3",
+          "latestVersion": "v1.6.3",
           "previousLatestVersion": "v1.6.0"
         }
       ],
@@ -228,7 +228,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.22"
+          "latestVersion": "3.1.23"
         }
       ]
     },
@@ -572,7 +572,7 @@
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-runc os=ubuntu release=22.04",
+                "renovateTag": "name=moby-runc os=ubuntu release=24.04",
                 "latestVersion": "1.1.14-ubuntu24.04u1"
               }
             ]

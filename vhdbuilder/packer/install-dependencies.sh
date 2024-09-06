@@ -1,17 +1,25 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
-
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
 
-declare -a benchmarks=()
-
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
+
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+IS_KATA="false"
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+  IS_KATA="true"
+fi
+
+OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 
 source /home/packer/provision_installs.sh
@@ -62,7 +70,7 @@ else
   updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.2.1"
+  BLOBFUSE2_VERSION="2.3.2"
   if [ "${OS_VERSION}" == "18.04" ]; then
     # keep legacy version on ubuntu 18.04
     BLOBFUSE2_VERSION="2.2.0"
@@ -121,7 +129,7 @@ fi
 
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
-if [[ $OS != $MARINER_OS_NAME ]]; then
+if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
@@ -148,7 +156,7 @@ SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1
 EOF
 udevadm control --reload
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     disableSystemdResolvedCache
     disableSystemdIptables || exit 1
     setMarinerNetworkdConfig
@@ -193,15 +201,31 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadContainerdWasmShims
+echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
+
+echo "VHD will be built with containerd as the container runtime"
+updateAptWithMicrosoftPkg
+capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
-  returnPackageVersions ${p} ${OS} ${OS_VERSION}
+  os=${OS}
+  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+    os=${MARINER_KATA_OS_NAME}
+  fi
+  returnPackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+  # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
+  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+    echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
+    continue
+  fi
   downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
@@ -244,10 +268,18 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
-        elif [[ "${OS}" == "${MARINER_OS_NAME}" ]]; then
+        elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "oras")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+        # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
     "kubernetes-binaries")
@@ -295,6 +327,7 @@ if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
+# TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
@@ -314,8 +347,8 @@ capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-2d4c96"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.54.15-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-b40b85"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.07-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
@@ -414,15 +447,15 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 capture_benchmark "pull_and_retag_container_images"
 
-# IPv6 nftables rules are only available on Ubuntu or Mariner v2
-if [[ $OS == $UBUNTU_OS_NAME || ( $OS == $MARINER_OS_NAME && $OS_VERSION == "2.0" ) ]]; then
+# IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
+if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 capture_benchmark "configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSIONS="
-v0.13.0.7
+v0.14.5
 "
 for NVIDIA_DEVICE_PLUGIN_VERSION in ${NVIDIA_DEVICE_PLUGIN_VERSIONS}; do
     CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
@@ -438,7 +471,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 
   DEST="/usr/local/nvidia/bin"
   mkdir -p $DEST
-  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.13.0.7" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} "mcr.microsoft.com/oss/nvidia/k8s-device-plugin:v0.14.5" plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
   chmod a+x $DEST/nvidia-device-plugin
   echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
   ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
@@ -542,5 +575,5 @@ fi
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
-capture_benchmark "overall_script" true
+capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
