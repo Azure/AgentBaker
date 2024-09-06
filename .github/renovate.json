@@ -34,6 +34,15 @@
       "enabled": true
     },
     {
+      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "matchDepNames": ["updateminor"],
+      "automerge": false,
+      "enabled": true
+    },
+    {
       "matchPackageNames": ["moby-runc"],
       "assignees": ["devinwong"]
     },
@@ -50,7 +59,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^ ]+)\\s+name=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^ ]+)\\s+name=(?<packageName>[^ ]+)\\s+depname=(?<depName>[^ ]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "docker",
       "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}} name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
