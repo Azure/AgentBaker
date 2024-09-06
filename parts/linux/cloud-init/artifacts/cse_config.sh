@@ -402,6 +402,48 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
+# removes the specified LABEL_STRING (which should be in the form of 'label=value') from KUBELET_NODE_LABELS
+clearKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
+    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
+    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+disableKubeletServingCertificateRotationForTags() {
+    # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
+    export -f should_disable_kubelet_serving_certificate_rotation
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    if [ $? -ne 0 ]; then
+        echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
+        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
+    fi
+
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
+        return 0
+    fi
+
+    echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
+
+    # set the --rotate-server-certificates flag to false if needed
+    KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
+
+    if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+        set +x
+        # set the serverTLSBootstrap property to false if needed
+        MODIFIED_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
+        KUBELET_CONFIG_FILE_CONTENT="$MODIFIED_CONTENT"
+        set -x
+    fi
+    
+    # remove the "kubernetes.azure.com/kubelet-serving-ca=cluster" label if needed
+    clearKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default

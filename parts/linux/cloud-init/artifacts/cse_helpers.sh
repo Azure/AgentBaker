@@ -119,6 +119,9 @@ ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registr
 ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
 
+# Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
+ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -427,6 +430,17 @@ should_skip_nvidia_drivers() {
     fi
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
     echo "$should_skip"
+}
+
+should_disable_kubelet_serving_certificate_rotation() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
+    echo "$should_disable"
 }
 
 isMarinerOrAzureLinux() {
