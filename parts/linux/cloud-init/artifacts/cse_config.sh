@@ -415,6 +415,11 @@ clearKubeletNodeLabel() {
 }
 
 disableKubeletServingCertificateRotationForTags() {
+    if [[ ! $KUBELET_FLAGS =~ "--rotate-server-certificates=true" ]]; then
+        echo "kubelet flag --rotate-server-certificates is not set to true, nothing to disable"
+        return 0
+    fi
+
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
     export -f should_disable_kubelet_serving_certificate_rotation
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
