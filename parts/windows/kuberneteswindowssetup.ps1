@@ -291,6 +291,8 @@ try
     icacls.exe "c:\k"
     Get-ProvisioningScripts
     Get-LogCollectionScripts
+
+    Disable-KubeletServingCertificateRotationForTags
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
@@ -413,7 +415,7 @@ try
     # 2. set serverTLSBootstrap to false in kubelet config file if needed
     # 3. remove kubernetes.azure.com/kubelet-serving-ca=cluster label
 
-    
+
     
     Install-KubernetesServices `
         -KubeDir $global:KubeDir

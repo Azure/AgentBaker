@@ -209,30 +209,68 @@ function Get-KubePackage {
     Remove-Item $zipfile
 }
 
-# function Set-KubeletFlagsAndNodeLabelsForKubeletServingCertificateRotation {
+function Remove-KubeletNodeLabel {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeletNodeLabels,
+        [Parameter(Mandatory=$true)][string]
+        $Label
+    )
 
-#     try {
-#         $metadata = Invoke-RestMethod -Headers @{"Metadata" = "true" } -URI "http://169.254.169.254/metadata/instance?api-version=2019-04-30" -Method get
-#     } catch {
-#         Write-Log "Error querying instance metadata service for nodepool tags."
-#     }
+    if ($KubeletNodeLabels -Match ",$Label") {
+        return $KubeletNodeLabels -replace ",$Label", ""
+    }
 
-#     $keys = @{ }
+    if ($KubeletNodeLabels -Match "$Label,") {
+        return $KubeletNodeLabels -replace "$Label,", ""
+    }
 
-#     try {
-#         # Write-Log "Querying instance metadata service..."
-#         # Note: 2019-04-30 is latest api available in all clouds
-#         $metadata = Invoke-RestMethod -Headers @{"Metadata" = "true" } -URI "http://169.254.169.254/metadata/instance?api-version=2019-04-30" -Method get
-#         # Write-Log ($metadata | ConvertTo-Json)
+    if ($KubeletNodeLabels -Match "$Label") {
+        return $KubeletNodeLabels -replace "$Label", ""
+    }
 
-#         $keys.Add("vm_size", $metadata.compute.vmSize)
-#     }
-#     catch {
-#         Write-Log "Error querying instance metadata service."
-#     }
+    return $KubeletNodeLabels
+}
 
-#     return $keys
-# }
+function Get-AKSKubeletServingCertificateRotationDisabled {
+    $uri = "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text"
+    $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
+
+    if (!$response) {
+        return "false"
+    }
+
+    foreach ($tag in $response.Split(";")) {
+        $values = $tag.Split(":")
+        if ($values.Length -ne 2) {
+            return "false"
+        }
+
+        if ($values[0] -eq "aks-disable-kubelet-serving-certificate-rotation") {
+            return $values[1]
+        }
+    }
+
+    return "false"
+}
+
+function Disable-KubeletServingCertificateRotationForTags {
+    Write-Log "checking whether to disable kubelet serving certificate rotation for nodepool tags..."
+
+    if (!($global:KubeletConfigArgs -Contains "--rotate-server-certificates=true")) {
+        Write-Log "kubelet flag --rotate-server-certificates is not set to true, nothing to disable"
+        return
+    }
+
+    $disabled = Get-AKSKubeletServingCertificateRotationDisabled
+    if (!($disabled -like "true")) {
+        Write-Log "nodepool tag `"aks-disable-disable-kubelet-serving-certificate-rotation`" is not true, nothing to disable"
+        return
+    }
+
+    $global:KubeletConfigArgs = $global:KubeletConfigArgs -replace "--rotate-server-certificates=true", "--rotate-server-certificates=false"
+    $global:KubeletNodeLabels = Remove-KubeletNodeLabel -KubeletNodeLabels $global:KubeletNodeLabels -Label "kubernetes.azure.com/kubelet-serving-ca=cluster"
+}
 
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration
 function New-NSSMService {

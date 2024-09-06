@@ -240,6 +240,23 @@ function Set-ExitCode
     exit $ExitCode
 }
 
+function Remove-KubeletNodeLabel {
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeletNodeLabels,
+        [Parameter(Mandatory=$true)][string]
+        $LabelString
+    )
+
+    if ($LabelString -Contains ",$LabelString") {
+
+    } elseif ($LabelString -Contains "$LabelString,") {
+
+    } elseif ($LabelString -Contains "$LabelString") {
+
+    }
+}
+
 function Postpone-RestartComputer 
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.PostponeRestartComputer" -TaskMessage "Start to create an one-time task to restart the VM"
