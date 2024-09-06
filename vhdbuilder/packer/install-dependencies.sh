@@ -173,13 +173,6 @@ if isMarinerOrAzureLinux "$OS"; then
     activateNfConntrack
 fi
 
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
-echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
-
 # doing this at vhd allows CSE to be faster with just mv 
 unpackTgzToCNIDownloadsDIR() {
   local URL=$1
@@ -221,6 +214,7 @@ for p in ${packages[*]}; do
   PACKAGE_DOWNLOAD_URL=""
   returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
+
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
   if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
