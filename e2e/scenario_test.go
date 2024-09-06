@@ -525,7 +525,7 @@ func Test_ubuntu1804(t *testing.T) {
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.7.1+azure-1"),
-				runcVersionValidator("1.1.12-1"),
+				runcVersionValidator("1.1.14-1"),
 				kubeletNodeIPValidator(),
 			},
 		},
@@ -637,7 +637,7 @@ func Test_ubuntu2204(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.7.20-1"),
-				runcVersionValidator("1.1.12-1"),
+				runcVersionValidator("1.1.14-1"),
 				kubeletNodeIPValidator(),
 			},
 		},

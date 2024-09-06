@@ -710,6 +710,7 @@ type CustomKubeletConfig struct {
 	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
 	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
 	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
+	SeccompDefault        *bool     `json:"seccompDefault,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
@@ -2113,6 +2114,10 @@ type AKSKubeletConfiguration struct {
 	// Default: true
 	// +optional
 	SerializeImagePulls *bool `json:"serializeImagePulls,omitempty"`
+	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
+	// Default: false
+	// +optional
+	SeccompDefault *bool `json:"seccompDefault,omitempty"`
 }
 
 type Duration string
