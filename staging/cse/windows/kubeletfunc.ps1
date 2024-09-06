@@ -209,6 +209,31 @@ function Get-KubePackage {
     Remove-Item $zipfile
 }
 
+# function Set-KubeletFlagsAndNodeLabelsForKubeletServingCertificateRotation {
+
+#     try {
+#         $metadata = Invoke-RestMethod -Headers @{"Metadata" = "true" } -URI "http://169.254.169.254/metadata/instance?api-version=2019-04-30" -Method get
+#     } catch {
+#         Write-Log "Error querying instance metadata service for nodepool tags."
+#     }
+
+#     $keys = @{ }
+
+#     try {
+#         # Write-Log "Querying instance metadata service..."
+#         # Note: 2019-04-30 is latest api available in all clouds
+#         $metadata = Invoke-RestMethod -Headers @{"Metadata" = "true" } -URI "http://169.254.169.254/metadata/instance?api-version=2019-04-30" -Method get
+#         # Write-Log ($metadata | ConvertTo-Json)
+
+#         $keys.Add("vm_size", $metadata.compute.vmSize)
+#     }
+#     catch {
+#         Write-Log "Error querying instance metadata service."
+#     }
+
+#     return $keys
+# }
+
 # TODO: replace KubeletStartFile with a Kubelet config, remove NSSM, and use built-in service integration
 function New-NSSMService {
     Param(
