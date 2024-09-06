@@ -46,11 +46,11 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components_test.json"
+        "parts/linux/cloud-init/artifacts/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^ ]+)\\s+name=(?<packageName>[^ ]+)\\s+depname=(?<depName>[^ ]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^ ]+)\\s+name=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "docker",
       "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}} name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
@@ -58,7 +58,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components_test.json"
+        "parts/linux/cloud-init/artifacts/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -70,7 +70,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components_test.json"
+        "parts/linux/cloud-init/artifacts/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -82,7 +82,7 @@
     {
       "customType": "regex",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components_test.json"
+        "parts/linux/cloud-init/artifacts/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
