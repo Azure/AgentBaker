@@ -400,8 +400,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			"--node-status-update-frequency":      "10s",
 			"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.6",
 			"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-			"--image-credential-provider-config":  "\"\"",
-			"--image-credential-provider-bin-dir": "\"\"",
 			"--pod-max-pids":                      "-1",
 			"--protect-kernel-defaults":           "true",
 			"--read-only-port":                    "0",
