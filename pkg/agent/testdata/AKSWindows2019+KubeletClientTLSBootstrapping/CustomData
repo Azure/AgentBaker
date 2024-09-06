@@ -397,6 +397,13 @@ try
     }
 
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+
+    # if --rotate-server-certificates is in kubelet flags:
+    # 1. set it to false
+    # 2. set serverTLSBootstrap to false in kubelet config file if needed
+    # 3. remove kubernetes.azure.com/kubelet-serving-ca=cluster label
+
+    
     
     Install-KubernetesServices `
         -KubeDir $global:KubeDir

@@ -418,8 +418,7 @@ disableKubeletServingCertificateRotationForTags() {
 
     if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
         set +x
-        MODIFIED_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
-        KUBELET_CONFIG_FILE_CONTENT="$MODIFIED_CONTENT"
+        KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
         set -x
     fi
     
