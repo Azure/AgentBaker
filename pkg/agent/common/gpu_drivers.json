@@ -1,4 +1,4 @@
 {
-    "cuda": "cuda-550.90.07",
-    "grid": "grid-535.161.08"
+    "cuda": "mcr.microsoft.com/aks/aks-gpu:cuda-550.90.07-sha-b40b85",
+    "grid": "mcr.microsoft.com/aks/aks-gpu:grid-535.161.08-sha-7b2b12"
 }

@@ -169,13 +169,13 @@ func TestGetAKSGPUImageSHA(t *testing.T) {
 		size   string
 		output string
 	}{
-		{"GRID Driver - NC Series v4", "standard_nc8ads_a10_v4", aksGPUGridSHA},
-		{"Cuda Driver - NV Series", "standard_nv6", aksGPUCudaSHA},
-		{"CUDA Driver - NC Series", "standard_nc6s_v3", aksGPUCudaSHA},
-		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", aksGPUGridSHA},
-		{"Unknown SKU", "unknown_sku", aksGPUCudaSHA},
-		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", aksGPUCudaSHA},
-		{"CUDA Driver - NV Series v3", "standard_nv12s_v3", aksGPUCudaSHA},
+		{"GRID Driver - NC Series v4", "standard_nc8ads_a10_v4", extractSHAFromImage(gpuDrivers.Grid)},
+		{"Cuda Driver - NV Series", "standard_nv6", extractSHAFromImage(gpuDrivers.Cuda)},
+		{"CUDA Driver - NC Series", "standard_nc6s_v3", extractSHAFromImage(gpuDrivers.Cuda)},
+		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", extractSHAFromImage(gpuDrivers.Grid)},
+		{"Unknown SKU", "unknown_sku", extractSHAFromImage(gpuDrivers.Cuda)},
+		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", extractSHAFromImage(gpuDrivers.Cuda)},
+		{"CUDA Driver - NV Series v3", "standard_nv12s_v3", extractSHAFromImage(gpuDrivers.Cuda)},
 	}
 
 	for _, test := range tests {
@@ -195,19 +195,19 @@ func TestGetGPUDriverVersion(t *testing.T) {
 	}{
 		{"CUDA Driver - NC Series v1", "standard_nc6", nvidia470CudaDriverVersion},
 		{"CUDA Driver - NCs Series v1", "standard_nc6s", nvidia470CudaDriverVersion},
-		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", nvidia550CudaDriverVersion},
-		{"Unknown SKU", "unknown_sku", nvidia550CudaDriverVersion},
-		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", nvidia550CudaDriverVersion},
-		{"GRID Driver - A10", "standard_nc8ads_a10_v4", nvidia535GridDriverVersion},
-		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", nvidia535GridDriverVersion},
-		{"GRID Driver - A10", "standard_nv36adms_a10_V5", nvidia535GridDriverVersion},
+		{"CUDA Driver - NC Series v2", "standard_nc6s_v2", extractDriverVersionFromImage(gpuDrivers.Cuda)},
+		{"Unknown SKU", "unknown_sku", extractDriverVersionFromImage(gpuDrivers.Cuda)},
+		{"CUDA Driver - NC Series v3", "standard_nc6s_v3", extractDriverVersionFromImage(gpuDrivers.Cuda)},
+		{"GRID Driver - A10", "standard_nc8ads_a10_v4", extractDriverVersionFromImage(gpuDrivers.Grid)},
+		{"GRID Driver - NV Series v5", "standard_nv6ads_a10_v5", extractDriverVersionFromImage(gpuDrivers.Grid)},
+		{"GRID Driver - A10", "standard_nv36adms_a10_V5", extractDriverVersionFromImage(gpuDrivers.Grid)},
 		// NV V1 SKUs were retired in September 2023, leaving this test just for safety
-		{"CUDA Driver - NV Series v1", "standard_nv6", nvidia550CudaDriverVersion},
+		{"CUDA Driver - NV Series v1", "standard_nv6", extractDriverVersionFromImage(gpuDrivers.Cuda)},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := GetNewGPUDriverVersion(test.size)
+			result := GetGPUDriverVersion(test.size)
 			assert.Equal(test.output, result, "Failed for size: %s", test.size)
 		})
 	}

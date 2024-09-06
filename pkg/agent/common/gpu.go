@@ -222,13 +222,6 @@ func IsMIGNode(gpuInstanceProfile string) bool {
 	return gpuInstanceProfile != ""
 }
 
-func GetAKSGPUImageSHA(size string) string {
-	if useGridDrivers(size) {
-		return aksGPUGridSHA
-	}
-	return aksGPUCudaSHA
-}
-
 func GPUNeedsFabricManager(size string) bool {
 	return fabricManagerGPUSizes.Has(strings.ToLower(size))
 }
@@ -246,13 +239,50 @@ func GetCommaSeparatedMarinerGPUSizes() string {
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
-	if useGridDrivers(size) {
-		return nvidia535GridDriverVersion
-	}
+	var image string
+
 	if isStandardNCv1(size) {
 		return nvidia470CudaDriverVersion
 	}
-	return nvidia550CudaDriverVersion
+
+	if useGridDrivers(size) {
+		image = gpuDrivers.Grid
+	} else {
+		image = gpuDrivers.Cuda
+	}
+
+	version := extractDriverVersionFromImage(image)
+	if version != "" {
+		log.Printf("Error extracting version from image")
+		return ""
+	}
+	return version
+}
+
+func extractSHAFromImage(image string) string {
+	parts := strings.Split(image, "-")
+	if len(parts) > 1 {
+		return "sha-" + parts[len(parts)-1]
+	}
+	return ""
+}
+
+// Helper function to extract the version part from the image string
+func extractDriverVersionFromImage(image string) string {
+	// Ensure the image string contains the expected separator
+	parts := strings.Split(image, ":")
+	if len(parts) != 2 {
+		return ""
+	}
+
+	// Split the second part by "-sha-" to separate the version from the SHA
+	versionParts := strings.Split(parts[1], "-sha-")
+	if len(versionParts) < 2 {
+		return ""
+	}
+
+	// Return the main version part (the first part before "-sha-")
+	return versionParts[0]
 }
 
 //go:embed gpu_drivers.json
@@ -274,14 +304,21 @@ func init() {
 	}
 }
 
-func GetNewGPUDriverVersion(size string) string {
+func GetAKSGPUImageSHA(size string) string {
+	var image string
+
 	if useGridDrivers(size) {
-		return gpuDrivers.Grid
+		image = gpuDrivers.Grid
+	} else {
+		image = gpuDrivers.Cuda
 	}
-	if isStandardNCv1(size) {
-		return nvidia470CudaDriverVersion
+
+	sha := extractSHAFromImage(image)
+	if sha == "" {
+		log.Printf("Error extracting SHA from image: %s", image)
+		return ""
 	}
-	return gpuDrivers.Cuda
+	return sha
 }
 
 func isStandardNCv1(size string) bool {

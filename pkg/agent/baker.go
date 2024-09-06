@@ -936,7 +936,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return common.GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return common.GetNewGPUDriverVersion(profile.VMSize)
+			return common.GetGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
 			return common.GetAKSGPUImageSHA(profile.VMSize)
