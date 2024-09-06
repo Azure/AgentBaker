@@ -1016,7 +1016,7 @@ func Test_imdsrestriction_filtertable(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that the imds restriction filter table is properly set",
 		Config: Config{
-			Cluster: ClusterAzureNetwork,
+			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -1038,6 +1038,8 @@ func Test_imdsrestriction_mangletable(t *testing.T) {
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.EnableIMDSRestriction = true
