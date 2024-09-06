@@ -1011,3 +1011,37 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 		},
 	})
 }
+
+func Test_imdsrestriction_filtertable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction filter table is properly set",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = false
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("filter"),
+			},
+		},
+	})
+}
+
+func Test_imdsrestriction_mangletable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction mangle table is properly set",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = true
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("mangle"),
+			},
+		},
+	})
+}

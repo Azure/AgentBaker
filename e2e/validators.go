@@ -320,3 +320,16 @@ func kubeletNodeIPValidator() *LiveVMValidator {
 		},
 	}
 }
+
+func imdsRestrictionRuleValidator(table string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert that the IMDS restriction rule is present",
+		Command:     fmt.Sprintf("iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("expected to find the IMDS restriction rule, but did not")
+			}
+			return nil
+		},
+	}
+}
