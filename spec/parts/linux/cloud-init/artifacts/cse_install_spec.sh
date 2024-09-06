@@ -16,7 +16,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.ubuntu."r2004".versions of package runc for UBUNTU 20.04'
             package=$(readPackage "runc")
             When call returnPackageVersions "$package" "UBUNTU" "20.04"
-            The variable PACKAGE_VERSIONS[@] should equal "1.1.12-ubuntu20.04u1"
+            The variable PACKAGE_VERSIONS[@] should equal "1.1.14-ubuntu20.04u1"
         End
 
         It 'returns downloadURIs.ubuntu.current.versions of package containerd for UBUNTU 22.04'

@@ -397,22 +397,22 @@
         "ubuntu": {
           "r1804": {
             "versions": [
-              "1.1.12-ubuntu18.04u1"
+              "1.1.14-ubuntu18.04u1"
             ]
           },
           "r2004": {
             "versions": [
-              "1.1.12-ubuntu20.04u1"
+              "1.1.14-ubuntu20.04u1"
             ]
           },
           "r2204": {
             "versions": [
-              "1.1.12-ubuntu22.04u1"
+              "1.1.14-ubuntu22.04u1"
             ]
           },
           "r2404": {
             "versions": [
-              "1.1.12-ubuntu24.04u1"
+              "1.1.14-ubuntu24.04u1"
             ]
           }
         },
