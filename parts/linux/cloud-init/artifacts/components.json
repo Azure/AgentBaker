@@ -343,13 +343,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com,name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.28.10",
-          "previousLatestVersion": "v1.28.9"
+          "latestVersion": "v1.28.9",
+          "previousLatestVersion": "v1.28.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com,name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.29.9",
-          "previousLatestVersion": "v1.29.8"
+          "latestVersion": "v1.29.8",
+          "previousLatestVersion": "v1.29.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com,name=oss/kubernetes-csi/azuredisk-csi",
@@ -557,7 +557,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc,os=ubuntu,release=20.04",
-                "latestVersion": "1.1.14-ubuntu20.04u1"
+                "latestVersion": "1.1.12-ubuntu20.04u1"
               }
             ]
           },
@@ -565,7 +565,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc,os=ubuntu,release=22.04",
-                "latestVersion": "1.1.14-ubuntu22.04u1"
+                "latestVersion": "1.1.12-ubuntu22.04u1"
               }
             ]
           },
@@ -573,7 +573,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc,os=ubuntu,release=24.04",
-                "latestVersion": "1.1.14-ubuntu24.04u1"
+                "latestVersion": "1.1.12-ubuntu24.04u1"
               }
             ]
           }
