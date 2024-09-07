@@ -556,7 +556,7 @@
           "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-runc os=ubuntu release=20.04",
+                "renovateTag": "name=moby-runc_os=ubuntu_release=20.04",
                 "latestVersion": "1.1.14-ubuntu20.04u1"
               }
             ]
@@ -564,7 +564,7 @@
           "r2204": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-runc os=ubuntu release=22.04",
+                "renovateTag": "name=moby-runc_os=ubuntu_release=22.04",
                 "latestVersion": "1.1.14-ubuntu22.04u1"
               }
             ]
@@ -572,7 +572,7 @@
           "r2404": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-runc os=ubuntu release=24.04",
+                "renovateTag": "name=moby-runc_os=ubuntu_release=24.04",
                 "latestVersion": "1.1.14-ubuntu24.04u1"
               }
             ]
@@ -608,7 +608,7 @@
           "r2204": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-containerd os=ubuntu release=22.04",
+                "renovateTag": "name=moby-containerd_os=ubuntu_release=22.04",
                 "latestVersion": "1.7.20"
               }
             ]
@@ -616,7 +616,7 @@
           "r2004": {
             "versionsV2": [
               {
-                "renovateTag": "name=moby-containerd os=ubuntu release=20.04",
+                "renovateTag": "name=moby-containerd_os=ubuntu_release=20.04",
                 "latestVersion": "1.7.20"
               }
             ]
