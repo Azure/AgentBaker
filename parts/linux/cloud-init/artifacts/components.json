@@ -206,8 +206,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com,name=oss/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.4.5",
-          "previousLatestVersion": "v1.4.4"
+          "latestVersion": "v1.4.4",
+          "previousLatestVersion": "v1.4.3"
         }
       ]
     },
