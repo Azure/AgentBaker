@@ -531,7 +531,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.2.0"
               }
             ],
@@ -548,7 +548,7 @@
           "r1804": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.1.14-ubuntu18.04u1"
               }
             ]
@@ -582,7 +582,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.1.9-5.cm2"
               }
             ]
@@ -592,7 +592,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.1.12-1.azl3"
               }
             ]
@@ -624,7 +624,7 @@
           "r1804": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.7.1-1"
               }
             ]
@@ -634,7 +634,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.6.26-5.cm2"
               }
             ]
@@ -644,7 +644,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "<SKIP>"
               }
             ]
@@ -654,7 +654,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.7.13-3.azl3"
               }
             ]
@@ -664,7 +664,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.7.20"
               }
             ]
@@ -680,7 +680,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.4.1"
               }
             ],
@@ -697,15 +697,15 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.4.54"
               },
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.5.32"
               },
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.6.3"
               }
             ],
@@ -722,7 +722,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.29.0"
               }
             ],
@@ -740,25 +740,25 @@
             "versionsV2": [
               {
                 "k8sVersion": "1.27",
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.27.16",
                 "previousLatestVersion": "1.27.15"
               },
               {
                 "k8sVersion": "1.28",
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.28.13",
                 "previousLatestVersion": "1.28.12"
               },
               {
                 "k8sVersion": "1.29",
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.29.8",
                 "previousLatestVersion": "1.29.7"
               },
               {
                 "k8sVersion": "1.30",
-                "renovateTag": "<do not update>",
+                "renovateTag": "DO_NOT_UPDATE",
                 "latestVersion": "1.30.4",
                 "previousLatestVersion": "1.30.3"
               }
