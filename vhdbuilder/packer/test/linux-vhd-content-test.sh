@@ -423,6 +423,13 @@ testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
 
+  #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
+  if ! nc -h 2>/dev/null; then
+    err $test "nc is not installed"
+  else
+    echo $test "nc is installed"
+  fi
+
   if ! curl -h 2>/dev/null; then
     err $test "curl is not installed"
   else
