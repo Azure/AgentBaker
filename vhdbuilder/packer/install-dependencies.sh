@@ -201,7 +201,14 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
+# check if COMPONENTS_FILEPATH exists
+if [ ! -f $COMPONENTS_FILEPATH ]; then
+  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
+  exit 1
+fi
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+echo "packages: $packages"
 for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
