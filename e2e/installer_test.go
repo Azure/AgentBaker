@@ -48,7 +48,7 @@ func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) st
 	binary := compileNodeBootstrapper(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, "node-bootstrapper-"+hashFile(t, binary.Name()), binary)
 	require.NoError(t, err)
-	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && mkdir -p /var/log/azure && ./node-bootstrapper) > /var/log/azure/node-bootstrapper.log 2>&1"`, base64.StdEncoding.EncodeToString(configJSON), url)
+	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && mkdir -p /var/log/azure && ./node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1"`, base64.StdEncoding.EncodeToString(configJSON), url)
 }
 
 func compileNodeBootstrapper(t *testing.T) *os.File {
