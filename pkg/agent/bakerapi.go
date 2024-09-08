@@ -97,7 +97,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingV2(ctx context.Context, co
 		return nil, fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	nodeBootstrapping.CSE = fmt.Sprintf(
-		`bash -c "(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && /opt/azure/node-bootstrapper) > /var/log/azure/node-bootstrapper.log 2>&1"`,
+		`bash -c "(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && /opt/azure/node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1"`,
 		base64.StdEncoding.EncodeToString(configJSON),
 	) // TODO: simplify this)
 	nodeBootstrapping.CustomData = ""

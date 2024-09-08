@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,10 +17,13 @@ import (
 	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
 )
 
+var provisionConfig = flag.String("provision-config", "", "path to the provision config file")
+
 func main() {
 	slog.Info("node-bootstrapper started")
+	flag.Parse()
 	ctx := context.Background()
-	if err := run(ctx); err != nil {
+	if err := Run(ctx); err != nil {
 		slog.Error("node-bootstrapper finished with error", "error", err.Error())
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -30,8 +34,26 @@ func main() {
 	slog.Info("node-bootstrapper finished")
 }
 
-func run(ctx context.Context) error {
-	config, err := loadConfig("config.json")
+func Run(ctx context.Context) error {
+	if len(os.Args) < 2 {
+		return errors.New("missing command argument")
+	}
+	switch os.Args[1] {
+	case "provision":
+		return Provision(ctx)
+	default:
+		return fmt.Errorf("unknown command: %s", os.Args[1])
+	}
+}
+
+// usage example:
+// node-bootstrapper provision --provision-config=config.json
+func Provision(ctx context.Context) error {
+	if provisionConfig == nil || *provisionConfig == "" {
+		return errors.New("--provision-config is required")
+	}
+
+	config, err := loadConfig(*provisionConfig)
 	if err != nil {
 		return err
 	}
