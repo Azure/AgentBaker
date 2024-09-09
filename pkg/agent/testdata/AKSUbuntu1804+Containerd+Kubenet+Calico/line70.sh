@@ -401,8 +401,8 @@ clearKubeletNodeLabel() {
 }
 
 disableKubeletServingCertificateRotationForTags() {
-    if [[ ! $KUBELET_FLAGS =~ "--rotate-server-certificates=true" ]]; then
-        echo "kubelet flag --rotate-server-certificates is not set to true, nothing to disable"
+    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
+        echo "kubelet serving certificate rotation is already disabled"
         return 0
     fi
 

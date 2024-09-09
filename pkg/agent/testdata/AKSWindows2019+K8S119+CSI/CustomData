@@ -209,6 +209,8 @@ $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("false");
 
+$global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("false")
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force

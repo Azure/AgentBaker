@@ -17,7 +17,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 			}
 			for _, file := range files {
 				if !strings.Contains(stdout, file) {
-					return fmt.Errorf(fmt.Sprintf("expected to find file %s within directory %s, but did not", file, path))
+					return fmt.Errorf("expected to find file %s within directory %s, but did not", file, path)
 				}
 			}
 			return nil
@@ -41,7 +41,7 @@ func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 			}
 			for name, value := range customSysctls {
 				if !strings.Contains(stdout, fmt.Sprintf("%s = %v", name, value)) {
-					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", name, value))
+					return fmt.Errorf("expected to find %s set to %v, but was not", name, value)
 				}
 			}
 			return nil

@@ -235,7 +235,7 @@ function Remove-KubeletNodeLabel {
 function Get-TagValue {
     Param(
         [Parameter(Mandatory=$true)][string]
-        $TagName
+        $TagName,
         [Parameter(Mandatory=$true)][string]
         $DefaultValue
     )
@@ -255,8 +255,8 @@ function Disable-KubeletServingCertificateRotationForTags {
 
     Write-Log "Checking whether to disable kubelet serving certificate rotation for nodepool tags"
 
-    if (!($global:KubeletConfigArgs -Contains "--rotate-server-certificates=true")) {
-        Write-Log "Kubelet flag --rotate-server-certificates is not set to true, nothing to disable"
+    if (!($global:EnableKubeletServingCertificateRotation)) {
+        Write-Log "Kubelet serving certificate rotation is already disabled"
         return
     }
 

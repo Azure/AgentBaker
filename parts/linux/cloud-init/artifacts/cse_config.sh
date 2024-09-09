@@ -249,8 +249,11 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    # generate a kubelet serving certificate if we aren't relying on 
-    # TLS bootstrapping to generate one for us
+    # generate a kubelet serving certificate if we aren't relying on TLS bootstrapping to generate one for us.
+    # NOTE: in the case where ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION is true but 
+    # the customer has disabled serving certificate rotation via nodepool tags,
+    # the self-signed serving certificate will be bootstrapped by the kubelet instead of this function
+    # TODO(cameissner): remove configureKubeletServerCert altogether
     if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
         configureKubeletServerCert
     fi
@@ -415,8 +418,8 @@ clearKubeletNodeLabel() {
 }
 
 disableKubeletServingCertificateRotationForTags() {
-    if [[ ! $KUBELET_FLAGS =~ "--rotate-server-certificates=true" ]]; then
-        echo "kubelet flag --rotate-server-certificates is not set to true, nothing to disable"
+    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
+        echo "kubelet serving certificate rotation is already disabled"
         return 0
     fi
 
