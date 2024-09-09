@@ -34,6 +34,7 @@ type Configuration struct {
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
 	BlobStorageAccount            string        `env:"BLOB_STORAGE_ACCOUNT" envDefault:"https://abe2e.blob.core.windows.net"`
 	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
+	EnableNodeBootstrapperTest    bool          `env:"ENABLE_NODE_BOOTSTRAPPER_TEST"`
 }
 
 func mustLoadConfig() Configuration {

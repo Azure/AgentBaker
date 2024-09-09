@@ -52,11 +52,11 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 	if err != nil {
 		return nil, err
 	}
-	nodeBootstrapping, err := ab.GetNodeBootstrappingV2(ctx, nbc)
-	if err != nil {
-		return nil, err
+	if config.Config.EnableNodeBootstrapperTest {
+		return ab.GetNodeBootstrappingV2(ctx, nbc)
+	} else {
+		return ab.GetNodeBootstrapping(ctx, nbc)
 	}
-	return nodeBootstrapping, nil
 }
 
 func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
