@@ -234,30 +234,17 @@ function Remove-KubeletNodeLabel {
 
 function Get-AKSKubeletServingCertificateRotationDisabled {
     Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] running..."
-    
-    $uri = "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text"
+
+    $tagName = "aks-disable-kubelet-serving-certificate-rotation"
+    $uri = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
     $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
 
-    if (!$response) {
-        Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] response is empty"
+    $tag = $response.compute.tagsList | Where-Object { $_.name -eq $tagName }
+    if (!$tag) {
+        Write-Log "nodepool tag $tagName is not present"
         return "false"
     }
-
-    foreach ($tag in $response.Split(";")) {
-        $values = $tag.Split(":")
-        if ($values.Length -ne 2) {
-            Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] response is malformed"
-            return "false"
-        }
-
-        if ($values[0] -eq "aks-disable-kubelet-serving-certificate-rotation") {
-            Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] returning tag value"
-            return $values[1]
-        }
-    }
-
-    Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] could not find tag"
-    return "false"
+    return $tag.value
 }
 
 function Disable-KubeletServingCertificateRotationForTags {
