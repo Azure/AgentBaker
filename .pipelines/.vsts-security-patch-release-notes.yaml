@@ -1,0 +1,11 @@
+pool:
+  name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
+
+stages:
+  - stage: stuff
+    jobs:
+    - job: stuff
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo "this is fun"
