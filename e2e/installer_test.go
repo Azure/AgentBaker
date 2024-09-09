@@ -20,7 +20,7 @@ import (
 // it compiles the node-bootstrapper binary and uploads it to Azure Storage.
 // the runs the node-bootstrapper on the VM.
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
-	if _, ok := os.LookupEnv("ENABLE_NODE_BOOTSTRAPPER_TEST"); !ok {
+	if !config.Config.EnableNodeBootstrapperTest {
 		t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
