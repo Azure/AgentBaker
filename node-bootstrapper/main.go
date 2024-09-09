@@ -17,11 +17,14 @@ import (
 	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
 )
 
-var provisionConfig = flag.String("provision-config", "", "path to the provision config file")
+type Config struct {
+	Version string `json:"version"`
+}
+
+const ConfigVersionV1Alpha1 = "v1alpha1"
 
 func main() {
 	slog.Info("node-bootstrapper started")
-	flag.Parse()
 	ctx := context.Background()
 	if err := Run(ctx); err != nil {
 		slog.Error("node-bootstrapper finished with error", "error", err.Error())
@@ -49,6 +52,12 @@ func Run(ctx context.Context) error {
 // usage example:
 // node-bootstrapper provision --provision-config=config.json
 func Provision(ctx context.Context) error {
+	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
+	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+	err := fs.Parse(os.Args[2:])
+	if err != nil {
+		return fmt.Errorf("parse args: %w", err)
+	}
 	if provisionConfig == nil || *provisionConfig == "" {
 		return errors.New("--provision-config is required")
 	}
@@ -69,17 +78,25 @@ func Provision(ctx context.Context) error {
 }
 
 func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) {
-	config := &datamodel.NodeBootstrappingConfiguration{}
-	configFile, err := os.Open(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
 	}
-	defer configFile.Close()
 
-	if err := json.NewDecoder(configFile).Decode(config); err != nil {
+	var config Config
+	if err := json.Unmarshal(content, &config); err != nil {
 		return nil, fmt.Errorf("failed to decode config file: %w", err)
 	}
-	return config, nil
+	switch config.Version {
+	case ConfigVersionV1Alpha1:
+		nbc := &datamodel.NodeBootstrappingConfiguration{}
+		if err := json.Unmarshal(content, nbc); err != nil {
+			return nil, fmt.Errorf("failed to decode config file: %w", err)
+		}
+		return nbc, nil
+	default:
+		return nil, fmt.Errorf("unsupported config version: %s", config.Version)
+	}
 }
 
 func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {

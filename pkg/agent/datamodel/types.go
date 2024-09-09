@@ -1743,6 +1743,9 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+
+	// Version is require for node-bootstrapper application to determine the version of the config file.
+	Version string
 }
 
 type SSHStatus int
