@@ -233,6 +233,8 @@ function Remove-KubeletNodeLabel {
 }
 
 function Get-AKSKubeletServingCertificateRotationDisabled {
+    Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] running..."
+    
     $uri = "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text"
     $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
 
@@ -267,6 +269,7 @@ function Disable-KubeletServingCertificateRotationForTags {
     }
 
     $disabled = Get-AKSKubeletServingCertificateRotationDisabled
+    Write-Log "[Disable-KubeletServingCertificateRotationForTags] disabled: $disabled"
     if (!($disabled -like "true")) {
         Write-Log "nodepool tag `"aks-disable-kubelet-serving-certificate-rotation`" is not true, nothing to disable"
         return
