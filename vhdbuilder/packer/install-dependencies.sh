@@ -420,9 +420,9 @@ for imageToBePulled in ${ContainerImages[*]}; do
   fi
 
   if [[ $(isARM64) == 1 ]]; then
-    versions="${MULTI_ARCH_VERSIONS[@]}"
+    versions="${MULTI_ARCH_VERSIONS[*]}"
   else
-    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[@]}"
+    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
   fi
 
   for version in ${versions}; do
