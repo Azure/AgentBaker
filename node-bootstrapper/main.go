@@ -21,7 +21,7 @@ type Config struct {
 	Version string `json:"version"`
 }
 
-const ConfigVersionV1Alpha1 = "v1alpha1"
+const ConfigVersion = "v0"
 
 func main() {
 	slog.Info("node-bootstrapper started")
@@ -88,7 +88,7 @@ func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) 
 		return nil, fmt.Errorf("failed to decode config file: %w", err)
 	}
 	switch config.Version {
-	case ConfigVersionV1Alpha1:
+	case ConfigVersion:
 		nbc := &datamodel.NodeBootstrappingConfiguration{}
 		if err := json.Unmarshal(content, nbc); err != nil {
 			return nil, fmt.Errorf("failed to decode config file: %w", err)
