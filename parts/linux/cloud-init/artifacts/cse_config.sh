@@ -429,6 +429,7 @@ disableKubeletServingCertificateRotationForTags() {
     fi
 
     if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
+        echo "nodepool tag \"aks-disable-kubelet-serving-certificate-rotation\" is not true, nothing to disable"
         return 0
     fi
 

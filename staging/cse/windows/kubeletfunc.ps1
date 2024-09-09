@@ -237,20 +237,24 @@ function Get-AKSKubeletServingCertificateRotationDisabled {
     $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
 
     if (!$response) {
+        Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] response is empty"
         return "false"
     }
 
     foreach ($tag in $response.Split(";")) {
         $values = $tag.Split(":")
         if ($values.Length -ne 2) {
+            Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] response is malformed"
             return "false"
         }
 
         if ($values[0] -eq "aks-disable-kubelet-serving-certificate-rotation") {
+            Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] returning tag value"
             return $values[1]
         }
     }
 
+    Write-Log "[Get-AKSKubeletServingCertificateRotationDisabled] could not find tag"
     return "false"
 }
 
@@ -264,9 +268,11 @@ function Disable-KubeletServingCertificateRotationForTags {
 
     $disabled = Get-AKSKubeletServingCertificateRotationDisabled
     if (!($disabled -like "true")) {
-        Write-Log "nodepool tag `"aks-disable-disable-kubelet-serving-certificate-rotation`" is not true, nothing to disable"
+        Write-Log "nodepool tag `"aks-disable-kubelet-serving-certificate-rotation`" is not true, nothing to disable"
         return
     }
+
+    Write-Log "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
 
     $global:KubeletConfigArgs = $global:KubeletConfigArgs -replace "--rotate-server-certificates=true", "--rotate-server-certificates=false"
     $global:KubeletNodeLabels = Remove-KubeletNodeLabel -KubeletNodeLabels $global:KubeletNodeLabels -Label "kubernetes.azure.com/kubelet-serving-ca=cluster"
