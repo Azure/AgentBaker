@@ -92,6 +92,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingV2(ctx context.Context, co
 	if config.AgentPoolProfile.IsWindows() {
 		return agentBaker.GetNodeBootstrapping(ctx, config)
 	}
+	config.Version = "v1alpha1"
 	nodeBootstrapping, err := agentBaker.GetNodeBootstrapping(ctx, config)
 	if err != nil {
 		return nil, err
