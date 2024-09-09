@@ -21,8 +21,8 @@ type Configuration struct {
 	AirgapNSGName                 string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
 	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
-	Location                      string        `env:"LOCATION" envDefault:"westus3"`
-	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	Location                      string        `env:"LOCATION" envDefault:"eastus2euap"`
+	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	TagsToRun                     string        `env:"TAGS_TO_RUN"`

@@ -754,7 +754,7 @@ func Test_ubuntu2204gpuncv(t *testing.T) {
 }
 
 func Test_ubuntu2204gpua100(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4")
+	runScenarioUbuntu2204GPU(t, "Standard_ND96is_H200_v5")
 }
 
 func Test_ubuntu2204gpua10(t *testing.T) {
