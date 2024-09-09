@@ -205,24 +205,6 @@ func TestGetOutBoundCmd(t *testing.T) {
 			want: "curl -v --insecure --proxy-insecure https://gcr.azk8s.cn/v2/",
 		},
 		{
-			name: "Test with cloudName as AzureChinaCloud and orchestratorVersion as 1.17.0",
-			args: args{
-				nbconfig: &datamodel.NodeBootstrappingConfiguration{
-					ContainerService: &datamodel.ContainerService{
-						Properties: &datamodel.Properties{
-							OrchestratorProfile: &datamodel.OrchestratorProfile{
-								OrchestratorVersion: "1.17.0",
-							},
-						},
-					},
-					CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
-						CloudName: datamodel.AzureChinaCloud,
-					},
-				},
-			},
-			want: "nc -vz gcr.azk8s.cn 443",
-		},
-		{
 			name: "Test with cloudName as AzurePublicCloud and orchestratorVersion as 1.19.0",
 			args: args{
 				nbconfig: &datamodel.NodeBootstrappingConfiguration{

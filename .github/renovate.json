@@ -28,6 +28,17 @@
       ],
       "datasourceTemplate": "docker",
       "registryUrlTemplate": "https://mcr.microsoft.com"
+    },
+    {
+      "customType": "regex",
+      "description": "update version line in any cse_*.sh",
+      "fileMatch": [
+        "^.*cse_.*\\.sh"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
     }
   ]
 }
