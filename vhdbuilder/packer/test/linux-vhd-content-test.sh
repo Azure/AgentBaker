@@ -19,7 +19,6 @@ IMG_SKU="$6"
 #   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
 #   this for stable version and there is no customer issues collected. Ignore this failure now.
 CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
-  "Command ['hostname', '-f']"
 )
 
 err() {
