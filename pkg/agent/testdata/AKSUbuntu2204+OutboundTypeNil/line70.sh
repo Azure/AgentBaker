@@ -420,6 +420,8 @@ disableKubeletServingCertificateRotationForTags() {
 
     echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
 
+    echo "$KUBELET_FLAGS"
+
     KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
 
     if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then

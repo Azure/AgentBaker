@@ -964,7 +964,7 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 	})
 }
 
-func Test_ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
@@ -994,7 +994,7 @@ func Test_ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.
 	)
 }
 
-func Test_ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
