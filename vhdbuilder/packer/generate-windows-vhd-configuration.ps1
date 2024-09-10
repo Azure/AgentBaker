@@ -97,14 +97,14 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.9-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10-windows-hp", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.7-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.8-windows-hp", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.2-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.9-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.3-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.4-windows-hp", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.11-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12-windows-hp", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.6-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.7-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.8-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.3-windows-hp", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.5-windows-hp", # for k8s 1.29.x
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
@@ -121,6 +121,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.9", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.5", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.0", # for k8s 1.31.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.23",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
