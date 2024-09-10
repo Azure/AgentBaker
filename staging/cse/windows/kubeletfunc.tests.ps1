@@ -71,13 +71,6 @@ Describe 'Disable-KubeletServingCertificateRotationForTags' {
     }
 
     It "Should no-op when EnableKubeletServingCertificateRotation is already disabled" {
-        # Mock Get-TagValue -MockWith {  
-        #     Param(
-        #         $TagName,
-        #         $DefaultValue
-        #     )
-        #     return "false"
-        # }
         Mock Get-TagValue -MockWith { "false" }
         $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
@@ -91,13 +84,6 @@ Describe 'Disable-KubeletServingCertificateRotationForTags' {
     }
 
     It "Should no-op when the aks-disable-kubelet-serving-certificate-rotation tag is not true" {
-        # Mock Get-TagValue -MockWith {  
-        #     Param(
-        #         $TagName,
-        #         $DefaultValue
-        #     )
-        #     return "false"
-        # }
         Mock Get-TagValue -MockWith { "false" }
         $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
@@ -111,13 +97,6 @@ Describe 'Disable-KubeletServingCertificateRotationForTags' {
     }
 
     It "Should reconfigure kubelet config args and node labels when aks-disable-kubelet-serving-certificate-rotation is true" {
-        # Mock Get-TagValue -MockWith {  
-        #     Param(
-        #         $TagName,
-        #         $DefaultValue
-        #     )
-        #     return "true"
-        # }
         Mock Get-TagValue -MockWith { "true" }
         $global:KubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
         $global:KubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
