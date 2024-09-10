@@ -212,18 +212,14 @@ echo "packages: $packages"
 for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
-  echo "Processing package: ${name}"
   PACKAGE_VERSIONS=()
   os=${OS}
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
-  echo "os: ${os}"
   returnPackageVersions ${p} ${os} ${OS_VERSION}
-  echo "Package versions: ${PACKAGE_VERSIONS[@]}"
   PACKAGE_DOWNLOAD_URL=""
   returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
-  echo "Package download URL: ${PACKAGE_DOWNLOAD_URL}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
