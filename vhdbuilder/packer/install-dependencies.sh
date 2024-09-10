@@ -503,6 +503,8 @@ systemctl restart cgroup-memory-telemetry.service
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
+
+  echo "<mitchzhu> this is when I enable cgroup-pressure-telemetry"
   systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service
