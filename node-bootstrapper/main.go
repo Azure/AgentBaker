@@ -190,18 +190,20 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	case datamodel.UseAzureMsiDirectly:
 	case datamodel.UseArcMsiToMakeCSR:
 	case datamodel.UseAzureMsiToMakeCSR:
-	case datamodel.UseTlsBootstrapToken:
-	case datamodel.UseSecureTlsBootstrapping:
-		err2 := useTlsSecureBootstrappingKubeConfig(config, files)
-		if err2 != nil {
+	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
+		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
 			return nil, err2
 		}
-		break
 
 	default:
-		err2 := useFallbackKubeConfig(config, files)
-		if err2 != nil {
-			return files, err2
+		if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
+			if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+				return nil, err2
+			}
+		} else {
+			if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+				return nil, err2
+			}
 		}
 	}
 
@@ -213,14 +215,6 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	return files, nil
 }
 
-func useFallbackKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
-		return useTlsSecureBootstrappingKubeConfig(config, files)
-	} else {
-		return useHardCodedKubeconfig(config, files)
-	}
-}
-
 func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	files["/var/lib/kubelet/kubeconfig"] = File{
 		Content: contentKubeconfig(config),
@@ -229,7 +223,7 @@ func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, fi
 	return nil
 }
 
-func useTlsSecureBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	bootstrapKubeconfig, err := contentBootstrapKubeconfig(config)
 	if err != nil {
 		return fmt.Errorf("content bootstrap kubeconfig: %w", err)

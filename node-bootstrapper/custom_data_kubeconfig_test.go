@@ -1,17 +1,40 @@
 package main
 
 import (
-	"testing"
-
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"testing"
 )
+
+const (
+	bootstrapConfigFile = "/var/lib/kubelet/bootstrap-kubeconfig"
+	kubeConfigFile      = "/var/lib/kubelet/kubeconfig"
+)
+
+func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
+	t.Helper()
+	files, err := customData(nbc)
+	require.NoError(t, err)
+	require.NotContains(t, files, bootstrapConfigFile)
+	actual := getFile(t, nbc, kubeConfigFile, 0644)
+	assert.YAMLEq(t, expected, actual)
+}
+
+func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
+	t.Helper()
+	files, err := customData(nbc)
+	require.NoError(t, err)
+	require.NotContains(t, files, kubeConfigFile)
+	actual := getFile(t, nbc, bootstrapConfigFile, 0644)
+	assert.YAMLEq(t, expected, actual)
+}
 
 func TestKubeConfigGeneratedCorrectly(t *testing.T) {
 
 	t.Run("kubeconfig", func(t *testing.T) {
 		nbc := validNBC()
-		actual := getFile(t, nbc, "/var/lib/kubelet/kubeconfig", 0644)
-		expected := `
+		assertKubeconfig(t, nbc, `
 apiVersion: v1
 kind: Config
 clusters:
@@ -30,15 +53,13 @@ contexts:
     user: client
   name: localclustercontext
 current-context: localclustercontext
-`
-		assert.YAMLEq(t, expected, actual)
+`)
 	})
 
 	t.Run("bootstrap-kubeconfig", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.KubeletClientTLSBootstrapToken = Ptr("test-token")
-		actual := getFile(t, nbc, "/var/lib/kubelet/bootstrap-kubeconfig", 0644)
-		expected := `apiVersion: v1
+		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
@@ -55,15 +76,13 @@ users:
     - name: kubelet-bootstrap
       user:
         token: test-token
-`
-		assert.YAMLEq(t, expected, actual)
+`)
 	})
 
 	t.Run("secureTlsBootstrapKubeConfig sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.EnableSecureTLSBootstrapping = true
-		actual := getFile(t, nbc, "/var/lib/kubelet/bootstrap-kubeconfig", 0644)
-		expected := `apiVersion: v1
+		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
@@ -88,15 +107,13 @@ users:
       command: /opt/azure/tlsbootstrap/tls-bootstrap-client
       interactiveMode: Never
       provideClusterInfo: true
-`
-		assert.YAMLEq(t, expected, actual)
+`)
 	})
 
 	t.Run("BootstrappingMethod=UseSecureTlsBootstrapping sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.BootstrappingMethod = "UseSecureTlsBootstrapping"
-		actual := getFile(t, nbc, "/var/lib/kubelet/bootstrap-kubeconfig", 0644)
-		expected := `apiVersion: v1
+		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
@@ -121,8 +138,31 @@ users:
       command: /opt/azure/tlsbootstrap/tls-bootstrap-client
       interactiveMode: Never
       provideClusterInfo: true
-`
-		assert.YAMLEq(t, expected, actual)
+`)
+	})
+
+	t.Run("BootstrappingMethod=UseTlsBootstrapToken sets bootstrap-kubeconfig correctly", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.BootstrappingMethod = "UseTlsBootstrapToken"
+		nbc.KubeletClientTLSBootstrapToken = Ptr("test-token-value")
+		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
+clusters:
+    - cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://:443
+      name: localcluster
+contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+current-context: bootstrap-context
+kind: Config
+users:
+    - name: kubelet-bootstrap
+      user:
+        token: test-token-value
+`)
 	})
 
 }

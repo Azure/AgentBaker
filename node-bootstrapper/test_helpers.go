@@ -15,6 +15,7 @@ func getFile(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, path s
 	require.Contains(t, files, path)
 	actual := files[path]
 	assert.Equal(t, expectedMode, actual.Mode)
+
 	return actual.Content
 }
 
