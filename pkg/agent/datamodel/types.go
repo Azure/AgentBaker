@@ -350,6 +350,17 @@ const (
 	Webhook AuthenticatorType = "webhook"
 )
 
+type BootstrappingMethod string
+
+const (
+	UseArcMsiToMakeCSR        BootstrappingMethod = "UseArcMsiToMakeCSR"
+	UseAzureMsiToMakeCSR      BootstrappingMethod = "UseAzureMsiToMakeCSR"
+	UseArcMsiDirectly         BootstrappingMethod = "UseArcMsiDirectly"
+	UseAzureMsiDirectly       BootstrappingMethod = "UseAzureMsiDirectly"
+	UseSecureTlsBootstrapping BootstrappingMethod = "UseSecureTlsBootstrapping"
+	UseTlsBootstrapToken      BootstrappingMethod = "UseTlsBootstrapToken"
+)
+
 // UserAssignedIdentity contains information that uniquely identifies an identity.
 type UserAssignedIdentity struct {
 	ResourceID string `json:"resourceId,omitempty"`
@@ -369,6 +380,7 @@ type ResourceIdentifiers struct {
 
 // CustomCloudEnv represents the custom cloud env info of the AKS cluster.
 type CustomCloudEnv struct {
+	BootstrappingMethod
 	// TODO(ace): why is Name uppercase?
 	// in Linux, this was historically specified as "name" when serialized.
 	// However Windows relies on the json tag as "Name".
@@ -1720,6 +1732,8 @@ type NodeBootstrappingConfiguration struct {
 	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
 	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
 	EnableSecureTLSBootstrapping bool
+	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
+	BootstrappingMethod BootstrappingMethod
 	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
 	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
 	CustomSecureTLSBootstrapAADServerAppID string
