@@ -14,13 +14,6 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 
-# List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
-# 1. "Command ['hostname', '-f']":
-#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
-#   this for stable version and there is no customer issues collected. Ignore this failure now.
-CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
-)
-
 err() {
   echo "$1:Error: $2" >>/dev/stderr
 }
@@ -351,13 +344,7 @@ testCloudInit() {
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
-        for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
-            if [[ "$msg" == *"$pattern"* ]]; then
-                echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
-            else
-                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
-            fi
-        done
+        err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
       done
       echo "Cloud-init log is OK."
     else
