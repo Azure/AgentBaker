@@ -141,9 +141,7 @@ func FileExcludesContentsValidator(fileName string, contents string, contentsNam
 
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
 func cleanse(str string) string {
-	str = strings.Replace(str, "'", "", -1)
-
-	return str
+	return strings.Replace(str, "'", "", -1)
 }
 
 func makeExecutableCommand(steps []string) string {
