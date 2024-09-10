@@ -57,6 +57,45 @@ EXECCREDENTIAL='''
     "token": .access_token
   }
 }
+'''
+
+# Arc IMDS requires a challenge token from a file only readable by root for security
+CHALLENGE_TOKEN_PATH=\$(curl -s -D - -H Metadata:true \$TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
+CHALLENGE_TOKEN=\$(cat \$CHALLENGE_TOKEN_PATH)
+if [ $? -ne 0 ]; then
+    echo "Could not retrieve challenge token, double check that this command is run with root privileges."
+    exit 255
+fi
+
+curl -s -H Metadata:true -H "Authorization: Basic \$CHALLENGE_TOKEN" \$TOKEN_URL | jq "\$EXECCREDENTIAL"
+`, aadAppId)
+	assert.Equal(t, expected, actual)
+}
+
+func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
+	t.Helper()
+	files, err := customData(nbc)
+	require.NoError(t, err)
+	require.NotContains(t, files, arcTokenSh)
+	actual := getFile(t, nbc, azureTokenSh, 0644)
+	expected := fmt.Sprintf(`#!/bin/bash
+
+TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
+EXECCREDENTIAL='''
+{
+  "kind": "ExecCredential",
+  "apiVersion": "client.authentication.k8s.io/v1beta1",
+  "spec": {
+    "interactive": false
+  },
+  "status": {
+    "expirationTimestamp": .expires_on | tonumber | todate,
+    "token": .access_token
+  }
+}
+'''
+
+curl -s -H Metadata:true \$TOKEN_URL | jq "\$EXECCREDENTIAL"
 `, aadAppId)
 	assert.Equal(t, expected, actual)
 }
@@ -143,7 +182,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseSecureTlsBootstrapping sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = "UseSecureTlsBootstrapping"
+		nbc.BootstrappingMethod = datamodel.UseSecureTlsBootstrapping
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
@@ -174,7 +213,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseTlsBootstrapToken sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = "UseTlsBootstrapToken"
+		nbc.BootstrappingMethod = datamodel.UseTlsBootstrapToken
 		nbc.KubeletClientTLSBootstrapToken = Ptr("test-token-value")
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
@@ -198,7 +237,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseArcMsiToMakeCSR sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = "UseArcMsiToMakeCSR"
+		nbc.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
@@ -225,40 +264,41 @@ users:
 	t.Run("BootstrappingMethod=UseArcMsiToMakeCSR sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
-		nbc.BootstrappingMethod = "UseArcMsiToMakeCSR"
+		nbc.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
 		assertArcTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
 	})
 
 	t.Run("BootstrappingMethod=UseArcMsiToMakeCSR sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
-		nbc.BootstrappingMethod = "UseArcMsiToMakeCSR"
+		nbc.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
 		assertArcTokenSh(t, nbc, "different_app_id")
 	})
 
 	t.Run("BootstrappingMethod=UseArcMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = "UseArcMsiDirectly"
-		assertKubeconfig(t, nbc, `apiVersion: v1
+		nbc.BootstrappingMethod = datamodel.UseArcMsiDirectly
+		assertKubeconfig(t, nbc, `
+apiVersion: v1
 clusters:
-    - cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
-      name: localcluster
+- cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://:443
+  name: localcluster
 contexts:
-    - context:
-        cluster: localcluster
-        user: client
-      name: localclustercontext
+- context:
+    cluster: localcluster
+    user: client
+  name: localclustercontext
 current-context: localclustercontext
 kind: Config
 users:
-    - name: default-auth
-      user:
-        exec:
-          apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/bootstrap/arc-token.sh
-          provideClusterInfo: false
+- name: default-auth
+  user:
+    exec:
+       apiVersion: client.authentication.k8s.io/v1
+       command: /opt/azure/bootstrap/arc-token.sh
+       provideClusterInfo: false
 `)
 	})
 
@@ -276,4 +316,44 @@ users:
 		assertArcTokenSh(t, nbc, "different_app_id")
 	})
 
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		assertKubeconfig(t, nbc, `
+apiVersion: v1
+clusters:
+   - cluster:
+       certificate-authority: /etc/kubernetes/certs/ca.crt
+       server: https://:443
+     name: localcluster
+contexts:
+   - context:
+       cluster: localcluster
+       user: client
+     name: localclustercontext
+current-context: localclustercontext
+kind: Config
+users:
+   - name: default-auth
+     user:
+       exec:
+         apiVersion: client.authentication.k8s.io/v1
+         command: /opt/azure/bootstrap/arc-token.sh
+         provideClusterInfo: false
+`)
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		assertAzureTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		assertAzureTokenSh(t, nbc, "different_app_id")
+	})
 }
