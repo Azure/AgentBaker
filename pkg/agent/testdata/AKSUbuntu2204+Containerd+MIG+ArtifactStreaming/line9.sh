@@ -370,11 +370,10 @@ isARM64() {
 isRegistryUrl() {
     local binary_url=$1
     registry_regex='^.+\/.+\/.+:.+$'
-    if [[ ${binary_url} =~ $registry_regex ]]; then
+    if [[ ${binary_url} =~ $registry_regex ]]; then 
         return 0 
-    else
-        return 1 
     fi
+    return 1 
 }
 
 logs_to_events() {
