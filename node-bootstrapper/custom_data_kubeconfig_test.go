@@ -356,4 +356,44 @@ users:
 		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
 		assertAzureTokenSh(t, nbc, "different_app_id")
 	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
+clusters:
+    - cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://:443
+      name: localcluster
+contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+current-context: bootstrap-context
+kind: Config
+users:
+    - name: kubelet-bootstrap
+      user:
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/bootstrap/azure-token.sh
+          provideClusterInfo: false
+`)
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		assertAzureTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		assertAzureTokenSh(t, nbc, "different_app_id")
+	})
 }
