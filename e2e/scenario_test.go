@@ -1012,7 +1012,7 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 	})
 }
 
-func Test_imdsrestriction_filtertable(t *testing.T) {
+func Test_ubuntu2204imdsrestriction_filtertable(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that the imds restriction filter table is properly set",
 		Config: Config{
@@ -1031,7 +1031,7 @@ func Test_imdsrestriction_filtertable(t *testing.T) {
 	})
 }
 
-func Test_imdsrestriction_mangletable(t *testing.T) {
+func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that the imds restriction mangle table is properly set",
 		Config: Config{
