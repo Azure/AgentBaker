@@ -185,19 +185,23 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 		}
 	}
 
-	if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
-		bootstrapKubeconfig, err := contentBootstrapKubeconfig(config)
-		if err != nil {
-			return nil, fmt.Errorf("content bootstrap kubeconfig: %w", err)
+	switch config.BootstrappingMethod {
+	case datamodel.UseArcMsiDirectly:
+	case datamodel.UseAzureMsiDirectly:
+	case datamodel.UseArcMsiToMakeCSR:
+	case datamodel.UseAzureMsiToMakeCSR:
+	case datamodel.UseTlsBootstrapToken:
+	case datamodel.UseSecureTlsBootstrapping:
+		err2 := useTlsSecureBootstrappingKubeConfig(config, files)
+		if err2 != nil {
+			return nil, err2
 		}
-		files["/var/lib/kubelet/bootstrap-kubeconfig"] = File{
-			Content: bootstrapKubeconfig,
-			Mode:    0644,
-		}
-	} else {
-		files["/var/lib/kubelet/kubeconfig"] = File{
-			Content: contentKubeconfig(config),
-			Mode:    0644,
+		break
+
+	default:
+		err2 := useFallbackKubeConfig(config, files)
+		if err2 != nil {
+			return files, err2
 		}
 	}
 
@@ -207,6 +211,34 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	}
 
 	return files, nil
+}
+
+func useFallbackKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
+		return useTlsSecureBootstrappingKubeConfig(config, files)
+	} else {
+		return useHardCodedKubeconfig(config, files)
+	}
+}
+
+func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	files["/var/lib/kubelet/kubeconfig"] = File{
+		Content: contentKubeconfig(config),
+		Mode:    0644,
+	}
+	return nil
+}
+
+func useTlsSecureBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	bootstrapKubeconfig, err := contentBootstrapKubeconfig(config)
+	if err != nil {
+		return fmt.Errorf("content bootstrap kubeconfig: %w", err)
+	}
+	files["/var/lib/kubelet/bootstrap-kubeconfig"] = File{
+		Content: bootstrapKubeconfig,
+		Mode:    0644,
+	}
+	return nil
 }
 
 func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -249,7 +281,7 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 			{
 				"name": "kubelet-bootstrap",
 				"user": func() map[string]any {
-					if config.EnableSecureTLSBootstrapping {
+					if config.EnableSecureTLSBootstrapping || config.BootstrappingMethod == "UseSecureTlsBootstrapping" {
 						appID := config.CustomSecureTLSBootstrapAADServerAppID
 						if appID == "" {
 							appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
