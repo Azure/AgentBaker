@@ -22,7 +22,7 @@ Describe 'Adjust-DynamicPortRange' {
             $global:EnableIncreaseDynamicPortRange = $false
 
             Adjust-DynamicPortRange
-            Assert-MockCalled -CommandName "Invoke-Executable" -Exactly -Times 1
+            Assert-MockCalled -CommandName "Invoke-Executable" -Exactly -Times 2
         }
     }
 }
