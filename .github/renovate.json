@@ -92,6 +92,17 @@
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}},os=ubuntu,release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "update version line in any cse_*.sh",
+      "fileMatch": [
+        "^.*cse_.*\\.sh"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
+      ]
     }
   ],
   "customDatasources": {
