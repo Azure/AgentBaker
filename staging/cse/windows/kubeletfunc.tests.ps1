@@ -150,7 +150,7 @@ Describe 'Get-TagValue' {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "true"
             Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' -and $Method -eq 'Get' -and $ContentType='application/json' -and $Headers -eq @{"Metadata"="true"}}
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' -and $Method -eq 'Get' -and $ContentType='application/json' -and $Headers -eq @{"Metadata"="true"}}
             Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' -and $Args -eq @{Uri="http://169.254.169.254/metadata/instance?api-version=2021-02-01"; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -and $Retries -eq 3 -and $RetryDelaySeconds -eq 5}
         }
 
@@ -161,7 +161,7 @@ Describe 'Get-TagValue' {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "false"
             Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' -and $Method -eq 'Get' -and $ContentType='application/json' -and $Headers -eq @{"Metadata"="true"}}
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' -and $Method -eq 'Get' -and $ContentType='application/json' -and $Headers -eq @{"Metadata"="true"}}
             Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' -and $Args -eq @{Uri="http://169.254.169.254/metadata/instance?api-version=2021-02-01"; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -and $Retries -eq 3 -and $RetryDelaySeconds -eq 5}
         }
     }
@@ -177,7 +177,7 @@ Describe 'Get-TagValue' {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "false"
             Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' -and $Method -eq 'Get' -and $ContentType='application/json' -and $Headers -eq @{"Metadata"="true"}}
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' -and $Method -eq 'Get' -and $ContentType='application/json' -and $Headers -eq @{"Metadata"="true"}}
             Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' -and $Args -eq @{Uri="http://169.254.169.254/metadata/instance?api-version=2021-02-01"; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -and $Retries -eq 3 -and $RetryDelaySeconds -eq 5}
         }
     }
