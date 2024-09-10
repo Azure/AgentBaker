@@ -138,7 +138,7 @@ Describe 'Get-TagValue' {
             )
             
             # force a single retry for unit testing
-            Write-Host "calling command $Command with args $Args"
+            Write-Host "mocked Retry-Command: cmd: $Command: args $Args, retries: $Retries, retryDelaySeconds: $RetryDelaySeconds"
             return & $Command @Args
         }
     }
