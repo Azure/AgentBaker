@@ -107,9 +107,8 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 
 func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("ls -la %[1]s", fileName),
-		fmt.Sprintf("(sudo cat %[1]s | grep -q '%[2]s')", fileName, contents),
+		fmt.Sprintf("(sudo cat %[1]s | grep -q %[2]q)", fileName, contents),
 	}
 
 	command := makeExecutableCommand(steps)
@@ -208,7 +207,6 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 
 func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprint(commandToExecute),
 	}
 
