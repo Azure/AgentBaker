@@ -234,6 +234,7 @@ function Get-TagValue {
     try {
         $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
     } catch {
+        $_
         Write-Host "error: returning default value"
         Write-Log "Failed to get value of tag `"$TagName`" from IMDS, defaulting to `"$DefaultValue`""
         return $DefaultValue

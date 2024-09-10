@@ -137,7 +137,8 @@ Describe 'Get-TagValue' {
                 $RetryDelaySeconds
             )
             
-            return Invoke-RestMethod @Args
+            # no retries for unit tests
+            return & $Command @Args
         }
     }
 
