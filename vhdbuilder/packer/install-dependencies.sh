@@ -217,9 +217,9 @@ for p in ${packages[*]}; do
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
-  returnPackageVersions ${p} ${os} ${OS_VERSION}
+  updatePackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
+  updatePackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
@@ -408,7 +408,7 @@ for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
   MULTI_ARCH_VERSIONS=()
-  returnMultiArchVersionsV2OrMultiArchVersions "${imageToBePulled}"
+  updateMultiArchVersions "${imageToBePulled}"
 
   amd64OnlyVersions=""
   if [[ ${amd64OnlyVersionsStr} != null ]]; then

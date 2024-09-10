@@ -90,9 +90,9 @@ testPackagesInstalled() {
       OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
-    returnPackageVersions ${p} ${OS} ${OS_VERSION}
+    updatePackageVersions ${p} ${OS} ${OS_VERSION}
     PACKAGE_DOWNLOAD_URL=""
-    returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    updatePackageDownloadURL ${p} ${OS} ${OS_VERSION}
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
@@ -187,7 +187,7 @@ testImagesPulled() {
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
     MULTI_ARCH_VERSIONS=()
-    returnMultiArchVersionsV2OrMultiArchVersions "${imageToBePulled}"
+    updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
     if [[ ${amd64OnlyVersionsStr} != null ]]; then
