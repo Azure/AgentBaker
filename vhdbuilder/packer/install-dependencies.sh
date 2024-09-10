@@ -370,9 +370,7 @@ PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
 (
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-
   installBcc
-
   exit $?
 ) > /var/log/bcc_installation.log 2>&1 &
 
@@ -483,8 +481,7 @@ CREDENTIAL_PROVIDER_VERSIONS="
 1.30.0
 "
 for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
-    downloadCredentalProvider $CREDENTIAL_PROVIDER_DOWNLOAD_URL
+    downloadCredentialProvider
     echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
 done
 
