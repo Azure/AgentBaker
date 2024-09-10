@@ -203,6 +203,13 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 		}
 
 	case datamodel.UseAzureMsiDirectly:
+		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+			return nil, err2
+		}
+		if err2 := useAzureTokenSh(config, files); err2 != nil {
+			return nil, err2
+		}
+
 	case datamodel.UseAzureMsiToMakeCSR:
 	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
 		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
@@ -240,6 +247,15 @@ func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, fi
 func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	bootstrapKubeconfig := contentArcTokenSh(config)
 	files["/opt/azure/bootstrap/arc-token.sh"] = File{
+		Content: bootstrapKubeconfig,
+		Mode:    0644,
+	}
+	return nil
+}
+
+func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	bootstrapKubeconfig := contentAzureTokenSh(config)
+	files["/opt/azure/bootstrap/azure-token.sh"] = File{
 		Content: bootstrapKubeconfig,
 		Mode:    0644,
 	}
@@ -320,6 +336,44 @@ EXECCREDENTIAL='''
     "token": .access_token
   }
 }
+'''
+
+# Arc IMDS requires a challenge token from a file only readable by root for security
+CHALLENGE_TOKEN_PATH=\$(curl -s -D - -H Metadata:true \$TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
+CHALLENGE_TOKEN=\$(cat \$CHALLENGE_TOKEN_PATH)
+if [ $? -ne 0 ]; then
+    echo "Could not retrieve challenge token, double check that this command is run with root privileges."
+    exit 255
+fi
+
+curl -s -H Metadata:true -H "Authorization: Basic \$CHALLENGE_TOKEN" \$TOKEN_URL | jq "\$EXECCREDENTIAL"
+`, appID)
+}
+
+func contentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+	}
+
+	return fmt.Sprintf(`#!/bin/bash
+
+TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
+EXECCREDENTIAL='''
+{
+  "kind": "ExecCredential",
+  "apiVersion": "client.authentication.k8s.io/v1beta1",
+  "spec": {
+    "interactive": false
+  },
+  "status": {
+    "expirationTimestamp": .expires_on | tonumber | todate,
+    "token": .access_token
+  }
+}
+'''
+
+curl -s -H Metadata:true \$TOKEN_URL | jq "\$EXECCREDENTIAL"
 `, appID)
 }
 
