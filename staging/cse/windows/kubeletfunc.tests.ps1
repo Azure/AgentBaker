@@ -63,3 +63,139 @@ Describe 'Get-KubePackage' {
         }
     }
 }
+
+Describe 'Disable-KubeletServingCertificateRotationForTags' {
+    BeforeEach {
+        Mock Logs-To-Event
+    }
+
+    It "Should no-op when EnableKubeletServingCertificateRotation is already disabled" {
+        Mock Get-TagValue -MockWith { "false" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $global:EnableKubeletServingCertificateRotation = $false
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        Disable-KubeletServingCertificateRotationForTags
+        Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+    }
+
+    It "Should no-op when the aks-disable-kubelet-serving-certificate-rotation tag is not true" {
+        Mock Get-TagValue -MockWith { "false" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:EnableKubeletServingCertificateRotation = $true
+        Disable-KubeletServingCertificateRotationForTags
+        Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
+    }
+
+    It "Should reconfigure kubelet config args and node labels when aks-disable-kubelet-serving-certificate-rotation is true" {
+        Mock Get-TagValue -MockWith { "true" }
+        $global:KubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:EnableKubeletServingCertificateRotation = $true
+        Disable-KubeletServingCertificateRotationForTags
+        Compare-Object $global:KubeletConfigArgs "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false" | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels "kubernetes.azure.com/agentpool=wp0" | Should -Be $null
+    }
+}
+
+Describe 'Get-TagValue' {
+    BeforeEach {
+        Mock Retry-Command -MockWith {
+            Param(
+                $Command,
+                $Args,
+                $Retries,
+                $RetryDelaySeconds
+            )
+            
+            # force a single retry for unit testing
+            return & $Command @Args
+        }
+    }
+
+    Context 'IMDS error' {
+        BeforeEach {
+            Mock Invoke-RestMethod -MockWith { 
+                Throw 'IMDS is down' 
+            }
+        }
+
+        It "Should return the default value when an error is encountered while calling IMDS" {
+            $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
+            $expected = "false"
+            Compare-Object $result $expected | Should -Be $null
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
+        }
+    }
+
+    Context 'IMDS returns a valid response' {
+        It "Should return the tag value if it is present within the IMDS response" {
+            Mock Invoke-RestMethod -MockWith {
+                return (Get-Content "$PSScriptRoot\kubeletfunc.tests.suites\IMDS.Instance.TagExists.json" | Out-String | Convert-FromJson)
+            }
+            $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
+            $expected = "true"
+            Compare-Object $result $expected | Should -Be $null
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
+        }
+
+        It "Should return the default value of the tag is not present within the response" {
+            Mock Invoke-RestMethod -MockWith {
+                return (Get-Content "$PSScriptRoot\kubeletfunc.tests.suites\IMDS.Instance.TagDoesNotExist.json" | Out-String | Convert-FromJson)
+            }
+            $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
+            $expected = "false"
+            Compare-Object $result $expected | Should -Be $null
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
+        }
+    }
+}
+
+Describe 'Remove-KubeletNodeLabel' {
+    It "Should remove the specified label when it exists within the label string" {
+        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
+        Compare-Object $result $expected | Should -Be $null
+    }
+
+    It "Should remove the specified label when it is the first label within the label string" {
+        $labelString = "kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
+        Compare-Object $result $expected | Should -Be $null
+    }
+
+    It "Should remove the specified label when it is the last label within the label string" {
+        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
+        Compare-Object $result $expected | Should -Be $null
+    }
+
+    It "Should not alter the specified label string if the target label does not exist" {
+        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = $labelString
+        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
+        Compare-Object $result $expected | Should -Be $null
+    }
+
+    It "Should return an empty string if the only label within the label string is the target" {
+        $labelString = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = ""
+        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
+        Compare-Object $result $expected | Should -Be $null
+    }
+}
