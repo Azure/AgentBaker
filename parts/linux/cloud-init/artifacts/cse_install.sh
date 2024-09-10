@@ -140,8 +140,8 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
-# downloadCredentialProvider is most-likely called during build time by install-dependencies.sh. 
-# It can be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
+# downloadCredentialProvider is always called during build time by install-dependencies.sh. 
+# It can also be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
