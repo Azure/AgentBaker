@@ -125,7 +125,9 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
 	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
 
-	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
+	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
+	// TODO(xinhl): add another way to validate
+	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && (opts.nbc.OutboundType != datamodel.OutboundTypeBlock && opts.nbc.OutboundType != datamodel.OutboundTypeNone) {
 		validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName)
 	}
 
