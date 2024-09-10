@@ -255,7 +255,7 @@ func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[s
 	bootstrapKubeconfig := contentArcTokenSh(config)
 	files["/opt/azure/bootstrap/arc-token.sh"] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    0644,
+		Mode:    0755,
 	}
 	return nil
 }
@@ -264,7 +264,7 @@ func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map
 	bootstrapKubeconfig := contentAzureTokenSh(config)
 	files["/opt/azure/bootstrap/azure-token.sh"] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    0644,
+		Mode:    0755,
 	}
 	return nil
 }
