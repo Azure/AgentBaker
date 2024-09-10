@@ -370,9 +370,7 @@ PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
 (
   cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-
   installBcc
-
   exit $?
 ) > /var/log/bcc_installation.log 2>&1 &
 
