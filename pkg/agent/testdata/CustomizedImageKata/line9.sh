@@ -108,7 +108,7 @@ ERR_CNI_VERSION_INVALID=206
 
 ERR_ORAS_PULL_K8S_FAIL=207 
 ERR_ORAS_PULL_FAIL_RESERVE_1=208 
-ERR_ORAS_PULL_FAIL_RESERVE_2=209 
+ERR_ORAS_PULL_CONTAINERD_WASM=209 
 ERR_ORAS_PULL_FAIL_RESERVE_3=210 
 ERR_ORAS_PULL_FAIL_RESERVE_4=211 
 ERR_ORAS_PULL_FAIL_RESERVE_5=212 
@@ -367,6 +367,15 @@ isARM64() {
     else
         echo 0
     fi
+}
+
+isRegistryUrl() {
+    local binary_url=$1
+    registry_regex='^.+\/.+\/.+:.+$'
+    if [[ ${binary_url} =~ $registry_regex ]]; then 
+        return 0 
+    fi
+    return 1 
 }
 
 logs_to_events() {

@@ -255,10 +255,10 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			PodInfraContainerImageURL: "mcr.microsoft.com/oss/kubernetes/pause:3.6",
-			HyperkubeImageURL:         "mcr.microsoft.com/oss/kubernetes/",
-			WindowsPackageURL:         "windowspackage",
-			LinuxPrivatePackageURL:    "",
+			PodInfraContainerImageURL:  "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+			HyperkubeImageURL:          "mcr.microsoft.com/oss/kubernetes/",
+			WindowsPackageURL:          "windowspackage",
+			LinuxCredentialProviderURL: "",
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
