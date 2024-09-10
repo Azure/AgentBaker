@@ -36,10 +36,7 @@
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong"]
-    },
-    {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "assignees": ["devinwong"],
       "extractVersion": "^v?(?<version>.+)$"
     }
   ],
