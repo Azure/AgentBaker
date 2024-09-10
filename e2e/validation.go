@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -21,8 +22,21 @@ func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string) {
 	t.Logf("wasm scenario: running wasm validation on %s...", nodeName)
+
+	// Execute "containerd config default" and print the output
+	cmd := exec.CommandContext(ctx, "containerd", "config", "default")
+	output, err := cmd.Output()
+	require.NoError(t, err, "failed to run 'containerd config default'")
+	t.Logf("containerd config default output:\n%s\n", output)
+
+	// Execute "containerd config dump" and print the output
+	cmd = exec.CommandContext(ctx, "containerd", "config", "dump")
+	output, err = cmd.Output()
+	require.NoError(t, err, "failed to run 'containerd config dump'")
+	t.Logf("containerd config dump output:\n%s\n", output)
+
 	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
-	err := createRuntimeClass(ctx, kube, spinClassName, wasmHandlerSpin)
+	err = createRuntimeClass(ctx, kube, spinClassName, wasmHandlerSpin)
 	require.NoError(t, err)
 	err = ensureWasmRuntimeClasses(ctx, kube)
 	require.NoError(t, err)
