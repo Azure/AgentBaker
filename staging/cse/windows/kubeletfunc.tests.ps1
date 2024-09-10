@@ -77,13 +77,14 @@ Describe 'Disable-KubeletServingCertificateRotationForTags' {
             )
             return "false"
         }
-        Write-Host "DownloadFileOverHttp -Url $Url -DestinationPath $DestinationPath -ExitCode $ExitCode" }
         $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
-        $global:KubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:EnableKubeletServingCertificateRotation = $false
         $global:KubeletConfigArgs = $kubeletConfigArgs
         Disable-KubeletServingCertificateRotationForTags
         Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
         Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 0
     }
 
