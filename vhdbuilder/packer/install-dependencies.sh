@@ -194,7 +194,7 @@ downloadCNI() {
 }
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for p in ${packages[*]}; do
+for p in "${packages[*]}"; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
