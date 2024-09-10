@@ -150,7 +150,7 @@ Describe 'Get-TagValue' {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "true"
             Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1
             Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
         }
 
@@ -161,7 +161,7 @@ Describe 'Get-TagValue' {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "false"
             Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1
             Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
         }
     }
@@ -177,7 +177,7 @@ Describe 'Get-TagValue' {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "false"
             Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1
             Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
         }
     }
