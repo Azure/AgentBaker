@@ -195,6 +195,13 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 		}
 
 	case datamodel.UseArcMsiDirectly:
+		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+			return nil, err2
+		}
+		if err2 := useArcTokenSh(config, files); err2 != nil {
+			return nil, err2
+		}
+
 	case datamodel.UseAzureMsiDirectly:
 	case datamodel.UseAzureMsiToMakeCSR:
 	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
@@ -252,6 +259,24 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 }
 
 func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
+	var users string
+	switch config.BootstrappingMethod {
+	case datamodel.UseArcMsiDirectly, datamodel.UseAzureMsiDirectly:
+		users = `- name: default-auth
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: /opt/azure/bootstrap/arc-token.sh
+      provideClusterInfo: false
+`
+
+	default:
+		users = `- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key`
+	}
+
 	return fmt.Sprintf(`
 apiVersion: v1
 kind: Config
@@ -261,17 +286,14 @@ clusters:
     certificate-authority: /etc/kubernetes/certs/ca.crt
     server: https://%s:443
 users:
-- name: client
-  user:
-    client-certificate: /etc/kubernetes/certs/client.crt
-    client-key: /etc/kubernetes/certs/client.key
+%s
 contexts:
 - context:
     cluster: localcluster
     user: client
   name: localclustercontext
 current-context: localclustercontext
-`, agent.GetKubernetesEndpoint(config.ContainerService))
+`, agent.GetKubernetesEndpoint(config.ContainerService), users)
 }
 
 func contentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {

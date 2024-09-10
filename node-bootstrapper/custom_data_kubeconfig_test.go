@@ -236,4 +236,44 @@ users:
 		assertArcTokenSh(t, nbc, "different_app_id")
 	})
 
+	t.Run("BootstrappingMethod=UseArcMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.BootstrappingMethod = "UseArcMsiDirectly"
+		assertKubeconfig(t, nbc, `apiVersion: v1
+clusters:
+    - cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://:443
+      name: localcluster
+contexts:
+    - context:
+        cluster: localcluster
+        user: client
+      name: localclustercontext
+current-context: localclustercontext
+kind: Config
+users:
+    - name: default-auth
+      user:
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/bootstrap/arc-token.sh
+          provideClusterInfo: false
+`)
+	})
+
+	t.Run("BootstrappingMethod=UseArcMsiDirectly sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
+		nbc.BootstrappingMethod = "UseArcMsiDirectly"
+		assertArcTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
+	})
+
+	t.Run("BootstrappingMethod=UseArcMsiDirectly sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
+		nbc.BootstrappingMethod = "UseArcMsiDirectly"
+		assertArcTokenSh(t, nbc, "different_app_id")
+	})
+
 }
