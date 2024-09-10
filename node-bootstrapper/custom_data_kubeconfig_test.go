@@ -38,7 +38,7 @@ func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguratio
 	files, err := customData(nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
-	actual := getFile(t, nbc, arcTokenSh, 0644)
+	actual := getFile(t, nbc, arcTokenSh, 0755)
 	expected := fmt.Sprintf(`#!/bin/bash
 
 # Fetch an AAD token from Azure Arc HIMDS and output it in the ExecCredential format
@@ -77,7 +77,7 @@ func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfigurat
 	files, err := customData(nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, arcTokenSh)
-	actual := getFile(t, nbc, azureTokenSh, 0644)
+	actual := getFile(t, nbc, azureTokenSh, 0755)
 	expected := fmt.Sprintf(`#!/bin/bash
 
 TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
