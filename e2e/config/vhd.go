@@ -62,11 +62,12 @@ var (
 		Version: "1.1704411049.2812",
 	}
 
+	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgapped = &Image{
 		Name:    "2204gen2containerd",
 		OS:      "ubuntu",
 		Arch:    "amd64",
-		Version: "1.1725612526.29638", // without kubelet, kubectl, credential-provider and wasm
+		Version: "1.1725612526.29638",
 	}
 )
 
