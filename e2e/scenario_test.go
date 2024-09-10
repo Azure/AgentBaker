@@ -44,7 +44,6 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -95,7 +94,6 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -295,7 +293,6 @@ func Test_marinerv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -346,7 +343,6 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -652,12 +648,36 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -959,6 +979,34 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+		},
+	})
+}
+
+func Test_ubuntu2204WasmAirGap(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd when it is network isolated cluster",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled: true,
+						// TODO(xinhl): create one private acr instead of mcr.microsoft.com
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
 			},
 		},
 	})

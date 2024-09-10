@@ -114,7 +114,7 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_2=209 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
