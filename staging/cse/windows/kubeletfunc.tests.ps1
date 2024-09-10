@@ -66,6 +66,7 @@ Describe 'Get-KubePackage' {
 
 Describe 'Disable-KubeletServingCertificateRotationForTags' {
     BeforeEach {
+        Mock Write-Log
         Mock Logs-To-Event
     }
 
@@ -127,6 +128,7 @@ Describe 'Disable-KubeletServingCertificateRotationForTags' {
 
 Describe 'Get-TagValue' {
     BeforeEach {
+        Mock Write-Log
         Mock Retry-Command -MockWith {
             Param(
                 $Command,
@@ -137,22 +139,6 @@ Describe 'Get-TagValue' {
             
             # force a single retry for unit testing
             return & $Command @Args
-        }
-    }
-
-    Context 'IMDS error' {
-        BeforeEach {
-            Mock Invoke-RestMethod -MockWith { 
-                Throw 'IMDS is down' 
-            }
-        }
-
-        It "Should return the default value when an error is encountered while calling IMDS" {
-            $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
-            $expected = "false"
-            Compare-Object $result $expected | Should -Be $null
-            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
-            Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
         }
     }
 
@@ -172,6 +158,22 @@ Describe 'Get-TagValue' {
             Mock Invoke-RestMethod -MockWith {
                 return (Get-Content "$PSScriptRoot\kubeletfunc.tests.suites\IMDS.Instance.TagDoesNotExist.json" | Out-String | Convert-FromJson)
             }
+            $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
+            $expected = "false"
+            Compare-Object $result $expected | Should -Be $null
+            Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 1 -ParameterFilter { $Url -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Retry-Command' -Exactly -Times 1 -ParameterFilter { $Command -eq 'Invoke-RestMethod' }
+        }
+    }
+
+    Context 'IMDS error' {
+        BeforeEach {
+            Mock Invoke-RestMethod -MockWith { 
+                Throw 'IMDS is down' 
+            }
+        }
+
+        It "Should return the default value when an error is encountered while calling IMDS" {
             $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             $expected = "false"
             Compare-Object $result $expected | Should -Be $null
