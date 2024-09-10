@@ -143,18 +143,17 @@ installNetworkPlugin() {
 # downloadCredentialProvider is always called during build time by install-dependencies.sh. 
 # It can also be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
-    CREDENTIAL_PROVIDER_DOWNLOAD_URL=${1}
-    CREDENTIAL_PROVIDER_VERSION=${3}
-    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
         # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
         # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
         CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     else
+        CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${1}
         CREDENTIAL_PROVIDER_DOWNLOAD_URL=${2}
+        CREDENTIAL_PROVIDER_VERSION=${3}
     fi
+    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
     # if there is a container registry then oras is needed to download
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
@@ -165,7 +164,7 @@ downloadCredentialProvider() {
         return 
     fi
 
-    # CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
 }
 
