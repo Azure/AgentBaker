@@ -175,7 +175,7 @@ installCredentialProvider() {
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
-    rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
+    # rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
 
 downloadSecureTLSBootstrapKubeletExecPlugin() {
