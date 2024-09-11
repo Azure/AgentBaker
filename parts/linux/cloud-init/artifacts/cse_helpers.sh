@@ -200,6 +200,7 @@ retrycmd_if_failure_no_stats() {
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
+    echo "URL: $url TARBALL: $tarball ALISON HERE"
     for i in $(seq 1 $tar_retries); do
         tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
