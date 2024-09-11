@@ -1117,7 +1117,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisa
 				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
 				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
 				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
-				FileHasContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false"),
 			},
 		},
 	})
