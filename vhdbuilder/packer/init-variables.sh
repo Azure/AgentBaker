@@ -250,6 +250,10 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 			TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
 		elif [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
 			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
+		elif [[ ${HYPERV_GENERATION} == "V2" ]]; then
+		  # NVMe SKUs are only enabled for Gen2 VM sizes, and Arm64 doesnt need special tagging + CVM sizes are not v6
+		  # TODO(amaheshwari): add a check for TL + Gen2 combo, currently fine since the only TL SKU is updated already
+		  TARGET_COMMAND_STRING+="--features DiskControllerTypes=SCSI,NVMe"
 		fi
 
 		az sig image-definition create \
