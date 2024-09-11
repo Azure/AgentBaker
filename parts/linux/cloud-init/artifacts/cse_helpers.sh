@@ -538,8 +538,11 @@ updatePackageVersions() {
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
+    echo "executing updateRelease with ${package} ${os} ${osVersion}"
     updateRelease "${package}" "${os}" "${osVersion}"
+    echo "After updateRelease, RELEASE is ${RELEASE}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    echo "osLowerCase is ${osLowerCase}"
     PACKAGE_VERSIONS=()
 
     # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
