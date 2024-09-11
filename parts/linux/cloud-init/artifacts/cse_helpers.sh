@@ -199,6 +199,7 @@ retrycmd_if_failure_no_stats() {
 }
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    tar_retries=3
     echo "${tar_retries} retries"
     echo "URL: $url TARBALL: $tarball ALISON HERE"
     for i in $(seq 1 $tar_retries); do
@@ -206,10 +207,14 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
+            echo "alison at the top"
+            echo "timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1 | tee $CURL_OUTPUT"
+            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1 | tee $CURL_OUTPUT
             if [[ $? != 0 ]]; then
+                echo "inside the cat"
                 cat $CURL_OUTPUT
             fi
+            echo "before the sleep"
             sleep $wait_sleep
         fi
     done
