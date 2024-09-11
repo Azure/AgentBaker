@@ -60,14 +60,14 @@ EXECCREDENTIAL='''
 '''
 
 # Arc IMDS requires a challenge token from a file only readable by root for security
-CHALLENGE_TOKEN_PATH=\$(curl -s -D - -H Metadata:true \$TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
-CHALLENGE_TOKEN=\$(cat \$CHALLENGE_TOKEN_PATH)
+CHALLENGE_TOKEN_PATH=$(curl -s -D - -H Metadata:true $TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
+CHALLENGE_TOKEN=$(cat $CHALLENGE_TOKEN_PATH)
 if [ $? -ne 0 ]; then
     echo "Could not retrieve challenge token, double check that this command is run with root privileges."
     exit 255
 fi
 
-curl -s -H Metadata:true -H "Authorization: Basic \$CHALLENGE_TOKEN" \$TOKEN_URL | jq "\$EXECCREDENTIAL"
+curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
 `, aadAppId)
 	assert.Equal(t, expected, actual)
 }
@@ -95,7 +95,7 @@ EXECCREDENTIAL='''
 }
 '''
 
-curl -s -H Metadata:true \$TOKEN_URL | jq "\$EXECCREDENTIAL"
+curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
 `, aadAppId)
 	assert.Equal(t, expected, actual)
 }
