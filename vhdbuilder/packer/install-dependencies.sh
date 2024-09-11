@@ -208,8 +208,8 @@ if [ ! -f $COMPONENTS_FILEPATH ]; then
 fi
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-echo "packages: $packages"
-for p in "${packages[@]}"; do
+# Iterate over each element in the packages array
+while IFS= read -r p; do
   #getting metadata for each package
   echo "Processing package p in the for loop: ${p}"
   name=$(echo "${p}" | jq .name -r)
@@ -309,7 +309,7 @@ for p in "${packages[@]}"; do
       ;;
   esac
   capture_benchmark "download_${name}"
-done
+done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
