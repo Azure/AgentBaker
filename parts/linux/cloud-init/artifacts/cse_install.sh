@@ -169,6 +169,7 @@ downloadCredentialProvider() {
     echo "alison look here right before tarball"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    echo "Credential Provider downloaded successfully"
 }
 
 installCredentialProvider() {
@@ -178,7 +179,7 @@ installCredentialProvider() {
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
-    # rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
+    rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
 
 downloadSecureTLSBootstrapKubeletExecPlugin() {

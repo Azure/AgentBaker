@@ -218,6 +218,7 @@ retrycmd_get_tarball() {
             sleep $wait_sleep
         fi
     done
+    echo "alison at the bottom - I believe the package has installed"
 }
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
