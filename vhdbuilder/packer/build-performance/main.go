@@ -27,19 +27,19 @@ func main() {
 	// Create Connection String
 	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientID)
 
-	// Create Ingestion Client
-	ingestionClient, err := kusto.New(kcsb)
+	// Create  Client
+	client, err := kusto.New(kcsb)
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
 	} else {
 		fmt.Printf("Created ingestion client...\n\n")
 	}
-	defer ingestionClient.Close()
+	defer client.Close()
 
 	// Create Ingestor
-	ingestor, err := ingest.New(ingestionClient, kustoDatabase, kustoTable)
+	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
-		ingestionClient.Close()
+		client.Close()
 		log.Fatalf("Kusto ingestor could not be created.")
 	} else {
 		fmt.Printf("Created ingestor...\n\n")
@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Ingestion failed: %v\n\n", err)
 		ingestor.Close()
-		ingestionClient.Close()
+		client.Close()
 		cancel()
 		log.Fatalf("Igestion command failed to be sent.\n")
 	} else {
