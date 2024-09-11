@@ -135,18 +135,18 @@ Describe 'Get-TagValue' {
         }
     }
 
-    Context 'IMDS error' {
+    Context 'Unable to call IMDS' {
         BeforeEach {
+            Mock Set-ExitCode
             Mock Invoke-RestMethod -MockWith { 
                 Throw 'IMDS is down' 
             }
         }
 
         It "Should return the default value when an error is encountered while calling IMDS" {
-            $result = Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
-            $expected = "false"
-            Compare-Object $result $expected | Should -Be $null
+            Get-TagValue -TagName "aks-disable-kubelet-serving-certificate-rotation" -DefaultValue "false"
             Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 3 -ParameterFilter { $Uri -eq 'http://169.254.169.254/metadata/instance?api-version=2021-02-01' }
+            Assert-MockCalled -CommandName 'Set-ExitCode' -Exactly -Times 1 -ParameterFilter { $ExitCode -eq $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG }
         }
     }
 }

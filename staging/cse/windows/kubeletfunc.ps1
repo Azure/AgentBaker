@@ -217,8 +217,8 @@ function Remove-KubeletNodeLabel {
         $Label
     )
 
-    $argList = $KubeletNodeLabels -split ","
-    $filtered = $argList | Where-Object { $_ -ne $Label }
+    $labelList = $KubeletNodeLabels -split ","
+    $filtered = $labelList | Where-Object { $_ -ne $Label }
     return $filtered -join ","
 }
 
@@ -234,8 +234,7 @@ function Get-TagValue {
     try {
         $response = Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$uri; Method="Get"; ContentType="application/json"; Headers=@{"Metadata"="true"}} -Retries 3 -RetryDelaySeconds 5
     } catch {
-        Write-Log "Failed to get value of tag `"$TagName`" from IMDS, defaulting to `"$DefaultValue`""
-        return $DefaultValue
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG -ErrorMessage "Unable to lookup VM tag `"$TagName`" from IMDS instance data"
     }
 
     $tag = $response.compute.tagsList | Where-Object { $_.name -eq $TagName }
