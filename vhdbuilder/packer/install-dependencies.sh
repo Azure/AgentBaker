@@ -211,6 +211,7 @@ packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --co
 echo "packages: $packages"
 for p in "${packages[@]}"; do
   #getting metadata for each package
+  echo "Processing package p in the for loop: ${p}"
   name=$(echo "${p}" | jq .name -r)
   echo "Processing package: ${name}"
   PACKAGE_VERSIONS=()
