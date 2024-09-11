@@ -72,6 +72,9 @@ $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for insta
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
 $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
 $global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE=68
+# WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
+# Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
+$global:WINDOWS_CSE_ERROR_MAX_CODE=69
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
