@@ -224,7 +224,7 @@ while IFS= read -r p; do
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
   echo "Package versions: ${PACKAGE_VERSIONS[@]}"
   PACKAGE_DOWNLOAD_URL=""
-  updatePackageDownloadURL ${p} ${os} ${OS_VERSION}
+  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
   echo "Package download URL: ${PACKAGE_DOWNLOAD_URL}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
@@ -233,7 +233,7 @@ while IFS= read -r p; do
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
-  downloadDir=$(echo ${p} | jq .downloadLocation -r)
+  downloadDir=$(echo "${p}" | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
