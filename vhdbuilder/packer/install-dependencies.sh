@@ -218,6 +218,8 @@ for p in "${packages[@]}"; do
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
+  echo "before updatePackageVersions, p=${p}"
+  echo "before updatePackageVersions, os=${os}, OS_VERSION=${OS_VERSION}"
   updatePackageVersions ${p} ${os} ${OS_VERSION}
   echo "Package versions: ${PACKAGE_VERSIONS[@]}"
   PACKAGE_DOWNLOAD_URL=""
