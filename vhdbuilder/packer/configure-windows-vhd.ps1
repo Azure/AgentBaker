@@ -696,6 +696,9 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-08B"
         Enable-WindowsFixInFeatureManagement -Name 260097166
+
+        Write-Log "Enable 1 fix in 2024-09B"
+        Enable-WindowsFixInFeatureManagement -Name 4288867982
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
