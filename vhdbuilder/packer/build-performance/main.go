@@ -14,12 +14,12 @@ import (
 
 func main() {
 
-	// kusto variables
+	// Kusto variables
 	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
 	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
 	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
-	// build data variables
+	// Build data variables
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
 	buildPerformanceDataFile := sigImageName + "-build-performance.json"
 	sourceBranch := os.Getenv("GIT_BRANCH")
@@ -75,11 +75,11 @@ func main() {
 	}
 
 	// Create query regardless of the branch
-	query := kql.New("systemNodes | project CollectionTime, NodeId | where CollectionTime > startTime and NodeId == nodeIdValue")
+	query := kql.New("get_perf_data | project SIG_IMAGE_NAME, DATA | where SIG_IMAGE_NAME == SKU")
 
-	params := kql.NewParameters().AddString("SIG_IMAGE_NAME", sigImageName).AddString("DATA", "BUILD_PERFORMANCE")
+	params := kql.NewParameters().AddString("SKU", sigImageName).AddString("DATA", "BUILD_PERFORMANCE")
 
-	result, err := client.Query(ctx, kustoDatabase, query, QueryParameters(params))
+	result, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
 		fmt.Printf("Failed to query build performance data for %s.\n\n", sigImageName)
 	}
