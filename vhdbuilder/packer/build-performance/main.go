@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -94,13 +95,13 @@ func main() {
 	defer iter.Stop()
 
 	// Load query result into struct
+	data := SKU{}
 	err = iter.DoOnRowOrError(
 		func(row *table.Row, e *kustoErrors.Error) error {
 			if e != nil {
 				return e
 			}
 
-			data := SKU{}
 			if err := row.ToStruct(&data); err != nil {
 				return err
 			}
@@ -112,6 +113,16 @@ func main() {
 		fmt.Printf("Failed to load %s performance data into Go struct.\n\n", sigImageName)
 	}
 
+	// Declare a variable to hold the JSON object parsed from the SKUPerformanceData string
+	var aggPerformanceData map[string]map[string]float64
+	var currentPipelinePerformanceData map[string]map[string]float64
+
+	// Use json.Unmarshal to parse the string into the map
+	err = json.Unmarshal([]byte(data.SKUPerformanceData), &aggPerformanceData)
+	if err != nil {
+		// Handle the error
+		log.Fatal(err)
+	}
 	// Parse the SKU struct into JSON file to be compared against current pipeline
 	// Create dictionary to hold final results
 	// Iterate over local performance file, mapping
