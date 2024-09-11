@@ -72,9 +72,13 @@ switch -Regex ($windowsSku) {
         )
     }
     "23H2*" {
-        # Don't need to update patchUrls and patchIDs for 23H2 since it's by design.
-        $global:patchUrls = @()
-        $global:patchIDs = @()
+        if ($windowsSku -eq "23H2-gen2") {
+            $global:patchUrls = @("https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/33c7f34f-3dfd-4da4-a24f-57c91da10a0b/public/windows11.0-kb5043055-x64_717e61e23aa481e928233de194b28e1e479f1d87.msu")
+            $global:patchIDs = @("KB5043055")
+        } else {
+            $global:patchUrls = @()
+            $global:patchIDs = @()
+        }
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -209,9 +213,6 @@ $global:map = @{
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
-    );
-    "c:\akse-cache\tools\" = @(
-        "https://download.sysinternals.com/files/DU.zip"
     )
 }
 '@
