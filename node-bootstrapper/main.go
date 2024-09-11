@@ -94,6 +94,8 @@ func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) 
 			return nil, fmt.Errorf("failed to decode config file: %w", err)
 		}
 		return nbc, nil
+	case "":
+		return nil, fmt.Errorf("missing config version")
 	default:
 		return nil, fmt.Errorf("unsupported config version: %s", config.Version)
 	}
@@ -107,6 +109,8 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 	if err != nil {
 		return fmt.Errorf("cse script: %w", err)
 	}
+
+	slog.Info(fmt.Sprintf("CSE script: %s", cse))
 
 	// TODO: add Windows support
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
@@ -137,6 +141,8 @@ func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
 		return err
 	}
 	for path, file := range files {
+		slog.Info(fmt.Sprintf("Saving file %s ", path))
+
 		dir := filepath.Dir(path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %s: %w", dir, err)
@@ -346,14 +352,14 @@ EXECCREDENTIAL='''
 '''
 
 # Arc IMDS requires a challenge token from a file only readable by root for security
-CHALLENGE_TOKEN_PATH=\$(curl -s -D - -H Metadata:true \$TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
-CHALLENGE_TOKEN=\$(cat \$CHALLENGE_TOKEN_PATH)
+CHALLENGE_TOKEN_PATH=$(curl -s -D - -H Metadata:true $TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
+CHALLENGE_TOKEN=$(cat $CHALLENGE_TOKEN_PATH)
 if [ $? -ne 0 ]; then
     echo "Could not retrieve challenge token, double check that this command is run with root privileges."
     exit 255
 fi
 
-curl -s -H Metadata:true -H "Authorization: Basic \$CHALLENGE_TOKEN" \$TOKEN_URL | jq "\$EXECCREDENTIAL"
+curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
 `, appID)
 }
 
@@ -380,7 +386,7 @@ EXECCREDENTIAL='''
 }
 '''
 
-curl -s -H Metadata:true \$TOKEN_URL | jq "\$EXECCREDENTIAL"
+curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
 `, appID)
 }
 
