@@ -986,6 +986,9 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 
 func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1015,6 +1018,9 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.
 
 func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1035,6 +1041,43 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubel
 					nbc.KubeletConfig = map[string]string{}
 				}
 				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
+				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
+				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
+				FileHasContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_AlreadyDisabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				// to force kubelet config file
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					FailSwapOn:           to.Ptr(true),
+					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {

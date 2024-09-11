@@ -17,13 +17,14 @@ import (
 )
 
 type Tags struct {
-	Name      string
-	ImageName string
-	OS        string
-	Arch      string
-	Airgap    bool
-	GPU       bool
-	WASM      bool
+	Name                   string
+	ImageName              string
+	OS                     string
+	Arch                   string
+	Airgap                 bool
+	GPU                    bool
+	WASM                   bool
+	ServerTLSBootstrapping bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
