@@ -115,7 +115,7 @@ func main() {
 
 	// Declare a variable to hold the JSON object parsed from the SKUPerformanceData string
 	var aggPerformanceData map[string]map[string]float64
-	var currentPipelinePerformanceData map[string]map[string]float64
+	var currentBuildPerformanceData map[string]map[string]float64
 
 	// Use json.Unmarshal to parse the string into the map
 	err = json.Unmarshal([]byte(data.SKUPerformanceData), &aggPerformanceData)
