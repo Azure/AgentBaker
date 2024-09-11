@@ -506,7 +506,8 @@ updatePackageVersions() {
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    echo "executing updateRelease with ${package} ${os} ${osVersion}"
+    echo "executing updateRelease with package=${package}"
+    echo "executing updateRelease with os=${os}, osversion=${osVersion}"
     updateRelease "${package}" "${os}" "${osVersion}"
     echo "After updateRelease, RELEASE is ${RELEASE}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
