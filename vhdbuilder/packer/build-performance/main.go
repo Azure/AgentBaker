@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-kusto-go/kusto"
+	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
+	"github.com/Azure/azure-kusto-go/kusto/data/table"
 	"github.com/Azure/azure-kusto-go/kusto/ingest"
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
@@ -41,7 +43,7 @@ func main() {
 	defer client.Close()
 
 	// Create Context
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	if sourceBranch == "refs/heads/zb/ingestBuildPerfData" {
@@ -67,21 +69,51 @@ func main() {
 			cancel()
 			log.Fatalf("Igestion command failed to be sent.\n")
 		} else {
-			fmt.Printf("Ingestion started successfully.\n\n")
+			fmt.Printf("Successfully ingested build performance data.\n\n")
 		}
 		defer ingestor.Close()
-
-		fmt.Printf("Successfully ingested build performance data.\n")
 	}
 
 	// Create query regardless of the branch
-	query := kql.New("get_perf_data | project SIG_IMAGE_NAME, DATA | where SIG_IMAGE_NAME == SKU")
+	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 
-	params := kql.NewParameters().AddString("SKU", sigImageName).AddString("DATA", "BUILD_PERFORMANCE")
+	// Declare parameters to be used in the query
+	params := kql.NewParameters().AddString("SKU", sigImageName)
 
-	result, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
+	// Define a struct to hold the data
+	type SKU struct {
+		Name               string `kusto:"SIG_IMAGE_NAME"`
+		SKUPerformanceData string `kusto:"BUILD_PERFORMANCE"`
+	}
+
+	// Execute the query
+	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
 		fmt.Printf("Failed to query build performance data for %s.\n\n", sigImageName)
 	}
+	defer iter.Stop()
+
+	// Load query result into struct
+	err = iter.DoOnRowOrError(
+		func(row *table.Row, e *kustoErrors.Error) error {
+			if e != nil {
+				return e
+			}
+
+			data := SKU{}
+			if err := row.ToStruct(&data); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		fmt.Printf("Failed to load %s performance data into Go struct.\n\n", sigImageName)
+	}
+
+	// Parse the SKU struct into JSON file to be compared against current pipeline
+	// Create dictionary to hold final results
+	// Iterate over local performance file, mapping
 
 }
