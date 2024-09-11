@@ -149,10 +149,10 @@ downloadCredentialProvider() {
         # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
         CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     else
-        CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${1}
         CREDENTIAL_PROVIDER_DOWNLOAD_URL=${2}
         CREDENTIAL_PROVIDER_VERSION=${3}
     fi
+    CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${1}
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
     # if there is a container registry then oras is needed to download
