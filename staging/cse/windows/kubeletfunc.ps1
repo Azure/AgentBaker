@@ -248,7 +248,9 @@ function Get-TagValue {
 # be called before Write-KubeClusterConfig, and any other function that relies on the values of
 # kubelet config args and node labels.
 function Disable-KubeletServingCertificateRotationForTags {
-    Logs-To-Event -TaskName "AKS.WindowsCSE.DisableKubeletServingCertificateRotationForTags" -TaskMessage "Check whether to disable kubelet serving certificate rotation via nodepool tags."
+    Logs-To-Event `
+        -TaskName "AKS.WindowsCSE.DisableKubeletServingCertificateRotationForTags" `
+        -TaskMessage "EnableKubeletServingCertificateRotation: $global:EnableKubeletServingCertificateRotation. Check whether to disable kubelet serving certificate rotation via nodepool tags."
 
     Write-Log "Checking whether to disable kubelet serving certificate rotation for nodepool tags"
 
@@ -259,7 +261,7 @@ function Disable-KubeletServingCertificateRotationForTags {
 
     $tagName = "aks-disable-kubelet-serving-certificate-rotation"
     $disabled = Get-TagValue -TagName $tagName -DefaultValue "false"
-    if (!($disabled -eq "true")) {
+    if ($disabled -ne "true") {
         Write-Log "Nodepool tag `"$tagName`" is missing or not set to true, nothing to disable"
         return
     }

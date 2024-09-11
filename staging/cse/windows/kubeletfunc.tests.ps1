@@ -66,7 +66,6 @@ Describe 'Get-KubePackage' {
 
 Describe 'Disable-KubeletServingCertificateRotationForTags' {
     BeforeEach {
-        Mock Write-Log
         Mock Logs-To-Event
     }
 
@@ -109,10 +108,6 @@ Describe 'Disable-KubeletServingCertificateRotationForTags' {
 }
 
 Describe 'Get-TagValue' {
-    BeforeEach {
-        Mock Write-Log
-    }
-
     Context 'IMDS returns a valid response' {
         It "Should return the tag value if it is present within the IMDS response" {
             Mock Invoke-RestMethod -MockWith {
