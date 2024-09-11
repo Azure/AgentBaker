@@ -553,10 +553,10 @@ updatePackageVersions() {
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
         local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
         local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-        for version in ${latestVersions[@]}; do
+        for version in "${latestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")
         done
-        for version in ${previousLatestVersions[@]}; do
+        for version in "${previousLatestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")
         done
         return
@@ -564,7 +564,7 @@ updatePackageVersions() {
 
     # Fallback to versions if versionsV2 is null
     local versions=($(echo "${package}" | jq -r ".downloadURIs.${os}.${RELEASE}.versions[]"))
-    for version in ${versions[@]}; do
+    for version in "${versions[@]}"; do
         PACKAGE_VERSIONS+=("${version}")
     done
     return 0
@@ -578,17 +578,17 @@ updateMultiArchVersions() {
   if [[ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
-    for version in ${latestVersions[@]}; do
+    for version in "${latestVersions[@]}"; do
       MULTI_ARCH_VERSIONS+=("${version}")
     done
-    for version in ${previousLatestVersions[@]}; do
+    for version in "${previousLatestVersions[@]}"; do
       MULTI_ARCH_VERSIONS+=("${version}")
     done
     return
   fi
 
   local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
-  for version in ${versions[@]}; do
+  for version in "${versions[@]}"; do
     MULTI_ARCH_VERSIONS+=("${version}")
   done
 }
