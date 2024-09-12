@@ -143,20 +143,18 @@ installNetworkPlugin() {
 # downloadCredentialProvider is always called during build time by install-dependencies.sh. 
 # It can also be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
-    if [ -z "${CREDENTIAL_PROVIDER_DOWNLOAD_URL+set}" ]; then
-        # CREDENTIAL_PROVIDER_DOWNLOAD_URL is not set so set it to empty string
-        CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
-    else
-        CREDENTIAL_PROVIDER_DOWNLOAD_URL=${2}
-    fi
-    CREDENTIAL_PROVIDER_VERSION=${3}
-
-    # if CREDENTIAL_PROVIDER_DOWNLOAD_URL is not empty string
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
         # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
         # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
         cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
+
+    if [[ -n "$2" ]]; then
+        # CREDENTIAL_PROVIDER_DOWNLOAD_URL is passed in through install-dependencies.sh
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL=$2
+    fi
+
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
     # if there is a container registry then oras is needed to download
