@@ -30,6 +30,13 @@ SEVERITY=${17}
 MODULE_VERSION=${18}
 UMSI_PRINCIPAL_ID=${19}
 UMSI_CLIENT_ID=${20}
+BUILD_RUN_NUMBER=${21}
+export BUILD_REPOSITORY_NAME=${22}
+export BUILD_SOURCEBRANCH=${23}
+export BUILD_SOURCEVERSION=${24}
+export SYSTEM_COLLECTIONURI=${25}
+export SYSTEM_TEAMPROJECT=${26}
+export BUILD_BUILDID=${27}
 
 install_azure_cli() {
     OS_SKU=${1}
@@ -110,6 +117,7 @@ export PATH="$(pwd):$PATH"
 ./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
 if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
     ./vuln-to-kusto-vhd scan-report \
+        --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
         --vhd-vhdname="${VHD_NAME}" \
         --vhd-ossku="${OS_SKU}" \
         --vhd-osversion="${OS_VERSION}" \
@@ -137,6 +145,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
 
     if [[ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]]; then
         ./vuln-to-kusto-vhd scan-report \
+            --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
             --vhd-vhdname="${VHD_NAME}" \
             --vhd-ossku="${OS_SKU}" \
             --vhd-osversion="${OS_VERSION}" \
