@@ -38,7 +38,7 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, c
 	defer ingestor.Close()
 }
 
-func QueryData(sigImageName string, client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context, buildPerformanceDataFile string) *common.SKU {
+func QueryData(sigImageName string, client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context) *common.SKU {
 
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
