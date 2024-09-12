@@ -45,7 +45,7 @@ Describe 'cse_helpers.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for UBUNTU 20.04'
             package=$(readPackage "azure-cni")
             When call updatePackageVersions "$package" "UBUNTU" "20.04"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3 1.5.35"
         End
 
         It 'returns downloadURIs.mariner.current.versions of package runc for MARINER'
@@ -69,7 +69,7 @@ Describe 'cse_helpers.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for MARINER'
             package=$(readPackage "azure-cni")
             When call updatePackageVersions "$package" "MARINER" "some_mariner_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3 1.5.35"
         End
     End
     Describe 'updatePackageDownloadURL'

@@ -8,6 +8,10 @@ required_env_vars=(
   "SIG_GALLERY_NAME"
   "OS_VERSION"
   "SIG_IMAGE_NAME"
+  "UMSI_RESOURCE_ID"
+  "UMSI_PRINCIPAL_ID"
+  "UMSI_CLIENT_ID"
+  "BUILD_RUN_NUMBER"
 )
 
 for v in "${required_env_vars[@]}"; do
@@ -59,11 +63,10 @@ SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
-if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ] && [ "$OS_VERSION" != "V3" ]; then
+if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
   echo -e "Running scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else
-  # Azurelinux 3.0 does not have an 'az' package - https://microsoft.visualstudio.com/OS/_workitems/edit/52283489
   echo -e "Skipping scanning step"
 fi
 

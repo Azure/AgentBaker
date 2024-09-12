@@ -983,3 +983,31 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 		},
 	})
 }
+
+func Test_ubuntu2204WasmAirGap(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd when it is network isolated cluster",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled: true,
+						// TODO(xinhl): create one private acr instead of mcr.microsoft.com
+						ContainerRegistryServer: "mcr.microsoft.com",
+					},
+				}
+			},
+		},
+	})
+}
