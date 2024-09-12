@@ -143,19 +143,19 @@ installNetworkPlugin() {
 # downloadCredentialProvider is always called during build time by install-dependencies.sh. 
 # It can also be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
-
     if [ -z "${CREDENTIAL_PROVIDER_DOWNLOAD_URL+set}" ]; then
-        # CREDENTIAL_PROVIDER_DOWNLOAD_URL is not set
+        # CREDENTIAL_PROVIDER_DOWNLOAD_URL is not set so set it to empty string
         CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     else
         CREDENTIAL_PROVIDER_DOWNLOAD_URL=${2}
     fi
+    CREDENTIAL_PROVIDER_VERSION=${3}
 
-    # if CREDENTIAL_PROVIDER_DOWNLOAD_URL is empty string
-    if [[ -z "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
+    # if CREDENTIAL_PROVIDER_DOWNLOAD_URL is not empty string
+    if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
         # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
         # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
-        CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
@@ -163,7 +163,7 @@ downloadCredentialProvider() {
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     # if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is set to non-empty string
     if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
-        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return 
