@@ -13,7 +13,7 @@ import (
 func main() {
 	config, err := common.SetupConfig()
 	if err != nil {
-		log.Fatalf(err)
+		log.Fatalf(err.Error())
 	}
 
 	dataMaps := common.CreateDataMaps()
