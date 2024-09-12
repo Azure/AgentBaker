@@ -206,8 +206,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            echo "timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1 | tee $CURL_OUTPUT"
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1 | tee $CURL_OUTPUT
+            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
