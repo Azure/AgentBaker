@@ -1,4 +1,4 @@
-module github.com/agentBaker/vhdbuilder/packer/build-performance
+module github.com/Azure/agentBaker/vhdbuilder/packer/build-performance
 
 go 1.21
 
