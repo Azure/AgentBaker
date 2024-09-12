@@ -53,7 +53,7 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 		return nil, err
 	}
 	if config.Config.EnableNodeBootstrapperTest {
-		return ab.GetNodeBootstrappingV2(ctx, nbc)
+		return ab.GetNodeBootstrappingForSelfContained(ctx, nbc)
 	} else {
 		return ab.GetNodeBootstrapping(ctx, nbc)
 	}
