@@ -72,13 +72,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "23H2*" {
-        if ($windowsSku -eq "23H2-gen2") {
-            $global:patchUrls = @("https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/33c7f34f-3dfd-4da4-a24f-57c91da10a0b/public/windows11.0-kb5043055-x64_717e61e23aa481e928233de194b28e1e479f1d87.msu")
-            $global:patchIDs = @("KB5043055")
-        } else {
-            $global:patchUrls = @()
-            $global:patchIDs = @()
-        }
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
