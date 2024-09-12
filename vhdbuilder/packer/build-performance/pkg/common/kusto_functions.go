@@ -14,7 +14,6 @@ import (
 )
 
 func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context, buildPerformanceDataFile string) {
-
 	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
@@ -39,7 +38,6 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, c
 }
 
 func QueryData(sigImageName string, client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context) *common.SKU {
-
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
 
@@ -64,7 +62,7 @@ func QueryData(sigImageName string, client *kusto.Client, kustoDatabase string, 
 		},
 	)
 	if err != nil {
-		fmt.Printf("Failed to load %s performance data into Go struct.\n\n", sigImageName)
+		fmt.Errorf("Failed to load aggregated performance data into Go struct for %s.\n\n", sigImageName)
 	}
 	return &data
 }
