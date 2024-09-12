@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/pkg/common"
 	"github.com/Azure/azure-kusto-go/kusto"
 	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
 	"github.com/Azure/azure-kusto-go/kusto/data/table"
@@ -22,10 +22,17 @@ func main() {
 	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
 	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
+
 	// Build data variables
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
 	buildPerformanceDataFile := sigImageName + "-build-performance.json"
 	sourceBranch := os.Getenv("GIT_BRANCH")
+
+	// Declare dictionaries
+	queriedPerformanceData := map[string]map[string][]float64{}
+	currentBuildPerformanceData := map[string]map[string]float64{}
+	holdingMap := map[string]map[string]string{}
+	regressions := map[string]map[string]float64{}
 
 	var err error
 
@@ -113,18 +120,23 @@ func main() {
 		fmt.Printf("Failed to load %s performance data into Go struct.\n\n", sigImageName)
 	}
 
-	// Declare a variable to hold the JSON object parsed from the SKUPerformanceData string
-	var aggPerformanceData map[string]map[string]float64
-	var currentBuildPerformanceData map[string]map[string]float64
-
-	// Use json.Unmarshal to parse the string into the map
-	err = json.Unmarshal([]byte(data.SKUPerformanceData), &aggPerformanceData)
-	if err != nil {
-		// Handle the error
-		log.Fatal(err)
-	}
-	// Parse the SKU struct into JSON file to be compared against current pipeline
-	// Create dictionary to hold final results
-	// Iterate over local performance file, mapping
-
+	common.DecodeVHDPerformanceData("/home/zbailey/go/go_proj/go_test/json.json", holdingMap)
+	common.ConvertTimestampsToSeconds(holdingMap, currentBuildPerformanceData)
+	common.ParseKustoData(data, queriedPerformanceData)
+	common.EvaluatePerformance(currentBuildPerformanceData, queriedPerformanceData, regressions)
+	common.PrintRegressions(regressions)
 }
+
+/* FORMER NOTES
+
+// Use json.Unmarshal to parse the string into the map
+err = json.Unmarshal([]byte(data.SKUPerformanceData), &aggPerformanceData)
+if err != nil {
+	// Handle the error
+	log.Fatal(err)
+}
+// Parse the SKU struct into JSON file to be compared against current pipeline
+// Create dictionary to hold final results
+// Iterate over local performance file, mapping
+
+*/
