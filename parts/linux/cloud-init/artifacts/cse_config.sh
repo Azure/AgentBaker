@@ -867,3 +867,21 @@ providers:
 EOF
     fi
 }
+
+setKubeletNodeIPFlag() {
+    imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
+    if [[ $? -eq 0 ]]; then
+        nodeIPAddrs=()
+        ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
+        [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+        ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
+        [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
+        if [ -n "$nodeIPArg" ]; then
+            echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
+        fi
+    fi
+}
+
+#EOF
