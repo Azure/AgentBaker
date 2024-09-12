@@ -532,7 +532,7 @@
     },
     {
       "name": "azure-acr-credential-provider",
-      "downloadLocation": "/var/lib/kubelet/credential-provider",
+      "downloadLocation": "/opt/credentialprovider/downloads/",
       "downloadURIs": {
         "default": {
           "current": {
