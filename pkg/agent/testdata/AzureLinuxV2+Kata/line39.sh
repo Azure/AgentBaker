@@ -136,8 +136,9 @@ downloadCredentialProvider() {
         cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
 
-    if [[ -n "$2" ]]; then
-        CREDENTIAL_PROVIDER_DOWNLOAD_URL=$2
+    local cred_provider_url=$2
+    if [[ -n $cred_provider_url ]]; then
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL=$cred_provider_url
     fi
 
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
