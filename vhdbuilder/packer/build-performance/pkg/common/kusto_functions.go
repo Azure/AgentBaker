@@ -46,8 +46,8 @@ func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, k
 
 	data := common.SKU{}
 	err = iter.DoOnRowOrError(
-		func(row *table.Row, err *kustoErrors.Error) error {
-			if err != nil {
+		func(row *table.Row, e *kustoErrors.Error) error {
+			if e != nil {
 				return err
 			}
 			if err := row.ToStruct(&data); err != nil {
