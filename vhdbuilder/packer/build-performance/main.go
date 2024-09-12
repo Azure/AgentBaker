@@ -6,8 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/Azure/agentbaker/vhdbuilder/packer/build-performance/pkg/common"
-
+	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
 	"github.com/Azure/azure-kusto-go/kusto"
 )
 
