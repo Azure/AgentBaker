@@ -33,7 +33,7 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 	return nil
 }
 
-func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*common.SKU, error) {
+func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*SKU, error) {
 	// Build Query
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
@@ -45,7 +45,7 @@ func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, k
 	}
 	defer iter.Stop()
 
-	data := common.SKU{}
+	data := SKU{}
 	err = iter.DoOnRowOrError(
 		func(row *table.Row, e *kustoErrors.Error) error {
 			if e != nil {
