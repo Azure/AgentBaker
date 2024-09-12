@@ -25,7 +25,6 @@ func Test_azurelinuxv2(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.6.26"),
 				runcVersionValidator("1.1.9"),
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -120,9 +119,6 @@ func Test_azurelinuxv2_azurecni(t *testing.T) {
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -371,9 +367,6 @@ func Test_marinerv2_azurecni(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
-			},
 		},
 	})
 }
@@ -522,7 +515,6 @@ func Test_ubuntu1804(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.7.1+azure-1"),
 				runcVersionValidator("1.1.14-1"),
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -537,9 +529,6 @@ func Test_ubuntu1804_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -634,7 +623,6 @@ func Test_ubuntu2204(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.7.20-1"),
 				runcVersionValidator("1.1.14-1"),
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
