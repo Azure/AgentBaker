@@ -3,7 +3,6 @@ package common
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/pkg/common"
 	"github.com/Azure/azure-kusto-go/kusto"
@@ -13,12 +12,11 @@ import (
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
 
-func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context, buildPerformanceDataFile string) {
+func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string) error {
 	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
-		client.Close()
-		log.Fatalf("Kusto ingestor could not be created.")
+		return err
 	} else {
 		fmt.Printf("Created ingestor...\n\n")
 	}
@@ -27,14 +25,13 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, c
 	// Ingest Data
 	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef("buildPerfMap", ingest.MultiJSON))
 	if err != nil {
-		fmt.Printf("Ingestion failed: %v\n\n", err)
 		ingestor.Close()
-		client.Close()
-		log.Fatalf("Igestion command failed to be sent.\n")
+		return err
 	} else {
 		fmt.Printf("Successfully ingested build performance data.\n\n")
 	}
 	defer ingestor.Close()
+	return nil
 }
 
 func QueryData(sigImageName string, client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context) *common.SKU {
