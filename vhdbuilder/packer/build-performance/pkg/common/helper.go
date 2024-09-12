@@ -16,7 +16,7 @@ func SetupConfig() (*Config, error) {
 	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
 	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	localBuildPerformanceFile := os.Getenv("BUILD_PERF_DATA_FILE")
+	localBuildPerformanceFile := sigImageName + "-build-performance.json"
 	sourceBranch := os.Getenv("GIT_BRANCH")
 
 	// Check if all required environment variables are set
