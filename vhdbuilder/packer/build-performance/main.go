@@ -42,18 +42,25 @@ func main() {
 		}
 	}
 
+	common.DecodeVHDPerformanceData(config.LocalBuildPerformanceFile, dataMaps.HoldingMap)
+
+	common.ConvertTimestampsToSeconds(dataMaps.HoldingMap, dataMaps.LocalPerformanceDataMap)
+
 	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile)
 	if err != nil {
 		log.Fatalf("Failed to query build performance data for %s.\n\n", config.SigImageName)
 	}
 
-	common.DecodeVHDPerformanceData(config.LocalBuildPerformanceFile, dataMaps.HoldingMap)
-
-	common.ConvertTimestampsToSeconds(dataMaps.HoldingMap, dataMaps.LocalPerformanceDataMap)
-
 	common.ParseKustoData(aggregatedSKUData, dataMaps.QueriedPerformanceData)
 
 	common.EvaluatePerformance(dataMaps.LocalPerformanceDataMap, dataMaps.QueriedPerformanceData, dataMaps.RegressionMap)
 
-	common.PrintRegressions(dataMaps.RegressionMap)
+	if len(dataMaps.RegressionMap) == 0 {
+		fmt.Printf("No regressions found for this pipeline run\n\n")
+	} else {
+		fmt.Printf("Regressions found for this pipline run:\n\n")
+		common.PrintRegressions(dataMaps.RegressionMap)
+	}
+
+	fmt.Println("Build Performance Evaluation Complete")
 }
