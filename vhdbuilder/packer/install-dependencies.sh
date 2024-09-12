@@ -280,7 +280,7 @@ for p in ${packages[*]}; do
     "containerd-wasm-shims")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        downloadContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
       ;;
