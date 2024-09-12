@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-
 	config, err := common.SetupConfig()
 	if err != nil {
 		log.Fatalf(err)
@@ -34,10 +33,16 @@ func main() {
 	defer cancel()
 
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
-
-		fmt.Printf("Branch is %s, ingesting data.\n", config.SourceBranch)
-		common.IngestData(client, config.KustoDatabase, config.KustoTable, ctx, config.LocalBuildPerformanceFile)
+		fmt.Printf("Ingesting data for %s.\n\n", config.SourceBranch)
+		err := common.IngestData(ctx, client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile)
+		if err != nil {
+			client.Close()
+			cancel()
+			log.Fatalf("Ingestion failed: %v\n\n", err)
+		}
 	}
+
+	ingestor.Close()
 
 	aggregateSKUData := common.QueryData(config.SigImageName, client, config.KustoDatabase, config.KustoTable, ctx, config.LocalBuildPerformanceFile)
 
