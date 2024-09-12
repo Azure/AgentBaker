@@ -396,6 +396,8 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 747051149
 
         Validate-WindowsFixInFeatureManagement -Name 260097166
+
+        Validate-WindowsFixInFeatureManagement -Name 4288867982
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0

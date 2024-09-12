@@ -32,23 +32,23 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/mirror/docker/library/busybox:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersions": [
-        "1.35"
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
         "v1.5.32",
+        "v1.5.35",
         "v1.6.0",
-        "v1.6.3"
+        "v1.6.5"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.32",
+          "binaries": [
+            "dropgz"
+          ]
+        },
+        {
+          "version": "v1.5.35",
           "binaries": [
             "dropgz"
           ]
@@ -60,7 +60,7 @@
           ]
         },
         {
-          "version": "v1.6.3",
+          "version": "v1.6.5",
           "binaries": [
             "dropgz"
           ]
@@ -73,12 +73,19 @@
       "multiArchVersions": [
         "v1.4.52",
         "v1.5.32",
+        "v1.5.35",
         "v1.6.0",
-        "v1.6.3"
+        "v1.6.5"
       ],
       "prefetchOptimizations": [
         {
           "version": "v1.5.32",
+          "binaries": [
+            "usr/local/bin/azure-cns"
+          ]
+        },
+        {
+          "version": "v1.5.35",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -90,7 +97,7 @@
           ]
         },
         {
-          "version": "v1.6.3",
+          "version": "v1.6.5",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -488,7 +495,8 @@
             "versions": [
               "1.4.54",
               "1.5.32",
-              "1.6.3"
+              "1.5.35",
+              "1.6.5"
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
