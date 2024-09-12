@@ -45,14 +45,14 @@ func main() {
 
 	common.ConvertTimestampsToSeconds(dataMaps.HoldingMap, dataMaps.LocalPerformanceDataMap)
 
-	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile)
+	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable)
 	if err != nil {
 		log.Fatalf("Failed to query build performance data for %s.\n\n", config.SigImageName)
 	}
 
-	common.ParseKustoData(aggregatedSKUData, dataMaps.QueriedPerformanceData)
+	common.ParseKustoData(aggregatedSKUData, dataMaps.QueriedPerformanceDataMap)
 
-	common.EvaluatePerformance(dataMaps.LocalPerformanceDataMap, dataMaps.QueriedPerformanceData, dataMaps.RegressionMap)
+	common.EvaluatePerformance(dataMaps.LocalPerformanceDataMap, dataMaps.QueriedPerformanceDataMap, dataMaps.RegressionMap)
 
 	if len(dataMaps.RegressionMap) == 0 {
 		fmt.Printf("No regressions found for this pipeline run\n\n")
