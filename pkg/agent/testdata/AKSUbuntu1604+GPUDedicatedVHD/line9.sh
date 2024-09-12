@@ -526,7 +526,7 @@ updatePackageVersions() {
         return
     fi
 
-    local versions=($(echo "${package}" | jq -r ".downloadURIs.${os}.${RELEASE}.versions[]"))
+    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
     for version in "${versions[@]}"; do
         PACKAGE_VERSIONS+=("${version}")
     done
