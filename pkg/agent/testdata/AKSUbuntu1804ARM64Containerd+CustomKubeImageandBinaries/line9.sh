@@ -506,24 +506,16 @@ updatePackageVersions() {
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    echo "executing updateRelease with package=${package}"
-    echo "executing updateRelease with os=${os}, osversion=${osVersion}"
     updateRelease "${package}" "${os}" "${osVersion}"
-    echo "After updateRelease, RELEASE is ${RELEASE}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
-    echo "osLowerCase is ${osLowerCase}"
     PACKAGE_VERSIONS=()
 
-    echo "executing jq .downloadURIs.${osLowerCase} on ${package}"
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]]; then
         osLowerCase="default"
     fi
 
-    echo "executing jq .downloadURIs.${osLowerCase}.${RELEASE}.versionsV2 on ${package}"
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
-        echo "executing jq -r .downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion on ${package}"
         local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
-        echo "executing jq -r .downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion on ${package}"
         local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
         for version in "${latestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")

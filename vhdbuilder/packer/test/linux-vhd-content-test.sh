@@ -79,7 +79,7 @@ testPackagesInstalled() {
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for p in ${packages[*]}; do
+  for p in ${packages}; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
@@ -90,16 +90,16 @@ testPackagesInstalled() {
       OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
-    updatePackageVersions ${p} ${OS} ${OS_VERSION}
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
-    updatePackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
-    for version in ${PACKAGE_VERSIONS[@]}; do
+    for version in "${PACKAGE_VERSIONS[@]}"; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
@@ -170,6 +170,7 @@ testPackagesInstalled() {
 
 testImagesPulled() {
   test="testImagesPulled"
+  local componentsJsonContent="$2"
   echo "$test:Start"
   containerRuntime=$1
   if [ $containerRuntime == 'containerd' ]; then
@@ -181,9 +182,9 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(echo $2 | jq .ContainerImages[] --monochrome-output --compact-output)
+  imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
-  for imageToBePulled in ${imagesToBePulled[*]}; do
+  for imageToBePulled in ${imagesToBePulled}; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
     MULTI_ARCH_VERSIONS=()

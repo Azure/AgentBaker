@@ -211,21 +211,15 @@ packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --co
 # Iterate over each element in the packages array
 while IFS= read -r p; do
   #getting metadata for each package
-  echo "Processing package p in the for loop: ${p}"
   name=$(echo "${p}" | jq .name -r)
-  echo "Processing package: ${name}"
   PACKAGE_VERSIONS=()
   os=${OS}
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
-  echo "before updatePackageVersions, p=${p}"
-  echo "before updatePackageVersions, os=${os}, OS_VERSION=${OS_VERSION}"
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
-  echo "Package versions: ${PACKAGE_VERSIONS[@]}"
   PACKAGE_DOWNLOAD_URL=""
   updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
-  echo "Package download URL: ${PACKAGE_DOWNLOAD_URL}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
@@ -410,12 +404,11 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for imageToBePulled in "${ContainerImages[*]}"; do
+for imageToBePulled in ${ContainerImages}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
   MULTI_ARCH_VERSIONS=()
   updateMultiArchVersions "${imageToBePulled}"
-
   amd64OnlyVersions=""
   if [[ ${amd64OnlyVersionsStr} != null ]]; then
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
