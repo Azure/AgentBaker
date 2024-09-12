@@ -1,4 +1,4 @@
-module go.goms.io/aks/agentBaker/vhdbuilder/packer/build-performance
+module github.com/agentBaker/vhdbuilder/packer/build-performance
 
 go 1.21
 
