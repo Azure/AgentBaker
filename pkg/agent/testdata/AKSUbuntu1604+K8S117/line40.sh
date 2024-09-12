@@ -133,24 +133,27 @@ installNetworkPlugin() {
 downloadCredentialProvider() {
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
-        CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
-    else
-        CREDENTIAL_PROVIDER_DOWNLOAD_URL=${2}
-        CREDENTIAL_PROVIDER_VERSION=${3}
+        cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
-    CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${1}
+
+    if [[ -n "$2" ]]; then
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL=$2
+    fi
+
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
-        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
+        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return 
     fi
 
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
+    echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    echo "Credential Provider downloaded successfully"
 }
 
 installCredentialProvider() {
