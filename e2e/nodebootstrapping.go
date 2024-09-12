@@ -54,9 +54,9 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 	}
 	if config.Config.EnableNodeBootstrapperTest {
 		return ab.GetNodeBootstrappingForSelfContained(ctx, nbc)
-	} else {
-		return ab.GetNodeBootstrapping(ctx, nbc)
 	}
+
+	return ab.GetNodeBootstrapping(ctx, nbc)
 }
 
 func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
