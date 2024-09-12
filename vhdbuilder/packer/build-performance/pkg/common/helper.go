@@ -25,7 +25,7 @@ func SetupConfig() (*Config, error) {
 		}
 	}
 	if missingVar {
-		return nil, fmt.Errorf("Missing environment variables")
+		return nil, fmt.Errorf("required environment variables were not set.")
 	}
 
 	return &Config{
