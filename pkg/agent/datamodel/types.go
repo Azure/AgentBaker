@@ -1758,7 +1758,7 @@ type NodeBootstrappingConfiguration struct {
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
 
-	// Version is require for node-bootstrapper application to determine the version of the config file.
+	// Version is required for node-bootstrapper application to determine the version of the config file.
 	Version string
 }
 
