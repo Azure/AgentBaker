@@ -144,8 +144,12 @@ installNetworkPlugin() {
 # It can also be called during node provisioning by cse_config.sh, meaning CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by a passed in linuxCredentialProviderURL.
 downloadCredentialProvider() {
     echo "alison version being passed ${3}"
+
+    # -z checks if a string is empty. It returns true if the string is either unset or an empty string (""). := will set a nil variable to empty string. 
+    echo "alison current credential provider download url ${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
-    if [[ -z "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
+    echo "alison after potential nil check credential provider download url ${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"
+    if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
         echo "alison you shouldn't be in here"
         # CREDENTIAL_PROVIDER_DOWNLOAD_URL is set by linuxCredentialProviderURL
         # The version in the URL is unknown. An acs-mirror or registry URL could be passed meaning the version must be extracted from the URL. 
