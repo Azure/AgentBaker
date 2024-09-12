@@ -7,6 +7,27 @@ import (
 	"time"
 )
 
+func SetupConfig() *Config {
+	return &Config{
+		KustoTable:                os.Getenv("BUILD_PERFORMANCE_TABLE_NAME"),
+		KustoEndpoint:             os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT"),
+		KustoDatabase:             os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME"),
+		KustoClientID:             os.Getenv("BUILD_PERFORMANCE_CLIENT_ID"),
+		SigImageName:              os.Getenv("SIG_IMAGE_NAME"),
+		LocalBuildPerformanceFile: os.Getenv("LOCAL_BUILD_PERFORMANCE_FILE"),
+		SourceBranch:              os.Getenv("GIT_BRANCH"),
+	}
+}
+
+func CreateDataMaps() *DataMaps {
+	return &DataMaps{
+		LocalPerformanceDataMap:   make(map[string]map[string]float64),
+		QueriedPerformanceDataMap: make(map[string]map[string][]float64),
+		HoldingMap:                make(map[string]map[string]string),
+		RegressionMap:             make(map[string]map[string]float64),
+	}
+}
+
 // Prepare local JSON data for evaluation
 func DecodeVHDPerformanceData(filePath string, holdingMap map[string]map[string]string) {
 
