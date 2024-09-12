@@ -118,6 +118,13 @@ testPackagesInstalled() {
       local extractedPackageDir
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
+      # /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.29.2.tar.gz
+      # azure-acr-credential-provider
+      # /opt/credentialprovider/downloads
+
+      # file size of
+      # /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
+
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
       # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
       if [ -d $extractedPackageDir ]; then
@@ -145,8 +152,9 @@ testPackagesInstalled() {
       fi
 
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        files=$(ls $downloadLocation)
-        err $test "files: $files // File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        dir_contents=$(ls -la "$downloadLocation")
+        echo "Contents of $dir_contents:"
+        err $test "files: $dir_contents // File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"

@@ -279,6 +279,7 @@ for p in ${packages[*]}; do
     "azure-acr-credential-provider")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        echo "about to download azure-acr-credential-provider version ${version} from ${evaluatedURL} to ${downloadDir}"  
         downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
