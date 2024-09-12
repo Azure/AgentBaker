@@ -34,32 +34,30 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 	return nil
 }
 
-func QueryData(sigImageName string, client *kusto.Client, kustoDatabase string, kustoTable string, ctx context.Context) *common.SKU {
+func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*common.SKU, error) {
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
 
 	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
-		fmt.Printf("Failed to query build performance data for %s.\n\n", sigImageName)
+		return nil, err
 	}
 	defer iter.Stop()
 
 	data := common.SKU{}
 	err = iter.DoOnRowOrError(
-		func(row *table.Row, e *kustoErrors.Error) error {
-			if e != nil {
-				return e
+		func(row *table.Row, err *kustoErrors.Error) error {
+			if err != nil {
+				return err
 			}
-
 			if err := row.ToStruct(&data); err != nil {
 				return err
 			}
-
 			return nil
 		},
 	)
 	if err != nil {
-		fmt.Errorf("Failed to load aggregated performance data into Go struct for %s.\n\n", sigImageName)
+		return nil, err
 	}
-	return &data
+	return &data, nil
 }
