@@ -140,14 +140,8 @@ testPackagesInstalled() {
       # -L since some urls are redirects (i.e github)
       fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
-      if [[ -z "$fileSizeDownloaded" ]]; then
-        extractedPackageDir=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
-      fi
-
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        dir_contents=$(ls -la "$downloadLocation")
-        echo "Contents of $dir_contents:"
-        err $test "files: $dir_contents // File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        err "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
