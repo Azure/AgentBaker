@@ -8,7 +8,6 @@ import (
 )
 
 func SetupConfig() (*Config, error) {
-
 	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
 	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
@@ -25,7 +24,7 @@ func SetupConfig() (*Config, error) {
 		}
 	}
 	if missingVar {
-		return nil, fmt.Errorf("required environment variables were not set.")
+		return nil, fmt.Errorf("Required environment variables were not set.")
 	}
 
 	return &Config{
@@ -50,7 +49,6 @@ func CreateDataMaps() *DataMaps {
 
 // Prepare local JSON data for evaluation
 func DecodeVHDPerformanceData(filePath string, holdingMap map[string]map[string]string) {
-
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("Could not open %s", filePath)
@@ -101,7 +99,6 @@ func SumArray(arr []float64) float64 {
 
 // Evaluate performance data
 func EvaluatePerformance(localPerformanceData map[string]map[string]float64, queriedPerformanceData map[string]map[string][]float64, regressions map[string]map[string]float64) map[string]map[string]float64 {
-
 	for scriptName, scriptData := range localPerformanceData {
 		for section, timeElapsed := range scriptData {
 			maxTimeAllowed := SumArray(queriedPerformanceData[scriptName][section])
@@ -118,7 +115,6 @@ func EvaluatePerformance(localPerformanceData map[string]map[string]float64, que
 
 // Print regressions
 func PrintRegressions(regressions map[string]map[string]float64) {
-
 	prefix := ""
 	indent := "  "
 
