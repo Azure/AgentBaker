@@ -126,19 +126,8 @@ testPackagesInstalled() {
       fi
 
       # if the downloadLocation is /usr/local/bin verify that the package is installed
-      #if [ "$downloadLocation" == "/usr/local/bin" ]; then
-      #    if command -v "$name" >/dev/null 2>&1; then
-      #        echo "$name is installed."
-      #        continue
-      #    else
-      #        err $test "$name is not installed. Expected to be installed in $downloadLocation"
-      #        continue
-      #    fi
-      #fi
-
-      # if the downloadedPackage doesn't exist, check if the package is installed since the folder might have been deleted during build
-      if [[ ! -f "$downloadedPackage" ]]; then
-        if command -v "$name" >/dev/null 2>&1; then
+      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+          if command -v "$name" >/dev/null 2>&1; then
               echo "$name is installed."
               continue
           else
