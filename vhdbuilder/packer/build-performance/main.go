@@ -6,9 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/pkg/common"
+	"github.com/Azure/agentbaker/vhdbuilder/packer/build-performance/pkg/common"
 	"github.com/Azure/azure-kusto-go/kusto"
-	"github.com/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
 )
 
 func main() {
