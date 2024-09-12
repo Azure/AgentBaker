@@ -151,7 +151,7 @@ func commonLiveVMValidators(opts *scenarioRunOpts) []*LiveVMValidator {
 	validators = append(validators, leakedSecretsValidators(opts)...)
 
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
-	if opts.scenario.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg {
+	if opts.scenario.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
 		validators = append(validators, kubeletNodeIPValidator())
 	}
 
