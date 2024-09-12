@@ -72,13 +72,8 @@ switch -Regex ($windowsSku) {
         )
     }
     "23H2*" {
-        if ($windowsSku -eq "23H2-gen2") {
-            $global:patchUrls = @("https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/33c7f34f-3dfd-4da4-a24f-57c91da10a0b/public/windows11.0-kb5043055-x64_717e61e23aa481e928233de194b28e1e479f1d87.msu")
-            $global:patchIDs = @("KB5043055")
-        } else {
-            $global:patchUrls = @()
-            $global:patchIDs = @()
-        }
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2022",
@@ -95,8 +90,10 @@ $global:imagesToPull += @(
     # This is for test purpose only to reduce the test duration.
     "mcr.microsoft.com/windows/servercore/iis:latest",
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.1", # for k8s 1.27+
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1", # for k8s 1.27+
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.1", # for k8s 1.30+
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1", # for k8s 1.30+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.9-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.4-windows-hp", # for k8s 1.30.x
@@ -117,13 +114,15 @@ $global:imagesToPull += @(
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.32",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.35",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.0",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.3",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.5",
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4"
     "mcr.microsoft.com/containernetworking/cni-dropgz:v0.2.0"
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.32"
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.3"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.32",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.5"
 )
 
 $global:map = @{
@@ -188,7 +187,8 @@ $global:map = @{
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.32/binaries/azure-vnet-cni-windows-amd64-v1.5.32.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.6.3/binaries/azure-vnet-cni-windows-amd64-v1.6.3.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.5.35/binaries/azure-vnet-cni-windows-amd64-v1.5.35.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.6.5/binaries/azure-vnet-cni-windows-amd64-v1.6.5.zip",
         # Azure CNI v2 (pod subnet)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.54/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.54.zip",
         # Azure CNI for Overlay

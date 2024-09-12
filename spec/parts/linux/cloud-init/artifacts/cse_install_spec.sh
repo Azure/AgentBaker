@@ -40,7 +40,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for UBUNTU 20.04'
             package=$(readPackage "azure-cni")
             When call returnPackageVersions "$package" "UBUNTU" "20.04"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.5.35 1.6.5"
         End
 
         It 'returns downloadURIs.default.current.versions of package oras for UBUNTU 20.04'
@@ -70,7 +70,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for MARINER'
             package=$(readPackage "azure-cni")
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.5.35 1.6.5"
         End
 
         It 'returns downloadURIs.default.current.versions of package containerd for MARINERKATA'
@@ -82,7 +82,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.default.current.versions of package azure-cni for AZURELINUX'
             package=$(readPackage "azure-cni")
             When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.6.3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.4.54 1.5.32 1.5.35 1.6.5"
         End
 
         It 'returns downloadURIs.azurelinux.current.versions of package runc for AZURELINUX'

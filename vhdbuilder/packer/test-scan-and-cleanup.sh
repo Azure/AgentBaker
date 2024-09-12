@@ -8,6 +8,10 @@ required_env_vars=(
   "SIG_GALLERY_NAME"
   "OS_VERSION"
   "SIG_IMAGE_NAME"
+  "UMSI_RESOURCE_ID"
+  "UMSI_PRINCIPAL_ID"
+  "UMSI_CLIENT_ID"
+  "BUILD_RUN_NUMBER"
 )
 
 for v in "${required_env_vars[@]}"; do
