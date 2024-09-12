@@ -186,6 +186,8 @@ fi
 
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
+logs_to_events "AKS.CSE.disableKubeletServingCertificateRotationForTags" disableKubeletServingCertificateRotationForTags
+
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI

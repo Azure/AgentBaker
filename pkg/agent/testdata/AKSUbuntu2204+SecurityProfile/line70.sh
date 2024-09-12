@@ -406,6 +406,48 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
+clearKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
+    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
+    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+disableKubeletServingCertificateRotationForTags() {
+    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
+        echo "kubelet serving certificate rotation is already disabled"
+        return 0
+    fi
+
+    export -f should_disable_kubelet_serving_certificate_rotation
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    if [ $? -ne 0 ]; then
+        echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
+        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
+    fi
+
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
+        echo "nodepool tag \"aks-disable-kubelet-serving-certificate-rotation\" is not true, nothing to disable"
+        return 0
+    fi
+
+    echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
+
+    KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
+
+    if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+        set +x
+        KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
+        set -x
+    fi
+    
+    clearKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
