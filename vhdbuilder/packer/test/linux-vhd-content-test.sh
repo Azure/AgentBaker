@@ -141,6 +141,14 @@ testPackagesInstalled() {
       fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
       fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
       if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+        echo "downloadURL: $downloadURL"
+        echo "fileNameWithExt: $fileNameWithExt"
+        echo "fileNameWithoutExt: $fileNameWithoutExt"
+        echo "downloadedPackage: $downloadedPackage"
+        echo "extractedPackageDir: $extractedPackageDir"
+
+        echo "fileSizeInRepo: $fileSizeInRepo"
+        echo "fileSizeDownloaded: $fileSizeDownloaded"
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
         continue
       fi
