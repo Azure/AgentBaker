@@ -42,15 +42,16 @@ func main() {
 		}
 	}
 
-	ingestor.Close()
-
-	aggregateSKUData := common.QueryData(config.SigImageName, client, config.KustoDatabase, config.KustoTable, ctx, config.LocalBuildPerformanceFile)
+	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile)
+	if err != nil {
+		log.Fatalf("Failed to query build performance data for %s.\n\n", config.SigImageName)
+	}
 
 	common.DecodeVHDPerformanceData(config.LocalBuildPerformanceFile, dataMaps.HoldingMap)
 
 	common.ConvertTimestampsToSeconds(dataMaps.HoldingMap, dataMaps.LocalPerformanceDataMap)
 
-	common.ParseKustoData(aggregateSKUData, dataMaps.QueriedPerformanceData)
+	common.ParseKustoData(aggregatedSKUData, dataMaps.QueriedPerformanceData)
 
 	common.EvaluatePerformance(dataMaps.LocalPerformanceDataMap, dataMaps.QueriedPerformanceData, dataMaps.RegressionMap)
 
