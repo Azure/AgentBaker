@@ -532,7 +532,7 @@
     },
     {
       "name": "azure-acr-credential-provider",
-      "downloadLocation": "/opt/credentialprovider/downloads/",
+      "downloadLocation": "/opt/credentialprovider/downloads",
       "downloadURIs": {
         "default": {
           "current": {
