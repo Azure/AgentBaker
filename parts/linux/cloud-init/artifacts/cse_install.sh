@@ -161,7 +161,6 @@ downloadCredentialProvider() {
     # if there is a container registry then oras is needed to download
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
-        echo "alison you shouldn't be in the oras block"
         local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
@@ -171,22 +170,6 @@ downloadCredentialProvider() {
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
-    echo "alison check the file contents"
-    echo "CREDENTIAL_PROVIDER_DOWNLOAD_DIR/CREDENTIAL_PROVIDER_TGZ_TMP : $CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP"
-    if [[ -f "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" && -s "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" ]]; then
-        echo "File has been successfully downloaded."
-        dir_contents=$(ls -la "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR")
-        echo "Contents of $CREDENTIAL_PROVIDER_DOWNLOAD_DIR:"
-        echo "$dir_contents"
-    else
-        echo "File download failed or the file is empty."
-        # Store the output of ls -la in a variable
-        dir_contents=$(ls -la "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR")
-        # Echo the contents of the variable
-        echo "Contents of $CREDENTIAL_PROVIDER_DOWNLOAD_DIR:"
-        echo "$dir_contents"
-        return
-    fi
     echo "Credential Provider downloaded successfully"
 }
 
