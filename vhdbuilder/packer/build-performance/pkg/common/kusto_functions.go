@@ -35,9 +35,11 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 }
 
 func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*common.SKU, error) {
+	// Build Query
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
 
+	// Execute Query
 	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
 		return nil, err
