@@ -177,6 +177,10 @@ installCredentialProvider() {
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
     mv "${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}/azure-acr-credential-provider" "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
+    echo "alison inside INSTALL"
+    files=$(ls $CREDENTIAL_PROVIDER_BIN_DIR)
+    echo "alison ${CREDENTIAL_PROVIDER_BIN_DIR} ls: $files"
+
     chmod 755 "${CREDENTIAL_PROVIDER_BIN_DIR}/acr-credential-provider"
     rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
