@@ -167,6 +167,22 @@ downloadCredentialProvider() {
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    echo "alison check the file contents"
+    echo "CREDENTIAL_PROVIDER_DOWNLOAD_DIR/CREDENTIAL_PROVIDER_TGZ_TMP : $CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP"
+    if [[ -f "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" && -s "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" ]]; then
+        echo "File has been successfully downloaded."
+        dir_contents=$(ls -la "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR")
+        echo "Contents of $CREDENTIAL_PROVIDER_DOWNLOAD_DIR:"
+        echo "$dir_contents"
+    else
+        echo "File download failed or the file is empty."
+        # Store the output of ls -la in a variable
+        dir_contents=$(ls -la "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR")
+        # Echo the contents of the variable
+        echo "Contents of $CREDENTIAL_PROVIDER_DOWNLOAD_DIR:"
+        echo "$dir_contents"
+        return
+    fi
     echo "Credential Provider downloaded successfully"
 }
 
