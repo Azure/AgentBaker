@@ -7,16 +7,36 @@ import (
 	"time"
 )
 
-func SetupConfig() *Config {
-	return &Config{
-		KustoTable:                os.Getenv("BUILD_PERFORMANCE_TABLE_NAME"),
-		KustoEndpoint:             os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT"),
-		KustoDatabase:             os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME"),
-		KustoClientID:             os.Getenv("BUILD_PERFORMANCE_CLIENT_ID"),
-		SigImageName:              os.Getenv("SIG_IMAGE_NAME"),
-		LocalBuildPerformanceFile: os.Getenv("LOCAL_BUILD_PERFORMANCE_FILE"),
-		SourceBranch:              os.Getenv("GIT_BRANCH"),
+func SetupConfig() (*Config, error) {
+
+	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
+	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
+	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
+	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
+	sigImageName := os.Getenv("SIG_IMAGE_NAME")
+	localBuildPerformanceFile := os.Getenv("LOCAL_BUILD_PERFORMANCE_FILE")
+	sourceBranch := os.Getenv("GIT_BRANCH")
+
+	missingVar := false
+	for _, envVar := range []string{kustoTable, kustoEndpoint, kustoDatabase, kustoClientID, sigImageName, localBuildPerformanceFile, sourceBranch} {
+		if envVar == "" {
+			fmt.Println("Missing environment variable \"%s\".", envVar)
+			missingVar = true
+		}
 	}
+	if missingVar {
+		return nil, fmt.Errorf("Missing environment variables")
+	}
+
+	return &Config{
+		KustoTable:                sigImageName,
+		KustoEndpoint:             kustoEndpoint,
+		KustoDatabase:             kustoDatabase,
+		KustoClientID:             kustoClientID,
+		SigImageName:              sigImageName,
+		LocalBuildPerformanceFile: localBuildPerformanceFile,
+		SourceBranch:              sourceBranch,
+	}, nil
 }
 
 func CreateDataMaps() *DataMaps {
