@@ -23,12 +23,12 @@ func SetupConfig() (*Config, error) {
 	missingVar := false
 	for _, envVar := range []string{kustoTable, kustoEndpoint, kustoDatabase, kustoClientID, sigImageName, localBuildPerformanceFile, sourceBranch} {
 		if envVar == "" {
-			fmt.Println("Missing environment variable \"%s\".", envVar)
+			fmt.Printf("Missing environment variable \"%s\".", envVar)
 			missingVar = true
 		}
 	}
 	if missingVar {
-		return nil, fmt.Errorf("Required environment variables were not set.")
+		return nil, fmt.Errorf("required environment variables were not set")
 	}
 
 	return &Config{
