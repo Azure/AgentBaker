@@ -15,10 +15,10 @@ func main() {
 
 	config, err := common.SetupConfig()
 	if err != nil {
-		log.Fatalf("Error setting up build-performance program configuration. Exiting...")
+		log.Fatalf(err)
 	}
 
-	dataMaps, err := common.CreateDataMaps()
+	dataMaps := common.CreateDataMaps()
 
 	kcsb := kusto.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientID)
 
