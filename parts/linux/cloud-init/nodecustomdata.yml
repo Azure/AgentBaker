@@ -402,6 +402,13 @@ write_files:
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
     iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 
+- path: /opt/azure/containers/ensure_imds_restriction.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64

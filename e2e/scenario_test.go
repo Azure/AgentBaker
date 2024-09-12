@@ -1149,3 +1149,41 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 		},
 	})
 }
+
+func Test_ubuntu2204imdsrestriction_filtertable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction filter table is properly set",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = false
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("filter"),
+			},
+		},
+	})
+}
+
+func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction mangle table is properly set",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = true
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("mangle"),
+			},
+		},
+	})
+}

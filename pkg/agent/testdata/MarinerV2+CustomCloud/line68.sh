@@ -389,6 +389,23 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
+getPrimaryNicIP() {
+    local sleepTime=1
+    local maxRetries=10
+    local i=0
+    local ip=""
+
+    while [[ $i -lt $maxRetries ]]; do
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        if [[ -n "$ip" && $? -eq 0 ]]; then
+            break
+        fi
+        sleep $sleepTime
+        i=$((i+1))
+    done
+    echo "$ip"
+}
+
 clearKubeletNodeLabel() {
     local LABEL_STRING=$1
     if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
@@ -560,6 +577,18 @@ EOF
 #
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+EOF
+
+    primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
+    ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
+    mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
+    touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
+    chmod 0600 "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
+    tee "${ENSURE_IMDS_RESTRICTION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="PRIMARY_NIC_IP=${primaryNicIP}"
+Environment="ENABLE_IMDS_RESTRICTION=${ENABLE_IMDS_RESTRICTION}"
+Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
 EOF
 
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
@@ -793,80 +822,6 @@ providers:
     args:
       - /etc/kubernetes/azure.json
 EOF
-    fi
-}
-
-getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
-    local ip=""
-
-    while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
-        if [[ -n "$ip" && $? -eq 0 ]]; then
-            break
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
-}
-
-ensureIMDSRestrictionRule() {
-    local primaryNicIP=$(getPrimaryNicIP)
-    if [[ -z "$primaryNicIP" ]]; then
-        echo "Primary NIC IP not found"
-        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
-    fi
-    echo "Primary NIC IP: $primaryNicIP"
-
-    local insertRuleToMangleTable=${1:-false}
-    if [[ $insertRuleToMangleTable == true ]]; then
-        echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
-        iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -eq 0 ]]; then
-            echo "IMDS restriction rule already exists in mangle table, returning..."
-            return
-        fi
-        echo "Inserting IMDS restriction rule to mangle table..."
-        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE
-    else
-        echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
-        iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -eq 0 ]]; then
-            echo "IMDS restriction rule already exists in filter table, returning..."
-            return
-        fi
-        echo "Inserting IMDS restriction rule to filter table..."
-        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE
-    fi
-}
-
-disableIMDSRestriction() {
-    local primaryNicIP=$(getPrimaryNicIP)
-    if [[ -z "$primaryNicIP" ]]; then
-        echo "Primary NIC IP not found"
-        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
-    fi
-    echo "Primary NIC IP: $primaryNicIP"
-
-    echo "Checking whether IMDS restriction rule exists in mangle table..."
-    iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-    if [[ $? -ne 0 ]]; then
-        echo "IMDS restriction rule does not exist in mangle table, no need to delete"
-    else
-        echo "Deleting IMDS restriction rule from mangle table..."
-        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE
-    fi
-
-    echo "Checking whether IMDS restriction rule exists in filter table..."
-    iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-    if [[ $? -ne 0 ]]; then
-         echo "IMDS restriction rule does not exist in filter table, no need to delete"
-    else
-        echo "Deleting IMDS restriction rule from filter table..."
-        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE
     fi
 }
 

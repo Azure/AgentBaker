@@ -175,12 +175,6 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
-if [ "${ENABLE_IMDS_RESTRICTION}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureIMDSRestrictionRule" ensureIMDSRestrictionRule "${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-else
-    logs_to_events "AKS.CSE.disableIMDSRestriction" disableIMDSRestriction
-fi
-
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir

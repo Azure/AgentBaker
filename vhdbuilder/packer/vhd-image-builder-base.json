@@ -173,6 +173,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh",
+      "destination": "/home/packer/ensure_imds_restriction.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
