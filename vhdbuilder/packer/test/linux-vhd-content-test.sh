@@ -79,7 +79,7 @@ testPackagesInstalled() {
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for p in ${packages}; do
+  while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
@@ -164,7 +164,7 @@ testPackagesInstalled() {
     done
 
     echo "---"
-  done
+  done <<<"$packages"
   echo "$test:Finish"
 }
 
@@ -184,7 +184,7 @@ testImagesPulled() {
 
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
-  for imageToBePulled in ${imagesToBePulled}; do
+  while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
     MULTI_ARCH_VERSIONS=()
@@ -211,7 +211,7 @@ testImagesPulled() {
     done
 
     echo "---"
-  done
+  done <<<"$imagesToBePulled"
   echo "$test:Finish"
 }
 
@@ -230,14 +230,14 @@ testImagesRetagged() {
   fi
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
-  for pulledImage in ${pulledImages[@]}; do
+  while IFS= read -r pulledImage; do
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
-  done
+  done <<<"$pulledImages"
   if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
     echo "all the images are:"

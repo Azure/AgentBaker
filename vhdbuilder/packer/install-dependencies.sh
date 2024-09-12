@@ -404,7 +404,7 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for imageToBePulled in ${ContainerImages}; do
+while IFS= read -r imageToBePulled; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
   MULTI_ARCH_VERSIONS=()
@@ -429,7 +429,7 @@ for imageToBePulled in ${ContainerImages}; do
       wait -n
     done
   done
-done
+done <<< "$ContainerImages"
 wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
