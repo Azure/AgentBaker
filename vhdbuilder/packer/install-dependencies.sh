@@ -277,6 +277,13 @@ for p in ${packages[*]}; do
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
+    "containerd-wasm-shims")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        installOras "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
     "kubernetes-binaries")
       # kubelet and kubectl
       # need to cover previously supported version for VMAS scale up scenario

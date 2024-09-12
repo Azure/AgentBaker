@@ -538,6 +538,22 @@
           }
         }
       }
+    },
+    {
+      "name": "containerd-wasm-shims",
+      "downloadLocation": "",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "0.3.0",
+              "0.5.1",
+              "0.8.0"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/${version}/linux/${CPU_ARCH}"
+          }
+        }
+      }
     }
   ]
 }
