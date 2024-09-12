@@ -58,7 +58,7 @@ func main() {
 	if len(dataMaps.RegressionMap) == 0 {
 		fmt.Printf("No regressions found for this pipeline run\n\n")
 	} else {
-		fmt.Printf("Regressions found for this pipline run:\n\n")
+		fmt.Printf("Regressions found for this pipline run. Listed is the amount of time that the identified section exceeded one standard deviation by:\n\n")
 		common.PrintRegressions(dataMaps.RegressionMap)
 	}
 
