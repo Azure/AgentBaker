@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
 
-func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string) error {
+func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
 	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
@@ -22,7 +22,7 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 	defer ingestor.Close()
 
 	// Ingest Data
-	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef("buildPerfMap", ingest.MultiJSON))
+	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
 		ingestor.Close()
 		return err
@@ -30,6 +30,7 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 		fmt.Printf("Successfully ingested build performance data.\n\n")
 	}
 	defer ingestor.Close()
+
 	return nil
 }
 
