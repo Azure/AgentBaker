@@ -114,9 +114,7 @@ func SumArray(arr []float64) float64 {
 	if len(arr) != 2 {
 		fmt.Printf("expected 2 elements in array, got %d", len(arr))
 	}
-	for _, x := range arr {
-		sum += x
-	}
+	sum = arr[0] + arr[1]*2
 	return sum
 }
 
