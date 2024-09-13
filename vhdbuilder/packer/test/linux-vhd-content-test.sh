@@ -4,6 +4,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+AZURELINUX_OS_NAME="AZURELINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -81,8 +82,10 @@ testPackagesInstalled() {
   for p in ${packages[*]}; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
+    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
       OS=$MARINER_OS_NAME
+    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
+      OS=$AZURELINUX_OS_NAME
     else
       OS=$UBUNTU_OS_NAME
     fi
@@ -270,7 +273,7 @@ testChrony() {
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
-  #if mariner check chronyd, else check chrony
+  #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
   if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     os_chrony="chronyd"
@@ -419,10 +422,18 @@ testKubeBinariesPresent() {
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
+
+  #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
   if ! nc -h 2>/dev/null; then
     err $test "nc is not installed"
   else
     echo $test "nc is installed"
+  fi
+
+  if ! curl -h 2>/dev/null; then
+    err $test "curl is not installed"
+  else
+    echo $test "curl is installed"
   fi
 
   if ! nslookup -version 2>/dev/null; then
@@ -667,7 +678,7 @@ testPamDSettings() {
   local settings_file=/etc/security/faillock.conf
   echo "$test:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -858,7 +869,7 @@ testPam() {
   local retval=0
   echo "${test}:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -920,13 +931,15 @@ testContainerImagePrefetchScript() {
 }
 
 testBccTools () {
-  for line in '- bcc-tools' '- libbcc-examples'; do
-    if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
-      echo "BCC tools were not successfully downloaded."
+  local test="BCCInstallTest"
+  echo "$test: checking if BCC tools were successfully installed"
+  for line in '  - bcc-tools' '  - libbcc-examples'; do
+    if ! grep -F -x -e "$line" $VHD_LOGS_FILEPATH; then
+      err "BCC tools were not successfully installed"
       return 1
     fi
   done
-  echo "BCC tools were successfully downloaded."
+  echo "$test: BCC tools were successfully installed"
   return 0
 }
 

@@ -5,11 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: build-nbcparser-all build-lister-binary
-ifeq (${MODE},linuxVhdMode)
-	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
-endif
+build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -103,6 +99,18 @@ test-building-vhd: az-login
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
+
+test-scan-and-cleanup: az-login
+	@./vhdbuilder/packer/test-scan-and-cleanup.sh
+
+evaluate-build-performance: az-login
+	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+
+generate-prefetch-scripts:
+ifeq (${MODE},linuxVhdMode)
+	@echo "${MODE}: Generating prefetch scripts"
+	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+endif
 
 build-nbcparser-all:
 	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64

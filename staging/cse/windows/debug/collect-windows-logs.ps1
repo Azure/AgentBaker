@@ -1,7 +1,7 @@
 param (
   [switch]$enableAll,
   [switch]$enableSnapshotSize,
-  [switch]$enableContainerdInfo
+  [switch]$disableContainerdInfo
 )
 # param must be at the beginning of the script, add more param if needed
 
@@ -194,7 +194,9 @@ $paths += $netLogs
 $paths += "c:\AzureData\CustomDataSetupScript.log"
 
 # log containerd containers (this is done for docker via networking collectlogs.ps1)
-if ($enableAll -or $enableContainerdInfo) {
+if ($disableContainerdInfo) {
+  Write-Host "Skipping collecting containerd info since it costs time in some cases. E.g. .\collect-windows-logs.ps1 -disableContainerdInfo"
+} else {
   Write-Host "Collecting Containerd info from ctr"
   $ctrLogsDirectory = "$ENV:TEMP\$timeStamp-ctr-logs"
   $res = Get-Command ctr.exe -ErrorAction SilentlyContinue
@@ -236,8 +238,6 @@ if ($enableAll -or $enableContainerdInfo) {
   else {
     Write-Host "ctr.exe command not available"
   }
-} else {
-  Write-Host "Skipping collecting Containerd info from ctr. To enable, use -enableContainerdInfo or -enableAll. E.g. .\collect-windows-logs.ps1 -enableContainerdInfo"
 }
 
 if ($enableAll -or $enableSnapshotSize) {

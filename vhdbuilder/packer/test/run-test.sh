@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eux
+
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
@@ -9,11 +10,6 @@ TEST_VM_ADMIN_USERNAME="azureuser"
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
-
-if [ "$OS_TYPE" == "Linux" ] && [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
-    echo "Skipping tests for CVM 20.04"
-    exit 0
-fi
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
 # we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
@@ -33,7 +29,7 @@ else
     exit 1
   fi
 fi
-az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
@@ -208,4 +204,4 @@ else
   fi
 fi
 
-echo "Tests Run Successfully"
+echo -e "Test Script Completed\n\n\n"

@@ -394,9 +394,15 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 1475968140
 
         Validate-WindowsFixInFeatureManagement -Name 747051149
+
+        Validate-WindowsFixInFeatureManagement -Name 260097166
+
+        Validate-WindowsFixInFeatureManagement -Name 4288867982
     }
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0
+
+        Validate-WindowsFixInFeatureManagement -Name 1800977551
     }
 }
 
@@ -419,7 +425,9 @@ function Test-ExcludeUDPSourcePort {
 
 function Test-WindowsDefenderPlatformUpdate {
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
-    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+    $doc = New-Object xml
+    $doc.Load("$global:defenderUpdateInfoUrl")
+    $latestDefenderProductVersion = $doc.versions.platform
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"

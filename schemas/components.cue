@@ -24,6 +24,7 @@ package components
 	r1804?:   #ReleaseDownloadURI
 	r2004?:   #ReleaseDownloadURI
 	r2204?:   #ReleaseDownloadURI
+	r2404?:   #ReleaseDownloadURI
 }
 
 #DefaultOSDistro: {
@@ -34,10 +35,16 @@ package components
 	current?: #ReleaseDownloadURI
 }
 
+#AzureLinuxOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
-	default?: #DefaultOSDistro
-	ubuntu?:  #UbuntuOSDistro
-	mariner?: #MarinerOSDistro
+	default?:      #DefaultOSDistro
+	ubuntu?:       #UbuntuOSDistro
+	mariner?:      #MarinerOSDistro
+	marinerkata?:  #MarinerOSDistro
+	azurelinux?:   #AzureLinuxOSDistro
 }
 
 #Package: {

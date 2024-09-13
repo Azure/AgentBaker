@@ -15,8 +15,8 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
@@ -39,6 +39,7 @@ type Cluster struct {
 	Kube                           *Kubeclient
 	SubnetID                       string
 	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
+	Maintenance                    *armcontainerservice.MaintenanceConfiguration
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -61,14 +62,14 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = createCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"))
+		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"))
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := createCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"))
+		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"))
 		if err == nil {
 			err = addAirgapNetworkSettings(ctx, t, cluster)
 		}
@@ -79,13 +80,13 @@ func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = createCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"))
+		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"))
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
 func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
@@ -98,16 +99,22 @@ func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient)
 	return baseNodeBootstrappingConfig, nil
 }
 
-func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
+func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
-	createdCluster, err := createNewAKSClusterWithRetry(ctx, t, cluster)
+
+	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
 	}
 
+	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, t, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("get or create maintenance configuration: %w", err)
+	}
+
 	// sometimes tests can be interrupted and vmss are left behind
 	// don't waste resource and delete them
-	if err := collectGarbageVMSS(ctx, t, createdCluster); err != nil {
+	if err := collectGarbageVMSS(ctx, t, cluster); err != nil {
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
@@ -120,7 +127,7 @@ func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	subnetID, err := getClusterSubnetID(ctx, *createdCluster.Properties.NodeResourceGroup)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
@@ -130,7 +137,7 @@ func createCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
 	}
 
-	return &Cluster{Model: createdCluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc}, nil
+	return &Cluster{Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc, Maintenance: maintenance}, nil
 }
 
 func hash(cluster *armcontainerservice.ManagedCluster) string {
@@ -147,8 +154,29 @@ func hash(cluster *armcontainerservice.ManagedCluster) string {
 	return hexHash[:5]
 }
 
+func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+	existingCluster, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	var azErr *azcore.ResponseError
+	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+		return createNewAKSClusterWithRetry(ctx, t, cluster)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
+	}
+	switch *existingCluster.Properties.ProvisioningState {
+	case "Succeeded":
+		return &existingCluster.ManagedCluster, nil
+	case "Creating", "Updating":
+		return waitUntilClusterReady(ctx, config.ResourceGroupName, *cluster.Name)
+	default:
+		// this operation will try to update the cluster if it's in a failed state
+		return createNewAKSClusterWithRetry(ctx, t, cluster)
+	}
+}
+
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
-	t.Logf("Creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
+	t.Logf("creating or updating cluster %s in rg %s\n", *cluster.Name, *cluster.Location)
+	// Note, it seems like the operation still can start a trigger a new operation even if nothing has changes
 	pollerResp, err := config.Azure.AKS.BeginCreateOrUpdate(
 		ctx,
 		config.ResourceGroupName,
@@ -160,7 +188,7 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
 	}
 
-	clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
+	clusterResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
@@ -203,6 +231,50 @@ func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *ar
 	}
 
 	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
+}
+
+func getOrCreateMaintenanceConfiguration(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
+	existingMaintenance, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName, *cluster.Name, "default", nil)
+	var azErr *azcore.ResponseError
+	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+		return createNewMaintenanceConfiguration(ctx, t, cluster)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
+	}
+	return &existingMaintenance.MaintenanceConfiguration, nil
+}
+
+func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
+	t.Logf("creating maintenance configuration for cluster %s in rg %s\n", *cluster.Name, config.ResourceGroupName)
+	maintenance := armcontainerservice.MaintenanceConfiguration{
+		Properties: &armcontainerservice.MaintenanceConfigurationProperties{
+			MaintenanceWindow: &armcontainerservice.MaintenanceWindow{
+				NotAllowedDates: []*armcontainerservice.DateSpan{ // no maintenance till 2100
+					{
+						End:   to.Ptr(func() time.Time { t, _ := time.Parse("2006-01-02", "2100-01-01"); return t }()),
+						Start: to.Ptr(func() time.Time { t, _ := time.Parse("2006-01-02", "2000-01-01"); return t }()),
+					}},
+				DurationHours: to.Ptr[int32](4),
+				StartTime:     to.Ptr("00:00"),  //PST
+				UTCOffset:     to.Ptr("+08:00"), //PST
+				Schedule: &armcontainerservice.Schedule{
+					RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
+						DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
+						IntervalMonths: to.Ptr[int32](3),
+						WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
+					},
+				},
+			},
+		},
+	}
+
+	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, config.ResourceGroupName, *cluster.Name, "default", maintenance, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create maintenance configuration: %w", err)
+	}
+
+	return &maintenance, nil
 }
 
 type VNet struct {

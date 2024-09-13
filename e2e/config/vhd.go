@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
 const (
@@ -60,6 +60,14 @@ var (
 		OS:      "ubuntu",
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
+	}
+
+	// without kubelet, kubectl, credential-provider and wasm
+	VHDUbuntu2204Gen2ContainerdAirgapped = &Image{
+		Name:    "2204gen2containerd",
+		OS:      "ubuntu",
+		Arch:    "amd64",
+		Version: "1.1725612526.29638",
 	}
 )
 
@@ -237,7 +245,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}
-	if _, err := resp.PollUntilDone(ctx, nil); err != nil {
+	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
 		return fmt.Errorf("updating image version target regions: %w", err)
 	}
 
@@ -245,7 +253,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 }
 
 func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
-	if *version.Properties.ProvisioningState != armcompute.GalleryImageVersionPropertiesProvisioningStateSucceeded {
+	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
 		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
 	}
 	return nil

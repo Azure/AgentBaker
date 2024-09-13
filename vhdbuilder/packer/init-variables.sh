@@ -82,10 +82,6 @@ fi
 if [ -z "${VNET_RG_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
 		VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# for now preserve original functionality for prod builds
-			VNET_RG_NAME="nodesigprod-agent-pool"
-		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
@@ -99,10 +95,6 @@ fi
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# for now preserve original functionality for prod builds
-			VNET_NAME="nodesig-pool-vnet"
-		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet"
@@ -162,6 +154,9 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			else
 				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
+		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
+			# for Azure Linux 3.0, only use AzureLinux prefix
+			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else

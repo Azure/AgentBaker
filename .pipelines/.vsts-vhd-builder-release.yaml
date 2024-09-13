@@ -4,12 +4,20 @@ trigger: none
 variables:
   - name: CONTAINER_IMAGE
     value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
+  - group: aks-vuln-to-kusto
 
 pool:
   name: $(POOL_NAME)
 
-
 parameters:
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+    default: false
+  - name: overrideBranch
+    displayName: Branch in aks-rp to use for overrides
+    type: string
+    default: master
   - name: build1804containerd
     displayName: Build 1804 containerd
     type: boolean
@@ -34,6 +42,10 @@ parameters:
     displayName: Build AzureLinuxV2 Gen1
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen1
+    displayName: Build AzureLinuxV3 Gen1
+    type: boolean
+    default: false
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
@@ -42,6 +54,10 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen2
+    displayName: Build AzureLinuxV3 Gen2
+    type: boolean
+    default: false
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
@@ -50,6 +66,10 @@ parameters:
     displayName: Build AzureLinuxV2 Gen1 FIPS
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen1fips
+    displayName: Build AzureLinuxV3 Gen1 FIPS
+    type: boolean
+    default: false
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
@@ -58,6 +78,10 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 FIPS
     type: boolean
     default: true
+  - name: buildAzureLinuxV3gen2fips
+    displayName: Build AzureLinuxV3 Gen2 FIPS
+    type: boolean
+    default: false
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
@@ -74,6 +98,10 @@ parameters:
     displayName: Build AzureLinuxV2 Gen2 - ARM64
     type: boolean
     default: true
+  - name: buildAzureLinuxV3ARM64
+    displayName: Build AzureLinuxV3 Gen2 - ARM64
+    type: boolean
+    default: false
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
@@ -185,6 +213,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-containerd
       - job: build1804gen2containerd
         condition: eq('${{ parameters.build1804gen2containerd }}', true)
@@ -209,6 +239,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gen2-containerd
       - job: build1804gpucontainerd
         condition: eq('${{ parameters.build1804gpucontainerd }}', true)
@@ -233,6 +265,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gpu-containerd
       - job: build1804gen2gpucontainerd
         condition: eq('${{ parameters.build1804gen2gpucontainerd }}', true)
@@ -257,6 +291,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-gen2-gpu-containerd
       - job: buildMarinerV2gen1
         condition: eq('${{ parameters.buildMarinerV2gen1 }}', true)
@@ -283,6 +319,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1
       - job: buildAzureLinuxV2gen1
         condition: eq('${{ parameters.buildAzureLinuxV2gen1 }}', true)
@@ -309,7 +347,35 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1
+      - job: buildAzureLinuxV3gen1
+        condition: eq('${{ parameters.buildAzureLinuxV3gen1 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen1
       - job: buildMarinerV2gen2
         condition: eq('${{ parameters.buildMarinerV2gen2 }}', true)
         dependsOn: [ ]
@@ -335,6 +401,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2
       - job: buildAzureLinuxV2gen2
         condition: eq('${{ parameters.buildAzureLinuxV2gen2 }}', true)
@@ -361,7 +429,35 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2
+      - job: buildAzureLinuxV3gen2
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2
       - job: buildMarinerV2gen1fips
         condition: eq('${{ parameters.buildMarinerV2gen1fips }}', true)
         dependsOn: [ ]
@@ -387,6 +483,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen1-fips
       - job: buildAzureLinuxV2gen1fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen1fips }}', true)
@@ -413,7 +511,35 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen1-fips
+      - job: buildAzureLinuxV3gen1fips
+        condition: eq('${{ parameters.buildAzureLinuxV3gen1fips }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen1-fips
       - job: buildMarinerV2gen2fips
         condition: eq('${{ parameters.buildMarinerV2gen2fips }}', true)
         dependsOn: [ ]
@@ -439,6 +565,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-fips
       - job: buildAzureLinuxV2gen2fips
         condition: eq('${{ parameters.buildAzureLinuxV2gen2fips }}', true)
@@ -465,7 +593,35 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-fips
+      - job: buildAzureLinuxV3gen2fips
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2fips }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-gen2'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2-fips
       - job: buildMarinerV2ARM64
         condition: eq('${{ parameters.buildMarinerV2ARM64 }}', true)
         dependsOn: [ ]
@@ -491,6 +647,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-arm64
       - job: buildAzureLinuxV2ARM64
         condition: eq('${{ parameters.buildAzureLinuxV2ARM64 }}', true)
@@ -517,7 +675,35 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-arm64
+      - job: buildAzureLinuxV3ARM64
+        condition: eq('${{ parameters.buildAzureLinuxV3ARM64 }}', true)
+        dependsOn: [ ]
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
+              echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+              echo '##vso[task.setvariable variable=OS_VERSION]V3'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+              echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+              echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64'
+              echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+            displayName: Setup Build Variables
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: azurelinuxv3-gen2-arm64
       - job: buildMarinerV2gen2kata
         condition: eq('${{ parameters.buildMarinerV2gen2kata }}', true)
         dependsOn: [ ]
@@ -543,6 +729,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata
       - job: buildAzureLinuxV2gen2kata
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kata }}', true)
@@ -569,6 +757,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata
       - job: buildMarinerV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2TrustedLaunch }}', true)
@@ -595,6 +785,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-trustedlaunch
       - job: buildAzureLinuxV2gen2TrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}', true)
@@ -621,6 +813,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-trustedlaunch
       - job: buildMarinerV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}', true)
@@ -647,6 +841,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: marinerv2-gen2-kata-trustedlaunch
       - job: buildAzureLinuxV2gen2kataTrustedLaunch
         condition: eq('${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}', true)
@@ -673,6 +869,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: azurelinuxv2-gen2-kata-trustedlaunch
       - job: build1804fipscontainerd
         condition: eq('${{ parameters.build1804fipscontainerd }}', true)
@@ -698,6 +896,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-fips-containerd
       - job: build1804fipsgen2containerd
         condition: eq('${{ parameters.build1804fipsgen2containerd }}', true)
@@ -723,6 +923,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 1804-fips-gen2-containerd
       - job: build2004fipscontainerd
         condition: eq('${{ parameters.build2004fipscontainerd }}', true)
@@ -748,6 +950,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-containerd
       - job: build2004fipsgen2containerd
         condition: eq('${{ parameters.build2004fipsgen2containerd }}', true)
@@ -773,6 +977,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-fips-gen2-containerd
       - job: build2204fipscontainerd
         condition: eq('${{ parameters.build2204fipscontainerd }}', true)
@@ -799,6 +1005,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-containerd
       - job: build2204fipsgen2containerd
         condition: eq('${{ parameters.build2204fipsgen2containerd }}', true)
@@ -825,6 +1033,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-fips-gen2-containerd
       - job: build2204arm64gen2containerd
         condition: eq('${{ parameters.build2204arm64gen2containerd }}', true)
@@ -850,20 +1060,21 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-arm64-gen2-containerd
       - job: build2404arm64gen2containerd
         condition: eq('${{ parameters.build2404arm64gen2containerd }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
-          # TODO(artunduman): Remove 'daily' when available
           - bash: |
               echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-noble-daily'
-              echo '##vso[task.setvariable variable=IMG_SKU]24_04-daily-lts-arm64'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server-arm64'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
@@ -876,6 +1087,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-arm64-gen2-containerd
       - job: build2204containerd
         condition: eq('${{ parameters.build2204containerd }}', true)
@@ -900,6 +1113,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-containerd
       - job: build2204gen2containerd
         condition: eq('${{ parameters.build2204gen2containerd }}', true)
@@ -924,6 +1139,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-gen2-containerd
       - job: build2404containerd
         condition: eq('${{ parameters.build2404containerd }}', true)
@@ -948,6 +1165,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-containerd
       - job: build2404gen2containerd
         condition: eq('${{ parameters.build2404gen2containerd }}', true)
@@ -972,6 +1191,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2404-gen2-containerd
       - job: build2004cvmgen2containerd
         condition: eq('${{ parameters.build2004cvmgen2containerd }}', true)
@@ -996,6 +1217,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2004-cvm-gen2-containerd
       - job: build2204tlgen2containerd
         condition: eq('${{ parameters.build2204tlgen2containerd }}', true)
@@ -1020,6 +1243,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-tl-gen2-containerd
       - job: build2204minimalgen1containerd
         condition: eq('${{ parameters.build2204minimalgen1containerd }}', true)
@@ -1044,6 +1269,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen1-containerd
       - job: build2204minimalgen2containerd
         condition: eq('${{ parameters.build2204minimalgen2containerd }}', true)
@@ -1068,6 +1295,8 @@ stages:
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
   - stage: Run_E2E_Tests
     condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq('${{ parameters.dryrun }}', false))

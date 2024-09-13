@@ -105,7 +105,17 @@ ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205
 
 ERR_CNI_VERSION_INVALID=206 
 
-if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+
+ERR_ORAS_PULL_K8S_FAIL=207 
+ERR_ORAS_PULL_FAIL_RESERVE_1=208 
+ERR_ORAS_PULL_CONTAINERD_WASM=209 
+ERR_ORAS_PULL_FAIL_RESERVE_3=210 
+ERR_ORAS_PULL_FAIL_RESERVE_4=211 
+ERR_ORAS_PULL_FAIL_RESERVE_5=212 
+
+ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
+
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
@@ -114,6 +124,8 @@ fi
 
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
@@ -130,6 +142,8 @@ APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
+ORAS_OUTPUT=/tmp/oras_verbose.out
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -181,6 +195,23 @@ retrycmd_get_tarball() {
             timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
+            fi
+            sleep $wait_sleep
+        fi
+    done
+}
+retrycmd_get_tarball_from_registry_with_oras() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    tar_folder=$(dirname "$tarball")
+    echo "${tar_retries} retries"
+    for i in $(seq 1 $tar_retries); do
+        tar -tzf $tarball && break || \
+        if [ $i -eq $tar_retries ]; then
+            return 1
+        else
+            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [[ $? != 0 ]]; then
+                cat $ORAS_OUTPUT
             fi
             sleep $wait_sleep
         fi
@@ -338,6 +369,15 @@ isARM64() {
     fi
 }
 
+isRegistryUrl() {
+    local binary_url=$1
+    registry_regex='^.+\/.+\/.+:.+$'
+    if [[ ${binary_url} =~ $registry_regex ]]; then 
+        return 0 
+    fi
+    return 1 
+}
+
 logs_to_events() {
     local task=$1; shift
     local eventsFileName=$(date +%s%3N)
@@ -376,19 +416,37 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+should_disable_kubelet_serving_certificate_rotation() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
+    echo "$should_disable"
+}
+
+isMarinerOrAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
+
 installJq() {
   output=$(jq --version)
   if [ -n "$output" ]; then
     echo "$output"
   else
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
       sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
       apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
   fi
 }
-
 
 check_array_size() {
   declare -n array_name=$1
@@ -405,68 +463,37 @@ capture_benchmark() {
   local title="$1"
   title="${title//[[:space:]]/_}"
   title="${title//-/_}"
-  benchmarks+=($title)
-  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
-  local end_timestamp=$(date +%H:%M:%S)
   if [[ "$is_final_section" == true ]]; then
-    local start_timestamp=$script_start_timestamp
     local start_time=$script_start_stopwatch
   else
-    local start_timestamp=$section_start_timestamp
     local start_time=$section_start_stopwatch
   fi
-
-  local difference_in_seconds=$((current_time - start_time))
-  local elapsed_hours=$(($difference_in_seconds/3600))
-  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
-  local elapsed_seconds=$(($difference_in_seconds%60))
-  printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
-
-  current_section+=($start_timestamp)
-  current_section+=($end_timestamp)
-  current_section+=($total_time_elapsed)
-
-  unset -n current_section
+  
+  total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
+  benchmarks[$title]=${total_time_elapsed}
+  benchmarks_order+=($title) 
 
   section_start_stopwatch=$(date +%s)
-  section_start_timestamp=$(date +%H:%M:%S)
-
-  set -x
 }
 
 process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  declare -n script_stats="${benchmarks[last_index]}"
-  
-  script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
+  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
 
-  unset script_stats[@]
-  unset -n script_stats
-
-  for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
-      
-    declare -n section_name="${benchmarks[i]}"
-     
-    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${section_name[0]}" --arg end_timestamp "${section_name[1]}" --arg total_time_elapsed "${section_name[2]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
-      
-    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" '$script_object | .[$script_name] += $section_object')
-    
-    unset section_name[@]
-    unset -n section_name
-
+  for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
+    section_name=${benchmarks_order[i]}
+    section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
+    '{($section_name): $total_time_elapsed'})
+    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${SCRIPT_NAME}" \
+    '$script_object | .[$script_name] += $section_object')
   done
-
-  echo "Benchmarks:"
-  echo "$script_object" | jq -C .
  
-  jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
+  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
-  set -x
 }
 
 #return proper release metadata for the package based on the os and osVersion
@@ -480,8 +507,8 @@ returnRelease() {
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" != "${UBUNTU_OS_NAME}" ]]; then
+    #For MARINER/AZURELINUX, the release is always set to "current" now.
+    if isMarinerOrAzureLinux "${os}"; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
@@ -496,10 +523,14 @@ returnPackageVersions() {
     RELEASE="current"
     returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
 
     #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
     #otherwise get the versions from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        if jq -e ".downloadURIs.${osLowerCase}.${RELEASE}.versions | length == 0" <<< "${package}" > /dev/null; then
+            return
+        fi
         versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
         for version in ${versions[@]}; do
             PACKAGE_VERSIONS+=("${version}")

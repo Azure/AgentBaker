@@ -83,7 +83,7 @@ fi
 source /etc/os-release
 
 # Mandb is not currently available on MarinerV1
-if [[ ${ID} != "mariner" ]]; then
+if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
@@ -165,7 +165,7 @@ EOF
         # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
         # ND96 seems to require fabric manager *even when not using mig partitions*
         # while it fails to install on NC24.
-        if [[ $OS == $MARINER_OS_NAME ]]; then
+        if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -304,6 +304,8 @@ fi
 
 VALIDATION_ERR=0
 
+# TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
+
 # Edge case scenarios:
 # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
 # high timeout to address high latency for private dns server to forward request to Azure DNS
@@ -331,13 +333,23 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            #TODO (djsly): remove this once 18.04 isn't supported anymore
+            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        else
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        fi
     fi
 else
-    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        #TODO (djsly): remove this once 18.04 isn't supported anymore
+        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    else
+        logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+    fi
 fi
 
-if [[ ${ID} != "mariner" ]]; then
+if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
@@ -371,14 +383,14 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
                 # only be done reliably via image updates as of now so never enable automatic updates.
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
             else
-                # By default the dnf-automatic is service is notify only in Mariner.
+                # By default the dnf-automatic is service is notify only in Mariner/AzureLinux.
                 # Enable the automatic install timer and the check-restart timer.
                 # Stop the notify only dnf timer since we've enabled the auto install one.
                 # systemctlDisableAndStop adds .service to the end which doesn't work on timers.

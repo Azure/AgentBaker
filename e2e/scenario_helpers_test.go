@@ -125,7 +125,9 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
 	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
 
-	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi {
+	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
+	// TODO(xinhl): add another way to validate
+	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && (opts.nbc.OutboundType != datamodel.OutboundTypeBlock && opts.nbc.OutboundType != datamodel.OutboundTypeNone) {
 		validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName)
 	}
 
@@ -144,7 +146,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/components.json")
+	jsonBytes, _ := os.ReadFile("../parts/linux/cloud-init/artifacts/components.json")
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {

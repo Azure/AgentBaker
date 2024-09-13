@@ -1022,9 +1022,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2,
 			},
 			expected: true,
 		},
@@ -1036,6 +1050,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen1 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2FIPS,
@@ -1043,9 +1064,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2FIPS,
 			},
 			expected: true,
 		},
@@ -2696,6 +2731,47 @@ func TestSecurityProfileGetProxyAddress(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.securityProfile.GetProxyAddress()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
+	testContainerRegistryServer := "https://testserver.azurecr.io"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress disabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: false}},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress enabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: true, ContainerRegistryServer: testContainerRegistryServer}},
+			expected:        testContainerRegistryServer,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetPrivateEgressContainerRegistryServer()
 			if c.expected != actual {
 				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
 			}

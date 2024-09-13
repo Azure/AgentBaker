@@ -32,6 +32,6 @@ jobs:
         run: |
           GOPATH="$(go env | grep GOPATH | cut -d= -f2 | tr -d '"')"
           export PATH="$PATH:$GOPATH/bin"
-          cue vet -c ./schemas/components.cue ./vhdbuilder/packer/components.json
-          cue eval ./schemas/components.cue ./vhdbuilder/packer/components.json
+          cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
+          cue eval ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
 

@@ -266,46 +266,57 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 }
 
 func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
-	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
-	// we should only allow users to configure from API (20201101 and later)
-	dockerShimFlags := []string{
-		"--cni-bin-dir",
-		"--cni-cache-dir",
-		"--cni-conf-dir",
-		"--docker-endpoint",
-		"--image-pull-progress-deadline",
-		"--network-plugin",
-		"--network-plugin-mtu",
+	if config.KubeletConfig == nil {
+		return
 	}
 	profile := config.AgentPoolProfile
-	if config.KubeletConfig != nil {
-		kubeletFlags := config.KubeletConfig
-		delete(kubeletFlags, "--dynamic-config-dir")
-		delete(kubeletFlags, "--non-masquerade-cidr")
-		if profile != nil && profile.KubernetesConfig != nil &&
-			profile.KubernetesConfig.ContainerRuntime != "" &&
-			profile.KubernetesConfig.ContainerRuntime == "containerd" {
-			for _, flag := range dockerShimFlags {
-				delete(kubeletFlags, flag)
-			}
-		}
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
-		}
+	kubeletFlags := config.KubeletConfig
 
-		/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
-		deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
-		 version 1.20 or higher */
-		/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
-		continue to work */
-		/* Reference -
-		https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
-			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
+	// we should only allow users to configure from API (20201101 and later)
+	delete(kubeletFlags, "--dynamic-config-dir")
+	delete(kubeletFlags, "--non-masquerade-cidr")
+
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		dockerShimFlags := []string{
+			"--cni-bin-dir",
+			"--cni-cache-dir",
+			"--cni-conf-dir",
+			"--docker-endpoint",
+			"--image-pull-progress-deadline",
+			"--network-plugin",
+			"--network-plugin-mtu",
 		}
+		for _, flag := range dockerShimFlags {
+			delete(kubeletFlags, flag)
+		}
+	}
+
+	if IsKubeletServingCertificateRotationEnabled(config) {
+		// ensure the required feature gate is set
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		// backfill deletion of --tls-cert-file and --tls-private-key-file, which are incompatible with --rotate-server-certificates
+		// these are set as defaults on the RP-side for Linux
+		delete(kubeletFlags, "--tls-cert-file")
+		delete(kubeletFlags, "--tls-private-key-file")
+	}
+
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+		kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+	} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+	}
+
+	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
+	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
+		version 1.20 or higher */
+	/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
+	continue to work */
+	/* Reference -
+	https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
+		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
 }
 
@@ -315,17 +326,25 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		if config.KubeletConfig == nil {
 			config.KubeletConfig = make(map[string]string)
 		}
-
 		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
+
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
+
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
 			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
+
+		if IsKubeletServingCertificateRotationEnabled(config) {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+			// RP doesn't currently set these flags for windows, though we filter them out anyways just to be safe
+			delete(kubeletFlags, "--tls-cert-file")
+			delete(kubeletFlags, "--tls-private-key-file")
 		}
 	}
 }
@@ -354,7 +373,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels()
+			return getAgentKubernetesLabels(profile, config)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels()
@@ -387,6 +406,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
+		},
+		"EnableKubeletServingCertificateRotation": func() bool {
+			return IsKubeletServingCertificateRotationEnabled(config)
 		},
 		"GetKubeletConfigKeyVals": func() string {
 			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
@@ -963,6 +985,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
+		},
+		"GetBootstrapProfileContainerRegistryServer": func() string {
+			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
 		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
