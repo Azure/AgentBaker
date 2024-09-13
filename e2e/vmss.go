@@ -236,7 +236,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_D2ds_v5"),
+			Name:     to.Ptr("Standard_ND96is_H200_v5"),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
