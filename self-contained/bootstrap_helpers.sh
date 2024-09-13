@@ -392,17 +392,6 @@ should_skip_nvidia_drivers() {
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
 
-    if [ "$ret" == "7" ]; then
-      # No route to host. Try Arc.
-      body=$(curl -fsSL -H 'Metadata: true' --noproxy '*' 'http://127.0.0.1:40342/metadata/instance?api-version=2021-02-01')
-      # instance metadata not available in Arc. Assume don't install drivers.
-      arcRet=$?
-      if [ "$arcRet" == "22" ]; then
-        should_skip=true;
-        return;
-      fi
-    fi
-
     if [ "$ret" != "0" ]; then
       return $ret
     fi
