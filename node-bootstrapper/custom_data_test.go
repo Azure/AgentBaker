@@ -8,7 +8,6 @@ import (
 )
 
 func TestCustomData(t *testing.T) {
-
 	t.Run("ca.crt", func(t *testing.T) {
 		nbc := validNBC()
 		actual := getFile(t, nbc, "/etc/kubernetes/certs/ca.crt", 0600)

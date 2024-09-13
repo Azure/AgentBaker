@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,75 +32,7 @@ func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingCon
 	assert.YAMLEq(t, expected, actual)
 }
 
-func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
-	t.Helper()
-	files, err := customData(nbc)
-	require.NoError(t, err)
-	require.NotContains(t, files, azureTokenSh)
-	actual := getFile(t, nbc, arcTokenSh, 0755)
-	expected := fmt.Sprintf(`#!/bin/bash
-
-# Fetch an AAD token from Azure Arc HIMDS and output it in the ExecCredential format
-# https://learn.microsoft.com/azure/azure-arc/servers/managed-identity-authentication
-
-TOKEN_URL="http://127.0.0.1:40342/metadata/identity/oauth2/token?api-version=2019-11-01&resource=%s"
-EXECCREDENTIAL='''
-{
-  "kind": "ExecCredential",
-  "apiVersion": "client.authentication.k8s.io/v1beta1",
-  "spec": {
-    "interactive": false
-  },
-  "status": {
-    "expirationTimestamp": .expires_on | tonumber | todate,
-    "token": .access_token
-  }
-}
-'''
-
-# Arc IMDS requires a challenge token from a file only readable by root for security
-CHALLENGE_TOKEN_PATH=$(curl -s -D - -H Metadata:true $TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
-CHALLENGE_TOKEN=$(cat $CHALLENGE_TOKEN_PATH)
-if [ $? -ne 0 ]; then
-    echo "Could not retrieve challenge token, double check that this command is run with root privileges."
-    exit 255
-fi
-
-curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
-`, aadAppId)
-	assert.Equal(t, expected, actual)
-}
-
-func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
-	t.Helper()
-	files, err := customData(nbc)
-	require.NoError(t, err)
-	require.NotContains(t, files, arcTokenSh)
-	actual := getFile(t, nbc, azureTokenSh, 0755)
-	expected := fmt.Sprintf(`#!/bin/bash
-
-TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
-EXECCREDENTIAL='''
-{
-  "kind": "ExecCredential",
-  "apiVersion": "client.authentication.k8s.io/v1beta1",
-  "spec": {
-    "interactive": false
-  },
-  "status": {
-    "expirationTimestamp": .expires_on | tonumber | todate,
-    "token": .access_token
-  }
-}
-'''
-
-curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
-`, aadAppId)
-	assert.Equal(t, expected, actual)
-}
-
 func TestKubeConfigGeneratedCorrectly(t *testing.T) {
-
 	t.Run("kubeconfig", func(t *testing.T) {
 		nbc := validNBC()
 		assertKubeconfig(t, nbc, `
@@ -179,5 +110,4 @@ users:
       provideClusterInfo: true
 `)
 	})
-
 }
