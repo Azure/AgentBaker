@@ -73,18 +73,18 @@ func DecodeVHDPerformanceData(filePath string, holdingMap map[string]map[string]
 }
 
 // Prepare local JSON data for evaluation
-func DecodeVHDPerformanceData(filePath string, holdingMap map[string]map[string]string) error {
+func DecodeLocalPerformanceData(filePath string, holdingMap map[string]map[string]string) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return err
+		log.Fatalf("Could not open %s", filePath)
 	}
 	defer file.Close()
 
 	var m map[string]json.RawMessage
 	err = json.NewDecoder(file).Decode(&m)
 	if err != nil {
-		return err
+		log.Fatalf("Error decoding %s", filePath)
 	}
 
 	key := "scripts"
@@ -92,10 +92,8 @@ func DecodeVHDPerformanceData(filePath string, holdingMap map[string]map[string]
 
 	err = json.Unmarshal(raw, &holdingMap)
 	if err != nil {
-		return err
+		log.Fatalf("Error unmarshalling m map")
 	}
-
-	return nil
 }
 
 // Put data in a new map with seconds instead of timestamps
