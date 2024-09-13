@@ -41,7 +41,7 @@ func main() {
 		}
 	}
 
-	common.DecodeVHDPerformanceData(config.LocalBuildPerformanceFile, dataMaps.HoldingMap)
+	common.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile, dataMaps.HoldingMap)
 
 	common.ConvertTimestampsToSeconds(dataMaps.HoldingMap, dataMaps.LocalPerformanceDataMap)
 
