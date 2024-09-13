@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Azure/azure-kusto-go/kusto"
 	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
@@ -11,7 +12,7 @@ import (
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
 
-func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
+func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
 	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
@@ -19,10 +20,13 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 	} else {
 		fmt.Printf("Created ingestor...\n\n")
 	}
-	defer ingestor.Close()
+
+	// Create ingestion context
+	ingestionCtx, cancelIngestion := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancelIngestion()
 
 	// Ingest Data
-	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
+	_, err = ingestor.FromFile(ingestionCtx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
 		ingestor.Close()
 		return err
@@ -34,13 +38,17 @@ func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string,
 	return nil
 }
 
-func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*SKU, error) {
+func QueryData(client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*SKU, error) {
 	// Build Query
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
 
+	// Create query context
+	queryCtx, cancelQuery := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancelQuery()
+
 	// Execute Query
-	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
+	iter, err := client.Query(queryCtx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
 		return nil, err
 	}

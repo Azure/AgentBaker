@@ -1,10 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
 	"github.com/Azure/azure-kusto-go/kusto"
@@ -28,22 +26,16 @@ func main() {
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable)
-	if err != nil {
-		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
-	}
-
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
-		fmt.Printf("Ingesting data for %s.\n\n", config.SourceBranch)
-		err := common.IngestData(ctx, client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
+		err := common.IngestData(client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 		if err != nil {
-			client.Close()
-			cancel()
 			log.Fatalf("Ingestion failed: %v\n\n", err)
 		}
+	}
+
+	aggregatedSKUData, err := common.QueryData(client, config.SigImageName, config.KustoDatabase, config.KustoTable)
+	if err != nil {
+		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
 	}
 
 	maps.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile)
