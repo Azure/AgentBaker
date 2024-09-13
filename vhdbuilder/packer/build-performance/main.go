@@ -41,9 +41,7 @@ func main() {
 		}
 	}
 
-	common.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile, dataMaps.HoldingMap)
-
-	common.ConvertTimestampsToSeconds(dataMaps.HoldingMap, dataMaps.LocalPerformanceDataMap)
+	common.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile, &dataMaps.LocalPerformanceDataMap)
 
 	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable)
 	if err != nil {
