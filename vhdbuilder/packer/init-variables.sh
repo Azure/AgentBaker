@@ -259,7 +259,8 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
           TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}\""
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
           TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}\""
-	fi
+	    fi
+		fi
 
 		echo "echoing target command string ${TARGET_COMMAND_STRING}"
 
