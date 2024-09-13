@@ -55,7 +55,7 @@ func CreateDataMaps() *DataMaps {
 }
 
 // Prepare local JSON data for evaluation
-func (maps *DataMaps) DecodeLocalPerformanceData(filePath string, localBuildPerformanceData *map[string]map[string]float64) {
+func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -74,16 +74,15 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string, localBuildPerf
 
 	holdingMap := map[string]map[string]string{}
 
-	err = json.Unmarshal(raw, holdingMap)
+	err = json.Unmarshal(raw, &holdingMap)
 	if err != nil {
-		log.Fatalf("Error unmarshalling m map")
+		log.Fatalf("error unmarshalling into temporary holding map")
 	}
 
-	ConvertTimestampsToSeconds(holdingMap, localBuildPerformanceData)
+	maps.ConvertTimestampsToSeconds(holdingMap)
 }
 
-// Put data in a new map with seconds instead of timestamps
-func ConvertTimestampsToSeconds(holdingMap map[string]map[string]string, localBuildPerformanceData *map[string]map[string]float64) {
+func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[string]string) {
 	for key, value := range holdingMap {
 		script := make(map[string]float64)
 		for section, timeElapsed := range value {
@@ -94,14 +93,14 @@ func ConvertTimestampsToSeconds(holdingMap map[string]map[string]string, localBu
 			d := t.Sub(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()))
 			script[section] = d.Seconds()
 		}
-		localBuildPerformanceData[key] = script
+		maps.LocalPerformanceDataMap[key] = script
 	}
 }
 
 // Parse Kusto data
-func ParseKustoData(data *SKU, queriedPerformanceData map[string]map[string][]float64) {
+func (maps *DataMaps) ParseKustoData(data *SKU) {
 	kustoData := []byte(data.SKUPerformanceData)
-	err := json.Unmarshal(kustoData, &queriedPerformanceData)
+	err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap)
 	if err != nil {
 		log.Fatalf("Error parsing Kusto data")
 	}
@@ -120,33 +119,32 @@ func SumArray(arr []float64) float64 {
 }
 
 // Evaluate performance data
-func EvaluatePerformance(localPerformanceData map[string]map[string]float64, queriedPerformanceData map[string]map[string][]float64, regressions map[string]map[string]float64) map[string]map[string]float64 {
-	// Iterate over localPerformanceData and compare it against identical sections in queriedPerformanceData
-	for scriptName, scriptData := range localPerformanceData {
+func (maps *DataMaps) EvaluatePerformance() {
+	// Iterate over LocalPerformanceDataMap and compare it against identical sections in QueriedPerformanceDataMap
+	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
 		for section, timeElapsed := range scriptData {
-			// The value of queriedPerformanceData[scriptName][section] is an array with two elements: [avg, stdev]
+			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, stdev]
 			// Adding these together gives us the maximum time allowed for the section
-			maxTimeAllowed := SumArray(queriedPerformanceData[scriptName][section])
+			maxTimeAllowed := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
 			if timeElapsed > maxTimeAllowed {
-				if regressions[scriptName] == nil {
-					regressions[scriptName] = make(map[string]float64)
+				if maps.RegressionMap[scriptName] == nil {
+					maps.RegressionMap[scriptName] = map[string]float64{}
 				}
 				// Record the amount of time the section exceeded the maximum allowed time by
-				regressions[scriptName][section] = timeElapsed - maxTimeAllowed
+				maps.RegressionMap[scriptName][section] = timeElapsed - maxTimeAllowed
 			}
 		}
 	}
-	return regressions
 }
 
 // Print regressions identified during evaluation
-func PrintRegressions(regressions map[string]map[string]float64) {
+func (maps DataMaps) PrintRegressions() {
 	prefix := ""
 	indent := "  "
 
-	data, err := json.MarshalIndent(regressions, prefix, indent)
+	data, err := json.MarshalIndent(maps.RegressionMap, prefix, indent)
 	if err != nil {
-		log.Fatalf("Error marshalling regression data")
+		log.Fatalf("error marshalling regression data")
 	}
 
 	fmt.Println(string(data))

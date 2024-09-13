@@ -13,16 +13,16 @@ import (
 func main() {
 	config, err := common.SetupConfig()
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatalf("failed to configure build-performance program: %v\n\n", err)
 	}
 
-	dataMaps := common.CreateDataMaps()
+	maps := common.CreateDataMaps()
 
 	kcsb := kusto.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientID)
 
 	client, err := kusto.New(kcsb)
 	if err != nil {
-		log.Fatalf("Kusto ingestion client could not be created.")
+		log.Fatalf("kusto ingestion client could not be created: %v\n\n", err)
 	} else {
 		fmt.Printf("Created ingestion client...\n\n")
 	}
@@ -41,22 +41,22 @@ func main() {
 		}
 	}
 
-	common.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile, &dataMaps.LocalPerformanceDataMap)
+	maps.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile)
 
 	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable)
 	if err != nil {
-		log.Fatalf("Failed to query build performance data for %s.\n\n", config.SigImageName)
+		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
 	}
 
-	common.ParseKustoData(aggregatedSKUData, dataMaps.QueriedPerformanceDataMap)
+	maps.ParseKustoData(aggregatedSKUData)
 
-	common.EvaluatePerformance(dataMaps.LocalPerformanceDataMap, dataMaps.QueriedPerformanceDataMap, dataMaps.RegressionMap)
+	maps.EvaluatePerformance()
 
-	if len(dataMaps.RegressionMap) == 0 {
+	if len(maps.RegressionMap) == 0 {
 		fmt.Printf("No regressions found for this pipeline run\n\n")
 	} else {
-		fmt.Printf("Regressions found for this pipline run. Listed is the amount of time that the identified section exceeded one standard deviation by:\n\n")
-		common.PrintRegressions(dataMaps.RegressionMap)
+		fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
+		maps.PrintRegressions()
 	}
 
 	fmt.Println("Build Performance Evaluation Complete")
