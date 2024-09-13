@@ -359,7 +359,7 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:*",
       "amd64OnlyVersions": [],
       "multiArchVersions": [
-        "v1.27.15",
+        "v1.31.1",
         "v1.27.16",
         "v1.28.12",
         "v1.28.13",
