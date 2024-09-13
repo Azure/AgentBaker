@@ -275,7 +275,6 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 #			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
 #		fi
 
-    set +x
 		az sig image-definition create \
 			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
 			--gallery-name ${SIG_GALLERY_NAME} \
@@ -285,9 +284,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 			--sku ${SIG_IMAGE_NAME} \
 			--os-type ${OS_TYPE} \
 			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION} \
-			${TARGET_COMMAND_STRING}
-		set -x
+			--location ${AZURE_LOCATION} ${TARGET_COMMAND_STRING}
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
