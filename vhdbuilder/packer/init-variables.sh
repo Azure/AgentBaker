@@ -259,11 +259,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
           TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}\""
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
           TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}\""
-      else
-          # Escape the closing quote for feature
-          TARGET_COMMAND_STRING+="\""
-      fi
-		fi
+	fi
 
 		echo "echoing target command string ${TARGET_COMMAND_STRING}"
 
@@ -284,7 +280,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 			--sku ${SIG_IMAGE_NAME} \
 			--os-type ${OS_TYPE} \
 			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION} ${TARGET_COMMAND_STRING}"
+			--location ${AZURE_LOCATION} --features \"${TARGET_COMMAND_STRING}\""
 		echo $cmd
 		$cmd
 	else
