@@ -2128,7 +2128,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon := c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2164,7 +2164,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon = c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 

@@ -17,6 +17,10 @@ import (
 	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
 )
 
+const DefaultAksAadAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+const ReadOnlyWorld os.FileMode = 0644
+const ReadOnlyUser os.FileMode = 0600
+
 type Config struct {
 	Version string `json:"version"`
 }
@@ -38,7 +42,8 @@ func main() {
 }
 
 func Run(ctx context.Context) error {
-	if len(os.Args) < 2 {
+	const minNumberArgs = 2
+	if len(os.Args) < minNumberArgs {
 		return errors.New("missing command argument")
 	}
 	switch os.Args[1] {
@@ -50,7 +55,7 @@ func Run(ctx context.Context) error {
 }
 
 // usage example:
-// node-bootstrapper provision --provision-config=config.json
+// node-bootstrapper provision --provision-config=config.json .
 func Provision(ctx context.Context) error {
 	fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 	provisionConfig := fs.String("provision-config", "", "path to the provision config file")
@@ -67,12 +72,12 @@ func Provision(ctx context.Context) error {
 		return err
 	}
 
-	if err := writeCustomData(config); err != nil {
-		return fmt.Errorf("write custom data: %w", err)
+	if err2 := writeCustomData(config); err2 != nil {
+		return fmt.Errorf("write custom data: %w", err2)
 	}
 
-	if err := provisionStart(ctx, config); err != nil {
-		return fmt.Errorf("provision start: %w", err)
+	if err2 := provisionStart(ctx, config); err2 != nil {
+		return fmt.Errorf("provision start: %w", err2)
 	}
 	return nil
 }
@@ -84,14 +89,14 @@ func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) 
 	}
 
 	var config Config
-	if err := json.Unmarshal(content, &config); err != nil {
-		return nil, fmt.Errorf("failed to decode config file: %w", err)
+	if err2 := json.Unmarshal(content, &config); err2 != nil {
+		return nil, fmt.Errorf("failed to decode config file: %w", err2)
 	}
 	switch config.Version {
 	case ConfigVersion:
 		nbc := &datamodel.NodeBootstrappingConfiguration{}
-		if err := json.Unmarshal(content, nbc); err != nil {
-			return nil, fmt.Errorf("failed to decode config file: %w", err)
+		if err2 := json.Unmarshal(content, nbc); err2 != nil {
+			return nil, fmt.Errorf("failed to decode config file: %w", err2)
 		}
 		return nbc, nil
 	case "":
@@ -102,7 +107,7 @@ func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) 
 }
 
 func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {
-	// CSEScript can't be logged because it contains sensitive information
+	// CSEScript can't be logged because it contains sensitive information.
 	slog.Info("Running CSE script")
 	defer slog.Info("CSE script finished")
 	cse, err := CSEScript(ctx, config)
@@ -134,7 +139,7 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 }
 
 // re-implement CustomData + cloud-init logic from AgentBaker
-// only for files not copied during build process
+// only for files not copied during build process.
 func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
 	files, err := customData(config)
 	if err != nil {
@@ -144,11 +149,11 @@ func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
 		slog.Info(fmt.Sprintf("Saving file %s ", path))
 
 		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("create directory %s: %w", dir, err)
+		if err2 := os.MkdirAll(dir, 0755); err2 != nil {
+			return fmt.Errorf("create directory %s: %w", dir, err2)
 		}
-		if err := os.WriteFile(path, []byte(file.Content), file.Mode); err != nil {
-			return fmt.Errorf("write file %s: %w", path, err)
+		if err2 := os.WriteFile(path, []byte(file.Content), file.Mode); err2 != nil {
+			return fmt.Errorf("write file %s: %w", path, err2)
 		}
 	}
 	return nil
@@ -168,26 +173,26 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	files := map[string]File{
 		"/etc/kubernetes/certs/ca.crt": {
 			Content: config.ContainerService.Properties.CertificateProfile.CaCertificate,
-			Mode:    0600,
+			Mode:    ReadOnlyUser,
 		},
 		"/etc/systemd/system/docker.service.d/exec_start.conf": {
 			Content: contentDockerExecStart(config),
-			Mode:    0644,
+			Mode:    ReadOnlyWorld,
 		},
 		"/etc/docker/daemon.json": {
 			Content: contentDockerDaemon,
-			Mode:    0644,
+			Mode:    ReadOnlyWorld,
 		},
 		"/etc/default/kubelet": {
 			Content: contentKubelet(config),
-			Mode:    0644,
+			Mode:    ReadOnlyWorld,
 		},
 	}
 
 	if config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer() != "" {
 		files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"] = File{
 			Content: containerDMCRHosts(config),
-			Mode:    0644,
+			Mode:    ReadOnlyWorld,
 		}
 	}
 
@@ -212,25 +217,7 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	files["/var/lib/kubelet/kubeconfig"] = File{
 		Content: contentKubeconfig(config),
-		Mode:    0644,
-	}
-	return nil
-}
-
-func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig := contentArcTokenSh(config)
-	files["/opt/azure/bootstrap/arc-token.sh"] = File{
-		Content: bootstrapKubeconfig,
-		Mode:    0755,
-	}
-	return nil
-}
-
-func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig := contentAzureTokenSh(config)
-	files["/opt/azure/bootstrap/azure-token.sh"] = File{
-		Content: bootstrapKubeconfig,
-		Mode:    0755,
+		Mode:    ReadOnlyWorld,
 	}
 	return nil
 }
@@ -242,7 +229,7 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 	}
 	files["/var/lib/kubelet/bootstrap-kubeconfig"] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    0644,
+		Mode:    ReadOnlyWorld,
 	}
 	return nil
 }
@@ -272,71 +259,6 @@ current-context: localclustercontext
 `, agent.GetKubernetesEndpoint(config.ContainerService), users)
 }
 
-func contentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
-	appID := config.CustomSecureTLSBootstrapAADServerAppID
-	if appID == "" {
-		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
-	}
-
-	return fmt.Sprintf(`#!/bin/bash
-
-# Fetch an AAD token from Azure Arc HIMDS and output it in the ExecCredential format
-# https://learn.microsoft.com/azure/azure-arc/servers/managed-identity-authentication
-
-TOKEN_URL="http://127.0.0.1:40342/metadata/identity/oauth2/token?api-version=2019-11-01&resource=%s"
-EXECCREDENTIAL='''
-{
-  "kind": "ExecCredential",
-  "apiVersion": "client.authentication.k8s.io/v1beta1",
-  "spec": {
-    "interactive": false
-  },
-  "status": {
-    "expirationTimestamp": .expires_on | tonumber | todate,
-    "token": .access_token
-  }
-}
-'''
-
-# Arc IMDS requires a challenge token from a file only readable by root for security
-CHALLENGE_TOKEN_PATH=$(curl -s -D - -H Metadata:true $TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
-CHALLENGE_TOKEN=$(cat $CHALLENGE_TOKEN_PATH)
-if [ $? -ne 0 ]; then
-    echo "Could not retrieve challenge token, double check that this command is run with root privileges."
-    exit 255
-fi
-
-curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
-`, appID)
-}
-
-func contentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
-	appID := config.CustomSecureTLSBootstrapAADServerAppID
-	if appID == "" {
-		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
-	}
-
-	return fmt.Sprintf(`#!/bin/bash
-
-TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
-EXECCREDENTIAL='''
-{
-  "kind": "ExecCredential",
-  "apiVersion": "client.authentication.k8s.io/v1beta1",
-  "spec": {
-    "interactive": false
-  },
-  "status": {
-    "expirationTimestamp": .expires_on | tonumber | todate,
-    "token": .access_token
-  }
-}
-'''
-
-curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
-`, appID)
-}
-
 func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	data := map[string]any{
 		"apiVersion": "v1",
@@ -354,11 +276,10 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 			{
 				"name": "kubelet-bootstrap",
 				"user": func() map[string]any {
-
 					if config.EnableSecureTLSBootstrapping {
 						appID := config.CustomSecureTLSBootstrapAADServerAppID
 						if appID == "" {
-							appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+							appID = DefaultAksAadAppID
 						}
 						return map[string]any{
 							"exec": map[string]any{
@@ -439,16 +360,16 @@ func contentKubelet(config *datamodel.NodeBootstrappingConfiguration) string {
 	data = append(data, [2]string{"KUBELET_FLAGS", agent.GetOrderedKubeletConfigFlagString(config)})
 	data = append(data, [2]string{"KUBELET_REGISTER_SCHEDULABLE", "true"})
 	data = append(data, [2]string{"NETWORK_POLICY", config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy})
-	IsKubernetesVersionGe := func(version string) bool {
+	isKubernetesVersionGe := func(version string) bool {
 		return config.ContainerService.Properties.OrchestratorProfile.IsKubernetes() && agent.IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, version)
 	}
 
-	if !IsKubernetesVersionGe("1.17.0") {
+	if !isKubernetesVersionGe("1.17.0") {
 		data = append(data, [2]string{"KUBELET_IMAGE", config.K8sComponents.HyperkubeImageURL})
 	}
 
 	labels := func() string {
-		if IsKubernetesVersionGe("1.16.0") {
+		if isKubernetesVersionGe("1.16.0") {
 			return agent.GetAgentKubernetesLabels(config.AgentPoolProfile, config)
 		}
 		return config.AgentPoolProfile.GetKubernetesLabels()
@@ -457,8 +378,8 @@ func contentKubelet(config *datamodel.NodeBootstrappingConfiguration) string {
 	data = append(data, [2]string{"KUBELET_NODE_LABELS", labels()})
 	if config.ContainerService.IsAKSCustomCloud() {
 		data = append(data, [2]string{"AZURE_ENVIRONMENT_FILEPATH", "/etc/kubernetes/" + config.ContainerService.Properties.CustomCloudEnv.Name + ".json"})
-
 	}
+
 	result := ""
 	for _, d := range data {
 		result += fmt.Sprintf("%s=%s\n", d[0], d[1])
