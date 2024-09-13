@@ -45,35 +45,17 @@ func SetupConfig() (*Config, error) {
 // Encapsulate map creation in a function in order to keep main clean and readable
 func CreateDataMaps() *DataMaps {
 	return &DataMaps{
-		// QueriedPerformanceDataMap will hold the aggregated performance data queried from Kusto
-		QueriedPerformanceDataMap: make(map[string]map[string][]float64),
 		// LocalPerformanceDataMap will hold the performance data from the local JSON file
 		LocalPerformanceDataMap: make(map[string]map[string]float64),
-		// HoldingMap is necessary after decoding the local JSON file, which still has a map[string]map[string]string structure
-		HoldingMap: make(map[string]map[string]string),
+		// QueriedPerformanceDataMap will hold the aggregated performance data queried from Kusto
+		QueriedPerformanceDataMap: make(map[string]map[string][]float64),
 		// RegressionMap will hold all identified regressions in the current build
 		RegressionMap: make(map[string]map[string]float64),
 	}
 }
 
 // Prepare local JSON data for evaluation
-func DecodeVHDPerformanceData(filePath string, holdingMap map[string]map[string]string) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Fatalf("Could not open %s", filePath)
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-
-	err = decoder.Decode(&holdingMap)
-	if err != nil {
-		log.Fatalf("Error decoding %s", filePath)
-	}
-}
-
-// Prepare local JSON data for evaluation
-func DecodeLocalPerformanceData(filePath string, holdingMap map[string]map[string]string) {
+func (maps *DataMaps) DecodeLocalPerformanceData(filePath string, localBuildPerformanceData *map[string]map[string]float64) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -90,14 +72,18 @@ func DecodeLocalPerformanceData(filePath string, holdingMap map[string]map[strin
 	key := "scripts"
 	raw := m[key]
 
-	err = json.Unmarshal(raw, &holdingMap)
+	holdingMap := map[string]map[string]string{}
+
+	err = json.Unmarshal(raw, holdingMap)
 	if err != nil {
 		log.Fatalf("Error unmarshalling m map")
 	}
+
+	ConvertTimestampsToSeconds(holdingMap, localBuildPerformanceData)
 }
 
 // Put data in a new map with seconds instead of timestamps
-func ConvertTimestampsToSeconds(holdingMap map[string]map[string]string, localBuildPerformanceData map[string]map[string]float64) {
+func ConvertTimestampsToSeconds(holdingMap map[string]map[string]string, localBuildPerformanceData *map[string]map[string]float64) {
 	for key, value := range holdingMap {
 		script := make(map[string]float64)
 		for section, timeElapsed := range value {
