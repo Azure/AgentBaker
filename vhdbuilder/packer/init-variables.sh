@@ -253,7 +253,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		TARGET_COMMAND_STRING=""
 		if [[ ${HYPERV_GENERATION} == "V2" ]]; then
 		  # Always set NVMe for Gen2 VMs
-		  TARGET_COMMAND_STRING+="--features \"${DISK_CONTROLLER_TYPE_FEATURE}"
+		  TARGET_COMMAND_STRING+="${DISK_CONTROLLER_TYPE_FEATURE}"
 		  # Check if Trusted Launch or Confidential VM is enabled
       if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
           TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}\""
