@@ -541,7 +541,7 @@
     },
     {
       "name": "containerd-wasm-shims",
-      "downloadLocation": "",
+      "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
         "default": {
           "current": {
