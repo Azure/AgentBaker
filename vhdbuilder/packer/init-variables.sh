@@ -281,7 +281,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 			--sku ${SIG_IMAGE_NAME} \
 			--os-type ${OS_TYPE} \
 			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION} --features \"${TARGET_COMMAND_STRING}\""
+			--location ${AZURE_LOCATION} --features ${TARGET_COMMAND_STRING}"
 		echo $cmd
 		$cmd
 	else
