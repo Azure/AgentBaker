@@ -5,6 +5,7 @@ type Config struct {
 	KustoEndpoint             string
 	KustoDatabase             string
 	KustoClientID             string
+	KustoIngestionMapping     string
 	SigImageName              string
 	LocalBuildPerformanceFile string
 	SourceBranch              string

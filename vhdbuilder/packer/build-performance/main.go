@@ -33,7 +33,7 @@ func main() {
 
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
 		fmt.Printf("Ingesting data for %s.\n\n", config.SourceBranch)
-		err := common.IngestData(ctx, client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile)
+		err := common.IngestData(ctx, client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 		if err != nil {
 			client.Close()
 			cancel()
