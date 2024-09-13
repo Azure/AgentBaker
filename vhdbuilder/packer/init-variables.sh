@@ -242,15 +242,38 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		--gallery-name ${SIG_GALLERY_NAME} \
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
+	  DISK_CONTROLLER_TYPE_FEATURE="DiskControllerTypes=SCSI,NVMe"
+	  SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE="SecurityType=TrustedLaunch"
+	  SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE="SecurityType=ConfidentialVMSupported"
+
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
+		# The target command string should look like
+		# --features "DiskControllerType=SCSI,NVMe"
+		# or for cases when TL is enabled it should be --features "DiskControllerType=SCSI,NVMe SecurityType=TrustedLaunch"
 		TARGET_COMMAND_STRING=""
-		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-			TARGET_COMMAND_STRING+="--architecture Arm64"
-		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-			TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
-		elif [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
+		if [[ ${HYPERV_GENERATION} == "V2" ]]; then
+		  # Always set NVMe for Gen2 VMs
+		  TARGET_COMMAND_STRING+="--features \"${DISK_CONTROLLER_TYPE_FEATURE}"
+		  # Check if Trusted Launch or Confidential VM is enabled
+      if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+          TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_TRUSTED_LAUNCH_FEATURE}\""
+      elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+          TARGET_COMMAND_STRING+=" ${SECURITY_TYPE_CONFIDENTIAL_VM_FEATURE}\""
+      else
+          # Escape the closing quote for feature
+          TARGET_COMMAND_STRING+="\""
+      fi
 		fi
+
+		echo "echoing target command string ${TARGET_COMMAND_STRING}"
+
+#		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+#			TARGET_COMMAND_STRING+="--architecture Arm64"
+#		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+#			TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+#		elif [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+#			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
+#		fi
 
 		az sig image-definition create \
 			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
