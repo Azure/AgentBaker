@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,6 +35,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
+		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
 		"--resolv-conf":                       "/etc/resolv.conf",
@@ -58,6 +60,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
+		SeccompDefault:        to.BoolPtr(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -120,6 +123,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--enforce-node-allocatable":          "pods",
 		"--streaming-connection-idle-timeout": "4h0m0s",
 		"--rotate-certificates":               "true",
+		"--rotate-server-certificates":        "true",
 		"--read-only-port":                    "10255",
 		"--protect-kernel-defaults":           "true",
 		"--resolv-conf":                       "/etc/resolv.conf",
@@ -155,6 +159,7 @@ var expectedKubeletJSON = `{
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
     "rotateCertificates": true,
+    "serverTLSBootstrap": true,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
@@ -213,7 +218,8 @@ var expectedKubeletJSON = `{
     "allowedUnsafeSysctls": [
         "kernel.msg*",
         "net.ipv4.route.min_pmtu"
-    ]
+    ],
+    "seccompDefault": true
 }`
 
 var expectedKubeletJSONWithNodeStatusReportFrequency = `{
@@ -314,6 +320,7 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
         "TLS_RSA_WITH_AES_128_GCM_SHA256"
     ],
     "rotateCertificates": true,
+    "serverTLSBootstrap": true,
     "authentication": {
         "x509": {
             "clientCAFile": "/etc/kubernetes/certs/ca.crt"
@@ -375,6 +382,174 @@ var expectedKubeletJSONWithContainerMaxLogSizeDefaultFromFlags = `{
     ]
 }`
 
+func TestIsKubeletServingCertificateRotationEnabled(t *testing.T) {
+	cases := []struct {
+		name     string
+		config   *datamodel.NodeBootstrappingConfiguration
+		expected bool
+	}{
+		{
+			name:     "nil NodeBootstrappingConfiguration",
+			config:   nil,
+			expected: false,
+		},
+		{
+			name: "nil KubeletConfig",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: nil,
+			},
+			expected: false,
+		},
+		{
+			name: "KubeletConfig is missing the --rotate-server-certificates flag",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":        "cert.crt",
+					"--tls-private-key-file": "cert.key",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "KubeletConfig has --rotate-server-certificates set to false",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "false",
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "KubeletConfig has --rotate-server-certificates set to true",
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "true",
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := IsKubeletServingCertificateRotationEnabled(c.config)
+			assert.Equal(t, c.expected, actual)
+		})
+	}
+}
+
+func TestGetAgentKubernetesLabels(t *testing.T) {
+	cases := []struct {
+		name     string
+		profile  *datamodel.AgentPoolProfile
+		config   *datamodel.NodeBootstrappingConfiguration
+		expected string
+	}{
+		{
+			name:     "profile and config are nil",
+			profile:  nil,
+			config:   nil,
+			expected: "",
+		},
+		{
+			name:    "profile is nil",
+			profile: nil,
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "true",
+				},
+			},
+			expected: "kubernetes.azure.com/kubelet-serving-ca=cluster",
+		},
+		{
+			name: "config is nil",
+			profile: &datamodel.AgentPoolProfile{
+				Name: "nodepool1",
+				CustomNodeLabels: map[string]string{
+					"label": "value",
+				},
+			},
+			config:   nil,
+			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
+		},
+		{
+			name: "config disables serving certificate rotation",
+			profile: &datamodel.AgentPoolProfile{
+				Name: "nodepool1",
+				CustomNodeLabels: map[string]string{
+					"label": "value",
+				},
+			},
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "false",
+				},
+			},
+			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
+		},
+		{
+			name:    "config disables serving certificate rotation and profile is nil",
+			profile: nil,
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "false",
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "config implicitly disables serving certificate rotation",
+			profile: &datamodel.AgentPoolProfile{
+				Name: "nodepool1",
+				CustomNodeLabels: map[string]string{
+					"label": "value",
+				},
+			},
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":        "cert.crt",
+					"--tls-private-key-file": "cert.key",
+				},
+			},
+			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
+		},
+		{
+			name: "config enables serving certificate rotation",
+			profile: &datamodel.AgentPoolProfile{
+				Name: "nodepool1",
+				CustomNodeLabels: map[string]string{
+					"label": "value",
+				},
+			},
+			config: &datamodel.NodeBootstrappingConfiguration{
+				KubeletConfig: map[string]string{
+					"--tls-cert-file":              "cert.crt",
+					"--tls-private-key-file":       "cert.key",
+					"--rotate-server-certificates": "true",
+				},
+			},
+			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value,kubernetes.azure.com/kubelet-serving-ca=cluster",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := getAgentKubernetesLabels(c.profile, c.config)
+			assert.Equal(t, c.expected, actual)
+		})
+	}
+}
+
 func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
@@ -430,6 +605,7 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		PodMaxPids:            to.Int32Ptr(12345),
+		SeccompDefault:        to.BoolPtr(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)

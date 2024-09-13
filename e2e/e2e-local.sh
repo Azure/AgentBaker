@@ -2,15 +2,11 @@
 
 set -euxo pipefail
 
-: "${BUILD_ID:=local}"
-: "${SUBSCRIPTION_ID:=8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8}" #Azure Container Service - Test Subscription
-: "${LOCATION:=eastus}"
-: "${AZURE_TENANT_ID:=72f988bf-86f1-41af-91ab-2d7cd011db47}"
 : "${TIMEOUT:=90m}"
-
-export SUBSCRIPTION_ID
-export LOCATION
-export AZURE_TENANT_ID
+: "${PARALLEL:=100}"
 
 go version
-go test -timeout $TIMEOUT -v -run Test_All ./
+# Note, if you run "go test ./..." you won't see the output of the tests until they finish.
+# -count 1 disables caching of test results
+# default go test timeout is 10 minutes, it's not enough
+go test -parallel $PARALLEL -timeout $TIMEOUT -v -count 1

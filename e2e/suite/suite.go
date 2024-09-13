@@ -20,7 +20,6 @@ const (
 	keepVMSSEnvironmentVarName           = "KEEP_VMSS"
 	scenariosToRunEnvironmentVarName     = "SCENARIOS_TO_RUN"
 	scenariosToExcludeEnvironmentVarName = "SCENARIOS_TO_EXCLUDE"
-	selfContainedVHD                     = "SELF_CONTAINED_VHD"
 
 	suiteConfigStringTemplate = `subscription: %[1]s,
 location: %[2]s,
@@ -39,7 +38,6 @@ type Config struct {
 	ScenariosToRun     map[string]bool
 	ScenariosToExclude map[string]bool
 	KeepVMSS           bool
-	IsSelfContainedVHD bool
 }
 
 func (c *Config) String() string {
@@ -68,7 +66,6 @@ func NewConfigForEnvironment() (*Config, error) {
 	config.BuildID = os.Getenv(buildIDEnvironmentVarName)
 	config.ResourceGroupName = fmt.Sprintf(abe2eResourceGroupNameTemplate, location)
 	config.KeepVMSS = strings.EqualFold(os.Getenv(keepVMSSEnvironmentVarName), "true")
-	config.IsSelfContainedVHD = strings.EqualFold(os.Getenv(selfContainedVHD), "true")
 
 	if vhdBuildID := os.Getenv(vhdBuildIDEnvironmentVarName); vhdBuildID != "" {
 		pat := os.Getenv(adoPATEnvironmentVarName)

@@ -55,10 +55,6 @@ param(
     [ValidateNotNullOrEmpty()]
     $TargetEnvironment,
 
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $LogFile,
-
     # C:\AzureData\provision.complete
     # MUST keep generating this file when CSE is done and do not change the name
     #  - It is used to avoid running CSE multiple times
@@ -74,7 +70,7 @@ param(
 $StartTime=Get-Date
 $global:ExitCode=0
 $global:ErrorMessage=""
-Start-Transcript -Path $LogFile
+
 # These globals will not change between nodes in the same cluster, so they are not
 # passed as powershell parameters
 
@@ -217,6 +213,8 @@ $global:RebootNeeded = $false
 
 $global:IsSkipCleanupNetwork = [System.Convert]::ToBoolean("{{GetVariable "isSkipCleanupNetwork" }}");
 
+$global:EnableKubeletServingCertificateRotation = [System.Convert]::ToBoolean("{{EnableKubeletServingCertificateRotation}}")
+
 # Extract cse helper script from ZIP
 [io.file]::WriteAllBytes("scripts.zip", [System.Convert]::FromBase64String($zippedFiles))
 Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
@@ -229,7 +227,7 @@ $global:OperationId = New-Guid
 
 try
 {
-    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
 
     # Exit early if the script has been executed
     if (Test-Path -Path $CSEResultFilePath -PathType Leaf) {
@@ -241,7 +239,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.42.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.48.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -295,6 +293,9 @@ try
     icacls.exe "c:\k"
     Get-ProvisioningScripts
     Get-LogCollectionScripts
+
+    # TODO(cameissner): uncomment once next CSE package is rolled out to all regions
+    # Disable-KubeletServingCertificateRotationForTags
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
@@ -499,22 +500,25 @@ finally
     # Generate CSE result so it can be returned as the CSE response in csecmd.ps1
     $ExecutionDuration=$(New-Timespan -Start $StartTime -End $(Get-Date))
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
-    # $CSEResultFilePath is used to avoid running CSE multiple times
-    Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
-    # Please not use Write-Log or Logs-To-Events after Stop-Transcript
-    Stop-Transcript
 
-    # Remove the parameters in the log file to avoid leaking secrets
-    $logs=Get-Content $LogFile | Where-Object {$_ -notmatch "^Host Application: "}
-    $logs | Set-Content $LogFile
-
-    Upload-GuestVMLogs -ExitCode $global:ExitCode
+    # $CSEResultFilePath is used to avoid running CSE multiple times
     if ($global:ExitCode -ne 0) {
         # $JsonString = "ExitCode: |{0}|, Output: |{1}|, Error: |{2}|"
         # Max length of the full error message returned by Windows CSE is ~256. We use 240 to be safe.
         $errorMessageLength = "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: ||".Length
         $turncatedErrorMessage = $global:ErrorMessage.Substring(0, [Math]::Min(240 - $errorMessageLength, $global:ErrorMessage.Length))
-        throw "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+        Set-Content -Path $CSEResultFilePath -Value "ExitCode: |$global:ExitCode|, Output: |$($global:ErrorCodeNames[$global:ExitCode])|, Error: |$turncatedErrorMessage|"
+    }
+    else {
+        Set-Content -Path $CSEResultFilePath -Value $global:ExitCode -Force
+    }
+
+    if ($global:ExitCode -eq $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSE_PACKAGE) {
+        Write-Log "Do not call Upload-GuestVMLogs because there is no cse script package downloaded"
+    }
+    else {
+        Upload-GuestVMLogs -ExitCode $global:ExitCode
     }
 }

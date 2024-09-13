@@ -1,4 +1,5 @@
-#!/bin/bash -x
+#!/bin/bash
+ set -x
 
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
@@ -16,19 +17,31 @@ if [[ -n "$PKR_RG_NAME" ]]; then
   if [ -n "$id" ]; then
     echo "Deleting packer resource group ${PKR_RG_NAME}"
     az group delete --name ${PKR_RG_NAME} --yes
+  else
+    echo "Packer resource group already successfully deleted"
   fi
+fi
+
+#clean up the test vm resource group
+id=$(az group show --name ${TEST_VM_RESOURCE_GROUP_NAME} | jq .id)
+if [ -n "$id" ]; then
+  echo "Deleting test vm resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
+  az group delete --name ${TEST_VM_RESOURCE_GROUP_NAME} --yes
 fi
 
 #clean up managed image
 if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
-  if [[ "$MODE" != "default" ]]; then
+  if [[ ${ARCHITECTURE,,} != "arm64" ]]; then
     id=$(az image show -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
     if [ -n "$id" ]; then
-      echo "deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
+      echo "Deleting managed image ${IMAGE_NAME} under resource group ${AZURE_RESOURCE_GROUP_NAME}"
       az image delete -n ${IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
     fi
+  else
+    echo "Not attempting managed image deletion due to ARM64 architecture."
   fi
 fi
+
 
 #cleanup imported sig image version
 if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
@@ -97,14 +110,6 @@ if [[ "${MODE}" == "windowsVhdMode" && "$SIG_FOR_PRODUCTION" == "True" ]]; then
   fi
 fi
 
-#clean up arm64 OS disk snapshot
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]] && [ -n "${ARM64_OS_DISK_SNAPSHOT_NAME}" ]; then
-  id=$(az snapshot show -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
-  if [ -n "$id" ]; then
-    az snapshot delete -n ${ARM64_OS_DISK_SNAPSHOT_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
-  fi
-fi
-
 #clean up the temporary storage account
 if [[ -n "${SA_NAME}" ]]; then
   id=$(az storage account show -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} | jq .id)
@@ -126,7 +131,6 @@ fi
 
 # attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
-  set +x # to avoid blowing up logs
   echo "Looking for managed images in ${AZURE_RESOURCE_GROUP_NAME} created over ${EXPIRATION_IN_HOURS} hours ago..."
 
   managed_image_ids=""
@@ -154,9 +158,13 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
 
   old_sig_version_ids=""
   # we limit deletion to 15 SIG image versions per image definition
+  set +x
   for image_definition in $(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq '.[] | select(.name | test("Ubuntu*|CBLMariner*|V1*|V2*|1804*|2004*|2204*")).name' | tr -d '\"' || ""); do
     for image_version in $(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq --arg dl $deadline '.[] | select(.tags.now < $dl).name' | head -n 15 | tr -d '\"' || ""); do
-      old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
+      lock_name=$(az lock list --resource /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version} --query "[0].name" --output tsv)
+      if [[ -z "${lock_name}" ]]; then
+        old_sig_version_ids="${old_sig_version_ids} /subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${image_definition}/versions/${image_version}"
+      fi
     done
   done
 
@@ -166,7 +174,6 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   else
     echo "Did not find any old SIG versions eligible for deletion"
   fi
-  
   set -x
 fi
 
@@ -179,7 +186,6 @@ if [[ "${MODE}" != "linuxVhdMode" ]] && [[ "${DRY_RUN}" == "True" ]]; then
   echo "MODE is $MODE and DRY_RUN is $DRY_RUN, skipping storage account backfill deletion..."
   exit 0
 fi
-
 
 STORAGE_ACCOUNT_EXPIRATION_IN_HOURS=4
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
@@ -204,3 +210,5 @@ if [ -n "$old_storage_accounts" ]; then
 else
   echo "did not find any old storage accounts eligible for deletion"
 fi
+
+echo -e "Packer cleanup successfully completed\n\n\n"

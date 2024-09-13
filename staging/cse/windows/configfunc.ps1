@@ -63,7 +63,18 @@ function Adjust-PageFileSize()
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.AdjustPageFileSize" -TaskMessage "Start to adjust pagefile size"
 
-    wmic pagefileset set InitialSize=8096,MaximumSize=8096
+    try {
+        $computersys = Get-WmiObject Win32_ComputerSystem -EnableAllPrivileges;
+        $computersys.AutomaticManagedPagefile = $False;
+        $computersys.Put();
+
+        $pagefile = Get-WmiObject -Query "Select * From Win32_PageFileSetting Where Name like '%pagefile.sys'";
+        $pagefile.InitialSize = 8096;
+        $pagefile.MaximumSize = 8096;
+        $pagefile.Put();
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE -ErrorMessage "Failed to adjust pagefile size. Error: $_"
+    }
 }
 
 function Adjust-DynamicPortRange()
@@ -128,6 +139,7 @@ function Enable-FIPSMode
         $FipsEnabled
     )
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.EnableFIPSMode" -TaskMessage "Start to enable FIPS mode: $FipsEnabled."
     if ( $FipsEnabled ) {
         Write-Log "Set the registry to enable fips-mode"
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force

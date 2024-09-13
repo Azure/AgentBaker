@@ -1,12 +1,11 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-start_timestamp=$(date +%H:%M:%S)
-
-capture_script_start=$(date +%s)
-capture_time=$(date +%s)
-
-declare -a benchmarks=()
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -23,40 +22,47 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
-stop_watch $capture_time "Declare Variables / Remove Comments / Execute home/packer files" false
-start_watch
 
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
-cat ${THIS_DIR}/kube-proxy-images.json > ${KUBE_PROXY_IMAGES_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-stop_watch $capture_time "Create Post-build Test" false
-start_watch
+echo '{}' > ${VHD_BUILD_PERF_DATA}
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
-stop_watch $capture_time "Set Permissions if Mariner" false
-start_watch
+
+installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
+capture_benchmark "source_packer_files_declare_variables_and_set_mariner_permissions"
 
 copyPackerFiles
+
+# Update rsyslog configuration
+RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
+if isMarinerOrAzureLinux "$OS"; then
+    echo -e "\nnews.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+else
+    echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
+fi
+systemctl daemon-reload
+systemctlEnableAndStart systemd-journald || exit 1
+systemctlEnableAndStart rsyslog || exit 1
+
 systemctlEnableAndStart disk_queue || exit 1
-stop_watch $capture_time "Copy Packer Files" false
-start_watch
+capture_benchmark "copy_packer_files"
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
-stop_watch $capture_time "Make Certs Directory / Set Permissions / Update Certs" false
-start_watch
+capture_benchmark "make_directory_and_update_certs"
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -64,21 +70,18 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
-stop_watch $capture_time "Start System Logs / AKS Log Collector" false
-start_watch
+capture_benchmark "start_system_logs_and_aks_log_collector"
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
-stop_watch $capture_time "Start Modified Log-rotate Service / Remove Auto-generated Service" false
-start_watch
+capture_benchmark "enable_modified_log_rotate_service"
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
-stop_watch $capture_time "Sync Container Logs" false
-start_watch
+capture_benchmark "sync_container_logs"
 
 # First handle Mariner + FIPS
-if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -102,8 +105,14 @@ else
   # so we just hold the kernel image packages for now on CVM.
   # this still allows us base image and package updates on a weekly cadence.
   if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
+    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
+    # Therefore keeping this to 22.04 only for now
+    if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+      sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+    fi
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT    
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   fi
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -112,10 +121,10 @@ else
     installFIPS
   fi
 fi
-stop_watch $capture_time "Handle Mariner / FIPS Configurations" false
-start_watch
+capture_benchmark "handle_mariner_and_fips_configurations"
 
 # Handle Azure Linux + CgroupV2
+# CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
@@ -131,11 +140,10 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   # Install lts-22.04 kernel
   DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
-  
+
   update-grub
 fi
-stop_watch $capture_time "Handle Azure Linux / CgroupV2" false
-
+capture_benchmark "handle_azureLinux_and_cgroupV2"
 echo "pre-install-dependencies step finished successfully"
-stop_watch $capture_script_start "pre-install-dependencies.sh" true
-show_benchmarks
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks

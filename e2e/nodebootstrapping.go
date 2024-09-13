@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	"bytes"
@@ -12,21 +12,19 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbakere2e/suite"
+	"github.com/Azure/agentbakere2e/config"
 )
-
-type nodeBootstrappingFn func(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 
 func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	switch e2eMode {
 	case "coverage":
-		return getNodeBootstrappingForCoverage(ctx, nbc)
+		return getNodeBootstrappingForCoverage(nbc)
 	default:
 		return getNodeBootstrappingForValidation(ctx, nbc)
 	}
 }
 
-func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForCoverage(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	payload, err := json.Marshal(nbc)
 	if err != nil {
 		log.Fatalf("failed to marshal nbc, error: %s", err)
@@ -61,13 +59,8 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 	return nodeBootstrapping, nil
 }
 
-func getBaseNodeBootstrappingConfiguration(
-	ctx context.Context,
-	cloud *azureClient,
-	suiteConfig *suite.Config,
-	clusterParams clusterParameters) (*datamodel.NodeBootstrappingConfiguration, error) {
-	
-	nbc := baseTemplate(suiteConfig.Location)
+func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
+	nbc := baseTemplate(config.Config.Location)
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
 
 	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]

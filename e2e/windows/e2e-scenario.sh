@@ -25,93 +25,79 @@ collect-logs() {
         err "Failed in uploading cse logs. Error code is $retval."
     fi
 
-    # use array to pass shellcheck
-    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-
-    array=(azcopy_*)
-    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-CustomDataSetupScript.log || retval=$?
+    az storage blob download --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log" --file $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-CustomDataSetupScript.log || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading cse logs. Error code is $retval."
-        exit 1
     else
-        log "Collect cse logs done"
-        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log" || retval=$?
+        log "Collect cse logs done. Deleting the remote cse logs"
+        az storage blob delete --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-cse.log" || retval=$?
         if [ "$retval" -ne 0 ]; then
             err "Failed in deleting cse logs in remote storage. Error code is $retval."
         fi
     fi
 
-    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-provision.complete || retval=$?
+    az storage blob download --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" --file $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-provision.complete || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading provision.complete. Error code is $retval."
-        exit 1
     else
-        log "provision.complete is generated"
-        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" || retval=$?
+        log "provision.complete is generated. Deleting the remote provision.complete"
+        az storage blob delete --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-provision.complete" || retval=$?
         if [ "$retval" -ne 0 ]; then
             err "Failed in deleting provision.complete in remote storage. Error code is $retval."
         fi
     fi
 
-    ${array[0]}/azcopy copy "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-collected-node-logs.zip || retval=$?
+    az storage blob download --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" --file $SCENARIO_NAME-logs/$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-collected-node-logs.zip || retval=$?
     if [ "$retval" -ne 0 ]; then
         err "Failed in downloading collected node logs. Error code is $retval."
-        exit 1
     else
-        log "collected-node-logs.zip is generated"
-        ${array[0]}/azcopy rm "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" || retval=$?
+        log "collected-node-logs.zip is generated. Deleting the remote collected-node-logs.zip"
+        az storage blob delete --auth-mode login --blob-url "https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${AZURE_E2E_STORAGE_LOG_CONTAINER}/${DEPLOYMENT_VMSS_NAME}-collected-node-logs.zip" || retval=$?
         if [ "$retval" -ne 0 ]; then
             err "Failed in deleting collected node logs in remote storage. Error code is $retval."
         fi
     fi
 }
 
-E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
+declare -l E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
 
 DEPLOYMENT_VMSS_NAME="$(mktemp -u winXXXXX | tr '[:upper:]' '[:lower:]')"
 export DEPLOYMENT_VMSS_NAME
 
-# download azcopy
-wget https://aka.ms/downloadazcopy-v10-linux
-tar -xvf downloadazcopy-v10-linux
-
 # zip and upload cse package
-timeStamp=$(date +%s)
 cd ../staging/cse/windows
 zip -r ../../../$WINDOWS_E2E_IMAGE/$WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip ./* -x ./*.tests.ps1 -x "*azurecnifunc.tests.suites*" -x README -x provisioningscripts/*.md -x debug/update-scripts.ps1
 log "Zip cse packages done"
 
-csePackageName="${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
-cseBlobUrlForUploading="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/\$web/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
-
 cd ../../../$WINDOWS_E2E_IMAGE
 
-export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
+for i in $(seq 0 10); do
+    timeStamp=$(date +%s)
+    csePackageName="${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
+    cseBlobUrlForUploading="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/\$web/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
 
-array=(azcopy_*)
-noExistStr="File count: 0"
-listResult=$(${array[0]}/azcopy list $cseBlobUrlForUploading --running-tally)
-
-for i in $(seq 1 10); do
-    if [[ "$listResult" != *"$noExistStr"* ]]; then
-        log "Cse package with the same exists, retry $i to use new name..."
-        timeStamp=$(date +%s)
-        csePackageName="${timeStamp}-${DEPLOYMENT_VMSS_NAME}-aks-windows-cse-scripts.zip"
-        cseBlobUrlForUploading="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/\$web/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
-        listResult=$(${array[0]}/azcopy list $cseBlobUrlForUploading --running-tally)
+    # `az storage blob exists` returns {"exists": true} or {"exists": false} and returnss nothing when it fails in authenticaion
+    #     ERROR: Operation returned an invalid status 'Server failed to authenticate the request. Please refer to the information in the www-authenticate header.'
+    #     ErrorCode:NoAuthenticationInformation
+    isRemoteCsePackageExist=$(az storage blob exists --auth-mode login --blob-url $cseBlobUrlForUploading | jq -r '.exists')
+    if  [[ "$isRemoteCsePackageExist" == "false" ]]; then
+        log "retry $i : Cse package with the same does not exist. Starting to upload cse package $cseBlobUrlForUploading"
+        retval=0
+        az storage blob upload --auth-mode login --file $WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip --blob-url $cseBlobUrlForUploading || retval=$?
+        if [ "$retval" -ne "0" ]; then
+            retval=0
+            err "retry $i : Failed to upload cse package"
+            continue
+        fi
+        break;
+    elif [[ "$isRemoteCsePackageExist" == "true" ]]; then
+        log "retry $i : Cse package with the same exists. Generating a new name..."
         continue
+    else
+        err "Failed to check cse package existence. Please check whether the MSI has the required permission."
+        exit 1
     fi
-    ${array[0]}/azcopy copy $WINDOWS_E2E_IMAGE-aks-windows-cse-scripts.zip $cseBlobUrlForUploading
-    break;
 done
-
-listResult=$(${array[0]}/azcopy list $cseBlobUrlForUploading --running-tally)
-if [[ "$listResult" == *"$noExistStr"* ]]; then
-    err "Failed to upload cse package"
-    exit 1
-fi
 
 # Use website url to allow anonymous download
 csePackageURL="${AZURE_E2E_STORAGE_CSE_PACKAGE_ENDPOINT}/${AZURE_E2E_STORAGE_PACKAGE_CONTAINER}/${csePackageName}"
@@ -165,7 +151,7 @@ MC_WIN_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contai
 VMSS_RESOURCE_Id=$(az resource show --resource-group $E2E_MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
 
 az group export --resource-group $E2E_MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id --include-parameter-default-value > test.json
-IMAGE_REFERENCE="/subscriptions/$AZURE_BUILD_SUBSCRIPTION_ID/resourceGroups/$AZURE_BUILD_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_BUILD_GALLERY_NAME/images/windows-e2e-test-$WINDOWS_E2E_IMAGE/versions/latest"
+IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_E2E_IMAGE/versions/latest"
 WINDOWS_VNET=$(jq -c '.parameters | with_entries( select(.key|contains("vnet")))' test.json)
 WINDOWS_LOADBALANCER=$(jq -c '.parameters | with_entries( select(.key|contains("loadBalancers")))' test.json)
 WINDOWS_IDENTITY=$(jq -c '.resources[0] | with_entries( select(.key|contains("identity")))' test.json)
@@ -197,17 +183,18 @@ set -e
 log "Deployment of windows vmss succeeded."
 
 # delete cse package in storage account
-${array[0]}/azcopy rm $cseBlobUrlForUploading || retval=$?
+retnval=0
+az storage blob delete --auth-mode login --blob-url $cseBlobUrlForUploading || retnval=$?
+
+if [ "$retnval" -ne 0 ]; then
+    err "Failed to delete cse package in storage account. Error code is $retnval."
+else
+    log "Delete cse package in storage account done"
+fi
 
 if [ "$retval" -ne 0 ]; then
     err "Failed to deploy windows vmss. Error code is $retval."
     exit 1
-fi
-
-if [ "$retval" -ne 0 ]; then
-    err "Failed to delete cse package in storage account. Error code is $retval."
-else
-    log "Delete cse package in storage account done"
 fi
 
 log "Collect cse log"

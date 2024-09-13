@@ -8,7 +8,7 @@ log "Starting e2e tests"
 
 # Create a resource group for the cluster
 log "Creating resource group"
-E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
+declare -l E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
 
 rgStartTime=$(date +%s)
 az group create -l $AZURE_BUILD_LOCATION -n $E2E_RESOURCE_GROUP_NAME --subscription $AZURE_E2E_SUBSCRIPTION_ID -ojson
@@ -76,7 +76,7 @@ if [ "$create_cluster" == "true" ]; then
     clusterCreateStartTime=$(date +%s)
     retval=0
     
-    az aks create -g $E2E_RESOURCE_GROUP_NAME -n $AZURE_E2E_CLUSTER_NAME --enable-managed-identity --assign-identity $AZURE_MSI_RESOURCE_STRING --assign-kubelet-identity $AZURE_MSI_RESOURCE_STRING --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
+    az aks create -g $E2E_RESOURCE_GROUP_NAME -n $AZURE_E2E_CLUSTER_NAME --node-vm-size Standard_D2s_v3  --enable-managed-identity --assign-identity $AZURE_MSI_RESOURCE_STRING --assign-kubelet-identity $AZURE_MSI_RESOURCE_STRING --node-count 1 --generate-ssh-keys --network-plugin azure -ojson || retval=$?
 
     if [ "$retval" -ne 0  ]; then
         log "Other pipelines may be creating cluster $AZURE_E2E_CLUSTER_NAME, waiting for ready"
@@ -112,6 +112,10 @@ if [ "$create_cluster" == "true" ]; then
     upload_linux_file_to_storage_account
     if [ "$WINDOWS_E2E_IMAGE" == "2019-containerd" ]; then
         cleanupOutdatedFiles
+    fi
+else
+    if [[ "$(check_linux_file_exists_in_storage_account)" == *"Linux file does not exist in storage account."* ]]; then 
+        upload_linux_file_to_storage_account
     fi
 fi
 download_linux_file_from_storage_account

@@ -1,11 +1,48 @@
 #!/bin/bash -e
 set -x
 CDIR=$(dirname "${BASH_SOURCE}")
-
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
+PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
+VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhdbuilder/vhd_build_timestamp.json}"
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
+
+# This variable will only be set if a VHD build is triggered from an official branch
+VHD_BUILD_TIMESTAMP=""
+
+# Check if the file exists, if it does, the build is triggered from an official branch
+if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
+  # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
+  if [ -s "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
+    # For IMG_SKUs that dont exist in the file, this is a no-op, therefore Windows/Mariner wont be affected and their IMG_VERSION will always be 'latest'
+    echo "The publisher_base_image_version.json is not empty, therefore, use the publisher base images specified there, if they exist"
+    PUBLISHER_BASE_IMAGE_VERSION=$(jq -r --arg key "${IMG_SKU}" 'if has($key) then .[$key] else empty end' "${PUBLISHER_BASE_IMAGE_VERSION_JSON}")
+    if [ -n "${PUBLISHER_BASE_IMAGE_VERSION}" ]; then
+      echo "Change publisher base image version to ${PUBLISHER_BASE_IMAGE_VERSION} for ${IMG_SKU}"
+      IMG_VERSION=${PUBLISHER_BASE_IMAGE_VERSION}
+    fi
+  fi
+fi
+
+# Check if the file exists, if it does, the build is triggered from an official branch
+if [ -f "${VHD_BUILD_TIMESTAMP_JSON}" ]; then
+  # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
+  if [ -s "${VHD_BUILD_TIMESTAMP_JSON}" ]; then
+    VHD_BUILD_TIMESTAMP=$(jq -r .build_timestamp < ${VHD_BUILD_TIMESTAMP_JSON})
+  fi
+fi
+
+# Hard-code RG/gallery location to 'eastus' only for linux builds.
+if [ "$MODE" == "linuxVhdMode" ]; then
+	# In linux builds, this variable is only used for creating the resource group holding the
+	# staging "PackerSigGalleryEastUS" SIG, as well as the gallery itself. It's also used
+	# for creating any image definitions that might be missing from the gallery based on the particular
+	# SKU being built.
+	#
+	# For windows, this variable is also used for creating resources to import base images
+	AZURE_LOCATION="eastus"
+fi
 
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
 if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
@@ -19,17 +56,49 @@ if [ -z "${POOL_NAME}" ]; then
 	exit 1
 fi
 
+echo "POOL_NAME is set to $POOL_NAME"
+
+if [ "$MODE" == "linuxVhdMode" ] && [ -z "${SKU_NAME}" ]; then
+	echo "SKU_NAME must be set for linux VHD builds"
+	exit 1
+fi
+
+# This variable is used within linux builds to inform which region that packer build itself will be running,
+# and subsequently the region in which the 1ES pool the build is running on is in.
+# Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
+if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
+	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
+	exit 1
+fi
+
+# Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
+# Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
+# to be the resource group in which the packer VNET lives in.
+if [ "$MODE" == "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
+	echo "ENVIRONMENT is not set, cannot compute VNET_RG_NAME or VNET_NAME for packer templates"
+	exit 1
+fi
+
 if [ -z "${VNET_RG_NAME}" ]; then
-	VNET_RG_NAME=""
-	if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
-		VNET_RG_NAME="nodesigprod-agent-pool"
-	else
-		VNET_RG_NAME="nodesigtest-agent-pool"
+	if [ "$MODE" == "linuxVhdMode" ]; then
+		VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+	fi
+	if [ "$MODE" == "windowsVhdMode" ]; then
+		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
+			VNET_RG_NAME="nodesigprod-agent-pool"
+		else
+			VNET_RG_NAME="nodesigtest-agent-pool"
+		fi
 	fi
 fi
 
 if [ -z "${VNET_NAME}" ]; then
-	VNET_NAME="nodesig-pool-vnet"
+	if [ "$MODE" == "linuxVhdMode" ]; then
+		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+	fi
+	if [ "$MODE" == "windowsVhdMode" ]; then
+		VNET_NAME="nodesig-pool-vnet"
+	fi
 fi
 
 if [ -z "${SUBNET_NAME}" ]; then
@@ -54,8 +123,7 @@ if [ "$MODE" != "linuxVhdMode" ]; then
 		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
 		az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
 		echo "creating new container system"
-		key=$(az storage account keys list -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME | jq -r '.[0].value')
-		az storage container create --name system --account-key=$key --account-name=$STORAGE_ACCOUNT_NAME
+		az storage container create --name system --account-name=$STORAGE_ACCOUNT_NAME --auth-mode login
 	else
 		echo "storage account ${STORAGE_ACCOUNT_NAME} already exists."
 	fi
@@ -64,6 +132,8 @@ fi
 echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 
 # If SIG_GALLERY_NAME/SIG_IMAGE_NAME hasnt been provided in linuxVhdMode, use defaults
+# NOTE: SIG_IMAGE_NAME is the name of the image definition that Packer will use when delivering the
+# output image version to the staging gallery. This is NOT the name of the image definitions used in prod.
 if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	# Ensure the SIG name
 	if [[ -z "${SIG_GALLERY_NAME}" ]]; then
@@ -73,48 +143,31 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
 
-	# Ensure the image-definition name
 	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
-		SIG_IMAGE_NAME=${OS_VERSION//./}
-		if [[ "${OS_SKU}" == "Ubuntu" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}CVM
+		SIG_IMAGE_NAME=$SKU_NAME
+		if [[ "${IMG_OFFER,,}" == "cbl-mariner" ]]; then
+			# we need to add a distinction here since we currently use the same image definition names
+			# for both azlinux and cblmariner in prod galleries, though we only have one gallery which Packer
+			# is configured to deliver images to...
+			if [ "${ENABLE_CGROUPV2,,}" == "true" ]; then
+				SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
+			else
+				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
+			fi
+		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
+			# for Azure Linux 3.0, only use AzureLinux prefix
+			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		fi
-
-		if [[ "${IMG_SKU}" == *"minimal"* ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Minimal
-		fi
-
-		if [[ "${OS_SKU}" == "CBLMariner" ]]; then
-			SIG_IMAGE_NAME=CBLMariner${SIG_IMAGE_NAME}
-		fi
-
-		if [[ "${OS_SKU}" == "AzureLinux" ]]; then
-			SIG_IMAGE_NAME=AzureLinux${SIG_IMAGE_NAME}
-		fi
-
-		if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}TL
-		fi
-
-		if [[ "${HYPERV_GENERATION,,}" == "v2" && ("${OS_SKU}" == "CBLMariner" || "${OS_SKU}" == "AzureLinux" || "${OS_SKU}" == "Ubuntu") ]]; then
-			SIG_IMAGE_NAME=${SIG_IMAGE_NAME}Gen2
-		fi
-		echo "No input for SIG_IMAGE_NAME was provided, using auto-generated value: ${SIG_IMAGE_NAME}"
+		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
 		echo "Using provided SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}"
 	fi
 fi
 
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-  ARM64_OS_DISK_SNAPSHOT_NAME="arm64_osdisk_snapshot_${CREATE_TIME}_$RANDOM"
+if [[ "${MODE}" == "windowsVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+	# only append 'Arm64' in windows builds, for linux we either take what was provided
+	# or base the name off the the value of SKU_NAME (see above)
   SIG_IMAGE_NAME=${SIG_IMAGE_NAME//./}Arm64
-  # Only az published after April 06 2022 supports --architecture for command 'az sig image-definition create...'
-  azversion=$(az version | jq '."azure-cli"' | tr -d '"')
-  if [[ "${azversion}" < "2.35.0" ]]; then
-    az upgrade -y
-    az login --identity
-    az account set -s ${SUBSCRIPTION_ID}
-  fi
 fi
 
 echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
@@ -122,12 +175,66 @@ echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG
 # If we're building a Linux VHD or we're building a windows VHD in windowsVhdMode, ensure SIG resources
 if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	echo "SIG existence checking for $MODE"
-	id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
-	if [ -z "$id" ]; then
+
+	is_need_create=true
+	state=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} | jq -r '.provisioningState') || state=""
+
+	# {
+	#   "description": null,
+	#   "id": "/subscriptions/xxx/resourceGroups/xxx/providers/Microsoft.Compute/galleries/WSGallery240719",
+	#   "identifier": {
+	#     "uniqueName": "xxx-WSGALLERY240719"
+	#   },
+	#   "location": "eastus",
+	#   "name": "WSGallery240719",
+	#   "provisioningState": "Failed",
+	#   "resourceGroup": "xxx",
+	#   "sharingProfile": null,
+	#   "sharingStatus": null,
+	#   "softDeletePolicy": null,
+	#   "tags": {},
+	#   "type": "Microsoft.Compute/galleries"
+	# }
+	if [ -n "$state" ]; then
+		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
+
+		if [[ $state == "Failed" ]]; then
+			echo "Gallery ${SIG_GALLERY_NAME} is in a failed state, deleting and recreating"
+
+			image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq -r '.[] | select(.osType == "Windows").name')
+			for image_definition in $image_defs; do
+				echo "Finding sig image versions associated with ${image_definition} in gallery ${SIG_GALLERY_NAME}"
+				image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq -r '.[].name')
+				for image_version in $image_versions; do
+					echo "Deleting sig image-version ${image_version} ${image_definition} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+					az sig image-version delete -e $image_version -i ${image_definition} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --no-wait false
+				done
+				image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq -r '.[].name')
+				echo "image versions are $image_versions"
+				if [[ -z "${image_versions}" ]]; then
+					echo "Deleting sig image-definition ${image_definition} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
+					az sig image-definition delete --gallery-image-definition ${image_definition} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --no-wait false
+				fi
+			done
+			image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq -r '.[] | select(.osType == "Windows").name')
+
+			if [[ -n $image_defs ]]; then
+				echo $image_defs
+			fi
+
+			echo "Deleting gallery ${gallery}"
+			az sig delete --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --no-wait false
+
+			is_need_create=true
+		else
+			echo "Gallery ${SIG_GALLERY_NAME} is in a $state state"
+			is_need_create=false
+		fi
+	fi
+
+	if $is_need_create ; then
 		echo "Creating gallery ${SIG_GALLERY_NAME} in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
 		az sig create --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} --location ${AZURE_LOCATION}
-	else
-		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
 	fi
 
 	id=$(az sig image-definition show \
@@ -178,17 +285,11 @@ windows_servercore_image_url=""
 windows_nanoserver_image_url=""
 windows_private_packages_url=""
 
-# windows_msi_resource_strings is an array that will be used to build windows vm
-# set the default value os this array as empty to unblock the case where WINDOWS_MSI_RESOURCE_STRING is not set
-windows_msi_resource_strings=()
-if [ -n "${WINDOWS_MSI_RESOURCE_STRING}" ]; then
-	windows_msi_resource_strings+=(${WINDOWS_MSI_RESOURCE_STRING})
-fi
-
-linux_msi_resource_ids=()
-if [ -n "${LINUX_MSI_RESOURCE_ID}" ]; then
-	echo "LINUX_MSI_RESOURCE_ID is set in pipeline variables: ${LINUX_MSI_RESOURCE_ID}"
-	linux_msi_resource_ids+=(${LINUX_MSI_RESOURCE_ID})
+# msi_resource_strings is an array that will be used to build VHD build vm
+# test pipelines may not set it
+msi_resource_strings=()
+if [ -n "${AZURE_MSI_RESOURCE_STRING}" ]; then
+	msi_resource_strings+=(${AZURE_MSI_RESOURCE_STRING})
 fi
 
 # shellcheck disable=SC2236
@@ -356,7 +457,15 @@ private_packages_url=""
 if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
 	echo "PRIVATE_PACKAGES_URL is set in pipeline variables: ${PRIVATE_PACKAGES_URL}"
 	private_packages_url="${PRIVATE_PACKAGES_URL}"
-fi 
+fi
+
+# set PACKER_BUILD_LOCATION to the value of AZURE_LOCATION for windows
+# since windows doesn't currently distinguish between the 2.
+# also do this in cases where we're running a linux build in AME (for now)
+# TODO(cameissner): remove conditionals for prod once new pool config has been deployed to AME.
+if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
+	PACKER_BUILD_LOCATION=$AZURE_LOCATION
+fi
 
 # windows_image_version refers to the version from azure gallery
 # aks_windows_image_version refers to the version built by AKS Windows SIG
@@ -364,10 +473,12 @@ cat <<EOF > vhdbuilder/packer/settings.json
 { 
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
-  "location": "${AZURE_LOCATION}",
+  "location": "${PACKER_BUILD_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
+  "img_version": "${IMG_VERSION}",
+  "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
@@ -376,7 +487,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "sig_image_name":  "${SIG_IMAGE_NAME}",
   "sig_gallery_name": "${SIG_GALLERY_NAME}",
-  "arm64_os_disk_snapshot_name": "${ARM64_OS_DISK_SNAPSHOT_NAME}",
   "captured_sig_version": "${CAPTURED_SIG_VERSION}",
   "os_disk_size_gb": "${os_disk_size_gb}",
   "nano_image_url": "${windows_nanoserver_image_url}",
@@ -390,8 +500,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_name": "${VNET_NAME}",
   "subnet_name": "${SUBNET_NAME}",
   "vnet_resource_group_name": "${VNET_RG_NAME}",
-  "windows_msi_resource_strings": "${windows_msi_resource_strings}",
-  "linux_msi_resource_ids": "${linux_msi_resource_ids}",
+  "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
   "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
 }

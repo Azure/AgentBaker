@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eux
+
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
@@ -10,21 +11,33 @@ set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
 
-if [ "$OS_TYPE" == "Linux" ] && [ "$IMG_SKU" == "20_04-lts-cvm" ]; then
-    echo "Skipping tests for CVM 20.04"
-    exit 0
+# For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
+# we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
+if [ "${OS_TYPE,,}" == "linux" ]; then
+  if [ -z "$PACKER_BUILD_LOCATION" ]; then
+    echo "PACKER_BUILD_LOCATION must be set for linux builds"
+    exit 1
+  fi
+  AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
 
-RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags 'source=AgentBaker'
+if [ "${OS_TYPE,,}" == "linux" ]; then
+  TEST_VM_RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
+else
+  if [ -z "$TEST_VM_RESOURCE_GROUP_NAME" ]; then
+    echo "TEST_VM_RESOURCE_GROUP_NAME could not be passed successfully."
+    exit 1
+  fi
+fi
+az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
   if [[ "$VHD_DEBUG" == "True" ]]; then
     echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
   else
-    echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
-    az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
+    echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
+    az group delete --name $TEST_VM_RESOURCE_GROUP_NAME --yes --no-wait
   fi
 }
 trap cleanup EXIT
@@ -33,12 +46,12 @@ DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
 if [ "$MODE" == "default" ]; then
-  az disk create --resource-group $RESOURCE_GROUP_NAME \
+  az disk create --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
     --name $DISK_NAME \
     --source "${OS_DISK_URI}" \
     --query id
   az vm create --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
+    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
     --public-ip-address ""
@@ -73,9 +86,9 @@ else
   # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
   TARGET_COMMAND_STRING=""
   if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    TARGET_COMMAND_STRING+="--size Standard_D2pds_v5"
-  elif [[ "${FEATURE_FLAGS,,}" == "kata" ]]; then
-    TARGET_COMMAND_STRING="--size Standard_D4ds_v5"
+    TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
+  else
+    TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
@@ -87,7 +100,7 @@ else
   fi
 
   az vm create \
-      --resource-group $RESOURCE_GROUP_NAME \
+      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
       --name $VM_NAME \
       --image $IMG_DEF \
       --admin-username $TEST_VM_ADMIN_USERNAME \
@@ -98,7 +111,7 @@ else
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
-time az vm wait -g $RESOURCE_GROUP_NAME -n $VM_NAME --created
+time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -114,7 +127,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
       --name $VM_NAME \
-      --resource-group $RESOURCE_GROUP_NAME \
+      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
       --scripts @$SCRIPT_PATH \
       --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH} ${IMG_SKU}) && break
     echo "${i}: retrying az vm run-command"
@@ -141,7 +154,7 @@ else
   echo "Run $SCRIPT_PATH"
   az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
+    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json
 
@@ -149,7 +162,7 @@ else
   echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
-    --resource-group $RESOURCE_GROUP_NAME \
+    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
     --scripts @$SCRIPT_PATH \
     --output json \
     --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
@@ -191,4 +204,4 @@ else
   fi
 fi
 
-echo "Tests Run Successfully"
+echo -e "Test Script Completed\n\n\n"

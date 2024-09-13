@@ -12,20 +12,50 @@ package components
 	prefetchOptimizations: [...#ContainerImagePrefetchOptimization]
 }
 
-#DownloadFile: {
-	fileName:         string
-	downloadLocation: string
-	downloadURL:      string
-	versions: [...string]
-	targetContainerRuntime?: "containerd" | _|_
+#Images: [...#ContainerImage]
+#Packages: [...#Package]
+#ReleaseDownloadURI: {
+	versions:     [...string]
+	downloadURL?:  string
 }
 
-#Images: [...#ContainerImage]
-#Files: [...#DownloadFile]
+#UbuntuOSDistro: {
+	current?: #ReleaseDownloadURI
+	r1804?:   #ReleaseDownloadURI
+	r2004?:   #ReleaseDownloadURI
+	r2204?:   #ReleaseDownloadURI
+	r2404?:   #ReleaseDownloadURI
+}
+
+#DefaultOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
+#MarinerOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
+#AzureLinuxOSDistro: {
+	current?: #ReleaseDownloadURI
+}
+
+#DownloadURIs: {
+	default?:      #DefaultOSDistro
+	ubuntu?:       #UbuntuOSDistro
+	mariner?:      #MarinerOSDistro
+	marinerkata?:  #MarinerOSDistro
+	azurelinux?:   #AzureLinuxOSDistro
+}
+
+#Package: {
+	name:              string
+	downloadLocation:  string
+	downloadURIs:      #DownloadURIs
+}
 
 #Components: {
 	ContainerImages: #Images
-	DownloadFiles:   #Files
+	Packages:        #Packages    
 }
 
 #Components

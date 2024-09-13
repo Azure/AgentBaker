@@ -77,6 +77,10 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
+.PHONY: shellspec
+shellspec:
+	@bash ./hack/tools/bin/shellspec
+
 .PHONY: validate-image-version
 validate-image-version:
 	@./vhdbuilder/packer/test/run-pretest.sh
@@ -97,6 +101,11 @@ generate: bootstrap
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
+	@echo "Running shellspec tests to validate shell/bash scripts"
+	@$(MAKE) shellspec
+	@echo "Validating if components.json conforms to the schema schemas/components.cue."
+	@echo "Error will be shown if any."
+	@$(MAKE) validate-components
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
@@ -207,5 +216,8 @@ coverage:
 unit-tests:
 	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
 
+.PHONY: validate-components
+validate-components:
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
+
 include versioning.mk
-include test.mk

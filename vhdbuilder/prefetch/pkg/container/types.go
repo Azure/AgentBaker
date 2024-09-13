@@ -1,6 +1,6 @@
 package container
 
-// List represents a component list (e.g. vhdbuilder/packer/components.json).
+// List represents a component list (e.g. parts/linux/cloud-init/artifacts/components.json).
 type ComponentList struct {
 	Images []Image `json:"ContainerImages,omitempty"`
 }

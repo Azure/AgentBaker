@@ -82,6 +82,7 @@ $kLogFiles = @(
     "containerd.err.log",
     "hnsremediator.log",
     "windowslogscleanup.log",
+    "windowsnodereset.log",
     "credential-provider-config.yaml",
     "windows-exporter.err.log",
     "windows-exporter.log"
@@ -124,16 +125,6 @@ $miscLogFiles = @(
 $miscLogFiles | Foreach-Object {
     $fileName = [IO.Path]::GetFileName($_)
     Create-SymbolLinkFile -SrcFile $_ -DestFile (Join-Path $aksLogFolder $fileName)
-}
-
-# Collect HNS polices
-$dumpVfpPoliciesScript="C:\k\debug\dumpVfpPolicies.ps1"
-if (Test-Path $dumpVfpPoliciesScript) {
-    Write-Log "Genearting vfpOutput.txt"
-    # Remove the old log since dumpVfpPolicies.ps1 always append the new logs
-    # Ignore the error if the file does not exist
-    Remove-Item -ErrorAction Ignore (Join-Path $aksLogFolder 'vfpOutput.txt')
-    PowerShell -ExecutionPolicy Unrestricted -command "$dumpVfpPoliciesScript -switchName L2Bridge -outfile (Join-Path $aksLogFolder 'vfpOutput.txt')"
 }
 
 # Collect old log files

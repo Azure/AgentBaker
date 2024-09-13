@@ -10,7 +10,7 @@ CUSTOM_ENDPOINT=${1:-''}
 
 EVENTS_LOGGING_PATH="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/"
 AZURE_CONFIG_PATH="/etc/kubernetes/azure.json"
-AKS_CA_CERT_PATH="/etc/kubernetes/certs/apiserver.crt"
+AKS_CA_CERT_PATH="/etc/kubernetes/certs/ca.crt"
 AKS_CERT_PATH="/etc/kubernetes/certs/client.crt"
 AKS_KEY_PATH="/etc/kubernetes/certs/client.key"
 AKS_KUBECONFIG_PATH="/var/lib/kubelet/kubeconfig"

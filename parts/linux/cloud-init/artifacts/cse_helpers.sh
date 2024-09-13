@@ -25,10 +25,12 @@ ERR_DOCKER_IMG_PULL_TIMEOUT=35 # Timeout trying to pull a Docker image
 ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 # Timeout trying to pull a containerd image via cli tool ctr
 ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 # Timeout trying to pull a containerd image via cli tool crictl
 ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 # Unable to locate containerd debian pkg file
+ERR_CONTAINERD_VERSION_INVALID=39 # Containerd version is invalid
 ERR_CNI_DOWNLOAD_TIMEOUT=41 # Timeout waiting for CNI downloads
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 # Timeout waiting for https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 # Failed to add repo pkg file
 # ERR_FLEXVOLUME_DOWNLOAD_TIMEOUT=44 Failed to add repo pkg file -- DEPRECATED
+ERR_ORAS_DOWNLOAD_ERROR=45 # Unable to install oras
 ERR_SYSTEMD_INSTALL_FAIL=48 # Unable to install required systemd version
 ERR_MODPROBE_FAIL=49 # Unable to load a kernel module using modprobe
 ERR_OUTBOUND_CONN_FAIL=50 # Unable to establish outbound connection
@@ -105,10 +107,36 @@ ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid version in components.json
+
+# For both Ubuntu and Mariner/AzureLinux, /etc/*-release should exist.
+# In AzureLinux 3.0, /etc/*-release are symlinks to /usr/lib/*-release, so the find command includes -type f,l.
+
+ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
+
+# Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
+ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
+
+# For both Ubuntu and Mariner, /etc/*-release should exist.
+# For unit tests, the OS and OS_VERSION will be set in the unit test script.
+# So whether it's if or else actually doesn't matter to our unit test.
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+else
+# This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
+    echo "/etc/*-release not found"
+fi
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -129,6 +157,8 @@ APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
+ORAS_OUTPUT=/tmp/oras_verbose.out
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -181,6 +211,24 @@ retrycmd_get_tarball() {
             timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
+            fi
+            sleep $wait_sleep
+        fi
+    done
+}
+retrycmd_get_tarball_from_registry_with_oras() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    tar_folder=$(dirname "$tarball")
+    echo "${tar_retries} retries"
+    for i in $(seq 1 $tar_retries); do
+        tar -tzf $tarball && break || \
+        if [ $i -eq $tar_retries ]; then
+            return 1
+        else
+            # TODO: support private acr via kubelet identity
+            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [[ $? != 0 ]]; then
+                cat $ORAS_OUTPUT
             fi
             sleep $wait_sleep
         fi
@@ -341,6 +389,15 @@ isARM64() {
     fi
 }
 
+isRegistryUrl() {
+    local binary_url=$1
+    registry_regex='^.+\/.+\/.+:.+$'
+    if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
+        return 0 # true
+    fi
+    return 1 # false
+}
+
 logs_to_events() {
     # local vars here allow for nested function tracking
     # installContainerRuntime for example
@@ -384,40 +441,157 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-start_watch () {
-  capture_time=$(date +%s)
-  start_timestamp=$(date +%H:%M:%S)
+should_disable_kubelet_serving_certificate_rotation() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
+    echo "$should_disable"
 }
 
-stop_watch () {
+isMarinerOrAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
+
+installJq() {
+  # jq is not available until downloaded in install-dependencies.sh with the installDeps function
+  # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
+  output=$(jq --version)
+  if [ -n "$output" ]; then
+    echo "$output"
+  else
+    if isMarinerOrAzureLinux "$OS"; then
+      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
+  fi
+}
+
+check_array_size() {
+  declare -n array_name=$1
+  local array_size=${#array_name[@]}
+  if [[ ${array_size} -gt 0 ]]; then
+    last_index=$(( ${#array_name[@]} - 1 ))
+  else
+    return 1
+  fi
+}
+
+capture_benchmark() {
+  set +x
+  local title="$1"
+  title="${title//[[:space:]]/_}"
+  title="${title//-/_}"
+  local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
-  local end_timestamp=$(date +%H:%M:%S)
-  local difference_in_seconds=$((current_time - ${1}))
-
-  local elapsed_hours=$(($difference_in_seconds/3600))
-  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
-  local elapsed_seconds=$(($difference_in_seconds%60))
-  
-  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
-  if [ ${3} == true ]; then
-    printf -v start "     Start time: $script_start_timestamp"
+  if [[ "$is_final_section" == true ]]; then
+    local start_time=$script_start_stopwatch
   else
-    printf -v start "     Start time: $start_timestamp"
+    local start_time=$section_start_stopwatch
   fi
-  printf -v end "     End Time: $end_timestamp"
-  echo -e "\n$benchmark\n"
-  benchmarks+=("$benchmark")
-  benchmarks+=("$start")
-  benchmarks+=("$end")
+  
+  total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
+  benchmarks[$title]=${total_time_elapsed}
+  benchmarks_order+=($title) # use this array to maintain order of benchmarks
+
+  # reset timers for next section
+  section_start_stopwatch=$(date +%s)
 }
 
-show_benchmarks () {
-  echo -e "\nBenchmarks:\n"
-  for i in "${benchmarks[@]}"; do
-    echo "   $i"
+process_benchmarks() {
+  set +x
+  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
+  # create script object, then append each section object to it in the for loop
+  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
+
+  for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
+    section_name=${benchmarks_order[i]}
+    section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
+    '{($section_name): $total_time_elapsed'})
+    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${SCRIPT_NAME}" \
+    '$script_object | .[$script_name] += $section_object')
   done
-  echo
+ 
+  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
+  chmod 755 ${VHD_BUILD_PERF_DATA}
+}
+
+#return proper release metadata for the package based on the os and osVersion
+#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
+#Otherwise set RELEASE to "current"
+returnRelease() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
+    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
+    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For MARINER/AZURELINUX, the release is always set to "current" now.
+    if isMarinerOrAzureLinux "${os}"; then
+        return 0
+    fi
+    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
+        RELEASE="\"r${osVersionWithoutDot}\""
+    fi
+}
+
+returnPackageVersions() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    returnRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
+
+    #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
+    #otherwise get the versions from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        # Check if there are any versions available for the specific OS
+        if jq -e ".downloadURIs.${osLowerCase}.${RELEASE}.versions | length == 0" <<< "${package}" > /dev/null; then
+            return
+        fi
+        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
+        for version in ${versions[@]}; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        return
+    fi
+    versions=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.versions[]" -r)
+    for version in ${versions[@]}; do
+        PACKAGE_VERSIONS+=("${version}")
+    done
+    return 0
+}
+
+returnPackageDownloadURL() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    RELEASE="current"
+    returnRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    
+    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+        return
+    fi
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
+    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    return    
 }
 
 #HELPERSEOF

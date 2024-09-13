@@ -12,6 +12,8 @@ pr:
     - 'e2e/windows/*'
     - 'parts/windows/*'
     - 'staging/cse/windows/*'
+    exclude:
+    - staging/cse/windows/README
 
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "Agentbaker Windows E2E"
 
@@ -32,7 +34,7 @@ parameters:
 - name: test2022containerdgen2
   displayName: Test 2022 containerd Gen 2
   type: boolean
-  default: True
+  default: False
 - name: test2022containerdgen2gpugrid
   displayName: Test 2022 containerd Gen 2 GPU Grid
   type: boolean
@@ -48,7 +50,13 @@ parameters:
 - name: test23H2gen2
   displayName: Test 23H2 Gen 2
   type: boolean
-  default: False
+  default: True
+- name: windowsGen2VMSize
+  type: string
+  default: Standard_D2s_v3
+- name: windowsGen1VMSize
+  type: string
+  default: Standard_D2_v2
 
 stages:
 - stage: test_2019_containerd
@@ -59,7 +67,7 @@ stages:
     parameters:
       windowsImage: 2019-containerd
       windowsOSSKU: Windows2019
-      windowsVMSize: Standard_D2s_v3
+      windowsVMSize: ${{ parameters.windowsGen1VMSize }}
       windowsDistro: aks-windows-2019-containerd
       storageAccount: akswinstore2019
 
@@ -71,7 +79,7 @@ stages:
     parameters:
       windowsImage: 2022-containerd
       windowsOSSKU: Windows2022
-      windowsVMSize: Standard_D2_v2
+      windowsVMSize: ${{ parameters.windowsGen1VMSize }}
       windowsDistro: aks-windows-2022-containerd
       storageAccount: akswinstore2022
 
@@ -83,7 +91,7 @@ stages:
     parameters:
       windowsImage: 2022-containerd-gen2
       windowsOSSKU: Windows2022
-      windowsVMSize: Standard_DS2_v2
+      windowsVMSize: ${{ parameters.windowsGen2VMSize }}
       windowsDistro: aks-windows-2022-containerd-gen2
       storageAccount: akswinstore2022gen2
 
@@ -121,7 +129,7 @@ stages:
     parameters:
       windowsImage: 23H2
       windowsOSSKU: WindowsAnnual
-      windowsVMSize: Standard_D2_v2
+      windowsVMSize: ${{ parameters.windowsGen1VMSize }}
       windowsDistro: aks-windows-23H2
       storageAccount: akswinstore23H2
 
@@ -133,6 +141,6 @@ stages:
     parameters:
       windowsImage: 23H2-gen2
       windowsOSSKU: WindowsAnnual
-      windowsVMSize: Standard_DS2_v2
+      windowsVMSize: ${{ parameters.windowsGen2VMSize }}
       windowsDistro: aks-windows-23H2-gen2
       storageAccount: akswinstore23H2gen2

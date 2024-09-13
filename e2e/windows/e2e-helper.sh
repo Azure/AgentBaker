@@ -64,7 +64,7 @@ create_storage_container() {
 
 upload_linux_file_to_storage_account() {
     local retval=0
-    E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
+    declare -l E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
     E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_BUILD_LOCATION"
     MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
     VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
@@ -81,24 +81,32 @@ upload_linux_file_to_storage_account() {
         log "Upload linux file successfully"
     else
         err "Failed to upload linux file. Error code is $retval."
+        exit 1
     fi
 }
 
 download_linux_file_from_storage_account() {
-    wget https://aka.ms/downloadazcopy-v10-linux
-    tar -xvf downloadazcopy-v10-linux
+    local retval
+    retval=0
+    if [[ "$(check_linux_file_exists_in_storage_account)" == *"Linux file already exists in storage account."* ]]; then
+        linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
+        az storage blob download --auth-mode login --blob-url $linuxFileURL --file file.zip || retval=$?
+        if [ "$retval" -ne 0 ]; then
+            err "Failed in downloading linux files. Error code is $retval."
+            exit 1
+        fi
+        unzip file.zip
+    else
+        exit 1
+    fi
+}
 
+check_linux_file_exists_in_storage_account() {
     linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
-
-    export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-
-    array=(azcopy_*)
-    noExistStr="File count: 0"
     local fileExist="false"
     for i in $(seq 1 20); do
-        listResult=$(${array[0]}/azcopy list $linuxFileURL --running-tally)
-        if [[ "$listResult" == *"$noExistStr"* ]]; then
+        isRemoteLinuxFileExist=$(az storage blob exists --auth-mode login --blob-url $linuxFileURL)
+        if [[ "$isRemoteLinuxFileExist" == "false" ]]; then
             log "Linux file has not been uploaded, waiting..."
             sleep 10
             continue
@@ -108,13 +116,11 @@ download_linux_file_from_storage_account() {
     done
 
     if [ "$fileExist" == "false" ]; then
-        err "File does not exist in storage account."
-        exit 1
+        err "Linux file does not exist in storage account."
+        return
     fi
 
-    ${array[0]}/azcopy copy $linuxFileURL file.zip
-
-    unzip file.zip
+    log "Linux file already exists in storage account."
 }
 
 addJsonToFile() {
@@ -154,7 +160,7 @@ cleanupOutdatedFiles() {
     dateOfdeadline=$(date -d @${deadline} +"%Y-%m-%dT%H:%M:%S+00:00")
 
     # two containers need to be cleaned up now
-    CONTAINER_LIST=("cselogs" "csepackages")
+    CONTAINER_LIST=("cselogs" "\$web")
 
     for CONTAINER_NAME in "${CONTAINER_LIST[@]}"
     do 

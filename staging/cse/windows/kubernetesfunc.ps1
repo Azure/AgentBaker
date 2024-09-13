@@ -174,6 +174,7 @@ function Check-APIServerConnectivity {
         [Parameter(Mandatory = $false)][int]
         $MaxRetryCount = 60
     )
+    Logs-To-Event -TaskName "AKS.WindowsCSE.CheckAPIServerConnectivity" -TaskMessage "Start to check API server connectivity."
     $retryCount=0
 
     do {

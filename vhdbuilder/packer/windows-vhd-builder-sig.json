@@ -7,7 +7,7 @@
         "build_repo": "{{env `GIT_REPO`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
-        "location": "{{env `AZURE_LOCATION`}}",
+        "location": "{{env `PACKER_BUILD_LOCATION`}}",
         "vm_size": "{{env `AZURE_VM_SIZE`}}",
         "windows_image_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
         "windows_image_version": "{{env `WINDOWS_IMAGE_VERSION`}}",
@@ -59,12 +59,15 @@
                 "os": "Windows",
                 "now": "{{user `create_time`}}",
                 "createdBy": "aks-vhd-pipeline",
-                "SkipASMAzSecPack": "True"
+                "SkipASMAzSecPack": "True",
+                "SkipASMAV": "True",
+                "SkipCIExtensionAudit": "True",
+                "SkipCIEmergency": "True"
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
             "virtual_network_subnet_name": "{{user `subnet_name`}}",
-            "user_assigned_managed_identities": "{{user `windows_msi_resource_strings`}}"
+            "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
         }
     ],
     "provisioners": [
@@ -95,8 +98,7 @@
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
                 "WindowsServerCoreImageURL={{user `core_image_url`}}",
-                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}",
-                "WindowsMSIResourceString={{user `windows_msi_resource_strings`}}"
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}"
             ],
             "type": "powershell",
             "scripts": [

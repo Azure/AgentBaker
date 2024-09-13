@@ -48,6 +48,19 @@
                     "Name": "EndpointPolicy",
                     "Value": {
                         "Type": "ACL",
+                        "Protocols": "6",
+                        "Action": "Block",
+                        "Direction": "Out",
+                        "RemoteAddresses": "168.63.129.16/32",
+                        "RemotePorts": "32526",
+                        "Priority": 200,
+                        "RuleType": "Switch"
+                    }
+                },
+                {
+                    "Name": "EndpointPolicy",
+                    "Value": {
+                        "Type": "ACL",
                         "Action": "Allow",
                         "Direction": "In",
                         "Priority": 65500
