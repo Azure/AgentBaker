@@ -112,7 +112,7 @@ func (maps *DataMaps) ParseKustoData(data *SKU) {
 func SumArray(arr []float64) float64 {
 	var sum float64
 	if len(arr) != 2 {
-		fmt.Println("expected 2 elements in array, got %d", len(arr))
+		fmt.Printf("expected 2 elements in array, got %d", len(arr))
 	}
 	for _, x := range arr {
 		sum += x
