@@ -283,6 +283,7 @@ for p in ${packages[*]}; do
         downloadContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
       done
+      UpdateDownloadedWasmShimsPermissions
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl

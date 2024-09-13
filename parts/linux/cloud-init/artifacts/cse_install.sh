@@ -30,6 +30,7 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
+declare -a WASMSHIMPIDS=()
 
 setCPUArch() {
     CPU_ARCH=$(getCPUArch)
@@ -217,17 +218,19 @@ downloadContainerdWasmShims() {
         local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}" 
         if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-            wasmShimPids+=($!)
+            WASMSHIMPIDS+=($!)
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-            wasmShimPids+=($!)
+            WASMSHIMPIDS+=($!)
             if [ "$shim_version" == "v0.8.0" ]; then
                 retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-                wasmShimPids+=($!)
+                WASMSHIMPIDS+=($!)
             fi
         fi   
     fi
+}
 
-    wait ${wasmShimPids[@]}
+UpdateDownloadedWasmShimsPermissions() {
+    wait ${WASMSHIMPIDS[@]}
     binary_version="$(echo "${shim_version}" | tr . -)"
     chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
