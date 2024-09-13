@@ -31,6 +31,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
+	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable)
+	if err != nil {
+		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
+	}
+
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
 		fmt.Printf("Ingesting data for %s.\n\n", config.SourceBranch)
 		err := common.IngestData(ctx, client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
@@ -42,11 +47,6 @@ func main() {
 	}
 
 	maps.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile)
-
-	aggregatedSKUData, err := common.QueryData(ctx, client, config.SigImageName, config.KustoDatabase, config.KustoTable)
-	if err != nil {
-		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
-	}
 
 	maps.ParseKustoData(aggregatedSKUData)
 
