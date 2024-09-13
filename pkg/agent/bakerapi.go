@@ -87,7 +87,10 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	return nodeBootstrapping, nil
 }
 
-func (agentBaker *agentBakerImpl) GetNodeBootstrappingForSelfContained(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func (agentBaker *agentBakerImpl) GetNodeBootstrappingForSelfContained(
+	ctx context.Context,
+	config *datamodel.NodeBootstrappingConfiguration,
+) (*datamodel.NodeBootstrapping, error) {
 	// TODO: add windows support
 	if config.AgentPoolProfile.IsWindows() {
 		return agentBaker.GetNodeBootstrapping(ctx, config)

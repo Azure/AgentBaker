@@ -12,9 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
+
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
 )
 
 const DefaultAksAadAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
@@ -201,9 +202,7 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 			return nil, err2
 		}
 	} else {
-		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
-			return nil, err2
-		}
+		useHardCodedKubeconfig(config, files)
 	}
 
 	for path, file := range files {
@@ -214,12 +213,11 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	return files, nil
 }
 
-func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) {
 	files["/var/lib/kubelet/kubeconfig"] = File{
 		Content: contentKubeconfig(config),
 		Mode:    ReadOnlyWorld,
 	}
-	return nil
 }
 
 func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
@@ -361,7 +359,9 @@ func contentKubelet(config *datamodel.NodeBootstrappingConfiguration) string {
 	data = append(data, [2]string{"KUBELET_REGISTER_SCHEDULABLE", "true"})
 	data = append(data, [2]string{"NETWORK_POLICY", config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy})
 	isKubernetesVersionGe := func(version string) bool {
-		return config.ContainerService.Properties.OrchestratorProfile.IsKubernetes() && agent.IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, version)
+		isKubernetes := config.ContainerService.Properties.OrchestratorProfile.IsKubernetes()
+		isKubernetesVersionGe := agent.IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, version)
+		return isKubernetes && isKubernetesVersionGe
 	}
 
 	if !isKubernetesVersionGe("1.17.0") {
