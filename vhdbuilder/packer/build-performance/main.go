@@ -1,57 +1,67 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
-	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
 	"github.com/Azure/azure-kusto-go/kusto"
+	"github.com/Azure/azure-kusto-go/kusto/ingest"
 )
 
 func main() {
-	config, err := common.SetupConfig()
+
+	// kusto variables
+	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
+	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
+	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
+	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
+	// build data variables
+	sigImageName := os.Getenv("SIG_IMAGE_NAME")
+	buildPerformanceDataFile := sigImageName + "-build-performance.json"
+	var err error
+
+	fmt.Printf("\nRunning build performance program for %s...\n\n", sigImageName)
+	// Create Connection String
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientID)
+
+	// Create Ingestion Client
+	ingestionClient, err := kusto.New(kcsb)
 	if err != nil {
-		log.Fatalf("failed to configure build-performance program: %v\n\n", err)
-	}
-
-	//maps := common.CreateDataMaps()
-
-	kcsb := kusto.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientID)
-
-	client, err := kusto.New(kcsb)
-	if err != nil {
-		log.Fatalf("kusto ingestion client could not be created: %v\n\n", err)
+		log.Fatalf("Kusto ingestion client could not be created.")
 	} else {
-		fmt.Printf("Created client...\n\n")
+		fmt.Printf("Created ingestion client...\n\n")
 	}
-	defer client.Close()
+	defer ingestionClient.Close()
 
-	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
-		err := common.IngestData(client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
-		if err != nil {
-			log.Fatalf("Ingestion failed: %v\n\n", err)
-		}
+	// Create Ingestor
+	ingestor, err := ingest.New(ingestionClient, kustoDatabase, kustoTable)
+	if err != nil {
+		ingestionClient.Close()
+		log.Fatalf("Kusto ingestor could not be created.")
+	} else {
+		fmt.Printf("Created ingestor...\n\n")
 	}
+	defer ingestor.Close()
 
-	/*
-		aggregatedSKUData, err := common.QueryData(client, config.SigImageName, config.KustoDatabase, config.KustoTable)
-		if err != nil {
-			log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
-		}
+	// Create Context
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	defer cancel()
 
-		maps.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile)
+	// Ingest Data
+	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef("buildPerfMap", ingest.MultiJSON))
+	if err != nil {
+		fmt.Printf("Ingestion failed: %v\n\n", err)
+		ingestor.Close()
+		ingestionClient.Close()
+		cancel()
+		log.Fatalf("Igestion command failed to be sent.\n")
+	} else {
+		fmt.Printf("Ingestion started successfully.\n\n")
+	}
+	defer ingestor.Close()
 
-		maps.ParseKustoData(aggregatedSKUData)
-
-		maps.EvaluatePerformance()
-
-		if len(maps.RegressionMap) == 0 {
-			fmt.Printf("No regressions found for this pipeline run\n\n")
-		} else {
-			fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
-			maps.PrintRegressions()
-		}
-
-		fmt.Println("Build Performance Evaluation Complete")
-	*/
+	fmt.Printf("Successfully ingested build performance data.\n")
 }
