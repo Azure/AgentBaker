@@ -8,10 +8,10 @@ The `components.json` file centralizes the management of all components needed f
 
 ## Schema of components.json
 The `components.json` file defines two types of components: `containerImages` and `packages`.
-- `ContainerImages` are container images that will be cached during VHD build time and will run at node provisioning time. The container Images URL are mostly mcr as of now June 2024.
+- `ContainerImages` are container images that will be cached during VHD build time and will run at node provisioning time. The container Images are all hosted in MCR as of Sept 2024.
 - `Packages` are packages that could be downloaded through apt-get (Ubuntu), http file download URL or dnf (Mariner). Additional methods such as OCI MCR could be added in the future.
 
-Please refer to [components.cue](../../../../schemas/components.cue) for the most update-to-date schema in case this doc is not current.
+Please refer to [components.cue](../../../../schemas/components.cue) for the most update-to-date schema in case the schema in this doc is not current.
 
 
 ### ContainerImages

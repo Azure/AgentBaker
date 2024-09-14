@@ -7,7 +7,7 @@ For a general Renovate introductions, please read this wiki. https://msazure.vis
 This readme file is specifically describing what the renovate.json for AgentBaker is doing and how to edit it when needed.
 There are 3 major blocks in the renovate.json configurations, namely `package rules`, `custom managers` and `custom datasources`.
 
-This diagram describes how Renovate.json is used to define how Renovate read the components metadata from components.json, as well as how it looks up various data sources.
+This diagram explains how `Renovate.json` defines the way Renovate reads the components metadata from `components.json`, and how it looks up various data sources.
 ![alt text](./images/Renovate_component_datasource.png)
 
 ## Package rules
