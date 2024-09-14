@@ -17,7 +17,7 @@
   ],
   "packageRules": [
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
+      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "minor"
       ],
@@ -25,7 +25,7 @@
       "enabled": false
     },
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204"],
+      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "patch",
         "pin",
@@ -59,7 +59,7 @@
     },
     {
       "customType": "regex",
-      "description": "auto update packages for OS release ubuntu 18.04 in components.json",
+      "description": "auto update packages for OS ubuntu 18.04 in components.json",
       "fileMatch": [
         "parts/linux/cloud-init/artifacts/components.json"
       ],
@@ -73,7 +73,7 @@
     },
     {
       "customType": "regex",
-      "description": "auto update packages for OS release ubuntu 20.04 in components.json",
+      "description": "auto update packages for OS ubuntu 20.04 in components.json",
       "fileMatch": [
         "parts/linux/cloud-init/artifacts/components.json"
       ],
@@ -87,7 +87,7 @@
     },
     {
       "customType": "regex",
-      "description": "auto update packages for OS release ubuntu 22.04 in components.json",
+      "description": "auto update packages for OS ubuntu 22.04 in components.json",
       "fileMatch": [
         "parts/linux/cloud-init/artifacts/components.json"
       ],
@@ -101,7 +101,7 @@
     },
     {
       "customType": "regex",
-      "description": "auto update packages for OS release ubuntu 24.04 in components.json",
+      "description": "auto update packages for OS ubuntu 24.04 in components.json",
       "fileMatch": [
         "parts/linux/cloud-init/artifacts/components.json"
       ],
