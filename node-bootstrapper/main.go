@@ -245,7 +245,7 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	if config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer() != "" {
 		files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"] = File{
 			Content: containerDMCRHosts(config),
-			Mode:    ReadOnlyUser,
+			Mode:    ReadOnlyWorld,
 		}
 	}
 
