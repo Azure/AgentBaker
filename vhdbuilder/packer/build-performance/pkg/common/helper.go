@@ -56,6 +56,11 @@ func CreateDataMaps() *DataMaps {
 	}
 }
 
+func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) {
+	maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
+	maps.ParseKustoData(queriedData)
+}
+
 // Prepare local JSON data for evaluation
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) {
 
@@ -134,6 +139,12 @@ func (maps *DataMaps) EvaluatePerformance() {
 				maps.RegressionMap[scriptName][section] = timeElapsed - maxTimeAllowed
 			}
 		}
+	}
+	if len(maps.RegressionMap) == 0 {
+		fmt.Printf("No regressions found for this pipeline run\n\n")
+	} else {
+		fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
+		maps.PrintRegressions()
 	}
 }
 
