@@ -63,21 +63,9 @@ func main() {
 		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
 	}
 
-	maps.DecodeLocalPerformanceData(config.LocalBuildPerformanceFile)
-
-	maps.ParseKustoData(aggregatedSKUData)
+	maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, aggregatedSKUData)
 
 	maps.EvaluatePerformance()
-
-	if len(maps.RegressionMap) == 0 {
-		fmt.Printf("No regressions found for this pipeline run\n\n")
-	} else {
-		fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
-		maps.PrintRegressions()
-	}
-
-	fmt.Println("Build Performance Evaluation Complete")
-
 }
 
 /*
