@@ -18,14 +18,14 @@ func main() {
 
 	client, err := common.CreateKustoClient(config.KustoEndpoint, config.KustoClientID)
 	if err != nil {
-		log.Fatalf("Kusto ingestion client could not be created.")
+		log.Fatalf("kusto ingestion client could not be created.")
 	}
 	defer client.Close()
 
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
 		err := common.IngestData(client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 		if err != nil {
-			log.Fatalf("Ingestion failed: %v\n\n", err)
+			log.Fatalf("ingestion failed: %v\n\n", err)
 		}
 	}
 
