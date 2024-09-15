@@ -57,7 +57,6 @@ func main() {
 	} else {
 		fmt.Printf("Ingestion started successfully.\n\n")
 	}
-	defer ingestor.Close()
 
 	aggregatedSKUData, err := common.QueryData(client, config.SigImageName, config.KustoDatabase, config.KustoTable)
 	if err != nil {
