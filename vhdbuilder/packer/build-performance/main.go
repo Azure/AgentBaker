@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
-	"github.com/Azure/azure-kusto-go/kusto"
 )
 
 func main() {
@@ -18,13 +16,9 @@ func main() {
 
 	maps := common.CreateDataMaps()
 
-	kcsb := kusto.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientID)
-
-	client, err := kusto.New(kcsb)
+	client, err := common.CreateKustoClient(config.KustoEndpoint, config.KustoClientID)
 	if err != nil {
 		log.Fatalf("Kusto ingestion client could not be created.")
-	} else {
-		fmt.Printf("Created ingestion client...\n\n")
 	}
 	defer client.Close()
 
