@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -616,9 +615,6 @@ func strToBoolPtr(str string) *bool {
 
 func strToInt32(str string) int32 {
 	i, _ := strconv.ParseInt(str, 10, 32)
-	if i > math.MaxInt32 {
-		panic("Unable to cast int parsed as 32 bits to 32 bit int. Yeah, this shouldn't happen")
-	}
 	return int32(i)
 }
 

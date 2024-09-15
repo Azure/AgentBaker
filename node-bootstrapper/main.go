@@ -213,11 +213,30 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	return files, nil
 }
 
-func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) {
+func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	files["/var/lib/kubelet/kubeconfig"] = File{
 		Content: contentKubeconfig(config),
-		Mode:    ReadOnlyWorld,
+		Mode:    0644,
 	}
+	return nil
+}
+
+func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	bootstrapKubeconfig := contentArcTokenSh(config)
+	files["/opt/azure/bootstrap/arc-token.sh"] = File{
+		Content: bootstrapKubeconfig,
+		Mode:    0755,
+	}
+	return nil
+}
+
+func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	bootstrapKubeconfig := contentAzureTokenSh(config)
+	files["/opt/azure/bootstrap/azure-token.sh"] = File{
+		Content: bootstrapKubeconfig,
+		Mode:    0755,
+	}
+	return nil
 }
 
 func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
@@ -227,16 +246,29 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 	}
 	files["/var/lib/kubelet/bootstrap-kubeconfig"] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    ReadOnlyWorld,
+		Mode:    0644,
 	}
 	return nil
 }
 
 func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
-	users := `- name: client
+	var users string
+	switch config.BootstrappingMethod {
+	case datamodel.UseArcMsiDirectly, datamodel.UseAzureMsiDirectly:
+		users = `- name: default-auth
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: /opt/azure/bootstrap/arc-token.sh
+      provideClusterInfo: false
+`
+
+	default:
+		users = `- name: client
   user:
     client-certificate: /etc/kubernetes/certs/client.crt
     client-key: /etc/kubernetes/certs/client.key`
+	}
 
 	return fmt.Sprintf(`
 apiVersion: v1
@@ -257,6 +289,71 @@ current-context: localclustercontext
 `, agent.GetKubernetesEndpoint(config.ContainerService), users)
 }
 
+func contentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+	}
+
+	return fmt.Sprintf(`#!/bin/bash
+
+# Fetch an AAD token from Azure Arc HIMDS and output it in the ExecCredential format
+# https://learn.microsoft.com/azure/azure-arc/servers/managed-identity-authentication
+
+TOKEN_URL="http://127.0.0.1:40342/metadata/identity/oauth2/token?api-version=2019-11-01&resource=%s"
+EXECCREDENTIAL='''
+{
+  "kind": "ExecCredential",
+  "apiVersion": "client.authentication.k8s.io/v1",
+  "spec": {
+    "interactive": false
+  },
+  "status": {
+    "expirationTimestamp": .expires_on | tonumber | todate,
+    "token": .access_token
+  }
+}
+'''
+
+# Arc IMDS requires a challenge token from a file only readable by root for security
+CHALLENGE_TOKEN_PATH=$(curl -s -D - -H Metadata:true $TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
+CHALLENGE_TOKEN=$(cat $CHALLENGE_TOKEN_PATH)
+if [ $? -ne 0 ]; then
+    echo "Could not retrieve challenge token, double check that this command is run with root privileges."
+    exit 255
+fi
+
+curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
+`, appID)
+}
+
+func contentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+	}
+
+	return fmt.Sprintf(`#!/bin/bash
+
+TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
+EXECCREDENTIAL='''
+{
+  "kind": "ExecCredential",
+  "apiVersion": "client.authentication.k8s.io/v1",
+  "spec": {
+    "interactive": false
+  },
+  "status": {
+    "expirationTimestamp": .expires_on | tonumber | todate,
+    "token": .access_token
+  }
+}
+'''
+
+curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
+`, appID)
+}
+
 func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	data := map[string]any{
 		"apiVersion": "v1",
@@ -274,10 +371,31 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 			{
 				"name": "kubelet-bootstrap",
 				"user": func() map[string]any {
-					if config.EnableSecureTLSBootstrapping {
+					switch config.BootstrappingMethod {
+					case datamodel.UseArcMsiToMakeCSR:
+						return map[string]any{
+							"exec": map[string]any{
+								"apiVersion":         "client.authentication.k8s.io/v1",
+								"command":            "/opt/azure/bootstrap/arc-token.sh",
+								"interactiveMode":    "Never",
+								"provideClusterInfo": false,
+							},
+						}
+
+					case datamodel.UseAzureMsiToMakeCSR:
+						return map[string]any{
+							"exec": map[string]any{
+								"apiVersion":         "client.authentication.k8s.io/v1",
+								"command":            "/opt/azure/bootstrap/azure-token.sh",
+								"interactiveMode":    "Never",
+								"provideClusterInfo": false,
+							},
+						}
+					}
+					if config.EnableSecureTLSBootstrapping || config.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
 						appID := config.CustomSecureTLSBootstrapAADServerAppID
 						if appID == "" {
-							appID = DefaultAksAadAppID
+							appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
 						}
 						return map[string]any{
 							"exec": map[string]any{
