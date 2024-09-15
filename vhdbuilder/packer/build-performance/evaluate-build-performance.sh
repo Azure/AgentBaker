@@ -40,9 +40,6 @@ jq --arg sig "${SIG_IMAGE_NAME}" \
 
 rm ${BUILD_PERF_DATA_FILE}
 
-jq -C . ${SIG_IMAGE_NAME}-build-performance.json
-echo -e "\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
-
 echo "##[group]Build Information"
 jq -C '. | {sig_image_name, architecture, build_id, build_datetime, build_status, branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
@@ -58,11 +55,11 @@ for script in "${scripts[@]}"; do
   echo "##[endgroup]"
 done
 
-#echo -e "\nRunning build performance evaluation program...\n"
-#mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
-#pushd vhdbuilder/packer/build-performance
-  #./buildPerformance
-  #rm ${SIG_IMAGE_NAME}-build-performance.json
-#popd
+echo -e "\nRunning build performance evaluation program...\n"
+mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
+pushd vhdbuilder/packer/build-performance
+  ./buildPerformance
+  rm ${SIG_IMAGE_NAME}-build-performance.json
+popd
 
-#echo -e "\nBuild performance evaluation script completed."
+echo -e "\nBuild performance evaluation script completed."
