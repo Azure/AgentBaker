@@ -13,6 +13,16 @@ import (
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
 
+func CreateKustoClient(kustoEndpoint string, kustoClientID string) (*kusto.Client, error) {
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientID)
+	client, err := kusto.New(kcsb)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Created ingestion client...\n\n")
+	return client, nil
+}
+
 func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
 
 	// Create Ingestor
