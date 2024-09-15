@@ -193,16 +193,58 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	if config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer() != "" {
 		files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"] = File{
 			Content: containerDMCRHosts(config),
-			Mode:    ReadOnlyWorld,
+			Mode:    ReadOnlyUser,
 		}
 	}
 
-	if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
+	switch config.BootstrappingMethod {
+	case datamodel.UseArcMsiToMakeCSR:
 		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
 			return nil, err2
 		}
-	} else {
-		useHardCodedKubeconfig(config, files)
+		if err2 := useArcTokenSh(config, files); err2 != nil {
+			return nil, err2
+		}
+
+	case datamodel.UseArcMsiDirectly:
+		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+			return nil, err2
+		}
+		if err2 := useArcTokenSh(config, files); err2 != nil {
+			return nil, err2
+		}
+
+	case datamodel.UseAzureMsiDirectly:
+		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+			return nil, err2
+		}
+		if err2 := useAzureTokenSh(config, files); err2 != nil {
+			return nil, err2
+		}
+
+	case datamodel.UseAzureMsiToMakeCSR:
+		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+			return nil, err2
+		}
+		if err2 := useAzureTokenSh(config, files); err2 != nil {
+			return nil, err2
+		}
+
+	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
+		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+			return nil, err2
+		}
+
+	default:
+		if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
+			if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+				return nil, err2
+			}
+		} else {
+			if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+				return nil, err2
+			}
+		}
 	}
 
 	for path, file := range files {
@@ -292,7 +334,7 @@ current-context: localclustercontext
 func contentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
-		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+		appID = DefaultAksAadAppID
 	}
 
 	return fmt.Sprintf(`#!/bin/bash
@@ -330,7 +372,7 @@ curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL |
 func contentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
-		appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+		appID = DefaultAksAadAppID
 	}
 
 	return fmt.Sprintf(`#!/bin/bash
@@ -395,7 +437,7 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 					if config.EnableSecureTLSBootstrapping || config.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
 						appID := config.CustomSecureTLSBootstrapAADServerAppID
 						if appID == "" {
-							appID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+							appID = DefaultAksAadAppID
 						}
 						return map[string]any{
 							"exec": map[string]any{
