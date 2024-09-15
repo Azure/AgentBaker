@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Azure/azure-kusto-go/kusto"
@@ -13,27 +14,30 @@ import (
 )
 
 func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
+
 	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
-		return err
+		log.Fatalf("Kusto ingestor could not be created.")
 	} else {
 		fmt.Printf("Created ingestor...\n\n")
 	}
+	defer ingestor.Close()
 
-	// Create ingestion context
-	ingestionCtx, cancelIngestion := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancelIngestion()
+	// Create Context
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	defer cancel()
 
 	// Ingest Data
-	_, err = ingestor.FromFile(ingestionCtx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
+	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
+		fmt.Printf("Ingestion failed: %v\n\n", err)
 		ingestor.Close()
-		return err
+		cancel()
+		log.Fatalf("Igestion command failed to be sent.\n")
 	} else {
-		fmt.Printf("Successfully ingested build performance data.\n\n")
+		fmt.Printf("Ingestion started successfully.\n\n")
 	}
-	defer ingestor.Close()
 
 	return nil
 }
