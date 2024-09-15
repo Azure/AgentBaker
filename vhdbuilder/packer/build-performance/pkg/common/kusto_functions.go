@@ -31,14 +31,12 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, b
 	// Ingest Data
 	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
-		fmt.Printf("Ingestion failed: %v\n\n", err)
 		ingestor.Close()
 		cancel()
-		log.Fatalf("Igestion command failed to be sent.\n")
+		log.Fatalf("Ingestion failed: %v\n\n", err)
 	} else {
 		fmt.Printf("Ingestion started successfully.\n\n")
 	}
-
 	return nil
 }
 
