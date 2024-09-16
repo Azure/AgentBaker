@@ -79,7 +79,7 @@ testPackagesInstalled() {
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for p in ${packages[*]}; do
+  while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
     if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
@@ -90,16 +90,16 @@ testPackagesInstalled() {
       OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
-    returnPackageVersions ${p} ${OS} ${OS_VERSION}
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
-    returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
-    for version in ${PACKAGE_VERSIONS[@]}; do
+    for version in "${PACKAGE_VERSIONS[@]}"; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
@@ -164,12 +164,13 @@ testPackagesInstalled() {
     done
 
     echo "---"
-  done
+  done <<<"$packages"
   echo "$test:Finish"
 }
 
 testImagesPulled() {
   test="testImagesPulled"
+  local componentsJsonContent="$2"
   echo "$test:Start"
   containerRuntime=$1
   if [ $containerRuntime == 'containerd' ]; then
@@ -181,25 +182,23 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(echo $2 | jq .ContainerImages[] --monochrome-output --compact-output)
+  imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
-  for imageToBePulled in ${imagesToBePulled[*]}; do
+  while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+    MULTI_ARCH_VERSIONS=()
+    updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
     if [[ ${amd64OnlyVersionsStr} != null ]]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
-    multiArchVersions=""
-    if [[ ${multiArchVersionsStr} != null ]]; then
-      multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-    fi
+
     if [[ $(isARM64) == 1 ]]; then
-      versions="${multiArchVersions}"
+      versions="${MULTI_ARCH_VERSIONS}"
     else
-      versions="${amd64OnlyVersions} ${multiArchVersions}"
+      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
@@ -212,7 +211,7 @@ testImagesPulled() {
     done
 
     echo "---"
-  done
+  done <<<"$imagesToBePulled"
   echo "$test:Finish"
 }
 
@@ -231,14 +230,14 @@ testImagesRetagged() {
   fi
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
-  for pulledImage in ${pulledImages[@]}; do
+  while IFS= read -r pulledImage; do
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
-  done
+  done <<<"$pulledImages"
   if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
     echo "all the images are:"
