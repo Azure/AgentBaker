@@ -650,8 +650,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.20"
-              }
+                "latestVersion": "1.7.22-ubuntu20.04u1"}
             ]
           },
           "r1804": {
