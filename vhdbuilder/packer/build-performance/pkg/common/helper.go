@@ -9,9 +9,7 @@ import (
 	"time"
 )
 
-// Setup program configuration in a concise manner
 func SetupConfig() (*Config, error) {
-	// Set env vars
 	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
 	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
 	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
@@ -21,7 +19,6 @@ func SetupConfig() (*Config, error) {
 	localBuildPerformanceFile := sigImageName + "-build-performance.json"
 	sourceBranch := os.Getenv("GIT_BRANCH")
 
-	// Check if all required environment variables are set
 	missingVar := false
 	for _, envVar := range []string{kustoTable, kustoEndpoint, kustoDatabase, kustoClientID, sigImageName, localBuildPerformanceFile, sourceBranch, kustoIngestionMapping} {
 		if envVar == "" {
@@ -45,7 +42,6 @@ func SetupConfig() (*Config, error) {
 	}, nil
 }
 
-// Encapsulate map creation in a function in order to keep main clean and readable
 func CreateDataMaps() *DataMaps {
 	return &DataMaps{
 		// LocalPerformanceDataMap will hold the performance data from the local JSON file
@@ -55,11 +51,6 @@ func CreateDataMaps() *DataMaps {
 		// RegressionMap will hold all identified regressions in the current build
 		RegressionMap: make(map[string]map[string]float64),
 	}
-}
-
-func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) {
-	maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
-	maps.ParseKustoData(queriedData)
 }
 
 // Prepare local JSON data for evaluation
@@ -119,6 +110,11 @@ func (maps *DataMaps) ParseKustoData(data *SKU) {
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
+}
+
+func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) {
+	maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
+	maps.ParseKustoData(queriedData)
 }
 
 // Helper function for EvaluatePerformance
