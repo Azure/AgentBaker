@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"net/http"
@@ -25,33 +25,37 @@ func main() {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", IMDS_ENDPOINT, nil)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 	req.Header.Set("Metadata", "true")
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 	defer resp.Body.Close()
 	inputJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	cseCmd, err := parser.Parse(inputJSON)
 	if err != nil {
-		log.Fatal(err)
-		return
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	if err := os.WriteFile(CSE_CMD, []byte(cseCmd), 0655); err != nil {
-		log.Fatal(err)
-		return
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	out, err := exec.Command("/bin/sh", CSE_CMD).Output()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	log.Default().Printf("CSE cmd output: %s\n", out)
+	fmt.Printf("CSE cmd output: %s\n", out)
 }
