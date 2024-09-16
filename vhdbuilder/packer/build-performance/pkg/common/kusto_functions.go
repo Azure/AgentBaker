@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/Azure/azure-kusto-go/kusto"
@@ -26,7 +25,7 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, b
 	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
-		log.Fatalf("Kusto ingestor could not be created.")
+		return err
 	}
 	defer ingestor.Close()
 
@@ -37,14 +36,12 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, b
 	// Ingest Data
 	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
-		ingestor.Close()
-		cancel()
-		log.Fatalf("Ingestion failed: %v\n\n", err)
+		return err
 	}
 	return nil
 }
 
-func QueryData(client *kusto.Client, sigImageName string, kustoDatabase string, kustoTable string) (*SKU, error) {
+func QueryData(client *kusto.Client, sigImageName string, kustoDatabase string) (*SKU, error) {
 	// Build Query
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
