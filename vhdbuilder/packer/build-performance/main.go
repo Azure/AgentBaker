@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
@@ -20,6 +21,7 @@ func main() {
 	}
 	defer client.Close()
 
+	fmt.Println("Ingesting data...")
 	err = common.IngestData(client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 	if err != nil {
 		log.Fatalf("ingestion failed: %v.", err)
