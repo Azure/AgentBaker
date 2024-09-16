@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
 )
@@ -21,13 +23,16 @@ func main() {
 	}
 	defer client.Close()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
 	fmt.Println("Ingesting data...")
-	err = common.IngestData(client, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
+	err = common.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 	if err != nil {
 		log.Fatalf("ingestion failed: %v.", err)
 	}
 
-	aggregatedSKUData, err := common.QueryData(client, config.SigImageName, config.KustoDatabase)
+	aggregatedSKUData, err := common.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
 		log.Fatalf("failed to query build performance data: %v.", err)
 	}
