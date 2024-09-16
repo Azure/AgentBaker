@@ -139,6 +139,10 @@ func (maps *DataMaps) EvaluatePerformance() {
 			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, stdev]
 			// Adding these together gives us the maximum time allowed for the section
 			maxTimeAllowed := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
+			if maxTimeAllowed == -1 {
+				fmt.Printf("No data found for %s in %s\n", section, scriptName)
+				continue
+			}
 			if timeElapsed > maxTimeAllowed {
 				if maps.RegressionMap[scriptName] == nil {
 					maps.RegressionMap[scriptName] = map[string]float64{}
