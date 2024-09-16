@@ -26,7 +26,7 @@ func main() {
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	ingestor, err := ingest.New(client, config.KustoDatabase, config.KustoTable)
