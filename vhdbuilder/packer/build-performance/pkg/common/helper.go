@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -105,11 +106,18 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 }
 
 // Parse Kusto data
+func (sku SKU) CleanData() string {
+	var auditedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
+	return auditedData
+}
+
+// Parse Kusto data
 func (maps *DataMaps) ParseKustoData(data *SKU) {
+	data.SKUPerformanceData = data.CleanData()
 	kustoData := []byte(data.SKUPerformanceData)
 	err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap)
 	if err != nil {
-		log.Fatalf("error parsing Kusto data")
+		log.Fatalf(err.Error())
 	}
 }
 
