@@ -11,8 +11,8 @@ for component in "${components[*]}"; do
 	if [[ ${amd64OnlyVersionsStr} != null ]]; then
 		amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
 	fi
-	latestVersions=($(echo "${component}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
-    previousLatestVersions=($(echo "${component}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+	latestVersions=(echo "${component}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion")
+    previousLatestVersions=(echo "${component}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion")
     for version in "${latestVersions[@]}"; do
       multiArchVersionsV2+=("${version}")
     done
