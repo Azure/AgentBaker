@@ -168,7 +168,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
-          "latestVersion": "v0.1.4"
+          "latestVersion": "v0.1.5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
