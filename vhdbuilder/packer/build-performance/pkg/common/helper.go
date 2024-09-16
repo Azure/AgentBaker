@@ -34,7 +34,7 @@ func SetupConfig() (*Config, error) {
 	}
 
 	return &Config{
-		KustoTable:                sigImageName,
+		KustoTable:                kustoTable,
 		KustoEndpoint:             kustoEndpoint,
 		KustoDatabase:             kustoDatabase,
 		KustoClientID:             kustoClientID,
@@ -106,7 +106,7 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 }
 
 // Parse Kusto data
-func (sku SKU) CleanData() string {
+func (sku *SKU) CleanData() string {
 	var auditedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
 	return auditedData
 }
@@ -127,6 +127,9 @@ func SumArray(arr []float64) float64 {
 	if len(arr) != 2 {
 		fmt.Printf("expected 2 elements in array, got %d", len(arr))
 	}
+	if arr[0] == -1 || arr[1] == -1 {
+		return -1
+	}
 	sum = arr[0] + arr[1]*2
 	return sum
 }
@@ -140,7 +143,7 @@ func (maps *DataMaps) EvaluatePerformance() {
 			// Adding these together gives us the maximum time allowed for the section
 			maxTimeAllowed := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
 			if maxTimeAllowed == -1 {
-				fmt.Printf("No data found for %s in %s\n", section, scriptName)
+				fmt.Printf("No data available for %s in %s\n", section, scriptName)
 				continue
 			}
 			if timeElapsed > maxTimeAllowed {
