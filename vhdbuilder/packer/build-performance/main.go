@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
+	"github.com/Azure/azure-kusto-go/kusto"
 	"github.com/Azure/azure-kusto-go/kusto/ingest"
 )
 
@@ -20,10 +21,12 @@ func main() {
 
 	maps := common.CreateDataMaps()
 
-	client, err := common.CreateKustoClient(config.KustoEndpoint, config.KustoClientID)
+	kcsb := kusto.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientID)
+	client, err := kusto.New(kcsb)
 	if err != nil {
-		log.Fatalf("kusto ingestion client could not be created.")
+		log.Fatalf("failed to create client: %v\n\n", err)
 	}
+	fmt.Printf("Created client...\n\n")
 	defer client.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -40,8 +43,6 @@ func main() {
 	// Ingest Data
 	_, err = ingestor.FromFile(ctx, config.LocalBuildPerformanceFile, ingest.IngestionMappingRef(config.KustoIngestionMapping, ingest.MultiJSON))
 	if err != nil {
-		ingestor.Close()
-		cancel()
 		log.Fatalf("Ingestion failed: %v\n\n", err)
 	} else {
 		fmt.Printf("Ingestion started successfully.\n\n")
