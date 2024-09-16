@@ -950,7 +950,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for containerd we only support one version at a time for each distro/release
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
+				containerdVersionValidator(getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
 			},
 		},
 	})
