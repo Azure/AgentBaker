@@ -924,8 +924,10 @@ func Test_ubuntu2204privatekubepkg(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
+			DisableNodeBootstrapperSoftwareTest: true,
+			Cluster:                             ClusterKubenet,
+
+			VHD: config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
