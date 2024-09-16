@@ -17,7 +17,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/metrics-server",
-          "latestVersion": "v0.7.1"
+          "latestVersion": "v0.7.2"
         }
       ]
     },
