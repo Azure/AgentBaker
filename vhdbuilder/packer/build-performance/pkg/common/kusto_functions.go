@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -19,7 +18,6 @@ func CreateKustoClient(kustoEndpoint string, kustoClientID string) (*kusto.Clien
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Created ingestion client...\n\n")
 	return client, nil
 }
 
@@ -29,8 +27,6 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, b
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
 		log.Fatalf("Kusto ingestor could not be created.")
-	} else {
-		fmt.Printf("Created ingestor...\n\n")
 	}
 	defer ingestor.Close()
 
@@ -44,8 +40,6 @@ func IngestData(client *kusto.Client, kustoDatabase string, kustoTable string, b
 		ingestor.Close()
 		cancel()
 		log.Fatalf("Ingestion failed: %v\n\n", err)
-	} else {
-		fmt.Printf("Ingestion started successfully.\n\n")
 	}
 	return nil
 }
