@@ -96,7 +96,6 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 	}
 }
 
-// Parse Kusto data
 func (sku *SKU) CleanData() string {
 	var auditedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
 	return auditedData
