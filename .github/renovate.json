@@ -36,7 +36,11 @@
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+    },
+    {
+      "matchPackageNames": ["aks/aks-node-ca-watcher"],
+      "assignees": ["UtheMan"]
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
