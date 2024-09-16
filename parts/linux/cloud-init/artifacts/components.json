@@ -455,6 +455,10 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
+          "latestVersion": "v3.17.1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
           "latestVersion": "v3.16.3"
         }
       ]
@@ -475,7 +479,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.7.0"
+          "latestVersion": "1.7.1",
+          "previousLatestVersion": "1.7.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
@@ -489,7 +494,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.7.0"
+          "latestVersion": "1.7.1",
+          "previousLatestVersion": "1.7.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
@@ -792,6 +798,21 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${version}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "azure-acr-credential-provider",
+      "downloadLocation": "/opt/credentialprovider/downloads",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "1.29.2",
+              "1.30.0"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${version}.tar.gz"
           }
         }
       }

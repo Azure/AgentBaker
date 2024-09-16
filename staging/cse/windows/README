@@ -13,8 +13,8 @@
 1. Run below commands to build a test package
 ```bash
 branchName="master"
-currentCseVersion="v0.0.46" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
-testCseVersion="v0.0.46.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
+currentCseVersion="v0.0.48" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
+testCseVersion="v0.0.48.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
 url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/windows"
 
 mkdir -p temp-work-folder/aks-windows-cse
@@ -57,6 +57,11 @@ popd
 
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+
+## v0.0.48
+- chore: refine collect-windows-logs.ps1 to enable crt by default #4863
+- chore: add windowsnodereset.log in loggenerator.ps1 #4869
+- feat: respect nodepool tags for disabling kubelet serving certificate rotation #4911
 
 ## v0.0.46
 - feat: add log events in Windows CSE #4657

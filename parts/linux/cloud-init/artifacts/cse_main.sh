@@ -200,13 +200,6 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
-# Before setting up kubelet, ensure IMDS restriction iptables rules so that all Pods can get desired IMDS access
-if [ "${ENABLE_IMDS_RESTRICTION}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureIMDSRestrictionRule" ensureIMDSRestrictionRule "${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-else
-    logs_to_events "AKS.CSE.disableIMDSRestriction" disableIMDSRestriction
-fi
-
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
@@ -218,6 +211,11 @@ fi
 
 # for drop ins, so they don't all have to check/create the dir
 mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+# we do this here since this function has the potential to mutate kubelet flags, 
+# kubelet config file, and node labels if a special tag has been added to the underlying VM. 
+# kubelet config file content is decoded and written to disk by configureK8s, thus we need to make sure the content is correct beforehand.
+logs_to_events "AKS.CSE.disableKubeletServingCertificateRotationForTags" disableKubeletServingCertificateRotationForTags
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 

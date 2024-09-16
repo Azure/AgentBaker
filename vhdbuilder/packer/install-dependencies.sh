@@ -279,6 +279,13 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         installOras "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "azure-acr-credential-provider")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
@@ -476,16 +483,6 @@ fi
 fi
 capture_benchmark "download_gpu_device_plugin"
 
-# Kubelet credential provider plugins
-CREDENTIAL_PROVIDER_VERSIONS="
-1.29.2
-1.30.0
-"
-for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    downloadCredentialProvider
-    echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
@@ -501,7 +498,6 @@ fi
 
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-
 
 capture_benchmark "configure_telemetry_create_logging_directory"
 
