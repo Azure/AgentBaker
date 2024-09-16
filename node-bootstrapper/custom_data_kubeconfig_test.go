@@ -17,7 +17,7 @@ const (
 
 func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
 	t.Helper()
-	files, err := customData(nbc)
+	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, bootstrapConfigFile)
 	actual := getFile(t, nbc, kubeConfigFile, 0644)
@@ -26,7 +26,7 @@ func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguratio
 
 func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
 	t.Helper()
-	files, err := customData(nbc)
+	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, kubeConfigFile)
 	actual := getFile(t, nbc, bootstrapConfigFile, 0644)
@@ -35,7 +35,7 @@ func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingCon
 
 func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
 	t.Helper()
-	files, err := customData(nbc)
+	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
 	actual := getFile(t, nbc, arcTokenSh, 0755)
@@ -74,7 +74,7 @@ curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL |
 
 func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
 	t.Helper()
-	files, err := customData(nbc)
+	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, arcTokenSh)
 	actual := getFile(t, nbc, azureTokenSh, 0755)

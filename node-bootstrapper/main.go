@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -74,7 +76,7 @@ func Provision(ctx context.Context) error {
 		return err
 	}
 
-	if err := writeCustomData(config); err != nil {
+	if err := writeCustomData(ctx, config); err != nil {
 		return fmt.Errorf("write custom data: %w", err)
 	}
 
@@ -117,10 +119,25 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 		return fmt.Errorf("cse script: %w", err)
 	}
 
-	slog.Info(fmt.Sprintf("CSE script: %s", cse))
-
-	// TODO: add Windows support
-	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
+	var cmd *exec.Cmd
+	if config.AgentPoolProfile.IsWindows() {
+		systemDrive := os.Getenv("SYSTEMDRIVE")
+		slog.Info(fmt.Sprintf("systemDrive: %s\n\n", systemDrive))
+		if systemDrive == "" {
+			systemDrive = "C:"
+		}
+		script := cse
+		script = strings.ReplaceAll(script, "%SYSTEMDRIVE%", systemDrive)
+		script = strings.ReplaceAll(script, "\"", "")
+		script, found := strings.CutPrefix(script, "powershell.exe -ExecutionPolicy Unrestricted -command ")
+		if !found {
+			return fmt.Errorf("expected windows script prefix not found: %w", err)
+		}
+		slog.Info(fmt.Sprintf("CSE script: %s\n\n", script))
+		cmd = exec.CommandContext(ctx, "powershell.exe", "-ExecutionPolicy", "Unrestricted", "-command", script)
+	} else {
+		cmd = exec.CommandContext(ctx, "/bin/bash", "-c", cse)
+	}
 	cmd.Dir = "/"
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -140,10 +157,23 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 	return nodeBootstrapping.CSE, nil
 }
 
+func OldCustomData(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	ab, err := agent.NewAgentBaker()
+	if err != nil {
+		return "", err
+	}
+
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, config)
+	if err != nil {
+		return "", err
+	}
+	return nodeBootstrapping.CustomData, nil
+}
+
 // re-implement CustomData + cloud-init logic from AgentBaker
 // only for files not copied during build process.
-func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
-	files, err := customData(config)
+func writeCustomData(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {
+	files, err := customData(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -166,7 +196,23 @@ type File struct {
 	Mode    os.FileMode
 }
 
-func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]File, error) {
+func customData(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (map[string]File, error) {
+	if config.AgentPoolProfile.IsWindows() {
+		customData, err2 := OldCustomData(ctx, config)
+		if err2 != nil {
+			log.Fatal("error:", err2)
+		}
+		customDataDecoded, err2 := base64.StdEncoding.DecodeString(customData)
+		if err2 != nil {
+			return nil, err2
+		}
+		files := map[string]File{"/AzureData/CustomData.bin": File{
+			Content: string(customDataDecoded),
+			Mode:    ReadOnlyWorld,
+		}}
+		return files, nil
+	}
+
 	contentDockerDaemon, err := contentDockerDaemonJSON(config)
 	if err != nil {
 		return nil, fmt.Errorf("content docker daemon json: %w", err)
