@@ -9,7 +9,7 @@ import (
 func main() {
 	config, err := common.SetupConfig()
 	if err != nil {
-		log.Fatalf("could not set up config")
+		log.Fatalf("could not set up config: %v", err)
 	}
 
 	maps := common.CreateDataMaps()
@@ -25,9 +25,9 @@ func main() {
 		log.Fatalf("ingestion failed: %v.", err)
 	}
 
-	aggregatedSKUData, err := common.QueryData(client, config.SigImageName, config.KustoDatabase, config.KustoTable)
+	aggregatedSKUData, err := common.QueryData(client, config.SigImageName, config.KustoDatabase)
 	if err != nil {
-		log.Fatalf("failed to query build performance data for %s.\n\n", config.SigImageName)
+		log.Fatalf("failed to query build performance data: %v.", err)
 	}
 
 	maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, aggregatedSKUData)
