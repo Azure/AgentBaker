@@ -5,7 +5,7 @@ lsb_release() {
 
 readPackage() {
     local packageName=$1
-    package=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
+    package=$(jq ".Packages" "spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
     echo "$package"
 }
 
@@ -17,7 +17,7 @@ Describe 'cse_install.sh'
             echo "mock logs to events calling with $1"
         }
         NEEDS_CONTAINERD="true"
-        COMPONENTS_FILEPATH="./parts/linux/cloud-init/artifacts/components.json"
+        COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
         It 'returns expected output for successful installation of containerd in UBUNTU 20.04'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")

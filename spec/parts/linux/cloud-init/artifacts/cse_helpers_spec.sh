@@ -5,13 +5,13 @@ lsb_release() {
 
 readPackage() {
     local packageName=$1
-    package=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
+    package=$(jq ".Packages" "spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
     echo "$package"
 }
 
 readContainerImage() {
     local containerImageName=$1
-    containerImage=$(jq ".ContainerImages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.downloadURL | contains(\"$containerImageName\"))")
+    containerImage=$(jq ".ContainerImages" "spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.downloadURL | contains(\"$containerImageName\"))")
     echo "$containerImage"
 }
 

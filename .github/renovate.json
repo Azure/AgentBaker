@@ -69,7 +69,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), os=ubuntu, release=18\\.04\",\\s*\"versions\":\\s*\\[\\s*\"(?<currentValue>[^\"]+)\""
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=18\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb1804",
       "versioningTemplate": "deb",
@@ -83,7 +83,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"[^}]*"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2004",
       "versioningTemplate": "deb",
@@ -97,7 +97,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2204",
       "versioningTemplate": "deb",
@@ -111,7 +111,7 @@
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        "\"renovateTag\":\\s*\"name=(?<packageName>[^,]+), os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "custom.deb2404",
       "versioningTemplate": "deb",
