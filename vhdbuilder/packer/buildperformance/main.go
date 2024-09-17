@@ -33,14 +33,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Data ingested for %s", config.SigImageName)
+		fmt.Printf("Data ingested for %s\n", config.SigImageName)
 	}
 
 	queryData, err := service.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Queried aggregated performance data for %s", config.SigImageName)
+	fmt.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 
 	err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData)
 	if err != nil {
