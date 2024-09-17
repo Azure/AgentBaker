@@ -16,11 +16,12 @@ func SetupConfig() (*Config, error) {
 	kustoClientID := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
 	kustoIngestionMapping := os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING")
 	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	localBuildPerformanceFile := sigImageName + "-build-performance.json"
 	sourceBranch := os.Getenv("GIT_BRANCH")
+	localBuildPerformanceFile := sigImageName + "-build-performance.json"
 
 	missingVar := false
-	for _, envVar := range []string{kustoTable, kustoEndpoint, kustoDatabase, kustoClientID, sigImageName, localBuildPerformanceFile, sourceBranch, kustoIngestionMapping} {
+	for _, envVar := range []string{kustoTable, kustoEndpoint, kustoDatabase, kustoClientID,
+		sigImageName, localBuildPerformanceFile, sourceBranch, kustoIngestionMapping} {
 		if envVar == "" {
 			fmt.Printf("Missing environment variable \"%s\".", envVar)
 			missingVar = true
