@@ -69,13 +69,13 @@
           ]
         },
         {
-          "version": "v1.6.0",
+          "version": "v1.6.5",
           "binaries": [
             "dropgz"
           ]
         },
         {
-          "version": "v1.6.5",
+          "version": "v1.6.7",
           "binaries": [
             "dropgz"
           ]
@@ -89,8 +89,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.5",
-          "previousLatestVersion": "v1.6.0"
+          "latestVersion": "v1.6.7",
+          "previousLatestVersion": "v1.6.5"
         }
       ]
     },
@@ -109,8 +109,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.5",
-          "previousLatestVersion": "v1.6.0"
+          "latestVersion": "v1.6.7",
+          "previousLatestVersion": "v1.6.5"
         }
       ],
       "prefetchOptimizations": [
@@ -127,13 +127,13 @@
           ]
         },
         {
-          "version": "v1.6.0",
+          "version": "v1.6.5",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
         },
         {
-          "version": "v1.6.5",
+          "version": "v1.6.7",
           "binaries": [
             "usr/local/bin/azure-cns"
           ]
@@ -740,7 +740,8 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.3"
+                "latestVersion": "1.6.7",
+                "previousLatestVersion": "1.6.3"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
