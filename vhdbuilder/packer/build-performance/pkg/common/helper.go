@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Set conditions for program to run successfully wtih SetupConfig and CreateDataMaps functions
 func SetupConfig() (*Config, error) {
 	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
 	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
@@ -53,6 +54,7 @@ func CreateDataMaps() *DataMaps {
 	}
 }
 
+// Prepare performance data for evaluation with DecodeLocalPerformanceData, ParseKustoData, and associated helper functions
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -78,7 +80,7 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 
 	err = maps.ConvertTimestampsToSeconds(holdingMap)
 	if err != nil {
-		return fmt.Errorf("convertSecondsToTimestamps failed: %w", err)
+		return fmt.Errorf("failed to convert timestamps for floats for evaluation: %w", err)
 	}
 	return nil
 }
@@ -99,12 +101,6 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 	return nil
 }
 
-func (sku *SKU) CleanData() string {
-	var auditedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
-	return auditedData
-}
-
-// Parse Kusto data
 func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	data.SKUPerformanceData = data.CleanData()
 	kustoData := []byte(data.SKUPerformanceData)
@@ -115,6 +111,11 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	return nil
 }
 
+func (sku *SKU) CleanData() string {
+	var auditedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
+	return auditedData
+}
+
 func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
 	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
 	if err != nil {
@@ -122,25 +123,12 @@ func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceF
 	}
 	err = maps.ParseKustoData(queriedData)
 	if err != nil {
-		return fmt.Errorf("error parsing Kusto data: %w", err)
+		return fmt.Errorf("error parsing kusto data: %w", err)
 	}
 	return nil
 }
 
-// Helper function for EvaluatePerformance
-func SumArray(arr []float64) float64 {
-	var sum float64
-	if len(arr) != 2 {
-		fmt.Printf("expected 2 elements in array, got %d", len(arr))
-	}
-	if arr[0] == -1 || arr[1] == -1 {
-		return -1
-	}
-	sum = arr[0] + arr[1]*2
-	return sum
-}
-
-// Evaluate performance data
+// After preparing performance data, evaluate it with EvaluatePerformance and associated helper functions
 func (maps *DataMaps) EvaluatePerformance() error {
 	// Iterate over LocalPerformanceDataMap and compare it against identical sections in QueriedPerformanceDataMap
 	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
@@ -172,7 +160,18 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	return nil
 }
 
-// Print regressions identified during evaluation
+func SumArray(arr []float64) float64 {
+	var sum float64
+	if len(arr) != 2 {
+		fmt.Printf("expected 2 elements in array, got %d", len(arr))
+	}
+	if arr[0] == -1 || arr[1] == -1 {
+		return -1
+	}
+	sum = arr[0] + arr[1]*2
+	return sum
+}
+
 func (maps DataMaps) PrintRegressions() error {
 	prefix := ""
 	indent := "  "
