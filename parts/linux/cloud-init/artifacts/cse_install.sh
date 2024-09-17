@@ -219,8 +219,9 @@ downloadContainerdWasmShims() {
     echo "before the if statement alison"
     echo "CONTAINERD_WASM_FILEPATH: $CONTAINERD_WASM_FILEPATH" 
     # local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
-    # curl -fSLv https://acs-mirror.azureedge.net/containerd-wasm-shims/v0.5.1/linux/amd64/containerd-shim-spin-v1
+    # curl -fSLv -O "https://acs-mirror.azureedge.net/containerd-wasm-shims/v0.5.1/linux/amd64/containerd-shim-spin-v1"
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
+        echo "alison inside the if statement" 
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -229,11 +230,17 @@ downloadContainerdWasmShims() {
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             WASMSHIMPIDS+=($!)
         fi
+        echo "still in the if"
+        echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
     fi   
+    echo "outside the if"
 }
 
 UpdateDownloadedWasmShimsPermissions() {
     shim_version=$1
+    echo "alison here - UpdateDownloadedWasmShimsPermissions - shim_version: $shim_version"
+    echo "containerd wasm file path: $CONTAINERD_WASM_FILEPATH"
+    echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
     wait ${WASMSHIMPIDS[@]}
     binary_version="$(echo "${shim_version}" | tr . -)"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
