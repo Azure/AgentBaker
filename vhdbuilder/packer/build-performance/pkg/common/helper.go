@@ -78,9 +78,8 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 
 	err = maps.ConvertTimestampsToSeconds(holdingMap)
 	if err != nil {
-		return fmt.Errorf(err.Error())
+		return fmt.Errorf("ConvertSecondsToTimestamps failed: %s", err)
 	}
-
 	return nil
 }
 
@@ -119,11 +118,11 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
 	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
 	if err != nil {
-		return fmt.Errorf("error decoding local performance data: %s", err.Error())
+		return fmt.Errorf("error decoding local performance data: %v", err)
 	}
 	err = maps.ParseKustoData(queriedData)
 	if err != nil {
-		return fmt.Errorf("error parsing Kusto data: %s", err.Error())
+		return fmt.Errorf("error parsing Kusto data: %v", err)
 	}
 	return nil
 }
