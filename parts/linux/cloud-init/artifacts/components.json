@@ -803,19 +803,6 @@
       }
     },
     {
-<<<<<<< HEAD
-      "name": "containerd-wasm-shims",
-      "downloadLocation": "/usr/local/bin",
-      "downloadURIs": {
-        "default": {
-          "current": {
-            "versions": [
-              "0.3.0",
-              "0.5.1",
-              "0.8.0"
-            ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}"
-=======
       "name": "azure-acr-credential-provider",
       "downloadLocation": "/opt/credentialprovider/downloads",
       "downloadURIs": {
@@ -832,7 +819,22 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${version}.tar.gz"
->>>>>>> master
+          }
+        }
+      }
+    },
+    {
+      "name": "containerd-wasm-shims",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "0.3.0",
+              "0.5.1",
+              "0.8.0"
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}"
           }
         }
       }

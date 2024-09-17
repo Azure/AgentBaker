@@ -217,7 +217,7 @@ installingContainerdWasmShims(){
     wait ${WASMSHIMPIDS[@]}
     for version in $package_versions; do
         echo "inside 2nd for loop - version: $version"
-        updateDownloadedWasmShimsPermissions() $version
+        updateDownloadedWasmShimsPermissions $version
     done
 }
 
