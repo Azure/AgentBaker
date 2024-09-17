@@ -195,9 +195,27 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
+
+installingContainerdWasmShims(){
+    download_location=${1}
+    containerd_wasm_url=${2}
+    package_versions=${3}
+    echo "inside installingContainerdWasmShims - download_location: $download_location, containerd_wasm_url: $containerd_wasm_url, package_versions: $package_versions"
+    for version in $package_versions; do
+        echo "inside for loop - version: $version"
+        downloadContainerdWasmShims $download_location $containerd_wasm_url $version
+    done
+    wait ${WASMSHIMPIDS[@]}
+    for version in $package_versions; do
+        echo "inside 2nd for loop - version: $version"
+        updateDownloadedWasmShimsPermissions() $version
+    done
+}
+
 downloadContainerdWasmShims() {
-    containerd_wasm_url=$2
-    shim_version=$3
+    download_location=${1}
+    containerd_wasm_url=${2}
+    shim_version=${3}
     binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
     echo "inside downloadContainerdWasmShims - containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version"
 
@@ -218,8 +236,6 @@ downloadContainerdWasmShims() {
 
     echo "before the if statement alison"
     echo "CONTAINERD_WASM_FILEPATH: $CONTAINERD_WASM_FILEPATH" 
-    # local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
-    # curl -fSLv -O "https://acs-mirror.azureedge.net/containerd-wasm-shims/v0.5.1/linux/amd64/containerd-shim-spin-v1"
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
         echo "alison inside the if statement" 
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -240,12 +256,11 @@ p   printf "%s\n" "$output"
     echo $output 
 }
 
-UpdateDownloadedWasmShimsPermissions() {
+updateDownloadedWasmShimsPermissions() {
     shim_version=$1
     echo "alison here - UpdateDownloadedWasmShimsPermissions - shim_version: $shim_version"
     echo "containerd wasm file path: $CONTAINERD_WASM_FILEPATH"
     echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
-    # wait ${WASMSHIMPIDS[@]}
     binary_version="$(echo "${shim_version}" | tr . -)"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1"

@@ -278,15 +278,12 @@ for p in ${packages[*]}; do
       done
       ;;
     "containerd-wasm-shims")
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
-      done
-      wait ${WASMSHIMPIDS[@]}
-      for version in ${PACKAGE_VERSIONS[@]}; do
-        UpdateDownloadedWasmShimsPermissions "${version}"
-      done
+      #for version in ${PACKAGE_VERSIONS[@]}; do
+      #  evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+      #  downloadContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${version}"
+      #  echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
+      #done
+      installingContainerdWasmShims "${downloadDir}" "${evaluatedURL}" ${PACKAGE_VERSIONS[@]}
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl
