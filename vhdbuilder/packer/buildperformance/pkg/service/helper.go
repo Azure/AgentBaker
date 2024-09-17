@@ -155,9 +155,10 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
+	} else {
+		fmt.Printf("No regressions found for this pipeline run\n\n")
+		return nil
 	}
-	fmt.Printf("No regressions found for this pipeline run\n\n")
-	return nil
 }
 
 func SumArray(arr []float64) float64 {
