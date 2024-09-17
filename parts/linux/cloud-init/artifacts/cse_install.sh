@@ -207,9 +207,11 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 # function call from install-dependnecies will create a new shell process.
 installingContainerdWasmShims(){
     download_location=${1}
-    containerd_wasm_url=${2}
-    shift 2  # Shift off the first two arguments (download_location and containerd_wasm_url)
+    PACKAGE_DOWNLOAD_URL=${2}
+    shift 2
     package_versions=("$@")  # Capture the remaining arguments as an array
+    containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+
     echo "inside installingContainerdWasmShims - download_location: $download_location, containerd_wasm_url: $containerd_wasm_url, package_versions: $package_versions"
     for version in $package_versions; do
         echo "inside for loop - version: $version"
