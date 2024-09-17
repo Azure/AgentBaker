@@ -550,7 +550,7 @@
               "0.5.1",
               "0.8.0"
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/${version}/linux/${CPU_ARCH}"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}"
           }
         }
       }

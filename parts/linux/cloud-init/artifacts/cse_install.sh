@@ -199,10 +199,12 @@ downloadContainerdWasmShims() {
     containerd_wasm_url=$2
     shim_version=$3
     binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
+    echo "inside downloadContainerdWasmShims - containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version"
 
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        echo "inside oras download - shouldn't be in here ALISON"
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$CONTAINERD_WASM_FILEPATH/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
         if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" ]; then
@@ -214,6 +216,10 @@ downloadContainerdWasmShims() {
         return
     fi
 
+    echo "before the if statement alison"
+    echo "CONTAINERD_WASM_FILEPATH: $CONTAINERD_WASM_FILEPATH" 
+    # local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/${CPU_ARCH}"
+    # curl -fSLv https://acs-mirror.azureedge.net/containerd-wasm-shims/v0.5.1/linux/amd64/containerd-shim-spin-v1
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
