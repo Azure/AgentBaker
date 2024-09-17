@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Azure/azure-kusto-go/kusto"
 	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
@@ -22,13 +23,13 @@ func CreateKustoClient(kustoEndpoint string, kustoClientID string) (*kusto.Clien
 func IngestData(client *kusto.Client, ctx context.Context, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create ingestor: %w", err)
 	}
 	defer ingestor.Close()
 
 	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to ingest build performance data: %w", err)
 	}
 	return nil
 }
@@ -39,7 +40,7 @@ func QueryData(client *kusto.Client, ctx context.Context, sigImageName string, k
 
 	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query kusto database: %w", err)
 	}
 	defer iter.Stop()
 
@@ -47,16 +48,16 @@ func QueryData(client *kusto.Client, ctx context.Context, sigImageName string, k
 	err = iter.DoOnRowOrError(
 		func(row *table.Row, e *kustoErrors.Error) error {
 			if e != nil {
-				return err
+				return fmt.Errorf("error while iterating over query table: %w", e)
 			}
 			if err := row.ToStruct(&data); err != nil {
-				return err
+				return fmt.Errorf("failed to convert query row to struct: %w", err)
 			}
 			return nil
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
 	return &data, nil
 }
