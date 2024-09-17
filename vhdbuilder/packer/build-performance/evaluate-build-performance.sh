@@ -55,9 +55,9 @@ for script in "${scripts[@]}"; do
   echo "##[endgroup]"
 done
 
-echo -e "\nRunning build performance evaluation program...\n"
 mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/build-performance
 pushd vhdbuilder/packer/build-performance
+  echo -e "\nRunning build performance evaluation program...\n"
   ./buildPerformance
   rm ${SIG_IMAGE_NAME}-build-performance.json
 popd

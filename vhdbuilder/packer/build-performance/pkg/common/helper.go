@@ -150,7 +150,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		}
 	}
 	if len(maps.RegressionMap) > 0 {
-		fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
+		fmt.Printf("Regressions listed below. Sections that took longer than 2 stdev over the mean are listed. Values are the excess time over 2 stdev.\n\n")
 		err := maps.PrintRegressions()
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
