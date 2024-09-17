@@ -18,7 +18,7 @@ func main() {
 
 	client, err := common.CreateKustoClient(config.KustoEndpoint, config.KustoClientID)
 	if err != nil {
-		log.Fatalf("kusto ingestion client could not be created: %v.", err)
+		panic(err)
 	}
 	defer client.Close()
 
@@ -28,16 +28,22 @@ func main() {
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
 		err = common.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 		if err != nil {
-			log.Fatalf("ingestion failed: %v.", err)
+			panic(err)
 		}
 	}
 
 	queryData, err := common.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
-		log.Fatalf("failed to query build performance data: %v.", err)
+		panic(err)
 	}
 
-	maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData)
+	err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData)
+	if err != nil {
+		panic(err)
+	}
 
-	maps.EvaluatePerformance()
+	err = maps.EvaluatePerformance()
+	if err != nil {
+		panic(err)
+	}
 }
