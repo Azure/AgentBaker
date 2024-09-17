@@ -125,6 +125,7 @@ $global:KubeproxyConfigArgs = @( "--metrics-bind-address=0.0.0.0:10249" )
 $global:KubeproxyFeatureGates = @(  )
 
 $global:UseManagedIdentityExtension = "false"
+$global:SkipExternalHnsNetwork = $false
 $global:UseInstanceMetadata = "true"
 
 $global:LoadBalancerSku = "Standard"
@@ -402,8 +403,13 @@ try
             -IdentitySystem "azure_ad"
     }
 
-    New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-    
+    if ( -not ( $global:SkipExternalHnsNetwork ) ) {
+        Write-Log "Setting up ExternalHnsNetwork"
+        New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+    } else {
+        Write-Log "Skipping ExternalHnsNetwork setup"
+    }
+
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 

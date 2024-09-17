@@ -646,6 +646,7 @@ type KubernetesConfig struct {
 	DNSServiceIP                      string            `json:"dnsServiceIP,omitempty"`
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
+	SkipExternalHnsNetwork            bool              `json:"skipExternalHnsNetwork,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
 	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //nolint: lll // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`

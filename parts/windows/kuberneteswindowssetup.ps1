@@ -129,6 +129,7 @@ $global:KubeproxyConfigArgs = @( {{GetKubeproxyConfigKeyValsPsh}} )
 $global:KubeproxyFeatureGates = @( {{GetKubeProxyFeatureGatesPsh}} )
 
 $global:UseManagedIdentityExtension = "{{GetVariable "useManagedIdentityExtension"}}"
+$global:SkipExternalHnsNetwork = {{GetVariable "skipExternalHnsNetwork"}}
 $global:UseInstanceMetadata = "{{GetVariable "useInstanceMetadata"}}"
 
 $global:LoadBalancerSku = "{{GetVariable "loadBalancerSku"}}"
@@ -412,8 +413,13 @@ try
             -IdentitySystem "{{ GetIdentitySystem }}"
     }
 
-    New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-    
+    if ( -not ( $global:SkipExternalHnsNetwork ) ) {
+        Write-Log "Setting up ExternalHnsNetwork"
+        New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
+    } else {
+        Write-Log "Skipping ExternalHnsNetwork setup"
+    }
+
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
