@@ -295,7 +295,7 @@ while IFS= read -r p; do
       #  downloadContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${version}"
       #  echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
       #done
-      installingContainerdWasmShims "${downloadDir}" "${evaluatedURL}" ${PACKAGE_VERSIONS[@]}
+      installingContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${PACKAGE_VERSIONS[@]}"
       echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     "kubernetes-binaries")
