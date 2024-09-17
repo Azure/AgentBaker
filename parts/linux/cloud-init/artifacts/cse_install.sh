@@ -195,6 +195,9 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
+# Install, download, update wasm must all be run from the same function call
+# in order to ensure WASMSHIMPIDS persists correctly since in bash a new
+# function call from install-dependnecies will create a new shell process.
 installingContainerdWasmShims(){
     download_location=${1}
     containerd_wasm_url=${2}
@@ -244,7 +247,7 @@ downloadContainerdWasmShims() {
     fi
 }
 
-updateDownloadedWasmShimsPermissions() {
+updateContainerdWasmShimsPermissions() {
     shim_version=$1
     binary_version="$(echo "${shim_version}" | tr . -)"
     echo "inside updateDownloadedWasmShimsPermissions - shim_version: $shim_version, binary_version: $binary_version"

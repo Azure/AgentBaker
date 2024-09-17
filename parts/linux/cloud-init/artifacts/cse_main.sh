@@ -131,6 +131,8 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
+# todo (alburgess) get clarification on this downloadContainerdWasmShims function call 
+# guessing this is the NIC function call - will I need to process the versions from components.json?
 if [ "${IS_KRUSTLET}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
 fi

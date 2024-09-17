@@ -147,7 +147,7 @@ steps:
       -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
       -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
       ${CONTAINER_IMAGE} make -f packer.mk run-packer
-    retryCountOnTaskFailure: 1
+    retryCountOnTaskFailure: 2
     displayName: Building VHD
   - bash: |
       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
