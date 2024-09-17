@@ -222,6 +222,7 @@ installingContainerdWasmShims(){
         status=$?
         if [ $status -ne 0 ]; then
             echo "Process $pid failed with exit status $status"
+            echo "$(cat $CURL_OUTPUT)"
             exit $status
         fi
     done
