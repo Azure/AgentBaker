@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -54,19 +53,17 @@ func CreateDataMaps() *DataMaps {
 	}
 }
 
-// Prepare local JSON data for evaluation
-func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) {
-
+func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Fatalf("could not open %s", filePath)
+		return fmt.Errorf("could not open %s", filePath)
 	}
 	defer file.Close()
 
 	var m map[string]json.RawMessage
 	err = json.NewDecoder(file).Decode(&m)
 	if err != nil {
-		log.Fatalf("error decoding %s", filePath)
+		return fmt.Errorf("error decoding %s", filePath)
 	}
 
 	key := "scripts"
@@ -76,25 +73,31 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) {
 
 	err = json.Unmarshal(raw, &holdingMap)
 	if err != nil {
-		log.Fatalf("error unmarshalling into temporary holding map")
+		return fmt.Errorf("error unmarshalling into temporary holding map")
 	}
 
-	maps.ConvertTimestampsToSeconds(holdingMap)
+	err = maps.ConvertTimestampsToSeconds(holdingMap)
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+
+	return nil
 }
 
-func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[string]string) {
+func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[string]string) error {
 	for key, value := range holdingMap {
 		script := map[string]float64{}
 		for section, timeElapsed := range value {
 			t, err := time.Parse("15:04:05", timeElapsed)
 			if err != nil {
-				log.Fatalf("error parsing time in local build JSON data")
+				return fmt.Errorf("error parsing time in local build JSON data")
 			}
 			d := t.Sub(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()))
 			script[section] = d.Seconds()
 		}
 		maps.LocalPerformanceDataMap[key] = script
 	}
+	return nil
 }
 
 func (sku *SKU) CleanData() string {
@@ -103,18 +106,26 @@ func (sku *SKU) CleanData() string {
 }
 
 // Parse Kusto data
-func (maps *DataMaps) ParseKustoData(data *SKU) {
+func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	data.SKUPerformanceData = data.CleanData()
 	kustoData := []byte(data.SKUPerformanceData)
 	err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap)
 	if err != nil {
-		log.Fatalf(err.Error())
+		return fmt.Errorf("error unmarshalling Kusto data")
 	}
+	return nil
 }
 
-func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) {
-	maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
-	maps.ParseKustoData(queriedData)
+func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
+	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
+	if err != nil {
+		return fmt.Errorf("error decoding local performance data: %s", err.Error())
+	}
+	err = maps.ParseKustoData(queriedData)
+	if err != nil {
+		return fmt.Errorf("error parsing Kusto data: %s", err.Error())
+	}
+	return nil
 }
 
 // Helper function for EvaluatePerformance
@@ -131,7 +142,7 @@ func SumArray(arr []float64) float64 {
 }
 
 // Evaluate performance data
-func (maps *DataMaps) EvaluatePerformance() {
+func (maps *DataMaps) EvaluatePerformance() error {
 	// Iterate over LocalPerformanceDataMap and compare it against identical sections in QueriedPerformanceDataMap
 	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
 		for section, timeElapsed := range scriptData {
@@ -151,23 +162,27 @@ func (maps *DataMaps) EvaluatePerformance() {
 			}
 		}
 	}
-	if len(maps.RegressionMap) == 0 {
-		fmt.Printf("No regressions found for this pipeline run\n\n")
-	} else {
+	if len(maps.RegressionMap) > 0 {
 		fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
-		maps.PrintRegressions()
+		err := maps.PrintRegressions()
+		if err != nil {
+			return fmt.Errorf("error printing regressions: %v", err.Error())
+		}
 	}
+	fmt.Printf("No regressions found for this pipeline run\n\n")
+	return nil
 }
 
 // Print regressions identified during evaluation
-func (maps DataMaps) PrintRegressions() {
+func (maps DataMaps) PrintRegressions() error {
 	prefix := ""
 	indent := "  "
 
 	data, err := json.MarshalIndent(maps.RegressionMap, prefix, indent)
 	if err != nil {
-		log.Fatalf("error marshalling regression data")
+		return fmt.Errorf("error marshalling regression data")
 	}
 
 	fmt.Println(string(data))
+	return nil
 }
