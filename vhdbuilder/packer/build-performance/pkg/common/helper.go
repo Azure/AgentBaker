@@ -56,14 +56,14 @@ func CreateDataMaps() *DataMaps {
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("could not open %s", filePath)
+		return fmt.Errorf("could not open %w", err)
 	}
 	defer file.Close()
 
 	var m map[string]json.RawMessage
 	err = json.NewDecoder(file).Decode(&m)
 	if err != nil {
-		return fmt.Errorf("error decoding %s", filePath)
+		return fmt.Errorf("error decoding %w", err)
 	}
 
 	key := "scripts"
@@ -78,7 +78,7 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 
 	err = maps.ConvertTimestampsToSeconds(holdingMap)
 	if err != nil {
-		return fmt.Errorf("ConvertSecondsToTimestamps failed: %s", err)
+		return fmt.Errorf("convertSecondsToTimestamps failed: %w", err)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 		for section, timeElapsed := range value {
 			t, err := time.Parse("15:04:05", timeElapsed)
 			if err != nil {
-				return fmt.Errorf("error parsing time in local build JSON data")
+				return fmt.Errorf("error parsing time in local build JSON data: %w", err)
 			}
 			d := t.Sub(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()))
 			script[section] = d.Seconds()
@@ -110,7 +110,7 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	kustoData := []byte(data.SKUPerformanceData)
 	err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling Kusto data")
+		return fmt.Errorf("error unmarshalling Kusto data: %w", err)
 	}
 	return nil
 }
@@ -118,11 +118,11 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
 	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
 	if err != nil {
-		return fmt.Errorf("error decoding local performance data: %v", err)
+		return fmt.Errorf("error decoding local performance data: %w", err)
 	}
 	err = maps.ParseKustoData(queriedData)
 	if err != nil {
-		return fmt.Errorf("error parsing Kusto data: %v", err)
+		return fmt.Errorf("error parsing Kusto data: %w", err)
 	}
 	return nil
 }
@@ -165,7 +165,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		fmt.Printf("Regressions listed below. Section values represent the amount of time the section exceeded 1 stdev by.\n\n")
 		err := maps.PrintRegressions()
 		if err != nil {
-			return fmt.Errorf("error printing regressions: %v", err.Error())
+			return fmt.Errorf("error printing regressions: %w", err)
 		}
 	}
 	fmt.Printf("No regressions found for this pipeline run\n\n")
@@ -179,7 +179,7 @@ func (maps DataMaps) PrintRegressions() error {
 
 	data, err := json.MarshalIndent(maps.RegressionMap, prefix, indent)
 	if err != nil {
-		return fmt.Errorf("error marshalling regression data")
+		return fmt.Errorf("error marshalling regression data: %w", err)
 	}
 
 	fmt.Println(string(data))
