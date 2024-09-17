@@ -295,7 +295,10 @@ while IFS= read -r p; do
       #  downloadContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${version}"
       #  echo "  - containerd-wasm-shims version ${version}" >> ${VHD_LOGS_FILEPATH}
       #done
+      echo "Debug: Original URL before evaluation: ${PACKAGE_DOWNLOAD_URL}"
       evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+      echo "Debug: Evaluated URL: ${evaluatedURL}"
+      echo "inside wasm-shims evaluatedURL: ${evaluatedURL} PACKAGE_VERSIONS: ${PACKAGE_VERSIONS[@]}"
       installingContainerdWasmShims "${downloadDir}" "${evaluatedURL}" "${PACKAGE_VERSIONS[@]}"
       echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
       ;;
