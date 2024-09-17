@@ -209,10 +209,11 @@ installingContainerdWasmShims(){
     download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2
-    package_versions=("$@")  # Capture the remaining arguments as an array
+    package_versions=("$@")
     containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
 
-    echo "inside installingContainerdWasmShims - download_location: $download_location, containerd_wasm_url: $containerd_wasm_url, package_versions: $package_versions"
+    echo "inside installingContainerdWasmShims - download_location: $download_location, containerd_wasm_url: $containerd_wasm_url, package_versions: $package_versions, PACKAGE_DOWNLOAD_URL: $PACKAGE_DOWNLOAD_URL"
+
     for version in $package_versions; do
         echo "inside for loop - version: $version"
         downloadContainerdWasmShims $download_location $containerd_wasm_url $version
