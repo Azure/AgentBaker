@@ -37,42 +37,6 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
 
-	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
-	require.NoError(t, err, vmssName, opts)
-
-	if isAzureCNI {
-		err = addPodIPConfigsForAzureCNI(&model, vmssName, opts)
-		require.NoError(t, err)
-	}
-
-	opts.scenario.PrepareVMSSModel(ctx, t, &model)
-
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
-		ctx,
-		*opts.clusterConfig.Model.Properties.NodeResourceGroup,
-		vmssName,
-		model,
-		nil,
-	)
-	skipTestIfSKUNotAvailableErr(t, err)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, opts, privateKeyBytes)
-	})
-
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	// fail test, but continue to extract debug information
-	require.NoError(t, err, "create vmss %q, check %s for vm logs", vmssName, testDir(t))
-	return &vmssResp.VirtualMachineScaleSet
-}
-
-func createVMSSWithPayload(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
-	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
-	require.NoError(t, err)
-
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
-
 	if opts.isSelfContainedVHD {
 		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), opts)
 	}
@@ -274,7 +238,7 @@ func getVmssName(t *testing.T) string {
 }
 
 func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	nbc, err := json.Marshal(baseNodeBootstrappingContract())
+	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location))
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}

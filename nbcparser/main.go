@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -34,13 +35,17 @@ func main() {
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
-	inputJSON, err := io.ReadAll(resp.Body)
+	encodedJSON, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	cseCmd, err := parser.Parse(inputJSON)
+	decodedJSON, err := base64.StdEncoding.DecodeString(string(encodedJSON))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	cseCmd, err := parser.Parse(decodedJSON)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

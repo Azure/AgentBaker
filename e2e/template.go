@@ -7,9 +7,9 @@ import (
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
-func baseNodeBootstrappingContract() *nbcontractv1.Configuration {
+func baseNodeBootstrappingContract(location string) *nbcontractv1.Configuration {
 	cs := &datamodel.ContainerService{
-		Location: "southcentralus",
+		Location: location,
 		Type:     "Microsoft.ContainerService/ManagedClusters",
 		Properties: &datamodel.Properties{
 			OrchestratorProfile: &datamodel.OrchestratorProfile{
@@ -86,7 +86,7 @@ func baseNodeBootstrappingContract() *nbcontractv1.Configuration {
 		LinuxAdminUsername: "azureuser",
 		VmSize:             "Standard_DS1_v2",
 		ClusterConfig: &nbcontractv1.ClusterConfig{
-			Location:      "southcentralus",
+			Location:      location,
 			ResourceGroup: "resourceGroupName",
 			VmType:        nbcontractv1.ClusterConfig_VMSS,
 			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
@@ -566,7 +566,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		CustomCATrustConfig:       nil,
 		DisableUnattendedUpgrades: true,
 		SSHStatus:                 0,
-		DisableCustomData:         true,
+		DisableCustomData:         false,
 	}
 }
 

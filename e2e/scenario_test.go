@@ -628,6 +628,31 @@ func Test_ubuntu2204(t *testing.T) {
 	})
 }
 
+func Test_ubuntu2204Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdVersionValidator("1.7.20-1"),
+				runcVersionValidator("1.1.14-1"),
+			},
+		},
+		Tags: Tags{
+			Scriptless: true,
+		},
+	})
+}
+
 func Test_ubuntu2204AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
