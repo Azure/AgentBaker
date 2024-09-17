@@ -150,16 +150,15 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		}
 	}
 	if len(maps.RegressionMap) > 0 {
-		fmt.Printf("Regressions listed below. Values are the excess time over 2 stdev above the mean\n\n")
+		fmt.Printf("Regressions listed below. Values are the excess time over 2 stdev above the mean\n")
 		err := maps.PrintRegressions()
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
 		return nil
-	} else {
-		fmt.Printf("No regressions found for this pipeline run\n\n")
-		return nil
 	}
+	fmt.Printf("No regressions found for this pipeline run\n\n")
+	return nil
 }
 
 func SumArray(arr []float64) float64 {
