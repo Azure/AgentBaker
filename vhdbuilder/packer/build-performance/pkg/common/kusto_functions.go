@@ -11,8 +11,8 @@ import (
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
 
-func CreateKustoClient(kustoEndpoint string, kustoClientID string) (*kusto.Client, error) {
-	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientID)
+func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Client, error) {
+	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientId)
 	client, err := kusto.New(kcsb)
 	if err != nil {
 		return nil, err
