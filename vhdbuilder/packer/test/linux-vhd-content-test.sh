@@ -978,7 +978,7 @@ testNBCParserBinary () {
       },
       "disable_custom_data": true
   }'
-  echo "$nbc_content" > "$file_path"
+  echo "$nbc_content" | base64 > "$file_path"
 
   errs=$($go_binary_path "$file_path" 2>/dev/null)
   code=$?
