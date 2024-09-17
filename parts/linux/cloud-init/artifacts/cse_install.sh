@@ -195,7 +195,6 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
-
 installingContainerdWasmShims(){
     download_location=${1}
     containerd_wasm_url=${2}
@@ -222,7 +221,6 @@ downloadContainerdWasmShims() {
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-        echo "inside oras download - shouldn't be in here ALISON"
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$CONTAINERD_WASM_FILEPATH/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
         if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" ]; then
@@ -234,10 +232,7 @@ downloadContainerdWasmShims() {
         return
     fi
 
-    echo "before the if statement alison"
-    echo "CONTAINERD_WASM_FILEPATH: $CONTAINERD_WASM_FILEPATH" 
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
-        echo "alison inside the if statement" 
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -246,32 +241,18 @@ downloadContainerdWasmShims() {
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             WASMSHIMPIDS+=($!)
         fi
-        echo "still in the if"
-        echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
     fi
-    echo "ls -la output alison"
-    output=$(ls -la /usr/local/bin)
-p   printf "%s\n" "$output"
-    echo "outside the if"
-    echo $output 
 }
 
 updateDownloadedWasmShimsPermissions() {
     shim_version=$1
-    echo "alison here - UpdateDownloadedWasmShimsPermissions - shim_version: $shim_version"
-    echo "containerd wasm file path: $CONTAINERD_WASM_FILEPATH"
-    echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
     binary_version="$(echo "${shim_version}" | tr . -)"
+    echo "inside updateDownloadedWasmShimsPermissions - shim_version: $shim_version, binary_version: $binary_version"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1"
     if [ "$shim_version" == "v0.8.0" ]; then
         chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1"
     fi
-    echo "ls -la output alison"
-    output=$(ls -la /usr/local/bin)
-p   printf "%s\n" "$output"
-    echo "updatedownloadedshimcheck alison"
-    echo $output 
 }
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
