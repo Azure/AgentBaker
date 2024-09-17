@@ -1,4 +1,4 @@
-package common
+package service
 
 type Config struct {
 	KustoTable                string
