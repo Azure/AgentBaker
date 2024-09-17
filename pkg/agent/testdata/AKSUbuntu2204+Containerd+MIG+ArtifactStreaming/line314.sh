@@ -1,14 +1,14 @@
 #!/bin/bash
-primaryNicIP="${PRIMARY_NIC_IP}"
-insertRuleToMangleTable="${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-enableIMDSRestriction="${ENABLE_IMDS_RESTRICTION}"
+primaryNicIP="${PRIMARY_NIC_IP:-""}"
+insertRuleToMangleTable="${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE:-false}"
+enableIMDSRestriction="${ENABLE_IMDS_RESTRICTION:-false}"
 
 echo "Primary NIC IP: $primaryNicIP"
 echo "Insert IMDS restriction rule to mangle table: $insertRuleToMangleTable"
 echo "Enable IMDS restriction: $enableIMDSRestriction"
 
-if [[ -z "$primaryNicIP" || -z "$insertRuleToMangleTable" || -z "$enableIMDSRestriction" ]]; then
-    echo "One or more required variables are not set, exiting..."
+if [ -z "$primaryNicIP" ]; then
+    echo "primaryNicIP is unset, exiting..."
     exit 1
 fi
 
