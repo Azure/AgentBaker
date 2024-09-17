@@ -217,7 +217,7 @@ installingContainerdWasmShims(){
     wait ${WASMSHIMPIDS[@]}
     for version in $package_versions; do
         echo "inside 2nd for loop - version: $version"
-        updateDownloadedWasmShimsPermissions $version
+        updateContainerdWasmShimsPermissions $version
     done
 }
 
@@ -257,7 +257,7 @@ downloadContainerdWasmShims() {
 updateContainerdWasmShimsPermissions() {
     shim_version=$1
     binary_version="$(echo "${shim_version}" | tr . -)"
-    echo "inside updateDownloadedWasmShimsPermissions - shim_version: $shim_version, binary_version: $binary_version"
+    echo "inside updateContainerdWasmShimsPermissions - shim_version: $shim_version, binary_version: $binary_version"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1"
     if [ "$shim_version" == "v0.8.0" ]; then
