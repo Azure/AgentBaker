@@ -6,19 +6,19 @@ import (
 	"log"
 	"time"
 
-	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/common"
+	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/service"
 )
 
 func main() {
-	config, err := common.SetupConfig()
+	config, err := service.SetupConfig()
 	if err != nil {
 		log.Fatalf("could not set up config: %v", err)
 	}
 	fmt.Println("Program config set")
 
-	maps := common.CreateDataMaps()
+	maps := service.CreateDataMaps()
 
-	client, err := common.CreateKustoClient(config.KustoEndpoint, config.KustoClientId)
+	client, err := service.CreateKustoClient(config.KustoEndpoint, config.KustoClientId)
 	if err != nil {
 		panic(err)
 	}
@@ -29,14 +29,14 @@ func main() {
 	defer cancel()
 
 	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
-		err = common.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
+		err = service.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 		if err != nil {
 			panic(err)
 		}
 		fmt.Printf("Data ingested for %s", config.SigImageName)
 	}
 
-	queryData, err := common.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
+	queryData, err := service.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
 		panic(err)
 	}
