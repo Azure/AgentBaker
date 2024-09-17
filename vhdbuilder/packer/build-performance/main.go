@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -26,18 +25,19 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	fmt.Println("Ingesting data...")
-	err = common.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
-	if err != nil {
-		log.Fatalf("ingestion failed: %v.", err)
+	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
+		err = common.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
+		if err != nil {
+			log.Fatalf("ingestion failed: %v.", err)
+		}
 	}
 
-	aggregatedSKUData, err := common.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
+	queryData, err := common.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
 		log.Fatalf("failed to query build performance data: %v.", err)
 	}
 
-	maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, aggregatedSKUData)
+	maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData)
 
 	maps.EvaluatePerformance()
 }
