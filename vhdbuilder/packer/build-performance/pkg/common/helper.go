@@ -58,14 +58,14 @@ func CreateDataMaps() *DataMaps {
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("could not open %w", err)
+		return fmt.Errorf("could not open local JSON file: %w", err)
 	}
 	defer file.Close()
 
 	var m map[string]json.RawMessage
 	err = json.NewDecoder(file).Decode(&m)
 	if err != nil {
-		return fmt.Errorf("error decoding %w", err)
+		return fmt.Errorf("error decoding local JSON file: %w", err)
 	}
 
 	key := "scripts"
@@ -75,12 +75,12 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 
 	err = json.Unmarshal(raw, &holdingMap)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling into temporary holding map")
+		return fmt.Errorf("error unmarshalling local JSON file into temporary holding map")
 	}
 
 	err = maps.ConvertTimestampsToSeconds(holdingMap)
 	if err != nil {
-		return fmt.Errorf("failed to convert timestamps for floats for evaluation: %w", err)
+		return fmt.Errorf("failed to convert timestamps to floats for evaluation: %w", err)
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 		for section, timeElapsed := range value {
 			t, err := time.Parse("15:04:05", timeElapsed)
 			if err != nil {
-				return fmt.Errorf("error parsing time in local build JSON data: %w", err)
+				return fmt.Errorf("error parsing timestamp in local build JSON data: %w", err)
 			}
 			d := t.Sub(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()))
 			script[section] = d.Seconds()
@@ -106,14 +106,14 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	kustoData := []byte(data.SKUPerformanceData)
 	err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap)
 	if err != nil {
-		return fmt.Errorf("error unmarshalling Kusto data: %w", err)
+		return fmt.Errorf("error unmarshalling kusto data: %w", err)
 	}
 	return nil
 }
 
 func (sku *SKU) CleanData() string {
-	var auditedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
-	return auditedData
+	var cleanedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
+	return cleanedData
 }
 
 func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
@@ -133,7 +133,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	// Iterate over LocalPerformanceDataMap and compare it against identical sections in QueriedPerformanceDataMap
 	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
 		for section, timeElapsed := range scriptData {
-			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, stdev]
+			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 2*stdev]
 			// Adding these together gives us the maximum time allowed for the section
 			maxTimeAllowed := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
 			if maxTimeAllowed == -1 {
@@ -150,7 +150,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		}
 	}
 	if len(maps.RegressionMap) > 0 {
-		fmt.Printf("Regressions listed below. Sections that took longer than 2 stdev over the mean are listed. Values are the excess time over 2 stdev.\n\n")
+		fmt.Printf("Regressions listed below. Values are the excess time over 2 stdev above the mean\n\n")
 		err := maps.PrintRegressions()
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
