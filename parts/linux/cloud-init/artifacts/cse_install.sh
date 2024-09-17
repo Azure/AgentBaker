@@ -232,8 +232,12 @@ downloadContainerdWasmShims() {
         fi
         echo "still in the if"
         echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
-    fi   
+    fi
+    echo "ls -la output alison"
+    output=$(ls -la /usr/local/bin)
+p   printf "%s\n" "$output"
     echo "outside the if"
+    echo $output 
 }
 
 UpdateDownloadedWasmShimsPermissions() {
@@ -241,13 +245,18 @@ UpdateDownloadedWasmShimsPermissions() {
     echo "alison here - UpdateDownloadedWasmShimsPermissions - shim_version: $shim_version"
     echo "containerd wasm file path: $CONTAINERD_WASM_FILEPATH"
     echo "WASM SHIM PIDS: ${WASMSHIMPIDS[@]}"
-    wait ${WASMSHIMPIDS[@]}
+    # wait ${WASMSHIMPIDS[@]}
     binary_version="$(echo "${shim_version}" | tr . -)"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1"
     if [ "$shim_version" == "v0.8.0" ]; then
         chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1"
     fi
+    echo "ls -la output alison"
+    output=$(ls -la /usr/local/bin)
+p   printf "%s\n" "$output"
+    echo "updatedownloadedshimcheck alison"
+    echo $output 
 }
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
