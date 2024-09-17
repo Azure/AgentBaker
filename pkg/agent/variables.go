@@ -40,6 +40,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountSystemdService":      getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
 			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
+			"ensureIMDSRestrictionScript":  getBase64EncodedGzippedCustomScript(ensureIMDSRestrictionScript, config),
 			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
 			"cgroupv2KubeletDropin":        getBase64EncodedGzippedCustomScript(cgroupv2KubeletDropin, config),
 			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),

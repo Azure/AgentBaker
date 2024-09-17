@@ -60,7 +60,7 @@ installContainerdWithComponentsJson() {
     if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
     fi
-    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
@@ -131,25 +131,30 @@ installNetworkPlugin() {
 }
 
 downloadCredentialProvider() {
-    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-
     CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
     if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
-        CREDENTIAL_PROVIDER_VERSION=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
-    else
-        CREDENTIAL_PROVIDER_DOWNLOAD_URL="https://acs-mirror.azureedge.net/cloud-provider-azure/v${CREDENTIAL_PROVIDER_VERSION}/binaries/azure-acr-credential-provider-linux-${CPU_ARCH}-v${CREDENTIAL_PROVIDER_VERSION}.tar.gz"
+        cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
     fi
+
+    local cred_provider_url=$2
+    if [[ -n $cred_provider_url ]]; then
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL=$cred_provider_url
+    fi
+
+    mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
-        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${CREDENTIAL_PROVIDER_VERSION}-linux-${CPU_ARCH}"
-        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
+        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
+        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return 
     fi
 
-    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}"
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
+    echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    echo "Credential Provider downloaded successfully"
 }
 
 installCredentialProvider() {
@@ -352,7 +357,7 @@ installCNI() {
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
+    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${OS}
@@ -363,7 +368,7 @@ installCNI() {
         os=${MARINER_KATA_OS_NAME}
     fi
     PACKAGE_VERSIONS=()
-    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
+    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
     
     #should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then

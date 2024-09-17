@@ -525,10 +525,20 @@ process_benchmarks() {
   chmod 755 ${VHD_BUILD_PERF_DATA}
 }
 
-#return proper release metadata for the package based on the os and osVersion
-#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
-#Otherwise set RELEASE to "current"
-returnRelease() {
+evalPackageDownloadURL() {
+    local url=${1:-}
+    if [[ -n "$url" ]]; then
+         eval "result=${url}"
+         echo $result
+         return
+    fi
+    echo ""
+}
+
+# sets RELEASE to proper release metadata for the package based on the os and osVersion
+# e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804".
+# Otherwise set RELEASE to "current"
+updateRelease() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
@@ -545,41 +555,73 @@ returnRelease() {
     fi
 }
 
-returnPackageVersions() {
+# sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
+updatePackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    returnRelease "${package}" "${os}" "${osVersion}"
+    updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
 
-    #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
-    #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        # Check if there are any versions available for the specific OS
-        if jq -e ".downloadURIs.${osLowerCase}.${RELEASE}.versions | length == 0" <<< "${package}" > /dev/null; then
-            return
-        fi
-        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
-        for version in ${versions[@]}; do
+    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
+    # Otherwise get the versions from .downloadURIs.${osLowerCase
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]]; then
+        osLowerCase="default"
+    fi
+
+    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
+    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
+        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
+        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+        for version in "${latestVersions[@]}"; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        for version in "${previousLatestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")
         done
         return
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.versions[]" -r)
-    for version in ${versions[@]}; do
+
+    # Fallback to versions if versionsV2 is null
+    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
+    for version in "${versions[@]}"; do
         PACKAGE_VERSIONS+=("${version}")
     done
     return 0
 }
 
-returnPackageDownloadURL() {
+# sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
+updateMultiArchVersions() {
+  local imageToBePulled="$1"
+
+  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
+  if [[ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]]; then
+    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
+    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+    for version in "${latestVersions[@]}"; do
+      MULTI_ARCH_VERSIONS+=("${version}")
+    done
+    for version in "${previousLatestVersions[@]}"; do
+      MULTI_ARCH_VERSIONS+=("${version}")
+    done
+    return
+  fi
+
+  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
+  for version in "${versions[@]}"; do
+    MULTI_ARCH_VERSIONS+=("${version}")
+  done
+}
+
+updatePackageDownloadURL() {
     local package=$1
     local os=$2
     local osVersion=$3
     RELEASE="current"
-    returnRelease "${package}" "${os}" "${osVersion}"
+    updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.

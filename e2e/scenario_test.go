@@ -25,7 +25,6 @@ func Test_azurelinuxv2(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.6.26"),
 				runcVersionValidator("1.1.9"),
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -120,9 +119,6 @@ func Test_azurelinuxv2_azurecni(t *testing.T) {
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -371,9 +367,6 @@ func Test_marinerv2_azurecni(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
-			},
 		},
 	})
 }
@@ -522,7 +515,6 @@ func Test_ubuntu1804(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.7.1+azure-1"),
 				runcVersionValidator("1.1.14-1"),
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -537,9 +529,6 @@ func Test_ubuntu1804_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -634,7 +623,6 @@ func Test_ubuntu2204(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				containerdVersionValidator("1.7.20-1"),
 				runcVersionValidator("1.1.14-1"),
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -962,7 +950,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for containerd we only support one version at a time for each distro/release
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
+				containerdVersionValidator(getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0]),
 			},
 		},
 	})
@@ -1145,6 +1133,44 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 						ContainerRegistryServer: "mcr.microsoft.com",
 					},
 				}
+			},
+		},
+	})
+}
+
+func Test_ubuntu2204imdsrestriction_filtertable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction filter table is properly set",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = false
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("filter"),
+			},
+		},
+	})
+}
+
+func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction mangle table is properly set",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = true
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("mangle"),
 			},
 		},
 	})
