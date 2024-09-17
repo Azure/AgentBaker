@@ -6,7 +6,18 @@ Before=cloud-init.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/azure/containers/nbcparser
+ExecStart=/bin/bash -c '
+  go_binary="/opt/azure/containers/nbcparser"
+  
+  # Run the Go binary and generate cse_cmd.sh
+  $go_binary > cse_cmd.sh
+
+  # Make the script executable
+  chmod +x cse_cmd.sh
+
+  # Execute the script
+  ./cse_cmd.sh
+'
 
 [Install]
 WantedBy=systemd-networkd-wait-online.service

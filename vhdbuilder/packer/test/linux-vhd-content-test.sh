@@ -975,7 +975,8 @@ testNBCParserBinary () {
       "enable_ssh": true,
       "gpu_config": {
           "config_gpu_driver": true
-      }
+      },
+      "disable_custom_data": true
   }'
   echo "$nbc_content" > "$file_path"
 

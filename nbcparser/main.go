@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"net/http"
-	"os/exec"
 
 	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 )
@@ -46,16 +45,5 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	if err := os.WriteFile(CSE_CMD, []byte(cseCmd), 0655); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	out, err := exec.Command("/bin/sh", CSE_CMD).Output()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	fmt.Printf("CSE cmd output: %s\n", out)
+	fmt.Println(cseCmd)
 }
