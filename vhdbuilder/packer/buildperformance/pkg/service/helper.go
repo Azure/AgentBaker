@@ -54,7 +54,19 @@ func CreateDataMaps() *DataMaps {
 	}
 }
 
-// Prepare performance data for evaluation with DecodeLocalPerformanceData, ParseKustoData, and associated helper functions
+// Prepare performance data for evaluation with PreparePerformanceDataForEvaluation and associated helper functions
+func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
+	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
+	if err != nil {
+		return fmt.Errorf("error decoding local performance data: %w", err)
+	}
+	err = maps.ParseKustoData(queriedData)
+	if err != nil {
+		return fmt.Errorf("error parsing kusto data: %w", err)
+	}
+	return nil
+}
+
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -114,18 +126,6 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 func (sku *SKU) CleanData() string {
 	var cleanedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
 	return cleanedData
-}
-
-func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
-	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
-	if err != nil {
-		return fmt.Errorf("error decoding local performance data: %w", err)
-	}
-	err = maps.ParseKustoData(queriedData)
-	if err != nil {
-		return fmt.Errorf("error parsing kusto data: %w", err)
-	}
-	return nil
 }
 
 // After preparing performance data, evaluate it with EvaluatePerformance and associated helper functions
