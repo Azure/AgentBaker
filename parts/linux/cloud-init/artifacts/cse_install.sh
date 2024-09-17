@@ -208,13 +208,31 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 installingContainerdWasmShims(){
     download_location=${1}
     containerd_wasm_url=${2}
-    package_versions=${3}
+    shift 2  # Shift off the first two arguments (download_location and containerd_wasm_url)
+    package_versions=("$@")  # Capture the remaining arguments as an array
     echo "inside installingContainerdWasmShims - download_location: $download_location, containerd_wasm_url: $containerd_wasm_url, package_versions: $package_versions"
     for version in $package_versions; do
         echo "inside for loop - version: $version"
         downloadContainerdWasmShims $download_location $containerd_wasm_url $version
     done
-    wait ${WASMSHIMPIDS[@]}
+    echo "PIDs to wait on: ${WASMSHIMPIDS[@]}"
+    # wait ${WASMSHIMPIDS[@]}
+    for pid in "${WASMSHIMPIDS[@]}"; do
+        wait $pid
+        status=$?
+        if [ $status -ne 0 ]; then
+            echo "Process $pid failed with exit status $status"
+            exit $status
+        fi
+    done
+    echo "PIDs waited on: ${WASMSHIMPIDS[@]}"
+    for pid in "${WASMSHIMPIDS[@]}"; do
+        if ps -p $pid > /dev/null; then
+            echo "PID $pid is running"
+        else
+            echo "PID $pid is not running"
+        fi
+    done
     for version in $package_versions; do
         echo "inside 2nd for loop - version: $version"
         updateContainerdWasmShimsPermissions $version
@@ -245,13 +263,17 @@ downloadContainerdWasmShims() {
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
+        echo "Tracking 1PID: $!"  # Print the PID of the background process
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
+        echo "Tracking 2PID: $!"  # Print the PID of the background process
         if [ "$shim_version" == "v0.8.0" ]; then
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             WASMSHIMPIDS+=($!)
+            echo "Tracking 3PID: $!"  # Print the PID of the background process
         fi
     fi
+    echo "PIDs tracked: ${WASMSHIMPIDS[@]}"
 }
 
 updateContainerdWasmShimsPermissions() {
