@@ -20,15 +20,12 @@ func CreateKustoClient(kustoEndpoint string, kustoClientID string) (*kusto.Clien
 }
 
 func IngestData(client *kusto.Client, ctx context.Context, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
-
-	// Create Ingestor
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
 		return err
 	}
 	defer ingestor.Close()
 
-	// Ingest Data
 	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
 	if err != nil {
 		return err
@@ -37,11 +34,9 @@ func IngestData(client *kusto.Client, ctx context.Context, kustoDatabase string,
 }
 
 func QueryData(client *kusto.Client, ctx context.Context, sigImageName string, kustoDatabase string) (*SKU, error) {
-	// Build Query
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
 
-	// Execute Query
 	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
 		return nil, err
