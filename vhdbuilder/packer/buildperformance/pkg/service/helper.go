@@ -155,6 +155,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
+		return nil
 	} else {
 		fmt.Printf("No regressions found for this pipeline run\n\n")
 		return nil
