@@ -138,10 +138,11 @@ testPackagesInstalled() {
           echo "binary_spin_pattern: $binary_spin_pattern"
           echo "binary_slight_pattern: $binary_slight_pattern"
           echo "binary_wws_pattern: $binary_wws_pattern"
+          var_vars="binary_spin_pattern: $binary_spin_pattern binary_slight_pattern: $binary_slight_pattern binary_wws_pattern: $binary_wws_pattern"
           ls_files="$(ls -la $downloadLocation)"
           if [ "$version" != "0.8.0" ]; then
             if [ ! -f $binary_spin_pattern ] && [ ! -f $binary_slight_pattern ]; then
-                err "$test $name binaries are not in the expected location of $downloadLocation $ls_files"
+                err "$test $name binaries are not in the expected location of $downloadLocation $var_vars $ls_files"
                 continue
             fi
           else
