@@ -22,7 +22,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -49,11 +48,14 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	require.NoError(t, err)
 	var model armcompute.VirtualMachineScaleSet
 	if opts.isSelfContainedVHD {
-		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, opts)
+		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), opts)
 	} else {
 		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
 	}
-
+	t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
+	if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
+		t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
+	}
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
 
@@ -250,44 +252,26 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModelSelfContained(name, sshPublicKey, customdata string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	// Parse the YAML
-	var customDataConfig CustomDataConfig
-	decodedCustomData, err := base64.StdEncoding.DecodeString(customdata)
-	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}
-	}
-	fmt.Printf("Decoded CustomData: %s\n", string(decodedCustomData))
-	err = yaml.Unmarshal(decodedCustomData, &customDataConfig)
-	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}
-	}
+func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location))
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}
-	// Print the parsed configuration
-	fmt.Printf("Parsed YAML: %+v\n", customDataConfig)
 
-	// Example: Append a new write file entry
-	cseWriteFile := WriteFile{
-		Path:        "/opt/azure/containers/nbc.json",
-		Permissions: "0755",
-		Encoding:    "gzip",
-		Owner:       "root",
-		Content:     string(nbc),
-	}
-	customDataConfig.WriteFiles = append(customDataConfig.WriteFiles, cseWriteFile)
+	nbcEntry := `#cloud-config
 
-	// Optionally, marshal back to YAML
-	updatedCustomData, err := yaml.Marshal(&customDataConfig)
-	if err != nil {
-		return armcompute.VirtualMachineScaleSet{}
-	}
-	// Print the updated configuration
-	fmt.Printf("Updated CustomData: %s\n", string(updatedCustomData))
-	encodedCustomData := base64.StdEncoding.EncodeToString(updatedCustomData)
-	// encodedNbc := base64.StdEncoding.EncodeToString(nbc)
+write_files:
+- path: /opt/azure/containers/nbc.json
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    %s`
+	customData := fmt.Sprintf(nbcEntry, base64.StdEncoding.EncodeToString(nbc))
+	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
+	fmt.Println("Encoded CustomData: ", encodedCustomData)
+	fmt.Println("len of encoded CustomData is : ", len(encodedCustomData))
+	fmt.Println("SSHkey is : ", sshPublicKey)
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
