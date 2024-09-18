@@ -127,9 +127,11 @@ logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
     components_filepath="/opt/azure/components.json"
-    versions=$(jq -r '.[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
-    downloadLocation=$(jq -r '.[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
-    logs_to_events "AKS.CSE.downloadKrustlet" installingContainerdWasmShims "$downloadLocation" "" "$versions"
+    versions=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
+    downloadLocation=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
+    downloadURL=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$components_filepath")
+
+    logs_to_events "AKS.CSE.downloadKrustlet" installingContainerdWasmShims "$downloadLocation" "$downloadURL" "$versions"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
