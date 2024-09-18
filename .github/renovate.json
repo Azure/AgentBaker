@@ -39,6 +39,10 @@
       "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
     {
+      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns"],
+      "assignees": ["rbtr", "behzad-mir", "QxBytes"]
+    },
+    {
       "matchPackageNames": ["aks/aks-node-ca-watcher"],
       "assignees": ["UtheMan"]
     },

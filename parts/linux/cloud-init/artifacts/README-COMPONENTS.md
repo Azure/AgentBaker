@@ -135,11 +135,11 @@ In Renovate.json, we define that it uses `renovateTag` to get the metadata and p
 ## How to keep 2 patch versions for a minor version?
 Follow this example by placing `previousLatestVersion` in the `versionsV2` or `multiArchVersionsV2` block, depending on whether you are adding a `containerImage` or a `package`.
 ```
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.5.32",
-                "previousLatestVersion": "1.5.35"
-              }
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
+          "latestVersion": "v1.5.35",
+          "previousLatestVersion": "v1.5.32"
+        },
 ```
 
 ## How to keep multiple minor versions?
@@ -167,6 +167,9 @@ Please note that each minor version can only have 2 versions at most, which are 
 	  ]
    }
 ```
+
+## Can I keep only 1 minor version?
+Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.
 
 ## Can I avoid repeating a single version for all OS distros/releases?
 It depends.

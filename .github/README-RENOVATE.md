@@ -295,3 +295,9 @@ Another example is for a container image `mcr.microsoft.com/oss/kubernetes/kube-
 **Step 3**
 To test if you have completed the steps above correctly, you can set your `latestVersion` in components.json to a previous version and see if Renovate will automatically create a PR to update to the latest one.
 Screenshot and detailed steps will be provided later once my (Devin's) renovate-onboard PR is merged to Agent Baker master branch.
+
+## What is the responsibility of a PR assignee?
+If your GitHub ID is placed in the `assignees` array, you are responsible for those components. When Renovate creates a PR to update a component to the latest version, you must decide whether to approve, modify or cancel the PR. You can have a list of assignees.
+- Approve: If the updated version looks good to you, you can approve it. If you need additional reviews from Node SIG, proceed as usual.
+- Modify: In some cases, you may want to modify the code or the components.json to update to a different version. you can take the branch that Renovate created and change the code and components.json as desired.
+- Cancel: If you don't need the PR that Renovated created (e.g., the specific version is not desired), you can cancel the PR.
