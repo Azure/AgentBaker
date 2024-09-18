@@ -10,20 +10,20 @@ import (
 
 // Set conditions for program to run successfully wtih SetupConfig and CreateDataMaps functions
 func SetupConfig() (*Config, error) {
-	kustoTable := os.Getenv("BUILD_PERFORMANCE_TABLE_NAME")
-	kustoEndpoint := os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT")
-	kustoDatabase := os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME")
-	kustoClientId := os.Getenv("BUILD_PERFORMANCE_CLIENT_ID")
-	kustoIngestionMapping := os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING")
-	sigImageName := os.Getenv("SIG_IMAGE_NAME")
-	sourceBranch := os.Getenv("GIT_BRANCH")
-	localBuildPerformanceFile := sigImageName + "-build-performance.json"
-
+	envVars := map[string]string{
+		"kustoTable":                os.Getenv("BUILD_PERFORMANCE_TABLE_NAME"),
+		"kustoEndpoint":             os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT"),
+		"kustoDatabase":             os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME"),
+		"kustoClientId":             os.Getenv("BUILD_PERFORMANCE_CLIENT_ID"),
+		"kustoIngestionMapping":     os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING"),
+		"sourceBranch":              os.Getenv("GIT_BRANCH"),
+		"sigImageName":              os.Getenv("SIG_IMAGE_NAME"),
+		"localBuildPerformanceFile": os.Getenv("SIG_IMAGE_NAME") + "-build-performance.json",
+	}
 	missingVar := false
-	for _, envVar := range []string{kustoTable, kustoEndpoint, kustoDatabase, kustoClientId,
-		sigImageName, localBuildPerformanceFile, sourceBranch, kustoIngestionMapping} {
-		if envVar == "" {
-			fmt.Printf("Missing environment variable \"%s\".", envVar)
+	for name, value := range envVars {
+		if value == "" {
+			fmt.Printf("Missing environment variable \"%s\".", name)
 			missingVar = true
 		}
 	}
@@ -32,14 +32,14 @@ func SetupConfig() (*Config, error) {
 	}
 
 	return &Config{
-		KustoTable:                kustoTable,
-		KustoEndpoint:             kustoEndpoint,
-		KustoDatabase:             kustoDatabase,
-		KustoClientId:             kustoClientId,
-		KustoIngestionMapping:     kustoIngestionMapping,
-		SigImageName:              sigImageName,
-		LocalBuildPerformanceFile: localBuildPerformanceFile,
-		SourceBranch:              sourceBranch,
+		KustoTable:                envVars["kustoTable"],
+		KustoEndpoint:             envVars["kustoEndpoint"],
+		KustoDatabase:             envVars["kustoDatabase"],
+		KustoClientId:             envVars["kustoClientId"],
+		KustoIngestionMapping:     envVars["kustoIngestionMapping"],
+		SigImageName:              envVars["sigImageName"],
+		LocalBuildPerformanceFile: envVars["localBuildPerformanceFile"],
+		SourceBranch:              envVars["sourceBranch"],
 	}, nil
 }
 
