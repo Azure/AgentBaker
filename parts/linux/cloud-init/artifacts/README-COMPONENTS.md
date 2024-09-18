@@ -10,7 +10,7 @@ The `components.json` file centralizes the management of all components needed f
 
 ## Schema of components.json
 The `components.json` file defines two types of components: `containerImages` and `packages`.
-- `ContainerImages` are container images that will be cached during VHD build time and will run at node provisioning time. The container Images are all hosted in MCR as of Sept 2024.
+- `ContainerImages` are container images that will be cached during VHD build time and will run at node provisioning time. As of Sept 2024, The container Images in `components.json` are all hosted in MCR and MCR is the only registry enabled in the current Renovate configuration file `renovate.json`. If there is demand for other container images registry, it will be necessary to double check if it will just work.
 - `Packages` are packages that could be downloaded through apt-get (Ubuntu), http file download URL or dnf (Mariner). Additional methods such as OCI MCR could be added in the future.
 
 Please refer to [components.cue](../../../../schemas/components.cue) for the most update-to-date schema in case the schema in this doc is not current.
@@ -169,6 +169,8 @@ Please note that each minor version can only have 2 patch versions at most, whic
 	  ]
    }
 ```
+
+For a `package`, you will need to add these under `versionsV2`.
 
 ## Can I keep only 1 patch version?
 Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.

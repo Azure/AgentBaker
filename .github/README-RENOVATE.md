@@ -1,7 +1,7 @@
 `Renovate.json` is a configuration file that defines how Renovate should interact with your custom components management file (also known as the manifest file) and how it should look up the latest versions from custom data sources.
 
 # TL;DR
-This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [doc](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
+This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
 # Renovate configurations
 For a general Renovate introductions, please read this wiki. https://msazure.visualstudio.com/CloudNativeCompute/_wiki/wikis/CloudNativeCompute.wiki/699998/Renovate-101
@@ -260,7 +260,24 @@ JSONata Exerciser is a good playground for us to try and error the query. This i
 ## Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.
 **Step 1**
 Depending on what kind of component you are going to onboard.
-- **Container Image**:  This is the easiest one to onboard, assuming it's hosted in MCR just like other container images. Once you add it to the components.json as a new container image for VHD to cache at build time, the current custom manager in this renovate.json will directly monitor and update it. 
+- **Container Image**:  This is the easiest one to onboard, assuming it's hosted in MCR just like other container images. Once you add it to the components.json as a new container image for VHD to cache at build time, the current custom manager in this `renovate.json` will directly monitor and update it. Specifically, it's assumed that you have already added the container Image to `components.json` in the correct format. Here is an example for a container image `addon-resizer` to `components.json`.
+  ```
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer",
+          "latestVersion": "1.8.22",
+          "previousLatestVersion": "1.8.20"
+        }
+      ]
+    }
+  ```
+  Please make sure you set the `renovateTag` correctly, where `registry` is always `https://mcr.microsoft.com` now, and the `name` doesn't have a leading slash `/`. As of Sept 2024, The container Images in `components.json` are all hosted in MCR and MCR is the only registry enabled in the current Renovate configuration file `renovate.json`. If there is demand for other container images registry, it will be necessary to double check if it will just work.
+
+  Fore more details, you can refer to Readme-components linked at the beginning of this document.
+
 - **Packages**: Now for datasource PMC (package.microsoft.com) we have 4 custom managers which will look up to the following 4 `defaultRegistryUrlTemplate`, based on different Ubuntu release, respectively.
   - https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages
   - https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages
