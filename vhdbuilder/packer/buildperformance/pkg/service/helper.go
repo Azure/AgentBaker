@@ -135,7 +135,11 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		for section, timeElapsed := range scriptData {
 			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 2*stdev]
 			// Adding these together gives us the maximum time allowed for the section
-			maxTimeAllowed := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
+			maxTimeAllowed, err := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
+			if err != nil {
+				fmt.Printf("%v: %v", err, maps.QueriedPerformanceDataMap[scriptName][section])
+				continue
+			}
 			if maxTimeAllowed == -1 {
 				fmt.Printf("No data available for %s in %s\n", section, scriptName)
 				continue
@@ -161,16 +165,17 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	return nil
 }
 
-func SumArray(arr []float64) float64 {
+func SumArray(arr []float64) (float64, error) {
 	var sum float64
 	if len(arr) != 2 {
-		fmt.Printf("expected 2 elements in array, got %d", len(arr))
+		return sum, fmt.Errorf("expected 2 elements in array, got %d", len(arr))
 	}
 	if arr[0] == -1 || arr[1] == -1 {
-		return -1
+		sum = -1
+		return sum, nil
 	}
 	sum = arr[0] + arr[1]*2
-	return sum
+	return sum, nil
 }
 
 func (maps DataMaps) PrintRegressions() error {
