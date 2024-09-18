@@ -507,11 +507,6 @@ check_array_size() {
   fi
 }
 
-set_script_name() {
-  SCRIPT_NAME=$(basename $0 .sh)
-  SCRIPT_NAME="${SCRIPT_NAME//-/_}"
-}
-
 capture_benchmark() {
   set +x
   local title="$1"
