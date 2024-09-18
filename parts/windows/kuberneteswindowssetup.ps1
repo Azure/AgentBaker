@@ -294,8 +294,7 @@ try
     Get-ProvisioningScripts
     Get-LogCollectionScripts
 
-    # TODO(cameissner): uncomment once next CSE package is rolled out to all regions
-    # Disable-KubeletServingCertificateRotationForTags
+    Disable-KubeletServingCertificateRotationForTags
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
