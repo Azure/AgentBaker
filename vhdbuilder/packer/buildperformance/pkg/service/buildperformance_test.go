@@ -2,13 +2,63 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/tj/assert"
 )
 
 func TestSetupConfig(t *testing.T) {
+	cases := []struct {
+		name     string
+		expected *Config
+		err      error
+	}{
+		{
+			name: "should correctly initialize configuration struct",
+			expected: &Config{
+				KustoTable:                "<test_table>",
+				KustoEndpoint:             "<https://test.kusto.endpoint>",
+				KustoDatabase:             "<test_db>",
+				KustoClientId:             "<test_id>",
+				KustoIngestionMapping:     "<test_mapping>",
+				SigImageName:              "<test_sig_name>",
+				LocalBuildPerformanceFile: "<test_sig_name>-build-performance.json",
+				SourceBranch:              "<test_branch>",
+			},
+			err: nil,
+		},
+		{
+			name:     "should fail if an environment variable is missing",
+			expected: nil,
+			err:      fmt.Errorf("required environment variables were not set"),
+		},
+	}
 
+	os.Setenv("BUILD_PERFORMANCE_TABLE_NAME", "<test_table>")
+	os.Setenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT", "<https://test.kusto.endpoint>")
+	os.Setenv("BUILD_PERFORMANCE_DATABASE_NAME", "<test_db>")
+	os.Setenv("BUILD_PERFORMANCE_CLIENT_ID", "<test_id>")
+	os.Setenv("BUILD_PERFORMANCE_INGESTION_MAPPING", "<test_mapping>")
+	os.Setenv("SIG_IMAGE_NAME", "<test_sig_name>")
+	os.Setenv("GIT_BRANCH", "<test_branch>")
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.name == "should fail if an environment variable is missing" {
+				os.Setenv("BUILD_PERFORMANCE_TABLE_NAME", "")
+				config, err := SetupConfig()
+				if c.err != nil {
+					assert.EqualError(t, err, c.err.Error())
+					assert.Equal(t, config, c.expected)
+				}
+			} else {
+				config, err := SetupConfig()
+				assert.NoError(t, err)
+				assert.Equal(t, config, c.expected)
+			}
+		})
+	}
 }
 func TestCreateDataMaps(t *testing.T) {
 	cases := []struct {
@@ -371,8 +421,8 @@ func TestPrintRegressions(t *testing.T) {
 					},
 				},
 			},
-			//expected: string(`{"pre_install_dependencies":{"enable_modified_log_rotate_service":30},"install_dependencies":{"configure_networking_and_interface":30,"download_azure_cni":30},"post_install_dependencies":{"resolve_conf":30}}`),
-			err: nil,
+			expected: string(`{"pre_install_dependencies":{"enable_modified_log_rotate_service":30},"install_dependencies":{"configure_networking_and_interface":30,"download_azure_cni":30},"post_install_dependencies":{"resolve_conf":30}}`),
+			err:      nil,
 		},
 	}
 
