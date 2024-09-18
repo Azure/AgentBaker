@@ -127,13 +127,30 @@ testPackagesInstalled() {
 
       # if the downloadLocation is /usr/local/bin verify that the package is installed
       if [ "$downloadLocation" == "/usr/local/bin" ]; then
-          if command -v "$name" >/dev/null 2>&1; then
-              echo "$name is installed."
-              continue
+        if command -v "$name" >/dev/null 2>&1; then
+          echo "$name is installed."
+          continue
+        elif [ "$name" == "containerd-wasm-shims" ]; then
+          binary_spin_pattern="/usr/local/bin/containerd-shim-spin-${version}-*"
+          binary_slight_pattern="/usr/local/bin/containerd-shim-slight-${version}"
+          binary_wws_pattern="/usr/local/bin/containerd-shim-wws-${version}"
+          echo "binary_spin_pattern: $binary_spin_pattern"
+          echo "binary_slight_pattern: $binary_slight_pattern"
+          echo "binary_wws_pattern: $binary_wws_pattern"
+          echo "$(ls -la $downloadLocation)"
+          if [ "$version" != "0.8.0" ]; then
+            if [ ! -f $binary_spin_pattern ] && [ ! -f $binary_slight_pattern ]; then
+                err "$test $name binaries are not in the expected location of $downloadLocation"
+            fi
           else
-              err $test "$name is not installed. Expected to be installed in $downloadLocation"
-              continue
+            if [ ! -f $binary_spin_pattern ] && [ ! -f $binary_slight_pattern ] && [ ! -f $binary_wws_pattern ]; then
+                err "$test $name binaries are not in the expected location of $downloadLocation"
+            fi
           fi
+        else
+          err $test "$name is not installed. Expected to be installed in $downloadLocation"
+          continue
+        fi
       fi
       
       # if there isn't a directory, we check if the file exists and the size is correct
