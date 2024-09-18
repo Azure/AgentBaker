@@ -30,7 +30,7 @@ func TestDecodeLocalPerformanceData(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual := c.mapsStruct.DecodeLocalPerformanceData("vhdbuilder/packer/buildperformance/testdata/AzureLinuxV6-build-performance-data.json")
+			actual := c.mapsStruct.DecodeLocalPerformanceData("../testdata/AzureLinuxV6-build-performance-data.json")
 			assert.Equal(t, c.expected, actual)
 		})
 	}
