@@ -214,23 +214,18 @@ installingContainerdWasmShims(){
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadContainerdWasmShims $download_location $containerd_wasm_url $version
     done
-    echo "Waiting for wasm shims to download... ${WASMSHIMPIDS[@]}"
     wait ${WASMSHIMPIDS[@]}
-    echo "$(ls -la /usr/local/bin)"
-    echo "$(cat $CURL_OUTPUT)"
     for version in "${package_versions[@]}"; do
-        updateContainerdWasmShimsPermissions $version
+        updateContainerdWasmShimsPermissions $download_location $version
     done
     exit 0
 }
 
 downloadContainerdWasmShims() {
-    download_location=${1}
+    containerd_wasm_filepath=${1}
     containerd_wasm_url=${2}
     shim_version=${3}
     binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
-    local containerd_wasm_filepath="/usr/local/bin"
-    echo "download_location: $download_location containerd_wasm_url: $containerd_wasm_url shim_version: $shim_version binary_version: $binary_version"
 
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
@@ -262,9 +257,10 @@ downloadContainerdWasmShims() {
 }
 
 updateContainerdWasmShimsPermissions() {
-    shim_version=$1
-    local containerd_wasm_filepath="/usr/local/bin"
+    containerd_wasm_filepath=${1}
+    shim_version=${2}
     binary_version="$(echo "${shim_version}" | tr . -)"
+
     chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
     if [ "$shim_version" == "v0.8.0" ]; then
