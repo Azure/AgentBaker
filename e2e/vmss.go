@@ -22,6 +22,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -29,6 +30,18 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 	vmssNamePrefix                           = "abe2e"
 )
+
+type WriteFile struct {
+	Path        string `yaml:"path"`
+	Permissions string `yaml:"permissions"`
+	Encoding    string `yaml:"encoding"`
+	Owner       string `yaml:"owner"`
+	Content     string `yaml:"content"`
+}
+
+type CustomDataConfig struct {
+	WriteFiles []WriteFile `yaml:"write_files"`
+}
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
@@ -38,7 +51,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
 
 	if opts.isSelfContainedVHD {
-		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), opts)
+		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, opts)
 	}
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
@@ -237,12 +250,41 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModelSelfContained(name, sshPublicKey, customdata string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+	// Parse the YAML
+	var customDataConfig CustomDataConfig
+	decodedCustomData, err := base64.StdEncoding.DecodeString(customdata)
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}
+	}
+	err = yaml.Unmarshal(decodedCustomData, &customDataConfig)
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}
+	}
 	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location))
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}
-	encodedNbc := base64.StdEncoding.EncodeToString(nbc)
+	// Example: Append a new write file entry
+	cseWriteFile := WriteFile{
+		Path:        "/opt/azure/containers/nbc.json",
+		Permissions: "0755",
+		Encoding:    "gzip",
+		Owner:       "root",
+		Content:     string(nbc),
+	}
+	customDataConfig.WriteFiles = append(customDataConfig.WriteFiles, cseWriteFile)
+
+	// Print the updated configuration
+	fmt.Printf("Updated YAML: %+v\n", customDataConfig)
+
+	// Optionally, marshal back to YAML
+	updatedYAML, err := yaml.Marshal(&customDataConfig)
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}
+	}
+	encodedCustomData := base64.StdEncoding.EncodeToString(updatedYAML)
+	// encodedNbc := base64.StdEncoding.EncodeToString(nbc)
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
@@ -258,6 +300,7 @@ func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunO
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
+					CustomData:         &encodedCustomData,
 					LinuxConfiguration: &armcompute.LinuxConfiguration{
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
@@ -269,7 +312,6 @@ func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunO
 						},
 					},
 				},
-				UserData: &encodedNbc,
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),

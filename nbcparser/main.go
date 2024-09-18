@@ -1,12 +1,8 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
-	"io"
 	"os"
-
-	"net/http"
 
 	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 )
@@ -22,30 +18,40 @@ const (
 )
 
 func main() {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", IMDS_ENDPOINT, nil)
+	// client := &http.Client{}
+	// req, err := http.NewRequest("GET", IMDS_ENDPOINT, nil)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	// req.Header.Set("Metadata", "true")
+	// resp, err := client.Do(req)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	// defer resp.Body.Close()
+	// encodedJSON, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	// decodedJSON, err := base64.StdEncoding.DecodeString(string(encodedJSON))
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	if len(os.Args) < parser.MinArgs {
+		fmt.Printf("Usage: %s <input.json>", os.Args[0])
+		os.Exit(1)
+	}
+	// Read in the JSON file
+	inputJSON, err := os.ReadFile(os.Args[1])
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	req.Header.Set("Metadata", "true")
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-	encodedJSON, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	decodedJSON, err := base64.StdEncoding.DecodeString(string(encodedJSON))
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	cseCmd, err := parser.Parse(decodedJSON)
+	cseCmd, err := parser.Parse(inputJSON)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
