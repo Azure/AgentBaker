@@ -135,11 +135,6 @@ testPackagesInstalled() {
           binary_spin_pattern="/usr/local/bin/containerd-shim-spin-${binary_version}-v1"
           binary_slight_pattern="/usr/local/bin/containerd-shim-slight-${binary_version}-v1"
           binary_wws_pattern="/usr/local/bin/containerd-shim-wws-${binary_version}-v1"
-          echo "binary_spin_pattern: $binary_spin_pattern"
-          echo "binary_slight_pattern: $binary_slight_pattern"
-          echo "binary_wws_pattern: $binary_wws_pattern"
-          var_vars="binary_spin_pattern: $binary_spin_pattern binary_slight_pattern: $binary_slight_pattern binary_wws_pattern: $binary_wws_pattern"
-          ls_files="$(ls -la $downloadLocation)"
           if [ "$version" != "0.8.0" ]; then
             if [ ! -f $binary_spin_pattern ] && [ ! -f $binary_slight_pattern ]; then
                 err "$test $name binaries are not in the expected location of $downloadLocation $var_vars $ls_files"
@@ -151,6 +146,8 @@ testPackagesInstalled() {
                 continue
             fi
           fi
+          echo "$test $name binaries are in the expected location of $downloadLocation $ls_files"
+          continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
           continue
