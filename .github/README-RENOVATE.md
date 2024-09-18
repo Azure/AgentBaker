@@ -1,5 +1,26 @@
 `Renovate.json` is a configuration file that defines how Renovate should interact with your custom components management file (also known as the manifest file) and how it should look up the latest versions from custom data sources.
 
+# Table of Contents
+
+- [TL;DR](#tldr)
+- [Renovate configurations](#renovate-configurations)
+  - [Package rules](#package-rules)
+    - [Disable `minor` update](#disable-minor-update)
+    - [Enable `patch`, `pin` and `digest` update](#enable-patch-pin-and-digest-update)
+    - [(Optional context) Why not updating minor?](#optional-context-why-not-updating-minor)
+    - [Assigning specific component to specific person](#assigning-specific-component-to-specific-person)
+    - [Additional string operation to specific component](#additional-string-operation-to-specific-component)
+  - [Custom managers](#custom-managers)
+    - [Auto update containerImages in components.json](#auto-update-containerimages-in-componentsjson)
+    - [Auto update packages for OS ubuntu xx.xx in components.json](#auto-update-packages-for-os-ubuntu-xxxx-in-componentsjson)
+    - [(Optional context) How to ensure a single component will not be updated by 2 multiple custom managers?](#optional-context-how-to-ensure-a-single-component-will-not-be-updated-by-2-multiple-custom-managers)
+  - [Custom data sources](#custom-data-sources)
+    - [(Optional context) Please read this section if you are going to config your own transformTemplates](#optional-context-please-read-this-section-if-you-are-going-to-config-your-own-transformtemplates)
+- [Hands-on guide and FAQ](#hands-on-guide-and-faq)
+  - [Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.](#okay-i-just-have-5-minutes-please-just-tell-me-how-to-onboard-a-new-packagecontainer-now-to-renovatejson-for-auto-update)
+  - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
+  - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
+
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
@@ -327,6 +348,6 @@ In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means 
 As of 9/18/2024,
 - All the container images are onboarded to Renovate for auto-update.
 - PMC hosted packages, namely `runc` and `containerd`, are onboarded for auto-update.
-- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, `kubernetes-binaries` and `azure-acr-credential-provider`, are not onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
+- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, `kubernetes-binaries` and `azure-acr-credential-provider`, are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.

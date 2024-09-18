@@ -1,4 +1,20 @@
-`components.json` is a components management file that defines which components and versinos should be cached during the Node image build time. It also provides a `RenovateTag` for Renovate to understand how to monitor and update the components automatically.
+`components.json` is a components management file that defines which components and versions should be cached during the Node image VHD build time. It also includes a `RenovateTag` for Renovate to understand how to monitor and update the components automatically.
+
+# Table of Contents
+
+- [TL;DR](#tldr)
+- [Components management](#components-management)
+  - [Schema of components.json](#schema-of-componentsjson)
+    - [ContainerImages](#containerimages)
+    - [Packages](#packages)
+- [Hands-on guide and FAQ](#hands-on-guide-and-faq)
+  - [How to ask Renovate to auto-update an existing component in `components.json` to a new version?](#how-to-ask-renovate-to-auto-update-an-existing-component-in-componentsjson-to-a-new-version)
+  - [How to ask Renovate not to auto-update a component version?](#how-to-ask-renovate-to-auto-update-an-existing-component-in-componentsjson-to-a-new-version)
+  - [How to keep 2 patch versions for a minor version?](#how-to-keep-2-patch-versions-for-a-minor-version)
+  - [How to keep multiple minor versions?](#how-to-keep-multiple-minor-versions)
+  - [Can I keep only 1 patch version](#can-i-keep-only-1-patch-version)
+  - [Can I avoid repeating a single version for all OS distros/releases](#can-i-avoid-repeating-a-single-version-for-all-os-distrosreleases)
+  - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
 
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
