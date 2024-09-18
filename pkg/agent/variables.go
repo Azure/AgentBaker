@@ -156,8 +156,8 @@ func useManagedIdentity(cs *datamodel.ContainerService) string {
 }
 
 func skipExternalHnsNetwork(config *datamodel.NodeBootstrappingConfiguration) string {
-	skipExternalHnsNetwork := config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig != nil &&
-		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.SkipExternalHnsNetwork
+	skipExternalHnsNetwork := config.AgentPoolProfile != nil &&
+		config.AgentPoolProfile.SkipExternalHnsNetwork
 
 	if skipExternalHnsNetwork {
 		return "$true"
