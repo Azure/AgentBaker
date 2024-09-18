@@ -135,7 +135,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		for section, timeElapsed := range scriptData {
 			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 2*stdev]
 			// Adding these together gives us the maximum time allowed for the section
-			maxTimeAllowed, err := SumArray(maps.QueriedPerformanceDataMap[scriptName][section])
+			maxTimeAllowed, err := SumSlice(maps.QueriedPerformanceDataMap[scriptName][section])
 			if err != nil {
 				fmt.Printf("%v: %v", err, maps.QueriedPerformanceDataMap[scriptName][section])
 				continue
@@ -165,7 +165,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	return nil
 }
 
-func SumArray(arr []float64) (float64, error) {
+func SumSlice(arr []float64) (float64, error) {
 	var sum float64
 	if len(arr) != 2 {
 		return sum, fmt.Errorf("expected 2 elements in array, got %d", len(arr))
