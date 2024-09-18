@@ -30,7 +30,6 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
-CONTAINERD_WASM_FILEPATH="usr/local/bin"
 declare -a WASMSHIMPIDS=()
 
 setCPUArch() {
@@ -230,32 +229,33 @@ downloadContainerdWasmShims() {
     containerd_wasm_url=${2}
     shim_version=${3}
     binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
+    local containerd_wasm_filepath="/usr/local/bin"
     echo "download_location: $download_location containerd_wasm_url: $containerd_wasm_url shim_version: $shim_version binary_version: $binary_version"
 
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp=$CONTAINERD_WASM_FILEPATH/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
-        if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" ]; then
+        local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
+        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" ]; then
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            tar -zxf "$wasm_shims_tgz_tmp" -C $CONTAINERD_WASM_FILEPATH
-            mv "$CONTAINERD_WASM_FILEPATH/containerd-shim-*-${shim_version}-v1" "$CONTAINERD_WASM_FILEPATH/containerd-shim-*-${binary_version}-v1"
+            tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
+            mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
             rm -f "$wasm_shims_tgz_tmp"
         fi
         return
     fi
 
-    if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
-        echo "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1 //// $containerd_wasm_url/containerd-shim-spin-v1"
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+        echo "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1 //// $containerd_wasm_url/containerd-shim-spin-v1"
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
-        echo "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1 //// $containerd_wasm_url/containerd-shim-slight-v1"
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        echo "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1 //// $containerd_wasm_url/containerd-shim-slight-v1"
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
         if [ "$shim_version" == "0.8.0" ]; then
-            "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1"
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+            echo "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1"
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             WASMSHIMPIDS+=($!)
         fi
     fi
@@ -263,11 +263,12 @@ downloadContainerdWasmShims() {
 
 updateContainerdWasmShimsPermissions() {
     shim_version=$1
+    local containerd_wasm_filepath="/usr/local/bin"
     binary_version="$(echo "${shim_version}" | tr . -)"
-    chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
-    chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1"
+    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
+    chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
     if [ "$shim_version" == "v0.8.0" ]; then
-        chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
     fi
 }
 
