@@ -342,11 +342,11 @@ func TestEvaluatePerformance(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual, err := c.initialMaps.EvaluatePerformance(c.slice)
+			err := c.initialMaps.EvaluatePerformance()
 			if c.err != nil {
 				assert.EqualError(t, err, c.err.Error())
 			}
-			assert.Equal(t, c.expected, actual)
+			assert.Equal(t, c.expected.RegressionMap, c.initialMaps.RegressionMap)
 		})
 	}
 }
