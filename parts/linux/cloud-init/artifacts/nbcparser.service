@@ -1,24 +1,14 @@
 [Unit]
 Description=Parse contract and run csecmd
 DefaultDependencies=no
-After=systemd-networkd-wait-online.service
-Before=cloud-init.service
+After=cloud-init.service
 
 [Service]
 Type=oneshot
 ExecStartPre=/bin/bash -c 'while [ ! -f /opt/azure/containers/nbc.json ]; do sleep 1; done'
-ExecStart=/bin/bash -c '
-  go_binary="/opt/azure/containers/nbcparser"
-  
-  # Run the Go binary and generate cse_cmd.sh
-  $go_binary /opt/azure/containers/nbc.json > cse_cmd.sh
-
-  # Make the script executable
-  chmod +x cse_cmd.sh
-
-  # Execute the script
-  ./cse_cmd.sh
-'
+ExecStart=/bin/bash -c '/opt/azure/containers/nbcparser /opt/azure/containers/nbc.json > cse_cmd.sh; \
+  chmod +x cse_cmd.sh; \
+  ./cse_cmd.sh'
 
 [Install]
-WantedBy=systemd-networkd-wait-online.service
+WantedBy=multi-user.target
