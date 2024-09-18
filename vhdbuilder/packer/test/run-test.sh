@@ -99,7 +99,7 @@ else
     TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
 
-  if [[ "${OS_VERSION}" == "18.04" || "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${OSSKU}" == "Ubuntu" && ( "${OS_VERSION}" == "18.04" || "${ENABLE_FIPS,,}" == "true" ) ]]; then
     TARGET_COMMAND_STRING+=" --plan-name ${IMG_SKU} --plan-product ${IMG_OFFER} --plan-info ${IMG_PUBLISHER,,}"
   fi
 
