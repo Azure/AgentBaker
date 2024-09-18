@@ -131,10 +131,10 @@ testPackagesInstalled() {
           echo "$name is installed."
           continue
         elif [ "$name" == "containerd-wasm-shims" ]; then
-          binary_version="$(echo "${shim_version}" | tr . -)"
-          binary_spin_pattern="/usr/local/bin/containerd-shim-spin${binary_version}-v1"
-          binary_slight_pattern="/usr/local/bin/containerd-shim-slight${binary_version}-v1"
-          binary_wws_pattern="/usr/local/bin/containerd-shim-wws${binary_version}-v1"
+          binary_version="$(echo "${version}" | tr . -)"
+          binary_spin_pattern="/usr/local/bin/containerd-shim-spin-${binary_version}-v1"
+          binary_slight_pattern="/usr/local/bin/containerd-shim-slight-${binary_version}-v1"
+          binary_wws_pattern="/usr/local/bin/containerd-shim-wws-${binary_version}-v1"
           echo "binary_spin_pattern: $binary_spin_pattern"
           echo "binary_slight_pattern: $binary_slight_pattern"
           echo "binary_wws_pattern: $binary_wws_pattern"
