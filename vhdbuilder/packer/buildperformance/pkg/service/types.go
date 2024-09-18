@@ -13,7 +13,7 @@ type Config struct {
 
 type DataMaps struct {
 	LocalPerformanceDataMap   map[string]map[string]float64
-	QueriedPerformanceDataMap map[string]map[string][2]float64
+	QueriedPerformanceDataMap map[string]map[string][]float64
 	RegressionMap             map[string]map[string]float64
 }
 
