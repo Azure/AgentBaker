@@ -124,6 +124,7 @@ func TestParseKustoData(t *testing.T) {
 					"artifact_streaming_and_download_teleportd":          [2]float64{30.0, 20},
 					"configure_networking_and_interface":                 [2]float64{15.0, 10.0},
 					"finish_installing_bcc_tools":                        [2]float64{30.0, 20},
+					"download_azure_acr_credential_provider":             [2]float64{30.0, 20},
 					"download_cri_tools":                                 [2]float64{30.0, 20},
 					"purge_and_reinstall_ubuntu":                         [2]float64{30.0, 20},
 					"pull_and_retag_container_images":                    [2]float64{30.0, 20},
