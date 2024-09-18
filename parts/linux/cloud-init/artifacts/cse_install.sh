@@ -211,7 +211,7 @@ installingContainerdWasmShims(){
     shift 2
     package_versions=("$@")
 
-    echo "inside installingContainerdWasmShims - download_location: $download_location, containerd_wasm_url: $containerd_wasm_url, package_versions: $package_versions, PACKAGE_DOWNLOAD_URL: $PACKAGE_DOWNLOAD_URL"
+    echo "inside installingContainerdWasmShims - download_location: $download_location, package_versions: $package_versions, PACKAGE_DOWNLOAD_URL: $PACKAGE_DOWNLOAD_URL"
 
     for version in "${package_versions[@]}"; do
         echo "inside for loop - version: $version"
