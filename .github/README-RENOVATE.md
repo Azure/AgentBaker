@@ -66,12 +66,12 @@ By enabling the `minor` package rule, PR1 will also be created.
 This will be a noise PR to the assignee because now he/she needs to manually check if the 2 latest versions of v1.5.x are still kept in the components.json if this PR is merged. And usually it's not. Thus the assignee will cancel this PR manually every time.
 If a new minor version needs to be added, the owner should update the components.json.
 
-If there is only 1 component then it should be fine as it won't have too many noise PRs.
+If there is only 1 component then it should be fine as it won't have too many noisy PRs.
 But in components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
 ![Renovate Minor Enabled](./images/Renovate_minor_enabled.png)
 On the left side, there is no minor being updated. On the right side, it added many PRs for updating the minor but most of them should be just noise.
 
-That's why we ended up disabling `minor` auto-update to avoid the noise PRs.
+That's why we ended up disabling `minor` auto-update to avoid the noisy PRs.
 
 p.s. To allow disable `minor` update but enable `patch`, `pin`, `digest` update, at root level `separateMinorPatch` needs to be `true`.
 
@@ -81,10 +81,10 @@ For example,
 ```
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
-In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to this Github ID.
+In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs.
 
 ### Additional string operation to specific component
 ```
