@@ -218,7 +218,6 @@ installingContainerdWasmShims(){
     for version in "${package_versions[@]}"; do
         updateContainerdWasmShimsPermissions $download_location $version
     done
-    exit 0
 }
 
 downloadContainerdWasmShims() {
