@@ -215,9 +215,11 @@ installingContainerdWasmShims(){
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadContainerdWasmShims $download_location $containerd_wasm_url $version
     done
+    echo "Waiting for wasm shims to download... ${WASMSHIMPIDS[@]}"
     wait ${WASMSHIMPIDS[@]}
+    echo "Wasm shims downloaded successfully ${WASMSHIMPIDS[@]}"
+    echo "$(ls -la /usr/local/bin)"
     for version in "${package_versions[@]}"; do
-        echo "inside 2nd for loop - version: $version"
         updateContainerdWasmShimsPermissions $version
     done
 }
