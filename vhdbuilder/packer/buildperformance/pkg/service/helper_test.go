@@ -145,7 +145,7 @@ func TestDecodeLocalPerformanceData(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := c.mapsStruct.DecodeLocalPerformanceData("/home/zbailey/go/src/go.goms.io/aks/agentBaker/vhdbuilder/packer/buildperformance/testdata/AzureLinuxV6-build-performance-data.json")
+			err := c.mapsStruct.DecodeLocalPerformanceData("agentBaker/vhdbuilder/packer/buildperformance/testdata/AzureLinuxV6-build-performance-data.json")
 			assert.NoError(t, err)
 			assert.Equal(t, c.expected, c.mapsStruct.LocalPerformanceDataMap)
 		})
