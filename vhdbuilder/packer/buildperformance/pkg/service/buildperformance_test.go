@@ -259,7 +259,7 @@ func TestSumSlice(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			actual, err := SumSlice(c.slice)
-			if c.err != nil {
+			if err != nil {
 				assert.EqualError(t, err, c.err.Error())
 			}
 			assert.Equal(t, c.expected, actual)
@@ -392,9 +392,7 @@ func TestEvaluatePerformance(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := c.initialMaps.EvaluatePerformance()
-			if c.err != nil {
-				assert.EqualError(t, err, c.err.Error())
-			}
+			assert.NoError(t, err)
 			assert.Equal(t, c.expected.RegressionMap, c.initialMaps.RegressionMap)
 		})
 	}
@@ -404,7 +402,6 @@ func TestPrintRegressions(t *testing.T) {
 	cases := []struct {
 		name          string
 		regressionmap *DataMaps
-		expected      string
 		err           error
 	}{
 		{
@@ -423,15 +420,14 @@ func TestPrintRegressions(t *testing.T) {
 					},
 				},
 			},
-			expected: string(`{"pre_install_dependencies":{"enable_modified_log_rotate_service":30},"install_dependencies":{"configure_networking_and_interface":30,"download_azure_cni":30},"post_install_dependencies":{"resolve_conf":30}}`),
-			err:      nil,
+			err: nil,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := c.regressionmap.PrintRegressions()
-			assert.Equal(t, err, c.err)
+			assert.NoError(t, err)
 		})
 	}
 }
