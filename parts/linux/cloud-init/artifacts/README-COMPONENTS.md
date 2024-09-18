@@ -3,7 +3,7 @@
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
 
-To skip the details and simply add a new component to be cached in the VHD, please go directly to [Hands on guide](#hands-on-guide).
+To skip the details and simply add a new component to be cached in the VHD, please go directly to [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
 # Components management
 The `components.json` file centralizes the management of all components needed for building weekly node image VHDs, while allowing Renovate to automatically update the components to the latest versions to prevent CVEs.
@@ -111,7 +111,7 @@ Here are the explanation of the above schema.
 	- `downloadURL`: you can define a downloadURL with unresolved variables. For example, `https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz`. But the feature developer needs to make sure all variables are resolvable in the codes. In this example, `${CPU_ARCH}` is resolvable as it's defined at global scope. `${version}` is resovled based on the `versions` list above.
 1. `VersionV2`: explained in the previous section [ContainerImages](#containerimages)
 
-# Hands-on guide
+# Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
 
 ## How to ask Renovate to auto-update an existing component in `components.json` to a new version?
@@ -145,7 +145,7 @@ Follow this example by placing `previousLatestVersion` in the `versionsV2` or `m
 ```
 
 ## How to keep multiple minor versions?
-Please note that each minor version can only have 2 versions at most, which are `latestVersion` and `previousLatestVersion`. You can have only 1 version `latestVersion` for sure. Here is an example of a `containerImage` azure-cns that has multiple minor versions.
+Please note that each minor version can only have 2 patch versions at most, which are `latestVersion` and `previousLatestVersion`. You can have only 1 version `latestVersion` for sure. Here is an example of a `containerImage` azure-cns that has multiple minor versions.
 
 ```
    {
@@ -170,7 +170,7 @@ Please note that each minor version can only have 2 versions at most, which are 
    }
 ```
 
-## Can I keep only 1 minor version?
+## Can I keep only 1 patch version?
 Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.
 
 ## Can I avoid repeating a single version for all OS distros/releases?

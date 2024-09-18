@@ -1,7 +1,7 @@
-Renovate.json is a configuration file that defines how Renovate should interact with your custom components management file (also known as the manifest file) and how it should look up the latest versions from custom data sources.
+`Renovate.json` is a configuration file that defines how Renovate should interact with your custom components management file (also known as the manifest file) and how it should look up the latest versions from custom data sources.
 
 # TL;DR
-This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [doc](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide](#hands-on-guide).
+This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [doc](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
 # Renovate configurations
 For a general Renovate introductions, please read this wiki. https://msazure.visualstudio.com/CloudNativeCompute/_wiki/wikis/CloudNativeCompute.wiki/699998/Renovate-101
@@ -255,7 +255,7 @@ Now we figured out the inputs, we can start work on the JSONata query.
 JSONata Exerciser is a good playground for us to try and error the query. This is a good example which queries the package name from the inputs. You can start playing around with this. https://try.jsonata.org/Gjq6mkXmg. Attaching a screenshot for reference in case the link is no longer available in the future.
 ![alt text](.\images\JSONata_exerciser_example.png)
 
-# Hands-on guide
+# Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
 ## Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.
 **Step 1**
