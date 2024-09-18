@@ -180,10 +180,6 @@ func TestParseKustoData(t *testing.T) {
 	}
 }
 
-func TestEvaluatePerformance(t *testing.T) {
-
-}
-
 func TestSumSlice(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -208,6 +204,32 @@ func TestSumSlice(t *testing.T) {
 			slice:    []float64{30, 20, 10},
 			expected: 0,
 			err:      fmt.Errorf("expected 2 elements in slice, got %d: %v", len([]float64{30, 20, 10}), []float64{30, 20, 10}),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual, err := SumSlice(c.slice)
+			if c.err != nil {
+				assert.EqualError(t, err, c.err.Error())
+			}
+			assert.Equal(t, c.expected, actual)
+		})
+	}
+}
+
+func TestEvaluatePerformance(t *testing.T) {
+	cases := []struct {
+		name     string
+		initialMaps *DataMaps
+		expected *DataMaps
+		err      error
+	}{
+		{
+			name:     "should correctly identify regressions",
+			initialMaps
+			expected: &DataMaps{},
+			err:      nil,
 		},
 	}
 
