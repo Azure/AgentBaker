@@ -47,11 +47,11 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
 	require.NoError(t, err)
-
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
-
+	var model armcompute.VirtualMachineScaleSet
 	if opts.isSelfContainedVHD {
 		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, opts)
+	} else {
+		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
 	}
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
@@ -257,6 +257,7 @@ func getBaseVMSSModelSelfContained(name, sshPublicKey, customdata string, opts *
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}
+	fmt.Printf("Decoded CustomData: %s\n", string(decodedCustomData))
 	err = yaml.Unmarshal(decodedCustomData, &customDataConfig)
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
@@ -265,6 +266,9 @@ func getBaseVMSSModelSelfContained(name, sshPublicKey, customdata string, opts *
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}
+	// Print the parsed configuration
+	fmt.Printf("Parsed YAML: %+v\n", customDataConfig)
+
 	// Example: Append a new write file entry
 	cseWriteFile := WriteFile{
 		Path:        "/opt/azure/containers/nbc.json",
@@ -275,15 +279,14 @@ func getBaseVMSSModelSelfContained(name, sshPublicKey, customdata string, opts *
 	}
 	customDataConfig.WriteFiles = append(customDataConfig.WriteFiles, cseWriteFile)
 
-	// Print the updated configuration
-	fmt.Printf("Updated YAML: %+v\n", customDataConfig)
-
 	// Optionally, marshal back to YAML
-	updatedYAML, err := yaml.Marshal(&customDataConfig)
+	updatedCustomData, err := yaml.Marshal(&customDataConfig)
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}
-	encodedCustomData := base64.StdEncoding.EncodeToString(updatedYAML)
+	// Print the updated configuration
+	fmt.Printf("Updated CustomData: %s\n", string(updatedCustomData))
+	encodedCustomData := base64.StdEncoding.EncodeToString(updatedCustomData)
 	// encodedNbc := base64.StdEncoding.EncodeToString(nbc)
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
