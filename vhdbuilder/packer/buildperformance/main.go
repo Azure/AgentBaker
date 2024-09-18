@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	. "github.com/Azure/agentBaker/vhdbuilder/packer/buildperformance/pkg/service"
+	. "github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/service"
 )
 
 func main() {
