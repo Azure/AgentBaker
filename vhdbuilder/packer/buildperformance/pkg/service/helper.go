@@ -46,11 +46,11 @@ func SetupConfig() (*Config, error) {
 func CreateDataMaps() *DataMaps {
 	return &DataMaps{
 		// LocalPerformanceDataMap will hold the performance data from the local JSON file
-		LocalPerformanceDataMap: make(map[string]map[string]float64),
+		LocalPerformanceDataMap: map[string]map[string]float64{},
 		// QueriedPerformanceDataMap will hold the aggregated performance data queried from Kusto
-		QueriedPerformanceDataMap: make(map[string]map[string][]float64),
+		QueriedPerformanceDataMap: map[string]map[string][]float64{},
 		// RegressionMap will hold all identified regressions in the current build
-		RegressionMap: make(map[string]map[string]float64),
+		RegressionMap: map[string]map[string]float64{},
 	}
 }
 
