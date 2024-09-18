@@ -48,10 +48,8 @@ func TestSetupConfig(t *testing.T) {
 			if c.name == "should fail if an environment variable is missing" {
 				os.Setenv("BUILD_PERFORMANCE_TABLE_NAME", "")
 				config, err := SetupConfig()
-				if c.err != nil {
-					assert.EqualError(t, err, c.err.Error())
-					assert.Equal(t, config, c.expected)
-				}
+				assert.EqualError(t, err, c.err.Error())
+				assert.Equal(t, config, c.expected)
 			} else {
 				config, err := SetupConfig()
 				assert.NoError(t, err)
@@ -60,6 +58,7 @@ func TestSetupConfig(t *testing.T) {
 		})
 	}
 }
+
 func TestCreateDataMaps(t *testing.T) {
 	cases := []struct {
 		name     string
