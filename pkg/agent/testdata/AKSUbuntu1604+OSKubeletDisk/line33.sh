@@ -126,7 +126,10 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+    components_filepath="/opt/azure/components.json"
+    versions=$(jq -r '.[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
+    downloadLocation=$(jq -r '.[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
+    logs_to_events "AKS.CSE.downloadKrustlet" installingContainerdWasmShims "$downloadLocation" "" "$versions"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then

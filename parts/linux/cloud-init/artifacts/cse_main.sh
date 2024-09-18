@@ -131,10 +131,11 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-# todo (alburgess) get clarification on this downloadContainerdWasmShims function call 
-# guessing this is the NIC function call - will I need to process the versions from components.json?
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+    components_filepath="/opt/azure/components.json"
+    versions=$(jq -r '.[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
+    downloadLocation=$(jq -r '.[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
+    logs_to_events "AKS.CSE.downloadKrustlet" installingContainerdWasmShims "$downloadLocation" "" "$versions"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then

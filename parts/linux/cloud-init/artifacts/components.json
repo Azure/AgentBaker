@@ -829,10 +829,19 @@
       "downloadURIs": {
         "default": {
           "current": {
-            "versions": [
-              "0.3.0",
-              "0.5.1",
-              "0.8.0"
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.3.0"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.5.1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.8.0"
+              }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}"
           }
