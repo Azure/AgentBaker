@@ -11,7 +11,29 @@ func TestSetupConfig(t *testing.T) {
 
 }
 func TestCreateDataMaps(t *testing.T) {
+	cases := []struct {
+		name     string
+		maps     *DataMaps
+		expected *DataMaps
+	}{
+		{
+			name: "should correctly return a struct of type DataMaps",
+			maps: CreateDataMaps(),
+			expected: &DataMaps{LocalPerformanceDataMap: make(map[string]map[string]float64),
+				QueriedPerformanceDataMap: make(map[string]map[string][]float64),
+				RegressionMap:             make(map[string]map[string]float64),
+			},
+		},
+	}
 
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := CreateDataMaps()
+			assert.Equal(t, c.expected.LocalPerformanceDataMap, actual.LocalPerformanceDataMap)
+			assert.Equal(t, c.expected.QueriedPerformanceDataMap, actual.QueriedPerformanceDataMap)
+			assert.Equal(t, c.expected.RegressionMap, actual.RegressionMap)
+		})
+	}
 }
 
 func TestDecodeLocalPerformanceData(t *testing.T) {
