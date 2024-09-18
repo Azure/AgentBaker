@@ -1,3 +1,5 @@
+Renovate.json is a configuration file that defines how Renovate should interact with your custom components management file (also known as the manifest file) and how it should look up the latest versions from custom data sources.
+
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [doc](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide](#hands-on-guide).
 
@@ -301,3 +303,13 @@ If your GitHub ID is placed in the `assignees` array, you are responsible for th
 - Approve: If the updated version looks good to you, you can approve it. If you need additional reviews from Node SIG, proceed as usual.
 - Modify: In some cases, you may want to modify the code or the components.json to update to a different version. you can take the branch that Renovate created and change the code and components.json as desired.
 - Cancel: If you don't need the PR that Renovated created (e.g., the specific version is not desired), you can cancel the PR.
+
+## What components are onboarded to Renovate for auto-update and what are not yet?
+In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means it's not monitored by Renovate and won't be updated automatically.
+
+As of 9/18/2024,
+- All the container images are onboarded to Renovate for auto-update.
+- PMC hosted packages, namely `runc` and `containerd`, are onboarded for auto-update.
+- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, `kubernetes-binaries` and `azure-acr-credential-provider`, are not onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
+
+For the most up-to-date information, please refer to the actual configuration file `components.json`.

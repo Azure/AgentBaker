@@ -1,3 +1,5 @@
+`components.json` is a components management file that defines which components and versinos should be cached during the Node image build time. It also provides a `RenovateTag` for Renovate to understand how to monitor and update the components automatically.
+
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
 
@@ -205,3 +207,6 @@ For a `containerImage`, you don't need to distinguish among distros and releases
     }
 ```
 In this example the versions are defined under `default.current`, meaning that for all OS distros and releases, it caches the same versions. To learn more about the this, please read the section [Schema of components.json](#schema-of-componentsjson)
+
+## What components are onboarded to Renovate for auto-update and what are not yet?
+please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
