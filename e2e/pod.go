@@ -90,11 +90,7 @@ func ensurePod(ctx context.Context, t *testing.T, namespace string, kube *Kubecl
 		}
 	})
 	if err := waitUntilPodReady(ctx, kube, podName); err != nil {
-		pod, getErr := kube.Typed.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
-		if getErr != nil {
-			return fmt.Errorf("failed to wait for pod to be in running state: %w (failed to get pod status: %v)", err, getErr)
-		}
-		return fmt.Errorf("failed to wait for pod to be in running state: %w (pod status: %s, conditions: %v)", err, pod.Status.Phase, pod.Status.Conditions)
+		return fmt.Errorf("failed to wait for pod to be in running state: %w", err)
 	}
 
 	return nil

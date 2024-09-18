@@ -231,7 +231,7 @@ downloadContainerdWasmShims() {
 
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
-        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" ]; then
+        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" ]; then
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
             tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
             mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
@@ -240,7 +240,7 @@ downloadContainerdWasmShims() {
         return
     fi
 
-    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
+    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v${shim_version}" ]; then
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
@@ -257,10 +257,10 @@ updateContainerdWasmShimsPermissions() {
     shim_version=${2}
     binary_version="$(echo "${shim_version}" | tr . -)"
 
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
+    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1"
+    chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v${binary_version}-v1"
     if [ "$shim_version" == "0.8.0" ]; then
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-v${binary_version}-v1"
     fi
 }
 
