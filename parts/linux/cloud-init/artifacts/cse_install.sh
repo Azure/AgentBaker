@@ -208,36 +208,14 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 installingContainerdWasmShims(){
     download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
-    shift 2
+    shift 2 # shift past the first 2 arguments to capture the list of versions
     package_versions=("$@")
 
-    echo "inside installingContainerdWasmShims - download_location: $download_location, package_versions: $package_versions, PACKAGE_DOWNLOAD_URL: $PACKAGE_DOWNLOAD_URL"
-
     for version in "${package_versions[@]}"; do
-        echo "inside for loop - version: $version"
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        echo "inside for loop - download_location: $download_location - version: $version - containerd_wasm_url: $containerd_wasm_url"
         downloadContainerdWasmShims $download_location $containerd_wasm_url $version
     done
-    echo "PIDs to wait on: ${WASMSHIMPIDS[@]}"
-    # wait ${WASMSHIMPIDS[@]}
-    for pid in "${WASMSHIMPIDS[@]}"; do
-        wait $pid
-        status=$?
-        if [ $status -ne 0 ]; then
-            echo "Process $pid failed with exit status $status"
-            echo "$(cat $CURL_OUTPUT)"
-            exit $status
-        fi
-    done
-    echo "PIDs waited on: ${WASMSHIMPIDS[@]}"
-    for pid in "${WASMSHIMPIDS[@]}"; do
-        if ps -p $pid > /dev/null; then
-            echo "PID $pid is running"
-        else
-            echo "PID $pid is not running"
-        fi
-    done
+    wait ${WASMSHIMPIDS[@]}
     for version in $package_versions; do
         echo "inside 2nd for loop - version: $version"
         updateContainerdWasmShimsPermissions $version
@@ -249,7 +227,6 @@ downloadContainerdWasmShims() {
     containerd_wasm_url=${2}
     shim_version=${3}
     binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
-    echo "inside downloadContainerdWasmShims - containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version"
 
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
@@ -268,23 +245,18 @@ downloadContainerdWasmShims() {
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
-        echo "Tracking 1PID: $!"  # Print the PID of the background process
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
-        echo "Tracking 2PID: $!"  # Print the PID of the background process
         if [ "$shim_version" == "v0.8.0" ]; then
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             WASMSHIMPIDS+=($!)
-            echo "Tracking 3PID: $!"  # Print the PID of the background process
         fi
     fi
-    echo "PIDs tracked: ${WASMSHIMPIDS[@]}"
 }
 
 updateContainerdWasmShimsPermissions() {
     shim_version=$1
     binary_version="$(echo "${shim_version}" | tr . -)"
-    echo "inside updateContainerdWasmShimsPermissions - shim_version: $shim_version, binary_version: $binary_version"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1"
     chmod 755 "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1"
     if [ "$shim_version" == "v0.8.0" ]; then
