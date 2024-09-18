@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/tj/assert"
@@ -161,27 +162,39 @@ func TestEvaluatePerformance(t *testing.T) {
 
 }
 
-func TestSumArray(t *testing.T) {
+func TestSumSlice(t *testing.T) {
 	cases := []struct {
 		name     string
 		slice    []float64
 		expected float64
+		err      error
 	}{
 		{
 			name:     "should correctly add values in slice",
 			slice:    []float64{30.0, 20},
 			expected: 70.0,
+			err:      nil,
 		},
 		{
 			name:     "should return -1 if either value is -1",
 			slice:    []float64{30.0, -1},
 			expected: -1,
+			err:      nil,
+		},
+		{
+			name:     "should return invalid slice length error",
+			slice:    []float64{30, 20, 10},
+			expected: 0,
+			err:      fmt.Errorf("expected 2 elements in slice, got %d: %v", len([]float64{30, 20, 10}), []float64{30, 20, 10}),
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual := SumArray(c.slice)
+			actual, err := SumSlice(c.slice)
+			if c.err != nil {
+				assert.EqualError(t, err, c.err.Error())
+			}
 			assert.Equal(t, c.expected, actual)
 		})
 	}
