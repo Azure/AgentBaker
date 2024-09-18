@@ -219,6 +219,8 @@ installingContainerdWasmShims(){
     wait ${WASMSHIMPIDS[@]}
     echo "Wasm shims downloaded successfully ${WASMSHIMPIDS[@]}"
     echo "$(ls -la /usr/local/bin)"
+    echo "$CURL_OUTPUT"
+    exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
     for version in "${package_versions[@]}"; do
         updateContainerdWasmShimsPermissions $version
     done
@@ -229,6 +231,7 @@ downloadContainerdWasmShims() {
     containerd_wasm_url=${2}
     shim_version=${3}
     binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
+    echo "download_location: $download_location containerd_wasm_url: $containerd_wasm_url shim_version: $shim_version binary_version: $binary_version"
 
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
@@ -245,11 +248,14 @@ downloadContainerdWasmShims() {
     fi
 
     if [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${shim_version}" ] || [ ! -f "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${shim_version}" ]; then
+        echo "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1 //// $containerd_wasm_url/containerd-shim-spin-v1"
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
+        echo "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1 //// $containerd_wasm_url/containerd-shim-slight-v1"
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
         if [ "$shim_version" == "v0.8.0" ]; then
+            "$CONTAINERD_WASM_FILEPATH/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1"
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$CONTAINERD_WASM_FILEPATH/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
             WASMSHIMPIDS+=($!)
         fi
