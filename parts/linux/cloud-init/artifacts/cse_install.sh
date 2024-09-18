@@ -213,7 +213,7 @@ downloadContainerdWasmShims() {
         local shim_prefix="containerd-shim-"
         local registry_path
         local base_path
-        local tarball_name
+        local shim_filename
 
         # figure out version suffix, shims to download, and paths
         if [ "$shim_version" == "v0.15.1" ]; then
@@ -221,13 +221,13 @@ downloadContainerdWasmShims() {
             shims_to_download=("spin")
             registry_path="oss/binaries/spinkube/containerd-shim-spin"
             base_path="spinkube"
-            tarball_name="containerd-shim-spin-linux-${CPU_ARCH}.tar.gz"
+            shim_filename="containerd-shim-spin-v2"
         else
             version_suffix="-v1"
             shims_to_download=("spin" "slight")
             registry_path="oss/binaries/deislabs/containerd-wasm-shims"
             base_path="containerd-wasm-shims"
-            tarball_name="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
+            shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
             if [ "$shim_version" == "v0.8.0" ]; then
                 shims_to_download+=("wws")
             fi
@@ -243,23 +243,28 @@ downloadContainerdWasmShims() {
         done
 
         if [ "$shims_missing" = false ]; then
-            # all shims are already downloaded
-            # skip downloading
+            # all shims are already downloaded, skip downloading
             continue
         fi
 
         if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
             # download shims from container registry
+            
             local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${registry_path}:${shim_version}-linux-${CPU_ARCH}"
-            local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/${tarball_name}"
-            local shims_missing=false
-
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
-
-            for shim in "${shims_to_download[@]}"; do
-                mv "${containerd_wasm_filepath}/${shim_prefix}${shim}-${shim_version}${version_suffix}" "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}"
-            done
+            local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/${shim_filename}"
+            
+            # if shim version is v0.15.1, the downloaded binary is already named correctly, so no need to extract
+            # if shim version is not v0.15.1, extract the shims and rename them to match the binary version
+            if [ "$shim_version" == "v0.15.1" ]; then
+                retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+                mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}-v2"
+            else
+                retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+                tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
+                for shim in "${shims_to_download[@]}"; do
+                    mv "${containerd_wasm_filepath}/${shim_prefix}${shim}-${shim_version}${version_suffix}" "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}"
+                done
+            fi
 
             rm -f "$wasm_shims_tgz_tmp"
         else
