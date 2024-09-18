@@ -165,16 +165,16 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	return nil
 }
 
-func SumSlice(arr []float64) (float64, error) {
+func SumSlice(slice []float64) (float64, error) {
 	var sum float64
-	if len(arr) != 2 {
-		return sum, fmt.Errorf("expected 2 elements in array, got %d", len(arr))
+	if len(slice) != 2 {
+		return sum, fmt.Errorf("expected 2 elements in slice, got %d: %v", len(slice), slice)
 	}
-	if arr[0] == -1 || arr[1] == -1 {
+	if slice[0] == -1 || slice[1] == -1 {
 		sum = -1
 		return sum, nil
 	}
-	sum = arr[0] + arr[1]*2
+	sum = slice[0] + slice[1]*2
 	return sum, nil
 }
 
