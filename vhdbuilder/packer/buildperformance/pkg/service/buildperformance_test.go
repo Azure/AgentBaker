@@ -220,15 +220,15 @@ func TestSumSlice(t *testing.T) {
 
 func TestEvaluatePerformance(t *testing.T) {
 	cases := []struct {
-		name     string
+		name        string
 		initialMaps *DataMaps
-		expected *DataMaps
-		err      error
+		expected    *DataMaps
+		err         error
 	}{
 		{
-			name:     "should correctly identify regressions",
-			initialMaps &DataMaps{
-				QueriedPerformanceDataMap: [string]map[string][]float64{
+			name: "should correctly identify regressions",
+			initialMaps: &DataMaps{
+				QueriedPerformanceDataMap: map[string]map[string][]float64{
 					"pre_install_dependencies": {
 						"copy_packer_files":                                                 []float64{30.0, 20},
 						"sync_container_logs":                                               []float64{30.0, 20},
@@ -274,70 +274,75 @@ func TestEvaluatePerformance(t *testing.T) {
 						"list_installed_packages":               []float64{30.0, 20},
 					},
 				},
-				LocalPerformanceDataMap: [string]map[string]float64{
-					map[string]map[string]float64{
-						"pre_install_dependencies": {
-							"copy_packer_files":                                                 65,
-							"enable_modified_log_rotate_service":                                65,
-							"handle_azureLinux_and_cgroupV2":                                    65,
-							"handle_mariner_and_fips_configurations":                            65,
-							"make_directory_and_update_certs":                                   65,
-							"pre_install_dependencies_overall":                                  65,
-							"source_packer_files_declare_variables_and_set_mariner_permissions": 65,
-							"start_system_logs_and_aks_log_collector":                           65,
-							"sync_container_logs":                                               65,
-						},
-						"install_dependencies": {
-							"artifact_streaming_and_download_teleportd":                                        65,
-							"check_container_runtime_and_network_configurations":                               65,
-							"configure_networking_and_interface":                                               65,
-							"configure_telemetry_create_logging_directory":                                     65,
-							"create_containerd_service_directory_download_shims_configure_runtime_and_network": 65,
-							"declare_variables_and_source_packer_files":                                        65,
-							"download_azure_acr_credential_provider":                                           65,
-							"download_azure_cni":                                                               65,
-							"download_cni_plugins":                                                             65,
-							"download_containerd":                                                              65,
-							"download_cri_tools":                                                               65,
-							"download_gpu_device_plugin":                                                       65,
-							"download_kubernetes_binaries":                                                     65,
-							"download_oras":                                                                    65,
-							"download_runc":                                                                    65,
-							"finish_installing_bcc_tools":                                                      65,
-							"install_dependencies":                                                             65,
-							"install_dependencies_overall":                                                     65,
-							"pull_and_retag_container_images":                                                  65,
-							"pull_nvidia_driver_image_and_run_installBcc_in_subshell":                          65,
-							"purge_and_reinstall_ubuntu":                                                       65,
-						},
-						"post_install_dependencies": {
-							"determine_disk_usage":                  65,
-							"install_asc_baseline":                  65,
-							"list_installed_packages":               65,
-							"log_and_detach_ua":                     65,
-							"post_install_dependencies_overall":     65,
-							"resolve_conf":                          65,
-							"set_variables_and_source_packer_files": 65,
-							"write_logs":                            65,
-						},
+				LocalPerformanceDataMap: map[string]map[string]float64{
+					"pre_install_dependencies": {
+						"copy_packer_files":                                                 65,
+						"enable_modified_log_rotate_service":                                65,
+						"handle_azureLinux_and_cgroupV2":                                    65,
+						"handle_mariner_and_fips_configurations":                            65,
+						"make_directory_and_update_certs":                                   65,
+						"pre_install_dependencies_overall":                                  65,
+						"source_packer_files_declare_variables_and_set_mariner_permissions": 65,
+						"start_system_logs_and_aks_log_collector":                           65,
+						"sync_container_logs":                                               65,
 					},
-				RegressionMap: [string]map[string]float64{},
+					"install_dependencies": {
+						"artifact_streaming_and_download_teleportd":                                        65,
+						"check_container_runtime_and_network_configurations":                               65,
+						"configure_networking_and_interface":                                               65,
+						"configure_telemetry_create_logging_directory":                                     65,
+						"create_containerd_service_directory_download_shims_configure_runtime_and_network": 65,
+						"declare_variables_and_source_packer_files":                                        65,
+						"download_azure_acr_credential_provider":                                           65,
+						"download_azure_cni":                                                               65,
+						"download_cni_plugins":                                                             65,
+						"download_containerd":                                                              65,
+						"download_cri_tools":                                                               65,
+						"download_gpu_device_plugin":                                                       65,
+						"download_kubernetes_binaries":                                                     65,
+						"download_oras":                                                                    65,
+						"download_runc":                                                                    65,
+						"finish_installing_bcc_tools":                                                      65,
+						"install_dependencies":                                                             65,
+						"install_dependencies_overall":                                                     65,
+						"pull_and_retag_container_images":                                                  65,
+						"pull_nvidia_driver_image_and_run_installBcc_in_subshell":                          65,
+						"purge_and_reinstall_ubuntu":                                                       65,
+					},
+					"post_install_dependencies": {
+						"determine_disk_usage":                  65,
+						"install_asc_baseline":                  65,
+						"list_installed_packages":               65,
+						"log_and_detach_ua":                     65,
+						"post_install_dependencies_overall":     65,
+						"resolve_conf":                          65,
+						"set_variables_and_source_packer_files": 65,
+						"write_logs":                            65,
+					},
+				},
+				RegressionMap: map[string]map[string]float64{},
 			},
 			expected: &DataMaps{
-				RegressionMap: [string]map[string]float64{
-					"enable_modified_log_rotate_service": float64{30},
-					"download_azure_cni":								 float64{30},
-					"configure_networking_and_interface":				 float64{30},
-					"resolve_conf":										 float64{30},
+				RegressionMap: map[string]map[string]float64{
+					"pre_install_dependencies": {
+						"enable_modified_log_rotate_service": 30,
+					},
+					"install_dependencies": {
+						"download_azure_cni":                 30,
+						"configure_networking_and_interface": 30,
+					},
+					"post_install_dependencies": {
+						"resolve_conf": 30,
+					},
 				},
 			},
-			err:      nil,
+			err: nil,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual, err := SumSlice(c.slice)
+			actual, err := c.initialMaps.EvaluatePerformance(c.slice)
 			if c.err != nil {
 				assert.EqualError(t, err, c.err.Error())
 			}
