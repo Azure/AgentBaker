@@ -965,7 +965,7 @@ testNBCParserBinary () {
 testWasmRuntimesInstalled () {
   local test="testWasmRuntimesInstalled"
   local wasm_runtimes_path="/usr/local/bin"
-  local spin_runtime_versions="v0.3.0 v0.5.1"
+  local spin_runtime_versions="v0.3.0 v0.5.1 v0.8.0"
 
   echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
   for shim_version in $spin_runtime_versions; do
