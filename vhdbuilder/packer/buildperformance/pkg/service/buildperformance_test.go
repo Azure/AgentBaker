@@ -13,13 +13,12 @@ func TestSetupConfig(t *testing.T) {
 func TestCreateDataMaps(t *testing.T) {
 	cases := []struct {
 		name     string
-		maps     *DataMaps
 		expected *DataMaps
 	}{
 		{
 			name: "should correctly return a struct of type DataMaps",
-			maps: CreateDataMaps(),
-			expected: &DataMaps{LocalPerformanceDataMap: make(map[string]map[string]float64),
+			expected: &DataMaps{
+				LocalPerformanceDataMap:   make(map[string]map[string]float64),
 				QueriedPerformanceDataMap: make(map[string]map[string][]float64),
 				RegressionMap:             make(map[string]map[string]float64),
 			},
@@ -29,9 +28,7 @@ func TestCreateDataMaps(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			actual := CreateDataMaps()
-			assert.Equal(t, c.expected.LocalPerformanceDataMap, actual.LocalPerformanceDataMap)
-			assert.Equal(t, c.expected.QueriedPerformanceDataMap, actual.QueriedPerformanceDataMap)
-			assert.Equal(t, c.expected.RegressionMap, actual.RegressionMap)
+			assert.Equal(t, c.expected, actual)
 		})
 	}
 }
@@ -352,5 +349,37 @@ func TestEvaluatePerformance(t *testing.T) {
 }
 
 func TestPrintRegressions(t *testing.T) {
+	cases := []struct {
+		name          string
+		regressionmap *DataMaps
+		expected      string
+		err           error
+	}{
+		{
+			name: "should correctly unmarshal regression map into JSON",
+			regressionmap: &DataMaps{
+				RegressionMap: map[string]map[string]float64{
+					"pre_install_dependencies": {
+						"enable_modified_log_rotate_service": 30,
+					},
+					"install_dependencies": {
+						"download_azure_cni":                 30,
+						"configure_networking_and_interface": 30,
+					},
+					"post_install_dependencies": {
+						"resolve_conf": 30,
+					},
+				},
+			},
+			expected: string(`{"pre_install_dependencies":{"enable_modified_log_rotate_service":30},"install_dependencies":{"configure_networking_and_interface":30,"download_azure_cni":30},"post_install_dependencies":{"resolve_conf":30}}`),
+			err:      nil,
+		},
+	}
 
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := c.regressionmap.PrintRegressions()
+			assert.EqualError(t, err, c.err.Error())
+		})
+	}
 }
