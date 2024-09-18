@@ -12,8 +12,7 @@
         "orchestratorType": "Kubernetes",
         "orchestratorVersion": "1.30.3",
         "kubernetesConfig": {
-          "skipExternalHnsNetwork": true,
-          "networkPlugin": "azure",
+          "networkPlugin": "none",
           "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
           "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
           "useInstanceMetadata": true,
@@ -34,14 +33,15 @@
           "useCloudControllerManager": true,
           "useManagedIdentity": true,
           "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
-          "dnsServiceIP": "10.0.0.10",
-          "clusterSubnet": "10.224.0.0/16",
-          "serviceCidr": "10.0.0.0/16",
+          "dnsServiceIP": "192.168.2.10",
+          "clusterSubnet": "192.168.0.0/16",
+          "serviceCidr": "192.168.2.0/24",
           "DNSServiceIP": "192.168.2.10"
         }
       },
       "agentPoolProfiles": [
         {
+          "skipExternalHnsNetwork": true,
           "name": "winnp",
           "osType": "Windows",
           "availabilityProfile": "VirtualMachineScaleSets",
@@ -55,7 +55,7 @@
             "cloudProviderBackoffMode": ""
           },
           "vnetCidrs": [
-            "10.224.0.0/12"
+            "192.168.0.0/16"
           ]
         }
       ],
@@ -148,6 +148,7 @@
     "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip"
   },
   "AgentPoolProfile": {
+    "skipExternalHnsNetwork": true,
     "name": "winnp",
     "vmSize": "Standard_DS1_v2",
     "osType": "Windows",
@@ -185,8 +186,8 @@
       "127.0.0.1",
       "168.63.129.16",
       "169.254.169.254",
-      "10.0.0.0/16",
-      "agentbaker-agentbaker-e2e-t-8ecadf-c82d8251.hcp.eastus.azmk8s.io"
+      "192.168.0.0/16",
+      "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
     ]
   },
   "KubeletConfig": {
@@ -199,7 +200,7 @@
     "--client-ca-file": "c:\\k\\ca.crt",
     "--cloud-config": "c:\\k\\azure.json",
     "--cloud-provider": "external",
-    "--cluster-dns": "10.0.0.10",
+    "--cluster-dns": "192.168.2.10",
     "--cluster-domain": "cluster.local",
     "--dynamic-config-dir": "/var/lib/kubelet",
     "--enforce-node-allocatable": "\"\"\"\"",
