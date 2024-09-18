@@ -269,9 +269,8 @@ write_files:
     %s`
 	customData := fmt.Sprintf(nbcEntry, base64.StdEncoding.EncodeToString(nbc))
 	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
-	fmt.Println("Encoded CustomData: ", encodedCustomData)
+	fmt.Println("CustomData: ", customData)
 	fmt.Println("len of encoded CustomData is : ", len(encodedCustomData))
-	fmt.Println("SSHkey is : ", sshPublicKey)
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
