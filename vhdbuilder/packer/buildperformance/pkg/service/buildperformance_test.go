@@ -371,15 +371,15 @@ func TestPrintRegressions(t *testing.T) {
 					},
 				},
 			},
-			expected: string(`{"pre_install_dependencies":{"enable_modified_log_rotate_service":30},"install_dependencies":{"configure_networking_and_interface":30,"download_azure_cni":30},"post_install_dependencies":{"resolve_conf":30}}`),
-			err:      nil,
+			//expected: string(`{"pre_install_dependencies":{"enable_modified_log_rotate_service":30},"install_dependencies":{"configure_networking_and_interface":30,"download_azure_cni":30},"post_install_dependencies":{"resolve_conf":30}}`),
+			err: nil,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			err := c.regressionmap.PrintRegressions()
-			assert.EqualError(t, err, c.err.Error())
+			assert.Equal(t, err, c.err)
 		})
 	}
 }
