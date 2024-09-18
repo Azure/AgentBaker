@@ -28,7 +28,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	if config.SourceBranch == "refs/heads/zb/ingestBuildPerfData" {
+	if config.SourceBranch == "refs/heads/zb/regression" {
 		err = IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
 		if err != nil {
 			panic(err)
