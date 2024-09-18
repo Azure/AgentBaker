@@ -235,10 +235,9 @@ listInstalledPackages() {
     apt list --installed
 }
 
-autoAttachUA() {
-    echo "auto attaching ua..."
-    retrycmd_if_failure 5 10 120 ua auto-attach || exit $ERR_AUTO_UA_ATTACH
-
+disableLivePatch() {
+    # We have switched to using pro images for 1804 and FIPS therefore we no longer need to auto attach UA
+    # Directly proceed to disabling livepatch
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
 }

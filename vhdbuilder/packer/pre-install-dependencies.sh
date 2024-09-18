@@ -92,7 +92,7 @@ if isMarinerOrAzureLinux "$OS"; then
 else
   # Enable ESM for 18.04 and FIPS only
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    autoAttachUA
+    disableLivePatch
   fi
 
   # Run apt get update to refresh repo list
