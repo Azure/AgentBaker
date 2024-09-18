@@ -173,7 +173,7 @@ Describe 'cse_helpers.sh'
         It 'returns multiArchVersionsV2 for containerImage kube-proxy'
             containerImage=$(readContainerImage "kube-proxy")
             When call updateMultiArchVersions "$containerImage"
-            The variable MULTI_ARCH_VERSIONS[@] should equal "v1.27.16 v1.28.13 v1.29.8 v1.30.4 v1.27.15 v1.28.12 v1.29.7 v1.30.3"
+            The variable MULTI_ARCH_VERSIONS[@] should equal "v1.27.16 v1.28.14 v1.29.9 v1.30.5 v1.27.15 v1.28.13 v1.29.8 v1.30.4"
         End
     End
 End
