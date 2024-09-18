@@ -59,7 +59,7 @@
       "plan_info": {
         "plan_name": "{{user `img_sku`}}",
         "plan_product": "{{user `img_offer`}}",
-        "plan_publisher": "{{user `img_publisher`}}"
+        "plan_publisher": "{{user `img_publisher` | lower}}"
       },
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
