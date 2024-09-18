@@ -150,8 +150,9 @@ func TestParseKustoData(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			actual := c.mapsStruct.ParseKustoData(c.queriedSKU)
-			assert.Equal(t, c.expected, actual)
+			err := c.mapsStruct.ParseKustoData(c.queriedSKU)
+			assert.NoError(t, err)
+			assert.Equal(t, c.expected, c.mapsStruct.QueriedPerformanceDataMap)
 		})
 	}
 }
