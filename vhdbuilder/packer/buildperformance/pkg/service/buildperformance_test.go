@@ -162,7 +162,29 @@ func TestEvaluatePerformance(t *testing.T) {
 }
 
 func TestSumArray(t *testing.T) {
+	cases := []struct {
+		name     string
+		slice    []float64
+		expected float64
+	}{
+		{
+			name:     "should correctly add values in slice",
+			slice:    []float64{30.0, 20},
+			expected: 70.0,
+		},
+		{
+			name:     "should return -1 if either value is -1",
+			slice:    []float64{30.0, -1},
+			expected: -1,
+		},
+	}
 
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			actual := SumArray(c.slice)
+			assert.Equal(t, c.expected, actual)
+		})
+	}
 }
 
 func TestPrintRegressions(t *testing.T) {
