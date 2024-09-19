@@ -1,14 +1,16 @@
 #!/bin/sh
 
-scp windows:/AzureData/provision.complete .
-scp windows:/AzureData/CustomDataSetupScript.log .
-scp windows:/AzureData/CustomData.bin .
-scp windows:/k/containerd.log .
-scp windows:/k/containerd.err.log .
-scp windows:/k/windowsnodereset.log .
-scp windows:/k/kubelet.log .
-scp windows:/k/kubelet.err.log .
-scp windows:/k/csi-proxy.log .
-scp windows:/k/csi-proxy.err.log .
-scp windows:/k/kubeproxy.log .
-scp windows:/k/kubeproxy.err.log .
+mkdir -p logs
+
+scp windows:/AzureData/provision.complete logs/
+scp windows:/AzureData/CustomDataSetupScript.log logs/
+scp windows:/AzureData/CustomData.bin logs/
+scp windows:/k/containerd.log logs/
+scp windows:/k/containerd.err.log logs/
+scp windows:/k/windowsnodereset.log logs/
+scp windows:/k/kubelet.log logs/
+scp windows:/k/kubelet.err.log logs/
+scp windows:/k/csi-proxy.log logs/
+scp windows:/k/csi-proxy.err.log logs/
+scp windows:/k/kubeproxy.log logs/
+scp windows:/k/kubeproxy.err.log logs/
