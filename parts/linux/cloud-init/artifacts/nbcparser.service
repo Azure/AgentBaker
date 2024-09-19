@@ -1,11 +1,8 @@
 [Unit]
 Description=Parse contract and run csecmd
-DefaultDependencies=no
-After=cloud-init.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/bin/bash -c 'while [ ! -f /opt/azure/containers/nbc.json ]; do sleep 1; done'
 ExecStart=/bin/bash -c '/opt/azure/containers/nbcparser /opt/azure/containers/nbc.json > cse_cmd.sh; \
   chmod +x cse_cmd.sh; \
   ./cse_cmd.sh'

@@ -263,7 +263,6 @@ func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunO
 write_files:
 - path: /opt/azure/containers/nbc.json
   permissions: "0755"
-  encoding: gzip
   owner: root
   content: !!binary |
     %s`
