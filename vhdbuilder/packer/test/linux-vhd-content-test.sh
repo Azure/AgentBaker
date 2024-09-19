@@ -971,7 +971,6 @@ testNBCParserBinary () {
 
 testWasmRuntimesInstalled() {
   local test="testWasmRuntimesInstalled"
-
   local wasm_runtimes_path=${1}
   local shim_version=${2}
 
@@ -984,10 +983,10 @@ testWasmRuntimesInstalled() {
 
   binary_version="$(echo "${shim_version}" | tr . -)"
   for shim in "${shims_to_download[@]}"; do
-    binary_path_pattern="${wasm_runtimes_path}/containerd-${shim}-spin-v${binary_version}-*"
+    binary_path_pattern="${wasm_runtimes_path}/containerd-${shim}-spin-${binary_version}-*"
     if [ ! -f $binary_path_pattern ]; then
       output=$(ls -la $binary_path_pattern)
-      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern /// $output"
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
       return 1
     else
       echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
@@ -997,8 +996,6 @@ testWasmRuntimesInstalled() {
 
 testSpinKubeInstalled() {
   local test="testSpinKubeInstalled"
-  #local spinKube_runtimes_path="/usr/local/bin"
-
   local spinKube_runtimes_path=${1}
   local shim_version=${2}
 
@@ -1006,7 +1003,7 @@ testSpinKubeInstalled() {
   binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-v2"
   if [ ! -f $binary_path_pattern ]; then
     output=$(ls -la $binary_path_pattern)
-    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern /// $output"
+    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
     return 1
   else
     echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
