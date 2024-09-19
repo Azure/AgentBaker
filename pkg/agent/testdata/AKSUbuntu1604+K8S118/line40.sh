@@ -189,37 +189,6 @@ installContainerdWasmShims(){
     shift 2 
     local package_versions=("$@")
 
-    for version in "${package_versions[@]}"; do
-        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url $version
-    done
-    wait ${WASMSHIMPIDS[@]}
-    for version in "${package_versions[@]}"; do
-        updateContainerdWasmShimsPermissions $download_location $version
-    done
-}
-
-wasmFilesExist() {
-    local containerd_wasm_filepath=${1}
-    local shim_version=${2}
-    local shims_to_download=${3}
-    local version_suffix=${4}
-
-    local binary_version="$(echo "${shim_version}" | tr . -)"
-    for shim in "${shims_to_download[@]}"; do
-        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
-            return 1 
-        fi
-    done
-    return 0 
-}
-
-downloadContainerdWasmShims() {
-    local containerd_wasm_filepath=${1}
-    local containerd_wasm_url=${2}
-    local shim_version=${3}
-    local binary_version="$(echo "${shim_version}" | tr . -)" 
-
     local shims_to_download=("spin" "slight")
     local version_suffix="-v1"
     local mcr_registry_path="deislabs/containerd-wasm-shims"
@@ -232,6 +201,42 @@ downloadContainerdWasmShims() {
     elif [ "$shim_version" == "0.8.0" ]; then
         shims_to_download+=("wws")
     fi
+
+    for version in "${package_versions[@]}"; do
+        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download $version_suffix $mcr_registry_path $shim_filename
+    done
+    wait ${WASMSHIMPIDS[@]}
+    for version in "${package_versions[@]}"; do
+        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download $version_suffix
+    done
+}
+
+wasmFilesExist() {
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local shims_to_download=${3}
+    local version_suffix=${4}
+
+    local binary_version="$(echo "${shim_version}" | tr . -)"
+    for shim in "${shims_to_download[@]}"; do
+        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-v${binary_version}-${version_suffix}" ]; then
+            return 1 
+        fi
+    done
+    return 0 
+}
+
+downloadContainerdWasmShims() {
+    local containerd_wasm_filepath=${1}
+    local containerd_wasm_url=${2}
+    local shim_version=${3}
+    local shims_to_download=${4}
+    local version_suffix=${5}
+    local mcr_registry_path=${6}
+    local shim_filename=${7}
+
+    local binary_version="$(echo "${shim_version}" | tr . -)" 
 
     echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix, mcr_registry_path: $mcr_registry_path, shim_filename: $shim_filename"
 
@@ -246,12 +251,12 @@ downloadContainerdWasmShims() {
 
         if [ "$shim_version" == "0.15.1" ]; then
             retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
+            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-v${binary_version}${version_suffix}"
         else
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
             tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
             for shim in "${shims_to_download[@]}"; do
-                mv "${containerd_wasm_filepath}/containerd-shim-${shim}-v${shim_version}${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}${version_suffix}"
+                mv "${containerd_wasm_filepath}/containerd-shim-${shim}-v${shim_version}${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-${shim}-v${binary_version}${version_suffix}"
             done
         fi
 
@@ -268,24 +273,23 @@ downloadContainerdWasmShims() {
 updateContainerdWasmShimsPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
+    local shims_to_download=${3}
+    local version_suffix=${4}
+
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    echo "Updating permissions for containerd wasm shims: $shim_version"
+    echo "Updating permissions containerd_wasm_filepath: $containerd_wasm_filepath, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix"
 
     if [ "$shim_version" == "0.15.1" ]; then
         echo "inside the 0.15.1: $shim_version"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
-        mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-${version_suffix}"
+        mv "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-${version_suffix}" "$containerd_wasm_filepath/containerd-shim-spin-${version_suffix}"
         return
     fi
 
-    local shims_to_download=("spin" "slight")
-    if [ "$shim_version" == "0.8.0" ]; then
-        shims_to_download+=("wws")
-    fi
     for shim in "${shims_to_download[@]}"; do
-        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
+        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-${version_suffix}"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-${version_suffix}"
     done
 }
 

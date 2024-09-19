@@ -240,7 +240,7 @@ wasmFilesExist() {
 
     local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
-        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
+        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-v${binary_version}-${version_suffix}" ]; then
             return 1 # file is missing
         fi
     done
@@ -274,12 +274,12 @@ downloadContainerdWasmShims() {
         # if shim version is not 0.15.1, extract the shims and rename them to match the binary version
         if [ "$shim_version" == "0.15.1" ]; then
             retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
+            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-v${binary_version}${version_suffix}"
         else
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
             tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
             for shim in "${shims_to_download[@]}"; do
-                mv "${containerd_wasm_filepath}/containerd-shim-${shim}-v${shim_version}${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}${version_suffix}"
+                mv "${containerd_wasm_filepath}/containerd-shim-${shim}-v${shim_version}${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-${shim}-v${binary_version}${version_suffix}"
             done
         fi
 
@@ -306,10 +306,10 @@ updateContainerdWasmShimsPermissions() {
 
     if [ "$shim_version" == "0.15.1" ]; then
         echo "inside the 0.15.1: $shim_version"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-${version_suffix}"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-${version_suffix}"
         # spin shim v0.15.1 cannot be renamed: https://github.com/spinkube/containerd-shim-spin/issues/190
         # so we rename the shim back to containerd-shim-spin-v2
-        mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-${version_suffix}" "$containerd_wasm_filepath/containerd-shim-spin-${version_suffix}"
+        mv "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-${version_suffix}" "$containerd_wasm_filepath/containerd-shim-spin-${version_suffix}"
         return
     fi
 
