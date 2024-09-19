@@ -59,7 +59,7 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 fi
 
 if [[ "${OS_SKU}" == "Ubuntu" && ( "${OS_VERSION}" == "18.04" || "${ENABLE_FIPS,,}" == "true" ) ]]; then
-  VM_OPTIONS+=" --plan-name ${IMG_SKU} --plan-product ${IMG_OFFER} --plan-info ${IMG_PUBLISHER,,}"
+  VM_OPTIONS+=" --plan-name ${IMG_SKU} --plan-product ${IMG_OFFER} --plan-publisher ${IMG_PUBLISHER,,}"
 fi
 
 az vm create --resource-group $RESOURCE_GROUP_NAME \

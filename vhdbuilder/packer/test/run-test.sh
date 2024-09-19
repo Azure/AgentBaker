@@ -100,7 +100,7 @@ else
   fi
 
   if [[ "${OS_SKU}" == "Ubuntu" && ( "${OS_VERSION}" == "18.04" || "${ENABLE_FIPS,,}" == "true" ) ]]; then
-    TARGET_COMMAND_STRING+=" --plan-name ${IMG_SKU} --plan-product ${IMG_OFFER} --plan-info ${IMG_PUBLISHER,,}"
+    TARGET_COMMAND_STRING+=" --plan-name ${IMG_SKU} --plan-product ${IMG_OFFER} --plan-publisher ${IMG_PUBLISHER,,}"
   fi
 
   az vm create \
