@@ -841,10 +841,6 @@
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "0.8.0"
-              },
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.15.1"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}"
