@@ -234,6 +234,28 @@ retrycmd_get_tarball_from_registry_with_oras() {
         fi
     done
 }
+retrycmd_get_binary_from_registry_with_oras() {
+    binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
+    binary_folder=$(dirname "$binary_path")
+    echo "${binary_retries} retries"
+    
+    for i in $(seq 1 $binary_retries); do
+        if [ -f "$binary_path" ]; then
+            break
+        else
+            if [ $i -eq $binary_retries ]; then
+                return 1
+            else
+                # TODO: support private acr via kubelet identity
+                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+                if [[ $? != 0 ]]; then
+                    cat $ORAS_OUTPUT
+                fi
+                sleep $wait_sleep
+            fi
+        fi
+    done
+}
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
