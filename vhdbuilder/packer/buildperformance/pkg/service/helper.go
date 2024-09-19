@@ -23,7 +23,7 @@ func SetupConfig() (*Config, error) {
 	missingVar := false
 	for name, value := range envVars {
 		if value == "" {
-			fmt.Printf("Missing environment variable \"%s\".", name)
+			fmt.Printf("missing environment variable \"%s\".", name)
 			missingVar = true
 		}
 	}
@@ -137,17 +137,17 @@ func (maps *DataMaps) EvaluatePerformance() error {
 			// First we check that the queried data contains this section
 			sectionDataSlice, ok := maps.QueriedPerformanceDataMap[scriptName][section]
 			if !ok {
-				fmt.Printf("No data available for %s in %s\n", section, scriptName)
+				fmt.Printf("no data available for %s in %s\n", section, scriptName)
 				continue
 			}
 			// Adding these together gives us the maximum time allowed for the section
 			maxTimeAllowed, err := SumSlice(sectionDataSlice)
 			if err != nil {
-				fmt.Printf("%v: %v", err, sectionDataSlice)
+				fmt.Printf("error calculating max time allowed for %s in %s: %v\n", section, scriptName, err)
 				continue
 			}
 			if maxTimeAllowed == -1 {
-				fmt.Printf("Not enough data available for %s in %s\n", section, scriptName)
+				fmt.Printf("not enough data available for %s in %s\n", section, scriptName)
 				continue
 			}
 			if timeElapsed > maxTimeAllowed {
