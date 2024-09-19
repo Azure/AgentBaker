@@ -200,6 +200,27 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
+installSpinKube(){
+    local download_location=${1}
+    PACKAGE_DOWNLOAD_URL=${2}
+    shift 2 # shift past the first 2 arguments to capture the list of versions
+    local package_versions=("$@")
+
+    version_suffix="-v2"
+    shims_to_download=("spin")
+    mcr_registry_path="spinkube/containerd-shim-spin"
+    shim_filename="containerd-shim-spin-v2"
+
+    for version in "${package_versions[@]}"; do
+        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download $version_suffix $mcr_registry_path $shim_filename
+    done
+    wait ${WASMSHIMPIDS[@]}
+    for version in "${package_versions[@]}"; do
+        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download $version_suffix
+    done
+}
+
 # Install, download, update wasm must all be run from the same function call
 # in order to ensure WASMSHIMPIDS persists correctly since in bash a new
 # function call from install-dependnecies will create a new shell process.
@@ -213,12 +234,8 @@ installContainerdWasmShims(){
     local version_suffix="-v1"
     local mcr_registry_path="deislabs/containerd-wasm-shims"
     local shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
-    if [ "$shim_version" == "0.15.1" ]; then
-        version_suffix="-v2"
-        shims_to_download=("spin")
-        mcr_registry_path="spinkube/containerd-shim-spin"
-        shim_filename="containerd-shim-spin-v2"
-    elif [ "$shim_version" == "0.8.0" ]; then
+
+    if printf '%s\n' "${package_versions[@]}" | grep -q "^0.8.0$"; then
         shims_to_download+=("wws")
     fi
 
@@ -245,6 +262,32 @@ wasmFilesExist() {
         fi
     done
     return 0 
+}
+
+downloadSpinKube(){
+    local containerd_wasm_filepath=${1}
+    local containerd_wasm_url=${2}
+    local shim_version=${3}
+    local shims_to_download=${4}
+
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v2"; then
+        return
+    fi
+
+    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
+    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:v${shim_version}-linux-${CPU_ARCH}"
+        local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/containerd-shim-spin-v2"
+        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-v${binary_version}-v2"
+        rm -f "$wasm_shims_tgz_tmp"
+    fi
+
+    # install from acs-mirror
+    for shim in "${shims_to_download[@]}"; do
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}${version_suffix}" "$containerd_wasm_url/containerd-shim-${shim}-${version_suffix}" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        WASMSHIMPIDS+=($!)
+    done
 }
 
 downloadContainerdWasmShims() {

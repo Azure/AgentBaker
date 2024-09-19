@@ -849,7 +849,7 @@
       }
     },
     {
-      "name": "containerd-wasm-spinkube",
+      "name": "spinkube",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
         "default": {
