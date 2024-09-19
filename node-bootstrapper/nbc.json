@@ -92,7 +92,8 @@
         "fqdn": "https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
       },
       "featureFlags": {
-        "enableWinDSR": true
+        "enableWinDSR": true,
+        "enableIPv6DualStack": false
       },
       "windowsProfile": {
         "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
@@ -227,11 +228,11 @@
     "--tls-cipher-suites": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
     "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",
     "--cert-dir": "c:\\k\\pki",
-    "--hairpin-mode": "promiscuous-bridge",
-    "--tls-private-key-file": "c:\\k\\pki\\kubeletserver.key",
-    "--tls-cert-file": "c:\\k\\pki\\kubeletserver.crt"
+    "--hairpin-mode": "promiscuous-bridge"
   },
   "old_kubelet_flags": {
+    "--tls-private-key-file": "c:\\k\\pki\\kubeletserver.key",
+    "--tls-cert-file": "c:\\k\\pki\\kubeletserver.crt"
   },
   "KubeproxyConfig": null,
   "EnableRuncShimV2": false,

@@ -72,7 +72,7 @@ Write-Host "Stopping kubeproxy service"
 Stop-Service kubeproxy
 
 if ($global:NetworkPlugin -eq "azure") {
-    Write-Host "NetworkPlugin azure, starting kubelet."
+    Write-Host "NetworkPlugin azure, restarting kubeproxy."
 
     if ($global:IsSkipCleanupNetwork) {
         Write-Host "Skipping legacy code: kubeletstart.ps1 invokes cleanupnetwork.ps1"
