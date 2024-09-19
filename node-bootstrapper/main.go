@@ -316,28 +316,28 @@ func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[s
 
 func getBootstrapKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\k\\bootstrap-config"
+		return "c:\\\\k\\bootstrap-config"
 	}
 	return "/var/lib/kubelet/bootstrap-kubeconfig"
 }
 
 func getHardCodedKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\k\\config"
+		return "c:\\\\k\\config"
 	}
 	return "/var/lib/kubelet/kubeconfig"
 }
 
 func getArcTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\k\\arc-token.sh"
+		return "c:\\\\k\\arc-token.sh"
 	}
 	return "/opt/azure/bootstrap/arc-token.sh"
 }
 
 func getAzureTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\k\\azure-token.sh"
+		return "c:\\\\k\\azure-token.sh"
 	}
 	return "/opt/azure/bootstrap/azure-token.sh"
 }
@@ -404,7 +404,7 @@ func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string 
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: kubelogin,
+      command: kubelogin
       args:
       - get-token
       - --environment

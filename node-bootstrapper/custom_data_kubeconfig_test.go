@@ -9,10 +9,12 @@ import (
 )
 
 const (
-	bootstrapConfigFile = "/var/lib/kubelet/bootstrap-kubeconfig"
-	kubeConfigFile      = "/var/lib/kubelet/kubeconfig"
-	arcTokenSh          = "/opt/azure/bootstrap/arc-token.sh"
-	azureTokenSh        = "/opt/azure/bootstrap/azure-token.sh"
+	bootstrapConfigFile        = "/var/lib/kubelet/bootstrap-kubeconfig"
+	kubeConfigFile             = "/var/lib/kubelet/kubeconfig"
+	bootstrapConfigFileWindows = "c:\\\\k\\bootstrap-config"
+	kubeConfigFileWindows      = "c:\\\\k\\config"
+	arcTokenSh                 = "/opt/azure/bootstrap/arc-token.sh"
+	azureTokenSh               = "/opt/azure/bootstrap/azure-token.sh"
 )
 
 func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
@@ -20,7 +22,11 @@ func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguratio
 	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, bootstrapConfigFile)
-	actual := getFile(t, nbc, kubeConfigFile, 0644)
+	var configFile = kubeConfigFile
+	if nbc.AgentPoolProfile.IsWindows() {
+		configFile = kubeConfigFileWindows
+	}
+	actual := getFile(t, nbc, configFile, 0644)
 	assert.YAMLEq(t, expected, actual)
 }
 
@@ -29,7 +35,11 @@ func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingCon
 	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, kubeConfigFile)
-	actual := getFile(t, nbc, bootstrapConfigFile, 0644)
+	var configFile = bootstrapConfigFile
+	if nbc.AgentPoolProfile.IsWindows() {
+		configFile = bootstrapConfigFileWindows
+	}
+	actual := getFile(t, nbc, configFile, 0644)
 	assert.YAMLEq(t, expected, actual)
 }
 
@@ -358,6 +368,55 @@ users:
 		assertAzureTokenSh(t, nbc, "different_app_id")
 	})
 
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly and windows sets kubeconfig correctly", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.AgentPoolProfile.OSType = datamodel.Windows
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		assertKubeconfig(t, nbc, `
+apiVersion: v1
+clusters:
+   - cluster:
+       certificate-authority: /etc/kubernetes/certs/ca.crt
+       server: https://:443
+     name: localcluster
+contexts:
+   - context:
+       cluster: localcluster
+       user: client
+     name: localclustercontext
+current-context: localclustercontext
+kind: Config
+users:
+   - name: default-auth
+     user:
+       exec:
+         apiVersion: client.authentication.k8s.io/v1
+         command: kubelogin
+         args:
+         - get-token
+         - --environment
+         - AzurePublicCloud
+         - --server-id
+         - test-app-id
+         - --login
+         - msi
+         - --client-id
+         - 5f0b9406-fbf1-4e1c-8a61-b6f4a6702057
+         provideClusterInfo: false
+`)
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiDirectly and windows has no token-azure or token-arc.sh", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.AgentPoolProfile.OSType = datamodel.Windows
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+
+		files, err := customData(nil, nbc)
+		require.NoError(t, err)
+		require.NotContains(t, files, arcTokenSh)
+		require.NotContains(t, files, azureTokenSh)
+	})
+
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
@@ -397,5 +456,55 @@ users:
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
 		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
 		assertAzureTokenSh(t, nbc, "different_app_id")
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiToMakeCSR and windows sets bootstrap kubeconfig correctly", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.AgentPoolProfile.OSType = datamodel.Windows
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		assertBootstrapKubeconfig(t, nbc, `
+apiVersion: v1
+clusters:
+   - cluster:
+       certificate-authority: /etc/kubernetes/certs/ca.crt
+       server: https://:443
+     name: localcluster
+contexts:
+   - context:
+       cluster: localcluster
+       user: kubelet-bootstrap
+     name: bootstrap-context
+current-context: bootstrap-context
+kind: Config
+users:
+   - name: kubelet-bootstrap
+     user:
+       exec:
+         apiVersion: client.authentication.k8s.io/v1
+         command: kubelogin
+         args:
+         - get-token
+         - --environment
+         - AzurePublicCloud
+         - --server-id
+         - test-app-id
+         - --login
+         - msi
+         - --client-id
+         - 5f0b9406-fbf1-4e1c-8a61-b6f4a6702057
+         provideClusterInfo: false
+         interactiveMode: Never
+`)
+	})
+
+	t.Run("BootstrappingMethod=UseAzureMsiToMakeCSR and windows has no token-azure or token-arc.sh", func(t *testing.T) {
+		nbc := validNBC()
+		nbc.AgentPoolProfile.OSType = datamodel.Windows
+		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+
+		files, err := customData(nil, nbc)
+		require.NoError(t, err)
+		require.NotContains(t, files, arcTokenSh)
+		require.NotContains(t, files, azureTokenSh)
 	})
 }
