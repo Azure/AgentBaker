@@ -36,13 +36,15 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	if config.SourceBranch == "refs/heads/zb/regression2" {
-		err = service.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
-		if err != nil {
-			panic(err)
+	/*
+		if config.SourceBranch == "refs/heads/zb/regression2" {
+			err = service.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Printf("Data ingested for %s\n", config.SigImageName)
 		}
-		fmt.Printf("Data ingested for %s\n", config.SigImageName)
-	}
+	*/
 
 	queryData, err := service.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
