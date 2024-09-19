@@ -57,6 +57,7 @@ systemctlEnableAndStart systemd-journald || exit 1
 systemctlEnableAndStart rsyslog || exit 1
 
 systemctlEnableAndStart disk_queue || exit 1
+sleep 3
 capture_benchmark "copy_packer_files"
 
 mkdir /opt/certs
@@ -70,6 +71,7 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
+sleep 8
 capture_benchmark "start_system_logs_and_aks_log_collector"
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
