@@ -90,11 +90,15 @@ Stop-Service kubelet
 if ($global:CsiProxyEnabled) {
     Write-Log "Stopping csi-proxy service"
     Stop-Service csi-proxy
+} else {
+    Write-Log "Skipping csi-proxy stop"
 }
 
 if ($global:EnableHostsConfigAgent) {
     Write-Log "Stopping hosts-config-agent service"
     Stop-Service hosts-config-agent
+} else {
+    Write-Log "Skipping hosts-config-agent stop"
 }
 
 # Due to a bug in hns there is a race where it picks up the incorrect IPv6 address from the node in some cases.
@@ -123,7 +127,10 @@ function Restart-HnsService {
 }
 
 if ($IsDualStackEnabled) {
+    Write-Log "Restarting Hns-Service service"
     Restart-HnsService
+} else {
+    Write-Log "Skipping Hns-Service restart as DualStack not enabled"
 }
 
 # Perform cleanup. It should run when node reset (node provsion and node restart)
