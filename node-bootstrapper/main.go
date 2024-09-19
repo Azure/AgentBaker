@@ -371,28 +371,28 @@ func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[s
 
 func getBootstrapKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\\\k\\bootstrap-config"
+		return "c:\\k\\bootstrap-config"
 	}
 	return "/var/lib/kubelet/bootstrap-kubeconfig"
 }
 
 func getHardCodedKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\\\k\\config"
+		return "c:\\k\\config"
 	}
 	return "/var/lib/kubelet/kubeconfig"
 }
 
 func getArcTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\\\k\\arc-token.sh"
+		return "c:\\k\\arc-token.sh"
 	}
 	return "/opt/azure/bootstrap/arc-token.sh"
 }
 
 func getAzureTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\\\k\\azure-token.sh"
+		return "c:\\k\\azure-token.sh"
 	}
 	return "/opt/azure/bootstrap/azure-token.sh"
 }
@@ -495,7 +495,7 @@ kind: Config
 clusters:
 - name: localcluster
   cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
+    certificate-authority: %s
     server: https://%s:443
 users:
 %s
@@ -505,7 +505,7 @@ contexts:
     user: client
   name: localclustercontext
 current-context: localclustercontext
-`, agent.GetKubernetesEndpoint(config.ContainerService), users)
+`, getCaCertPath(config), agent.GetKubernetesEndpoint(config.ContainerService), users)
 }
 
 func generateContentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -573,6 +573,13 @@ curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
 `, appID)
 }
 
+func getCaCertPath(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return "c:/k/ca.crt"
+	}
+	return "/etc/kubernetes/certs/ca.crt"
+}
+
 func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
@@ -585,7 +592,7 @@ func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfi
 			{
 				"name": "localcluster",
 				"cluster": map[string]any{
-					"certificate-authority": "/etc/kubernetes/certs/ca.crt",
+					"certificate-authority": getCaCertPath(config),
 					"server":                "https://" + agent.GetKubernetesEndpoint(config.ContainerService) + ":443",
 				},
 			},
