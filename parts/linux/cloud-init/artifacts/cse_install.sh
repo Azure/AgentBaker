@@ -22,7 +22,6 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-# CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0 v0.15.1" # v0.15.1 is from SpinKube
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"

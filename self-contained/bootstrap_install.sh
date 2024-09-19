@@ -67,7 +67,7 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR &
 }
 
-
+# Cameron do you want these functions to match?
 downloadContainerdWasmShims() {
     declare -a wasmShimPids=()
     local containerd_wasm_filepath="/usr/local/bin"
