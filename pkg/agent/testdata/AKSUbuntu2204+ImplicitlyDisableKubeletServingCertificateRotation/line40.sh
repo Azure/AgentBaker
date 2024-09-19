@@ -199,36 +199,68 @@ installingContainerdWasmShims(){
     done
 }
 
+wasmShimsFilesExist() {
+    containerd_wasm_filepath=${1}
+    shim_version=${2}
+    shims_to_download=${3}
+    version_suffix=${4}
+
+    binary_version="$(echo "${shim_version}" | tr . -)"
+    for shim in "${shims_to_download[@]}"; do
+        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
+            return 1 
+        fi
+    done
+    return 0 
+}
+
 downloadContainerdWasmShims() {
     containerd_wasm_filepath=${1}
     containerd_wasm_url=${2}
     shim_version=${3}
     binary_version="$(echo "${shim_version}" | tr . -)" 
 
-    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
-    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    local shims_to_download=("spin" "slight")
+    local version_suffix="-v1"
+    local mcr_registry_path="deislabs/containerd-wasm-shims"
+    local shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
+    if [ "$shim_version" == "0.15.1" ]; then
+        version_suffix="-v2"
+        shims_to_download=("spin")
+        mcr_registry_path="spinkube/containerd-shim-spin"
+        shim_filename="containerd-shim-spin-v2"
+    elif [ "$shim_version" == "0.8.0" ]; then
+        shims_to_download+=("wws")
+    fi
 
-        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
-        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" ]; then
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
-            mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
-            rm -f "$wasm_shims_tgz_tmp"
-        fi
+    if doesWasmShimsFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
         return
     fi
 
-    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v${shim_version}" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-        WASMSHIMPIDS+=($!)
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-        WASMSHIMPIDS+=($!)
-        if [ "$shim_version" == "0.8.0" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-            WASMSHIMPIDS+=($!)
+    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
+    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/${mcr_registry_path}:v${shim_version}-linux-${CPU_ARCH}"
+        local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/${shim_filename}"
+
+        if [ "$shim_version" == "0.15.1" ]; then
+            retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+            mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
+        else
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+            tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
+            for shim in "${shims_to_download[@]}"; do
+                mv "${containerd_wasm_filepath}/containerd-shim-${shim}-v${shim_version}${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}${version_suffix}"
+            done
         fi
+
+        rm -f "$wasm_shims_tgz_tmp"
+        return
     fi
+
+    for shim in "${shims_to_download[@]}"; do
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}${version_suffix}" "$containerd_wasm_url/containerd-shim-${shim}-${version_suffix}" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        WASMSHIMPIDS+=($!)
+    done
 }
 
 updateContainerdWasmShimsPermissions() {
@@ -241,95 +273,6 @@ updateContainerdWasmShimsPermissions() {
     if [ "$shim_version" == "0.8.0" ]; then
         chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-v${binary_version}-v1"
     fi
-}
-
-downloadContainerdWasmShimsOLDDONOTUSE() {
-    declare -a wasmShimPids=()
-    local containerd_wasm_filepath="/usr/local/bin"
-    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
-    
-    for shim_version in $CONTAINERD_WASM_VERSIONS; do
-        binary_version="$(echo "${shim_version}" | tr . -)"
-
-        local version_suffix
-        local shims_to_download=()
-        local shim_prefix="containerd-shim-"
-        local registry_path
-        local base_path
-        local shim_filename
-
-        if [ "$shim_version" == "v0.15.1" ]; then
-            version_suffix="-v2"
-            shims_to_download=("spin")
-            registry_path="oss/binaries/spinkube/containerd-shim-spin"
-            base_path="spinkube"
-            shim_filename="containerd-shim-spin-v2"
-        else
-            version_suffix="-v1"
-            shims_to_download=("spin" "slight")
-            registry_path="oss/binaries/deislabs/containerd-wasm-shims"
-            base_path="containerd-wasm-shims"
-            shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
-            if [ "$shim_version" == "v0.8.0" ]; then
-                shims_to_download+=("wws")
-            fi
-        fi
-
-        shims_missing=false
-        for shim in "${shims_to_download[@]}"; do
-            if [ ! -f "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}" ]; then
-                shims_missing=true
-                break
-            fi
-        done
-
-        if [ "$shims_missing" = false ]; then
-            continue
-        fi
-
-        if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-            
-            local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${registry_path}:${shim_version}-linux-${CPU_ARCH}"
-            local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/${shim_filename}"
-            
-            if [ "$shim_version" == "v0.15.1" ]; then
-                retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-                mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}-v2"
-            else
-                retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-                tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
-                for shim in "${shims_to_download[@]}"; do
-                    mv "${containerd_wasm_filepath}/${shim_prefix}${shim}-${shim_version}${version_suffix}" "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}"
-                done
-            fi
-
-            rm -f "$wasm_shims_tgz_tmp"
-        else
-            local base_url="https://acs-mirror.azureedge.net/${base_path}/${shim_version}/linux/${CPU_ARCH}"
-
-            for shim in "${shims_to_download[@]}"; do
-                local shim_filename="${shim_prefix}${shim}${version_suffix}"
-                retrycmd_if_failure 2 5 60 curl -fSLv -o "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}" "${base_url}/${shim_filename}" 2>&1 | tee "$CURL_OUTPUT" >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat "$CURL_OUTPUT" && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-                wasmShimPids+=($!)
-            done
-        fi
-    done
-
-    wait ${wasmShimPids[@]}
-
-    for shim_version in $CONTAINERD_WASM_VERSIONS; do
-        binary_version="$(echo "${shim_version}" | tr . -)"
-        if [ "$shim_version" == "v0.15.1" ]; then
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
-            mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
-        else    
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
-            if [ "$shim_version" == "v0.8.0" ]; then
-                chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
-            fi
-        fi
-    done
 }
 
 installOras() {

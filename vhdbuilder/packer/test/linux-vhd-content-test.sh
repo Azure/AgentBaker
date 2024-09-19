@@ -131,32 +131,11 @@ testPackagesInstalled() {
           echo "$name is installed."
           continue
         elif [ "$name" == "containerd-wasm-shims" ]; then
-          binary_version="$(echo "${version}" | tr . -)"
-          binary_spin_pattern="/usr/local/bin/containerd-shim-spin-v${binary_version}-v1"
-          binary_slight_pattern="/usr/local/bin/containerd-shim-slight-v${binary_version}-v1"
-          binary_wws_pattern="/usr/local/bin/containerd-shim-wws-v${binary_version}-v1"
-
-          if [ ! -f $binary_spin_pattern ] && [ ! -f $binary_slight_pattern ]; then
-              err "$test $name binaries are not in the expected location of $downloadLocation"
-              continue
+          if ! testWasmRuntimesInstalled; then
+            err "$test: $name binaries are not in the expected location of $downloadLocation"
+            continue
           fi
-          if [[ $(stat -c "%a" "$binary_spin_pattern") != "755" && $(stat -c "%a" "$binary_slight_pattern") != "755" ]]; then
-              err "$test $name binaries are not executable"
-              continue
-          fi
-
-          if [ "$version" == "0.8.0" ]; then
-            if [ ! -f $binary_wws_pattern ]; then
-                err "$test $name binaries are not in the expected location of $downloadLocation"
-                continue
-            fi
-            if [ $(stat -c "%a" "$binary_wws_pattern") != "755" ]; then
-                err "$test $name binaries are not executable"
-                continue
-            fi
-          fi
-
-          echo "$test $name binaries are in the expected location of $downloadLocation $ls_files"
+          echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
