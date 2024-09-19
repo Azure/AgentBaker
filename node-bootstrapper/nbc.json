@@ -1,6 +1,5 @@
 {
   "Version":"v0",
-  "BootstrappingMethod": "UseAzureMsiToMakeCSR",
   "ContainerService": {
     "id": "",
     "location": "eastus",
@@ -152,6 +151,8 @@
     "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip"
   },
   "AgentPoolProfile": {
+    "bootstrappingMethod": "UseAzureMsiToMakeCSR",
+    "bootstrappingManagedIdentityId": "c034a0e4-d963-4a82-ab0f-6df7957e1c55",
     "skipExternalHnsNetwork": true,
     "name": "winnp",
     "vmSize": "Standard_DS1_v2",

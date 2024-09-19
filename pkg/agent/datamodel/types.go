@@ -815,6 +815,10 @@ type AgentPoolProfile struct {
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
 	SkipExternalHnsNetwork  bool                     `json:"skipExternalHnsNetwork,omitempty"`
+
+	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
+	BootstrappingMethod            BootstrappingMethod
+	BootstrappingManagedIdentityId string
 }
 
 func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
@@ -1733,8 +1737,6 @@ type NodeBootstrappingConfiguration struct {
 	// instead we create a modified bootstrap kubeconfig which points towards the STLS bootstrap client-go
 	// credential plugin installed on the VHD, which will be responsible for generating TLS bootstrap tokens on the fly
 	EnableSecureTLSBootstrapping bool
-	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
-	BootstrappingMethod BootstrappingMethod
 	// CustomSecureTLSBootstrapAADServerAppID serves as an optional override of the AAD server application ID
 	// used by the secure TLS bootstrap client-go credential plugin when requesting JWTs from AAD
 	CustomSecureTLSBootstrapAADServerAppID string
