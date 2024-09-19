@@ -285,7 +285,7 @@ downloadSpinKube(){
 
     # install from acs-mirror
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}${version_suffix}" "$containerd_wasm_url/containerd-shim-${shim}-${version_suffix}" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v2" "$containerd_wasm_url/containerd-shim-${shim}-${version_suffix}" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
 }
@@ -295,49 +295,33 @@ downloadContainerdWasmShims() {
     local containerd_wasm_url=${2}
     local shim_version=${3}
     local shims_to_download=${4}
-    local version_suffix=${5}
-    local mcr_registry_path=${6}
-    local shim_filename=${7}
-
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
-    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix, mcr_registry_path: $mcr_registry_path, shim_filename: $shim_filename"
-
-    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v2"; then
         return
     fi
 
     # Oras download for WASM for Network Isolated Clusters
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/${mcr_registry_path}:v${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/${shim_filename}"
-
-        # if shim version is 0.15.1, the downloaded binary is already named correctly, so no need to extract
-        # if shim version is not 0.15.1, extract the shims and rename them to match the binary version
-        if [ "$shim_version" == "0.15.1" ]; then
-            retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-v${binary_version}${version_suffix}"
-        else
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
-            for shim in "${shims_to_download[@]}"; do
-                mv "${containerd_wasm_filepath}/containerd-shim-${shim}-v${shim_version}${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-${shim}-v${binary_version}${version_suffix}"
-            done
+        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:v${shim_version}-linux-${CPU_ARCH}"
+        local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
+        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" ]; then
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+            tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
+            mv "$containerd_wasm_filepath/containerd-shim-*-v${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
+            rm -f "$wasm_shims_tgz_tmp"
         fi
-
-        rm -f "$wasm_shims_tgz_tmp"
         return
     fi
 
-    # install from acs-mirror
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}${version_suffix}" "$containerd_wasm_url/containerd-shim-${shim}-${version_suffix}" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
 }
 
-updateContainerdWasmShimsPermissions() {
+updateSPINKUBEPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
     local shims_to_download=${3}
