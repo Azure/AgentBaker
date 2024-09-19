@@ -254,6 +254,9 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
@@ -500,6 +503,9 @@ func Test_marinerv2Wasm(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
 			},
 		},
 	})
@@ -968,6 +974,9 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
@@ -1133,6 +1142,9 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 						ContainerRegistryServer: "mcr.microsoft.com",
 					},
 				}
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
 			},
 		},
 	})
