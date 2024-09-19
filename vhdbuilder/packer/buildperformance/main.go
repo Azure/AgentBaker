@@ -3,16 +3,24 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"os"
 	"time"
 
 	"github.com/Azure/agentBaker/vhdbuilder/packer/build-performance/pkg/service"
 )
 
 func main() {
+	// Recover from panic and exit gracefully in order to prevent failing pipeline step
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic in main:", r)
+			os.Exit(0)
+		}
+	}()
+
 	config, err := service.SetupConfig()
 	if err != nil {
-		log.Fatalf("could not set up config: %v", err)
+		panic(err)
 	}
 	fmt.Println("Program config set")
 
