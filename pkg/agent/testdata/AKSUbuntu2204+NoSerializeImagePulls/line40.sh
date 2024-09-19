@@ -53,7 +53,7 @@ installContainerdWithComponentsJson() {
     if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
     fi
-    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
@@ -320,7 +320,7 @@ installCNI() {
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${MARINER_OS_NAME}
@@ -331,7 +331,7 @@ installCNI() {
         os=${MARINER_KATA_OS_NAME}
     fi
     PACKAGE_VERSIONS=()
-    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
+    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
     
     #should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then

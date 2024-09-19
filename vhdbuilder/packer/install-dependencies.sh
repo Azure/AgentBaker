@@ -17,6 +17,7 @@ IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
 fi
+  
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -193,6 +194,7 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+
 downloadContainerdWasmShims
 echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
 
@@ -200,15 +202,8 @@ echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
 
-# check if COMPONENTS_FILEPATH exists
-if [ ! -f $COMPONENTS_FILEPATH ]; then
-  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
-  exit 1
-fi
-
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-# Iterate over each element in the packages array
-while IFS= read -r p; do
+for p in ${packages[*]}; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
@@ -216,17 +211,17 @@ while IFS= read -r p; do
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
-  updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
+  returnPackageVersions ${p} ${os} ${OS_VERSION}
   PACKAGE_DOWNLOAD_URL=""
-  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
+  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
-
+  
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
   if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
-  downloadDir=$(echo "${p}" | jq .downloadLocation -r)
+  downloadDir=$(echo ${p} | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
@@ -309,7 +304,7 @@ while IFS= read -r p; do
       ;;
   esac
   capture_benchmark "download_${name}"
-done <<< "$packages"
+done
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
@@ -408,32 +403,36 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-while IFS= read -r imageToBePulled; do
+for imageToBePulled in ${ContainerImages[*]}; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  MULTI_ARCH_VERSIONS=()
-  updateMultiArchVersions "${imageToBePulled}"
+  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+
   amd64OnlyVersions=""
   if [[ ${amd64OnlyVersionsStr} != null ]]; then
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
+  multiArchVersions=""
+  if [[ ${multiArchVersionsStr} != null ]]; then
+    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
+  fi
 
   if [[ $(isARM64) == 1 ]]; then
-    versions="${MULTI_ARCH_VERSIONS[*]}"
+    versions="${multiArchVersions}"
   else
-    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
+    versions="${amd64OnlyVersions} ${multiArchVersions}"
   fi
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
+    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
     done
   done
-done <<< "$ContainerImages"
+done
 wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)

@@ -7,14 +7,9 @@ type ComponentList struct {
 
 // Image represents a container image within a component list.
 type Image struct {
-	DownloadURL         string   `json:"downloadURL,omitempty"`
-	AMD64OnlyVersions   []string `json:"amd64OnlyVersions,omitempty"`
-	MultiArchVersions   []string `json:"multiArchVersions,omitempty"`
-	MultiArchVersionsV2 []struct {
-		RenovateTag           string `json:"renovateTag"`
-		LatestVersion         string `json:"latestVersion"`
-		PreviousLatestVersion string `json:"previousLatestVersion"`
-	} `json:"multiArchVersionsV2"`
+	DownloadURL           string   `json:"downloadURL,omitempty"`
+	AMD64OnlyVersions     []string `json:"amd64OnlyVersions,omitempty"`
+	MultiArchVersions     []string `json:"multiArchVersions,omitempty"`
 	PrefetchOptimizations []struct {
 		Tag      string   `json:"version,omitempty"`
 		Binaries []string `json:"binaries,omitempty"`
@@ -26,11 +21,6 @@ type Image struct {
 func (i *Image) IsKnownVersion(version string) bool {
 	for _, v := range i.MultiArchVersions {
 		if v == version {
-			return true
-		}
-	}
-	for _, v := range i.MultiArchVersionsV2 {
-		if v.LatestVersion == version || v.PreviousLatestVersion == version {
 			return true
 		}
 	}

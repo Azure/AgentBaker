@@ -481,7 +481,7 @@ process_benchmarks() {
 #return proper release metadata for the package based on the os and osVersion
 #e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
 #Otherwise set RELEASE to "current"
-updateRelease() {
+returnRelease() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
@@ -498,12 +498,12 @@ updateRelease() {
     fi
 }
 
-updatePackageVersions() {
+returnPackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
+    returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
 
@@ -526,12 +526,12 @@ updatePackageVersions() {
     return 0
 }
 
-updatePackageDownloadURL() {
+returnPackageDownloadURL() {
     local package=$1
     local os=$2
     local osVersion=$3
     RELEASE="current"
-    updateRelease "${package}" "${os}" "${osVersion}"
+    returnRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.

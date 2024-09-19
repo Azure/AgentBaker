@@ -178,7 +178,7 @@ installCNI() {
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${OS}
@@ -186,7 +186,7 @@ installCNI() {
     fi
     os_version="${UBUNTU_RELEASE}"
     PACKAGE_VERSIONS=()
-    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
+    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
     
     #should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then

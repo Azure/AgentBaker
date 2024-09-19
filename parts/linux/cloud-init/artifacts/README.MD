@@ -1,1 +1,0 @@
-For tutorial for the descriptions of components.json, please refer to this [doc](README-COMPONENTS.md).
