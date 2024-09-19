@@ -131,10 +131,7 @@ testPackagesInstalled() {
           echo "$name is installed."
           continue
         elif [ "$name" == "containerd-wasm-shims" ]; then
-          if ! testWasmRuntimesInstalled; then
-            err "$test: $name binaries are not in the expected location of $downloadLocation"
-            continue
-          fi
+          testWasmRuntimesInstalled
           echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
         else
@@ -989,7 +986,8 @@ testWasmRuntimesInstalled () {
   # v0.15.1 does not have a version encoded in the binary name
   binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-v2"
     if [ ! -f $binary_path_pattern ]; then
-      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern"
+      output=$(ls -la $binary_path_pattern)
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern /// $output"
       return 1
     else
       echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"

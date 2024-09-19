@@ -267,7 +267,7 @@ downloadContainerdWasmShims() {
         # if shim version is not 0.15.1, extract the shims and rename them to match the binary version
         if [ "$shim_version" == "0.15.1" ]; then
             retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
+            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
         else
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
             tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
