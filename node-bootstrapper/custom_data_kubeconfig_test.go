@@ -192,7 +192,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseSecureTlsBootstrapping sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = datamodel.UseSecureTlsBootstrapping
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseSecureTlsBootstrapping
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
@@ -223,7 +223,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseTlsBootstrapToken sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = datamodel.UseTlsBootstrapToken
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseTlsBootstrapToken
 		nbc.KubeletClientTLSBootstrapToken = Ptr("test-token-value")
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
@@ -247,7 +247,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseArcMsiToMakeCSR sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
@@ -275,20 +275,20 @@ users:
 	t.Run("BootstrappingMethod=UseArcMsiToMakeCSR sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
-		nbc.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
 		assertArcTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
 	})
 
 	t.Run("BootstrappingMethod=UseArcMsiToMakeCSR sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
-		nbc.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseArcMsiToMakeCSR
 		assertArcTokenSh(t, nbc, "different_app_id")
 	})
 
 	t.Run("BootstrappingMethod=UseArcMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = datamodel.UseArcMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseArcMsiDirectly
 		assertKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
@@ -316,20 +316,20 @@ users:
 	t.Run("BootstrappingMethod=UseArcMsiDirectly sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
-		nbc.BootstrappingMethod = "UseArcMsiDirectly"
+		nbc.AgentPoolProfile.BootstrappingMethod = "UseArcMsiDirectly"
 		assertArcTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
 	})
 
 	t.Run("BootstrappingMethod=UseArcMsiDirectly sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
-		nbc.BootstrappingMethod = "UseArcMsiDirectly"
+		nbc.AgentPoolProfile.BootstrappingMethod = "UseArcMsiDirectly"
 		assertArcTokenSh(t, nbc, "different_app_id")
 	})
 
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
 		assertKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
@@ -357,21 +357,22 @@ users:
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
 		assertAzureTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
 	})
 
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
 		assertAzureTokenSh(t, nbc, "different_app_id")
 	})
 
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly and windows sets kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingManagedIdentityId = "5f0b9406-fbf1-4e1c-8a61-b6f4a6702057"
 		assertKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
@@ -409,7 +410,7 @@ users:
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly and windows has no token-azure or token-arc.sh", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
 
 		files, err := customData(nil, nbc)
 		require.NoError(t, err)
@@ -419,7 +420,7 @@ users:
 
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
@@ -447,21 +448,22 @@ users:
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with the AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = ""
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
 		assertAzureTokenSh(t, nbc, "6dae42f8-4368-4678-94ff-3960e28e3630")
 	})
 
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets token.sh correctly with a different AKS AAD App ID", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
 		assertAzureTokenSh(t, nbc, "different_app_id")
 	})
 
 	t.Run("BootstrappingMethod=UseAzureMsiToMakeCSR and windows sets bootstrap kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingManagedIdentityId = "mi-client-id"
 		assertBootstrapKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
@@ -491,7 +493,7 @@ users:
          - --login
          - msi
          - --client-id
-         - 5f0b9406-fbf1-4e1c-8a61-b6f4a6702057
+         - mi-client-id
          provideClusterInfo: false
          interactiveMode: Never
 `)
@@ -500,7 +502,7 @@ users:
 	t.Run("BootstrappingMethod=UseAzureMsiToMakeCSR and windows has no token-azure or token-arc.sh", func(t *testing.T) {
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
-		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
 
 		files, err := customData(nil, nbc)
 		require.NoError(t, err)

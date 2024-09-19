@@ -973,7 +973,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.EnableIMDSRestriction
 		},
 		"IsArc": func() bool {
-			return config.BootstrappingMethod == datamodel.UseArcMsiDirectly || config.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR
+			return config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiDirectly || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR
 		},
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable

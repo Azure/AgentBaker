@@ -317,7 +317,7 @@ func customData(ctx context.Context, config *datamodel.NodeBootstrappingConfigur
 }
 
 func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	switch config.BootstrappingMethod {
+	switch config.AgentPoolProfile.BootstrappingMethod {
 	case datamodel.UseArcMsiToMakeCSR:
 		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
 			return err2
@@ -442,8 +442,12 @@ func generateContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration)
 	if appID == "" {
 		appID = DefaultAksAadAppID
 	}
+	managedIdentityId := config.AgentPoolProfile.BootstrappingManagedIdentityId
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
 
-	switch config.BootstrappingMethod {
+	switch config.AgentPoolProfile.BootstrappingMethod {
 	case datamodel.UseArcMsiDirectly:
 		users = fmt.Sprintf(`- name: default-auth
   user:
@@ -469,9 +473,9 @@ func generateContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration)
       - --login
       - msi
       - --client-id
-      - "5f0b9406-fbf1-4e1c-8a61-b6f4a6702057"
+      - %s
       provideClusterInfo: false
-`, appID)
+`, appID, managedIdentityId)
 
 		} else {
 			users = fmt.Sprintf(`- name: default-auth
@@ -601,7 +605,7 @@ func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfi
 			{
 				"name": "kubelet-bootstrap",
 				"user": func() map[string]any {
-					switch config.BootstrappingMethod {
+					switch config.AgentPoolProfile.BootstrappingMethod {
 					case datamodel.UseArcMsiToMakeCSR:
 						return map[string]any{
 							"exec": map[string]any{
@@ -629,8 +633,7 @@ func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfi
 										"--login",
 										"msi",
 										"--client-id",
-										// hard coded at the moment for Singularity team.
-										"5f0b9406-fbf1-4e1c-8a61-b6f4a6702057",
+										config.AgentPoolProfile.BootstrappingManagedIdentityId,
 									},
 								},
 							}
@@ -645,7 +648,7 @@ func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfi
 							}
 						}
 					}
-					if config.EnableSecureTLSBootstrapping || config.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
+					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
 						return map[string]any{
 							"exec": map[string]any{
 								"apiVersion": "client.authentication.k8s.io/v1",
