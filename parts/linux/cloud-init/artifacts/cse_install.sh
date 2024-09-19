@@ -292,7 +292,10 @@ updateContainerdWasmShimsPermissions() {
     local shim_version=${2}
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
+    echo "Updating permissions for containerd wasm shims: $shim_version"
+
     if [ "$shim_version" == "0.15.1" ]; then
+        echo "inside the 0.15.1: $shim_version"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
         # spin shim v0.15.1 cannot be renamed: https://github.com/spinkube/containerd-shim-spin/issues/190
         # so we rename the shim back to containerd-shim-spin-v2
@@ -305,6 +308,7 @@ updateContainerdWasmShimsPermissions() {
         shims_to_download+=("wws")
     fi
     for shim in "${shims_to_download[@]}"; do
+        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
     done
 }
