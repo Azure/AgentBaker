@@ -10,7 +10,7 @@ ifeq (${OS_SKU},Ubuntu)
 ifneq (,$(filter True,$(ENABLE_FIPS))$(filter 18.04,$(OS_VERSION)))
 	@echo "Using packer template file vhd-image-builder-ubuntu-pro.json for 1804 and Ubuntu FIPS images"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-ubuntu-pro.json
-	exit 0;
+	@if [ $$? -eq 0 ]; then exit 0; fi
 endif
 endif
 ifeq (${ARCHITECTURE},ARM64)
