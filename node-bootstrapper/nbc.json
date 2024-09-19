@@ -76,9 +76,11 @@
       },
       "certificateProfile": {
         "caCertificate": "-----BEGIN CERTIFICATE-----\nMIIDHTCCAgWgAwIBAgIQCTrbx77VklxvZ9AL4PRGgTANBgkqhkiG9w0BAQsFADAN\nMQswCQYDVQQDEwJjYTAeFw0yNDA4MjEyMDMyMjJaFw0yNjA4MjEyMDQyMjJaMDAx\nFzAVBgNVBAoTDnN5c3RlbTptYXN0ZXJzMRUwEwYDVQQDEwxtYXN0ZXJjbGllbnQw\nggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4yzV/2Cef4NsJWvwycuCA\nOqdMb0DV7euev2y+NaOQ77OT5bcKMLyRi08SksfUOEihANcZOKCUsVkpbMqbYv+m\nbuE5Xb6NIsI7nq8+jLGrAuYV9uNflgqgaksl6P0EOjWqUjiZ/8bObwvqtukhT/ks\napiROCxpcCkJVospN5BEm+57kmGyAtIAsAaMbj7tYMNvna/bngkAfUVWsT6DHTpS\nyADu3Mcwcd+j89RWAZ5AgXHYtIMJRwI1INE/O7i9XyeftU+WTMrsh83xe1LTW0HJ\nVN8EDioiBN/2S7Mj1xYIHqmAf7oI5A99ykiTr/Irb1NDR+cawDefoafrAYzLOGfn\nAgMBAAGjVjBUMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAM\nBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFHkNuxV6lgS85A0qUh+N9TZX0UbsMA0G\nCSqGSIb3DQEBCwUAA4IBAQC7Q98cPNQ+dqVK358OKQGrXcQveQtW6HrUtW4eKvv8\n/ERzu0uoUaUnyPXtMwm+pnEwraKfKRgzih5KnqmDs+94iIj7vNMDjprJnVQdnNY5\noMugQmQSuF4SIItC9w+7fhsJHdOyDo8FiihIoAzfnD2L7VF4wGIi9E5MjuSkKAm+\nZjsMSjRc3LDGoMe3w8MBYKLD0q/uJ5AOBQRfqQ6higDTFy75OXHbi/lVhImAST93\nxKnwcN9w4RlI29zpkPKUo3P9xZidLzi4cz38R0CqNbhAGwFtXTIcpQlkyEiZok3z\nWGFc53aFvMifLojCcZJC+nsWr1QZHTObnNyX9zOAICt1\n-----END CERTIFICATE-----\n",
-        "apiServerCertificate": "-----BEGIN CERTIFICATE-----\nMIIDHTCCAgWgAwIBAgIQCTrbx77VklxvZ9AL4PRGgTANBgkqhkiG9w0BAQsFADAN\nMQswCQYDVQQDEwJjYTAeFw0yNDA4MjEyMDMyMjJaFw0yNjA4MjEyMDQyMjJaMDAx\nFzAVBgNVBAoTDnN5c3RlbTptYXN0ZXJzMRUwEwYDVQQDEwxtYXN0ZXJjbGllbnQw\nggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4yzV/2Cef4NsJWvwycuCA\nOqdMb0DV7euev2y+NaOQ77OT5bcKMLyRi08SksfUOEihANcZOKCUsVkpbMqbYv+m\nbuE5Xb6NIsI7nq8+jLGrAuYV9uNflgqgaksl6P0EOjWqUjiZ/8bObwvqtukhT/ks\napiROCxpcCkJVospN5BEm+57kmGyAtIAsAaMbj7tYMNvna/bngkAfUVWsT6DHTpS\nyADu3Mcwcd+j89RWAZ5AgXHYtIMJRwI1INE/O7i9XyeftU+WTMrsh83xe1LTW0HJ\nVN8EDioiBN/2S7Mj1xYIHqmAf7oI5A99ykiTr/Irb1NDR+cawDefoafrAYzLOGfn\nAgMBAAGjVjBUMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAM\nBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFHkNuxV6lgS85A0qUh+N9TZX0UbsMA0G\nCSqGSIb3DQEBCwUAA4IBAQC7Q98cPNQ+dqVK358OKQGrXcQveQtW6HrUtW4eKvv8\n/ERzu0uoUaUnyPXtMwm+pnEwraKfKRgzih5KnqmDs+94iIj7vNMDjprJnVQdnNY5\noMugQmQSuF4SIItC9w+7fhsJHdOyDo8FiihIoAzfnD2L7VF4wGIi9E5MjuSkKAm+\nZjsMSjRc3LDGoMe3w8MBYKLD0q/uJ5AOBQRfqQ6higDTFy75OXHbi/lVhImAST93\nxKnwcN9w4RlI29zpkPKUo3P9xZidLzi4cz38R0CqNbhAGwFtXTIcpQlkyEiZok3z\nWGFc53aFvMifLojCcZJC+nsWr1QZHTObnNyX9zOAICt1\n-----END CERTIFICATE-----\n",
+        "apiServerCertificate_old": "-----BEGIN CERTIFICATE-----\nMIIDHTCCAgWgAwIBAgIQCTrbx77VklxvZ9AL4PRGgTANBgkqhkiG9w0BAQsFADAN\nMQswCQYDVQQDEwJjYTAeFw0yNDA4MjEyMDMyMjJaFw0yNjA4MjEyMDQyMjJaMDAx\nFzAVBgNVBAoTDnN5c3RlbTptYXN0ZXJzMRUwEwYDVQQDEwxtYXN0ZXJjbGllbnQw\nggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4yzV/2Cef4NsJWvwycuCA\nOqdMb0DV7euev2y+NaOQ77OT5bcKMLyRi08SksfUOEihANcZOKCUsVkpbMqbYv+m\nbuE5Xb6NIsI7nq8+jLGrAuYV9uNflgqgaksl6P0EOjWqUjiZ/8bObwvqtukhT/ks\napiROCxpcCkJVospN5BEm+57kmGyAtIAsAaMbj7tYMNvna/bngkAfUVWsT6DHTpS\nyADu3Mcwcd+j89RWAZ5AgXHYtIMJRwI1INE/O7i9XyeftU+WTMrsh83xe1LTW0HJ\nVN8EDioiBN/2S7Mj1xYIHqmAf7oI5A99ykiTr/Irb1NDR+cawDefoafrAYzLOGfn\nAgMBAAGjVjBUMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAM\nBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFHkNuxV6lgS85A0qUh+N9TZX0UbsMA0G\nCSqGSIb3DQEBCwUAA4IBAQC7Q98cPNQ+dqVK358OKQGrXcQveQtW6HrUtW4eKvv8\n/ERzu0uoUaUnyPXtMwm+pnEwraKfKRgzih5KnqmDs+94iIj7vNMDjprJnVQdnNY5\noMugQmQSuF4SIItC9w+7fhsJHdOyDo8FiihIoAzfnD2L7VF4wGIi9E5MjuSkKAm+\nZjsMSjRc3LDGoMe3w8MBYKLD0q/uJ5AOBQRfqQ6higDTFy75OXHbi/lVhImAST93\nxKnwcN9w4RlI29zpkPKUo3P9xZidLzi4cz38R0CqNbhAGwFtXTIcpQlkyEiZok3z\nWGFc53aFvMifLojCcZJC+nsWr1QZHTObnNyX9zOAICt1\n-----END CERTIFICATE-----\n",
+        "apiServerCertificate": "",
         "clientPrivateKey": "",
-        "clientCertificate": "-----BEGIN CERTIFICATE-----\nMIIDHTCCAgWgAwIBAgIQCTrbx77VklxvZ9AL4PRGgTANBgkqhkiG9w0BAQsFADAN\nMQswCQYDVQQDEwJjYTAeFw0yNDA4MjEyMDMyMjJaFw0yNjA4MjEyMDQyMjJaMDAx\nFzAVBgNVBAoTDnN5c3RlbTptYXN0ZXJzMRUwEwYDVQQDEwxtYXN0ZXJjbGllbnQw\nggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4yzV/2Cef4NsJWvwycuCA\nOqdMb0DV7euev2y+NaOQ77OT5bcKMLyRi08SksfUOEihANcZOKCUsVkpbMqbYv+m\nbuE5Xb6NIsI7nq8+jLGrAuYV9uNflgqgaksl6P0EOjWqUjiZ/8bObwvqtukhT/ks\napiROCxpcCkJVospN5BEm+57kmGyAtIAsAaMbj7tYMNvna/bngkAfUVWsT6DHTpS\nyADu3Mcwcd+j89RWAZ5AgXHYtIMJRwI1INE/O7i9XyeftU+WTMrsh83xe1LTW0HJ\nVN8EDioiBN/2S7Mj1xYIHqmAf7oI5A99ykiTr/Irb1NDR+cawDefoafrAYzLOGfn\nAgMBAAGjVjBUMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAM\nBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFHkNuxV6lgS85A0qUh+N9TZX0UbsMA0G\nCSqGSIb3DQEBCwUAA4IBAQC7Q98cPNQ+dqVK358OKQGrXcQveQtW6HrUtW4eKvv8\n/ERzu0uoUaUnyPXtMwm+pnEwraKfKRgzih5KnqmDs+94iIj7vNMDjprJnVQdnNY5\noMugQmQSuF4SIItC9w+7fhsJHdOyDo8FiihIoAzfnD2L7VF4wGIi9E5MjuSkKAm+\nZjsMSjRc3LDGoMe3w8MBYKLD0q/uJ5AOBQRfqQ6higDTFy75OXHbi/lVhImAST93\nxKnwcN9w4RlI29zpkPKUo3P9xZidLzi4cz38R0CqNbhAGwFtXTIcpQlkyEiZok3z\nWGFc53aFvMifLojCcZJC+nsWr1QZHTObnNyX9zOAICt1\n-----END CERTIFICATE-----\n"
+        "clientCertificate_old": "-----BEGIN CERTIFICATE-----\nMIIDHTCCAgWgAwIBAgIQCTrbx77VklxvZ9AL4PRGgTANBgkqhkiG9w0BAQsFADAN\nMQswCQYDVQQDEwJjYTAeFw0yNDA4MjEyMDMyMjJaFw0yNjA4MjEyMDQyMjJaMDAx\nFzAVBgNVBAoTDnN5c3RlbTptYXN0ZXJzMRUwEwYDVQQDEwxtYXN0ZXJjbGllbnQw\nggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC4yzV/2Cef4NsJWvwycuCA\nOqdMb0DV7euev2y+NaOQ77OT5bcKMLyRi08SksfUOEihANcZOKCUsVkpbMqbYv+m\nbuE5Xb6NIsI7nq8+jLGrAuYV9uNflgqgaksl6P0EOjWqUjiZ/8bObwvqtukhT/ks\napiROCxpcCkJVospN5BEm+57kmGyAtIAsAaMbj7tYMNvna/bngkAfUVWsT6DHTpS\nyADu3Mcwcd+j89RWAZ5AgXHYtIMJRwI1INE/O7i9XyeftU+WTMrsh83xe1LTW0HJ\nVN8EDioiBN/2S7Mj1xYIHqmAf7oI5A99ykiTr/Irb1NDR+cawDefoafrAYzLOGfn\nAgMBAAGjVjBUMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAM\nBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFHkNuxV6lgS85A0qUh+N9TZX0UbsMA0G\nCSqGSIb3DQEBCwUAA4IBAQC7Q98cPNQ+dqVK358OKQGrXcQveQtW6HrUtW4eKvv8\n/ERzu0uoUaUnyPXtMwm+pnEwraKfKRgzih5KnqmDs+94iIj7vNMDjprJnVQdnNY5\noMugQmQSuF4SIItC9w+7fhsJHdOyDo8FiihIoAzfnD2L7VF4wGIi9E5MjuSkKAm+\nZjsMSjRc3LDGoMe3w8MBYKLD0q/uJ5AOBQRfqQ6higDTFy75OXHbi/lVhImAST93\nxKnwcN9w4RlI29zpkPKUo3P9xZidLzi4cz38R0CqNbhAGwFtXTIcpQlkyEiZok3z\nWGFc53aFvMifLojCcZJC+nsWr1QZHTObnNyX9zOAICt1\n-----END CERTIFICATE-----\n",
+        "clientCertificate": ""
       },
       "hostedMasterProfile": {
         "dnsPrefix": "",
@@ -86,6 +88,7 @@
         "subnet": "",
         "apiServerWhiteListRange": null,
         "ipMasqAgent": true,
+        "IPAddress": "20.193.6.5",
         "fqdn": "https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
       },
       "featureFlags": {
@@ -187,6 +190,7 @@
       "168.63.129.16",
       "169.254.169.254",
       "192.168.0.0/16",
+      "20.193.6.5",
       "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
     ]
   },
@@ -195,10 +199,8 @@
     "--anonymous-auth": "false",
     "--authentication-token-webhook": "true",
     "--authorization-mode": "Webhook",
-    "--azure-container-registry-config": "c:\\k\\azure.json",
     "--cgroups-per-qos": "false",
     "--client-ca-file": "c:\\k\\ca.crt",
-    "--cloud-config": "c:\\k\\azure.json",
     "--cloud-provider": "external",
     "--cluster-dns": "192.168.2.10",
     "--cluster-domain": "cluster.local",
@@ -213,7 +215,6 @@
     "--kube-reserved": "cpu=100m,memory=3891Mi",
     "--kubeconfig": "c:\\k\\config",
     "--max-pods": "30",
-    "--network-plugin": "kubenet",
     "--node-status-update-frequency": "10s",
     "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
     "--pod-manifest-path": "/etc/kubernetes/manifests",
