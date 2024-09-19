@@ -134,14 +134,20 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
 		for section, timeElapsed := range scriptData {
 			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 2*stdev]
+			// First we check that the queried data contains this section
+			sectionDataSlice, ok := maps.QueriedPerformanceDataMap[scriptName][section]
+			if !ok {
+				fmt.Printf("No data available for %s in %s\n", section, scriptName)
+				continue
+			}
 			// Adding these together gives us the maximum time allowed for the section
-			maxTimeAllowed, err := SumSlice(maps.QueriedPerformanceDataMap[scriptName][section])
+			maxTimeAllowed, err := SumSlice(sectionDataSlice)
 			if err != nil {
-				fmt.Printf("%v: %v", err, maps.QueriedPerformanceDataMap[scriptName][section])
+				fmt.Printf("%v: %v", err, sectionDataSlice)
 				continue
 			}
 			if maxTimeAllowed == -1 {
-				fmt.Printf("No data available for %s in %s\n", section, scriptName)
+				fmt.Printf("Not enough data available for %s in %s\n", section, scriptName)
 				continue
 			}
 			if timeElapsed > maxTimeAllowed {
