@@ -105,8 +105,8 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[strin
 			if err != nil {
 				return fmt.Errorf("error parsing timestamp in local build JSON data: %w", err)
 			}
-			d := t.Sub(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()))
-			script[section] = d.Seconds()
+			totalSeconds := float64(t.Hour()*3600 + t.Minute()*60 + t.Second())
+			script[section] = totalSeconds
 		}
 		maps.LocalPerformanceDataMap[key] = script
 	}
