@@ -134,7 +134,7 @@ testPackagesInstalled() {
           testWasmRuntimesInstalled $downloadLocation $version
           echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
-        elif [ "$name" == "containerd" ]; then
+        elif [ "$name" == "spinkube" ]; then
           testSpinKubeInstalled $downloadLocation $version
           echo "$test $name binaries are in the expected location of $downloadLocation"
         else
