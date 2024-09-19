@@ -205,10 +205,10 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 # in order to ensure WASMSHIMPIDS persists correctly since in bash a new
 # function call from install-dependnecies will create a new shell process.
 installingContainerdWasmShims(){
-    download_location=${1}
+    local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2 # shift past the first 2 arguments to capture the list of versions
-    package_versions=("$@")
+    local package_versions=("$@")
 
     for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -221,12 +221,12 @@ installingContainerdWasmShims(){
 }
 
 wasmShimsFilesExist() {
-    containerd_wasm_filepath=${1}
-    shim_version=${2}
-    shims_to_download=${3}
-    version_suffix=${4}
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local shims_to_download=${3}
+    local version_suffix=${4}
 
-    binary_version="$(echo "${shim_version}" | tr . -)"
+    local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
         if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
             return 1 # file is missing
@@ -236,10 +236,10 @@ wasmShimsFilesExist() {
 }
 
 downloadContainerdWasmShims() {
-    containerd_wasm_filepath=${1}
-    containerd_wasm_url=${2}
-    shim_version=${3}
-    binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
+    local containerd_wasm_filepath=${1}
+    local containerd_wasm_url=${2}
+    local shim_version=${3}
+    local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
     local shims_to_download=("spin" "slight")
     local version_suffix="-v1"
