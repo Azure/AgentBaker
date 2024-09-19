@@ -5,7 +5,7 @@ lsb_release() {
 
 readPackage() {
     local packageName=$1
-    package=$(jq ".Packages" "./parts/linux/cloud-init/artifacts/components.json" | jq ".[] | select(.name == \"$packageName\")")
+    package=$(jq ".Packages" "spec/parts/linux/cloud-init/artifacts/test_components.json" | jq ".[] | select(.name == \"$packageName\")")
     echo "$package"
 }
 
@@ -17,25 +17,25 @@ Describe 'cse_install.sh'
             echo "mock logs to events calling with $1"
         }
         NEEDS_CONTAINERD="true"
-        COMPONENTS_FILEPATH="./parts/linux/cloud-init/artifacts/components.json"
-        It 'returns expected output for successful installation of containerd in UBUNTU 20.04'
+        COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
+        It 'returns expected output for successful installation of fake containerd in UBUNTU 20.04'
             UBUNTU_RELEASE="20.04"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime 
-            The variable containerdMajorMinorPatchVersion should equal "1.7.20"
+            The variable containerdMajorMinorPatchVersion should equal "1.2.3"
             The variable containerdHotFixVersion should equal ""
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.20"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.2.3"
         End
         It 'returns expected output for successful installation of containerd in Mariner'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
             OS="MARINER"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime 
-            The variable containerdMajorMinorPatchVersion should equal "1.6.26"
-            The variable containerdHotFixVersion should equal "5.cm2"
+            The variable containerdMajorMinorPatchVersion should equal "1.2.3"
+            The variable containerdHotFixVersion should equal "5.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.6.26-5.cm2"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.2.3-5.fake"
         End
         It 'skips the containerd installation for Mariner with Kata'
             UBUNTU_RELEASE="" # mocking Mariner doesn't have command `lsb_release -cs`
@@ -51,9 +51,9 @@ Describe 'cse_install.sh'
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
             The variable containerdMajorMinorPatchVersion should equal "1.7.13"
-            The variable containerdHotFixVersion should equal "3.azl3"
+            The variable containerdHotFixVersion should equal "3.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.13-3.azl3"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.13-3.fake"
         End
         It 'skips validation if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"

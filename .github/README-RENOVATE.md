@@ -1,5 +1,28 @@
+`Renovate.json` is a configuration file that defines how Renovate should interact with your custom components management file (also known as the manifest file) and how it should look up the latest versions from custom data sources.
+
+# Table of Contents
+
+- [TL;DR](#tldr)
+- [Renovate configurations](#renovate-configurations)
+  - [Package rules](#package-rules)
+    - [Disable `minor` update](#disable-minor-update)
+    - [Enable `patch`, `pin` and `digest` update](#enable-patch-pin-and-digest-update)
+    - [(Optional context) Why not updating minor?](#optional-context-why-not-updating-minor)
+    - [Assigning specific component to specific person](#assigning-specific-component-to-specific-person)
+    - [Additional string operation to specific component](#additional-string-operation-to-specific-component)
+  - [Custom managers](#custom-managers)
+    - [Auto update containerImages in components.json](#auto-update-containerimages-in-componentsjson)
+    - [Auto update packages for OS ubuntu xx.xx in components.json](#auto-update-packages-for-os-ubuntu-xxxx-in-componentsjson)
+    - [(Optional context) How to ensure a single component will not be updated by 2 multiple custom managers?](#optional-context-how-to-ensure-a-single-component-will-not-be-updated-by-2-multiple-custom-managers)
+  - [Custom data sources](#custom-data-sources)
+    - [(Optional context) Please read this section if you are going to config your own transformTemplates](#optional-context-please-read-this-section-if-you-are-going-to-config-your-own-transformtemplates)
+- [Hands-on guide and FAQ](#hands-on-guide-and-faq)
+  - [Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.](#okay-i-just-have-5-minutes-please-just-tell-me-how-to-onboard-a-new-packagecontainer-now-to-renovatejson-for-auto-update)
+  - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
+  - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
+
 # TL;DR
-This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [doc](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide](#hands-on-guide).
+This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
 # Renovate configurations
 For a general Renovate introductions, please read this wiki. https://msazure.visualstudio.com/CloudNativeCompute/_wiki/wikis/CloudNativeCompute.wiki/699998/Renovate-101
@@ -64,12 +87,12 @@ By enabling the `minor` package rule, PR1 will also be created.
 This will be a noise PR to the assignee because now he/she needs to manually check if the 2 latest versions of v1.5.x are still kept in the components.json if this PR is merged. And usually it's not. Thus the assignee will cancel this PR manually every time.
 If a new minor version needs to be added, the owner should update the components.json.
 
-If there is only 1 component then it should be fine as it won't have too many noise PRs.
+If there is only 1 component then it should be fine as it won't have too many noisy PRs.
 But in components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
 ![Renovate Minor Enabled](./images/Renovate_minor_enabled.png)
 On the left side, there is no minor being updated. On the right side, it added many PRs for updating the minor but most of them should be just noise.
 
-That's why we ended up disabling `minor` auto-update to avoid the noise PRs.
+That's why we ended up disabling `minor` auto-update to avoid the noisy PRs.
 
 p.s. To allow disable `minor` update but enable `patch`, `pin`, `digest` update, at root level `separateMinorPatch` needs to be `true`.
 
@@ -79,10 +102,10 @@ For example,
 ```
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
-In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to this Github ID.
+In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs.
 
 ### Additional string operation to specific component
 ```
@@ -253,12 +276,29 @@ Now we figured out the inputs, we can start work on the JSONata query.
 JSONata Exerciser is a good playground for us to try and error the query. This is a good example which queries the package name from the inputs. You can start playing around with this. https://try.jsonata.org/Gjq6mkXmg. Attaching a screenshot for reference in case the link is no longer available in the future.
 ![alt text](.\images\JSONata_exerciser_example.png)
 
-# Hands-on guide
+# Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
 ## Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.
 **Step 1**
 Depending on what kind of component you are going to onboard.
-- **Container Image**:  This is the easiest one to onboard, assuming it's hosted in MCR just like other container images. Once you add it to the components.json as a new container image for VHD to cache at build time, the current custom manager in this renovate.json will directly monitor and update it. 
+- **Container Image**:  This is the easiest one to onboard, assuming it's hosted in MCR just like other container images. Once you add it to the components.json as a new container image for VHD to cache at build time, the current custom manager in this `renovate.json` will directly monitor and update it. Specifically, it's assumed that you have already added the container Image to `components.json` in the correct format. Here is an example for a container image `addon-resizer` to `components.json`.
+  ```
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer",
+          "latestVersion": "1.8.22",
+          "previousLatestVersion": "1.8.20"
+        }
+      ]
+    }
+  ```
+  Please make sure you set the `renovateTag` correctly, where `registry` is always `https://mcr.microsoft.com` now, and the `name` doesn't have a leading slash `/`. As of Sept 2024, The container Images in `components.json` are all hosted in MCR and MCR is the only registry enabled in the current Renovate configuration file `renovate.json`. If there is demand for other container images registry, it will be necessary to double check if it will just work.
+
+  Fore more details, you can refer to Readme-components linked at the beginning of this document.
+
 - **Packages**: Now for datasource PMC (package.microsoft.com) we have 4 custom managers which will look up to the following 4 `defaultRegistryUrlTemplate`, based on different Ubuntu release, respectively.
   - https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages
   - https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages
@@ -295,3 +335,19 @@ Another example is for a container image `mcr.microsoft.com/oss/kubernetes/kube-
 **Step 3**
 To test if you have completed the steps above correctly, you can set your `latestVersion` in components.json to a previous version and see if Renovate will automatically create a PR to update to the latest one.
 Screenshot and detailed steps will be provided later once my (Devin's) renovate-onboard PR is merged to Agent Baker master branch.
+
+## What is the responsibility of a PR assignee?
+If your GitHub ID is placed in the `assignees` array, you are responsible for those components. When Renovate creates a PR to update a component to the latest version, you must decide whether to approve, modify or cancel the PR. You can have a list of assignees.
+- Approve: If the updated version looks good to you, you can approve it. If you need additional reviews from Node SIG, proceed as usual.
+- Modify: In some cases, you may want to modify the code or the components.json to update to a different version. you can take the branch that Renovate created and change the code and components.json as desired.
+- Cancel: If you don't need the PR that Renovated created (e.g., the specific version is not desired), you can cancel the PR.
+
+## What components are onboarded to Renovate for auto-update and what are not yet?
+In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means it's not monitored by Renovate and won't be updated automatically.
+
+As of 9/18/2024,
+- All the container images are onboarded to Renovate for auto-update.
+- PMC hosted packages, namely `runc` and `containerd`, are onboarded for auto-update.
+- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, `kubernetes-binaries` and `azure-acr-credential-provider`, are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
+
+For the most up-to-date information, please refer to the actual configuration file `components.json`.
