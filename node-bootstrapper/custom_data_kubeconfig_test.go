@@ -11,8 +11,8 @@ import (
 const (
 	bootstrapConfigFile        = "/var/lib/kubelet/bootstrap-kubeconfig"
 	kubeConfigFile             = "/var/lib/kubelet/kubeconfig"
-	bootstrapConfigFileWindows = "c:\\\\k\\bootstrap-config"
-	kubeConfigFileWindows      = "c:\\\\k\\config"
+	bootstrapConfigFileWindows = "c:\\k\\bootstrap-config"
+	kubeConfigFileWindows      = "c:\\k\\config"
 	arcTokenSh                 = "/opt/azure/bootstrap/arc-token.sh"
 	azureTokenSh               = "/opt/azure/bootstrap/azure-token.sh"
 )
@@ -376,7 +376,7 @@ users:
 apiVersion: v1
 clusters:
    - cluster:
-       certificate-authority: /etc/kubernetes/certs/ca.crt
+       certificate-authority: c:/k/ca.crt
        server: https://:443
      name: localcluster
 contexts:
@@ -466,7 +466,7 @@ users:
 apiVersion: v1
 clusters:
    - cluster:
-       certificate-authority: /etc/kubernetes/certs/ca.crt
+       certificate-authority: c:/k/ca.crt
        server: https://:443
      name: localcluster
 contexts:
