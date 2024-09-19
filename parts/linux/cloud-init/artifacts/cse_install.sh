@@ -209,13 +209,26 @@ installContainerdWasmShims(){
     shift 2 # shift past the first 2 arguments to capture the list of versions
     local package_versions=("$@")
 
+    local shims_to_download=("spin" "slight")
+    local version_suffix="-v1"
+    local mcr_registry_path="deislabs/containerd-wasm-shims"
+    local shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
+    if [ "$shim_version" == "0.15.1" ]; then
+        version_suffix="-v2"
+        shims_to_download=("spin")
+        mcr_registry_path="spinkube/containerd-shim-spin"
+        shim_filename="containerd-shim-spin-v2"
+    elif [ "$shim_version" == "0.8.0" ]; then
+        shims_to_download+=("wws")
+    fi
+
     for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url $version
+        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download $version_suffix $mcr_registry_path $shim_filename
     done
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateContainerdWasmShimsPermissions $download_location $version
+        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download $version_suffix
     done
 }
 
@@ -238,20 +251,12 @@ downloadContainerdWasmShims() {
     local containerd_wasm_filepath=${1}
     local containerd_wasm_url=${2}
     local shim_version=${3}
-    local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
+    local shims_to_download=${4}
+    local version_suffix=${5}
+    local mcr_registry_path=${6}
+    local shim_filename=${7}
 
-    local shims_to_download=("spin" "slight")
-    local version_suffix="-v1"
-    local mcr_registry_path="deislabs/containerd-wasm-shims"
-    local shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
-    if [ "$shim_version" == "0.15.1" ]; then
-        version_suffix="-v2"
-        shims_to_download=("spin")
-        mcr_registry_path="spinkube/containerd-shim-spin"
-        shim_filename="containerd-shim-spin-v2"
-    elif [ "$shim_version" == "0.8.0" ]; then
-        shims_to_download+=("wws")
-    fi
+    local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
     echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix, mcr_registry_path: $mcr_registry_path, shim_filename: $shim_filename"
 
@@ -292,26 +297,25 @@ downloadContainerdWasmShims() {
 updateContainerdWasmShimsPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
+    local shims_to_download=${3}
+    local version_suffix=${4}
+
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    echo "Updating permissions for containerd wasm shims: $shim_version"
+    echo "Updating permissions containerd_wasm_filepath: $containerd_wasm_filepath, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix"
 
     if [ "$shim_version" == "0.15.1" ]; then
         echo "inside the 0.15.1: $shim_version"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-${version_suffix}"
         # spin shim v0.15.1 cannot be renamed: https://github.com/spinkube/containerd-shim-spin/issues/190
         # so we rename the shim back to containerd-shim-spin-v2
-        mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
+        mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-${version_suffix}" "$containerd_wasm_filepath/containerd-shim-spin-${version_suffix}"
         return
     fi
 
-    local shims_to_download=("spin" "slight")
-    if [ "$shim_version" == "0.8.0" ]; then
-        shims_to_download+=("wws")
-    fi
     for shim in "${shims_to_download[@]}"; do
-        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
+        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-${version_suffix}"
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-${version_suffix}"
     done
 }
 
