@@ -294,6 +294,8 @@ try
     Get-ProvisioningScripts
     Get-LogCollectionScripts
 
+    # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
+    # to mutate both kubelet config args and kubelet node labels.
     Disable-KubeletServingCertificateRotationForTags
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
