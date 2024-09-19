@@ -253,6 +253,8 @@ downloadContainerdWasmShims() {
         shims_to_download+=("wws")
     fi
 
+    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix, mcr_registry_path: $mcr_registry_path, shim_filename: $shim_filename"
+
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
         return
     fi
