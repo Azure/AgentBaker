@@ -339,7 +339,7 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: /opt/azure/bootstrap/arc-token.sh
+         command: /opt/azure/bootstrap/azure-token.sh
          provideClusterInfo: false
 `)
 	})
