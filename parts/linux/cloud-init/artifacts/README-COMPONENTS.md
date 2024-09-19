@@ -1,14 +1,32 @@
+`components.json` is a components management file that defines which components and versions should be cached during the Node image VHD build time. It also includes a `RenovateTag` for Renovate to understand how to monitor and update the components automatically.
+
+# Table of Contents
+
+- [TL;DR](#tldr)
+- [Components management](#components-management)
+  - [Schema of components.json](#schema-of-componentsjson)
+    - [ContainerImages](#containerimages)
+    - [Packages](#packages)
+- [Hands-on guide and FAQ](#hands-on-guide-and-faq)
+  - [How to ask Renovate to auto-update an existing component in `components.json` to a new version?](#how-to-ask-renovate-to-auto-update-an-existing-component-in-componentsjson-to-a-new-version)
+  - [How to ask Renovate not to auto-update a component version?](#how-to-ask-renovate-to-auto-update-an-existing-component-in-componentsjson-to-a-new-version)
+  - [How to keep 2 patch versions for a minor version?](#how-to-keep-2-patch-versions-for-a-minor-version)
+  - [How to keep multiple minor versions?](#how-to-keep-multiple-minor-versions)
+  - [Can I keep only 1 patch version](#can-i-keep-only-1-patch-version)
+  - [Can I avoid repeating a single version for all OS distros/releases](#can-i-avoid-repeating-a-single-version-for-all-os-distrosreleases)
+  - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
+
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
 
-To skip the details and simply add a new component to be cached in the VHD, please go directly to [Hands on guide](#hands-on-guide).
+To skip the details and simply add a new component to be cached in the VHD, please go directly to [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
 # Components management
 The `components.json` file centralizes the management of all components needed for building weekly node image VHDs, while allowing Renovate to automatically update the components to the latest versions to prevent CVEs.
 
 ## Schema of components.json
 The `components.json` file defines two types of components: `containerImages` and `packages`.
-- `ContainerImages` are container images that will be cached during VHD build time and will run at node provisioning time. The container Images are all hosted in MCR as of Sept 2024.
+- `ContainerImages` are container images that will be cached during VHD build time and will run at node provisioning time. As of Sept 2024, The container Images in `components.json` are all hosted in MCR and MCR is the only registry enabled in the current Renovate configuration file `renovate.json`. If there is demand for other container images registry, it will be necessary to double check if it will just work.
 - `Packages` are packages that could be downloaded through apt-get (Ubuntu), http file download URL or dnf (Mariner). Additional methods such as OCI MCR could be added in the future.
 
 Please refer to [components.cue](../../../../schemas/components.cue) for the most update-to-date schema in case the schema in this doc is not current.
@@ -109,7 +127,7 @@ Here are the explanation of the above schema.
 	- `downloadURL`: you can define a downloadURL with unresolved variables. For example, `https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz`. But the feature developer needs to make sure all variables are resolvable in the codes. In this example, `${CPU_ARCH}` is resolvable as it's defined at global scope. `${version}` is resovled based on the `versions` list above.
 1. `VersionV2`: explained in the previous section [ContainerImages](#containerimages)
 
-# Hands-on guide
+# Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
 
 ## How to ask Renovate to auto-update an existing component in `components.json` to a new version?
@@ -135,15 +153,15 @@ In Renovate.json, we define that it uses `renovateTag` to get the metadata and p
 ## How to keep 2 patch versions for a minor version?
 Follow this example by placing `previousLatestVersion` in the `versionsV2` or `multiArchVersionsV2` block, depending on whether you are adding a `containerImage` or a `package`.
 ```
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.5.32",
-                "previousLatestVersion": "1.5.35"
-              }
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
+          "latestVersion": "v1.5.35",
+          "previousLatestVersion": "v1.5.32"
+        },
 ```
 
 ## How to keep multiple minor versions?
-Please note that each minor version can only have 2 versions at most, which are `latestVersion` and `previousLatestVersion`. You can have only 1 version `latestVersion` for sure. Here is an example of a `containerImage` azure-cns that has multiple minor versions.
+Please note that each minor version can only have 2 patch versions at most, which are `latestVersion` and `previousLatestVersion`. You can have only 1 version `latestVersion` for sure. Here is an example of a `containerImage` azure-cns that has multiple minor versions.
 
 ```
    {
@@ -167,6 +185,11 @@ Please note that each minor version can only have 2 versions at most, which are 
 	  ]
    }
 ```
+
+For a `package`, you will need to add these under `versionsV2`.
+
+## Can I keep only 1 patch version?
+Yes. Just place the latest version of the component in `latestVersion`. `previousLatestVersion` is optional.
 
 ## Can I avoid repeating a single version for all OS distros/releases?
 It depends.
@@ -202,3 +225,6 @@ For a `containerImage`, you don't need to distinguish among distros and releases
     }
 ```
 In this example the versions are defined under `default.current`, meaning that for all OS distros and releases, it caches the same versions. To learn more about the this, please read the section [Schema of components.json](#schema-of-componentsjson)
+
+## What components are onboarded to Renovate for auto-update and what are not yet?
+please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
