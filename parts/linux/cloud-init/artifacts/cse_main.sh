@@ -132,14 +132,18 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    components_filepath="/opt/azure/components.json"
-    versions=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
-    downloadLocation=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
-    downloadURL=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$components_filepath")
+    local components_filepath="/opt/azure/components.json"
 
-    logs_to_events "AKS.CSE.downloadKrustlet" installContainerdWasmShims "$downloadLocation" "$downloadURL" "$versions"
+    local versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
+    local downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
+    local downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$components_filepath")
+    logs_to_events "AKS.CSE.downloadKrustlet" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
+
+    local versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$components_filepath")
+    local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$components_filepath")
+    local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$components_filepath")
+    logs_to_events "AKS.CSE.downloadKrustlet" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
 fi
-
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin

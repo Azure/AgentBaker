@@ -30,6 +30,7 @@ UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
 declare -a WASMSHIMPIDS=()
+declare -a SPINKUBEPIDS=()
 
 setCPUArch() {
     CPU_ARCH=$(getCPUArch)
@@ -200,55 +201,6 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
-installSpinKube(){
-    local download_location=${1}
-    PACKAGE_DOWNLOAD_URL=${2}
-    shift 2 # shift past the first 2 arguments to capture the list of versions
-    local package_versions=("$@")
-
-    version_suffix="-v2"
-    shims_to_download=("spin")
-    mcr_registry_path="spinkube/containerd-shim-spin"
-    shim_filename="containerd-shim-spin-v2"
-
-    for version in "${package_versions[@]}"; do
-        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download $version_suffix $mcr_registry_path $shim_filename
-    done
-    wait ${WASMSHIMPIDS[@]}
-    for version in "${package_versions[@]}"; do
-        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download $version_suffix
-    done
-}
-
-# Install, download, update wasm must all be run from the same function call
-# in order to ensure WASMSHIMPIDS persists correctly since in bash a new
-# function call from install-dependnecies will create a new shell process.
-installContainerdWasmShims(){
-    local download_location=${1}
-    PACKAGE_DOWNLOAD_URL=${2}
-    shift 2 # shift past the first 2 arguments to capture the list of versions
-    local package_versions=("$@")
-
-    local shims_to_download=("spin" "slight")
-    local version_suffix="-v1"
-    local mcr_registry_path="deislabs/containerd-wasm-shims"
-    local shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
-
-    if printf '%s\n' "${package_versions[@]}" | grep -q "^0.8.0$"; then
-        shims_to_download+=("wws")
-    fi
-
-    for version in "${package_versions[@]}"; do
-        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download $version_suffix $mcr_registry_path $shim_filename
-    done
-    wait ${WASMSHIMPIDS[@]}
-    for version in "${package_versions[@]}"; do
-        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download $version_suffix
-    done
-}
-
 wasmFilesExist() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
@@ -264,29 +216,27 @@ wasmFilesExist() {
     return 0 
 }
 
-downloadSpinKube(){
-    local containerd_wasm_filepath=${1}
-    local containerd_wasm_url=${2}
-    local shim_version=${3}
-    local shims_to_download=${4}
+# Install, download, update wasm must all be run from the same function call
+# in order to ensure WASMSHIMPIDS persists correctly since in bash a new
+# function call from install-dependnecies will create a new shell process.
+installContainerdWasmShims(){
+    local download_location=${1}
+    PACKAGE_DOWNLOAD_URL=${2}
+    shift 2 # shift past the first 2 arguments to capture the list of versions
+    local package_versions=("$@")
 
-    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v2"; then
-        return
+    local shims_to_download=("spin" "slight")
+    if printf '%s\n' "${package_versions[@]}" | grep -q "^0.8.0$"; then
+        shims_to_download+=("wws")
     fi
 
-    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
-    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:v${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/containerd-shim-spin-v2"
-        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-        mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-v${binary_version}-v2"
-        rm -f "$wasm_shims_tgz_tmp"
-    fi
-
-    # install from acs-mirror
-    for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v2" "$containerd_wasm_url/containerd-shim-${shim}-${version_suffix}" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-        WASMSHIMPIDS+=($!)
+    for version in "${package_versions[@]}"; do
+        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download
+    done
+    wait ${WASMSHIMPIDS[@]}
+    for version in "${package_versions[@]}"; do
+        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download
     done
 }
 
@@ -297,7 +247,7 @@ downloadContainerdWasmShims() {
     local shims_to_download=${4}
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
-    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v2"; then
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v1"; then
         return
     fi
 
@@ -306,12 +256,11 @@ downloadContainerdWasmShims() {
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:v${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
-        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" ]; then
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
-            mv "$containerd_wasm_filepath/containerd-shim-*-v${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
-            rm -f "$wasm_shims_tgz_tmp"
-        fi
+
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
+        mv "$containerd_wasm_filepath/containerd-shim-*-v${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-v${binary_version}-v1"
+        rm -f "$wasm_shims_tgz_tmp"
         return
     fi
 
@@ -321,30 +270,66 @@ downloadContainerdWasmShims() {
     done
 }
 
-updateSPINKUBEPermissions() {
+updateContainerdWasmShimsPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
     local shims_to_download=${3}
-    local version_suffix=${4}
-
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    echo "Updating permissions containerd_wasm_filepath: $containerd_wasm_filepath, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix"
+    for shim in "${shims_to_download[@]}"; do
+        chmod 755 "$containerd_wasm_filepath/containerd-${shim}-spin-v${binary_version}-v1"
+    done
+}
 
-    if [ "$shim_version" == "0.15.1" ]; then
-        echo "inside the 0.15.1: $shim_version"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-${version_suffix}"
-        # spin shim v0.15.1 cannot be renamed: https://github.com/spinkube/containerd-shim-spin/issues/190
-        # so we rename the shim back to containerd-shim-spin-v2
-        mv "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-${version_suffix}" "$containerd_wasm_filepath/containerd-shim-spin-${version_suffix}"
+installSpinKube(){
+    local download_location=${1}
+    PACKAGE_DOWNLOAD_URL=${2}
+    shift 2 # shift past the first 2 arguments to capture the list of versions
+    local package_versions=("$@")
+
+    for version in "${package_versions[@]}"; do
+        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadSpinKube $download_location $containerd_wasm_url $version
+    done
+    wait ${SPINKUBEPIDS[@]}
+    for version in "${package_versions[@]}"; do
+        updateSpinKubePermissions $download_location $version
+    done
+}
+
+downloadSpinKube(){
+    local containerd_wasm_filepath=${1}
+    local containerd_wasm_url=${2}
+    local shim_version=${3}
+
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "spin" "-v2"; then
         return
     fi
 
-    for shim in "${shims_to_download[@]}"; do
-        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-${version_suffix}"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-${version_suffix}"
-    done
+    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
+    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:v${shim_version}-linux-${CPU_ARCH}"
+        local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/containerd-shim-spin-v2"
+        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-v${binary_version}-v2"
+        rm -f "$wasm_shims_tgz_tmp"
+        return 
+    fi
+
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v2" "$containerd_wasm_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    SPINKUBEPIDS+=($!)
 }
+
+updateSpinKubePermissions() {
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local shims_to_download=${3}
+    local binary_version="$(echo "${shim_version}" | tr . -)"
+
+    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v2"
+    mv "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
+}
+
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {
