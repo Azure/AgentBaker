@@ -130,7 +130,7 @@ testPackagesInstalled() {
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
           continue
-        elif [ "$name" == "containerd-wasm-shims" ]; then
+        elif [[ "$name" == containerd-wasm-* ]]; then
           testWasmRuntimesInstalled
           echo "$test $name binaries are in the expected location of $downloadLocation"
           continue

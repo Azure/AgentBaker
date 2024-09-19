@@ -864,7 +864,7 @@
                 "latestVersion": "0.15.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}"
+            "downloadURL": "https://acs-mirror.azureedge.net/spinkube/v${version}/linux/${CPU_ARCH}"
           }
         }
       }
