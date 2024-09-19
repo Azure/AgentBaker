@@ -131,32 +131,11 @@ testPackagesInstalled() {
           echo "$name is installed."
           continue
         elif [ "$name" == "containerd-wasm-shims" ]; then
-          binary_version="$(echo "${version}" | tr . -)"
-          binary_spin_pattern="/usr/local/bin/containerd-shim-spin-v${binary_version}-v1"
-          binary_slight_pattern="/usr/local/bin/containerd-shim-slight-v${binary_version}-v1"
-          binary_wws_pattern="/usr/local/bin/containerd-shim-wws-v${binary_version}-v1"
-
-          if [ ! -f $binary_spin_pattern ] && [ ! -f $binary_slight_pattern ]; then
-              err "$test $name binaries are not in the expected location of $downloadLocation"
-              continue
+          if ! testWasmRuntimesInstalled; then
+            err "$test: $name binaries are not in the expected location of $downloadLocation"
+            continue
           fi
-          if [[ $(stat -c "%a" "$binary_spin_pattern") != "755" && $(stat -c "%a" "$binary_slight_pattern") != "755" ]]; then
-              err "$test $name binaries are not executable"
-              continue
-          fi
-
-          if [ "$version" == "0.8.0" ]; then
-            if [ ! -f $binary_wws_pattern ]; then
-                err "$test $name binaries are not in the expected location of $downloadLocation"
-                continue
-            fi
-            if [ $(stat -c "%a" "$binary_wws_pattern") != "755" ]; then
-                err "$test $name binaries are not executable"
-                continue
-            fi
-          fi
-
-          echo "$test $name binaries are in the expected location of $downloadLocation $ls_files"
+          echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
@@ -990,6 +969,36 @@ testNBCParserBinary () {
 
 }
 
+testWasmRuntimesInstalled () {
+  local test="testWasmRuntimesInstalled"
+  local wasm_runtimes_path="/usr/local/bin"
+  local spin_runtime_versions="v0.3.0 v0.5.1 v0.8.0"
+
+  echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
+  for shim_version in $spin_runtime_versions; do
+    binary_version="$(echo "${shim_version}" | tr . -)"
+    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-${binary_version}-*"
+    if [ ! -f $binary_path_pattern ]; then
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern"
+      return 1
+    else
+      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+    fi
+  done
+
+  # v0.15.1 does not have a version encoded in the binary name
+  binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-v2"
+    if [ ! -f $binary_path_pattern ]; then
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern"
+      return 1
+    else
+      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+    fi
+
+  echo "$test: Test finished successfully."
+  return 0
+}
+
 checkPerformanceData() {
   local test="checkPerformanceData"
   local performanceDataPath="/opt/azure/vhd-build-performance-data.json"
@@ -1044,3 +1053,4 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testNBCParserBinary
+testWasmRuntimesInstalled
