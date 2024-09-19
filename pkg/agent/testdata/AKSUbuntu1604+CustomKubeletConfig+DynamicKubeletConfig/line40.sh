@@ -183,11 +183,11 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
-installingContainerdWasmShims(){
-    download_location=${1}
+installContainerdWasmShims(){
+    local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2 
-    package_versions=("$@")
+    local package_versions=("$@")
 
     for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -199,13 +199,13 @@ installingContainerdWasmShims(){
     done
 }
 
-wasmShimsFilesExist() {
-    containerd_wasm_filepath=${1}
-    shim_version=${2}
-    shims_to_download=${3}
-    version_suffix=${4}
+wasmFilesExist() {
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local shims_to_download=${3}
+    local version_suffix=${4}
 
-    binary_version="$(echo "${shim_version}" | tr . -)"
+    local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
         if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
             return 1 
@@ -215,10 +215,10 @@ wasmShimsFilesExist() {
 }
 
 downloadContainerdWasmShims() {
-    containerd_wasm_filepath=${1}
-    containerd_wasm_url=${2}
-    shim_version=${3}
-    binary_version="$(echo "${shim_version}" | tr . -)" 
+    local containerd_wasm_filepath=${1}
+    local containerd_wasm_url=${2}
+    local shim_version=${3}
+    local binary_version="$(echo "${shim_version}" | tr . -)" 
 
     local shims_to_download=("spin" "slight")
     local version_suffix="-v1"
@@ -233,7 +233,7 @@ downloadContainerdWasmShims() {
         shims_to_download+=("wws")
     fi
 
-    if doesWasmShimsFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
         return
     fi
 
@@ -264,15 +264,23 @@ downloadContainerdWasmShims() {
 }
 
 updateContainerdWasmShimsPermissions() {
-    containerd_wasm_filepath=${1}
-    shim_version=${2}
-    binary_version="$(echo "${shim_version}" | tr . -)"
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1"
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v${binary_version}-v1"
-    if [ "$shim_version" == "0.8.0" ]; then
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-v${binary_version}-v1"
+    if [ "$shim_version" == "0.15.1" ]; then
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
+        mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
+        return
     fi
+
+    local shims_to_download=("spin" "slight")
+    if [ "$shim_version" == "0.8.0" ]; then
+        shims_to_download+=("wws")
+    fi
+    for shim in "${shims_to_download[@]}"; do
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
+    done
 }
 
 installOras() {
@@ -296,7 +304,6 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
-
 }
 
 evalPackageDownloadURL() {

@@ -204,7 +204,7 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 # Install, download, update wasm must all be run from the same function call
 # in order to ensure WASMSHIMPIDS persists correctly since in bash a new
 # function call from install-dependnecies will create a new shell process.
-installingContainerdWasmShims(){
+installContainerdWasmShims(){
     local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2 # shift past the first 2 arguments to capture the list of versions
@@ -220,7 +220,7 @@ installingContainerdWasmShims(){
     done
 }
 
-wasmShimsFilesExist() {
+wasmFilesExist() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
     local shims_to_download=${3}
@@ -254,7 +254,7 @@ downloadContainerdWasmShims() {
         shims_to_download+=("wws")
     fi
 
-    if doesWasmShimsFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
         return
     fi
 
@@ -289,15 +289,25 @@ downloadContainerdWasmShims() {
 }
 
 updateContainerdWasmShimsPermissions() {
-    containerd_wasm_filepath=${1}
-    shim_version=${2}
-    binary_version="$(echo "${shim_version}" | tr . -)"
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1"
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-v${binary_version}-v1"
-    if [ "$shim_version" == "0.8.0" ]; then
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-v${binary_version}-v1"
+    if [ "$shim_version" == "0.15.1" ]; then
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
+        # spin shim v0.15.1 cannot be renamed: https://github.com/spinkube/containerd-shim-spin/issues/190
+        # so we rename the shim back to containerd-shim-spin-v2
+        mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
+        return
     fi
+
+    local shims_to_download=("spin" "slight")
+    if [ "$shim_version" == "0.8.0" ]; then
+        shims_to_download+=("wws")
+    fi
+    for shim in "${shims_to_download[@]}"; do
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
+    done
 }
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
@@ -322,7 +332,6 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
-
 }
 
 evalPackageDownloadURL() {

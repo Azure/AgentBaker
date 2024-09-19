@@ -137,7 +137,7 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     downloadLocation=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$components_filepath")
     downloadURL=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$components_filepath")
 
-    logs_to_events "AKS.CSE.downloadKrustlet" installingContainerdWasmShims "$downloadLocation" "$downloadURL" "$versions"
+    logs_to_events "AKS.CSE.downloadKrustlet" installContainerdWasmShims "$downloadLocation" "$downloadURL" "$versions"
 fi
 
 
