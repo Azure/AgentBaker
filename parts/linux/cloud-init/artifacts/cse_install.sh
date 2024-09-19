@@ -226,7 +226,6 @@ installContainerdWasmShims(){
     local json_versions=("$@")
 
     local shims_to_download=("spin" "slight")
-
     package_versions=()
     for version in "${json_versions[@]}"; do
         if version == "0.8.0"; then
@@ -234,7 +233,6 @@ installContainerdWasmShims(){
         fi
         package_versions+=("v$version")
     done
-
     
     for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -312,6 +310,7 @@ downloadSpinKube(){
     local containerd_wasm_filepath=${1}
     local containerd_wasm_url=${2}
     local shim_version=${3}
+    local binary_version="$(echo "${shim_version}" | tr . -)"
 
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "spin" "-v2"; then
         return
@@ -340,7 +339,6 @@ updateSpinKubePermissions() {
     chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
     mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
 }
-
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
 installOras() {

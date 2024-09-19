@@ -1011,7 +1011,6 @@ testSpinKubeInstalled() {
 
   echo "$test: Test finished successfully."
   return 0
-
 }
 
 checkPerformanceData() {
