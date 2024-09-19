@@ -233,6 +233,8 @@ downloadContainerdWasmShims() {
         shims_to_download+=("wws")
     fi
 
+    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, binary_version: $binary_version, shims_to_download: ${shims_to_download[@]}, version_suffix: $version_suffix, mcr_registry_path: $mcr_registry_path, shim_filename: $shim_filename"
+
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "$version_suffix"; then
         return
     fi
@@ -244,7 +246,7 @@ downloadContainerdWasmShims() {
 
         if [ "$shim_version" == "0.15.1" ]; then
             retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-            mv "${containerd_wasm_filepath}/containerd-shim-spin-v2" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
+            mv "${containerd_wasm_filepath}/containerd-shim-spin-${version_suffix}" "${containerd_wasm_filepath}/containerd-shim-spin-${binary_version}${version_suffix}"
         else
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
             tar -zxf "$wasm_shims_tgz_tmp" -C "$containerd_wasm_filepath"
@@ -268,7 +270,10 @@ updateContainerdWasmShimsPermissions() {
     local shim_version=${2}
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
+    echo "Updating permissions for containerd wasm shims: $shim_version"
+
     if [ "$shim_version" == "0.15.1" ]; then
+        echo "inside the 0.15.1: $shim_version"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
         mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
         return
@@ -279,6 +284,7 @@ updateContainerdWasmShimsPermissions() {
         shims_to_download+=("wws")
     fi
     for shim in "${shims_to_download[@]}"; do
+        echo "updating for shil: $shim ----> $containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
         chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-v${binary_version}-v1"
     done
 }
