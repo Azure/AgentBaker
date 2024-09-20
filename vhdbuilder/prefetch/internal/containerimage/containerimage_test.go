@@ -1,8 +1,8 @@
 package containerimage_test
 
 import (
-	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,9 +12,13 @@ import (
 )
 
 const (
-	componentsTestDataPath     = "testdata/components.json"
-	prefetchScriptTestDataPath = "testdata/prefetch.sh"
-	regenerateTestData         = "REGENERATE_CONTAINER_IMAGE_PREFETCH_TESTDATA"
+	testDataPath       = "testdata/"
+	regenerateTestData = "REGENERATE_CONTAINER_IMAGE_PREFETCH_TESTDATA"
+)
+
+var (
+	componentsTestDataPath     = filepath.Join(testDataPath, "components.json")
+	prefetchScriptTestDataPath = filepath.Join(testDataPath, "prefetch.sh")
 )
 
 func TestContianerImage(t *testing.T) {
@@ -25,14 +29,10 @@ func TestContianerImage(t *testing.T) {
 	expectedContent, err := os.ReadFile(prefetchScriptTestDataPath)
 	assert.NoError(t, err)
 
-	raw, err := os.ReadFile(componentsTestDataPath)
+	list, err := components.ParseList(componentsTestDataPath)
 	assert.NoError(t, err)
 
-	var list components.List
-	err = json.Unmarshal(raw, &list)
-	assert.NoError(t, err)
-
-	actualContent, err := containerimage.GeneratePrefetchScript(&list)
+	actualContent, err := containerimage.GeneratePrefetchScript(list)
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedContent, actualContent)
@@ -41,14 +41,13 @@ func TestContianerImage(t *testing.T) {
 func generate(t *testing.T) {
 	t.Log("generating container image prefetch.sh testdata...")
 
-	raw, err := os.ReadFile(componentsTestDataPath)
+	err := os.MkdirAll(testDataPath, os.ModePerm)
 	assert.NoError(t, err)
 
-	var list components.List
-	err = json.Unmarshal(raw, &list)
+	list, err := components.ParseList(componentsTestDataPath)
 	assert.NoError(t, err)
 
-	content, err := containerimage.GeneratePrefetchScript(&list)
+	content, err := containerimage.GeneratePrefetchScript(list)
 	assert.NoError(t, err)
 
 	err = os.WriteFile(prefetchScriptTestDataPath, content, os.ModePerm)
