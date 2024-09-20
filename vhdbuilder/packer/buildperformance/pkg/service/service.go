@@ -67,34 +67,6 @@ func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceF
 	return nil
 }
 
-/*
-func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("could not open local JSON file: %w", err)
-	}
-	defer file.Close()
-
-	var m map[string]json.RawMessage
-	err = json.NewDecoder(file).Decode(&m)
-	if err != nil {
-		return fmt.Errorf("error decoding local JSON file: %w", err)
-	}
-
-	key := "scripts"
-	raw := m[key]
-
-	if err = json.Unmarshal(raw, &holdingMap); err != nil {
-		return fmt.Errorf("error unmarshalling local JSON file into temporary holding map")
-	}
-
-	if err = maps.ConvertTimestampsToSeconds(holdingMap); err != nil {
-		return fmt.Errorf("failed to convert timestamps to floats for evaluation: %w", err)
-	}
-	return nil
-}
-*/
-
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
