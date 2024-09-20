@@ -46,11 +46,11 @@ func SetupConfig() (*Config, error) {
 func CreateDataMaps() *DataMaps {
 	return &DataMaps{
 		// LocalPerformanceDataMap will hold the performance data from the local JSON file
-		LocalPerformanceDataMap: map[string]map[string]float64{},
+		LocalPerformanceDataMap: EvaluationMap{},
 		// QueriedPerformanceDataMap will hold the aggregated performance data queried from Kusto
-		QueriedPerformanceDataMap: map[string]map[string][]float64{},
+		QueriedPerformanceDataMap: QueryMap{},
 		// RegressionMap will hold all identified regressions in the current build
-		RegressionMap: map[string]map[string]float64{},
+		RegressionMap: EvaluationMap{},
 	}
 }
 
@@ -81,7 +81,7 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	key := "scripts"
 	raw := m[key]
 
-	holdingMap := map[string]map[string]string{}
+	holdingMap := HolderMap{}
 
 	err = json.Unmarshal(raw, &holdingMap)
 	if err != nil {
@@ -95,7 +95,7 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	return nil
 }
 
-func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap map[string]map[string]string) error {
+func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap HolderMap) error {
 	for key, value := range holdingMap {
 		script := map[string]float64{}
 		for section, timeElapsed := range value {
