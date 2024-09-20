@@ -134,17 +134,17 @@ func (maps *DataMaps) EvaluatePerformance() error {
 			// First we check that the queried data contains this section
 			sectionDataSlice, ok := maps.QueriedPerformanceDataMap[scriptName][section]
 			if !ok {
-				fmt.Printf("no data available for %s in %s\n", section, scriptName)
+				log.Printf("no data available for %s in %s\n", section, scriptName)
 				continue
 			}
 			// Adding the slice values together gives us the maximum time allowed for the section
 			maxTimeAllowed, err := SumSlice(sectionDataSlice)
 			if err != nil {
-				fmt.Printf("error calculating max time allowed for %s in %s: %v\n", section, scriptName, err)
+				log.Printf("error calculating max time allowed for %s in %s: %v\n", section, scriptName, err)
 				continue
 			}
 			if maxTimeAllowed == -1 {
-				fmt.Printf("not enough data available for %s in %s\n", section, scriptName)
+				log.Printf("not enough data available for %s in %s\n", section, scriptName)
 				continue
 			}
 			if timeElapsed > maxTimeAllowed {
@@ -157,14 +157,14 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		}
 	}
 	if len(maps.RegressionMap) > 0 {
-		fmt.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 2 stdev above the mean")
+		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 2 stdev above the mean")
 		err := maps.DisplayRegressions()
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
 		return nil
 	}
-	fmt.Printf("\nNo regressions found for this pipeline run\n")
+	log.Println("\nNo regressions found for this pipeline run")
 	return nil
 }
 
@@ -189,6 +189,6 @@ func (maps DataMaps) DisplayRegressions() error {
 	}
 
 	// Print JSON to the console for review by the user
-	fmt.Println(string(data))
+	log.Println(string(data))
 	return nil
 }
