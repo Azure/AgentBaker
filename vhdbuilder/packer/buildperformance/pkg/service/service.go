@@ -51,6 +51,8 @@ func CreateDataMaps() *DataMaps {
 		QueriedPerformanceDataMap: QueryMap{},
 		// RegressionMap will hold all identified regressions in the current build
 		RegressionMap: EvaluationMap{},
+		// StagingMap is a temporary holding map that will hold the data from the local JSON file before it is converted to floats
+		StagingMap: StagingMap{},
 	}
 }
 
@@ -65,6 +67,7 @@ func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceF
 	return nil
 }
 
+/*
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -81,8 +84,6 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	key := "scripts"
 	raw := m[key]
 
-	holdingMap := HolderMap{}
-
 	if err = json.Unmarshal(raw, &holdingMap); err != nil {
 		return fmt.Errorf("error unmarshalling local JSON file into temporary holding map")
 	}
@@ -92,8 +93,26 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	}
 	return nil
 }
+*/
 
-func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap HolderMap) error {
+func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("error reading file: %v", err)
+	}
+
+	if err = json.Unmarshal(data, &maps); err != nil {
+		return fmt.Errorf("error unmarshaling JSON to temoporary map: %v", err)
+	}
+
+	if err = maps.ConvertTimestampsToSeconds(maps.StagingMap); err != nil {
+		return fmt.Errorf("failed to convert timestamps to floats for evaluation: %w", err)
+	}
+
+	return nil
+}
+
+func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap StagingMap) error {
 	for key, value := range holdingMap {
 		script := map[string]float64{}
 		for section, timeElapsed := range value {

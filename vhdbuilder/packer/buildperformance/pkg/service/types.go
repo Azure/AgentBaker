@@ -11,7 +11,7 @@ type Config struct {
 	SourceBranch              string
 }
 
-type HolderMap map[string]map[string]string
+type StagingMap map[string]map[string]string
 
 type QueryMap map[string]map[string][]float64
 
@@ -21,6 +21,7 @@ type DataMaps struct {
 	LocalPerformanceDataMap   EvaluationMap
 	QueriedPerformanceDataMap QueryMap
 	RegressionMap             EvaluationMap
+	StagingMap                StagingMap `json:"scripts"`
 }
 
 type SKU struct {

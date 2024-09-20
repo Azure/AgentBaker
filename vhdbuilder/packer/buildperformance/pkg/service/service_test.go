@@ -92,6 +92,7 @@ func TestDecodeLocalPerformanceData(t *testing.T) {
 			name: "should correctly unmarshal local JSON file into appropriate field in DataMaps struct",
 			mapsStruct: &DataMaps{
 				LocalPerformanceDataMap: EvaluationMap{},
+				StagingMap:              StagingMap{},
 			},
 			expected: EvaluationMap{
 				"pre_install_dependencies": {
