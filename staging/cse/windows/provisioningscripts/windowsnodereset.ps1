@@ -5,6 +5,7 @@
 #>
 
 $global:LogPath = "c:\k\windowsnodereset.log"
+$env:Path += ';C:\Program Files\containerd'
 
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
 

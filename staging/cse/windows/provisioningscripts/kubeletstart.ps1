@@ -1,4 +1,5 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
+$env:Path += ';C:\Program Files\containerd'
 
 $global:MasterIP = $Global:ClusterConfiguration.Kubernetes.ControlPlane.IpAddress
 $global:KubeDnsSearchPath = "svc.cluster.local"
