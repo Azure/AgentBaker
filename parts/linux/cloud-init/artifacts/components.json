@@ -410,8 +410,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.23.7",
-          "previousLatestVersion": "v1.23.5"
+          "latestVersion": "v1.23.8",
+          "previousLatestVersion": "v1.23.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
