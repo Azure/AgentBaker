@@ -9,7 +9,7 @@ declare -A benchmarks=()
 declare -a benchmarks_order=()
 VHD_BUILD_PERF_DATA={BUILD_PERF_DATA_FILE}
 
-source source vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+source vhdbuilder/packer/build-performance/build-performance-funcs.sh
 
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
