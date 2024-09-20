@@ -1,7 +1,6 @@
 [Unit]
 Description=Parse contract and run csecmd
 ConditionPathExists=/opt/azure/containers/nbc.json
-After=cloud-init.service
 
 [Service]
 Type=oneshot
