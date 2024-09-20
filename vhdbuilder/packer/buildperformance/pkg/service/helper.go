@@ -56,12 +56,10 @@ func CreateDataMaps() *DataMaps {
 
 // Prepare performance data for evaluation with PreparePerformanceDataForEvaluation and associated helper functions
 func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
-	err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile)
-	if err != nil {
+	if err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile); err != nil {
 		return fmt.Errorf("error decoding local performance data: %w", err)
 	}
-	err = maps.ParseKustoData(queriedData)
-	if err != nil {
+	if err := maps.ParseKustoData(queriedData); err != nil {
 		return fmt.Errorf("error parsing kusto data: %w", err)
 	}
 	return nil
