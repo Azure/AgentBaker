@@ -984,7 +984,7 @@ testWasmRuntimesInstalled() {
 
   binary_version="$(echo "${shim_version}" | tr . -)"
   for shim in "${shims_to_download[@]}"; do
-    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
+    binary_path_pattern="${wasm_runtimes_path}/containerd-${shim}-${binary_version}-*"
     if [ ! -f $binary_path_pattern ]; then
       output=$(ls -la /usr/local/bin)
       err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
@@ -1002,7 +1002,7 @@ testSpinKubeInstalled() {
   shim_version="v${shim_version}"
 
   # v0.15.1 does not have a version encoded in the binary name
-  binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-v2"
+  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
   if [ ! -f $binary_path_pattern ]; then
     output=$(ls -la /usr/local/bin)
     err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
