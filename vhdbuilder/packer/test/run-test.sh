@@ -7,6 +7,7 @@ SCRIPT_NAME=$(basename $0 .sh)
 SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 source ../../../parts/linux/cloud-init/artifacts/cse_helpers.sh
 
