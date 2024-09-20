@@ -28,5 +28,3 @@ prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.7" "/usr/local/bi
 prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.5" "/usr/local/bin/azure-cns"
 prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.20" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/cni-dropgz:v0.2.0" "/dropgz"
