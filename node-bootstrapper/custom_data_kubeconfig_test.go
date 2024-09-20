@@ -14,7 +14,9 @@ const (
 	bootstrapConfigFileWindows = "c:\\k\\bootstrap-config"
 	kubeConfigFileWindows      = "c:\\k\\config"
 	arcTokenSh                 = "/opt/azure/bootstrap/arc-token.sh"
+	arcTokenPs1                = "c:\\k\\arc-token.ps1"
 	azureTokenSh               = "/opt/azure/bootstrap/azure-token.sh"
+	azureTokenPs1              = "c:\\k\\azure-token.ps1"
 )
 
 func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
@@ -48,6 +50,8 @@ func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguratio
 	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
+	require.NotContains(t, files, azureTokenPs1)
+	require.NotContains(t, files, arcTokenPs1)
 	actual := getFile(t, nbc, arcTokenSh, 0755)
 	expected := fmt.Sprintf(`#!/bin/bash
 
@@ -87,6 +91,8 @@ func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfigurat
 	files, err := customData(nil, nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, arcTokenSh)
+	require.NotContains(t, files, azureTokenPs1)
+	require.NotContains(t, files, arcTokenPs1)
 	actual := getFile(t, nbc, azureTokenSh, 0755)
 	expected := fmt.Sprintf(`#!/bin/bash
 
@@ -107,6 +113,19 @@ EXECCREDENTIAL='''
 
 curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
 `, aadAppId)
+	assert.Equal(t, expected, actual)
+}
+
+func assertAzureTokenPs1(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string, clientId string) {
+	//t.Helper()
+	files, err := customData(nil, nbc)
+	require.NoError(t, err)
+	require.NotContains(t, files, azureTokenSh)
+	require.NotContains(t, files, arcTokenSh)
+	require.NotContains(t, files, arcTokenPs1)
+	actual := getFile(t, nbc, azureTokenPs1, 0755)
+
+	expected := fmt.Sprintf(`kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, aadAppId, clientId)
 	assert.Equal(t, expected, actual)
 }
 
@@ -401,11 +420,10 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
+		nbc.AgentPoolProfile.BootstrappingManagedIdentityId = "client-id"
+		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
 
-		files, err := customData(nil, nbc)
-		require.NoError(t, err)
-		require.NotContains(t, files, arcTokenSh)
-		require.NotContains(t, files, azureTokenSh)
+		assertAzureTokenPs1(t, nbc, "different_app_id", "client-id")
 	})
 
 	t.Run("BootstrappingMethod=UseAzureMsiDirectly sets kubeconfig correctly", func(t *testing.T) {
