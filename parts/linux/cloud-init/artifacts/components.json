@@ -165,31 +165,11 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
           "latestVersion": "v0.0.20"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
-          "latestVersion": "v0.1.4"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
-          "latestVersion": "v0.2.0"
         }
       ],
       "prefetchOptimizations": [
         {
           "version": "v0.0.20",
-          "binaries": [
-            "dropgz"
-          ]
-        },
-        {
-          "version": "v0.1.4",
-          "binaries": [
-            "dropgz"
-          ]
-        },
-        {
-          "version": "v0.2.0",
           "binaries": [
             "dropgz"
           ]
