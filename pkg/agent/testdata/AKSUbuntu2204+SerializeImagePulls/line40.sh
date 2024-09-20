@@ -260,7 +260,7 @@ updateContainerdWasmShimsPermissions() {
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
     for shim in "${shims_to_download[@]}"; do
-        chmod 755 "$containerd_wasm_filepath/containerd-${shim}-spin-${binary_version}-v1"
+        chmod 755 "$containerd_wasm_filepath/containerd-${shim}-${binary_version}-v1"
     done
 }
 
@@ -315,7 +315,6 @@ updateSpinKubePermissions() {
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
     chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2"
-    mv "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_wasm_filepath/containerd-shim-spin-v2"
 }
 
 installOras() {
