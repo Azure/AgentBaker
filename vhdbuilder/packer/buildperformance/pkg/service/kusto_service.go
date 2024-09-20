@@ -20,7 +20,7 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Clien
 	return client, nil
 }
 
-func IngestData(client *kusto.Client, ctx context.Context, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
+func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
 	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
 	if err != nil {
 		return fmt.Errorf("failed to create ingestor: %w", err)
@@ -33,7 +33,7 @@ func IngestData(client *kusto.Client, ctx context.Context, kustoDatabase string,
 	return nil
 }
 
-func QueryData(client *kusto.Client, ctx context.Context, sigImageName string, kustoDatabase string) (*SKU, error) {
+func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string) (*SKU, error) {
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", sigImageName)
 
