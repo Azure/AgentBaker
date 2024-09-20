@@ -83,13 +83,11 @@ func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 
 	holdingMap := HolderMap{}
 
-	err = json.Unmarshal(raw, &holdingMap)
-	if err != nil {
+	if err = json.Unmarshal(raw, &holdingMap); err != nil {
 		return fmt.Errorf("error unmarshalling local JSON file into temporary holding map")
 	}
 
-	err = maps.ConvertTimestampsToSeconds(holdingMap)
-	if err != nil {
+	if err = maps.ConvertTimestampsToSeconds(holdingMap); err != nil {
 		return fmt.Errorf("failed to convert timestamps to floats for evaluation: %w", err)
 	}
 	return nil
@@ -114,8 +112,7 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap HolderMap) error {
 func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	data.SKUPerformanceData = data.CleanData()
 	kustoData := []byte(data.SKUPerformanceData)
-	err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap)
-	if err != nil {
+	if err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap); err != nil {
 		return fmt.Errorf("error unmarshalling kusto data: %w", err)
 	}
 	return nil
@@ -158,8 +155,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	}
 	if len(maps.RegressionMap) > 0 {
 		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 2 stdev above the mean")
-		err := maps.DisplayRegressions()
-		if err != nil {
+		if err := maps.DisplayRegressions(); err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
 		return nil

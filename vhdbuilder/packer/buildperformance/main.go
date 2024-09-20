@@ -37,8 +37,13 @@ func main() {
 	defer cancel()
 
 	if config.SourceBranch == "refs/heads/zb/regression2" {
-		err = service.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping)
-		if err != nil {
+		if err := service.IngestData(
+			client,
+			ctx,
+			config.KustoDatabase,
+			config.KustoTable,
+			config.LocalBuildPerformanceFile,
+			config.KustoIngestionMapping); err != nil {
 			panic(err)
 		}
 		log.Printf("Data ingested for %s\n", config.SigImageName)
@@ -50,13 +55,11 @@ func main() {
 	}
 	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 
-	err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData)
-	if err != nil {
+	if err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData); err != nil {
 		panic(err)
 	}
 
-	err = maps.EvaluatePerformance()
-	if err != nil {
+	if err = maps.EvaluatePerformance(); err != nil {
 		panic(err)
 	}
 }
