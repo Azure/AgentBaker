@@ -270,8 +270,6 @@ downloadContainerdWasmShims() {
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
-    output=$(ls -la $containerd_wasm_filepath)
-    echo "output download: $output"
 }
 
 updateContainerdWasmShimsPermissions() {
@@ -279,9 +277,6 @@ updateContainerdWasmShimsPermissions() {
     local shim_version=${2}
     local shims_to_download=${3}
     local binary_version="$(echo "${shim_version}" | tr . -)"
-
-    output=$(ls -la $containerd_wasm_filepath)
-    echo "updatepermissions: $output"
 
     for shim in "${shims_to_download[@]}"; do
         chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
@@ -295,45 +290,44 @@ installSpinKube(){
     local package_versions=("$@")
 
     for version in "${package_versions[@]}"; do
-        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSpinKube $download_location $containerd_wasm_url "v$version" # adding v to version for simplicity
+        containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadSpinKube $download_location $containerd_spinkube_url "v$version" # adding v to version for simplicity
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateSpinKubePermissions $download_location "v$version"
+        updateSpinKubePermissions $download_location
     done
+    echo "finished installing spinkube"
 }
 
 downloadSpinKube(){
-    local containerd_wasm_filepath=${1}
-    local containerd_wasm_url=${2}
+    local containerd_spinkube_filepath=${1}
+    local containerd_spinkube_url=${2}
     local shim_version=${3}
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "spin" "-v2"; then
+    if wasmFilesExist "$containerd_spinkube_filepath" "$shim_version" "spin" "-v2"; then
         return
     fi
 
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:${shim_version}-linux-${CPU_ARCH}"
-        local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/containerd-shim-spin-v2"
+        local wasm_shims_tgz_tmp="${containerd_spinkube_filepath}/containerd-shim-spin-v2"
         retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
         rm -f "$wasm_shims_tgz_tmp"
         return 
     fi
 
-    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v2" "$containerd_wasm_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
+    echo "finished donwloading spinkube"
 }
 
 updateSpinKubePermissions() {
-    local containerd_wasm_filepath=${1}
-    local shim_version=${2}
-    local shims_to_download=${3}
-    local binary_version="$(echo "${shim_version}" | tr . -)"
-
-    chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-v2"
+    echo "updating spinkube"
+    local containerd_spinkube_filepath=${1}
+    chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-v2"
 }
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
