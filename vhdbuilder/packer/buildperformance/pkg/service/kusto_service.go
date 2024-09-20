@@ -27,8 +27,7 @@ func IngestData(client *kusto.Client, ctx context.Context, kustoDatabase string,
 	}
 	defer ingestor.Close()
 
-	_, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON))
-	if err != nil {
+	if _, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON)); err != nil {
 		return fmt.Errorf("failed to ingest build performance data: %w", err)
 	}
 	return nil
@@ -45,7 +44,7 @@ func QueryData(client *kusto.Client, ctx context.Context, sigImageName string, k
 	defer iter.Stop()
 
 	data := SKU{}
-	err = iter.DoOnRowOrError(
+	if err = iter.DoOnRowOrError(
 		func(row *table.Row, e *kustoErrors.Error) error {
 			if e != nil {
 				return fmt.Errorf("error while iterating over query table: %w", e)
@@ -55,8 +54,7 @@ func QueryData(client *kusto.Client, ctx context.Context, sigImageName string, k
 			}
 			return nil
 		},
-	)
-	if err != nil {
+	); err != nil {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
 	return &data, nil
