@@ -238,7 +238,7 @@ installContainerdWasmShims(){
     done
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateContainerdWasmShimsPermissions $download_location $version $shims_to_download
+        updateContainerdWasmShimsPermissions $download_location "v$version" $shims_to_download
     done
 }
 
@@ -300,7 +300,7 @@ installSpinKube(){
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateSpinKubePermissions $download_location $version
+        updateSpinKubePermissions $download_location "v$version"
     done
 }
 
