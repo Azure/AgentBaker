@@ -984,7 +984,7 @@ testWasmRuntimesInstalled() {
 
   binary_version="$(echo "${shim_version}" | tr . -)"
   for shim in "${shims_to_download[@]}"; do
-    binary_path_pattern="${wasm_runtimes_path}/containerd-${shim}-${binary_version}-*"
+    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
     if [ ! -f $binary_path_pattern ]; then
       output=$(ls -la /usr/local/bin)
       err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
