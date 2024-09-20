@@ -973,6 +973,7 @@ testWasmRuntimesInstalled() {
   local test="testWasmRuntimesInstalled"
   local wasm_runtimes_path=${1}
   local shim_version=${2}
+  shim_version="v${shim_version}"
 
   echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
 
@@ -998,6 +999,7 @@ testSpinKubeInstalled() {
   local test="testSpinKubeInstalled"
   local spinKube_runtimes_path=${1}
   local shim_version=${2}
+  shim_version="v${shim_version}"
 
   # v0.15.1 does not have a version encoded in the binary name
   binary_path_pattern="${wasm_runtimes_path}/containerd-shim-spin-v2"
