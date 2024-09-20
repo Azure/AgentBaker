@@ -268,10 +268,12 @@ downloadContainerdWasmShims() {
         return
     fi
 
-    for shim in "${shims_to_download[@]}"; do
+    for shim in "${shims_to_download[@]}"; do # /usr/local/bin/containerd-shim-spin-0-3-0-v1
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
+    output=$(ls -la $binary_path_pattern)
+    echo "output download: $output"
 }
 
 updateContainerdWasmShimsPermissions() {
@@ -279,6 +281,9 @@ updateContainerdWasmShimsPermissions() {
     local shim_version=${2}
     local shims_to_download=${3}
     local binary_version="$(echo "${shim_version}" | tr . -)"
+
+    output=$(ls -la $binary_path_pattern)
+    echo "updatepermissions: $output"
 
     for shim in "${shims_to_download[@]}"; do
         chmod 755 "$containerd_wasm_filepath/containerd-${shim}-${binary_version}-v1"
