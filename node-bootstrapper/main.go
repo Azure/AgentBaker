@@ -385,14 +385,14 @@ func getHardCodedKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration
 
 func getArcTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\k\\arc-token.sh"
+		return "c:\\k\\arc-token.ps1"
 	}
 	return "/opt/azure/bootstrap/arc-token.sh"
 }
 
 func getAzureTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:\\k\\azure-token.sh"
+		return "c:\\k\\azure-token.ps1"
 	}
 	return "/opt/azure/bootstrap/azure-token.sh"
 }
@@ -416,6 +416,9 @@ func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[s
 
 func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	bootstrapKubeconfig := contentAzureTokenSh(config)
+	if config.AgentPoolProfile.IsWindows() {
+		bootstrapKubeconfig = contentAzureTokenPs1(config)
+	}
 	files[getAzureTokenPath(config)] = File{
 		Content: bootstrapKubeconfig,
 		Mode:    0755,
@@ -442,10 +445,6 @@ func generateContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration)
 	if appID == "" {
 		appID = DefaultAksAadAppID
 	}
-	managedIdentityId := config.AgentPoolProfile.BootstrappingManagedIdentityId
-	if appID == "" {
-		appID = DefaultAksAadAppID
-	}
 
 	switch config.AgentPoolProfile.BootstrappingMethod {
 	case datamodel.UseArcMsiDirectly:
@@ -459,23 +458,13 @@ func generateContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration)
 
 	case datamodel.UseAzureMsiDirectly:
 		if config.AgentPoolProfile.IsWindows() {
-			users = fmt.Sprintf(`- name: default-auth
+			users = `- name: default-auth
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: kubelogin
-      args:
-      - get-token
-      - --environment
-      - AzurePublicCloud
-      - --server-id
-      - %s
-      - --login
-      - msi
-      - --client-id
-      - %s
+      command: c:/k/azure-token.ps1
       provideClusterInfo: false
-`, appID, managedIdentityId)
+`
 
 		} else {
 			users = fmt.Sprintf(`- name: default-auth
@@ -550,6 +539,16 @@ curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL |
 `, appID)
 }
 
+func contentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
+	clientId := config.AgentPoolProfile.BootstrappingManagedIdentityId
+
+	return fmt.Sprintf(`kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientId)
+}
+
 func generateContentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
@@ -607,13 +606,24 @@ func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfi
 				"user": func() map[string]any {
 					switch config.AgentPoolProfile.BootstrappingMethod {
 					case datamodel.UseArcMsiToMakeCSR:
-						return map[string]any{
-							"exec": map[string]any{
-								"apiVersion":         "client.authentication.k8s.io/v1",
-								"command":            getArcTokenPath(config),
-								"interactiveMode":    "Never",
-								"provideClusterInfo": false,
-							},
+						if config.AgentPoolProfile.IsWindows() {
+							return map[string]any{
+								"exec": map[string]any{
+									"apiVersion":         "client.authentication.k8s.io/v1",
+									"command":            "c:/k/arc-token.ps1",
+									"interactiveMode":    "Never",
+									"provideClusterInfo": false,
+								},
+							}
+						} else {
+							return map[string]any{
+								"exec": map[string]any{
+									"apiVersion":         "client.authentication.k8s.io/v1",
+									"command":            getArcTokenPath(config),
+									"interactiveMode":    "Never",
+									"provideClusterInfo": false,
+								},
+							}
 						}
 
 					case datamodel.UseAzureMsiToMakeCSR:
@@ -621,20 +631,9 @@ func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfi
 							return map[string]any{
 								"exec": map[string]any{
 									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            "kubelogin",
+									"command":            "c:/k/azure-token.ps1",
 									"interactiveMode":    "Never",
 									"provideClusterInfo": false,
-									"args": []string{
-										"get-token",
-										"--environment",
-										"AzurePublicCloud",
-										"--server-id",
-										appID,
-										"--login",
-										"msi",
-										"--client-id",
-										config.AgentPoolProfile.BootstrappingManagedIdentityId,
-									},
 								},
 							}
 						} else {
