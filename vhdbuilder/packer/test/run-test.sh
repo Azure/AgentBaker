@@ -1,6 +1,15 @@
 #!/bin/bash
 set -eux
 
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
+
+source ../../../parts/linux/cloud-init/artifacts/cse_helpers.sh
+
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
@@ -44,6 +53,8 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
+
+capture_benchmark "set_variables_and_create_resource_group"
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
@@ -112,6 +123,7 @@ else
 fi
 
 time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
+capture_benchmark "create_test_vm"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -203,5 +215,7 @@ else
     exit 1
   fi
 fi
-
+capture_benchmark "run_az_vm_run_command"
 echo -e "Test Script Completed\n\n\n"
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks
