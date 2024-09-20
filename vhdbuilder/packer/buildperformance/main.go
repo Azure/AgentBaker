@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -13,7 +13,7 @@ func main() {
 	// Recover from panic and exit gracefully in order to prevent failing pipeline step
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered from panic in main:", r)
+			log.Println("Recovered from panic in main:", r)
 			os.Exit(0)
 		}
 	}()
@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Program config set")
+	log.Println("Program config set")
 
 	maps := service.CreateDataMaps()
 
@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 	defer client.Close()
-	fmt.Println("Kusto client created")
+	log.Println("Kusto client created")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -41,14 +41,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Data ingested for %s\n", config.SigImageName)
+		log.Printf("Data ingested for %s\n", config.SigImageName)
 	}
 
 	queryData, err := service.QueryData(client, ctx, config.SigImageName, config.KustoDatabase)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
+	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 
 	err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData)
 	if err != nil {
