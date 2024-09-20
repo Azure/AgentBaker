@@ -70,6 +70,7 @@ func TestCreateDataMaps(t *testing.T) {
 				LocalPerformanceDataMap:   EvaluationMap{},
 				QueriedPerformanceDataMap: QueryMap{},
 				RegressionMap:             EvaluationMap{},
+				StagingMap:                StagingMap{},
 			},
 		},
 	}
