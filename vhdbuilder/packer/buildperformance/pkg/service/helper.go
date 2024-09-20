@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ func SetupConfig() (*Config, error) {
 	missingVar := false
 	for name, value := range envVars {
 		if value == "" {
-			fmt.Printf("missing environment variable \"%s\".", name)
+			log.Printf("missing environment variable %q.", name)
 			missingVar = true
 		}
 	}
@@ -124,8 +125,7 @@ func (maps *DataMaps) ParseKustoData(data *SKU) error {
 }
 
 func (sku *SKU) CleanData() string {
-	var cleanedData string = strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
-	return cleanedData
+	return strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
 }
 
 // After preparing performance data, evaluate it with EvaluatePerformance and associated helper functions
