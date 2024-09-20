@@ -140,7 +140,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 				fmt.Printf("no data available for %s in %s\n", section, scriptName)
 				continue
 			}
-			// Adding these together gives us the maximum time allowed for the section
+			// Adding the slice values together gives us the maximum time allowed for the section
 			maxTimeAllowed, err := SumSlice(sectionDataSlice)
 			if err != nil {
 				fmt.Printf("error calculating max time allowed for %s in %s: %v\n", section, scriptName, err)
