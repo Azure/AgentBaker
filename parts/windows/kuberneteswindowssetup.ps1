@@ -226,6 +226,8 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 
 $global:OperationId = New-Guid
 
+$env:Path += ';C:\Program Files\containerd'
+
 try
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.ExecuteCustomDataSetupScript" -TaskMessage ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AADClientId $AADClientId -NetworkAPIVersion $NetworkAPIVersion -TargetEnvironment $TargetEnvironment -CSEResultFilePath $CSEResultFilePath"
