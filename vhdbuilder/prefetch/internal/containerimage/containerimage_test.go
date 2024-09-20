@@ -14,10 +14,11 @@ import (
 const (
 	componentsTestDataPath     = "testdata/components.json"
 	prefetchScriptTestDataPath = "testdata/prefetch.sh"
+	regenerateTestData         = "REGENERATE_CONTAINER_IMAGE_PREFETCH_TESTDATA"
 )
 
 func TestContianerImage(t *testing.T) {
-	if strings.EqualFold(os.Getenv("PREFETCH_REGENERATE_FIXTURES"), "true") {
+	if strings.EqualFold(os.Getenv(regenerateTestData), "true") {
 		generate(t)
 	}
 
@@ -38,6 +39,8 @@ func TestContianerImage(t *testing.T) {
 }
 
 func generate(t *testing.T) {
+	t.Log("generating container image prefetch.sh testdata...")
+
 	raw, err := os.ReadFile(componentsTestDataPath)
 	assert.NoError(t, err)
 

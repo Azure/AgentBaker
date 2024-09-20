@@ -5,13 +5,13 @@ SHELL = bash
 all: generate
 
 .PHONY: generate
-generate: generate-fixtures
-	PREFETCH_REGENERATE_FIXTURES="true" go test ./...
+generate: generate-testdata
+	REGENERATE_CONTAINER_IMAGE_PREFETCH_TESTDATA="true" go test ./...
 
 .PHONY: test
 test:
 	go test ./...
 
-.PHONY:
-generate-fixtures:
-	@bash ./hack/generate-fixtures.sh
+.PHONY: generate-testdata
+generate-testdata:
+	@bash ./hack/generate-testdata.sh
