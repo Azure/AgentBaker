@@ -1,4 +1,4 @@
-package containerimage
+package containerimage_test
 
 import (
 	"encoding/json"
@@ -6,12 +6,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/vhdbuilder/prefetch/internal/components"
+	"github.com/Azure/agentbaker/vhdbuilder/prefetch/internal/containerimage"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	componentsFixturePath     = "fixtures/components.json"
-	prefetchScriptFixturePath = "fixtures/prefetch.sh"
+	componentsTestDataPath     = "testdata/components.json"
+	prefetchScriptTestDataPath = "testdata/prefetch.sh"
 )
 
 func TestContianerImage(t *testing.T) {
@@ -19,33 +21,33 @@ func TestContianerImage(t *testing.T) {
 		generate(t)
 	}
 
-	expectedContent, err := os.ReadFile(prefetchScriptFixturePath)
+	expectedContent, err := os.ReadFile(prefetchScriptTestDataPath)
 	assert.NoError(t, err)
 
-	raw, err := os.ReadFile(componentsFixturePath)
+	raw, err := os.ReadFile(componentsTestDataPath)
 	assert.NoError(t, err)
 
-	var components ComponentList
-	err = json.Unmarshal(raw, &components)
+	var list components.List
+	err = json.Unmarshal(raw, &list)
 	assert.NoError(t, err)
 
-	actualContent, err := Generate(&components)
+	actualContent, err := containerimage.GeneratePrefetchScript(&list)
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedContent, actualContent)
 }
 
 func generate(t *testing.T) {
-	raw, err := os.ReadFile(componentsFixturePath)
+	raw, err := os.ReadFile(componentsTestDataPath)
 	assert.NoError(t, err)
 
-	var components ComponentList
-	err = json.Unmarshal(raw, &components)
+	var list components.List
+	err = json.Unmarshal(raw, &list)
 	assert.NoError(t, err)
 
-	content, err := Generate(&components)
+	content, err := containerimage.GeneratePrefetchScript(&list)
 	assert.NoError(t, err)
 
-	err = os.WriteFile(prefetchScriptFixturePath, content, os.ModePerm)
+	err = os.WriteFile(prefetchScriptTestDataPath, content, os.ModePerm)
 	assert.NoError(t, err)
 }

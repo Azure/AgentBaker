@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Azure/agentbaker/vhdbuilder/prefetch/internal/components"
 	"github.com/Azure/agentbaker/vhdbuilder/prefetch/internal/containerimage"
 )
 
@@ -40,13 +41,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	components, err := containerimage.ParseComponents(opts.componentsPath)
+	list, err := components.ParseList(opts.componentsPath)
 	if err != nil {
 		fmt.Printf("parsing components json: %s", err)
 		os.Exit(1)
 	}
 
-	content, err := containerimage.Generate(components)
+	content, err := containerimage.GeneratePrefetchScript(list)
 	if err != nil {
 		fmt.Printf("generating container prefetch script content: %s", err)
 		os.Exit(1)
