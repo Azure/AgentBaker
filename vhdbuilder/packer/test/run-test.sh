@@ -216,6 +216,7 @@ else
   fi
 fi
 capture_benchmark "run_az_vm_run_command"
+
 echo -e "Test Script Completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
