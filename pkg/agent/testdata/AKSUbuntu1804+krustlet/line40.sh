@@ -203,20 +203,18 @@ installContainerdWasmShims(){
     local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2 
-    local json_versions=("$@")
+    local package_versions=("$@")
 
     local shims_to_download=("spin" "slight")
-    package_versions=()
-    for version in "${json_versions[@]}"; do
+    for version in "${package_versions[@]}"; do
         if [[ "$version" == "0.8.0" ]]; then
             shims_to_download+=("wws")
         fi
-        package_versions+=("v$version")
     done
     
     for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url $version $shims_to_download
+        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" $shims_to_download 
     done
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
@@ -251,7 +249,7 @@ downloadContainerdWasmShims() {
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
-    output=$(ls -la $binary_path_pattern)
+    output=$(ls -la $containerd_wasm_filepath)
     echo "output download: $output"
 }
 
@@ -261,7 +259,7 @@ updateContainerdWasmShimsPermissions() {
     local shims_to_download=${3}
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    output=$(ls -la $binary_path_pattern)
+    output=$(ls -la $containerd_wasm_filepath)
     echo "updatepermissions: $output"
 
     for shim in "${shims_to_download[@]}"; do
@@ -273,16 +271,11 @@ installSpinKube(){
     local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2 
-    local json_versions=("$@")
-
-    package_versions=()
-    for version in "${json_versions[@]}"; do
-        package_versions+=("v$version")
-    done
+    local package_versions=("$@")
 
     for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSpinKube $download_location $containerd_wasm_url $version
+        downloadSpinKube $download_location $containerd_wasm_url "v$version" 
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
