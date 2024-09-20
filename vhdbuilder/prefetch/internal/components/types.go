@@ -11,11 +11,11 @@ type Image struct {
 	DownloadURL       string `json:"downloadURL"`
 	MultiArchVersions []struct {
 		LatestVersion         string `json:"latestVersion"`
-		PreviousLatestVersion string `json:"previousLatestVersion"`
+		PreviousLatestVersion string `json:"previousLatestVersion,omitempty"`
 		PrefetchOptimizations struct {
 			LatestVersion         ContainerImagePrefetchOptimization `json:"latestVersion"`
-			PreviousLatestVersion ContainerImagePrefetchOptimization `json:"previousLatestVersion"`
-		} `json:"containerImagePrefetch"`
+			PreviousLatestVersion ContainerImagePrefetchOptimization `json:"previousLatestVersion,omitempty"`
+		} `json:"containerImagePrefetch,omitempty"`
 	} `json:"multiArchVersionsV2,omitempty"`
 }
 
