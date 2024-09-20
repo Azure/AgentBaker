@@ -37,13 +37,7 @@ func main() {
 	defer cancel()
 
 	if config.SourceBranch == "refs/heads/zb/regression2" {
-		if err := service.IngestData(
-			client,
-			ctx,
-			config.KustoDatabase,
-			config.KustoTable,
-			config.LocalBuildPerformanceFile,
-			config.KustoIngestionMapping); err != nil {
+		if err := service.IngestData(client, ctx, config.KustoDatabase, config.KustoTable, config.LocalBuildPerformanceFile, config.KustoIngestionMapping); err != nil {
 			panic(err)
 		}
 		log.Printf("Data ingested for %s\n", config.SigImageName)
