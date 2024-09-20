@@ -12,14 +12,13 @@ import (
 // Set conditions for program to run successfully wtih SetupConfig and CreateDataMaps functions
 func SetupConfig() (*Config, error) {
 	envVars := map[string]string{
-		"kustoTable":                os.Getenv("BUILD_PERFORMANCE_TABLE_NAME"),
-		"kustoEndpoint":             os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT"),
-		"kustoDatabase":             os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME"),
-		"kustoClientId":             os.Getenv("BUILD_PERFORMANCE_CLIENT_ID"),
-		"kustoIngestionMapping":     os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING"),
-		"sourceBranch":              os.Getenv("GIT_BRANCH"),
-		"sigImageName":              os.Getenv("SIG_IMAGE_NAME"),
-		"localBuildPerformanceFile": os.Getenv("SIG_IMAGE_NAME") + "-build-performance.json",
+		"kustoTable":            os.Getenv("BUILD_PERFORMANCE_TABLE_NAME"),
+		"kustoEndpoint":         os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT"),
+		"kustoDatabase":         os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME"),
+		"kustoClientId":         os.Getenv("BUILD_PERFORMANCE_CLIENT_ID"),
+		"kustoIngestionMapping": os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING"),
+		"sourceBranch":          os.Getenv("GIT_BRANCH"),
+		"sigImageName":          os.Getenv("SIG_IMAGE_NAME"),
 	}
 	missingVar := false
 	for name, value := range envVars {
@@ -39,7 +38,7 @@ func SetupConfig() (*Config, error) {
 		KustoClientId:             envVars["kustoClientId"],
 		KustoIngestionMapping:     envVars["kustoIngestionMapping"],
 		SigImageName:              envVars["sigImageName"],
-		LocalBuildPerformanceFile: envVars["localBuildPerformanceFile"],
+		LocalBuildPerformanceFile: envVars["sigImageName"] + "-build-performance.json",
 		SourceBranch:              envVars["sourceBranch"],
 	}, nil
 }
