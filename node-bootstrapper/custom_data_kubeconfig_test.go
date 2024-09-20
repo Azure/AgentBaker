@@ -392,17 +392,7 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: kubelogin
-         args:
-         - get-token
-         - --environment
-         - AzurePublicCloud
-         - --server-id
-         - test-app-id
-         - --login
-         - msi
-         - --client-id
-         - 5f0b9406-fbf1-4e1c-8a61-b6f4a6702057
+         command: c:/k/azure-token.ps1
          provideClusterInfo: false
 `)
 	})
@@ -483,17 +473,7 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: kubelogin
-         args:
-         - get-token
-         - --environment
-         - AzurePublicCloud
-         - --server-id
-         - test-app-id
-         - --login
-         - msi
-         - --client-id
-         - mi-client-id
+         command: c:/k/azure-token.ps1
          provideClusterInfo: false
          interactiveMode: Never
 `)
