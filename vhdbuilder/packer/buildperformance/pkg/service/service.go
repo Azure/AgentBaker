@@ -158,7 +158,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	}
 	if len(maps.RegressionMap) > 0 {
 		fmt.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 2 stdev above the mean")
-		err := maps.PrintRegressions()
+		err := maps.DisplayRegressions()
 		if err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
@@ -181,15 +181,14 @@ func SumSlice(slice []float64) (float64, error) {
 	return sum, nil
 }
 
-func (maps DataMaps) PrintRegressions() error {
-	prefix := ""
-	indent := "  "
-
-	data, err := json.MarshalIndent(maps.RegressionMap, prefix, indent)
+func (maps DataMaps) DisplayRegressions() error {
+	// Marshall JSON data and indent for better readability
+	data, err := json.MarshalIndent(maps.RegressionMap, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshalling regression data: %w", err)
 	}
 
+	// Print JSON to the console for review by the user
 	fmt.Println(string(data))
 	return nil
 }

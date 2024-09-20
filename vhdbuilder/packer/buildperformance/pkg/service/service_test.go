@@ -396,7 +396,7 @@ func TestEvaluatePerformance(t *testing.T) {
 	}
 }
 
-func TestPrintRegressions(t *testing.T) {
+func TestDisplayRegressions(t *testing.T) {
 	cases := []struct {
 		name          string
 		regressionmap *DataMaps
@@ -424,7 +424,7 @@ func TestPrintRegressions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := c.regressionmap.PrintRegressions()
+			err := c.regressionmap.DisplayRegressions()
 			assert.NoError(t, err)
 		})
 	}
