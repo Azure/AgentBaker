@@ -228,7 +228,7 @@ installContainerdWasmShims(){
     local shims_to_download=("spin" "slight")
     package_versions=()
     for version in "${json_versions[@]}"; do
-        if version == "0.8.0"; then
+        if [[ "$version" == "0.8.0" ]]; then
             shims_to_download+=("wws")
         fi
         package_versions+=("v$version")
