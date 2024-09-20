@@ -9,7 +9,7 @@ declare -A benchmarks=()
 declare -a benchmarks_order=()
 VHD_BUILD_PERF_DATA={BUILD_PERF_DATA_FILE}
 
-source parts/linux/cloud-init/artifacts/cse_helpers.sh
+source vhdbuilder/packer/build-performance/evaluate-build-performance.sh
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
