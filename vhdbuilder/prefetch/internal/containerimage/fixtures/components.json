@@ -53,12 +53,12 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             },
             "previousLatestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             }
           }
@@ -70,12 +70,12 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             },
             "previousLatestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             }
           }
@@ -92,7 +92,7 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "usr/local/bin/azure-cns"
+                "/usr/local/bin/azure-cns"
               ]
             }
           }
@@ -104,12 +104,12 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "usr/local/bin/azure-cns"
+                "/usr/local/bin/azure-cns"
               ]
             },
             "previousLatestVersion": {
               "binaries": [
-                "usr/local/bin/azure-cns"
+                "/usr/local/bin/azure-cns"
               ]
             }
           }
@@ -121,12 +121,12 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "usr/local/bin/azure-cns"
+                "/usr/local/bin/azure-cns"
               ]
             },
             "previousLatestVersion": {
               "binaries": [
-                "usr/local/bin/azure-cns"
+                "/usr/local/bin/azure-cns"
               ]
             }
           }
@@ -143,7 +143,7 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             }
           }
@@ -160,7 +160,7 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             }
           }
@@ -171,7 +171,7 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             }
           }
@@ -182,7 +182,7 @@
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
-                "dropgz"
+                "/dropgz"
               ]
             }
           }

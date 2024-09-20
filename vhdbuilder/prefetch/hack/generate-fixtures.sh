@@ -13,7 +13,6 @@ main() {
     echo "generating prefetch fixtures from $COMPONENTS_REL_PATH"
     CONTAINER_IMAGE_FIXTURE_PATH="$SCRIPT_PATH/../internal/containerimage/fixtures"
     mkdir -p "$CONTAINER_IMAGE_FIXTURE_PATH"
-    echo "copying $COMPONENTS_REL_PATH to $CONTAINER_IMAGE_FIXTURE_PATH"
     cp -r "$COMPONENTS_REL_PATH" "$CONTAINER_IMAGE_FIXTURE_PATH"
 }
 

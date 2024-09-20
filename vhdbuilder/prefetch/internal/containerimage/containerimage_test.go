@@ -11,7 +11,7 @@ import (
 
 const (
 	componentsFixturePath     = "fixtures/components.json"
-	containerImageFixturePath = "fixtures/containerimage/prefetch.sh"
+	prefetchScriptFixturePath = "fixtures/prefetch.sh"
 )
 
 func TestContianerImage(t *testing.T) {
@@ -19,7 +19,7 @@ func TestContianerImage(t *testing.T) {
 		generate(t)
 	}
 
-	expectedContent, err := os.ReadFile("fixtures/containerimage/prefetch.sh")
+	expectedContent, err := os.ReadFile(prefetchScriptFixturePath)
 	assert.NoError(t, err)
 
 	raw, err := os.ReadFile(componentsFixturePath)
@@ -46,9 +46,6 @@ func generate(t *testing.T) {
 	content, err := Generate(&components)
 	assert.NoError(t, err)
 
-	err = os.MkdirAll("fixtures/containerimage", os.ModePerm)
-	assert.NoError(t, err)
-
-	err = os.WriteFile(containerImageFixturePath, content, os.ModePerm)
+	err = os.WriteFile(prefetchScriptFixturePath, content, os.ModePerm)
 	assert.NoError(t, err)
 }

@@ -56,5 +56,6 @@ func main() {
 		fmt.Printf("writing container image prefetch script to output path %s: %s", opts.outputPath, err)
 		os.Exit(1)
 	}
-	fmt.Printf("generated container image prefetch script at %s:\n%s\n", opts.outputPath, content)
+
+	fmt.Printf("generated container image prefetch script at %s:\n%s\n", opts.outputPath, string(content))
 }
