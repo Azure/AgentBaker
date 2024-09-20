@@ -11,10 +11,16 @@ type Config struct {
 	SourceBranch              string
 }
 
+type HolderMap map[string]map[string]string
+
+type QueryMap map[string]map[string][]float64
+
+type EvaluationMap map[string]map[string]float64
+
 type DataMaps struct {
-	LocalPerformanceDataMap   map[string]map[string]float64
-	QueriedPerformanceDataMap map[string]map[string][]float64
-	RegressionMap             map[string]map[string]float64
+	LocalPerformanceDataMap   EvaluationMap
+	QueriedPerformanceDataMap QueryMap
+	RegressionMap             EvaluationMap
 }
 
 type SKU struct {
