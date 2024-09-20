@@ -407,7 +407,9 @@ func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string 
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: c:/k/azure-token.ps1
+      command: powershell
+      args:
+      - c:/k/azure-token.ps1
       provideClusterInfo: false
 `
 
@@ -491,7 +493,7 @@ func contentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) stri
 	}
 	clientId := config.AgentPoolProfile.BootstrappingManagedIdentityId
 
-	return fmt.Sprintf(`kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientId)
+	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientId)
 }
 
 func contentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -555,7 +557,8 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 							return map[string]any{
 								"exec": map[string]any{
 									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            "c:/k/arc-token.ps1",
+									"command":            "powershell",
+									"args":               []string{getArcTokenPath(config)},
 									"interactiveMode":    "Never",
 									"provideClusterInfo": false,
 								},
@@ -576,7 +579,8 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 							return map[string]any{
 								"exec": map[string]any{
 									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            "c:/k/azure-token.ps1",
+									"command":            "powershell",
+									"args":               []string{getAzureTokenPath(config)},
 									"interactiveMode":    "Never",
 									"provideClusterInfo": false,
 								},

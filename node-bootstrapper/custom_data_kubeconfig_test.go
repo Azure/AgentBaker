@@ -411,7 +411,9 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: c:/k/azure-token.ps1
+         command: powershell
+         args: 
+         - c:/k/azure-token.ps1
          provideClusterInfo: false
 `)
 	})
