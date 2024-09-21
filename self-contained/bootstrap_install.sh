@@ -119,8 +119,6 @@ downloadContainerdWasmShims() {
     local shims_to_download=("$@") # Capture the remaining arguments as an array
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
-    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: ${shims_to_download[@]}, binary_version: $binary_version"
-
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
         return
     fi
@@ -178,7 +176,6 @@ downloadSpinKube(){
     local shim_version=${3}
     shift 3 # there is only one shim to download for spinkube at this time
     local shims_to_download=("$@") # Capture the remaining arguments as an array
-    local binary_version="$(echo "${shim_version}" | tr . -)"
 
     if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return
