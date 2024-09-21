@@ -137,6 +137,7 @@ testPackagesInstalled() {
         elif [ "$name" == "spinkube" ]; then
           testSpinKubeInstalled $downloadLocation $version
           echo "$test $name binaries are in the expected location of $downloadLocation"
+          continue
         else
           err $test "$name is not installed. Expected to be installed in $downloadLocation"
           continue
@@ -1003,7 +1004,7 @@ testSpinKubeInstalled() {
   binary_version="$(echo "${shim_version}" | tr . -)"
 
   # v0.15.1 does not have a version encoded in the binary name
-  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-${binary_version}-v2"
+  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
   if [ ! -f $binary_path_pattern ]; then
     output=$(ls -la /usr/local/bin)
     err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"

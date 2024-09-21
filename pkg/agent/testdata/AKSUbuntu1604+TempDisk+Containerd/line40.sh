@@ -279,7 +279,7 @@ installSpinKube(){
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateSpinKubePermissions $download_location "v$version"
+        updateSpinKubePermissions $download_location
     done
 }
 
@@ -289,9 +289,8 @@ downloadSpinKube(){
     local shim_version=${3}
     shift 3 
     local shims_to_download=("$@") 
-    local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2" ]; then
+    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return
     fi
 
@@ -304,15 +303,13 @@ downloadSpinKube(){
         return 
     fi
     
-    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
 }
 
 updateSpinKubePermissions() {
     local containerd_spinkube_filepath=${1}
-    local shim_version=${2}
-    local binary_version="$(echo "${shim_version}" | tr . -)"
-    chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2"
+    chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-v2"
 }
 
 installOras() {
