@@ -28,3 +28,7 @@ type SKU struct {
 	Name               string `kusto:"SIG_IMAGE_NAME"`
 	SKUPerformanceData string `kusto:"BUILD_PERFORMANCE"`
 }
+
+type QueryCompletionInfo struct {
+	Payload []map[string]int `json:"dataset_statistics"`
+}

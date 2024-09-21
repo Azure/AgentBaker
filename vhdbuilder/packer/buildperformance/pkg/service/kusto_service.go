@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/Azure/azure-kusto-go/kusto"
 	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
@@ -57,5 +59,42 @@ func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, k
 	); err != nil {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
+
+	if err := CheckNumberOfRowsReturned(iter); err != nil {
+		return nil, err
+	}
+	log.Println("Query returned 1 row of aggregated data as expected")
+
 	return &data, nil
+}
+
+func CheckNumberOfRowsReturned(iter *kusto.RowIterator) error {
+	// GetQueryCompletionInformation returns a datatable with information about the query
+	infoTable, err := iter.GetQueryCompletionInformation()
+	if err != nil {
+		return fmt.Errorf("unable to get query completion information: %v", err)
+	}
+
+	if len(infoTable.KustoRows) == 0 {
+		return fmt.Errorf("query completion information is empty")
+	}
+
+	// Custom struct to unmarshal the query completion information
+	QueryInformation := QueryCompletionInfo{}
+
+	// The number of rows returned by the query is stored in the last element of a slice in the last row in the datatable returned by GetQueryCompletionInformation
+	row := infoTable.KustoRows[len(infoTable.KustoRows)-1]
+	payload := row[len(row)-1].String()
+
+	if err = json.Unmarshal([]byte(payload), &QueryInformation); err != nil {
+		return fmt.Errorf("could not unmarshal query completion information: %v", err)
+	}
+
+	numRows := QueryInformation.Payload[0]["table_row_count"]
+
+	if numRows != 1 {
+		return fmt.Errorf("unexpected number of rows returned from query: %v", numRows)
+	}
+
+	return nil
 }
