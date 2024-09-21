@@ -204,8 +204,9 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
 wasmFilesExist() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
-    local shims_to_download=${3}
-    local version_suffix=${4}
+    local version_suffix=${3}
+    shift 3
+    local shims_to_download=("$@")
 
     local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
@@ -231,7 +232,7 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" $shims_to_download # adding v to version for simplicity
+        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}"# adding v to version for simplicity
     done
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
@@ -239,7 +240,7 @@ installContainerdWasmShims(){
         if [[ "$version" == "0.8.0" ]]; then
             shims_to_download+=("wws")
         fi
-        updateContainerdWasmShimsPermissions $download_location "v$version" $shims_to_download
+        updateContainerdWasmShimsPermissions $download_location "v$version" "${shims_to_download[@]}"
     done
 }
 
@@ -253,7 +254,7 @@ downloadContainerdWasmShims() {
 
     echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: $shims_to_download, binary_version: $binary_version"
 
-    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v1"; then
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
         return
     fi
 
@@ -279,7 +280,8 @@ downloadContainerdWasmShims() {
 updateContainerdWasmShimsPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
-    local shims_to_download=${3}
+    shift 3 
+    local shims_to_download=("$@")
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
     for shim in "${shims_to_download[@]}"; do
@@ -310,7 +312,7 @@ downloadSpinKube(){
     shift 3 # there is only one shim to download for spinkube at this time
     local shims_to_download=("$@") # Capture the remaining arguments as an array
 
-    if wasmFilesExist "$containerd_spinkube_filepath" "$shim_version" "spin" "-v2"; then
+    if wasmFilesExist "$containerd_spinkube_filepath" "$shim_version" "-v2" "${shims_to_download[@]}"; then
         return
     fi
 
