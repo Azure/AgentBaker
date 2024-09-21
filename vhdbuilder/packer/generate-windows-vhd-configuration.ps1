@@ -113,16 +113,13 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.23",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.32",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.35",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.0",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.5",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.7",
     # CNI installer for azure-vnet. Owner: evanbaker
-    "mcr.microsoft.com/containernetworking/cni-dropgz:v0.1.4"
-    "mcr.microsoft.com/containernetworking/cni-dropgz:v0.2.0"
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.32",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35"
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.5"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.5",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7"
 )
 
 $global:map = @{
@@ -168,26 +165,21 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.14-hotfix.20240712/windowszip/v1.27.14-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.15-hotfix.20240712/windowszip/v1.27.15-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.16/windowszip/v1.27.16-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.5-hotfix.20240712/windowszip/v1.28.5-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.9-hotfix.20240712/windowszip/v1.28.9-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.10-hotfix.20240712/windowszip/v1.28.10-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.11-hotfix.20240712/windowszip/v1.28.11-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.12/windowszip/v1.28.12-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.13/windowszip/v1.28.13-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.2-hotfix.20240712/windowszip/v1.29.2-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.4-hotfix.20240712/windowszip/v1.29.4-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.5-hotfix.20240712/windowszip/v1.29.5-hotfix.20240712-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.14/windowszip/v1.28.14-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.6-hotfix.20240712/windowszip/v1.29.6-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.7/windowszip/v1.29.7-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.8/windowszip/v1.29.8-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.1-hotfix.20240712/windowszip/v1.30.1-hotfix.20240712-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.9/windowszip/v1.29.9-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.2-hotfix.20240712/windowszip/v1.30.2-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.4/windowszip/v1.30.4-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.4/windowszip/v1.30.4-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.32/binaries/azure-vnet-cni-windows-amd64-v1.5.32.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.35/binaries/azure-vnet-cni-windows-amd64-v1.5.35.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.6.5/binaries/azure-vnet-cni-windows-amd64-v1.6.5.zip",
         # Azure CNI v2 (pod subnet)
