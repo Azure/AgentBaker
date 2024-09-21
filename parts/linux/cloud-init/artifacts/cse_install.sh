@@ -272,7 +272,12 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+      # retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+      # containerd_wasm_url = https://acs-mirror.azureedge.net/containerd-wasm-shims/v${version}/linux/${CPU_ARCH}
+      # "${base_url}/${shim_filename}" https://acs-mirror.azureedge.net/${base_path}/${shim_version}/linux/${CPU_ARCH}/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
+      # local base_url="https://acs-mirror.azureedge.net/${base_path}/${shim_version}/linux/${CPU_ARCH}"
+      # shim_filename="containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz"
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-linux-${CPU_ARCH}.tar.gz" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
     output=$(ls -la $containerd_wasm_filepath)
