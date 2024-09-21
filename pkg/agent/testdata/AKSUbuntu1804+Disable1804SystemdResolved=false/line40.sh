@@ -232,7 +232,7 @@ downloadContainerdWasmShims() {
     local shims_to_download=("$@") 
     local binary_version="$(echo "${shim_version}" | tr . -)" 
 
-    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: $shims_to_download, binary_version: $binary_version"
+    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: ${shims_to_download[@]}, binary_version: $binary_version"
 
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
         return
@@ -254,6 +254,8 @@ downloadContainerdWasmShims() {
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
+    output=$(ls -la $containerd_wasm_filepath)
+    echo "wasm output:\n $output"
 }
 
 updateContainerdWasmShimsPermissions() {
@@ -262,6 +264,8 @@ updateContainerdWasmShimsPermissions() {
     shift 3 
     local shims_to_download=("$@")
     local binary_version="$(echo "${shim_version}" | tr . -)"
+
+    echo "trying to update permissions for shims: "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1""
 
     for shim in "${shims_to_download[@]}"; do
         chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
@@ -306,10 +310,13 @@ downloadSpinKube(){
 
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
+    output=$(ls -la $containerd_spinkube_filepath)
+    echo "wasm output:\n $output"
 }
 
 updateSpinKubePermissions() {
     local containerd_spinkube_filepath=${1}
+    echo "trying to update permissions for shims: "$containerd_spinkube_filepath/containerd-shim-spin-v2""
     chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-v2"
 }
 
