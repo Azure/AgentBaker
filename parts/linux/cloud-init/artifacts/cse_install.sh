@@ -210,10 +210,13 @@ wasmFilesExist() {
 
     local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
+        echo "checking for file: ${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}"
         if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
+            echo "file ${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix} does not exist"
             return 1 # file is missing
         fi
     done
+    echo "all files exist"
     return 0 
 }
 
@@ -272,6 +275,7 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
+        echo "beinging to download "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1""
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
