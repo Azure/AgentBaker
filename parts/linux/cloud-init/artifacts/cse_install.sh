@@ -273,6 +273,7 @@ downloadContainerdWasmShims() {
 
             for shim in "${shims_to_download[@]}"; do
                 local shim_filename="${shim_prefix}${shim}${version_suffix}"
+                echo "wasm downloading- "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}" "${base_url}/${shim_filename}""
                 retrycmd_if_failure 2 5 60 curl -fSLv -o "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}" "${base_url}/${shim_filename}" 2>&1 | tee "$CURL_OUTPUT" >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat "$CURL_OUTPUT" && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
                 wasmShimPids+=($!)
             done
