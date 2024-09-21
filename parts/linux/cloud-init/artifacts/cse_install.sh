@@ -210,9 +210,7 @@ wasmFilesExist() {
 
     local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
-        echo "checking for file: ${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}"
         if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
-            echo "file ${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix} does not exist"
             return 1 # file is missing
         fi
     done
@@ -275,7 +273,6 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        echo "beinging to download "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1""
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
@@ -287,11 +284,6 @@ updateContainerdWasmShimsPermissions() {
     shift 3 
     local shims_to_download=("$@")
     local binary_version="$(echo "${shim_version}" | tr . -)"
-
-    output=$(ls -la $containerd_wasm_filepath)
-    echo "wasm output:\n $output"
-
-    echo "trying to update permissions for shims: "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1""
 
     for shim in "${shims_to_download[@]}"; do
         chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
@@ -321,7 +313,9 @@ downloadSpinKube(){
     shift 3 # there is only one shim to download for spinkube at this time
     local shims_to_download=("$@") # Capture the remaining arguments as an array
 
-    if wasmFilesExist "$containerd_spinkube_filepath" "$shim_version" "-v2" "${shims_to_download[@]}"; then
+    echo "containerd_spinkube_filepath: $containerd_spinkube_filepath, containerd_spinkube_url: $containerd_spinkube_url, shim_version: $shim_version, shims_to_download: ${shims_to_download[@]}"
+
+    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return
     fi
 
@@ -333,6 +327,8 @@ downloadSpinKube(){
         rm -f "$wasm_shims_tgz_tmp"
         return 
     fi
+    
+    echo "trying to install "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2""
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
 }
