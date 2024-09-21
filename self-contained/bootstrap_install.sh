@@ -168,7 +168,7 @@ installSpinKube(){
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateSpinKubePermissions $download_location
+        updateSpinKubePermissions $download_location "v$version"
     done
 }
 
@@ -178,6 +178,7 @@ downloadSpinKube(){
     local shim_version=${3}
     shift 3 # there is only one shim to download for spinkube at this time
     local shims_to_download=("$@") # Capture the remaining arguments as an array
+    local binary_version="$(echo "${shim_version}" | tr . -)"
 
     if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return
@@ -198,6 +199,8 @@ downloadSpinKube(){
 
 updateSpinKubePermissions() {
     local containerd_spinkube_filepath=${1}
+    local shim_version=${2}
+    local binary_version="$(echo "${shim_version}" | tr . -)"
     chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2"
 }
 
