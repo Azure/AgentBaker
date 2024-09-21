@@ -271,24 +271,10 @@ downloadContainerdWasmShims() {
         return
     fi
 
-
-    if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-v${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-v${shim_version}" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-        WASMSHIMPIDS+=($!)
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-        WASMSHIMPIDS+=($!)
-        if [ "$shim_version" == "0.8.0" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-v${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-            WASMSHIMPIDS+=($!)
-        fi
-    fi
-
     for shim in "${shims_to_download[@]}"; do
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
-    output=$(ls -la $containerd_wasm_filepath)
-    echo "wasm output:\n $output"
 }
 
 updateContainerdWasmShimsPermissions() {
@@ -297,6 +283,9 @@ updateContainerdWasmShimsPermissions() {
     shift 3 
     local shims_to_download=("$@")
     local binary_version="$(echo "${shim_version}" | tr . -)"
+
+    output=$(ls -la $containerd_wasm_filepath)
+    echo "wasm output:\n $output"
 
     echo "trying to update permissions for shims: "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1""
 
@@ -340,23 +329,15 @@ downloadSpinKube(){
         rm -f "$wasm_shims_tgz_tmp"
         return 
     fi
-    # retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
-    # local wasm_shims_tgz_tmp="${containerd_wasm_filepath}/${shim_filename}"
-    # shim_filename="containerd-shim-spin-v2"
-    # local base_url="https://acs-mirror.azureedge.net/${base_path}/${shim_version}/linux/${CPU_ARCH}"
-    # retrycmd_if_failure 2 5 60 curl -fSLv -o "${containerd_wasm_filepath}/${shim_prefix}${shim}-${binary_version}${version_suffix}" "${base_url}/${shim_filename}" 
-    # retrycmd_if_failure 2 5 60 curl -fSLv -o  "/usr/local/bin/containerd-shim-spin-v0-3-0-v2" "https://acs-mirror.azureedge.net/spinkube/v0-3-0/linux/amd64/containerd-shim-spin-v2"
-    echo "downloading 
-    echo ""$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2""
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
-    output=$(ls -la $containerd_spinkube_filepath)
-    echo "wasm output:\n $output"
 }
 
 updateSpinKubePermissions() {
     local containerd_spinkube_filepath=${1}
-    echo "trying to update permissions for shims: "$containerd_spinkube_filepath/containerd-shim-spin-v2""
+    output=$(ls -la $containerd_spinkube_filepath)
+    echo "spinkube output:\n $output"
+    echo "trying to update permissions for spinkube: "$containerd_spinkube_filepath/containerd-shim-spin-v2""
     chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-v2"
 }
 
