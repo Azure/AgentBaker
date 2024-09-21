@@ -310,8 +310,9 @@ downloadSpinKube(){
     local shim_version=${3}
     shift 3 # there is only one shim to download for spinkube at this time
     local shims_to_download=("$@") # Capture the remaining arguments as an array
+    local binary_version="$(echo "${shim_version}" | tr . -)"
 
-    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
+    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2" ]; then
         return
     fi
 
@@ -324,7 +325,6 @@ downloadSpinKube(){
         return 
     fi
     
-    local binary_version="$(echo "${shim_version}" | tr . -)"
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
 }

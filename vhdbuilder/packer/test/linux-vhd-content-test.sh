@@ -1000,9 +1000,9 @@ testSpinKubeInstalled() {
   local spinKube_runtimes_path=${1}
   local shim_version=${2}
   shim_version="v${shim_version}"
+  binary_version="$(echo "${shim_version}" | tr . -)"
 
   # v0.15.1 does not have a version encoded in the binary name
-  $containerd_spinkube_filepath/containerd-shim-spin-v2
   binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-${binary_version}-v2"
   if [ ! -f $binary_path_pattern ]; then
     output=$(ls -la /usr/local/bin)
