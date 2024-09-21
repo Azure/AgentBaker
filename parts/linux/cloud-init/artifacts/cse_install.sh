@@ -330,6 +330,8 @@ downloadSpinKube(){
 
 updateSpinKubePermissions() {
     local containerd_spinkube_filepath=${1}
+    local shim_version=${2}
+    local binary_version="$(echo "${shim_version}" | tr . -)"
     chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2"
 }
 

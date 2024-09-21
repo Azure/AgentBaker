@@ -170,7 +170,6 @@ installSpinKube(){
     for version in "${package_versions[@]}"; do
         updateSpinKubePermissions $download_location "v$version"
     done
-    echo "finished installing spinkube"
 }
 
 downloadSpinKube(){
@@ -180,8 +179,6 @@ downloadSpinKube(){
     shift 3 # there is only one shim to download for spinkube at this time
     local shims_to_download=("$@") # Capture the remaining arguments as an array
     local binary_version="$(echo "${shim_version}" | tr . -)"
-
-    echo "containerd_spinkube_filepath: $containerd_spinkube_filepath, containerd_spinkube_url: $containerd_spinkube_url, shim_version: $shim_version, shims_to_download: ${shims_to_download[@]}, binary_version: $binary_version"
 
     if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return
@@ -198,15 +195,12 @@ downloadSpinKube(){
     
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
-
-    echo "finished downloading spinkube"
 }
 
 updateSpinKubePermissions() {
     local containerd_spinkube_filepath=${1}
     local shim_version=${2}
     local binary_version="$(echo "${shim_version}" | tr . -)"
-    echo "updating permissions for spinkube containerd_spinkube_filepath: $containerd_spinkube_filepath, shim_version: $shim_version, binary_version: $binary_version"
     chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-${binary_version}-v2"
 }
 
