@@ -235,7 +235,7 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}"# adding v to version for simplicity
+        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}" # adding v to version for simplicity
     done
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
