@@ -300,7 +300,7 @@ installSpinKube(){
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateSpinKubePermissions $download_location
+        updateSpinKubePermissions $download_location "v$version"
     done
 }
 
