@@ -224,20 +224,21 @@ installContainerdWasmShims(){
     PACKAGE_DOWNLOAD_URL=${2}
     shift 2 # shift past the first 2 arguments to capture the list of versions
     local package_versions=("$@")
-
-    local shims_to_download=("spin" "slight")
+    
     for version in "${package_versions[@]}"; do
+        local shims_to_download=("spin" "slight")
         if [[ "$version" == "0.8.0" ]]; then
             shims_to_download+=("wws")
         fi
-    done
-    
-    for version in "${package_versions[@]}"; do
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" $shims_to_download # adding v to version for simplicity
     done
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
+        local shims_to_download=("spin" "slight")
+        if [[ "$version" == "0.8.0" ]]; then
+            shims_to_download+=("wws")
+        fi
         updateContainerdWasmShimsPermissions $download_location "v$version" $shims_to_download
     done
 }
@@ -248,6 +249,8 @@ downloadContainerdWasmShims() {
     local shim_version=${3}
     local shims_to_download=${4}
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
+
+    echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: $shims_to_download, binary_version: $binary_version"
 
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "$shims_to_download" "-v1"; then
         return
