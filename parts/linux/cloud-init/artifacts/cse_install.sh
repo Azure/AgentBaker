@@ -247,7 +247,8 @@ downloadContainerdWasmShims() {
     local containerd_wasm_filepath=${1}
     local containerd_wasm_url=${2}
     local shim_version=${3}
-    local shims_to_download=${4}
+    shift 3 # Shift past the first 3 arguments to capture the rest as an array. If the max array goes larger than 3, increase accordingly.
+    local shims_to_download=("$@") # Capture the remaining arguments as an array
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
     echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: $shims_to_download, binary_version: $binary_version"
@@ -306,7 +307,8 @@ downloadSpinKube(){
     local containerd_spinkube_filepath=${1}
     local containerd_spinkube_url=${2}
     local shim_version=${3}
-    local binary_version="$(echo "${shim_version}" | tr . -)"
+    shift 3 # there is only one shim to download for spinkube at this time
+    local shims_to_download=("$@") # Capture the remaining arguments as an array
 
     if wasmFilesExist "$containerd_spinkube_filepath" "$shim_version" "spin" "-v2"; then
         return

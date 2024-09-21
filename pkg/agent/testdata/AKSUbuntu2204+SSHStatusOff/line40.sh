@@ -227,7 +227,8 @@ downloadContainerdWasmShims() {
     local containerd_wasm_filepath=${1}
     local containerd_wasm_url=${2}
     local shim_version=${3}
-    local shims_to_download=${4}
+    shift 3 
+    local shims_to_download=("$@") 
     local binary_version="$(echo "${shim_version}" | tr . -)" 
 
     echo "containerd_wasm_filepath: $containerd_wasm_filepath, containerd_wasm_url: $containerd_wasm_url, shim_version: $shim_version, shims_to_download: $shims_to_download, binary_version: $binary_version"
@@ -285,7 +286,8 @@ downloadSpinKube(){
     local containerd_spinkube_filepath=${1}
     local containerd_spinkube_url=${2}
     local shim_version=${3}
-    local binary_version="$(echo "${shim_version}" | tr . -)"
+    shift 3 
+    local shims_to_download=("$@") 
 
     if wasmFilesExist "$containerd_spinkube_filepath" "$shim_version" "spin" "-v2"; then
         return
