@@ -79,7 +79,7 @@ steps:
   - bash: |
       pwd
       ls -R
-    displayName: show Directory
+    displayName: Show Directory
   - bash: |
       set -x
       GOPATH="$(go env GOPATH)"
@@ -89,7 +89,7 @@ steps:
       GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
       popd
       cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
-    displayName: setup cue
+    displayName: Setup Cue
   - bash: |
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
@@ -107,7 +107,7 @@ steps:
   - bash: |
       make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
-    displayName: Building VHD
+    displayName: Build VHD
     Env:
       #Azure Variables - Common variables for Azure resources
       POOL_NAME: $(POOL_NAME)
