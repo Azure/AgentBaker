@@ -167,71 +167,80 @@ steps:
       echo "##vso[task.setvariable variable=VHD_NAME]$(CAPTURED_SIG_VERSION).vhd"
     displayName: Set Pipeline Variables
   - bash: |
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-      -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
-      -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-      -e ENVIRONMENT=${ENVIRONMENT} \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-      -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-      -e OS_VERSION=${OS_VERSION} \
-      -e OS_SKU=${OS_SKU} \
-      -e PKR_RG_NAME=${PKR_RG_NAME} \
-      -e MODE=$(MODE) \
-      -e DRY_RUN=${DRY_RUN} \
-      -e OS_TYPE="Linux" \
-      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-      -e IMAGE_NAME=${IMAGE_NAME} \
-      -e CAPTURED_SIG_VERSION=${CAPTURED_SIG_VERSION} \
-      -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e ARCHITECTURE=${ARCHITECTURE} \
-      -e OS_DISK_URI=${OS_DISK_URI} \
-      -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-      -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-      -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-"docker"} \
-      -e OS_VERSION=${OS_VERSION} \
-      -e OS_SKU=${OS_SKU} \
-      -e IMG_SKU=${IMG_SKU} \
-      -e VHD_DEBUG=${VHD_DEBUG} \
-      -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e ENABLE_FIPS=${ENABLE_FIPS} \
-      -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-      -e SGX_INSTALL=${SGX_INSTALL} \
-      -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
-      -e GIT_BRANCH=$(Build.SourceBranch) \
-      -e BLOB_STORAGE_NAME=${BLOB_STORAGE_NAME} \
-      -e CLASSIC_BLOB=${CLASSIC_BLOB} \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e SCANNING_MSI_RESOURCE_ID=${SCANNING_MSI_RESOURCE_ID} \
-      -e SKU_NAME=$(SKU_NAME) \
-      -e VHD_NAME=${{ parameters.artifactName }} \
-      -e VHD_DEBUG=${VHD_DEBUG} \
-      -e ARCHITECTURE=${ARCHITECTURE} \
-      -e KUSTO_ENDPOINT=${KUSTO_ENDPOINT} \
-      -e KUSTO_DATABASE=${KUSTO_DATABASE} \
-      -e KUSTO_TABLE=${KUSTO_TABLE} \
-      -e UMSI_RESOURCE_ID=${UMSI_RESOURCE_ID} \
-      -e UMSI_PRINCIPAL_ID=${UMSI_PRINCIPAL_ID} \
-      -e UMSI_CLIENT_ID=${UMSI_CLIENT_ID} \
-      -e ACCOUNT_NAME=${ACCOUNT_NAME} \
-      -e BLOB_URL=${BLOB_URL} \
-      -e SEVERITY=${SEVERITY} \
-      -e MODULE_VERSION=${MODULE_VERSION} \
-      -e BUILD_REPOSITORY_NAME=$(Build.Repository.Name) \
-      -e BUILD_SOURCEVERSION=$(Build.SourceVersion) \
-      -e SYSTEM_COLLECTIONURI=$(System.CollectionUri) \
-      -e SYSTEM_TEAMPROJECT=$(System.TeamProject) \
-      -e BUILD_RUN_NUMBER=$(Build.BuildNumber) \
-      ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
+      make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
+    Env:
+      #Azure Variables - Common variables for Azure resources
+      POOL_NAME: $(POOL_NAME)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
+      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      ENVIRONMENT: $(ENVIRONMENT)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+      BLOB_STORAGE_NAME: $(BLOB_STORAGE_NAME)
+      CLASSIC_BLOB: $(CLASSIC_BLOB)
+      PKR_RG_NAME: $(PKR_RG_NAME)
+      SCANNING_MSI_RESOURCE_ID: $(SCANNING_MSI_RESOURCE_ID)
+      KUSTO_ENDPOINT: $(KUSTO_ENDPOINT)
+      KUSTO_DATABASE: $(KUSTO_DATABASE)
+      KUSTO_TABLE: $(KUSTO_TABLE)
+      UMSI_RESOURCE_ID: $(UMSI_RESOURCE_ID)
+      UMSI_PRINCIPAL_ID: $(UMSI_PRINCIPAL_ID)
+      UMSI_CLIENT_ID: $(UMSI_CLIENT_ID)
+      ACCOUNT_NAME: $(ACCOUNT_NAME)
+      BLOB_URL: $(BLOB_URL)
+      SEVERITY: $(SEVERITY)
+      MODULE_VERSION: $(MODULE_VERSION)
+
+      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
+      FEATURE_FLAGS: $(FEATURE_FLAGS)
+      OS_VERSION: $(OS_VERSION)
+      OS_SKU: $(OS_SKU)
+      SKU_NAME: $(SKU_NAME)
+      HYPERV_GENERATION: $(HYPERV_GENERATION)
+      IMG_PUBLISHER: ${IMG_PUBLISHER}
+      IMG_OFFER: $(IMG_OFFER)
+      IMG_SKU: $(IMG_SKU)
+      IMG_VERSION: $(IMG_VERSION)
+      CONTAINER_RUNTIME: $(CONTAINER_RUNTIME)
+      ENABLE_FIPS: $(ENABLE_FIPS)
+      ARCHITECTURE: $(ARCHITECTURE)
+      ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
+      SGX_INSTALL: $(SGX_INSTALL)
+      ENABLE_CGROUPV2: $(ENABLE_CGROUPV2)
+      DRY_RUN: $(DRY_RUN)
+
+      # Build Variables - Azure Pipelines specific variables
+      GIT_VERSION: $(Build.SourceVersion)
+      GIT_BRANCH: $(Build.SourceBranch)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      BRANCH: $(Build.SourceBranch)
+      BUILD_REPOSITORY_NAME: $(Build.Repository.Name)
+      BUILD_SOURCEVERSION: $(Build.SourceVersion)
+      SYSTEM_COLLECTIONURI: $(System.CollectionUri)
+      SYSTEM_TEAMPROJECT: $(System.TeamProject)
+      BUILD_RUN_NUMBER: $(Build.BuildNumber)
+
+      # Misc - Variables dynamically defined in code or the pipeline
+      OS_TYPE: "Linux"
+      SKU_NAME: $(SKU_NAME)
+      MODE: $(MODE)
+      IMAGE_VERSION: $(IMAGE_VERSION)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      IMAGE_NAME: $(IMAGE_NAME)
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      IMPORTED_IMAGE_NAME: $(IMPORTED_IMAGE_NAME)
+      OS_DISK_URI: $(OS_DISK_URI)
+      MANAGED_SIG_ID: (MANAGED_SIG_ID)
+      VHD_DEBUG: $(VHD_DEBUG)
+      VHD_NAME: $(VHD_NAME)
+
   - bash: |
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
