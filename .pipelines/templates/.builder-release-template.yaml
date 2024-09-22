@@ -242,21 +242,27 @@ steps:
       VHD_NAME: $(VHD_NAME)
 
   - bash: |
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e CAPTURED_SIG_VERSION=${CAPTURED_SIG_VERSION} \
-      -e GIT_BRANCH=$(Build.SourceBranch) \
-      -e GIT_VERSION=$(Build.SourceVersion) \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e JOB_STATUS=$(Agent.JobStatus) \
-      -e ARCHITECTURE=${ARCHITECTURE} \
-      -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
-      ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
+      make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
+    Env:
+      #Azure Variables - Common variables for Azure resources
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+
+      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
+      ARCHITECTURE: $(ARCHITECTURE)
+
+      # Build Variables - Azure Pipelines specific variables
+      GIT_VERSION: $(Build.SourceVersion)
+      GIT_BRANCH: $(Build.SourceBranch)
+      BUILD_ID: $(Build.BuildId)
+      JOB_STATUS=$(Agent.JobStatus)
+
+      # Misc - Variables dynamically defined in code or the pipeline
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      BUILD_PERF_DATA_FILE: $(BUILD_PERF_DATA_FILE)
+      
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
