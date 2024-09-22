@@ -8,6 +8,7 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
+    
 steps:
   - checkout: self
     # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
@@ -42,8 +43,9 @@ steps:
       
       echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
       cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
-    condition: eq('${{ parameters.useOverrides }}', true)
     displayName: Apply Overrides
+    condition: eq('${{ parameters.useOverrides }}', true)
+  
   - bash: |
       m="linuxVhdMode" && \
       echo "Set build mode to $m" && \
@@ -51,15 +53,17 @@ steps:
     displayName: Get Build Mode
 
   - task: UniversalPackages@0
+    displayName: Download Asc Baseline
     inputs:
       command: download
       vstsFeed: ASMPackages
       vstsFeedPackage: asc-baseline
       vstsPackageVersion: '1.1.0-268'
       downloadDirectory: vhdbuilder/packer
-    displayName: Download Asc Baseline
 
   - task: DownloadPipelineArtifact@2
+    displayName: 'Download Kata CC UVM artifact'
+    condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
     inputs:
       source: specific
       project: CloudNativeCompute
@@ -77,8 +81,6 @@ steps:
         **/kata-containers-initrd-base.img**
         **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
-    condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
-    displayName: 'Download Kata CC UVM artifact'
 
   - bash: |
       pwd
@@ -111,8 +113,7 @@ steps:
       echo "Set SKU_NAME to $SKU_NAME"
     displayName: Set SKU Name
 
-  - bash:  |
-      make -f packer.mk run-packer
+  - bash: make -f packer.mk run-packer
     displayName: Build VHD
     retryCountOnTaskFailure: 3
     Env:
@@ -175,8 +176,7 @@ steps:
       echo "##vso[task.setvariable variable=VHD_NAME]$(CAPTURED_SIG_VERSION).vhd"
     displayName: Set Pipeline Variables
 
-  - bash: |
-      make -f packer.mk test-scan-and-cleanup
+  - bash: make -f packer.mk test-scan-and-cleanup
     displayName: Test, Scan, and Cleanup
     condition: always()
     Env:
@@ -250,8 +250,7 @@ steps:
       VHD_DEBUG: $(VHD_DEBUG)
       VHD_NAME: $(VHD_NAME)
 
-  - bash: |
-      make -f packer.mk evaluate-build-performance
+  - bash: make -f packer.mk evaluate-build-performance
     displayName: Check Build Performance
     condition: always()
     Env:
