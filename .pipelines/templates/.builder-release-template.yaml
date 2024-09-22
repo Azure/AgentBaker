@@ -8,7 +8,7 @@ parameters:
   - name: overrideBranch
     type: string
     default: master
-    
+
 steps:
   - checkout: self
     # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
@@ -117,7 +117,7 @@ steps:
     displayName: Build VHD
     retryCountOnTaskFailure: 3
     Env:
-      #Azure Variables - Common variables for Azure resources
+      # Azure Variables - Common variables for Azure resources
       POOL_NAME: $(POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_VM_SIZE: $(AZURE_VM_SIZE)
@@ -180,7 +180,7 @@ steps:
     displayName: Test, Scan, and Cleanup
     condition: always()
     Env:
-      #Azure Variables - Common variables for Azure resources
+      # Azure Variables - Common variables for Azure resources
       POOL_NAME: $(POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_VM_SIZE: $(AZURE_VM_SIZE)
@@ -314,8 +314,7 @@ steps:
       Contents: 'image-bom.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - bash: |
-      make -f packer.mk convert-sig-to-classic-storage-account-blob
+  - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     Env:
@@ -343,8 +342,7 @@ steps:
       PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
       OS_TYPE: "Linux" 
 
-  - bash: |
-      make -f packer.mk generate-sas
+  - bash: make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     Env:
@@ -373,10 +371,10 @@ steps:
 
   - task: PublishPipelineArtifact@1
     displayName: Publish publishing-info
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
 
   - task: CopyFiles@2
     displayName: Copy vhd publishing info
@@ -398,7 +396,8 @@ steps:
       versionOption: minor
 
   - task: PublishPipelineArtifact@0
-    displayName: Publish bulk artifacts # these "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
+    # these "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
+    displayName: Publish bulk artifacts
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
       artifactName: '${{ parameters.artifactName }}'
