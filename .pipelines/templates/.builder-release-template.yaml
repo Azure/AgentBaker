@@ -105,48 +105,52 @@ steps:
       echo "Set SKU_NAME to $SKU_NAME"
     displayName: Set SKU Name
   - bash: |
-      echo MODE=$(MODE) && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e POOL_NAME=$(POOL_NAME) \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e AZURE_VM_SIZE=$(AZURE_VM_SIZE) \
-      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_RESOURCE_GROUP_NAME} \
-      -e ENVIRONMENT=${ENVIRONMENT} \
-      -e PACKER_BUILD_LOCATION=${PACKER_BUILD_LOCATION} \
-      -e FEATURE_FLAGS=$(FEATURE_FLAGS) \
-      -e GIT_VERSION=$(Build.SourceVersion) \
-      -e BUILD_DEFINITION_NAME="$(Build.DefinitionName)" \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e BUILD_NUMBER=$(Build.BuildNumber) \
-      -e OS_VERSION=$(OS_VERSION) \
-      -e OS_SKU=${OS_SKU} \
-      -e SKU_NAME=$(SKU_NAME) \
-      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e OS_TYPE="Linux" \
-      -e IMG_PUBLISHER=${IMG_PUBLISHER} \
-      -e IMG_OFFER=${IMG_OFFER} \
-      -e IMG_SKU=${IMG_SKU} \
-      -e IMG_VERSION=${IMG_VERSION} \
-      -e MODE=$(MODE) \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e BRANCH=$(Build.SourceBranch) \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e CONTAINER_RUNTIME=${CONTAINER_RUNTIME} \
-      -e TELEPORTD_PLUGIN_DOWNLOAD_URL=${TELEPORTD_PLUGIN_DOWNLOAD_URL} \
-      -e ENABLE_FIPS=${ENABLE_FIPS} \
-      -e ARCHITECTURE=${ARCHITECTURE} \
-      -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
-      -e SGX_INSTALL=${SGX_INSTALL} \
-      -e ENABLE_CGROUPV2=${ENABLE_CGROUPV2} \
-      -e IMAGE_VERSION=${IMAGE_VERSION} \
-      -e PRIVATE_PACKAGES_URL="${PRIVATE_PACKAGES_URL}" \
-      -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
-      ${CONTAINER_IMAGE} make -f packer.mk run-packer
+      make -f packer.mk run-packer
     retryCountOnTaskFailure: 3
     displayName: Building VHD
+    Env:
+      #Azure Variables - Common variables for Azure resources
+      POOL_NAME: $(POOL_NAME)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
+      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      ENVIRONMENT: $(ENVIRONMENT)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
+
+      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
+      FEATURE_FLAGS: $(FEATURE_FLAGS)
+      OS_VERSION: $(OS_VERSION)
+      OS_SKU: $(OS_SKU)
+      SKU_NAME: $(SKU_NAME)
+      HYPERV_GENERATION: $(HYPERV_GENERATION)
+      IMG_PUBLISHER: ${IMG_PUBLISHER}
+      IMG_OFFER: $(IMG_OFFER)
+      IMG_SKU: $(IMG_SKU)
+      IMG_VERSION: $(IMG_VERSION)
+      CONTAINER_RUNTIME: $(CONTAINER_RUNTIME)
+      ENABLE_FIPS: $(ENABLE_FIPS)
+      ARCHITECTURE: $(ARCHITECTURE)
+      ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
+      SGX_INSTALL: $(SGX_INSTALL)
+      ENABLE_CGROUPV2: $(ENABLE_CGROUPV2)
+
+      # Build Variables - Azure Pipelines specific variables
+      GIT_VERSION: $(Build.SourceVersion)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      BRANCH: $(Build.SourceBranch)
+
+      # URLs/Misc - URLs and other variables dynamically defined in code or the pipeline
+      OS_TYPE: "Linux"
+      SKU_NAME: $(SKU_NAME)
+      MODE: $(MODE)
+      IMAGE_VERSION: $(IMAGE_VERSION)
+      PRIVATE_PACKAGES_URL: (PRIVATE_PACKAGES_URL)
+      TELEPORTD_PLUGIN_DOWNLOAD_URL: $(TELEPORTD_PLUGIN_DOWNLOAD_URL)
   - bash: |
       OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
