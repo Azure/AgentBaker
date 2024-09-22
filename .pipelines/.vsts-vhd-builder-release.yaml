@@ -2,8 +2,6 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 variables:
-  - name: CONTAINER_IMAGE
-    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
   - group: aks-vuln-to-kusto
 
 pool:
