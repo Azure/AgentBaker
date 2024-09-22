@@ -144,22 +144,30 @@ steps:
       BUILD_NUMBER: $(Build.BuildNumber)
       BRANCH: $(Build.SourceBranch)
 
-      # URLs/Misc - URLs and other variables dynamically defined in code or the pipeline
+      # Misc - Variables dynamically defined in code or the pipeline
       OS_TYPE: "Linux"
       SKU_NAME: $(SKU_NAME)
       MODE: $(MODE)
       IMAGE_VERSION: $(IMAGE_VERSION)
+
+      # Download URLs
       PRIVATE_PACKAGES_URL: (PRIVATE_PACKAGES_URL)
       TELEPORTD_PLUGIN_DOWNLOAD_URL: $(TELEPORTD_PLUGIN_DOWNLOAD_URL)
+  - Bash: |
+      echo -e "Setting variables for use in the remainder of the pipeline..."
+      echo "##vso[task.setvariable variable=OS_DISK_URI]$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)"
+      echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
+      echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION]$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      echo "##vso[task.setvariable variable=IMPORTED_IMAGE_NAME]$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      echo "##vso[task.setvariable variable=IMAGE_NAME]${SIG_IMAGE_NAME}-${CAPTURED_SIG_VERSION}"
+      echo "##vso[task.setvariable variable=BUILD_PERF_DATA_FILE]vhd-build-performance-data.json"
+      echo "##vso[task.setvariable variable=IS_NOT_1804]$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false )"
+      echo "##vso[task.setvariable variable=VHD_NAME]$(CAPTURED_SIG_VERSION).vhd"
+    displayName: Set Pipeline Variables
+
   - bash: |
-      OS_DISK_URI="$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-      MANAGED_SIG_ID="$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
-      PKR_RG_NAME="$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
-      SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      IMAGE_NAME="${SIG_IMAGE_NAME}-${CAPTURED_SIG_VERSION}" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -226,9 +234,6 @@ steps:
     condition: always()
     displayName: Test, Scan, and Cleanup
   - bash: |
-      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -244,13 +249,6 @@ steps:
       ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        IS_NOT_1804=$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false ) && \
-        echo "##vso[task.setvariable variable=IS_NOT_1804]${IS_NOT_1804}"
-    displayName: 'Check if OS version is not 18.04'
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
@@ -289,10 +287,6 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy image bom
   - bash: |
-      echo MODE=$(MODE) && \
-      captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -310,10 +304,6 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
-      echo MODE=$(MODE) && \
-      captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      VHD_NAME="${captured_sig_version}.vhd" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
