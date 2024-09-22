@@ -21,7 +21,7 @@ steps:
     fetchTags: false
     lfs: false
     condition: eq('${{ parameters.useOverrides }}', true)
-    
+
   - bash: |
       set -euo pipefail
       # Just copy components.json. If anything else is needed, then someone can modify the pipeline in an emergency.
@@ -79,6 +79,7 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
     condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
     displayName: 'Download Kata CC UVM artifact'
+    
   - bash: |
       pwd
       ls -R
