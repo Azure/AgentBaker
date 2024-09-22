@@ -79,7 +79,7 @@ steps:
       downloadPath: $(Build.SourcesDirectory)
     condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
     displayName: 'Download Kata CC UVM artifact'
-    
+
   - bash: |
       pwd
       ls -R
@@ -345,35 +345,40 @@ steps:
       OS_TYPE: "Linux" 
 
   - bash: |
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-      -e RESOURCE_GROUP_NAME="${AZURE_RESOURCE_GROUP_NAME}" \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e CAPTURED_SIG_VERSION=${captured_sig_version} \
-      -e STORAGE_ACCT_BLOB_URL=${CLASSIC_BLOB} \
-      -e VHD_NAME=${VHD_NAME} \
-      -e OS_NAME="Linux" \
-      -e OS_TYPE="Linux" \
-      -e SKU_NAME=$(SKU_NAME) \
-      -e OFFER_NAME=${OS_SKU} \
-      -e IMG_PUBLISHER=${IMG_PUBLISHER} \
-      -e IMG_OFFER=${IMG_OFFER} \
-      -e IMG_SKU=${IMG_SKU} \
-      -e IMG_VERSION=${IMG_VERSION} \
-      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e ARCHITECTURE=${ARCHITECTURE} \
-      -e IMAGE_VERSION=${IMAGE_VERSION} \
-      ${CONTAINER_IMAGE} make -f packer.mk generate-sas
+      make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    Env:
+      #Azure Variables - Common variables for Azure resources
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
+
+      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
+      OFFER_NAME: $(OS_SKU)
+      HYPERV_GENERATION: $(HYPERV_GENERATION)
+      IMG_PUBLISHER: ${IMG_PUBLISHER}
+      IMG_OFFER: $(IMG_OFFER)
+      IMG_SKU: $(IMG_SKU)
+      IMG_VERSION: $(IMG_VERSION)
+      ARCHITECTURE: $(ARCHITECTURE) 
+
+      # Misc - Variables dynamically defined in code or the pipeline
+      OS_TYPE: "Linux"
+      OS_NAME: "Linux"
+      SKU_NAME: $(SKU_NAME)
+      IMAGE_VERSION: $(IMAGE_VERSION)
+      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      VHD_NAME: $(VHD_NAME)
+
   - task: PublishPipelineArtifact@1
     displayName: Publish publishing-info
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+
   - task: CopyFiles@2
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     inputs:
@@ -381,6 +386,7 @@ steps:
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
     displayName: Copy vhd publishing info
+
   - task: UniversalPackages@0
     displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
@@ -391,6 +397,7 @@ steps:
       vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
       packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
       versionOption: minor
+
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: '${{ parameters.artifactName }}'
