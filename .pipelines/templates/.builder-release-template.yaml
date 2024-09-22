@@ -257,12 +257,12 @@ steps:
       GIT_VERSION: $(Build.SourceVersion)
       GIT_BRANCH: $(Build.SourceBranch)
       BUILD_ID: $(Build.BuildId)
-      JOB_STATUS=$(Agent.JobStatus)
+      JOB_STATUS: $(Agent.JobStatus)
 
       # Misc - Variables dynamically defined in code or the pipeline
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       BUILD_PERF_DATA_FILE: $(BUILD_PERF_DATA_FILE)
-      
+
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     inputs:
