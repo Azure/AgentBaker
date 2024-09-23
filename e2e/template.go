@@ -7,45 +7,7 @@ import (
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
-func baseNodeBootstrappingContract(location string) *nbcontractv1.Configuration {
-	cs := &datamodel.ContainerService{
-		Location: location,
-		Type:     "Microsoft.ContainerService/ManagedClusters",
-		Properties: &datamodel.Properties{
-			OrchestratorProfile: &datamodel.OrchestratorProfile{
-				OrchestratorType:    datamodel.Kubernetes,
-				OrchestratorVersion: "1.19.13",
-				KubernetesConfig:    &datamodel.KubernetesConfig{},
-			},
-			HostedMasterProfile: &datamodel.HostedMasterProfile{
-				DNSPrefix: "uttestdom",
-			},
-			AgentPoolProfiles: []*datamodel.AgentPoolProfile{
-				{
-					Name:                "agent2",
-					VMSize:              "Standard_DS1_v2",
-					StorageProfile:      "ManagedDisks",
-					OSType:              datamodel.Linux,
-					VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
-					AvailabilityProfile: datamodel.VirtualMachineScaleSets,
-					Distro:              datamodel.AKSUbuntu1604,
-				},
-			},
-			LinuxProfile: &datamodel.LinuxProfile{
-				AdminUsername: "azureuser",
-			},
-			ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
-				ClientID: "ClientID",
-				Secret:   "Secret",
-			},
-		},
-	}
-	cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{
-		KeyData: string("testsshkey"),
-	}}
-
-	agentPool := cs.Properties.AgentPoolProfiles[0]
-
+func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
 	kubeletConfig := map[string]string{
 		"--address":                           "0.0.0.0",
 		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
@@ -80,30 +42,32 @@ func baseNodeBootstrappingContract(location string) *nbcontractv1.Configuration 
 		"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 		"--container-log-max-size":            "50M",
 	}
+	cs := opts.nbc.ContainerService
+	agentPool := cs.Properties.AgentPoolProfiles[0]
 
 	nbc := &nbcontractv1.Configuration{
-		DisableCustomData:  true,
+		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
-		VmSize:             "Standard_DS1_v2",
+		VmSize:             "Standard_D2ds_v5",
 		ClusterConfig: &nbcontractv1.ClusterConfig{
 			Location:      location,
-			ResourceGroup: "resourceGroupName",
+			ResourceGroup: opts.nbc.ResourceGroupName,
 			VmType:        nbcontractv1.ClusterConfig_VMSS,
 			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
-				SecurityGroupName: "aks-agentpool-36873793-nsg",
-				VnetName:          "aks-vnet-07752737",
-				VnetResourceGroup: "MC_rg",
-				Subnet:            "subnet1",
-				RouteTable:        "aks-agentpool-36873793-routetable",
+				SecurityGroupName: cs.Properties.GetNSGName(),
+				VnetName:          cs.Properties.GetVirtualNetworkName(),
+				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
+				Subnet:            cs.Properties.GetSubnetName(),
+				RouteTable:        cs.Properties.GetRouteTableName(),
 			},
-			PrimaryScaleSet: "aks-agent2-36873793-vmss",
+			PrimaryScaleSet: opts.nbc.PrimaryScaleSetName,
 		},
 		AuthConfig: &nbcontractv1.AuthConfig{
 			ServicePrincipalId:     "ClientID",
 			ServicePrincipalSecret: "Secret",
-			TenantId:               "tenantID",
-			SubscriptionId:         "subID",
-			AssignedIdentityId:     "userAssignedID",
+			TenantId:               opts.nbc.TenantID,
+			SubscriptionId:         opts.nbc.SubscriptionID,
+			AssignedIdentityId:     opts.nbc.UserAssignedIdentityClientID,
 		},
 		NetworkConfig: &nbcontractv1.NetworkConfig{
 			CniPluginsUrl:     "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
@@ -114,7 +78,7 @@ func baseNodeBootstrappingContract(location string) *nbcontractv1.Configuration 
 			GpuDevicePlugin: false,
 		},
 		EnableUnattendedUpgrade: true,
-		KubernetesVersion:       "1.19.13",
+		KubernetesVersion:       "1.29.6",
 		ContainerdConfig: &nbcontractv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
 		},

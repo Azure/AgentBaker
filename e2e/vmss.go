@@ -253,7 +253,7 @@ func getVmssName(t *testing.T) string {
 }
 
 func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location))
+	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
 	if err != nil {
 		return armcompute.VirtualMachineScaleSet{}
 	}
@@ -273,7 +273,7 @@ write_files:
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_DS2_v2"),
+			Name:     to.Ptr("Standard_D2ds_v5"),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
