@@ -1,24 +1,28 @@
 package components
 
 #ContainerImagePrefetchOptimization: {
-	version:  string
 	binaries: [...string]
+}
+
+#ContainerImagePrefetchOptimizations: {
+	latestVersion:          #ContainerImagePrefetchOptimization
+	previousLatestVersion?: #ContainerImagePrefetchOptimization
 }
 
 #ContainerImage: {
 	downloadURL: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
-	prefetchOptimizations: [...#ContainerImagePrefetchOptimization]
 }
 
 #Images: [...#ContainerImage]
 #Packages: [...#Package]
 #VersionV2: {
-	k8sVersion?:            string
-	renovateTag?:           string
-	latestVersion:          string
-	previousLatestVersion?: string
+	k8sVersion?:             string
+	renovateTag?:            string
+	latestVersion:           string
+	previousLatestVersion?:  string
+	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
 }
 
 #ReleaseDownloadURI: {
