@@ -8,6 +8,9 @@ ExecStart=/bin/bash -c '/opt/azure/containers/nbcparser /opt/azure/containers/nb
   cat cse_cmd.sh; \
   chmod +x cse_cmd.sh; \
   ./cse_cmd.sh'
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=no
 
 [Install]
 WantedBy=multi-user.target
