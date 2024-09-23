@@ -1,0 +1,13 @@
+syntax = "proto3";
+package nbcontract.v1;
+
+message IMDSRestrictionConfig {
+  // Enable or disable IMDS restriction.
+  bool enable_imds_restriction = 1;
+
+  // InsertIMDSRestrictionRuleToMangleTable is only checked when enable_imds_restriction is true.
+	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
+	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
+	// our added rule is overwritten by Cilium.
+  bool enable_imds_restriction_rule_to_mangle_table = 2;
+}

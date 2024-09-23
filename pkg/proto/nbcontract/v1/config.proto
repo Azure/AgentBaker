@@ -17,6 +17,7 @@ import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 import "pkg/proto/nbcontract/v1/clusterconfig.proto";
 import "pkg/proto/nbcontract/v1/networkconfig.proto";
+import "pkg/proto/nbcontract/v1/imdsrestrictionconfig.proto";
 
 enum WorkloadRuntime {
   WR_UNSPECIFIED = 0;
@@ -144,4 +145,7 @@ message Configuration {
 
   // Specified whether the node wants to disable custom data scripts for bootstrapping
   bool disable_custom_data = 38;
+
+  // Specifies whether the node should have IMDS restriction enabled
+  optional IMDSRestrictionConfig imds_restriction_config = 39;
 }
