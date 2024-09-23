@@ -71,8 +71,7 @@ wasmFilesExist() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
     local version_suffix=${3}
-    shift 3
-    local shims_to_download=("$@")
+    local shims_to_download=("${@:4}") # Capture all arguments starting from the fourth indx
 
     local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
@@ -101,6 +100,7 @@ installContainerdWasmShims(){
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}" # adding v to version for simplicity
     done
+    # wait for file downloads to complete before updating file permissions
     wait ${WASMSHIMPIDS[@]}
     for version in "${package_versions[@]}"; do
         local shims_to_download=("spin" "slight")
@@ -115,8 +115,8 @@ downloadContainerdWasmShims() {
     local containerd_wasm_filepath=${1}
     local containerd_wasm_url=${2}
     local shim_version=${3}
-    shift 3 # Shift past the first 3 arguments to capture the rest as an array. If the max array goes larger than 3, increase accordingly.
-    local shims_to_download=("$@") # Capture the remaining arguments as an array
+    local shims_to_download=("${@:4}") # Capture all arguments starting from the fourth indx
+
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
@@ -145,8 +145,8 @@ downloadContainerdWasmShims() {
 updateContainerdWasmShimsPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
-    shift 3 
-    local shims_to_download=("$@")
+    local shims_to_download=("${@:3}") # Capture all arguments starting from the third indx
+
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
     for shim in "${shims_to_download[@]}"; do
@@ -174,8 +174,7 @@ downloadSpinKube(){
     local containerd_spinkube_filepath=${1}
     local containerd_spinkube_url=${2}
     local shim_version=${3}
-    shift 3 # there is only one shim to download for spinkube at this time
-    local shims_to_download=("$@") # Capture the remaining arguments as an array
+    local shims_to_download=("${@:4}") # Capture all arguments starting from the fourth indx
 
     if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return

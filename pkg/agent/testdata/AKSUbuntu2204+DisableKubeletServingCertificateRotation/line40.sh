@@ -188,8 +188,7 @@ wasmFilesExist() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
     local version_suffix=${3}
-    shift 3
-    local shims_to_download=("$@")
+    local shims_to_download=("${@:4}") 
 
     local binary_version="$(echo "${shim_version}" | tr . -)"
     for shim in "${shims_to_download[@]}"; do
@@ -229,8 +228,8 @@ downloadContainerdWasmShims() {
     local containerd_wasm_filepath=${1}
     local containerd_wasm_url=${2}
     local shim_version=${3}
-    shift 3 
-    local shims_to_download=("$@") 
+    local shims_to_download=("${@:4}") 
+
     local binary_version="$(echo "${shim_version}" | tr . -)" 
 
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
@@ -258,8 +257,8 @@ downloadContainerdWasmShims() {
 updateContainerdWasmShimsPermissions() {
     local containerd_wasm_filepath=${1}
     local shim_version=${2}
-    shift 3 
-    local shims_to_download=("$@")
+    local shims_to_download=("${@:3}") 
+
     local binary_version="$(echo "${shim_version}" | tr . -)"
 
     for shim in "${shims_to_download[@]}"; do
@@ -287,8 +286,7 @@ downloadSpinKube(){
     local containerd_spinkube_filepath=${1}
     local containerd_spinkube_url=${2}
     local shim_version=${3}
-    shift 3 
-    local shims_to_download=("$@") 
+    local shims_to_download=("${@:4}") 
 
     if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
         return
