@@ -14,8 +14,8 @@ AZURELINUX_OS_NAME="AZURELINUX"
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
-# specifically 'kata' present in FEATURE_FLAGS
-if grep -Eq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
+# check if 'kata' or 'Kata' present in FEATURE_FLAGS
+if grep -Eiq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
 fi
   
@@ -164,12 +164,17 @@ if isMarinerOrAzureLinux "$OS"; then
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
-    # specifically 'kata' present in FEATURE_FLAGS
-    if grep -Eq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
+    # 2.0 flow
+    if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      installM2KataDeps
+      enableMarinerKata
+    fi
+    # 3.0 GA flow
+    if grep -q "Kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
     fi
-    # specifically 'kata-cc' present in FEATURE_FLAGS
-    if grep -Eq "\bkata-cc\b" <<< "$FEATURE_FLAGS"; then
+    # 3.0 CC flow
+    if grep -q "KataCC" <<< "$FEATURE_FLAGS"; then
       installKataCCDeps
     fi
     disableTimesyncd
@@ -503,8 +508,6 @@ systemctl restart cgroup-memory-telemetry.service
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-
-  echo "<mitchzhu> this is when I enable cgroup-pressure-telemetry"
   systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service

@@ -748,14 +748,14 @@ stages:
           - bash: |
               echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
-              echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
+              echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
               echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
               echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-kata'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]kataCC'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
@@ -783,7 +783,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]kata'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]Kata'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
@@ -795,7 +795,7 @@ stages:
             parameters:
               artifactName: azurelinuxv3-gen2-kata
       - job: buildAzureLinuxV3gen2kataCC
-        condition: eq('${{ parameters.buildAzureLinuxV3gen2kata }}', true)
+        condition: eq('${{ parameters.buildAzureLinuxV3gen2kataCC }}', true)
         dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
@@ -809,7 +809,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ads_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]kataCC'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]KataCC'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
