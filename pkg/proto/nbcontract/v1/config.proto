@@ -147,5 +147,5 @@ message Configuration {
   bool disable_custom_data = 38;
 
   // Specifies whether the node should have IMDS restriction enabled
-  optional IMDSRestrictionConfig imds_restriction_config = 39;
+  IMDSRestrictionConfig imds_restriction_config = 39;
 }
