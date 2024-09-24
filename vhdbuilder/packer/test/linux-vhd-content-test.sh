@@ -989,6 +989,36 @@ testNBCParserBinary () {
   echo "$test: nbcparser go binary ran successfully"
 }
 
+testNBCParserService() {
+  local test="testNBCParserService"
+  local service_name="nbcparser.service"
+  local script_path="/opt/azure/containers/nbcparser.sh"
+  echo "$test:Start"
+
+  echo "$test: checking existence of nbcparser script invoked by systemd unit at $script_path"
+  if [ ! -f "$script_path" ]; then
+    err "$test: nbcparser.sh does not exist at $script_path"
+    return 1
+  fi
+  echo "$test: nbcparser.sh exists at $script_path"
+
+  # is-enabled returns:
+  # 'enabled' if the service is enabled.
+  # empty string if the service is not installed.
+  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
+  echo "$test: Checking that $service_name is enabled"
+  local is_enabled=
+  is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  echo "$test: logging ${is_enabled} here"
+  if [[ "${is_enabled}" == "enabled" ]]; then
+    echo "$test: $service_name is correctly enabled"
+  else
+    err $test "$service_name is not enabled"
+  fi
+
+  echo "$test:Finish"
+}
+
 checkPerformanceData() {
   local test="checkPerformanceData"
   local performanceDataPath="/opt/azure/vhd-build-performance-data.json"

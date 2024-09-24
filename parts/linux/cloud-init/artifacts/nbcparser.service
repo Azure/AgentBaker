@@ -4,12 +4,7 @@ ConditionPathExists=/opt/azure/containers/nbc.json
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c '/opt/azure/containers/nbcparser /opt/azure/containers/nbc.json > cse_cmd.sh 2>&1; \
-  cat cse_cmd.sh; \
-  chmod +x cse_cmd.sh; \
-  ./cse_cmd.sh'
-StandardOutput=journal
-StandardError=journal
+ExecStart=/bin/bash /opt/azure/containers/nbcparser.sh
 RemainAfterExit=no
 
 [Install]
