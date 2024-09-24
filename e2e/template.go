@@ -1,10 +1,13 @@
 package e2e
 
 import (
+	"encoding/base64"
 	"fmt"
 
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
@@ -43,7 +46,7 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 		"--container-log-max-size":            "50M",
 	}
 	cs := opts.nbc.ContainerService
-	agentPool := cs.Properties.AgentPoolProfiles[0]
+	agentPool := opts.nbc.AgentPoolProfile
 
 	nbc := &nbcontractv1.Configuration{
 		DisableCustomData:  false,
@@ -62,16 +65,20 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 			},
 			PrimaryScaleSet: opts.nbc.PrimaryScaleSetName,
 		},
+		ApiServerConfig: &nbcontractv1.ApiServerConfig{
+			ApiServerName: cs.Properties.HostedMasterProfile.FQDN,
+		},
 		AuthConfig: &nbcontractv1.AuthConfig{
-			ServicePrincipalId:     "ClientID",
-			ServicePrincipalSecret: "Secret",
+			ServicePrincipalId:     cs.Properties.ServicePrincipalProfile.ClientID,
+			ServicePrincipalSecret: cs.Properties.ServicePrincipalProfile.Secret,
 			TenantId:               opts.nbc.TenantID,
 			SubscriptionId:         opts.nbc.SubscriptionID,
 			AssignedIdentityId:     opts.nbc.UserAssignedIdentityClientID,
 		},
 		NetworkConfig: &nbcontractv1.NetworkConfig{
+			NetworkPlugin:     nbcontractv1.NetworkPlugin_NP_KUBENET,
 			CniPluginsUrl:     "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
-			VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+			VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
 		},
 		GpuConfig: &nbcontractv1.GPUConfig{
 			ConfigGpuDriver: true,
@@ -84,10 +91,24 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 		},
 		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
 		KubeletConfig: &nbcontractv1.KubeletConfig{
-			EnableKubeletConfigFile: false,
-			KubeletFlags:            nbcontractv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:       nbcontractv1.GetKubeletNodeLabels(agentPool),
+			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
+			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(kubeletConfig, opts.nbc.AgentPoolProfile.CustomKubeletConfig))),
+			EnableKubeletConfigFile:  false,
+			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+			KubeletNodeLabels:        nbcontractv1.GetKubeletNodeLabels(agentPool),
 		},
+		TlsBootstrappingConfig: &nbcontractv1.TLSBootstrappingConfig{
+			TlsBootstrappingToken: *opts.nbc.KubeletClientTLSBootstrapToken,
+		},
+		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
+		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
+			KubeBinaryUrl: "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+		},
+		KubeProxyUrl: "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
+		HttpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+			NoProxyEntries: *opts.nbc.HTTPProxyConfig.NoProxy,
+		},
+		NeedsCgroupv2: to.BoolPtr(true),
 	}
 	return nbc
 }

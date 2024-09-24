@@ -345,7 +345,7 @@ write_files:
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	encodedCseCmd := base64.StdEncoding.EncodeToString([]byte(cseCmd))
 	fmt.Println("csecmd is : ", cseCmd)
-	fmt.Println("encoded csecmd is : ", encodedCseCmd)
+	fmt.Println("csecmd is : ", cseCmd)
 	fmt.Println("len of encoded csecmd is : ", len(encodedCseCmd))
 
 	return armcompute.VirtualMachineScaleSet{
