@@ -1,8 +1,10 @@
 [Unit]
 Description=Parse contract and run csecmd
+After=cloud-init.target
 
 [Service]
 Type=oneshot
+ExecStartPre=/bin/bash -c 'if [ ! -f /opt/azure/containers/nbc.json ]; then exit 1; fi'
 ExecStart=/bin/bash /opt/azure/containers/nbcparser.sh
 RemainAfterExit=no
 
