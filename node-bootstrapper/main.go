@@ -525,7 +525,7 @@ curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
 
 func getCaCertPath(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
-		return "c:/k/ca.crt"
+		return "c:\\k\\ca.crt"
 	}
 	return "/etc/kubernetes/certs/ca.crt"
 }
@@ -580,7 +580,7 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 								"exec": map[string]any{
 									"apiVersion":         "client.authentication.k8s.io/v1",
 									"command":            "powershell",
-									"args":               []string{getAzureTokenPath(config)},
+									"args":               []string{"-C", getAzureTokenPath(config)},
 									"interactiveMode":    "Never",
 									"provideClusterInfo": false,
 								},

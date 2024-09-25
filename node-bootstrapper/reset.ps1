@@ -10,3 +10,4 @@ remove-service containerd
 
 rm c:\k\* -Recurse
 rm c:\AzureData\* -Recurse
+rm C:\WindowsAzure\Logs\aks -Recurse

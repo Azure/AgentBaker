@@ -223,7 +223,13 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
+# make sure the global logging directory exists. If the script is not being running as a CSE then it won't exist.
+md $global:EventsLoggingDir -ea 0
+
 $global:OperationId = New-Guid
+if ("$global:OperationId2" -eq "") {
+    $global:OperationId = "00000000-0000-0000-0000-000000000000"
+}
 
 $env:Path += ';C:\Program Files\containerd'
 
