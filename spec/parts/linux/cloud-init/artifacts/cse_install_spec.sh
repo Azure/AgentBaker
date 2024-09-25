@@ -52,13 +52,13 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.mariner.current.versions of package runc for MARINER'
             package=$(readPackage "runc")
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.1.9-5.cm2"
+            The variable PACKAGE_VERSIONS[@] should equal "1.1.14-1.cm2"
         End
 
         It 'returns downloadURIs.mariner.current.versions of package containerd for MARINER'
             package=$(readPackage "containerd")
             When call returnPackageVersions "$package" "MARINER" "some_mariner_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.6.26-5.cm2"
+            The variable PACKAGE_VERSIONS[@] should equal "1.6.36-1.cm2"
         End
 
         It 'returns downloadURIs.default.current.versions of package cni-plugins for MARINER'
