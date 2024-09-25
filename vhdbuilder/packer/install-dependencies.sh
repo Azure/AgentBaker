@@ -193,12 +193,9 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+capture_benchmark "create_containerd_service_directory_and_configure_runtime_and_network"
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f $COMPONENTS_FILEPATH ]; then
@@ -288,6 +285,14 @@ while IFS= read -r p; do
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
+      ;;
+    "containerd-wasm-shims")
+      installContainerdWasmShims "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
+      echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
+      ;;
+    "spinkube")
+      installSpinKube "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
+      echo "  - spinkube version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl
