@@ -80,6 +80,9 @@ capture_benchmark "enable_modified_log_rotate_service"
 systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "sync_container_logs"
 
+# enable and start nbcparser.service
+systemctlEnableAndStart nbcparser.service || exit 1
+
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT

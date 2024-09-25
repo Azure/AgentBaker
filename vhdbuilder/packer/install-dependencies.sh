@@ -47,9 +47,6 @@ if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; 
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
 
-# yay im enabled now
-systemctl enable nbcparser.service
-
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   # disable and mask all UU timers/services
   # save some background io/latency
