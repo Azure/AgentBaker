@@ -125,7 +125,7 @@ func assertAzureTokenPs1(t *testing.T, nbc *datamodel.NodeBootstrappingConfigura
 	require.NotContains(t, files, arcTokenPs1)
 	actual := getFile(t, nbc, azureTokenPs1, 0755)
 
-	expected := fmt.Sprintf(`kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, aadAppId, clientId)
+	expected := fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, aadAppId, clientId)
 	assert.Equal(t, expected, actual)
 }
 
@@ -140,7 +140,7 @@ clusters:
 - name: localcluster
   cluster:
     certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://:443
+    server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
 users:
 - name: client
   user:
@@ -162,7 +162,7 @@ current-context: localclustercontext
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
       name: localcluster
 contexts:
     - context:
@@ -185,7 +185,7 @@ users:
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
       name: localcluster
 contexts:
     - context:
@@ -216,7 +216,7 @@ users:
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
       name: localcluster
 contexts:
     - context:
@@ -248,7 +248,7 @@ users:
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
       name: localcluster
 contexts:
     - context:
@@ -271,7 +271,7 @@ users:
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
       name: localcluster
 contexts:
     - context:
@@ -313,7 +313,7 @@ apiVersion: v1
 clusters:
 - cluster:
     certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://:443
+    server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
   name: localcluster
 contexts:
 - context:
@@ -354,7 +354,7 @@ apiVersion: v1
 clusters:
    - cluster:
        certificate-authority: /etc/kubernetes/certs/ca.crt
-       server: https://:443
+       server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
      name: localcluster
 contexts:
    - context:
@@ -396,8 +396,8 @@ users:
 apiVersion: v1
 clusters:
    - cluster:
-       certificate-authority: c:/k/ca.crt
-       server: https://:443
+       certificate-authority: c:\k\ca.crt
+       server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
      name: localcluster
 contexts:
    - context:
@@ -435,7 +435,7 @@ users:
 clusters:
     - cluster:
         certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://:443
+        server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
       name: localcluster
 contexts:
     - context:
@@ -478,8 +478,8 @@ users:
 apiVersion: v1
 clusters:
    - cluster:
-       certificate-authority: c:/k/ca.crt
-       server: https://:443
+       certificate-authority: c:\k\ca.crt
+       server: https://aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io:443
      name: localcluster
 contexts:
    - context:
@@ -493,7 +493,10 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: c:/k/azure-token.ps1
+         command: powershell
+         args: 
+         - -C
+         - c:\k\azure-token.ps1
          provideClusterInfo: false
          interactiveMode: Never
 `)

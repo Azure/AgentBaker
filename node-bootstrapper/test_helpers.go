@@ -13,7 +13,7 @@ func getFile(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, path s
 	t.Helper()
 	files, err := customData(nil, nbc)
 	require.NoError(t, err)
-	
+
 	require.Contains(t, files, path)
 	actual := files[path]
 	assert.Equal(t, expectedMode, actual.Mode)
@@ -62,7 +62,9 @@ func validNBC() *datamodel.NodeBootstrappingConfiguration {
 				CertificateProfile: &datamodel.CertificateProfile{
 					CaCertificate: "test-ca-cert",
 				},
-
+				HostedMasterProfile: &datamodel.HostedMasterProfile{
+					FQDN: "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io",
+				},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    datamodel.Kubernetes,
 					OrchestratorVersion: "1.31.0",
