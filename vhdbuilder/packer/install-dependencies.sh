@@ -493,9 +493,12 @@ capture_benchmark "download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
-systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
-systemctl enable cgroup-memory-telemetry.service || exit 1
-systemctl restart cgroup-memory-telemetry.service
+# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+if [ ! isMarinerOrAzureLinux "$OS" ]; then
+  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctl enable cgroup-memory-telemetry.service || exit 1
+  systemctl restart cgroup-memory-telemetry.service
+fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
