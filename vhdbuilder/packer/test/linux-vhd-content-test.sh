@@ -1073,3 +1073,4 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testNBCParserBinary
+testNBCParserService
