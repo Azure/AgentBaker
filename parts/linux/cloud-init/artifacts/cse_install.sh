@@ -253,6 +253,7 @@ downloadContainerdWasmShims() {
     local binary_version="$(echo "${shim_version}" | tr . -)" # replaces . with - == 1.2.3 -> 1-2-3
 
     if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
+        echo "containerd-wasm-shims already exists in $containerd_wasm_filepath, will not be downloading."
         return
     fi
 
