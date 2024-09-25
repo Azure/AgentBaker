@@ -72,7 +72,7 @@ endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
 
-init-packer:
+init-packer: az-login
 	@./vhdbuilder/packer/init-variables.sh
 
 run-packer: az-login
