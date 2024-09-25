@@ -114,7 +114,7 @@ steps:
     displayName: Set SKU Name
   
   - bash: |
-      make -f packer.mk init-packer && \
+      make -f packer.mk init-packer | tee packer-output && \
       echo -e "Setting variables for use for the remainder of the pipeline..." && \
       echo "##vso[task.setvariable variable=OS_DISK_URI]$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
