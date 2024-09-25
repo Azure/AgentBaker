@@ -72,6 +72,7 @@ const (
 	packageUpdateSystemdTimerMariner    = "linux/cloud-init/artifacts/mariner/package-update.timer"
 	migPartitionScript                  = "linux/cloud-init/artifacts/mig-partition.sh"
 	migPartitionSystemdService          = "linux/cloud-init/artifacts/mig-partition.service"
+	ensureIMDSRestrictionScript         = "linux/cloud-init/artifacts/ensure_imds_restriction.sh"
 
 	// scripts and service for enabling ipv6 dual stack.
 	dhcpv6SystemdService            = "linux/cloud-init/artifacts/dhcpv6.service"

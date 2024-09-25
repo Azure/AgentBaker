@@ -17,7 +17,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 			}
 			for _, file := range files {
 				if !strings.Contains(stdout, file) {
-					return fmt.Errorf(fmt.Sprintf("expected to find file %s within directory %s, but did not", file, path))
+					return fmt.Errorf("expected to find file %s within directory %s, but did not", file, path)
 				}
 			}
 			return nil
@@ -41,7 +41,7 @@ func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 			}
 			for name, value := range customSysctls {
 				if !strings.Contains(stdout, fmt.Sprintf("%s = %v", name, value)) {
-					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", name, value))
+					return fmt.Errorf("expected to find %s set to %v, but was not", name, value)
 				}
 			}
 			return nil
@@ -107,9 +107,8 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 
 func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("ls -la %[1]s", fileName),
-		fmt.Sprintf("(sudo cat %[1]s | grep -q '%[2]s')", fileName, contents),
+		fmt.Sprintf("(sudo cat %[1]s | grep -q %[2]q)", fileName, contents),
 	}
 
 	command := makeExecutableCommand(steps)
@@ -142,9 +141,7 @@ func FileExcludesContentsValidator(fileName string, contents string, contentsNam
 
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
 func cleanse(str string) string {
-	str = strings.Replace(str, "'", "", -1)
-
-	return str
+	return strings.Replace(str, "'", "", -1)
 }
 
 func makeExecutableCommand(steps []string) string {
@@ -208,7 +205,6 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 
 func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprint(commandToExecute),
 	}
 
@@ -316,6 +312,64 @@ func kubeletNodeIPValidator() *LiveVMValidator {
 				}
 			}
 
+			return nil
+		},
+	}
+}
+
+func imdsRestrictionRuleValidator(table string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert that the IMDS restriction rule is present",
+		Command:     fmt.Sprintf("iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("expected to find the IMDS restriction rule, but did not")
+			}
+			return nil
+		},
+	}
+}
+
+func containerdWasmShimsValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert containerd config.toml contains expected Wasm shims",
+		Command:     "cat /etc/containerd/config.toml",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0. stderr: %q", code, stderr)
+			}
+
+			expectedShims := []string{
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]`,
+				`runtime_type = "io.containerd.spin.v2"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]`,
+				`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]`,
+				`runtime_type = "io.containerd.spin-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]`,
+				`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]`,
+				`runtime_type = "io.containerd.spin-v0-5-1.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]`,
+				`runtime_type = "io.containerd.slight-v0-5-1.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]`,
+				`runtime_type = "io.containerd.spin-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]`,
+				`runtime_type = "io.containerd.slight-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]`,
+				`runtime_type = "io.containerd.wws-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]`,
+				`runtime_type = "io.containerd.spin.v2"`,
+			}
+
+			for i := 0; i < len(expectedShims); i += 2 {
+				section := expectedShims[i]
+				runtimeType := expectedShims[i+1]
+
+				if !strings.Contains(stdout, section) || !strings.Contains(stdout, runtimeType) {
+					return fmt.Errorf("expected to find section %q with runtime type %q in containerd config.toml, but it was not found. Full config.toml content:\n%s", section, runtimeType, stdout)
+				}
+			}
 			return nil
 		},
 	}

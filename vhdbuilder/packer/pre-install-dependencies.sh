@@ -34,7 +34,7 @@ cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
 echo '{}' > ${VHD_BUILD_PERF_DATA}
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -47,7 +47,7 @@ copyPackerFiles
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     echo -e "\nnews.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
 else
     echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
@@ -81,7 +81,7 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "sync_container_logs"
 
 # First handle Mariner + FIPS
-if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -124,6 +124,7 @@ fi
 capture_benchmark "handle_mariner_and_fips_configurations"
 
 # Handle Azure Linux + CgroupV2
+# CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi

@@ -133,6 +133,9 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
 
 Describe 'Validate Exit Codes' {
   It 'should succeed' {
+    Write-Host "Validating whether new error code name is added with the new error code"
+    $global:ErrorCodeNames.Length | Should -Be $global:WINDOWS_CSE_ERROR_MAX_CODE
+
     for($i=0; $i -lt $global:ErrorCodeNames.Length; $i++) {
       $name=$global:ErrorCodeNames[$i]
       $name | Should -Match '[A-Z_]+'

@@ -240,15 +240,14 @@ function Get-FilesToCacheOnVHD {
 }
 
 function Get-ToolsToVHD {
-    # Rely on the completion of Get-FilesToCacheOnVHD
-    $cacheDir = "c:\akse-cache\tools"
-
     if (!(Test-Path -Path $global:aksToolsDir)) {
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
     Write-Log "Getting DU (Windows Disk Usage)"
-    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+    Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
+    Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+    Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
 }
 
 function Register-ExpandVolumeTask {
@@ -697,6 +696,9 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-08B"
         Enable-WindowsFixInFeatureManagement -Name 260097166
+
+        Write-Log "Enable 1 fix in 2024-09B"
+        Enable-WindowsFixInFeatureManagement -Name 4288867982
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
@@ -874,7 +876,7 @@ try{
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
-            Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
+            Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Log-ReofferUpdate
         }

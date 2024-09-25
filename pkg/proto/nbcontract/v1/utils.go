@@ -108,17 +108,7 @@ func GetOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration) string {
 		return ""
 	}
 
-	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
-	// so we need to use nc for the connectivity check.
-	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
-	minVersion, _ := semver.Make("1.18.0")
-
-	var connectivityCheckCommand string
-	if clusterVersion.GTE(minVersion) {
-		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
-	} else {
-		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
-	}
+	connectivityCheckCommand := `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 
 	return connectivityCheckCommand
 }

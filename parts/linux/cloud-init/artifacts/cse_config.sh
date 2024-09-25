@@ -127,7 +127,7 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
@@ -249,8 +249,11 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    # generate a kubelet serving certificate if we aren't relying on 
-    # TLS bootstrapping to generate one for us
+    # generate a kubelet serving certificate if we aren't relying on TLS bootstrapping to generate one for us.
+    # NOTE: in the case where ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION is true but 
+    # the customer has disabled serving certificate rotation via nodepool tags,
+    # the self-signed serving certificate will be bootstrapped by the kubelet instead of this function
+    # TODO(cameissner): remove configureKubeletServerCert altogether
     if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
         configureKubeletServerCert
     fi
@@ -402,6 +405,70 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
+getPrimaryNicIP() {
+    local sleepTime=1
+    local maxRetries=10
+    local i=0
+    local ip=""
+
+    while [[ $i -lt $maxRetries ]]; do
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        if [[ -n "$ip" && $? -eq 0 ]]; then
+            break
+        fi
+        sleep $sleepTime
+        i=$((i+1))
+    done
+    echo "$ip"
+}
+
+# removes the specified LABEL_STRING (which should be in the form of 'label=value') from KUBELET_NODE_LABELS
+clearKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
+    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
+    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+disableKubeletServingCertificateRotationForTags() {
+    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
+        echo "kubelet serving certificate rotation is already disabled"
+        return 0
+    fi
+
+    # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
+    export -f should_disable_kubelet_serving_certificate_rotation
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    if [ $? -ne 0 ]; then
+        echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
+        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
+    fi
+
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
+        echo "nodepool tag \"aks-disable-kubelet-serving-certificate-rotation\" is not true, nothing to disable"
+        return 0
+    fi
+
+    echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
+
+    # set the --rotate-server-certificates flag to false if needed
+    KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
+
+    if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+        set +x
+        # set the serverTLSBootstrap property to false if needed
+        KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
+        set -x
+    fi
+    
+    # remove the "kubernetes.azure.com/kubelet-serving-ca=cluster" label if needed
+    clearKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -548,11 +615,24 @@ iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 EOF
 
+    # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
+    primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
+    ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
+    mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
+    touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
+    chmod 0600 "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
+    tee "${ENSURE_IMDS_RESTRICTION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="PRIMARY_NIC_IP=${primaryNicIP}"
+Environment="ENABLE_IMDS_RESTRICTION=${ENABLE_IMDS_RESTRICTION}"
+Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
+EOF
+
     # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
@@ -680,9 +760,9 @@ configGPUDrivers() {
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         downloadGPUDrivers
-        installNvidiaContainerRuntime
+        installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
@@ -694,7 +774,7 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
@@ -785,82 +865,6 @@ providers:
     args:
       - /etc/kubernetes/azure.json
 EOF
-    fi
-}
-
-getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
-    local ip=""
-
-    while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
-        if [[ -n "$ip" && $? -eq 0 ]]; then
-            break
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
-}
-
-# $1 - boolean, if true, insert the iptables rule to mangle table; otherwise insert the rule to filter table. Default value is false.
-ensureIMDSRestrictionRule() {
-    local primaryNicIP=$(getPrimaryNicIP)
-    if [[ -z "$primaryNicIP" ]]; then
-        echo "Primary NIC IP not found"
-        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
-    fi
-    echo "Primary NIC IP: $primaryNicIP"
-
-    local insertRuleToMangleTable=${1:-false}
-    if [[ $insertRuleToMangleTable == true ]]; then
-        echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
-        iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -eq 0 ]]; then
-            echo "IMDS restriction rule already exists in mangle table, returning..."
-            return
-        fi
-        echo "Inserting IMDS restriction rule to mangle table..."
-        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE
-    else
-        echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
-        iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -eq 0 ]]; then
-            echo "IMDS restriction rule already exists in filter table, returning..."
-            return
-        fi
-        echo "Inserting IMDS restriction rule to filter table..."
-        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE
-    fi
-}
-
-# checks both mangle and filter tables for the IMDS restriction rule and deletes it if found
-disableIMDSRestriction() {
-    local primaryNicIP=$(getPrimaryNicIP)
-    if [[ -z "$primaryNicIP" ]]; then
-        echo "Primary NIC IP not found"
-        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
-    fi
-    echo "Primary NIC IP: $primaryNicIP"
-
-    echo "Checking whether IMDS restriction rule exists in mangle table..."
-    iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-    if [[ $? -ne 0 ]]; then
-        echo "IMDS restriction rule does not exist in mangle table, no need to delete"
-    else
-        echo "Deleting IMDS restriction rule from mangle table..."
-        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE
-    fi
-
-    echo "Checking whether IMDS restriction rule exists in filter table..."
-    iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-    if [[ $? -ne 0 ]]; then
-         echo "IMDS restriction rule does not exist in filter table, no need to delete"
-    else
-        echo "Deleting IMDS restriction rule from filter table..."
-        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE
     fi
 }
 

@@ -543,6 +543,9 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 		if customKc.PodMaxPids != nil {
 			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
+		if customKc.SeccompDefault != nil {
+			kubeletConfig.SeccompDefault = customKc.SeccompDefault
+		}
 	}
 }
 

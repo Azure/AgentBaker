@@ -60,6 +60,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
+		SeccompDefault:        to.BoolPtr(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -217,7 +218,8 @@ var expectedKubeletJSON = `{
     "allowedUnsafeSysctls": [
         "kernel.msg*",
         "net.ipv4.route.min_pmtu"
-    ]
+    ],
+    "seccompDefault": true
 }`
 
 var expectedKubeletJSONWithNodeStatusReportFrequency = `{
@@ -603,6 +605,7 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		PodMaxPids:            to.Int32Ptr(12345),
+		SeccompDefault:        to.BoolPtr(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
