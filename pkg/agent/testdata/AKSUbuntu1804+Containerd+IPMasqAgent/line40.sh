@@ -202,9 +202,8 @@ wasmFilesExist() {
 
 installContainerdWasmShims(){
     local download_location=${1}
-    PACKAGE_DOWNLOAD_URL=${2}
-    shift 2 
-    local package_versions=("$@")
+    PACKAGE_DOWNLOAD_URL=${2} 
+    local package_versions=("${@:2}") 
     
     for version in "${package_versions[@]}"; do
         local shims_to_download=("spin" "slight")
@@ -269,8 +268,7 @@ updateContainerdWasmShimsPermissions() {
 installSpinKube(){
     local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
-    shift 2 
-    local package_versions=("$@")
+    local package_versions=("${@:2}") 
 
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
@@ -278,7 +276,7 @@ installSpinKube(){
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
-        updateSpinKubePermissions $download_location
+        chmod 755 "$download_location/containerd-shim-spin-v2"
     done
 }
 
@@ -289,6 +287,7 @@ downloadSpinKube(){
     local shims_to_download=("${@:4}") 
 
     if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
+        echo "containerd-shim-spin-v2 already exists in $containerd_spinkube_filepath, will not be downloading."
         return
     fi
 
@@ -303,11 +302,6 @@ downloadSpinKube(){
     
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
-}
-
-updateSpinKubePermissions() {
-    local containerd_spinkube_filepath=${1}
-    chmod 755 "$containerd_spinkube_filepath/containerd-shim-spin-v2"
 }
 
 installOras() {
