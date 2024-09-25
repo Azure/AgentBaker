@@ -559,6 +559,26 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 	})
 }
 
+func Test_ubuntu1804ChronyRestarts_NodeBootstrapper(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			NodeBootstrappingType: SelfContained,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu1804Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				ServiceCanRestartValidator("chronyd", 10),
+				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
+				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+			},
+		},
+	})
+}
+
 // Returns config for the 'gpu' E2E scenario
 func Test_ubuntu1804gpu(t *testing.T) {
 	RunScenario(t, &Scenario{

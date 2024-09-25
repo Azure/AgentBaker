@@ -15,12 +15,12 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 )
 
-func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, bootstrappingType NodeBootstrappingType) (*datamodel.NodeBootstrapping, error) {
 	switch e2eMode {
 	case "coverage":
 		return getNodeBootstrappingForCoverage(nbc)
 	default:
-		return getNodeBootstrappingForValidation(ctx, nbc)
+		return getNodeBootstrappingForValidation(ctx, nbc, bootstrappingType)
 	}
 }
 
@@ -47,15 +47,19 @@ func getNodeBootstrappingForCoverage(nbc *datamodel.NodeBootstrappingConfigurati
 	return nodeBootstrapping, nil
 }
 
-func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, bootstrappingType NodeBootstrappingType) (*datamodel.NodeBootstrapping, error) {
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
 		return nil, err
 	}
-	if config.Config.EnableNodeBootstrapperTest {
+	switch {
+	case bootstrappingType == SelfContained:
 		return ab.GetNodeBootstrappingForSelfContained(ctx, nbc)
+	case bootstrappingType == CustomScripts:
+		return ab.GetNodeBootstrapping(ctx, nbc)
 	}
 
+	// fallback to custom scripts
 	return ab.GetNodeBootstrapping(ctx, nbc)
 }
 
