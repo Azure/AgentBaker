@@ -115,7 +115,7 @@ steps:
 
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    #retryCountOnTaskFailure: 3
     env:
       # Azure Variables - Common variables for Azure resources
       POOL_NAME: $(POOL_NAME)
