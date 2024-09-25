@@ -76,6 +76,7 @@ init-packer: az-login
 	@./vhdbuilder/packer/init-variables.sh
 
 run-packer: az-login
+	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl
 	@($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
