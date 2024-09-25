@@ -286,8 +286,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.27.20",
-          "previousLatestVersion": "v1.27.17"
+          "latestVersion": "v1.27.21",
+          "previousLatestVersion": "v1.27.20"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
