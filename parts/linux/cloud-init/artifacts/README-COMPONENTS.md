@@ -39,16 +39,26 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
 	downloadURL: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
-	prefetchOptimizations: [...#ContainerImagePrefetchOptimization]
 }
 ```
 ```
+#ContainerImagePrefetchOptimization: {
+	binaries: [...string]
+}
+
+#ContainerImagePrefetchOptimizations: {
+	latestVersion:          #ContainerImagePrefetchOptimization
+	previousLatestVersion?: #ContainerImagePrefetchOptimization
+}
+
 #VersionV2: {
-	k8sVersion?:            string
-	renovateTag?:           string
-	latestVersion:          string
-	previousLatestVersion?: string
+	k8sVersion?:             string
+	renovateTag?:            string
+	latestVersion:           string
+	previousLatestVersion?:  string
+	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
 }
+
 ```
 `multiArchVersionsV2` is updated from `multiArchVersions` and is a list of `VersionV2`.
 1. In `versionV2`, there are a few keys.
@@ -60,6 +70,7 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
 	  - `renovateTag` must be exactly one line before `latestVersion` and the optional `previousLatestVersion`. `Renovate.json` requires this tag to parse the versions correctly.
 	  - If you add anything other than the 2 types mentioned above, it won't be monitered by the current configurations of `renovate.json`. For example, you might see `"renovateTag": "<DO_NOT_UPDATE>"` which is actually equivalent to not having any `renovateTag`. Placing `"<DO_NOT_UPDATE>"` here is simply for human readability, but we still recommend including it for consistency and readability.
 	- `latestVersion` and `previousLatestVersion`: to keep the last 2 patch versions in the components.json as well as VHD and keep them auto-updated by Renovate, we will put the latest version in `latestVersion` and the previous latest version `previousLatestVersion`.
+  - `containerImagePrefetch` defines the prefetch optimization for the particular container image, if any. Each `ContainerImagePrefetchOptimizations` object must define a prefetch optimization _at least_ for the `latestVersion`, while optionally defining one of the `previousLatestVersion`. At the end of the day, a prefetch optimization is parameterized by an array of file paths pointing to binaries (relative to the FS of the container image, starting with `/`) to be prefetched during image builder optimization.
 
 ### Packages
 `Packages` is a list of `Package` where a `package` has the following scehma:

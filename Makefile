@@ -99,6 +99,7 @@ generate: bootstrap
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	@$(MAKE) validate-prefetch
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
 	@echo "Running shellspec tests to validate shell/bash scripts"
@@ -106,6 +107,10 @@ generate: bootstrap
 	@echo "Validating if components.json conforms to the schema schemas/components.cue."
 	@echo "Error will be shown if any."
 	@$(MAKE) validate-components
+
+.PHONY: validate-prefetch
+validate-prefetch:
+	make -C ./vhdbuilder/prefetch generate
 
 .PHONY: generate-azure-constants
 generate-azure-constants:

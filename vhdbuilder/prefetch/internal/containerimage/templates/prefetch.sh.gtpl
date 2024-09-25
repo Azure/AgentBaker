@@ -10,7 +10,7 @@ prefetch() {
 
     for f in $files; do
         echo "prefetching $f in $image"
-        path="$mount_dir/$f"
+        path="${mount_dir}${f}"
         stat -c %s "$path"
         cat "$path" > /dev/null
     done
@@ -19,5 +19,5 @@ prefetch() {
 }
 
 {{- range $image := .Images}}
-prefetch "{{$image.FullyQualifiedTag}}" "{{range $index, $binary := $image.Binaries}}{{if $index}} {{end}}{{$binary}}{{end}}"
+prefetch "{{$image.Tag}}" "{{range $index, $binary := $image.Binaries}}{{if $index}} {{end}}{{$binary}}{{end}}"
 {{- end}}
