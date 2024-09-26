@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+source vhdbuilder/packer/build-performance/build-performance-funcs.sh
+
 required_env_vars=(
     "AZURE_MSI_RESOURCE_STRING"
     "SUBSCRIPTION_ID"
@@ -48,6 +50,8 @@ fi
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
 
+capture_benchmark "set_variables"
+
 echo "Converting $sig_resource_id to $disk_resource_id"
 if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
@@ -78,6 +82,7 @@ else
   }"
 fi
 echo "Converted $sig_resource_id to $disk_resource_id"
+capture_benchmark "convert_to_disk"
 
 echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
@@ -90,6 +95,7 @@ export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+capture_benchmark "upload_to_blob_storage"
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
@@ -98,3 +104,6 @@ az disk revoke-access --ids $disk_resource_id
 az resource delete --ids $disk_resource_id
 
 echo "Deleted $disk_resource_id"
+
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks
