@@ -3,8 +3,6 @@ on: pull_request
 
 jobs:
   auto-generate:
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -15,7 +13,6 @@ jobs:
 
     - name: commit and push generated changes
       run: |
-        git pull
         make generate
         if [ -n "$(git status --porcelain)" ]; then
           git config user.name "github-actions[bot]"
