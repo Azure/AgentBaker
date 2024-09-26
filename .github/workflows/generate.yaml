@@ -15,6 +15,7 @@ jobs:
 
     - name: commit and push generated changes
       run: |
+        git pull
         make generate
         if [ -n "$(git status --porcelain)" ]; then
           git config user.name "github-actions[bot]"
