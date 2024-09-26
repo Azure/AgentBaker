@@ -17,7 +17,7 @@ prefetch() {
 
     ctr -n k8s.io images unmount "$mount_dir"
 }
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35" "/dropgz"
+prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.36" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.32" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.5" "/dropgz"
