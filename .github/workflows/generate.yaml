@@ -2,9 +2,9 @@ name: auto-generate
 on: pull_request
 
 jobs:
-  permissions:
-    contents: write
   auto-generate:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
