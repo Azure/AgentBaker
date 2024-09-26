@@ -1,5 +1,7 @@
 #!/bin/bash
- set -x
+set -x
+
+source vhdbuilder/packer/build-performance/build-performance-funcs.sh
 
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
@@ -21,6 +23,7 @@ if [[ -n "$PKR_RG_NAME" ]]; then
     echo "Packer resource group already successfully deleted"
   fi
 fi
+capture_benchmark "delete_packers_rg"
 
 #clean up the test vm resource group
 id=$(az group show --name ${TEST_VM_RESOURCE_GROUP_NAME} | jq .id)
@@ -28,6 +31,7 @@ if [ -n "$id" ]; then
   echo "Deleting test vm resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
   az group delete --name ${TEST_VM_RESOURCE_GROUP_NAME} --yes
 fi
+capture_benchmark "delete_test_vm_rg"
 
 #clean up managed image
 if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
@@ -41,7 +45,7 @@ if [[ -n "$AZURE_RESOURCE_GROUP_NAME" && -n "$IMAGE_NAME" ]]; then
     echo "Not attempting managed image deletion due to ARM64 architecture."
   fi
 fi
-
+capture_benchmark "delete_managed_image"
 
 #cleanup imported sig image version
 if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
@@ -117,6 +121,7 @@ if [[ -n "${SA_NAME}" ]]; then
     az storage account delete -n ${SA_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --yes
   fi
 fi
+capture_benchmark "cleanup_temp_storage"
 
 #delete the SIG version that was created during a dry-run of linuxVhdMode
 if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
@@ -167,6 +172,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
       fi
     done
   done
+  capture_benchmark "delete_old_sig_versions"
 
   if [[ -n "${old_sig_version_ids}" ]]; then
     echo "Attempting to delete $(echo ${old_sig_version_ids} | wc -w) SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
@@ -176,6 +182,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   fi
   set -x
 fi
+capture_benchmark "cleanup_managed_images"
 
 if [[ -z "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   echo "AZURE_RESOURCE_GROUP_NAME is not set, skipping storage account backfill deletion..."
@@ -212,3 +219,5 @@ else
 fi
 
 echo -e "Packer cleanup successfully completed\n\n\n"
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks
