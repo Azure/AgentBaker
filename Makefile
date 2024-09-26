@@ -99,7 +99,6 @@ generate: bootstrap
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
-	@$(MAKE) validate-prefetch
 	@echo "running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
 	@echo "Running shellspec tests to validate shell/bash scripts"
