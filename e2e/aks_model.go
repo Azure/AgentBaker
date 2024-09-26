@@ -147,7 +147,6 @@ func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, e
 	requiredDNSNames := []string{
 		"mcr.microsoft.com",
 		"management.azure.com",
-		"acs-mirror.azureedge.net",
 		clusterFQDN,
 	}
 	var rules []*armnetwork.SecurityRule

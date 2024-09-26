@@ -203,6 +203,9 @@ if [ ! -f $COMPONENTS_FILEPATH ]; then
   exit 1
 fi
 
+# alburgess - testing purposes since I have not setup the e2e tests just yet 
+BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="aksvhdtestcr.azurecr.io"
+
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 # Iterate over each element in the packages array
 while IFS= read -r p; do
