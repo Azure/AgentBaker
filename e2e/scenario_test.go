@@ -47,7 +47,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -97,7 +97,7 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -296,7 +296,7 @@ func Test_marinerv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -346,7 +346,7 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 
@@ -651,7 +651,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -676,7 +676,7 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -1137,9 +1137,8 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled: true,
-						// TODO(xinhl): create one private acr instead of mcr.microsoft.com
-						ContainerRegistryServer: "mcr.microsoft.com",
+						Enabled:                 true,
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},

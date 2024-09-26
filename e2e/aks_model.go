@@ -94,7 +94,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, cluster *Cluste
 		return err
 	}
 
-	t.Logf("updated cluster %s subnet with airggap settings", *cluster.Model.Name)
+	t.Logf("updated cluster %s subnet with airgap settings", *cluster.Model.Name)
 	return nil
 }
 
@@ -118,6 +118,21 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 		},
 	}
 
+	// https://learn.microsoft.com/en-us/azure/container-registry/container-registry-firewall-access-rules#rest-ip-addresses-for-all-regions
+	allowContainerRegistry := &armnetwork.SecurityRule{
+		Name: to.Ptr("AllowContainerRegistryOutBound"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
+			SourceAddressPrefix:      to.Ptr("*"),
+			SourcePortRange:          to.Ptr("*"),
+			DestinationAddressPrefix: to.Ptr("AzureContainerRegistry"),
+			DestinationPortRange:     to.Ptr("*"),
+			Priority:                 to.Ptr[int32](2001),
+		},
+	}
+
 	blockOutbound := &armnetwork.SecurityRule{
 		Name: to.Ptr("block-all-outbound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
@@ -128,11 +143,11 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr("*"),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](2001),
+			Priority:                 to.Ptr[int32](2002),
 		},
 	}
 
-	rules := append([]*armnetwork.SecurityRule{allowVnet, blockOutbound}, requiredRules...)
+	rules := append([]*armnetwork.SecurityRule{allowVnet, allowContainerRegistry, blockOutbound}, requiredRules...)
 
 	return armnetwork.SecurityGroup{
 		Location:   &location,
