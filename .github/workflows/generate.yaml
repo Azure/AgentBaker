@@ -1,8 +1,8 @@
-name: generate
+name: auto-generate
 on: pull_request
 
 jobs:
-  check-generated:
+  auto-generate:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -25,4 +25,6 @@ jobs:
           git add .
           git commit -m "chore: generate via GitHub action"
           git push origin HEAD:${{ github.head_ref }}
+        else
+          echo "no changes to commit and push"
         fi
