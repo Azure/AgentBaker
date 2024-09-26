@@ -133,7 +133,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 			SourcePortRange:          to.Ptr("*"),
 			DestinationAddressPrefix: to.Ptr("*"),
 			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](2002),
+			Priority:                 to.Ptr[int32](2001),
 		},
 	}
 
