@@ -170,7 +170,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
             return 1
         else
             # TODO: support private acr via kubelet identity
-            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} -v > $ORAS_OUTPUT 2>&1
+            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $ORAS_OUTPUT
             fi
