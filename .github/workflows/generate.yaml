@@ -2,6 +2,8 @@ name: auto-generate
 on: pull_request
 
 jobs:
+  permissions:
+    contents: write
   auto-generate:
     runs-on: ubuntu-latest
     steps:
