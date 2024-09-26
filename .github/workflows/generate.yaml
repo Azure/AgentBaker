@@ -7,21 +7,19 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
     - uses: actions/setup-go@v3
       with:
         go-version: '1.22'
+
+    - name: checkout PR branch
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh pr checkout ${{ github.event.pull_request.number }}
   
     - name: make generate
       run: make generate
 
-    - name: Checkout PR
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: gh pr checkout ${{ github.event.pull_request.number }}
-
-    - name: Commit and push changes
+    - name: push changes
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
