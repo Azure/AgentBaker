@@ -20,7 +20,7 @@ type OptionConfigurator func(opts *Options)
 // Options holds the options for the api server.
 type Options struct {
 	Addr    string
-	Toggles *toggles.Toggles
+	Toggles toggles.Toggles
 }
 
 func (o *Options) validate() error {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/common"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/blang/semver"
 )
 
 // getCustomDataVariables returns cloudinit data used by Linux.
@@ -41,6 +40,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"bindMountSystemdService":      getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
 			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
 			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
+			"ensureIMDSRestrictionScript":  getBase64EncodedGzippedCustomScript(ensureIMDSRestrictionScript, config),
 			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
 			"cgroupv2KubeletDropin":        getBase64EncodedGzippedCustomScript(cgroupv2KubeletDropin, config),
 			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
@@ -198,17 +198,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 		return ""
 	}
 
-	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
-	// so we need to use nc for the connectivity check.
-	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
-	minVersion, _ := semver.Make("1.18.0")
-
-	var connectivityCheckCommand string
-	if clusterVersion.GTE(minVersion) {
-		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
-	} else {
-		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
-	}
+	connectivityCheckCommand := `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 
 	return connectivityCheckCommand
 }

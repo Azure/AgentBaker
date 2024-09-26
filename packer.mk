@@ -100,10 +100,16 @@ test-building-vhd: az-login
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
+test-scan-and-cleanup: az-login
+	@./vhdbuilder/packer/test-scan-and-cleanup.sh
+
+evaluate-build-performance: az-login
+	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+
 generate-prefetch-scripts:
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
 endif
 
 build-nbcparser-all:

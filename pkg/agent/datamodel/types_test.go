@@ -1022,9 +1022,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2,
 			},
 			expected: true,
 		},
@@ -1036,6 +1050,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen1 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2FIPS,
@@ -1043,9 +1064,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2FIPS,
 			},
 			expected: true,
 		},

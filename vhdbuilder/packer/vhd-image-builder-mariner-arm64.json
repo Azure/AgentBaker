@@ -170,6 +170,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh",
+      "destination": "/home/packer/ensure_imds_restriction.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -615,7 +620,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ]

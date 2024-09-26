@@ -109,10 +109,23 @@ ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential pr
 
 ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid version in components.json
 
+# For both Ubuntu and Mariner/AzureLinux, /etc/*-release should exist.
+# In AzureLinux 3.0, /etc/*-release are symlinks to /usr/lib/*-release, so the find command includes -type f,l.
+
+ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
+
+# Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
+ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
-if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
@@ -123,6 +136,7 @@ fi
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 # this will be empty during VHD build
@@ -143,24 +157,13 @@ APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
+ORAS_OUTPUT=/tmp/oras_verbose.out
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-    echo Executed \"$@\" $i times;
-}
-retrycmd_if_failure_nostdout() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" > /dev/null && break || \
         if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
@@ -210,6 +213,46 @@ retrycmd_get_tarball() {
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
+        fi
+    done
+}
+retrycmd_get_tarball_from_registry_with_oras() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    tar_folder=$(dirname "$tarball")
+    echo "${tar_retries} retries"
+    for i in $(seq 1 $tar_retries); do
+        tar -tzf $tarball && break || \
+        if [ $i -eq $tar_retries ]; then
+            return 1
+        else
+            # TODO: support private acr via kubelet identity
+            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [[ $? != 0 ]]; then
+                cat $ORAS_OUTPUT
+            fi
+            sleep $wait_sleep
+        fi
+    done
+}
+retrycmd_get_binary_from_registry_with_oras() {
+    binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
+    binary_folder=$(dirname "$binary_path")
+    echo "${binary_retries} retries"
+    
+    for i in $(seq 1 $binary_retries); do
+        if [ -f "$binary_path" ]; then
+            break
+        else
+            if [ $i -eq $binary_retries ]; then
+                return 1
+            else
+                # TODO: support private acr via kubelet identity
+                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+                if [[ $? != 0 ]]; then
+                    cat $ORAS_OUTPUT
+                fi
+                sleep $wait_sleep
+            fi
         fi
     done
 }
@@ -368,6 +411,15 @@ isARM64() {
     fi
 }
 
+isRegistryUrl() {
+    local binary_url=$1
+    registry_regex='^.+\/.+\/.+:.+$'
+    if [[ ${binary_url} =~ $registry_regex ]]; then # check if the binary_url is in the format of mcr.microsoft.com/componant/binary:1.0"
+        return 0 # true
+    fi
+    return 1 # false
+}
+
 logs_to_events() {
     # local vars here allow for nested function tracking
     # installContainerRuntime for example
@@ -411,6 +463,25 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
+should_disable_kubelet_serving_certificate_rotation() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
+    echo "$should_disable"
+}
+
+isMarinerOrAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
+
 installJq() {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
@@ -418,14 +489,13 @@ installJq() {
   if [ -n "$output" ]; then
     echo "$output"
   else
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
       sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
     else
       apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
   fi
 }
-
 
 check_array_size() {
   declare -n array_name=$1
@@ -442,83 +512,55 @@ capture_benchmark() {
   local title="$1"
   title="${title//[[:space:]]/_}"
   title="${title//-/_}"
-  benchmarks+=($title)
-  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  # use nameref variable to hold the current section's array for later reference
-  declare -n current_section="${benchmarks[last_index]}"
   local is_final_section=${2:-false}
 
   local current_time=$(date +%s)
-  local end_timestamp=$(date +%H:%M:%S)
   if [[ "$is_final_section" == true ]]; then
-    local start_timestamp=$script_start_timestamp
     local start_time=$script_start_stopwatch
   else
-    local start_timestamp=$section_start_timestamp
     local start_time=$section_start_stopwatch
   fi
-
-  # calculate total time elapsed for section
-  local difference_in_seconds=$((current_time - start_time))
-  local elapsed_hours=$(($difference_in_seconds/3600))
-  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
-  local elapsed_seconds=$(($difference_in_seconds%60))
-  printf -v total_time_elapsed "%02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
-
-  # add current section benchmarks to relevant section array
-  current_section+=($start_timestamp)
-  current_section+=($end_timestamp)
-  current_section+=($total_time_elapsed)
-
-  unset -n current_section
+  
+  total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
+  benchmarks[$title]=${total_time_elapsed}
+  benchmarks_order+=($title) # use this array to maintain order of benchmarks
 
   # reset timers for next section
   section_start_stopwatch=$(date +%s)
-  section_start_timestamp=$(date +%H:%M:%S)
-
-  set -x
 }
 
 process_benchmarks() {
   set +x
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  # use nameref variable to reference overall_script section
-  declare -n script_stats="${benchmarks[last_index]}"
-  
-  # create script object from data held in the section array for the overall script
-  # each section object within the script will later be appended to this script object
-  script_object=$(jq -n --arg script_name "$(basename $0)" --arg script_start_timestamp "${script_stats[0]}" --arg end_timestamp "${script_stats[1]}" --arg total_time_elapsed "${script_stats[2]}" '{($script_name): {"overall": {"start_time": $script_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}}')
+  # create script object, then append each section object to it in the for loop
+  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
 
-  unset script_stats[@]
-  unset -n script_stats
-
-  for ((i=0; i<${#benchmarks[@]} - 1; i+=1)); do
-      
-    # iterate over the benchmarks array and assign a nameref variable to the current section array in order to operate on the data held within it
-    declare -n section_name="${benchmarks[i]}"
-     
-    # create section object and append to script object
-    section_object=$(jq -n --arg section_name "${benchmarks[i]}" --arg section_start_timestamp "${section_name[0]}" --arg end_timestamp "${section_name[1]}" --arg total_time_elapsed "${section_name[2]}" '{($section_name): {"start_time": $section_start_timestamp, "end_time": $end_timestamp, "total_time_elapsed": $total_time_elapsed}}')
-      
-    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "$(basename $0)" '$script_object | .[$script_name] += $section_object')
-    
-    unset section_name[@]
-    unset -n section_name
-
+  for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
+    section_name=${benchmarks_order[i]}
+    section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
+    '{($section_name): $total_time_elapsed'})
+    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${SCRIPT_NAME}" \
+    '$script_object | .[$script_name] += $section_object')
   done
-
-  echo "Benchmarks:"
-  echo "$script_object" | jq -C .
  
-  jq ". += [$script_object]" ${VHD_BUILD_PERF_DATA} > tmp.json && mv tmp.json ${VHD_BUILD_PERF_DATA}
+  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
   chmod 755 ${VHD_BUILD_PERF_DATA}
-  set -x
 }
 
-#return proper release metadata for the package based on the os and osVersion
-#e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
-#Otherwise set RELEASE to "current"
-returnRelease() {
+evalPackageDownloadURL() {
+    local url=${1:-}
+    if [[ -n "$url" ]]; then
+         eval "result=${url}"
+         echo $result
+         return
+    fi
+    echo ""
+}
+
+# sets RELEASE to proper release metadata for the package based on the os and osVersion
+# e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804".
+# Otherwise set RELEASE to "current"
+updateRelease() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
@@ -526,8 +568,8 @@ returnRelease() {
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
-    #For MARINER, the release is always set to "current" now.
-    if [[ "${os}" == "${MARINER_KATA_OS_NAME}" || "${os}" == "${MARINER_OS_NAME}" ]]; then
+    #For MARINER/AZURELINUX, the release is always set to "current" now.
+    if isMarinerOrAzureLinux "${os}"; then
         return 0
     fi
     if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
@@ -535,41 +577,73 @@ returnRelease() {
     fi
 }
 
-returnPackageVersions() {
+# sets PACKAGE_VERSIONS to the versions of the package based on the os and osVersion
+updatePackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    returnRelease "${package}" "${os}" "${osVersion}"
+    updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
 
-    #if .downloadURIs.${osLowerCase} exist, then get the versions from there.
-    #otherwise get the versions from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        # Check if there are any versions available for the specific OS
-        if jq -e ".downloadURIs.${osLowerCase}.${RELEASE}.versions | length == 0" <<< "${package}" > /dev/null; then
-            return
-        fi
-        versions=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]" -r)
-        for version in ${versions[@]}; do
+    # if .downloadURIs.${osLowerCase} doesn't exist, it will get the versions from .downloadURIs.default.
+    # Otherwise get the versions from .downloadURIs.${osLowerCase
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]]; then
+        osLowerCase="default"
+    fi
+
+    # jq the versions from the package. If downloadURIs.$osLowerCase.$release.versionsV2 is not null, then get the versions from there.
+    # Otherwise get the versions from .downloadURIs.$osLowerCase.$release.versions
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
+        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
+        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+        for version in "${latestVersions[@]}"; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        for version in "${previousLatestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")
         done
         return
     fi
-    versions=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.versions[]" -r)
-    for version in ${versions[@]}; do
+
+    # Fallback to versions if versionsV2 is null
+    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
+    for version in "${versions[@]}"; do
         PACKAGE_VERSIONS+=("${version}")
     done
     return 0
 }
 
-returnPackageDownloadURL() {
+# sets MULTI_ARCH_VERSIONS to multiArchVersionsV2 if it exists, otherwise multiArchVersions
+updateMultiArchVersions() {
+  local imageToBePulled="$1"
+
+  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
+  if [[ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]]; then
+    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
+    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+    for version in "${latestVersions[@]}"; do
+      MULTI_ARCH_VERSIONS+=("${version}")
+    done
+    for version in "${previousLatestVersions[@]}"; do
+      MULTI_ARCH_VERSIONS+=("${version}")
+    done
+    return
+  fi
+
+  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
+  for version in "${versions[@]}"; do
+    MULTI_ARCH_VERSIONS+=("${version}")
+  done
+}
+
+updatePackageDownloadURL() {
     local package=$1
     local os=$2
     local osVersion=$3
     RELEASE="current"
-    returnRelease "${package}" "${os}" "${osVersion}"
+    updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.

@@ -9,8 +9,8 @@ import (
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 )
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
@@ -47,6 +47,10 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 					Mode:         to.Ptr(armcontainerservice.AgentPoolModeSystem),
 					OSDiskSizeGB: to.Ptr[int32](512),
 				},
+			},
+			AutoUpgradeProfile: &armcontainerservice.ManagedClusterAutoUpgradeProfile{
+				NodeOSUpgradeChannel: to.Ptr(armcontainerservice.NodeOSUpgradeChannelNodeImage),
+				UpgradeChannel:       to.Ptr(armcontainerservice.UpgradeChannelNone),
 			},
 			NetworkProfile: &armcontainerservice.NetworkProfile{
 				NetworkPlugin: to.Ptr(armcontainerservice.NetworkPluginKubenet),
@@ -186,7 +190,7 @@ func createAirgapSecurityGroup(ctx context.Context, cluster *armcontainerservice
 	if err != nil {
 		return nil, err
 	}
-	nsg, err := poller.PollUntilDone(ctx, nil)
+	nsg, err := poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +202,7 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 	if err != nil {
 		return err
 	}
-	_, err = poller.PollUntilDone(ctx, nil)
+	_, err = poller.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return err
 	}

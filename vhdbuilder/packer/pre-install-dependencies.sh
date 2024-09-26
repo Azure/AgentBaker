@@ -1,12 +1,11 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
-
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
-
-declare -a benchmarks=()
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -33,9 +32,9 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-echo '[]' > ${VHD_BUILD_PERF_DATA}
+echo '{}' > ${VHD_BUILD_PERF_DATA}
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
@@ -48,7 +47,7 @@ copyPackerFiles
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     echo -e "\nnews.none                          -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
 else
     echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
@@ -82,7 +81,7 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "sync_container_logs"
 
 # First handle Mariner + FIPS
-if [[ ${OS} == ${MARINER_OS_NAME} ]]; then
+if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
@@ -99,14 +98,22 @@ else
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
 
-  # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
-  # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
-  # Therefore keeping this to 22.04 only for now
-  if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
-    sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+  # CVM breaks on kernel image updates due to nullboot package post-install.
+  # it relies on boot measurements from real tpm hardware.
+  # building on a real CVM would solve this, but packer doesn't support it.
+  # we could make upstream changes but that takes time, and we are broken now.
+  # so we just hold the kernel image packages for now on CVM.
+  # this still allows us base image and package updates on a weekly cadence.
+  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
+    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
+    # Therefore keeping this to 22.04 only for now
+    if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+      sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+    fi
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   fi
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
@@ -117,6 +124,7 @@ fi
 capture_benchmark "handle_mariner_and_fips_configurations"
 
 # Handle Azure Linux + CgroupV2
+# CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
@@ -137,5 +145,5 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
 fi
 capture_benchmark "handle_azureLinux_and_cgroupV2"
 echo "pre-install-dependencies step finished successfully"
-capture_benchmark "overall_script" true
+capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

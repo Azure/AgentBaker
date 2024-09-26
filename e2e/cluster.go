@@ -15,8 +15,8 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
@@ -39,6 +39,7 @@ type Cluster struct {
 	Kube                           *Kubeclient
 	SubnetID                       string
 	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
+	Maintenance                    *armcontainerservice.MaintenanceConfiguration
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -85,7 +86,7 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := pollExtractClusterParameters(ctx, t, kube)
+	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
@@ -104,6 +105,11 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
+	}
+
+	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, t, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("get or create maintenance configuration: %w", err)
 	}
 
 	// sometimes tests can be interrupted and vmss are left behind
@@ -131,7 +137,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
 	}
 
-	return &Cluster{Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc}, nil
+	return &Cluster{Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc, Maintenance: maintenance}, nil
 }
 
 func hash(cluster *armcontainerservice.ManagedCluster) string {
@@ -182,7 +188,7 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 		return nil, fmt.Errorf("failed to begin aks cluster creation: %w", err)
 	}
 
-	clusterResp, err := pollerResp.PollUntilDone(ctx, nil)
+	clusterResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for aks cluster creation %w", err)
 	}
@@ -225,6 +231,50 @@ func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *ar
 	}
 
 	return nil, fmt.Errorf("failed to create cluster after %d attempts due to persistent 409 Conflict: %w", maxRetries, lastErr)
+}
+
+func getOrCreateMaintenanceConfiguration(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
+	existingMaintenance, err := config.Azure.Maintenance.Get(ctx, config.ResourceGroupName, *cluster.Name, "default", nil)
+	var azErr *azcore.ResponseError
+	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+		return createNewMaintenanceConfiguration(ctx, t, cluster)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
+	}
+	return &existingMaintenance.MaintenanceConfiguration, nil
+}
+
+func createNewMaintenanceConfiguration(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.MaintenanceConfiguration, error) {
+	t.Logf("creating maintenance configuration for cluster %s in rg %s\n", *cluster.Name, config.ResourceGroupName)
+	maintenance := armcontainerservice.MaintenanceConfiguration{
+		Properties: &armcontainerservice.MaintenanceConfigurationProperties{
+			MaintenanceWindow: &armcontainerservice.MaintenanceWindow{
+				NotAllowedDates: []*armcontainerservice.DateSpan{ // no maintenance till 2100
+					{
+						End:   to.Ptr(func() time.Time { t, _ := time.Parse("2006-01-02", "2100-01-01"); return t }()),
+						Start: to.Ptr(func() time.Time { t, _ := time.Parse("2006-01-02", "2000-01-01"); return t }()),
+					}},
+				DurationHours: to.Ptr[int32](4),
+				StartTime:     to.Ptr("00:00"),  //PST
+				UTCOffset:     to.Ptr("+08:00"), //PST
+				Schedule: &armcontainerservice.Schedule{
+					RelativeMonthly: &armcontainerservice.RelativeMonthlySchedule{
+						DayOfWeek:      to.Ptr(armcontainerservice.WeekDayMonday),
+						IntervalMonths: to.Ptr[int32](3),
+						WeekIndex:      to.Ptr(armcontainerservice.TypeFirst),
+					},
+				},
+			},
+		},
+	}
+
+	_, err := config.Azure.Maintenance.CreateOrUpdate(ctx, config.ResourceGroupName, *cluster.Name, "default", maintenance, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create maintenance configuration: %w", err)
+	}
+
+	return &maintenance, nil
 }
 
 type VNet struct {

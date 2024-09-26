@@ -15,39 +15,41 @@ import (
 )
 
 const (
-	hostNetworkDebugAppLabel = "debug"
-	podNetworkDebugAppLabel  = "debugnonhost"
+	hostNetworkDebugAppLabel = "debug-mariner"
+	podNetworkDebugAppLabel  = "debugnonhost-mariner"
 )
 
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getDebugPodName(ctx context.Context, kube *Kubeclient, appLabel string) (string, error) {
+func getHostNetworkDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": appLabel}); err != nil {
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": hostNetworkDebugAppLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
-
-	if len(podList.Items) < 1 {
-		return "", fmt.Errorf("failed to find debug pod, list by selector returned no results")
+	if podList.Size() == 0 {
+		return "", fmt.Errorf("failed to find host debug pod")
 	}
-
-	podName := podList.Items[0].Name
-	return podName, nil
+	pod := podList.Items[0]
+	err := waitUntilPodReady(ctx, kube, pod.Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to wait for pod to be in running state: %w", err)
+	}
+	return pod.Name, nil
 }
 
 // Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
-func findDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, labelName, vmssName string) (string, error) {
+func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vmssName string) (string, error) {
 	podList := corev1.PodList{}
-	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": labelName}); err != nil {
+	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": podNetworkDebugAppLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
-	}
-
-	if len(podList.Items) < 1 {
-		return "", fmt.Errorf("failed to find debug pod, list by selector returned no results")
 	}
 
 	for _, pod := range podList.Items {
 		if strings.Contains(pod.Spec.NodeName, vmssName) {
+			err := waitUntilPodReady(ctx, kube, pod.Name)
+			if err != nil {
+				return "", fmt.Errorf("failed to wait for pod to be in running state: %w", err)
+			}
 			return pod.Name, nil
 		}
 	}

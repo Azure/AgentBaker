@@ -3,14 +3,18 @@ package config
 import (
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
 
 var (
-	Config            = mustLoadConfig()
-	Azure             = mustNewAzureClient(Config.SubscriptionID)
-	ResourceGroupName = "abe2e-" + Config.Location
+	Config                      = mustLoadConfig()
+	Azure                       = mustNewAzureClient(Config.SubscriptionID)
+	ResourceGroupName           = "abe2e-" + Config.Location
+	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
+		Frequency: time.Second,
+	}
 )
 
 type Configuration struct {

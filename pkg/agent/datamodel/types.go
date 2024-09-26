@@ -157,12 +157,16 @@ const (
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                     Distro = "aks-azurelinux-v3"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
 	AKSAzureLinuxV2Gen2                 Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                 Distro = "aks-azurelinux-v3-gen2"
 	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
 	AKSAzureLinuxV2FIPS                 Distro = "aks-azurelinux-v2-fips"
+	AKSAzureLinuxV3FIPS                 Distro = "aks-azurelinux-v3-fips"
 	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
 	AKSAzureLinuxV2Gen2FIPS             Distro = "aks-azurelinux-v2-gen2-fips"
+	AKSAzureLinuxV3Gen2FIPS             Distro = "aks-azurelinux-v3-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
@@ -185,6 +189,7 @@ const (
 	AKSUbuntuArm64Containerd2404Gen2    Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2            Distro = "aks-azurelinux-v3-arm64-gen2"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
@@ -236,12 +241,16 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
+	AKSAzureLinuxV3,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2FIPS,
 	AKSAzureLinuxV2FIPS,
+	AKSAzureLinuxV3FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
@@ -264,6 +273,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
@@ -700,6 +710,7 @@ type CustomKubeletConfig struct {
 	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
 	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
 	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
+	SeccompDefault        *bool     `json:"seccompDefault,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
@@ -1836,6 +1847,14 @@ type AKSKubeletConfiguration struct {
 	Default: false
 	+optional. */
 	RotateCertificates bool `json:"rotateCertificates,omitempty"`
+	// serverTLSBootstrap enables server certificate bootstrap. Instead of self
+	// signing a serving certificate, the Kubelet will request a certificate from
+	// the 'certificates.k8s.io' API. This requires an approver to approve the
+	// certificate signing requests (CSR). The RotateKubeletServerCertificate feature
+	// must be enabled when setting this field.
+	// Default: false
+	// +optional
+	ServerTLSBootstrap bool `json:"serverTLSBootstrap,omitempty"`
 	/* authentication specifies how requests to the Kubelet's server are authenticated
 	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
 	it may disrupt components that interact with the Kubelet server.
@@ -2088,6 +2107,17 @@ type AKSKubeletConfiguration struct {
 	Default: []
 	+optional. */
 	AllowedUnsafeSysctls []string `json:"allowedUnsafeSysctls,omitempty"`
+	// serializeImagePulls when enabled, tells the Kubelet to pull images one
+	// at a time. We recommend *not* changing the default value on nodes that
+	// run docker daemon with version  < 1.9 or an Aufs storage backend.
+	// Issue #10959 has more details.
+	// Default: true
+	// +optional
+	SerializeImagePulls *bool `json:"serializeImagePulls,omitempty"`
+	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
+	// Default: false
+	// +optional
+	SeccompDefault *bool `json:"seccompDefault,omitempty"`
 }
 
 type Duration string

@@ -77,22 +77,15 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
-	manifests := getDebugDaemonsetManifests()
-	for _, manifest := range manifests {
-		if err := createDebugDeployment(ctx, kube, manifest); err != nil {
-			return err
-		}
+	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true)
+	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
+		return err
 	}
-
+	nonHostDS := getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false)
+	if err := createDebugDaemonset(ctx, kube, nonHostDS); err != nil {
+		return err
+	}
 	return nil
-}
-
-func getDebugDaemonsetManifests() []string {
-	return []string{
-		getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true),
-		// "nodepool2"  label is used to deploy a pod on all ab e2e nodes running actual test cases
-		getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false),
-	}
 }
 
 func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork bool) string {
@@ -118,8 +111,8 @@ spec:
         kubernetes.azure.com/agentpool: %[3]s 
       hostPID: true
       containers:
-      - image: mcr.microsoft.com/oss/nginx/nginx:1.21.6
-        name: ubuntu
+      - image: mcr.microsoft.com/cbl-mariner/base/core:2.0
+        name: mariner
         command: ["sleep", "infinity"]
         resources:
           requests: {}
@@ -131,7 +124,7 @@ spec:
 `, deploymentName, isHostNetwork, targetNodeLabel)
 }
 
-func createDebugDeployment(ctx context.Context, kube *Kubeclient, manifest string) error {
+func createDebugDaemonset(ctx context.Context, kube *Kubeclient, manifest string) error {
 	var ds v1.DaemonSet
 
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {

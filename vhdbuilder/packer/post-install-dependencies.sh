@@ -1,12 +1,11 @@
 #!/bin/bash
 
-script_start_timestamp=$(date +%H:%M:%S)
-section_start_timestamp=$(date +%H:%M:%S)
-
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
-
-declare -a benchmarks=()
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
 
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 UBUNTU_OS_NAME="UBUNTU"
@@ -106,5 +105,5 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
 fi
 capture_benchmark "resolve_conf"
 echo "post-install-dependencies step completed successfully"
-capture_benchmark "overall_script" true
+capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

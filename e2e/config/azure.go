@@ -12,9 +12,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/go-armbalancer"
 )
@@ -27,6 +27,7 @@ type AzureClient struct {
 	Resource                  *armresources.Client
 	ResourceGroup             *armresources.ResourceGroupsClient
 	AKS                       *armcontainerservice.ManagedClustersClient
+	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	Subnet                    *armnetwork.SubnetsClient
 	GalleryImageVersionClient *armcompute.GalleryImageVersionsClient
@@ -116,6 +117,11 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create aks client: %w", err)
+	}
+
+	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create maintenance client: %w", err)
 	}
 
 	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, opts)

@@ -109,7 +109,7 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
@@ -175,6 +175,8 @@ configureK8s() {
     chown root:root "${AZURE_JSON_PATH}"
 
     mkdir -p "/etc/kubernetes/certs"
+
+    set +x
     if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
         echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
     fi
@@ -185,7 +187,6 @@ configureK8s() {
         echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
     fi
 
-    set +x
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     # Perform the required JSON escaping
     SP_FILE="/etc/kubernetes/sp.txt"
@@ -386,6 +387,18 @@ ensureDHCPv6() {
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
+
+    # In k8s >= 1.29 kubelet no longer sets node internalIP when using external cloud provider
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    # This regresses node startup performance in Azure CNI Overlay and Podsubnet clusters, which require the node to be
+    # assigned an internal IP before configuring pod networking.
+    # To improve node startup performance, explicitly set `--node-ip` to the IP returned from IMDS so kubelet sets
+    # the internal IP when it registers the node.
+    # If this fails, skip setting --node-ip, which is safe because cloud-node-manager will assign it later anyway.
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
+        logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -577,7 +590,7 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG > /dev/null
+            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
@@ -594,9 +607,9 @@ configGPUDrivers() {
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         downloadGPUDrivers
-        installNvidiaContainerRuntime
+        installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
@@ -608,7 +621,7 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
@@ -663,6 +676,22 @@ ensureGPUDrivers() {
 
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+}
+
+setKubeletNodeIPFlag() {
+    imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
+    if [[ $? -eq 0 ]]; then
+        nodeIPAddrs=()
+        ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
+        [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+        ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
+        [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
+        if [ -n "$nodeIPArg" ]; then
+            echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
+        fi
+    fi
 }
 
 #EOF
