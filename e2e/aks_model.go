@@ -94,6 +94,11 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, cluster *Cluste
 		return err
 	}
 
+	err = addPrivateEndpointToACR(ctx, *cluster.Model.Properties.NodeResourceGroup, *subnetParameters.ID)
+	if err != nil {
+		return err
+	}
+
 	t.Logf("updated cluster %s subnet with airgap settings", *cluster.Model.Name)
 	return nil
 }
@@ -118,21 +123,6 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 		},
 	}
 
-	// https://learn.microsoft.com/en-us/azure/container-registry/container-registry-firewall-access-rules#rest-ip-addresses-for-all-regions
-	allowContainerRegistry := &armnetwork.SecurityRule{
-		Name: to.Ptr("AllowContainerRegistryOutBound"),
-		Properties: &armnetwork.SecurityRulePropertiesFormat{
-			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolAsterisk),
-			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionOutbound),
-			SourceAddressPrefix:      to.Ptr("*"),
-			SourcePortRange:          to.Ptr("*"),
-			DestinationAddressPrefix: to.Ptr("AzureContainerRegistry"),
-			DestinationPortRange:     to.Ptr("*"),
-			Priority:                 to.Ptr[int32](2001),
-		},
-	}
-
 	blockOutbound := &armnetwork.SecurityRule{
 		Name: to.Ptr("block-all-outbound"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
@@ -147,13 +137,51 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 		},
 	}
 
-	rules := append([]*armnetwork.SecurityRule{allowVnet, allowContainerRegistry, blockOutbound}, requiredRules...)
+	rules := append([]*armnetwork.SecurityRule{allowVnet, blockOutbound}, requiredRules...)
 
 	return armnetwork.SecurityGroup{
 		Location:   &location,
 		Name:       &config.Config.AirgapNSGName,
 		Properties: &armnetwork.SecurityGroupPropertiesFormat{SecurityRules: rules},
 	}, nil
+}
+
+func addPrivateEndpointToACR(ctx context.Context, nodeResourceGroup string, subnetId string) error {
+	endpointName := "PE-for-ABE2E"
+	peParams := armnetwork.PrivateEndpoint{
+		Location: to.Ptr(config.Config.Location),
+		Properties: &armnetwork.PrivateEndpointProperties{
+			Subnet: &armnetwork.Subnet{
+				ID: to.Ptr(subnetId),
+			},
+			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
+				{
+					Name: to.Ptr(endpointName),
+					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
+						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
+						GroupIDs:             []*string{to.Ptr("registry")},
+					},
+				},
+			},
+		},
+	}
+	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
+		ctx,
+		nodeResourceGroup,
+		endpointName,
+		peParams,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
+	}
+
+	peResp, err := poller.PollUntilDone(context.Background(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create private endpoint in polling: %w", err)
+	}
+	fmt.Printf("Private Endpoint created or updated with ID: %s\n", *peResp.ID)
+	return nil
 }
 
 func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, error) {

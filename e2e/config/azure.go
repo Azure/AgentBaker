@@ -31,6 +31,7 @@ type AzureClient struct {
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	Subnet                    *armnetwork.SubnetsClient
 	GalleryImageVersionClient *armcompute.GalleryImageVersionsClient
+	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -102,6 +103,11 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.Core, err = azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create core client: %w", err)
+	}
+
+	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private endpoint client: %w", err)
 	}
 
 	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
