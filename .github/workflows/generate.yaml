@@ -3,8 +3,6 @@ on: pull_request
 
 jobs:
   auto-generate:
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
