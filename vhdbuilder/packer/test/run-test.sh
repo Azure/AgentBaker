@@ -1,14 +1,6 @@
 #!/bin/bash
 set -eux
 
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
-SCRIPT_NAME=$(basename $0 .sh)
-SCRIPT_NAME="${SCRIPT_NAME//-/_}"
-declare -A benchmarks=()
-declare -a benchmarks_order=()
-VHD_BUILD_PERF_DATA=${BUILD_PERF_DATA_FILE}
-
 source vhdbuilder/packer/build-performance/build-performance-funcs.sh
 
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
