@@ -127,7 +127,7 @@ steps:
     displayName: Set Pipeline Variables
 
   - bash: |
-      make -f packer.mk run-packer
+      make -f packer.mk run-packer && \
       echo "##vso[task.setvariable variable=OS_DISK_URI]$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
     displayName: Build VHD
