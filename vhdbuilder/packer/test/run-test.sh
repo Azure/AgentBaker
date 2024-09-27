@@ -47,7 +47,7 @@ trap cleanup EXIT
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 
-capture_benchmark "set_variables_and_create_resource_group"
+capture_benchmark "set_variables_and_create_test_resource_group"
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
@@ -208,7 +208,7 @@ else
     exit 1
   fi
 fi
-capture_benchmark "run_az_vm_run_command"
+capture_benchmark "run_az_test_command"
 
 echo -e "Test Script Completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true

@@ -50,7 +50,7 @@ function cleanup() {
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
 trap cleanup EXIT
-capture_benchmark "set_variables_and_create_resource_group"
+capture_benchmark "set_variables_and_create_scan_resource_group"
 
 VM_OPTIONS="--size Standard_D8ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
@@ -117,7 +117,7 @@ az vm run-command invoke \
         "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
         "BUILDID"=${BUILD_ID}
 
-capture_benchmark "run_az_vm_run_command"
+capture_benchmark "run_az_scan_command"
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
