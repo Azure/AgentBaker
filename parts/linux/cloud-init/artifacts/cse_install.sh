@@ -231,6 +231,7 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        echo "${version}: downloading ${shims_to_download[@]}"
         downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}" # adding v to version for simplicity
     done
     # wait for file downloads to complete before updating file permissions
@@ -258,6 +259,7 @@ downloadContainerdWasmShims() {
     fi
 
     # Oras download for WASM for Network Isolated Clusters
+    echo "oras download"
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
@@ -269,8 +271,10 @@ downloadContainerdWasmShims() {
         rm -f "$wasm_shims_tgz_tmp"
         return
     fi
+    echo "oras finish"
 
     for shim in "${shims_to_download[@]}"; do
+        echo "retrycmd: ${binary_version}: ${shim}"
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
