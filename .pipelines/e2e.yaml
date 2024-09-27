@@ -20,5 +20,6 @@ pr:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
       - pkg/agent/testdata/AKSWindows* # Windows test data
+      - parts/linux/cloud-init/artifacts/components.json # centralized components management file
 jobs:
   - template: ./templates/e2e-template.yaml

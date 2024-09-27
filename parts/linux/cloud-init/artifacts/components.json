@@ -65,8 +65,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.7",
-          "previousLatestVersion": "v1.6.5",
+          "latestVersion": "v1.6.10",
+          "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -617,7 +617,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.20"
+                "latestVersion": "1.7.22-ubuntu22.04u1"
               }
             ]
           },
@@ -625,7 +625,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.20"
+                "latestVersion": "1.7.22-ubuntu20.04u1"
               }
             ]
           },
