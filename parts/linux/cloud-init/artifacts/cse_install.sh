@@ -259,7 +259,7 @@ downloadContainerdWasmShims() {
     fi
 
     # Oras download for WASM for Network Isolated Clusters
-    echo "oras download"
+    echo "oras download: ${shim_version}"
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
     if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
@@ -271,7 +271,7 @@ downloadContainerdWasmShims() {
         rm -f "$wasm_shims_tgz_tmp"
         return
     fi
-    echo "oras finish"
+    echo "oras finish: ${shim_version}"
 
     for shim in "${shims_to_download[@]}"; do
         echo "retrycmd: ${binary_version}: ${shim}"
