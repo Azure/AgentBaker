@@ -350,6 +350,7 @@ ensureArtifactStreaming() {
   systemctl enable acr-mirror.service
   systemctl start acr-mirror.service
   sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
   sudo /opt/acr/tools/overlaybd/config.sh download.enable false
   sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
