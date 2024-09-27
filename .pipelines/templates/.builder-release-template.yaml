@@ -133,7 +133,7 @@ steps:
     displayName: Build VHD
     #retryCountOnTaskFailure: 3
     env:
-      # Azure Variables - Common variables for Azure resources
+      # Azure Variables - Azure resource variables that are present when the pipeline begins
       POOL_NAME: $(POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_VM_SIZE: $(AZURE_VM_SIZE)
@@ -167,7 +167,7 @@ steps:
       BUILD_NUMBER: $(Build.BuildNumber)
       BRANCH: $(Build.SourceBranch)
 
-      # Misc - Variables dynamically defined in code or the pipeline
+      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       OS_TYPE: "Linux"
       SKU_NAME: $(SKU_NAME)
       MODE: $(MODE)
@@ -182,7 +182,7 @@ steps:
     displayName: Test, Scan, and Cleanup
     condition: always()
     env:
-      # Azure Variables - Common variables for Azure resources
+      # Azure Variables - Azure resource variables that are present when the pipeline begins
       POOL_NAME: $(POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_VM_SIZE: $(AZURE_VM_SIZE)
@@ -236,7 +236,7 @@ steps:
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
 
-      # Misc - Variables dynamically defined in code or the pipeline
+      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       OS_TYPE: "Linux"
       SKU_NAME: $(SKU_NAME)
       MODE: $(MODE)
@@ -254,7 +254,7 @@ steps:
     displayName: Check Build Performance
     condition: always()
     env:
-      #Azure Variables - Common variables for Azure resources
+      # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
 
@@ -267,7 +267,7 @@ steps:
       BUILD_ID: $(Build.BuildId)
       JOB_STATUS: $(Agent.JobStatus)
 
-      # Misc - Variables dynamically defined in code or the pipeline
+      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       BUILD_PERF_DATA_FILE: $(BUILD_PERF_DATA_FILE)
 
@@ -318,7 +318,7 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     env:
-      #Azure Variables - Common variables for Azure resources
+      # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -336,7 +336,7 @@ steps:
       BUILD_ID: $(Build.BuildId)
       JOB_STATUS: $(Agent.JobStatus)
 
-      # Misc - Variables dynamically defined in code or the pipeline
+      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
       OS_TYPE: "Linux" 
@@ -345,7 +345,7 @@ steps:
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     env:
-      #Azure Variables - Common variables for Azure resources
+      # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
@@ -360,7 +360,7 @@ steps:
       IMG_VERSION: $(IMG_VERSION)
       ARCHITECTURE: $(ARCHITECTURE) 
 
-      # Misc - Variables dynamically defined in code or the pipeline
+      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       OS_TYPE: "Linux"
       OS_NAME: "Linux"
       SKU_NAME: $(SKU_NAME)
