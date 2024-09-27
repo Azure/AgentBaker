@@ -203,7 +203,7 @@ wasmFilesExist() {
 installContainerdWasmShims(){
     local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2} 
-    local package_versions=("${@:2}") 
+    local package_versions=("${@:3}") 
     
     for version in "${package_versions[@]}"; do
         local shims_to_download=("spin" "slight")
@@ -269,7 +269,7 @@ updateContainerdWasmShimsPermissions() {
 installSpinKube(){
     local download_location=${1}
     PACKAGE_DOWNLOAD_URL=${2}
-    local package_versions=("${@:2}") 
+    local package_versions=("${@:3}") 
 
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
