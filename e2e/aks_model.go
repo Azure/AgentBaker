@@ -163,20 +163,7 @@ func addPrivateEndpointToACR(ctx context.Context, nodeResourceGroup string, subn
 					},
 				},
 			},
-			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{
-				{
-					Fqdn: to.Ptr("aksvhdtestcr.swedencentral.data.azurecr.io"),
-					IPAddresses: []*string{
-						to.Ptr("10.224.0.10"),
-					},
-				},
-				{
-					Fqdn: to.Ptr("aksvhdtestcr.azurecr.io"),
-					IPAddresses: []*string{
-						to.Ptr("10.224.0.11"),
-					},
-				},
-			},
+			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{},
 		},
 	}
 
