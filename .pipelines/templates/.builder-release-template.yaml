@@ -347,7 +347,7 @@ steps:
     env:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
 
       # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
