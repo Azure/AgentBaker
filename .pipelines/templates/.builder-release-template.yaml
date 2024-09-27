@@ -289,24 +289,24 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
-    SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-    CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-    BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
-    docker run --rm \
-    -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-    -w /go/src/github.com/Azure/AgentBaker \
-    -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
-    -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-    -e CAPTURED_SIG_VERSION=${CAPTURED_SIG_VERSION} \
-    -e GIT_BRANCH=$(Build.SourceBranch) \
-    -e GIT_VERSION=$(Build.SourceVersion) \
-    -e BUILD_ID=$(Build.BuildId) \
-    -e JOB_STATUS=$(Agent.JobStatus) \
-    -e ARCHITECTURE=${ARCHITECTURE} \
-    -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
-    ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
-  condition: always()
-  displayName: Check Build Performance
+      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
+      docker run --rm \
+      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+      -w /go/src/github.com/Azure/AgentBaker \
+      -e SUBSCRIPTION_ID="${SUBSCRIPTION_ID}" \
+      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
+      -e CAPTURED_SIG_VERSION=${CAPTURED_SIG_VERSION} \
+      -e GIT_BRANCH=$(Build.SourceBranch) \
+      -e GIT_VERSION=$(Build.SourceVersion) \
+      -e BUILD_ID=$(Build.BuildId) \
+      -e JOB_STATUS=$(Agent.JobStatus) \
+      -e ARCHITECTURE=${ARCHITECTURE} \
+      -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
+      ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
+    condition: always()
+    displayName: Check Build Performance
   - bash: |
       echo MODE=$(MODE) && \
       captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
