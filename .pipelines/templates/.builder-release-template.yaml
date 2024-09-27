@@ -135,16 +135,15 @@ steps:
     env:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       POOL_NAME: $(POOL_NAME)
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       ENVIRONMENT: $(ENVIRONMENT)
-      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
 
       # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
+      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       OS_VERSION: $(OS_VERSION)
       OS_SKU: $(OS_SKU)
@@ -171,6 +170,7 @@ steps:
       OS_TYPE: "Linux"
       SKU_NAME: $(SKU_NAME)
       MODE: $(MODE)
+      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
       IMAGE_VERSION: $(IMAGE_VERSION)
       MANAGED_SIG_ID: $(MANAGED_SIG_ID)
 
@@ -185,7 +185,6 @@ steps:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       POOL_NAME: $(POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       ENVIRONMENT: $(ENVIRONMENT)
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
@@ -207,6 +206,7 @@ steps:
       MODULE_VERSION: $(MODULE_VERSION)
 
       # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
+      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
       OS_VERSION: $(OS_VERSION)
       OS_SKU: $(OS_SKU)
@@ -256,7 +256,6 @@ steps:
     env:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
 
       # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
       ARCHITECTURE: $(ARCHITECTURE)
@@ -269,6 +268,7 @@ steps:
 
       # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       BUILD_PERF_DATA_FILE: $(BUILD_PERF_DATA_FILE)
 
   - task: CopyFiles@2
@@ -349,7 +349,6 @@ steps:
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
 
       # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
       OFFER_NAME: $(OS_SKU)
@@ -365,6 +364,7 @@ steps:
       OS_NAME: "Linux"
       SKU_NAME: $(SKU_NAME)
       IMAGE_VERSION: $(IMAGE_VERSION)
+      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       VHD_NAME: $(VHD_NAME)
 
