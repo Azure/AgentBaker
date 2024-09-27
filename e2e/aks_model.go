@@ -147,7 +147,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 }
 
 func addPrivateEndpointToACR(ctx context.Context, nodeResourceGroup string, subnetId string) error {
-	endpointName := "PE-for-ABE2E"
+	endpointName := "PE-for-ABE2ETests"
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -166,6 +166,10 @@ func addPrivateEndpointToACR(ctx context.Context, nodeResourceGroup string, subn
 			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{},
 		},
 	}
+
+	// private dns zone 
+	// link
+	// dns
 
 	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
 		ctx,
