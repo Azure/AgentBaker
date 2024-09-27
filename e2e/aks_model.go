@@ -163,8 +163,23 @@ func addPrivateEndpointToACR(ctx context.Context, nodeResourceGroup string, subn
 					},
 				},
 			},
+			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{
+				{
+					Fqdn: to.Ptr("aksvhdtestcr.swedencentral.data.azurecr.io"),
+					IPAddresses: []*string{
+						to.Ptr("10.224.0.10"),
+					},
+				},
+				{
+					Fqdn: to.Ptr("aksvhdtestcr.azurecr.io"),
+					IPAddresses: []*string{
+						to.Ptr("10.224.0.11"),
+					},
+				},
+			},
 		},
 	}
+
 	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
@@ -176,7 +191,7 @@ func addPrivateEndpointToACR(ctx context.Context, nodeResourceGroup string, subn
 		return fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
 	}
 
-	peResp, err := poller.PollUntilDone(context.Background(), nil)
+	peResp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
