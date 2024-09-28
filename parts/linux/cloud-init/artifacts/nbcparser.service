@@ -1,5 +1,7 @@
 [Unit]
 Description=Parse contract and run csecmd
+After=cloud-init.target
+Wants=cloud-init.target
 
 [Service]
 Type=oneshot
