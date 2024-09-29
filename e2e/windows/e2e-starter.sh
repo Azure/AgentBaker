@@ -114,8 +114,7 @@ if [ "$create_cluster" == "true" ]; then
         cleanupOutdatedFiles
     fi
 else
-    if [[ "$(check_linux_file_exists_in_storage_account)" == *"Linux file does not exist in storage account."* ]] 
-    || [[ "$(check_linux_file_outdated)" == *"Linux files are outdated"* ]]; then 
+    if [[ "$(check_linux_file_exists_in_storage_account)" == *"Linux file does not exist in storage account."* ]] || [[ "$(check_linux_file_outdated)" == *"Linux files are outdated"* ]]; then 
         upload_linux_file_to_storage_account
 fi
 
