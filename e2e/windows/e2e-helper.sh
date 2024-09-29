@@ -93,12 +93,24 @@ check_linux_file_outdated() {
     
     linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
 
+    # download uploaded linux files to old.zip
+    # compress current linux files to new.zip
+    az vmss run-command invoke --command-id RunShellScript \
+        --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
+        --name $MC_VMSS_NAME \
+        --instance-id $VMSS_INSTANCE_ID \
+        --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip new.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; export AZCOPY_AUTO_LOGIN_TYPE=\"MSI\"; export AZCOPY_MSI_RESOURCE_STRING=\"${AZURE_MSI_RESOURCE_STRING}\"; ./azcopy copy $linuxFileURL /home/old.zip"
+
+    # Use "unzip -d new new.zip" to unzip the compreesed file to a folder
+    # Use "diff -r -q new old" to compare two folder
+    # If files are different in these two folders, the output message will contain "Files xxx and xxx differ"
+    # Example: "Files /home/new/apiserver.crt and /home/old/apiserver.crt differ"
     compare_message=$(az vmss run-command invoke --command-id RunShellScript \
         --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
         --name $MC_VMSS_NAME \
         --instance-id $VMSS_INSTANCE_ID \
-        --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip new.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; export AZCOPY_AUTO_LOGIN_TYPE=\"MSI\"; export AZCOPY_MSI_RESOURCE_STRING=\"${AZURE_MSI_RESOURCE_STRING}\"; ./azcopy copy $linuxFileURL /home/old.zip" | jq -r ".value[0].message")
-    
+        --scripts "apt install unzip --yes; unzip -d /home/new /home/new.zip; unzip -d /home/old /home/old.zip; diff -r -q /home/new /home/old")
+
     if [[ "$compare_message" == *"differ"* ]]; then
         log "The uploaded linux files are outdated. Will reupload them."
         upload_linux_file_to_storage_account
