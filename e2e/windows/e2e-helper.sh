@@ -112,9 +112,11 @@ check_linux_file_outdated() {
         --scripts "apt install unzip --yes; unzip -d /home/new /home/new.zip; unzip -d /home/old /home/old.zip; diff -r -q /home/new /home/old")
 
     if [[ "$compare_message" == *"differ"* ]]; then
-        log "The uploaded linux files are outdated. Will reupload them."
-        upload_linux_file_to_storage_account
+        err "Linux files are outdated."
+        return
     fi
+
+    log "Linux files are still the latest."
 }
 
 download_linux_file_from_storage_account() {
