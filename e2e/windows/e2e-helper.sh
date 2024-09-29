@@ -100,6 +100,7 @@ check_linux_file_outdated() {
         --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip new.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; export AZCOPY_AUTO_LOGIN_TYPE=\"MSI\"; export AZCOPY_MSI_RESOURCE_STRING=\"${AZURE_MSI_RESOURCE_STRING}\"; ./azcopy copy $linuxFileURL /home/old.zip" | jq -r ".value[0].message")
     
     if [[ "$compare_message" == *"differ"* ]]; then
+        log "The uploaded linux files are outdated. Will reupload them."
         upload_linux_file_to_storage_account
     fi
 }
