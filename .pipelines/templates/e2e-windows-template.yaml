@@ -86,6 +86,10 @@ jobs:
     matrix: $[ dependencies.Generate_Matrix.outputs['matrix.scenarioMatrix'] ]
     maxParallel: 3
   steps:
+    - bash: |
+        echo "Cleaning up workspace..."
+        rm -rf $(Pipeline.Workspace)/*
+      displayName: "Clean up workspace"
     - download: current
       artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
     - bash: |
