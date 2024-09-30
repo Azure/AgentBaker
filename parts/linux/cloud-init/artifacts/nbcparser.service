@@ -1,12 +1,8 @@
 [Unit]
 Description=Parse contract and run csecmd
-After=cloud-final.service
-Requires=cloud-final.service
+After=cloud-init.target
 
 [Service]
 Type=oneshot
 ExecStart=/bin/bash /opt/azure/containers/nbcparser.sh
 RemainAfterExit=no
-
-[Install]
-WantedBy=multi-user.target
