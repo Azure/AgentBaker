@@ -25,12 +25,38 @@
       "enabled": false
     },
     {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
+      "matchDatasources": ["docker", "custom.deb1804"],
       "matchUpdateTypes": [
-        "patch",
-        "pin",
-        "digest"
+        "patch"
       ],
+      "additionalBranchPrefix": "deb1804-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb2004"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb2004-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb2204"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb2204-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb2204"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb2404-",
       "automerge": false,
       "enabled": true
     },

@@ -25,8 +25,6 @@
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
 # Renovate configurations
-For a general Renovate introductions, please read this wiki. https://msazure.visualstudio.com/CloudNativeCompute/_wiki/wikis/CloudNativeCompute.wiki/699998/Renovate-101
-
 This readme file is specifically describing what the renovate.json for AgentBaker is doing and how to edit it when needed.
 There are 3 major blocks in the renovate.json configurations, namely `package rules`, `custom managers` and `custom datasources`.
 
