@@ -79,8 +79,6 @@ jobs:
       name: matrix
       
 - job: Test
-  workspace:
-    clean: all
   dependsOn:
     - Setup_Test_Cluster
     - Generate_Matrix
