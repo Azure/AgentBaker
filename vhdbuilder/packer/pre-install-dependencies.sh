@@ -81,6 +81,7 @@ systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "sync_container_logs"
 
 # enable and start nbcparser.service
+systemctl enable nbcparser.target
 systemctl enable nbcparser.service
 
 # First handle Mariner + FIPS
