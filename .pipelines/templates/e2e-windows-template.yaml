@@ -19,6 +19,8 @@ parameters:
     default: storewin19
 
 jobs:
+- workspace:
+    clean: all
 - job: Setup_Test_Cluster
   steps:
     - bash: |
