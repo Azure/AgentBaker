@@ -374,6 +374,9 @@ const (
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
 
+	// AzureLinuxV3 pinned to 202409.23.0 for testing.
+	FrozenAzureLinuxV3SIGImageVersion string = "202409.23.0"
+
 	// This is currently for testing only, we do not build 2404 images regularly
 	// Once 2404 is preview in AKS, we will refer to the images using regular LinuxSIGImageVersion and remove this.
 	Ubuntu2404SIGImageVersionForTest string = "202405.20.0"
@@ -630,7 +633,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V3",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxV3SIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
@@ -651,7 +654,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V3gen2",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxV3SIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -672,7 +675,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V3fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxV3SIGImageVersion,
 	}
 
 	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
@@ -693,7 +696,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V3gen2fips",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxV3SIGImageVersion,
 	}
 
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
@@ -728,7 +731,7 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V3gen2arm64",
-		Version:       LinuxSIGImageVersion,
+		Version:       FrozenAzureLinuxV3SIGImageVersion,
 	}
 
 	SIGCBLMarinerV2TLImageConfigTemplate = SigImageConfigTemplate{
