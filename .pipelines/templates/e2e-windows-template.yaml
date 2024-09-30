@@ -19,9 +19,9 @@ parameters:
     default: storewin19
 
 jobs:
-- workspace:
-    clean: all
 - job: Setup_Test_Cluster
+  workspace:
+    clean: all
   steps:
     - bash: |
         az login --identity
