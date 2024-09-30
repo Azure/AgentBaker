@@ -25,7 +25,15 @@
       "enabled": false
     },
     {
-      "matchDatasources": ["docker", "custom.deb1804"],
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb1804"],
       "matchUpdateTypes": [
         "patch"
       ],
@@ -52,7 +60,7 @@
       "enabled": true
     },
     {
-      "matchDatasources": ["custom.deb2204"],
+      "matchDatasources": ["custom.deb2404"],
       "matchUpdateTypes": [
         "patch"
       ],
