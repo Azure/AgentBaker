@@ -43,8 +43,8 @@ steps:
       
       echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
       cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
-    displayName: Apply Overrides
     condition: eq('${{ parameters.useOverrides }}', true)
+    displayName: Apply Overrides
   
   - bash: |
       m="linuxVhdMode" && \
@@ -62,8 +62,8 @@ steps:
       downloadDirectory: vhdbuilder/packer
 
   - task: DownloadPipelineArtifact@2
-    displayName: 'Download Kata CC UVM artifact'
     condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
+    displayName: 'Download Kata CC UVM artifact'
     inputs:
       source: specific
       project: CloudNativeCompute
@@ -180,8 +180,8 @@ steps:
       TELEPORTD_PLUGIN_DOWNLOAD_URL: $(TELEPORTD_PLUGIN_DOWNLOAD_URL)
 
   - bash: make -f packer.mk test-scan-and-cleanup
-    displayName: Test, Scan, and Cleanup
     condition: always()
+    displayName: Test, Scan, and Cleanup
     env:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       POOL_NAME: $(POOL_NAME)
@@ -252,8 +252,8 @@ steps:
       VHD_NAME: $(VHD_NAME)
 
   - bash: make -f packer.mk evaluate-build-performance
-    displayName: Check Build Performance
     condition: always()
+    displayName: Check Build Performance
     env:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
@@ -273,16 +273,16 @@ steps:
       BUILD_PERF_DATA_FILE: $(BUILD_PERF_DATA_FILE)
 
   - task: CopyFiles@2
-    displayName: Copy Trivy Report
     condition: eq(variables['IS_NOT_1804'], 'true')
+    displayName: Copy Trivy Report
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-report.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: CopyFiles@2
-    displayName: Copy Trivy Table
     condition: eq(variables['IS_NOT_1804'], 'true')
+    displayName: Copy Trivy Table
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-images-table.txt'
@@ -308,16 +308,16 @@ steps:
       targetPath: 'image-bom.json'
 
   - task: CopyFiles@2
-    displayName: Copy Image Bom
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    displayName: Copy Image Bom
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'image-bom.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
-    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       # Azure Variables - Azure resource variables that are present when the pipeline begins
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
@@ -370,23 +370,23 @@ steps:
       VHD_NAME: $(VHD_NAME)
 
   - task: PublishPipelineArtifact@1
-    displayName: Publish VHD Publishing-info
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    displayName: Publish VHD Publishing-info
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
 
   - task: CopyFiles@2
-    displayName: Copy VHD Publishing-info
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    displayName: Copy VHD Publishing-info
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: UniversalPackages@0
-    displayName: Universal Publish
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    displayName: Universal Publish
     inputs:
       command: publish
       publishDirectory: 'vhd-publishing-info.json'
@@ -397,8 +397,8 @@ steps:
 
   - task: PublishPipelineArtifact@0
     # These "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
-    displayName: Publish Bulk Artifacts
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    displayName: Publish Bulk Artifacts
     inputs:
       artifactName: '${{ parameters.artifactName }}'
       targetPath: '$(Build.ArtifactStagingDirectory)'
