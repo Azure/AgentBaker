@@ -125,6 +125,8 @@ steps:
       echo "##vso[task.setvariable variable=IS_NOT_1804]$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false )" && \
       echo "##vso[task.setvariable variable=VHD_NAME]$(CAPTURED_SIG_VERSION).vhd"
     displayName: Set Pipeline Variables
+    env:
+      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
 
   - bash: |
       make -f packer.mk run-packer && \
