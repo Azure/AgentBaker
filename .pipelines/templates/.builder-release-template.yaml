@@ -119,7 +119,7 @@ steps:
   
   - bash: |
     echo "##vso[task.setvariable variable=OS_DISK_URI]$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
-    echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
+    echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
     echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
     echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION]$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
     echo "##vso[task.setvariable variable=IMPORTED_IMAGE_NAME]$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
