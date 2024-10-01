@@ -71,7 +71,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
-
+    
 capture_benchmark "create_scan_vm"
 
 FULL_PATH=$(realpath $0)
