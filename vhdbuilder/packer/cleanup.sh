@@ -217,7 +217,7 @@ if [ -n "$old_storage_accounts" ]; then
 else
   echo "did not find any old storage accounts eligible for deletion"
 fi
-capture_benchmark "cleanup_storage_accounts" true
+capture_benchmark "cleanup_storage_accounts"
 
 echo -e "Packer cleanup successfully completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true
