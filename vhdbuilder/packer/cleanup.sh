@@ -73,6 +73,7 @@ if [[ -n "${IMPORTED_IMAGE_NAME}" ]]; then
     az image delete -n ${IMPORTED_IMAGE_NAME} -g ${AZURE_RESOURCE_GROUP_NAME}
   fi
 fi
+capture_benchmark "cleanup_imported_image"
 
 #cleanup built sig image if the generated sig is for production only, but not for test purpose.
 #If SIG_FOR_PRODUCTION is set to true, the sig has been converted to VHD before this step.
@@ -172,7 +173,6 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
       fi
     done
   done
-  capture_benchmark "delete_old_sig_versions"
 
   if [[ -n "${old_sig_version_ids}" ]]; then
     echo "Attempting to delete $(echo ${old_sig_version_ids} | wc -w) SIG image versions older than ${EXPIRATION_IN_HOURS} hours..."
@@ -182,7 +182,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   fi
   set -x
 fi
-capture_benchmark "cleanup_managed_images"
+capture_benchmark "delete_old_sig_versions"
 
 if [[ -z "${AZURE_RESOURCE_GROUP_NAME}" ]]; then
   echo "AZURE_RESOURCE_GROUP_NAME is not set, skipping storage account backfill deletion..."
@@ -217,6 +217,7 @@ if [ -n "$old_storage_accounts" ]; then
 else
   echo "did not find any old storage accounts eligible for deletion"
 fi
+capture_benchmark "cleanup_storage_accounts" true
 
 echo -e "Packer cleanup successfully completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true
