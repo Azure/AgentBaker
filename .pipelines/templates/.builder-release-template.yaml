@@ -133,6 +133,7 @@ steps:
       echo "##vso[task.setvariable variable=BRANCH]$(Build.SourceBranch)"
       echo "##vso[task.setvariable variable=GIT_BRANCH]$(Build.SourceBranch)"
       echo "##vso[task.setvariable variable=JOB_STATUS]$(Agent.JobStatus)"
+      echo "##vso[task.setvariable variable=VHD_DEBUG]False"
     displayName: Set Pipeline Variables
 
   - bash: |
