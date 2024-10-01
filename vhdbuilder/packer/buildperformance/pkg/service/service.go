@@ -145,7 +145,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		}
 	}
 	if len(maps.RegressionMap) > 0 {
-		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 2 stdev above the mean")
+		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 3 stdev above the mean")
 		if err := maps.DisplayRegressions(); err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
