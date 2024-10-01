@@ -46,7 +46,6 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-
 capture_benchmark "set_variables_and_create_test_resource_group"
 
 if [ "$MODE" == "default" ]; then
