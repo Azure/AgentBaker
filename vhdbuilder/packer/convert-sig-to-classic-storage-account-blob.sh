@@ -103,6 +103,7 @@ az disk revoke-access --ids $disk_resource_id
 az resource delete --ids $disk_resource_id
 
 echo "Deleted $disk_resource_id"
+capture_benchmark "revoke_access_and_delete_disk"
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
