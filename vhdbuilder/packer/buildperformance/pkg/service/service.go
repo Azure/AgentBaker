@@ -164,7 +164,7 @@ func SumSlice(slice []float64) (float64, error) {
 		sum = -1
 		return sum, nil
 	}
-	sum = slice[0] + slice[1]*2
+	sum = slice[0] + slice[1]*3
 	return sum, nil
 }
 
