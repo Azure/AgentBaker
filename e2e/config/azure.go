@@ -36,6 +36,7 @@ type AzureClient struct {
 	PrivateZonesClient        *armprivatedns.PrivateZonesClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	RecordSetClient           *armprivatedns.RecordSetsClient
+	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -127,6 +128,11 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.RecordSetClient, err = armprivatedns.NewRecordSetsClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create record set client: %w", err)
+	}
+
+	cloud.PrivateDNSZoneGroup, err = armnetwork.NewPrivateDNSZoneGroupsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private dns zone group client: %w", err)
 	}
 
 	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
