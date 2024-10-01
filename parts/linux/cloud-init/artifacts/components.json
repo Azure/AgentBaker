@@ -116,8 +116,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.7",
-          "previousLatestVersion": "v1.6.5",
+          "latestVersion": "v1.6.10",
+          "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -616,7 +616,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.20"
+                "latestVersion": "1.7.22-ubuntu22.04u1"
               }
             ]
           },
@@ -624,7 +624,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.20"
+                "latestVersion": "1.7.22-ubuntu20.04u1"
               }
             ]
           },
@@ -714,8 +714,8 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.7",
-                "previousLatestVersion": "1.6.3"
+                "latestVersion": "1.6.10",
+                "previousLatestVersion": "1.6.7"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"

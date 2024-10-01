@@ -22,6 +22,10 @@ jobs:
 - job: Setup_Test_Cluster
   steps:
     - bash: |
+        echo "Cleaning up artifacts..."
+        rm -rf $(Build.ArtifactStagingDirectory)/${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
+      displayName: "Clean up artifacts"
+    - bash: |
         az login --identity
         az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
         az extension add --name aks-preview
@@ -82,6 +86,10 @@ jobs:
     matrix: $[ dependencies.Generate_Matrix.outputs['matrix.scenarioMatrix'] ]
     maxParallel: 3
   steps:
+    - bash: |
+        echo "Cleaning up artifacts..."
+        rm -rf $(Build.ArtifactStagingDirectory)/${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-$(SCENARIO_NAME)-logs
+      displayName: "Clean up artifacts"
     - download: current
       artifact: ${{ parameters.windowsImage }}${{ parameters.windowsGpuDriverSuffix }}-clusterConfig
     - bash: |
