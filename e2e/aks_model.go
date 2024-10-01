@@ -95,7 +95,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, cluster *Cluste
 		return err
 	}
 
-	err = addPrivateEndpointToACR(ctx, t, *cluster.Model.Properties.NodeResourceGroup, vnet)
+	err = addPrivateEndpointForACR(ctx, t, *cluster.Model.Properties.NodeResourceGroup, vnet)
 	if err != nil {
 		return err
 	}
@@ -148,102 +148,81 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 }
 
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
-	// private endpoint
+	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
 
-	// Private DNS Zone E2E subscription
-
-	// Private DNS Link
-
-	// RecordSet to the Private DNS Zone
-
-	// create the dns zone group
-
-	return nil
-}
-
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
-	endpointName := "PE-for-ABE2ETests"
-	peParams := armnetwork.PrivateEndpoint{
-		Location: to.Ptr(config.Config.Location),
-		Properties: &armnetwork.PrivateEndpointProperties{
-			Subnet: &armnetwork.Subnet{
-				ID: to.Ptr(vnet.subnetId),
-			},
-			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
-				{
-					Name: to.Ptr(endpointName),
-					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
-						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
-						GroupIDs:             []*string{to.Ptr("registry")},
-					},
-				},
-			},
-			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{},
-		},
-	}
-	pollerPE, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
-		ctx,
-		nodeResourceGroup,
-		endpointName,
-		peParams,
-		nil,
-	)
+	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, vnet)
 	if err != nil {
-		return fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
+		return err
 	}
-	peResp, err := pollerPE.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create private endpoint in polling: %w", err)
-	}
-	t.Logf("Private Endpoint created or updated with ID: %s\n", *peResp.ID)
 
-	return nil
-
-}
-
-func addPrivateEndpointToACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
-	// Private Endpoint E2E subscription
-	endpointName := "PE-for-ABE2ETests"
-	peParams := armnetwork.PrivateEndpoint{
-		Location: to.Ptr(config.Config.Location),
-		Properties: &armnetwork.PrivateEndpointProperties{
-			Subnet: &armnetwork.Subnet{
-				ID: to.Ptr(vnet.subnetId),
-			},
-			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
-				{
-					Name: to.Ptr(endpointName),
-					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
-						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
-						GroupIDs:             []*string{to.Ptr("registry")},
-					},
-				},
-			},
-			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{},
-		},
-	}
-	pollerPE, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
-		ctx,
-		nodeResourceGroup,
-		endpointName,
-		peParams,
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
-	}
-	peResp, err := pollerPE.PollUntilDone(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create private endpoint in polling: %w", err)
-	}
-	t.Logf("Private Endpoint created or updated with ID: %s\n", *peResp.ID)
-
-	// Private DNS Zone E2E subscription
 	privateZoneName := "privatelink.azurecr.io"
+	pzResp, err := createPrivateZone(ctx, t, nodeResourceGroup, privateZoneName)
+	if err != nil {
+		return err
+	}
+
+	err = createPrivateDNSLink(ctx, t, vnet, nodeResourceGroup, privateZoneName)
+	if err != nil {
+		return err
+	}
+
+	err = addRecordSetToPrivateDNSZone(ctx, t, peResp, nodeResourceGroup, privateZoneName)
+	if err != nil {
+		return err
+	}
+
+	err = addDNSZoneGroup(ctx, t, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+	endpointName := "PE-for-ABE2ETests"
+	peParams := armnetwork.PrivateEndpoint{
+		Location: to.Ptr(config.Config.Location),
+		Properties: &armnetwork.PrivateEndpointProperties{
+			Subnet: &armnetwork.Subnet{
+				ID: to.Ptr(vnet.subnetId),
+			},
+			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
+				{
+					Name: to.Ptr(endpointName),
+					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
+						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
+						GroupIDs:             []*string{to.Ptr("registry")},
+					},
+				},
+			},
+			CustomDNSConfigs: []*armnetwork.CustomDNSConfigPropertiesFormat{},
+		},
+	}
+	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
+		ctx,
+		nodeResourceGroup,
+		endpointName,
+		peParams,
+		nil,
+	)
+	if err != nil {
+		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in BeginCreateOrUpdate: %w", err)
+	}
+	resp, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
+	}
+	t.Logf("Private Endpoint created or updated with ID: %s\n", *resp.ID)
+
+	return resp, nil
+}
+
+func createPrivateZone(ctx context.Context, t *testing.T, nodeResourceGroup, privateZoneName string) (armprivatedns.PrivateZonesClientCreateOrUpdateResponse, error) {
 	dnsZoneParams := armprivatedns.PrivateZone{
 		Location: to.Ptr("global"),
 	}
-	pollerPZ, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
+	poller, err := config.Azure.PrivateZonesClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
 		privateZoneName,
@@ -251,15 +230,18 @@ func addPrivateEndpointToACR(ctx context.Context, t *testing.T, nodeResourceGrou
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
+		return armprivatedns.PrivateZonesClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private dns zone in BeginCreateOrUpdate: %w", err)
 	}
-	pzResp, err := pollerPZ.PollUntilDone(ctx, nil)
+	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create private dns zone in polling: %w", err)
+		return armprivatedns.PrivateZonesClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private dns zone in polling: %w", err)
 	}
-	t.Logf("Private DNS Zone created or updated with ID: %s\n", *pzResp.ID)
 
-	// Private DNS Link
+	t.Logf("Private DNS Zone created or updated with ID: %s\n", *resp.ID)
+	return resp, nil
+}
+
+func createPrivateDNSLink(ctx context.Context, t *testing.T, vnet VNet, nodeResourceGroup, privateZoneName string) error {
 	vnetForId, err := config.Azure.VNet.Get(ctx, nodeResourceGroup, vnet.name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get vnet: %w", err)
@@ -274,7 +256,7 @@ func addPrivateEndpointToACR(ctx context.Context, t *testing.T, nodeResourceGrou
 			RegistrationEnabled: to.Ptr(false),
 		},
 	}
-	pollerVL, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
+	poller, err := config.Azure.VirutalNetworkLinksClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
 		privateZoneName,
@@ -285,13 +267,16 @@ func addPrivateEndpointToACR(ctx context.Context, t *testing.T, nodeResourceGrou
 	if err != nil {
 		return fmt.Errorf("failed to create virtual network link in BeginCreateOrUpdate: %w", err)
 	}
-	vlResp, err := pollerVL.PollUntilDone(ctx, nil)
+	resp, err := poller.PollUntilDone(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create virtual network link in polling: %w", err)
 	}
-	t.Logf("Virtual Network Link created or updated with ID: %s\n", *vlResp.ID)
 
-	// RecordSet to the Private DNS Zone
+	t.Logf("Virtual Network Link created or updated with ID: %s\n", *resp.ID)
+	return nil
+}
+
+func addRecordSetToPrivateDNSZone(ctx context.Context, t *testing.T, peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName string) error {
 	for i, dnsConfigPtr := range peResp.Properties.CustomDNSConfigs {
 		var ipAddresses []string
 		if dnsConfigPtr == nil {
@@ -321,15 +306,18 @@ func addPrivateEndpointToACR(ctx context.Context, t *testing.T, nodeResourceGrou
 				ARecords: aRecords,
 			},
 		}
-		_, err = config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeResourceGroup, privateZoneName, armprivatedns.RecordTypeA, *dnsConfig.Fqdn, aRecordSet, nil)
+		_, err := config.Azure.RecordSetClient.CreateOrUpdate(ctx, nodeResourceGroup, privateZoneName, armprivatedns.RecordTypeA, *dnsConfig.Fqdn, aRecordSet, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create record set: %w", err)
 		}
 	}
-	t.Logf("Record Set created or updated")
 
-	// create the dns zone group
-	groupName := strings.Replace(privateZoneName, ".", "-", -1)
+	t.Logf("Record Set created or updated")
+	return nil
+}
+
+func addDNSZoneGroup(ctx context.Context, t *testing.T, pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName, endpointName string) error {
+	groupName := strings.Replace(privateZoneName, ".", "-", -1) // double check on this
 	dnsZonegroup := armnetwork.PrivateDNSZoneGroup{
 		Name: to.Ptr(fmt.Sprintf("%s/default", privateZoneName)),
 		Properties: &armnetwork.PrivateDNSZoneGroupPropertiesFormat{
@@ -349,8 +337,8 @@ func addPrivateEndpointToACR(ctx context.Context, t *testing.T, nodeResourceGrou
 	if err != nil {
 		return fmt.Errorf("failed to create private dns zone group in polling: %w", err)
 	}
-	t.Logf("Private DNS Zone Group created or updated with ID")
 
+	t.Logf("Private DNS Zone Group created or updated with ID")
 	return nil
 }
 
