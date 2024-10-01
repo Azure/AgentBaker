@@ -182,6 +182,7 @@ retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
     echo "${binary_retries} retries"
+    
     for i in $(seq 1 $binary_retries); do
         if [ -f "$binary_path" ]; then
             break
