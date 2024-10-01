@@ -317,7 +317,7 @@ func addRecordSetToPrivateDNSZone(ctx context.Context, t *testing.T, peResp armn
 }
 
 func addDNSZoneGroup(ctx context.Context, t *testing.T, pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse, nodeResourceGroup, privateZoneName, endpointName string) error {
-	groupName := strings.Replace(privateZoneName, ".", "-", -1) // double check on this
+	groupName := strings.Replace(privateZoneName, ".", "-", -1) // replace . with -
 	dnsZonegroup := armnetwork.PrivateDNSZoneGroup{
 		Name: to.Ptr(fmt.Sprintf("%s/default", privateZoneName)),
 		Properties: &armnetwork.PrivateDNSZoneGroupPropertiesFormat{
