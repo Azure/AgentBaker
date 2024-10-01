@@ -133,69 +133,17 @@ steps:
     displayName: Build VHD
     #retryCountOnTaskFailure: 3
     env:
-      # Azure Variables - Azure variables that are present when the pipeline begins
-      POOL_NAME: $(POOL_NAME)
-      ENVIRONMENT: $(ENVIRONMENT)
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
-      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
-      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
-
-      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
-      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
-      FEATURE_FLAGS: $(FEATURE_FLAGS)
-      OS_VERSION: $(OS_VERSION)
-      OS_SKU: $(OS_SKU)
-      HYPERV_GENERATION: $(HYPERV_GENERATION)
-      IMG_PUBLISHER: ${IMG_PUBLISHER}
-      IMG_OFFER: $(IMG_OFFER)
-      IMG_SKU: $(IMG_SKU)
-      IMG_VERSION: $(IMG_VERSION)
-      CONTAINER_RUNTIME: $(CONTAINER_RUNTIME)
-      ENABLE_FIPS: $(ENABLE_FIPS)
-      ARCHITECTURE: $(ARCHITECTURE)
-      ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
-      SGX_INSTALL: $(SGX_INSTALL)
-      ENABLE_CGROUPV2: $(ENABLE_CGROUPV2)
-
-      # Build Variables - Azure Pipelines specific variables
       GIT_VERSION: $(Build.SourceVersion)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       BUILD_ID: $(Build.BuildId)
       BUILD_NUMBER: $(Build.BuildNumber)
       BRANCH: $(Build.SourceBranch)
-
-      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       OS_TYPE: "Linux"
-      SKU_NAME: $(SKU_NAME)
-      MODE: $(MODE)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
-      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
-      IMAGE_VERSION: $(IMAGE_VERSION)
-      MANAGED_SIG_ID: $(MANAGED_SIG_ID)
-
-      # Download URLs
-      PRIVATE_PACKAGES_URL: (PRIVATE_PACKAGES_URL)
-      TELEPORTD_PLUGIN_DOWNLOAD_URL: $(TELEPORTD_PLUGIN_DOWNLOAD_URL)
 
   - bash: make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
     env:
-      # Azure Variables - Azure variables that are present when the pipeline begins
-      POOL_NAME: $(POOL_NAME)
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      ENVIRONMENT: $(ENVIRONMENT)
-      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
-      SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
-      BLOB_STORAGE_NAME: $(BLOB_STORAGE_NAME)
-      IMAGE_VERSION: $(IMAGE_VERSION)
-      IMPORTED_IMAGE_NAME: $(IMPORTED_IMAGE_NAME)
-      CLASSIC_BLOB: $(CLASSIC_BLOB)
-      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
-      PKR_RG_NAME: $(PKR_RG_NAME)
       SCANNING_MSI_RESOURCE_ID: $(SCANNING_MSI_RESOURCE_ID)
       KUSTO_ENDPOINT: $(KUSTO_ENDPOINT)
       KUSTO_DATABASE: $(KUSTO_DATABASE)
@@ -207,26 +155,6 @@ steps:
       BLOB_URL: $(BLOB_URL)
       SEVERITY: $(SEVERITY)
       MODULE_VERSION: $(MODULE_VERSION)
-
-      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
-      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
-      FEATURE_FLAGS: $(FEATURE_FLAGS)
-      OS_VERSION: $(OS_VERSION)
-      OS_SKU: $(OS_SKU)
-      HYPERV_GENERATION: $(HYPERV_GENERATION)
-      IMG_PUBLISHER: ${IMG_PUBLISHER}
-      IMG_OFFER: $(IMG_OFFER)
-      IMG_SKU: $(IMG_SKU)
-      IMG_VERSION: $(IMG_VERSION)
-      CONTAINER_RUNTIME: $(CONTAINER_RUNTIME)
-      ENABLE_FIPS: $(ENABLE_FIPS)
-      ARCHITECTURE: $(ARCHITECTURE)
-      ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
-      SGX_INSTALL: $(SGX_INSTALL)
-      ENABLE_CGROUPV2: $(ENABLE_CGROUPV2)
-      DRY_RUN: $(DRY_RUN)
-
-      # Build Variables - Azure Pipelines specific variables
       GIT_VERSION: $(Build.SourceVersion)
       GIT_BRANCH: $(Build.SourceBranch)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
@@ -238,39 +166,16 @@ steps:
       SYSTEM_COLLECTIONURI: $(System.CollectionUri)
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
-
-      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       OS_TYPE: "Linux"
-      SKU_NAME: $(SKU_NAME)
-      MODE: $(MODE)
-      IMAGE_NAME: $(IMAGE_NAME)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
-      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
-      OS_DISK_URI: $(OS_DISK_URI)
-      MANAGED_SIG_ID: $(MANAGED_SIG_ID)
-      VHD_DEBUG: $(VHD_DEBUG)
-      VHD_NAME: $(VHD_NAME)
 
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
     env:
-      # Azure Variables - Azure variables that are present when the pipeline begins
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-
-      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
-      ARCHITECTURE: $(ARCHITECTURE)
-
-      # Build Variables - Azure Pipelines specific variables
       GIT_VERSION: $(Build.SourceVersion)
       GIT_BRANCH: $(Build.SourceBranch)
       BUILD_ID: $(Build.BuildId)
       JOB_STATUS: $(Agent.JobStatus)
-
-      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
-      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
-      BUILD_PERF_DATA_FILE: $(BUILD_PERF_DATA_FILE)
 
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
@@ -320,54 +225,22 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       # Azure Variables - Azure variables that are present when the pipeline begins
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-      SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
-      PACKER_BUILD_LOCATION: $(PACKER_BUILD_LOCATION)
-      CLASSIC_BLOB: $(CLASSIC_BLOB)
-      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
-
-      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
-      ARCHITECTURE: $(ARCHITECTURE)
-      ENABLE_TRUSTED_LAUNCH: $(ENABLE_TRUSTED_LAUNCH)
-
-      # Build Variables - Azure Pipelines specific variables
       GIT_VERSION: $(Build.SourceVersion)
       GIT_BRANCH: $(Build.SourceBranch)
       BUILD_ID: $(Build.BuildId)
       JOB_STATUS: $(Agent.JobStatus)
-
-      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
-      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
       OS_TYPE: "Linux" 
 
   - bash: make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
     env:
-      # Azure Variables - Azure resource variables that are present when the pipeline begins
-      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
-
-      # Template parameters - Unique for each SKU. These are passed from each build stage in vsts-vhd-builder-release.yaml
       OFFER_NAME: $(OS_SKU)
-      HYPERV_GENERATION: $(HYPERV_GENERATION)
-      IMG_PUBLISHER: ${IMG_PUBLISHER}
-      IMG_OFFER: $(IMG_OFFER)
-      IMG_SKU: $(IMG_SKU)
-      IMG_VERSION: $(IMG_VERSION)
-      ARCHITECTURE: $(ARCHITECTURE) 
-
-      # Misc - Variables dynamically defined in code or the pipeline. Some may point to Azure resources
       OS_TYPE: "Linux"
       OS_NAME: "Linux"
-      SKU_NAME: $(SKU_NAME)
-      IMAGE_VERSION: $(IMAGE_VERSION)
-      SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
-      CAPTURED_SIG_VERSION: $(CAPTURED_SIG_VERSION)
-      VHD_NAME: $(VHD_NAME)
 
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
