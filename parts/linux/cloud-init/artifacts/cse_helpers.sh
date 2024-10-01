@@ -219,7 +219,6 @@ retrycmd_get_tarball() {
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
-    tar_retries=3
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
         tar -tzf $tarball && break || \
@@ -239,7 +238,6 @@ retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
     echo "${binary_retries} retries"
-    binary_retries=3
     for i in $(seq 1 $binary_retries); do
         if [ -f "$binary_path" ]; then
             break
