@@ -25,13 +25,15 @@ capture_benchmark() {
   title="${title//-/_}"
   local is_final_section=${2:-false}
 
-  local current_time=$(date +%s)
+  local current_time
+  current_time=$(date +%s)
   if [[ "$is_final_section" == true ]]; then
     local start_time=$script_start_stopwatch
   else
     local start_time=$section_start_stopwatch
   fi
   
+  local total_time_elapsed
   total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
   benchmarks[$title]=${total_time_elapsed}
   benchmarks_order+=($title) # use this array to maintain order of benchmarks
