@@ -113,7 +113,39 @@ steps:
       echo "Set SKU_NAME to $SKU_NAME"
     displayName: Set SKU Name
 
-  - bash: make -f packer.mk run-packer
+  - bash: |
+      echo "$POOL_NAME" && \
+      echo "${SUBSCRIPTION_ID}" && \
+      echo "$AZYRE_VM_SIZE" && \
+      echo "${AZURE_RESOURCE_GROUP_NAME}" && \
+      echo "${ENVIRONMENT}" && \
+      echo "${PACKER_BUILD_LOCATION}" && \
+      echo "$FEATURE_FLAGS" && \
+      echo "$OS_VERSION" && \
+      echo "$SKU_NAME" && \
+      echo "${HYPERV_GENERATION}" && \
+      echo "${IMG_PUBLISHER}" && \
+      echo "${IMG_OFFER}" && \
+      echo "${IMG_SKU}" && \
+      echo "${IMG_VERSION}" && \
+      echo "${SIG_GALLERY_NAME}" && \
+      echo "${SIG_IMAGE_NAME}" && \
+      echo "${SIG_IMAGE_VERSION} && \
+      echo "${CONTAINER_RUNTIME}" && \
+      echo "${TELEPORTD_PLUGIN_DOWNLOAD_URL}" && \
+      echo "${ENABLE_FIPS}" && \
+      echo "${ARCHITECTURE}" && \
+      echo "${ENABLE_TRUSTED_LAUNCH}" && \
+      echo "${IMG_VERSION}" && \
+      echo "${SIG_GALLERY_NAME}" && \
+      echo "${SIG_IMAGE_NAME}" && \
+      echo "${SIG_IMAGE_VERSION} && \
+      echo "${SGX_INSTALL}" && \
+      echo "${ENABLE_CGROUPV2}" && \
+      echo "${IMAGE_VERSION}" && \
+      echo "${PRIVATE_PACKAGES_URL}" && \
+      echo "${AZURE_MSI_RESOURCE_STRING}" && \
+      make -f packer.mk run-packer
     displayName: Build VHD
     retryCountOnTaskFailure: 3
   
