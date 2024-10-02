@@ -1977,7 +1977,7 @@ func convertTestData(testCaseDataFolder string) {
 	files, err := filepath.Glob(filepath.Join(testCaseDataFolder, "line*.sh"))
 	Expect(err).To(BeNil(), "Error finding files")
 	for _, file := range files {
-		err := os.Remove(file)
+		err = os.Remove(file)
 		Expect(err).To(BeNil(), "Error removing file")
 	}
 
@@ -1996,14 +1996,14 @@ func convertTestData(testCaseDataFolder string) {
 			if scanner.Scan() {
 				lineNumber++
 				content := strings.TrimLeft(scanner.Text(), " ")
-				decoded, err := base64.StdEncoding.DecodeString(content)
-				Expect(err).To(BeNil(), fmt.Sprintf("Error decoding base64: %s \n %b", content, decoded))
+				decoded, decodeErr := base64.StdEncoding.DecodeString(content)
+				Expect(decodeErr).To(BeNil(), fmt.Sprintf("Error decoding base64: %s \n %b", content, decoded))
 				if len(decoded) > 0 {
-					reader, err := gzip.NewReader(bytes.NewReader(decoded))
-					Expect(err).To(BeNil(), fmt.Sprintf("Error creating gzip reader:\n\t%d\n\t%s\n\t%b", lineNumber, content, decoded))
+					reader, readerErr := gzip.NewReader(bytes.NewReader(decoded))
+					Expect(readerErr).To(BeNil(), fmt.Sprintf("Error creating gzip reader:\n\t%d\n\t%s\n\t%b", lineNumber, content, decoded))
 					defer reader.Close()
-					decoded, err = io.ReadAll(reader)
-					Expect(err).To(BeNil(), "Error reading gzip content")
+					decoded, decodeErr = io.ReadAll(reader)
+					Expect(decodeErr).To(BeNil(), "Error reading gzip content")
 				}
 
 				outputFile := filepath.Join(testCaseDataFolder, fmt.Sprintf("line%d.sh", lineNumber))
