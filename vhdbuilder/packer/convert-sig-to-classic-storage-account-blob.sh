@@ -85,7 +85,8 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
-azcopy login --login-type=MSI
+export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
 if [[ "${OS_TYPE}" == "Linux" ]]; then
   azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
