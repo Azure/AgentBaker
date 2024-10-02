@@ -119,6 +119,13 @@ ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registr
 ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
 
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
+
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
