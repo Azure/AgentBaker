@@ -57,10 +57,10 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 		return ab.GetNodeBootstrappingForSelfContained(ctx, nbc)
 	case bootstrappingType == CustomScripts:
 		return ab.GetNodeBootstrapping(ctx, nbc)
+	default:
+		// fallback to custom scripts
+		return ab.GetNodeBootstrapping(ctx, nbc)
 	}
-
-	// fallback to custom scripts
-	return ab.GetNodeBootstrapping(ctx, nbc)
 }
 
 func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
