@@ -86,7 +86,8 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 if [[ "${OS_TYPE}" == "Linux" ]]; then
-  azcopy login --login-type=MSI
+  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+  export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 else
   export AZCOPY_AUTO_LOGIN_TYPE="MSI"
   export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"

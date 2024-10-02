@@ -202,6 +202,7 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
 
   - bash: make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
