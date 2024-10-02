@@ -559,15 +559,15 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 	})
 }
 
-func Test_ubuntu2204Installer(t *testing.T) {
+func Test_ubuntu2204SelfContainedInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node using installer can be properly bootstrapepd",
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
-			//NodeBootstrappingType: SelfContained,
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			NodeBootstrappingType: SelfContained,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/opt/azure/installer.log", "Starting installer"),
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "Starting installer"),
 			},
 		},
 	})
