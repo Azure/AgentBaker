@@ -250,7 +250,7 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 
 func containerdVersionValidator(version string) *LiveVMValidator {
 	return &LiveVMValidator{
-		Description: "assert containerd version",
+		Description: fmt.Sprintf("assert containerd version is %s", version),
 		Command:     "containerd --version",
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
@@ -267,7 +267,7 @@ func containerdVersionValidator(version string) *LiveVMValidator {
 
 func runcVersionValidator(version string) *LiveVMValidator {
 	return &LiveVMValidator{
-		Description: "assert runc version",
+		Description: fmt.Sprintf("assert runc version is %s", version),
 		Command:     "runc --version",
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
