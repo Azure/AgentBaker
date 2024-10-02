@@ -85,14 +85,11 @@ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
+azcopy login --login-type=MSI
+
 if [[ "${OS_TYPE}" == "Linux" ]]; then
-  azcopy login --login-type=MSI
   azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 else
-  echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-  # TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
-  export AZCOPY_AUTO_LOGIN_TYPE="MSI"
-  export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
   azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 fi
 
@@ -103,3 +100,19 @@ az disk revoke-access --ids $disk_resource_id
 az resource delete --ids $disk_resource_id
 
 echo "Deleted $disk_resource_id"
+
+
+
+
+
+
+#if [[ "${OS_TYPE}" == "Linux" ]]; then
+  #azcopy login --login-type=MSI
+  #azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+#else
+  #echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
+  # TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
+  #export AZCOPY_AUTO_LOGIN_TYPE="MSI"
+  #export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
+  #azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+#fi
