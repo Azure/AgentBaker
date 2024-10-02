@@ -213,8 +213,8 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 	if err != nil {
 		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
+	
 	t.Logf("Private Endpoint created or updated with ID: %s\n", *resp.ID)
-
 	return resp, nil
 }
 
