@@ -40,8 +40,8 @@ jobs:
           
           cd e2e
           mkdir -p bin
-          GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
-          go test -v -parallel 100 -timeout 90m 2>&1 | ./bin/go-junit-report -iocopy -set-exit-code -out "$(Build.SourcesDirectory)/e2e/report.xml"
+          GOBIN=`pwd`/bin/ go install go install gotest.tools/gotestsum@latest
+          ./bin/gotestsum -f testname --format-icons hivis --junitfile "$(Build.SourcesDirectory)/e2e/report.xml" -- -test.parallel 100 -test.timeout 90    
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
