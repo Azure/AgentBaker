@@ -1,11 +1,11 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
-trigger:
-  branches:
-    include:
-    - master
-    - official/*
+trigger: none
 # The e2e tests are actually run as part of .vsts-vhd-builder.yaml pipline now after the VHDs for the PR are built. That way
 # we run the tests on the VHD from the PR not from the master branch.
+#  branches:
+#    include:
+#      - master
+#      - official/*
 #pr:
 #  branches:
 #    include:
