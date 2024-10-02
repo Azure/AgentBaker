@@ -125,6 +125,7 @@ SCRIPT_NAME=$(basename $0 .sh)
 SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
