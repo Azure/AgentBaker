@@ -627,7 +627,7 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.20-1"),
+				containerdVersionValidator("1.7.22-1"),
 				runcVersionValidator("1.1.14-1"),
 			},
 		},
