@@ -27,14 +27,20 @@ fi
 
 filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
 
-# also shell-check generated test data
-generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
-for file in $generatedTestData; do
-    firstLine=$(awk 'NR==1 {print; exit}' ${file})
-    if [[ ${firstLine} =~ "#!/bin/bash" ]]; then
-        filesToCheck+=(${file})
-    fi
-done
+# also shell-check generated test data if present
+if [[ -d "./pkg/agent/testdata" ]]; then
+    echo "Checking generated test data, skipping shell-check for generated test data"
+    generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
+    for file in $generatedTestData; do
+        firstLine=$(awk 'NR==1 {print; exit}' ${file})
+        if [[ ${firstLine} =~ "#!/bin/bash" ]]; then
+            filesToCheck+=(${file})
+        fi
+    done
+else
+    echo "No generated test data found"
+fi
+
 
 echo "Running shellcheck..."
 
