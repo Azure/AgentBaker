@@ -3,23 +3,26 @@ trigger:
   branches:
     include: 
     - master
-pr:
-  branches:
-    include:
-      - master
-      - official/*
-  paths:
-    include:
-      - .pipelines/e2e.yaml
-      - .pipelines/templates/e2e-template.yaml
-      - e2e
-      - parts/linux
-      - pkg/agent
-    exclude:
-      - e2e/windows
-      - pkg/agent/datamodel/sig_config*.go # SIG config changes
-      - pkg/agent/datamodel/*.json # SIG version changes
-      - pkg/agent/testdata/AKSWindows* # Windows test data
-      - parts/linux/cloud-init/artifacts/components.json # centralized components management file
+    - official/*
+# The e2e tests are actually run as part of .vsts-vhd-builder.yaml pipline now after the VHDs for the PR are built. That way
+# we run the tests on the VHD from the PR not from the master branch.
+#pr:
+#  branches:
+#    include:
+#      - master
+#      - official/*
+#  paths:
+#    include:
+#      - .pipelines/e2e.yaml
+#      - .pipelines/templates/e2e-template.yaml
+#      - e2e
+#      - parts/linux
+#      - pkg/agent
+#    exclude:
+#      - e2e/windows
+#      - pkg/agent/datamodel/sig_config*.go # SIG config changes
+#      - pkg/agent/datamodel/*.json # SIG version changes
+#      - pkg/agent/testdata/AKSWindows* # Windows test data
+#      - parts/linux/cloud-init/artifacts/components.json # centralized components management file
 jobs:
   - template: ./templates/e2e-template.yaml
