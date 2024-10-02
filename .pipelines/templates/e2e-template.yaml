@@ -35,6 +35,9 @@ jobs:
             echo "Build.BuildId is not specified. Running default e2e tests."
           fi
           
+          # Generating the testdata for the e2e tests
+          make generate
+          
           cd e2e
           mkdir -p bin
           GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
