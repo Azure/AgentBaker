@@ -566,7 +566,6 @@ func Test_ubuntu2204Installer(t *testing.T) {
 			NodeBootstrappingType: SelfContained,
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2204Gen2Containerd,
-			CSEOverride:           "/opt/azure/installer",
 			LiveVMValidators: []*LiveVMValidator{
 				FileHasContentsValidator("/opt/azure/installer.log", "Starting installer"),
 			},
