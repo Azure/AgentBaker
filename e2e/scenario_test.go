@@ -563,9 +563,9 @@ func Test_ubuntu2204Installer(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using installer can be properly bootstrapepd",
 		Config: Config{
-			NodeBootstrappingType: SelfContained,
-			Cluster:               ClusterKubenet,
-			VHD:                   config.VHDUbuntu2204Gen2Containerd,
+			//NodeBootstrappingType: SelfContained,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
 				FileHasContentsValidator("/opt/azure/installer.log", "Starting installer"),
 			},
