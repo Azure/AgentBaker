@@ -1209,7 +1209,7 @@ func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
 	})
 }
 
-func Test_azurelinuxv2MessageOfTheDay(t *testing.T) {
+func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
 		Config: Config{
