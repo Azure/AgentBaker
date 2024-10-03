@@ -119,8 +119,6 @@ steps:
       make -f packer.mk run-packer
     displayName: Build VHD
     retryCountOnTaskFailure: 3
-    env:
-      GIT_VERSION: $(Build.SourceVersion)
       BRANCH: $(Build.SourceBranch)
       BUILD_NUMBER: $(Build.BuildNumber)
       BUILD_ID: $(Build.BuildId)
