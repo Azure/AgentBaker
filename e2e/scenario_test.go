@@ -1190,9 +1190,6 @@ func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
 
 func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Tags: Tags{
-			ServerTLSBootstrapping: true,
-		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
 		Config: Config{
 			Cluster: ClusterKubenet,
