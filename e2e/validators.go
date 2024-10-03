@@ -248,10 +248,10 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 	}
 }
 
-func containerdVersionValidator(version string) *LiveVMValidator {
+func containerdVersionValidator(version, command string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert containerd version",
-		Command:     "containerd --version",
+		Command:     command,
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
