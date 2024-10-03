@@ -6,7 +6,6 @@ SCRIPT_NAME=$(basename $0 .sh)
 SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
-VHD_BUILD_PERF_DATA=${BUILD_PERF_DATA_FILE}
 
 check_array_size() {
   declare -n array_name=$1
