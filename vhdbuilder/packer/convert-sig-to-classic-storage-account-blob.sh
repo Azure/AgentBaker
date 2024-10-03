@@ -49,7 +49,7 @@ fi
 # Use $SIG_IMAGE_VERSION for the sig resource, and $CAPTURED_SIG_VERSION (a random number) for the disk resource
 sig_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/galleries/${SIG_GALLERY_NAME}/images/${SIG_IMAGE_NAME}/versions/${SIG_IMAGE_VERSION}"
 disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.Compute/disks/${CAPTURED_SIG_VERSION}"
-capture_benchmark "set_variables_for_converting_to_disk"
+capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
 if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
@@ -81,12 +81,12 @@ else
   }"
 fi
 echo "Converted $sig_resource_id to $disk_resource_id"
-capture_benchmark "convert_image_version_to_disk"
+capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 
 echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
-capture_benchmark "grant_access_to_disk"
+capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
 # TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
@@ -95,7 +95,7 @@ export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
-capture_benchmark "upload_vhd_to_blob_storage"
+capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob_storage"
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
@@ -104,7 +104,7 @@ az disk revoke-access --ids $disk_resource_id
 az resource delete --ids $disk_resource_id
 
 echo "Deleted $disk_resource_id"
-capture_benchmark "revoke_access_and_delete_disk"
+capture_benchmark "${SCRIPT_NAME}_revoke_access_and_delete_disk"
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

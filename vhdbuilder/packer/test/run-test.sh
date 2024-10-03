@@ -46,7 +46,7 @@ trap cleanup EXIT
 
 DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
-capture_benchmark "set_variables_and_create_test_resource_group"
+capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_test_resource_group"
 
 if [ "$MODE" == "default" ]; then
   az disk create --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
@@ -115,7 +115,7 @@ else
 fi
 
 time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
-capture_benchmark "create_test_vm"
+capture_benchmark "${SCRIPT_NAME}_create_test_vm"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -207,7 +207,7 @@ else
     exit 1
   fi
 fi
-capture_benchmark "run_az_test_command"
+capture_benchmark "${SCRIPT_NAME}_run_az_test_command"
 
 echo -e "Test Script Completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true

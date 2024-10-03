@@ -23,7 +23,7 @@ VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
-capture_benchmark "set_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_set_variables_and_source_packer_files"
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
@@ -49,7 +49,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     detachAndCleanUpUA
   fi
 fi
-capture_benchmark "log_and_detach_ua"
+capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
@@ -59,7 +59,7 @@ ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
 ls -ltr /dev/* | grep sgx >>  ${VHD_LOGS_FILEPATH} 
 
 echo -e "=== Installed Packages Begin\n$(listInstalledPackages)\n=== Installed Packages End" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "list_installed_packages"
+capture_benchmark "${SCRIPT_NAME}_list_installed_packages"
 
 echo "Disk usage:" >> ${VHD_LOGS_FILEPATH}
 df -h >> ${VHD_LOGS_FILEPATH}
@@ -71,7 +71,7 @@ usage=$(awk -v used=${used_blocks} -v capacity=${MAX_BLOCK_COUNT} 'BEGIN{print (
 usage=${usage%.*}
 [ ${usage} -ge 99 ] && echo "ERROR: root partition on OS device (${os_device}) already passed 99% of the 30GB cap!" && exit 1
 [ ${usage} -ge 75 ] && echo "WARNING: root partition on OS device (${os_device}) already passed 75% of the 30GB cap!"
-capture_benchmark "determine_disk_usage"
+capture_benchmark "${SCRIPT_NAME}_determine_disk_usage"
 
 echo -e "=== os-release Begin" >> ${VHD_LOGS_FILEPATH}
 cat /etc/os-release >> ${VHD_LOGS_FILEPATH}
@@ -90,20 +90,20 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
   echo "Container runtime: ${CONTAINER_RUNTIME}"
   echo "FIPS enabled: ${ENABLE_FIPS}"
 } >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "write_logs"
+capture_benchmark "${SCRIPT_NAME}_write_logs"
 
 if [[ $(isARM64) != 1 ]]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
-capture_benchmark "install_asc_baseline"
+capture_benchmark "${SCRIPT_NAME}_install_asc_baseline"
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi
 fi
-capture_benchmark "resolve_conf"
+capture_benchmark "${SCRIPT_NAME}_resolve_conf"
 echo "post-install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
