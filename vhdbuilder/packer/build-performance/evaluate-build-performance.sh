@@ -58,3 +58,15 @@ done
 
 rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."
+
+
+
+echo "SUBSCRIPTION_ID is set to $SUBSCRIPTION_ID"
+echo "SIG_IMAGE_NAME is set to $SIG_IMAGE_NAME"
+echo "CAPTURED_SIG_VERSION is set to $CAPTURED_SIG_VERSION"
+echo "GIT_BRANCH is set to $GIT_BRANCH"
+echo "GIT_VERSION is set to $GIT_VERSION"
+echo "BUILD_ID is set to $BUILD_ID"
+echo "JOB_STATUS is set to $JOB_STATUS"
+echo "ARCHITECTURE is set to $ARCHITECTURE"
+echo "BUILD_PERF_DATA_FILE is set to $BUILD_PERF_DATA_FILE"
