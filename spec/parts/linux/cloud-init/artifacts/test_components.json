@@ -97,6 +97,16 @@
             ]
           }
         },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion8"
+              }
+            ]
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
