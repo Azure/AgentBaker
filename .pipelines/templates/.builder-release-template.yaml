@@ -177,7 +177,7 @@ steps:
       echo "##vso[task.setvariable variable=BRANCH]$(Build.SourceBranch)" && \
       echo "##vso[task.setvariable variable=GIT_BRANCH]$(Build.SourceBranch)" && \
       echo "##vso[task.setvariable variable=JOB_STATUS]$(Agent.JobStatus)" && \
-      echo "##vso[task.setvariable variable=VHD_DEBUG]False"
+      echo "##vso[task.setvariable variable=VHD_DEBUG]False" && \
 
       echo "OS_DISK_URI set to ${OS_DISK_URI}" && \
       echo "MANAGED_SIG_ID set to ${MANAGED_SIG_ID}" && \
@@ -246,7 +246,6 @@ steps:
       echo "BLOB_STORAGE_NAME is set to $BLOB_STORAGE_NAME" && \
       echo "CLASSIC_BLOB is set to $CLASSIC_BLOB" && \
       echo "BUILD_ID is set to $BUILD_ID" && \
-      echo "SCANNING_MSI_RESOURCE_ID is set to $SCANNING_MSI_RESOURCE_ID" && \
       echo "SKU_NAME is set to $SKU_NAME" && \
       echo "VHD_NAME is set to $VHD_NAME" && \
       echo "VHD_DEBUG is set to $VHD_DEBUG" && \
