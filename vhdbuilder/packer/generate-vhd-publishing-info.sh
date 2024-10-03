@@ -10,6 +10,24 @@ required_env_vars=(
     "IMAGE_VERSION"
 )
 
+echo "SUBSCRIPTION_ID is set to $SUBSCRIPTION_ID" 
+echo "RESOURCE_GROUP_NAME is set to $RESOURCE_GROUP_NAME"
+echo "SIG_IMAGE_NAME is set to $SIG_IMAGE_NAME"
+echo "CAPTURED_SIG_VERSION is set to $CAPTURED_SIG_VERSION"
+echo "STORAGE_ACCT_BLOB_URL is set to $STORAGE_ACCT_BLOB_URL" 
+echo "VHD_NAME is set to $VHD_NAME"
+echo "OS_NAME is set to $OS_NAME" 
+echo "OS_TYPE is set to $OS_TYPE"
+echo "SKU_NAME is set to $SKU_NAME"
+echo "OFFER_NAME is set to $OFFER_NAME"
+echo "IMG_PUBLISHER is set to $IMG_PUBLISHER"
+echo "IMG_OFFER is set to $IMG_OFFER"
+echo "IMG_SKU is set to $IMG_SKU"
+echo "IMG_VERSION is set to $IMG_VERSION"
+echo "HYPERV_GENERATION is set to $HYPERV_GENERATION"
+echo "ARCHITECTURE is set to $ARCHITECTURE"
+echo "IMAGE_VERSION is set to $IMAGE_VERSION"
+
 # Higher the replication_inverse, lower is the usage and number of replicas
 set -x
 PUBLISHER_BASE_IMAGE_VERSION=$(az vm image list -p ${IMG_PUBLISHER} -s ${IMG_SKU} --query "[?offer=='${IMG_OFFER}'].version" -o tsv --all | sort -u | tail -n 1)
