@@ -118,9 +118,9 @@ steps:
       echo "##vso[task.setvariable variable=GIT_VERSION]$(Build.SourceVersion)" && \
       make -f packer.mk run-packer
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    #retryCountOnTaskFailure: 3
     env:
-      OS_TYPE: $(OS_TYPE)
+      OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
       BRANCH: $(Build.SourceBranch)
       BUILD_NUMBER: $(Build.BuildNumber)
