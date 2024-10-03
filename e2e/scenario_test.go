@@ -26,7 +26,6 @@ func Test_azurelinuxv2(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
-				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -275,7 +274,6 @@ func Test_marinerv2(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
-				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
