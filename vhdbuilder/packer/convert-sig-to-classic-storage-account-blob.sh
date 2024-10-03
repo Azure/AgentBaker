@@ -17,6 +17,18 @@ do
     fi
 done
 
+
+echo "SUBSCRIPTION_ID is set to $SUBSCRIPTION_ID"
+echo "RESOURCE_GROUP_NAME is set to $RESOURCE_GROUP_NAME"
+echo "PACKER_BUILD_LOCATION is set to $PACKER_BUILD_LOCATION"
+echo "OS_TYPE is set to $OS_TYPE"
+echo "CLASSIC_BLOB is set to $CLASSIC_BLOB"
+echo "SIG_GALLERY_NAME is set to $SIG_GALLERY_NAME"
+echo "SIG_IMAGE_NAME is set to $SIG_IMAGE_NAME"
+echo "CAPTURED_SIG_VERSION is set to $CAPTURED_SIG_VERSION"
+echo "ENABLE_TRUSTED_LAUNCH is set to $ENABLE_TRUSTED_LAUNCH"
+echo "AZURE_MSI_RESOURCE_STRING is set to $AZURE_MSI_RESOURCE_STRING"
+
 if [ "${OS_TYPE,,}" == "windows" ]; then
   if [ -z "$LOCATION" ]; then
     echo "LOCATION must be set for windows builds"
