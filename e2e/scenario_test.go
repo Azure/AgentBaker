@@ -24,8 +24,8 @@ func Test_azurelinuxv2(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf list installed moby-containerd | grep 'containerd' | awk '{print $2}'"),
-				runcVersionValidator(getExpectedPackageVersions("runc", "mariner", "current")[0]),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -273,8 +273,8 @@ func Test_marinerv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf list installed moby-containerd | grep 'containerd' | awk '{print $2}'"),
-				runcVersionValidator(getExpectedPackageVersions("runc", "mariner", "current")[0]),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -520,8 +520,8 @@ func Test_ubuntu1804(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "ubuntu", "r1804")[0], "apt list --installed | grep containerd | cut -d ' ' -f 2"),
-				runcVersionValidator(getExpectedPackageVersions("runc", "ubuntu", "r1804")[0]),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r1804")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0], "apt"),
 			},
 		},
 	})
@@ -628,8 +628,8 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt list --installed | grep containerd | cut -d ' ' -f 2"),
-				runcVersionValidator(getExpectedPackageVersions("runc", "ubuntu", "r2204")[0]),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r22084")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -938,7 +938,7 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.9", "apt list --installed | grep containerd | cut -d ' ' -f 2"),
+				mobyComponentVersionValidator("containerd", "1.6.9", "apt"),
 			},
 		},
 	})
@@ -957,7 +957,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for containerd we only support one version at a time for each distro/release
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt list --installed | grep containerd | cut -d ' ' -f 2"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
