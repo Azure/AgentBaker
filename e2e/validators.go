@@ -253,7 +253,7 @@ func mobyComponentVersionValidator(component, version, packageManager string) *L
 	var installedCommand string
 	if packageManager == "apt" {
 		installedCommand = "list --installed"
-	} else if packageManager == "dpt" {
+	} else if packageManager == "dnf" {
 		installedCommand = "list installed"
 	}
 
