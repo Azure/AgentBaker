@@ -41,7 +41,7 @@ if isMarinerOrAzureLinux "$OS"; then
 fi
 
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
-capture_benchmark "source_packer_files_declare_variables_and_set_mariner_permissions"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_declare_variables_and_set_mariner_permissions"
 
 copyPackerFiles
 
@@ -57,12 +57,12 @@ systemctlEnableAndStart systemd-journald || exit 1
 systemctlEnableAndStart rsyslog || exit 1
 
 systemctlEnableAndStart disk_queue || exit 1
-capture_benchmark "copy_packer_files"
+capture_benchmark "${SCRIPT_NAME}_copy_packer_files"
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
-capture_benchmark "make_directory_and_update_certs"
+capture_benchmark "${SCRIPT_NAME}_make_directory_and_update_certs"
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -70,15 +70,15 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
-capture_benchmark "start_system_logs_and_aks_log_collector"
+capture_benchmark "${SCRIPT_NAME}_start_system_logs_and_aks_log_collector"
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
-capture_benchmark "enable_modified_log_rotate_service"
+capture_benchmark "${SCRIPT_NAME}_enable_modified_log_rotate_service"
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
-capture_benchmark "sync_container_logs"
+capture_benchmark "${SCRIPT_NAME}_sync_container_logs"
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
@@ -121,7 +121,7 @@ else
     installFIPS
   fi
 fi
-capture_benchmark "handle_mariner_and_fips_configurations"
+capture_benchmark "${SCRIPT_NAME}_handle_mariner_and_fips_configurations"
 
 # Handle Azure Linux + CgroupV2
 # CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
@@ -143,7 +143,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   update-grub
 fi
-capture_benchmark "handle_azureLinux_and_cgroupV2"
+capture_benchmark "${SCRIPT_NAME}_handle_azureLinux_and_cgroupV2"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
