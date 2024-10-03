@@ -1,12 +1,4 @@
 #!/bin/bash
-
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
-SCRIPT_NAME=$(basename $0 .sh)
-SCRIPT_NAME="${SCRIPT_NAME//-/_}"
-declare -A benchmarks=()
-declare -a benchmarks_order=()
-
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
