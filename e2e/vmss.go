@@ -52,10 +52,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	} else {
 		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
 	}
-	t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
-	if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
-		t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
-	}
+
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
 
@@ -268,8 +265,6 @@ write_files:
     %s`
 	customData := fmt.Sprintf(nbcEntry, base64.StdEncoding.EncodeToString(nbc))
 	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
-	fmt.Println("CustomData: ", customData)
-	fmt.Println("len of encoded CustomData is : ", len(encodedCustomData))
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
@@ -343,11 +338,6 @@ write_files:
 }
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	encodedCseCmd := base64.StdEncoding.EncodeToString([]byte(cseCmd))
-	fmt.Println("csecmd is : ", cseCmd)
-	fmt.Println("csecmd is : ", cseCmd)
-	fmt.Println("len of encoded csecmd is : ", len(encodedCseCmd))
-
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{

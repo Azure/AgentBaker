@@ -13,8 +13,7 @@ import (
 //
 //nolint:gosec // generated cse_cmd.sh file needs execute permissions for bootstrapping
 const (
-	IMDS_ENDPOINT = "http://169.254.169.254/metadata/instance?api-version=2021-02-01&format=json"
-	CSE_CMD       = "cse_cmd.sh"
+	CSE_CMD = "cse_cmd.sh"
 )
 
 func main() {
