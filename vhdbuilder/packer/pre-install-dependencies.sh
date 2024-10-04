@@ -1,5 +1,5 @@
 #!/bin/bash
-
+echo "WORKING DIR ${PWD}"
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 SCRIPT_NAME=$(basename $0 .sh)
@@ -22,7 +22,7 @@ source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
 source /home/packer/packer_source.sh
-
+echo "WORKING DIR ${PWD}"
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json

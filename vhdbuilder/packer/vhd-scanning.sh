@@ -1,15 +1,15 @@
 #!/bin/bash
 set -eux
-
+echo "WORKING DIR ${PWD}"
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
 SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
-
+echo "WORKING DIR ${PWD}"
 SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
-
+echo "WORKING DIR ${PWD}"
 # we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
 VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 SUBNET_NAME="scanning"

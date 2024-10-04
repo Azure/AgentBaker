@@ -1,5 +1,5 @@
 #!/bin/bash
-
+echo "WORKING DIR ${PWD}"
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 SCRIPT_NAME=$(basename $0 .sh)
@@ -16,11 +16,11 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-
+echo "WORKING DIR ${PWD}"
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
-
+echo "WORKING DIR ${PWD}"
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
 capture_benchmark "set_variables_and_source_packer_files"

@@ -1,17 +1,17 @@
 #!/bin/bash
-
+echo "WORKING DIR ${PWD}"
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 SCRIPT_NAME=$(basename $0 .sh)
 SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
-
+echo "WORKING DIR ${PWD}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
-
+echo "WORKING DIR ${PWD}"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then

@@ -11,7 +11,7 @@ log_and_exit () {
   fi
   exit 0
 }
-
+echo "WORKING DIR ${PWD}"
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
   log_and_exit ${BUILD_PERF_DATA_FILE} "not found"
 fi
@@ -26,7 +26,7 @@ if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
 fi
 
 echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
-
+echo "WORKING DIR ${PWD}"
 jq --arg sig_name "${SIG_IMAGE_NAME}" \
   --arg arch "${ARCHITECTURE}" \
   --arg captured_sig_version "${CAPTURED_SIG_VERSION}" \
