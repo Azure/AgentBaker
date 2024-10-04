@@ -148,10 +148,8 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
 source_performance_funcs() {
     if [[ "${PWD}" == "home/packer" ]]; then
         source /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/build-performance-funcs.sh
-    else
     fi
 }
-
 source_performance_funcs
 
 retrycmd_if_failure() {
