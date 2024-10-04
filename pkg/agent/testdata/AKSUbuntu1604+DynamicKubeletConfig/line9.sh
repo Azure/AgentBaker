@@ -145,7 +145,7 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
-source vhdbuilder/packer/build-performance/build-performance-funcs.sh
+source ../../../../vhdbuilder/packer/build-performance/build-performance-funcs.sh
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
