@@ -198,6 +198,22 @@
           }
         }
       }
+    },
+    {
+      "name": "fake-runc",
+      "downloadLocation": "fake",
+      "downloadURIs": {
+        "ubuntu": {
+          "r1804": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion9"
+              }
+            ]
+          }
+        }
+      }
     }
   ]
 }

@@ -609,10 +609,13 @@ updatePackageVersions() {
         for version in "${previousLatestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")
         done
-        return
+        return 0
     fi
 
     # Fallback to versions if versionsV2 is null
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions") == "null" ]]; then
+        return 0
+    fi
     local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
     for version in "${versions[@]}"; do
         PACKAGE_VERSIONS+=("${version}")
