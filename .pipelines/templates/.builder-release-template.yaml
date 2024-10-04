@@ -156,7 +156,7 @@ steps:
       IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       IMAGE_NAME="${SIG_IMAGE_NAME}-${CAPTURED_SIG_VERSION}" && \
-      BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
+      PERFORMANCE_DATA_FILE="vhd-build-performance-data.json" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -219,7 +219,7 @@ steps:
       -e SYSTEM_COLLECTIONURI=$(System.CollectionUri) \
       -e SYSTEM_TEAMPROJECT=$(System.TeamProject) \
       -e BUILD_RUN_NUMBER=$(Build.BuildNumber) \
-      -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
+      -e PERFORMANCE_DATA_FILE=${PERFORMANCE_DATA_FILE} \
       ${CONTAINER_IMAGE} make -f packer.mk test-scan-and-cleanup
     condition: always()
     displayName: Test, Scan, and Cleanup
@@ -272,7 +272,7 @@ steps:
       captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_GALLERY_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
+      PERFORMANCE_DATA_FILE="vhd-build-performance-data.json" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -286,14 +286,14 @@ steps:
       -e CAPTURED_SIG_VERSION=${captured_sig_version} \
       -e ENABLE_TRUSTED_LAUNCH=${ENABLE_TRUSTED_LAUNCH} \
       -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_STRING) \
-      -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
+      -e PERFORMANCE_DATA_FILE=${PERFORMANCE_DATA_FILE} \
       ${CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
   - bash: |
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      BUILD_PERF_DATA_FILE="vhd-build-performance-data.json" && \
+      PERFORMANCE_DATA_FILE="vhd-build-performance-data.json" && \
       docker run --rm \
       -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
       -w /go/src/github.com/Azure/AgentBaker \
@@ -305,7 +305,7 @@ steps:
       -e BUILD_ID=$(Build.BuildId) \
       -e JOB_STATUS=$(Agent.JobStatus) \
       -e ARCHITECTURE=${ARCHITECTURE} \
-      -e BUILD_PERF_DATA_FILE=${BUILD_PERF_DATA_FILE} \
+      -e PERFORMANCE_DATA_FILE=${PERFORMANCE_DATA_FILE} \
       ${CONTAINER_IMAGE} make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
