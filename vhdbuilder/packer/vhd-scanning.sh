@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eux
 
-source vhdbuilder/packer/build-performance/build-performance-funcs.sh
-
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"

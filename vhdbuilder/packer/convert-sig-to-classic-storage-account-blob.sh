@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-source vhdbuilder/packer/build-performance/build-performance-funcs.sh
+source ../../parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 required_env_vars=(
     "AZURE_MSI_RESOURCE_STRING"

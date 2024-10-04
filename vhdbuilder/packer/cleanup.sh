@@ -1,8 +1,6 @@
 #!/bin/bash
 set -x
 
-source vhdbuilder/packer/build-performance/build-performance-funcs.sh
-
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))

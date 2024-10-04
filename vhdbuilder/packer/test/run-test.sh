@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eux
 
-source vhdbuilder/packer/build-performance/build-performance-funcs.sh
-
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
