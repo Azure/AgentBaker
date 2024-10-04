@@ -21,6 +21,8 @@ for v in "${required_env_vars[@]}"; do
   fi
 done
 
+echo "${PWD}"
+echo "SCANNING MSI RESOURCE ID set to ${SCANNING_MSI_RESOURCE_ID}"
 echo "OS_DISK_URI set to ${OS_DISK_URI}" 
 echo "MANAGED_SIG_ID set to ${MANAGED_SIG_ID}" 
 echo "SIG_GALLERY_NAME set to ${SIG_GALLERY_NAME}" 
