@@ -164,7 +164,7 @@ source_performance_funcs() {
     if [[ "${PWD}" == "home/packer" ]]; then
         source /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/build-performance-funcs.sh
     else
-        echo "TODO: Finish for CSE"
+        # TODO: Determine directory path for sourcing during CSE execution
     fi
 }
 
