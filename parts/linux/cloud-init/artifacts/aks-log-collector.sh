@@ -70,6 +70,10 @@ GLOBS+=(/var/log/cilium-cni*)
 GLOBS+=(/var/run/azure-vnet*)
 GLOBS+=(/var/run/azure-cns*)
 
+# GPU specific entries
+GLOBS+=(/var/log/nvidia*.log)
+GLOBS+=(/var/log/azure/nvidia*.log)
+
 # based on MANIFEST_FULL from Azure Linux Agent's log collector
 # https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
 GLOBS+=(/var/lib/waagent/provisioned)
