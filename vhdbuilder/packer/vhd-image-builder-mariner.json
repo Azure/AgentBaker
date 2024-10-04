@@ -102,6 +102,21 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nbcparser.service",
+      "destination": "/home/packer/nbcparser.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nbcparser.target",
+      "destination": "/home/packer/nbcparser.target"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/nbcparser.sh",
+      "destination": "/home/packer/nbcparser.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
