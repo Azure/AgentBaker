@@ -16,7 +16,7 @@ do
         exit 1
     fi
 done
-
+echo "${PWD}"
 echo "SUBSCRIPTION_ID is set to $SUBSCRIPTION_ID"
 echo "RESOURCE_GROUP_NAME is set to $RESOURCE_GROUP_NAME"
 echo "PACKER_BUILD_LOCATION is set to $PACKER_BUILD_LOCATION"
