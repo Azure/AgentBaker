@@ -160,6 +160,7 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
+echo $PWD
 source ../../../../vhdbuilder/packer/build-performance/build-performance-funcs.sh
 
 retrycmd_if_failure() {
