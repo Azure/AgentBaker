@@ -250,7 +250,10 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 
 // can be used to validate version of moby components like moby-containerd or moby-runc
 func mobyComponentVersionValidator(component, version, packageManager string) *LiveVMValidator {
-	var installedCommand string
+	installedCommand := "list --installed"
+	if packageManager == "dnf" {
+	    installedCommand = "list installed"
+	}
 	if packageManager == "apt" {
 		installedCommand = "list --installed"
 	} else if packageManager == "dnf" {
