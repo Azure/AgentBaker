@@ -160,14 +160,6 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
-source_performance_funcs() {
-    if [[ "${PWD}" == "home/packer" ]]; then
-        source /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/build-performance-funcs.sh
-    fi
-    # TODO: Determine directory path for sourcing during CSE execution and create else statement
-}
-source_performance_funcs
-
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
