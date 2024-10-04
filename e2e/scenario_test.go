@@ -1186,3 +1186,39 @@ func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/motd", "foobar"),
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/motd", "foobar"),
+			},
+		},
+	})
+}
