@@ -21,9 +21,8 @@ for v in "${required_env_vars[@]}"; do
   fi
 done
 
-repo_root=$(git rev-parse --show-toplevel)
-echo "Repo root: $repo_root"
-source ${repo_root}/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+echo "Present working directory: ${PWD}"
+source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
