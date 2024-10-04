@@ -248,35 +248,28 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 	}
 }
 
-func containerdVersionValidator(version string) *LiveVMValidator {
+// can be used to validate version of moby components like moby-containerd or moby-runc
+func mobyComponentVersionValidator(component, version, packageManager string) *LiveVMValidator {
+	installedCommand := "list --installed"
+	if packageManager == "dnf" {
+	    installedCommand = "list installed"
+	}
+	if packageManager == "apt" {
+		installedCommand = "list --installed"
+	} else if packageManager == "dnf" {
+		installedCommand = "list installed"
+	}
+
 	return &LiveVMValidator{
-		Description: "assert containerd version",
-		Command:     "containerd --version",
+		Description: fmt.Sprintf("assert the installed version of %s", component),
+		Command:     fmt.Sprintf("%[2]s %[3]s moby-%[1]s | grep '%[1]s' | awk '{print $2}'", component, packageManager, installedCommand),
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
 			}
 
 			if !strings.Contains(stdout, version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
-			}
-			return nil
-		},
-	}
-}
-
-func runcVersionValidator(version string) *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert runc version",
-		Command:     "runc --version",
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-
-			// runc output
-			if !strings.Contains(stdout, "runc version "+version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find runc version %s, got: %s", version, stdout))
+				return fmt.Errorf(fmt.Sprintf("expected to find %s version %s, got: %s", component, version, stdout))
 			}
 			return nil
 		},
@@ -324,6 +317,51 @@ func imdsRestrictionRuleValidator(table string) *LiveVMValidator {
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("expected to find the IMDS restriction rule, but did not")
+			}
+			return nil
+		},
+	}
+}
+
+func containerdWasmShimsValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert containerd config.toml contains expected Wasm shims",
+		Command:     "cat /etc/containerd/config.toml",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0. stderr: %q", code, stderr)
+			}
+
+			expectedShims := []string{
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]`,
+				`runtime_type = "io.containerd.spin.v2"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]`,
+				`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]`,
+				`runtime_type = "io.containerd.spin-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]`,
+				`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]`,
+				`runtime_type = "io.containerd.spin-v0-5-1.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]`,
+				`runtime_type = "io.containerd.slight-v0-5-1.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]`,
+				`runtime_type = "io.containerd.spin-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]`,
+				`runtime_type = "io.containerd.slight-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]`,
+				`runtime_type = "io.containerd.wws-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]`,
+				`runtime_type = "io.containerd.spin.v2"`,
+			}
+
+			for i := 0; i < len(expectedShims); i += 2 {
+				section := expectedShims[i]
+				runtimeType := expectedShims[i+1]
+
+				if !strings.Contains(stdout, section) || !strings.Contains(stdout, runtimeType) {
+					return fmt.Errorf("expected to find section %q with runtime type %q in containerd config.toml, but it was not found. Full config.toml content:\n%s", section, runtimeType, stdout)
+				}
 			}
 			return nil
 		},

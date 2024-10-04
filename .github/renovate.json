@@ -1,35 +1,161 @@
 {
+  "extends": [
+    "config:base"
+  ],
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "enabledManagers": ["custom.regex"],
   "prConcurrentLimit": 50,
-  "prHourlyLimit": 20,
+  "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
+  "separateMinorPatch": true,
   "labels": ["renovate"],
+  "logLevelRemap": [
+    {
+      "matchMessage": "/^Custom manager fetcher/",
+      "newLogLevel": "info"
+    }
+  ],
   "packageRules": [
     {
+      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "pin",
-        "digest"
+        "minor"
       ],
-      "automerge": false
+      "automerge": false,
+      "enabled": false
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb1804"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb1804-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb2004"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb2004-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb2204"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb2204-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchDatasources": ["custom.deb2404"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "additionalBranchPrefix": "deb2404-",
+      "automerge": false,
+      "enabled": true
+    },
+    {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+    },
+    {
+      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns"],
+      "assignees": ["rbtr", "behzad-mir", "QxBytes"]
+    },
+    {
+      "matchPackageNames": ["aks/aks-node-ca-watcher"],
+      "assignees": ["UtheMan"]
+    },
+    {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "extractVersion": "^v?(?<version>.+)$"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
+      "description": "auto update containerImages in components.json",
       "fileMatch": [
         "parts/linux/cloud-init/artifacts/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
-        ".*?\"downloadURL\":\\s*\"(?<registryUrl>[^/]+)/(?<packageName>[^:]+)[\\s\\S]*?\"multiArchVersions\": \\[\\s*\"(?<currentValue>[^\\\"]+)\".*"
+        "\"renovateTag\":\\s*\"registry=(?<registryUrl>[^,]+), name=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
       ],
       "datasourceTemplate": "docker",
-      "registryUrlTemplate": "https://mcr.microsoft.com"
+      "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
+      "customType": "regex",
+      "description": "auto update packages for OS ubuntu 18.04 in components.json",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=18\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb1804",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=18.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS ubuntu 20.04 in components.json",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=20\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb2004",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"   
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS ubuntu 22.04 in components.json",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=22\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb2204",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=22.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update packages for OS ubuntu 24.04 in components.json",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"name=(?<packageName>[^\"]+), os=ubuntu, release=24\\.04\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "custom.deb2404",
+      "versioningTemplate": "deb",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {      
       "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "fileMatch": [
@@ -40,5 +166,35 @@
         "#\\s*renovate:\\s*(datasource=(?<datasource>.*?) )?depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\s*.*?version.*\\\"(?<currentValue>.*)\\\""
       ]
     }
-  ]
+  ],
+  "customDatasources": {
+    "deb1804": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+      ]
+    },
+    "deb2004": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+      ]
+    },
+    "deb2204": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+      ]
+    },
+    "deb2404": {
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
+      "format": "plain",
+      "transformTemplates": [
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+      ]
+    }
+  }
 }

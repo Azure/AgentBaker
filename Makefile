@@ -107,6 +107,10 @@ generate: bootstrap
 	@echo "Error will be shown if any."
 	@$(MAKE) validate-components
 
+.PHONY: validate-prefetch
+validate-prefetch:
+	make -C ./vhdbuilder/prefetch generate
+
 .PHONY: generate-azure-constants
 generate-azure-constants:
 	python pkg/helpers/generate_azure_constants.py

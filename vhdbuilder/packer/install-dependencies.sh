@@ -17,7 +17,6 @@ IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
 fi
-  
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -194,16 +193,19 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+capture_benchmark "create_containerd_service_directory_and_configure_runtime_and_network"
+
+# check if COMPONENTS_FILEPATH exists
+if [ ! -f $COMPONENTS_FILEPATH ]; then
+  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
+  exit 1
+fi
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for p in ${packages[*]}; do
+# Iterate over each element in the packages array
+while IFS= read -r p; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
@@ -211,17 +213,17 @@ for p in ${packages[*]}; do
   if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
-  returnPackageVersions ${p} ${os} ${OS_VERSION}
+  updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
+  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
-  
+
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
   if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
-  downloadDir=$(echo ${p} | jq .downloadLocation -r)
+  downloadDir=$(echo "${p}" | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
@@ -274,8 +276,23 @@ for p in ${packages[*]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         installOras "${downloadDir}" "${evaluatedURL}" "${version}"
         echo "  - oras version ${version}" >> ${VHD_LOGS_FILEPATH}
+      done
+      ;;
+    "azure-acr-credential-provider")
+      for version in ${PACKAGE_VERSIONS[@]}; do
+        evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
+        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
+      ;;
+    "containerd-wasm-shims")
+      installContainerdWasmShims "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
+      echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
+      ;;
+    "spinkube")
+      installSpinKube "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
+      echo "  - spinkube version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
       ;;
     "kubernetes-binaries")
       # kubelet and kubectl
@@ -297,13 +314,13 @@ for p in ${packages[*]}; do
       ;;
   esac
   capture_benchmark "download_${name}"
-done
+done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.9'
+  MIRROR_PROXY_VERSION='0.2.10'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -396,36 +413,32 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for imageToBePulled in ${ContainerImages[*]}; do
+while IFS= read -r imageToBePulled; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
-
+  MULTI_ARCH_VERSIONS=()
+  updateMultiArchVersions "${imageToBePulled}"
   amd64OnlyVersions=""
   if [[ ${amd64OnlyVersionsStr} != null ]]; then
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
-  multiArchVersions=""
-  if [[ ${multiArchVersionsStr} != null ]]; then
-    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-  fi
 
   if [[ $(isARM64) == 1 ]]; then
-    versions="${multiArchVersions}"
+    versions="${MULTI_ARCH_VERSIONS[*]}"
   else
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
+    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
   fi
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+    pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
     done
   done
-done
+done <<< "$ContainerImages"
 wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
@@ -475,16 +488,6 @@ fi
 fi
 capture_benchmark "download_gpu_device_plugin"
 
-# Kubelet credential provider plugins
-CREDENTIAL_PROVIDER_VERSIONS="
-1.29.2
-1.30.0
-"
-for CREDENTIAL_PROVIDER_VERSION in $CREDENTIAL_PROVIDER_VERSIONS; do
-    downloadCredentialProvider
-    echo "  - Kubelet credential provider version ${CREDENTIAL_PROVIDER_VERSION}" >> ${VHD_LOGS_FILEPATH}
-done
-
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
@@ -500,7 +503,6 @@ fi
 
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-
 
 capture_benchmark "configure_telemetry_create_logging_directory"
 

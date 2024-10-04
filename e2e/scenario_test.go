@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -23,8 +24,8 @@ func Test_azurelinuxv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.26"),
-				runcVersionValidator("1.1.9"),
+				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -254,6 +255,9 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
@@ -269,8 +273,7 @@ func Test_marinerv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.26"),
-				runcVersionValidator("1.1.9"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -501,20 +504,25 @@ func Test_marinerv2Wasm(t *testing.T) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
 
 // Returns config for the 'base' E2E scenario
 func Test_ubuntu1804(t *testing.T) {
+	// for ubuntu1804 containerd version is frozen and its using outdated versioning style, hence this modification
+	expected1804ContainredVersion := strings.Replace(getExpectedPackageVersions("containerd", "ubuntu", "r1804")[0], "-", "+azure-ubuntu18.04u", 1)
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.1+azure-1"),
-				runcVersionValidator("1.1.14-1"),
+				mobyComponentVersionValidator("containerd", expected1804ContainredVersion, "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0], "apt"),
 			},
 		},
 	})
@@ -621,8 +629,8 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.20-1"),
-				runcVersionValidator("1.1.14-1"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -956,7 +964,7 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.9"),
+				mobyComponentVersionValidator("containerd", "1.6.9", "apt"),
 			},
 		},
 	})
@@ -975,7 +983,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for containerd we only support one version at a time for each distro/release
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -992,6 +1000,9 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
 			},
 		},
 	})
@@ -1159,6 +1170,9 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 					},
 				}
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
@@ -1196,6 +1210,42 @@ func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				imdsRestrictionRuleValidator("mangle"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/motd", "foobar"),
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/motd", "foobar"),
 			},
 		},
 	})
