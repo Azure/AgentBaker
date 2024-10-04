@@ -8,7 +8,7 @@ required_env_vars=(
     "OS_TYPE"
     "SIG_IMAGE_NAME"
 )
-
+echo "WORKING DIR ${PWD}"
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
@@ -16,14 +16,14 @@ do
         exit 1
     fi
 done
-
+echo "WORKING DIR ${PWD}"
 if [ "${OS_TYPE,,}" == "windows" ]; then
   if [ -z "$LOCATION" ]; then
     echo "LOCATION must be set for windows builds"
     exit 1
   fi
 fi
-
+echo "WORKING DIR ${PWD}"
 if [ "${OS_TYPE,,}" == "linux" ]; then
   if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"

@@ -11,11 +11,11 @@ log_and_exit () {
   fi
   exit 0
 }
-
+echo "WORKING DIR ${PWD}"
 if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
   log_and_exit ${BUILD_PERF_DATA_FILE} "not found"
 fi
-
+echo "WORKING DIR ${PWD}"
 SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
 if [[ $? -ne 0 ]]; then
   log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json" true
@@ -55,6 +55,6 @@ for script in "${scripts[@]}"; do
   jq -C ".scripts.\"$script\"" ${SIG_IMAGE_NAME}-build-performance.json
   echo "##[endgroup]"
 done
-
+echo "WORKING DIR ${PWD}"
 rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."

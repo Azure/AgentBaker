@@ -1,17 +1,17 @@
 #!/bin/bash
-
+echo "WORKING DIR ${PWD}"
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 SCRIPT_NAME=$(basename $0 .sh)
 SCRIPT_NAME="${SCRIPT_NAME//-/_}"
 declare -A benchmarks=()
 declare -a benchmarks_order=()
-
+echo "WORKING DIR ${PWD}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
-
+echo "WORKING DIR ${PWD}"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
@@ -27,7 +27,7 @@ source /home/packer/provision_source.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
-
+echo "WORKING DIR ${PWD}"
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
@@ -36,7 +36,7 @@ VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "declare_variables_and_source_packer_files"
-
+echo "WORKING DIR ${PWD}"
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi

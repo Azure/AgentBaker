@@ -1,16 +1,16 @@
 #!/bin/bash
 set -eux
-
+echo "WORKING DIR ${PWD}"
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
-
+echo "WORKING DIR ${PWD}"
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
-
+echo "WORKING DIR ${PWD}"
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
 # we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
 if [ "${OS_TYPE,,}" == "linux" ]; then
