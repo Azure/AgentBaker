@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-source ../../parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source /parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 required_env_vars=(
     "AZURE_MSI_RESOURCE_STRING"
