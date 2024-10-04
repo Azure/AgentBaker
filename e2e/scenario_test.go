@@ -651,8 +651,8 @@ func Test_ubuntu2204Scriptless(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.20-1"),
-				runcVersionValidator("1.1.14-1"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 		Tags: Tags{
