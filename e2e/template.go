@@ -11,43 +11,6 @@ import (
 )
 
 func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
-	kubeletConfig := map[string]string{
-		"--address":                         "0.0.0.0",
-		"--anonymous-auth":                  "false",
-		"--authentication-token-webhook":    "true",
-		"--authorization-mode":              "Webhook",
-		"--azure-container-registry-config": "/etc/kubernetes/azure.json",
-		"--cgroups-per-qos":                 "true",
-		"--client-ca-file":                  "/etc/kubernetes/certs/ca.crt",
-		"--cloud-config":                    "",
-		"--cloud-provider":                  "external",
-		"--cluster-dns":                     "10.0.0.10",
-		"--cluster-domain":                  "cluster.local",
-		// "--dynamic-config-dir":                "/var/lib/kubelet",
-		"--enforce-node-allocatable":    "pods",
-		"--event-qps":                   "0",
-		"--eviction-hard":               "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-		"--feature-gates":               "RotateKubeletServerCertificate=true",
-		"--image-gc-high-threshold":     "85",
-		"--image-gc-low-threshold":      "80",
-		"--keep-terminated-pod-volumes": "false",
-		"--kube-reserved":               "cpu=100m,memory=1638Mi",
-		"--kubeconfig":                  "/var/lib/kubelet/kubeconfig",
-		"--max-pods":                    "110",
-		// "--network-plugin":                    "kubenet",
-		"--node-status-update-frequency":      "10s",
-		"--pod-infra-container-image":         "mcr.microsoft.com/oss/kubernetes/pause:3.6",
-		"--pod-manifest-path":                 "/etc/kubernetes/manifests",
-		"--pod-max-pids":                      "-1",
-		"--protect-kernel-defaults":           "true",
-		"--read-only-port":                    "0",
-		"--resolv-conf":                       "/run/systemd/resolve/resolv.conf",
-		"--rotate-certificates":               "false",
-		"--streaming-connection-idle-timeout": "4h",
-		"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
-		"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
-		"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-	}
 	cs := opts.nbc.ContainerService
 	agentPool := opts.nbc.AgentPoolProfile
 
@@ -80,24 +43,24 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 		},
 		NetworkConfig: &nbcontractv1.NetworkConfig{
 			NetworkPlugin:     nbcontractv1.NetworkPlugin_NP_KUBENET,
-			CniPluginsUrl:     "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
-			VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
+			CniPluginsUrl:     opts.nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
+			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
 		},
 		GpuConfig: &nbcontractv1.GPUConfig{
 			ConfigGpuDriver: true,
 			GpuDevicePlugin: false,
 		},
 		EnableUnattendedUpgrade: true,
-		KubernetesVersion:       "1.29.6",
+		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &nbcontractv1.ContainerdConfig{
-			ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
+			ContainerdDownloadUrlBase: opts.nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
 		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
 		KubeletConfig: &nbcontractv1.KubeletConfig{
 			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
-			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(kubeletConfig, opts.nbc.AgentPoolProfile.CustomKubeletConfig))),
+			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(opts.nbc.KubeletConfig, opts.nbc.AgentPoolProfile.CustomKubeletConfig))),
 			EnableKubeletConfigFile:  false,
-			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(opts.nbc.KubeletConfig, cs, agentPool, false),
 			KubeletNodeLabels:        nbcontractv1.GetKubeletNodeLabels(agentPool),
 		},
 		TlsBootstrappingConfig: &nbcontractv1.TLSBootstrappingConfig{
@@ -105,9 +68,10 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 		},
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
-			KubeBinaryUrl: "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
+			PodInfraContainerImageUrl: opts.nbc.K8sComponents.PodInfraContainerImageURL,
 		},
-		KubeProxyUrl: "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
+		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
 		HttpProxyConfig: &nbcontractv1.HTTPProxyConfig{
 			NoProxyEntries: *opts.nbc.HTTPProxyConfig.NoProxy,
 		},
