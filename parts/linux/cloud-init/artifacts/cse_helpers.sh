@@ -162,7 +162,7 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file
 
 source_performance_funcs() {
     if [[ "${PWD}" == "home/packer" ]]; then
-        source build-performance/build-performance-funcs.sh
+        source /go/src/github.com/Azure/AgentBaker/vhdbuilder/packer/build-performance/build-performance-funcs.sh
     else
         echo "TODO: Finish for CSE"
     fi
