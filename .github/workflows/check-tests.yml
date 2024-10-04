@@ -10,7 +10,6 @@ jobs:
       with:
         go-version: '1.22'
     - run: |
-        E2E_TEST=true
-        export E2E_TEST
+        export E2E_TEST=true
         make test
-      name: Unit Test
+      name: Run all validation and tests 
