@@ -248,35 +248,28 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 	}
 }
 
-func containerdVersionValidator(version string) *LiveVMValidator {
+// can be used to validate version of moby components like moby-containerd or moby-runc
+func mobyComponentVersionValidator(component, version, packageManager string) *LiveVMValidator {
+	installedCommand := "list --installed"
+	if packageManager == "dnf" {
+	    installedCommand = "list installed"
+	}
+	if packageManager == "apt" {
+		installedCommand = "list --installed"
+	} else if packageManager == "dnf" {
+		installedCommand = "list installed"
+	}
+
 	return &LiveVMValidator{
-		Description: "assert containerd version",
-		Command:     "containerd --version",
+		Description: fmt.Sprintf("assert the installed version of %s", component),
+		Command:     fmt.Sprintf("%[2]s %[3]s moby-%[1]s | grep '%[1]s' | awk '{print $2}'", component, packageManager, installedCommand),
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
 			}
 
 			if !strings.Contains(stdout, version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
-			}
-			return nil
-		},
-	}
-}
-
-func runcVersionValidator(version string) *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert runc version",
-		Command:     "runc --version",
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-
-			// runc output
-			if !strings.Contains(stdout, "runc version "+version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find runc version %s, got: %s", version, stdout))
+				return fmt.Errorf(fmt.Sprintf("expected to find %s version %s, got: %s", component, version, stdout))
 			}
 			return nil
 		},
