@@ -562,6 +562,11 @@
     },
     {
       "type": "file",
+      "source": "kata-containers-cc.img",
+      "destination": "/home/packer/kata-containers-cc.img"
+    },
+    {
+      "type": "file",
       "source": "reference-info-base64",
       "destination": "/home/packer/reference-info-base64"
     },
