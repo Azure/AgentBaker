@@ -22,7 +22,6 @@ for v in "${required_env_vars[@]}"; do
 done
 
 echo "Present working directory: ${PWD}"
-source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)

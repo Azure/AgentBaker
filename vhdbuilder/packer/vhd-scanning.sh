@@ -1,6 +1,9 @@
 #!/bin/bash
 set -eux
 
+echo "Present working directory: ${PWD}"
+source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"

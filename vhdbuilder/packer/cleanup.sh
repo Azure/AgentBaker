@@ -1,6 +1,9 @@
 #!/bin/bash
 set -x
 
+echo "Present working directory: ${PWD}"
+source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+
 EXPIRATION_IN_HOURS=168
 # convert to seconds so we can compare it against the "tags.now" property in the resource group metadata
 (( expirationInSecs = ${EXPIRATION_IN_HOURS} * 60 * 60 ))
