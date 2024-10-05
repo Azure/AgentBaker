@@ -213,7 +213,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 	if err != nil {
 		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
-	
+
 	t.Logf("Private Endpoint created or updated with ID: %s\n", *resp.ID)
 	return resp, nil
 }
@@ -346,7 +346,6 @@ func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, e
 	// https://learn.microsoft.com/en-us/azure/aks/outbound-rules-control-egress#azure-global-required-fqdn--application-rules
 	// note that we explicitly exclude packages.microsoft.com
 	requiredDNSNames := []string{
-		"mcr.microsoft.com",
 		"management.azure.com",
 		clusterFQDN,
 	}
