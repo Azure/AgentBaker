@@ -73,12 +73,12 @@ func Provision(ctx context.Context) error {
 		return err
 	}
 
-	if err2 := writeCustomData(config); err2 != nil {
-		return fmt.Errorf("write custom data: %w", err2)
+	if err := writeCustomData(config); err != nil {
+		return fmt.Errorf("write custom data: %w", err)
 	}
 
-	if err2 := provisionStart(ctx, config); err2 != nil {
-		return fmt.Errorf("provision start: %w", err2)
+	if err := provisionStart(ctx, config); err != nil {
+		return fmt.Errorf("provision start: %w", err)
 	}
 	return nil
 }
@@ -90,14 +90,14 @@ func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) 
 	}
 
 	var config Config
-	if err2 := json.Unmarshal(content, &config); err2 != nil {
-		return nil, fmt.Errorf("failed to decode config file: %w", err2)
+	if err := json.Unmarshal(content, &config); err != nil {
+		return nil, fmt.Errorf("failed to decode config file: %w", err)
 	}
 	switch config.Version {
 	case ConfigVersion:
 		nbc := &datamodel.NodeBootstrappingConfiguration{}
-		if err2 := json.Unmarshal(content, nbc); err2 != nil {
-			return nil, fmt.Errorf("failed to decode config file: %w", err2)
+		if err := json.Unmarshal(content, nbc); err != nil {
+			return nil, fmt.Errorf("failed to decode config file: %w", err)
 		}
 		return nbc, nil
 	case "":
@@ -150,11 +150,11 @@ func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
 		slog.Info(fmt.Sprintf("Saving file %s ", path))
 
 		dir := filepath.Dir(path)
-		if err2 := os.MkdirAll(dir, 0755); err2 != nil {
-			return fmt.Errorf("create directory %s: %w", dir, err2)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("create directory %s: %w", dir, err)
 		}
-		if err2 := os.WriteFile(path, []byte(file.Content), file.Mode); err2 != nil {
-			return fmt.Errorf("write file %s: %w", path, err2)
+		if err := os.WriteFile(path, []byte(file.Content), file.Mode); err != nil {
+			return fmt.Errorf("write file %s: %w", path, err)
 		}
 	}
 	return nil
@@ -198,8 +198,8 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	}
 
 	if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
-		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
-			return nil, err2
+		if err := useBootstrappingKubeConfig(config, files); err != nil {
+			return nil, err
 		}
 	} else {
 		useHardCodedKubeconfig(config, files)
