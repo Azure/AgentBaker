@@ -12,6 +12,9 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 
+# Real world examples from the command outputs
+# For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
+# For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
@@ -210,7 +213,7 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+  if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
@@ -320,7 +323,7 @@ installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.9'
+  MIRROR_PROXY_VERSION='0.2.10'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -490,9 +493,12 @@ capture_benchmark "download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
-systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
-systemctl enable cgroup-memory-telemetry.service || exit 1
-systemctl restart cgroup-memory-telemetry.service
+# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+if [ ! isMarinerOrAzureLinux "$OS" ]; then
+  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctl enable cgroup-memory-telemetry.service || exit 1
+  systemctl restart cgroup-memory-telemetry.service
+fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then

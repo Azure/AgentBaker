@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/go-armbalancer"
 )
@@ -31,6 +32,11 @@ type AzureClient struct {
 	SecurityGroup             *armnetwork.SecurityGroupsClient
 	Subnet                    *armnetwork.SubnetsClient
 	GalleryImageVersionClient *armcompute.GalleryImageVersionsClient
+	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
+	PrivateZonesClient        *armprivatedns.PrivateZonesClient
+	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
+	RecordSetClient           *armprivatedns.RecordSetsClient
+	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -102,6 +108,31 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.Core, err = azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create core client: %w", err)
+	}
+
+	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private endpoint client: %w", err)
+	}
+
+	cloud.PrivateZonesClient, err = armprivatedns.NewPrivateZonesClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private dns zones client: %w", err)
+	}
+
+	cloud.VirutalNetworkLinksClient, err = armprivatedns.NewVirtualNetworkLinksClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create virtual network links client: %w", err)
+	}
+
+	cloud.RecordSetClient, err = armprivatedns.NewRecordSetsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create record set client: %w", err)
+	}
+
+	cloud.PrivateDNSZoneGroup, err = armnetwork.NewPrivateDNSZoneGroupsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private dns zone group client: %w", err)
 	}
 
 	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
