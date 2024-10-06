@@ -18,15 +18,16 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-const DefaultAksAadAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
-const ReadOnlyWorld os.FileMode = 0644
-const ReadOnlyUser os.FileMode = 0600
+const (
+	DefaultAksAadAppID             = "6dae42f8-4368-4678-94ff-3960e28e3630"
+	ReadOnlyWorld      os.FileMode = 0644
+	ReadOnlyUser       os.FileMode = 0600
+	ConfigVersion                  = "v0"
+)
 
 type Config struct {
 	Version string `json:"version"`
 }
-
-const ConfigVersion = "v0"
 
 func main() {
 	slog.Info("node-bootstrapper started")
