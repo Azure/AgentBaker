@@ -13,7 +13,8 @@ MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 
 IS_KATA="false"
-if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+# check if 'kata' or 'Kata' present in FEATURE_FLAGS
+if grep -Eiq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
   # TODO temporarily modify os-release to be mariner for Kata on 3.0 images to unblock AKS deployment
   sudo sed -i 's/azurelinux/mariner/g' /etc/os-release
@@ -165,9 +166,18 @@ if isMarinerOrAzureLinux "$OS"; then
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
+    # 2.0 flow
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-      installKataDeps
+      installM2KataDeps
       enableMarinerKata
+    fi
+    # 3.0 GA flow
+    if grep -q "Kata" <<< "$FEATURE_FLAGS"; then
+      installKataDeps
+    fi
+    # 3.0 CC flow
+    if grep -q "KataCC" <<< "$FEATURE_FLAGS"; then
+      installKataCCDeps
     fi
     disableTimesyncd
     disableDNFAutomatic
