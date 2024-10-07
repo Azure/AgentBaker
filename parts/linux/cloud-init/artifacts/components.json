@@ -714,7 +714,7 @@
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.6.11",
-                "previousLatestVersion": "1.6.10"
+                "previousLatestVersion": "1.6.7"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
