@@ -160,10 +160,6 @@ steps:
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
 
-  - bash: make -f packer.mk evaluate-build-performance
-    condition: always()
-    displayName: Check Build Performance
-
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     displayName: Copy Trivy Report
@@ -212,6 +208,10 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+
+  - bash: make -f packer.mk evaluate-build-performance
+    condition: always()
+    displayName: Check Build Performance
 
   - bash: make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
