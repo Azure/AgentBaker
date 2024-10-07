@@ -89,14 +89,19 @@ echo "Granting access to $disk_resource_id for 1 hour"
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
-# TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
+echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
+# TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work for Windows
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
-echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
-azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
-capture_benchmark "${SCRIPT_NAME}_upload_vhd_to_blob_storage"
+if [[ "${OS_TYPE}" == "Linux" ]]; then
+  export AZCOPY_CONCURRENCY_VALUE="AUTO"
+  azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+else
+  azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+fi
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
