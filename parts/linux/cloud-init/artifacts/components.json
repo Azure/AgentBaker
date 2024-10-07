@@ -286,27 +286,28 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.27.20",
-          "previousLatestVersion": "v1.27.17"
+          "latestVersion": "v1.27.21",
+          "previousLatestVersion": "v1.27.20"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.28.11",
-          "previousLatestVersion": "v1.28.9"
+          "latestVersion": "v1.28.13",
+          "previousLatestVersion": "v1.28.11"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.29.9",
-          "previousLatestVersion": "v1.29.4"
+          "latestVersion": "v1.29.11",
+          "previousLatestVersion": "v1.29.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.30.5",
+          "latestVersion": "v1.30.7",
+          "previousLatestVersion": "v1.30.5"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.1",
           "previousLatestVersion": "v1.30.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.0"
         }
       ]
     },
@@ -584,26 +585,6 @@
               }
             ]
           }
-        },
-        "mariner": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.9-7.cm2"
-              }
-            ]
-          }
-        },
-        "azurelinux": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.12-1.azl3"
-              }
-            ]
-          }
         }
       }
     },
@@ -658,7 +639,7 @@
           }
         },
         "azurelinux": {
-          "current": {
+          "v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
