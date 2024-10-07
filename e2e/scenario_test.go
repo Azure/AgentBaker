@@ -42,6 +42,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "aksvhdtestcr.azurecr.io/aks/oss/kubernetes/kube-proxy:v1.29.8"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
