@@ -686,7 +686,8 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.54"
+                "latestVersion": "1.4.56",
+                "previousLatestVersion": "1.4.54"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -696,7 +697,7 @@
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.6.11",
-                "previousLatestVersion": "1.6.7"
+                "previousLatestVersion": "1.6.10"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
