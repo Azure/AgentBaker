@@ -1,8 +1,6 @@
 #!/bin/bash
 set -x
 
-echo "Present working directory: ${PWD}"
-#source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 EXPIRATION_IN_HOURS=168

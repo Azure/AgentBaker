@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
-echo "Present working directory: ${PWD}"
-source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 required_env_vars=(
     "AZURE_MSI_RESOURCE_STRING"
