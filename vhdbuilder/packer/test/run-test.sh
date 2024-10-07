@@ -2,7 +2,8 @@
 set -eux
 
 echo "Present working directory: ${PWD}"
-source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+#source /go/src/github.com/Azure/AgentBaker/parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
