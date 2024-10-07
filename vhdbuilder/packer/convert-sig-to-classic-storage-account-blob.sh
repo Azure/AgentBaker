@@ -91,6 +91,7 @@ export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
 if [[ "${OS_TYPE}" == "Linux" ]]; then
+  export AZCOPY_CONCURRENCY_VALUE="AUTO"
   azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 else
   azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
