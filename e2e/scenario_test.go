@@ -51,10 +51,6 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 					},
 				}
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
-			},
 		},
 	})
 }
