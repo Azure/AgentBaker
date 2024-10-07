@@ -120,7 +120,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.11",
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",https://acs-mirror.azureedge.net/azure-cni/v1.5.35/binaries/azure-vnet-cni-windows-amd64-v1.5.35.zip
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.10",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.11"
 )
@@ -184,7 +184,7 @@ $global:map = @{
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.6.12/binaries/azure-vnet-cni-windows-amd64-v1.6.12.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.6.11/binaries/azure-vnet-cni-windows-amd64-v1.6.11.zip",
         # Azure CNI v2 (pod subnet)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.56.zip",
         # Azure CNI for Overlay
