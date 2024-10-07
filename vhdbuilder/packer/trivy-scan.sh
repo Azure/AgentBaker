@@ -141,7 +141,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
     # export to Kusto, one by one
     BASE_CONTAINER_IMAGE=$(basename ${CONTAINER_IMAGE})
     TRIVY_REPORT_IMAGE_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-image-${BASE_CONTAINER_IMAGE}.json
-    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
+    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
 
     if [[ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]]; then
         ./vuln-to-kusto-vhd scan-report \
