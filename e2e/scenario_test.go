@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -23,8 +24,8 @@ func Test_azurelinuxv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.26"),
-				runcVersionValidator("1.1.9"),
+				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -47,7 +48,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -97,7 +98,7 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -272,8 +273,7 @@ func Test_marinerv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.26"),
-				runcVersionValidator("1.1.9"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -296,7 +296,7 @@ func Test_marinerv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -346,7 +346,7 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 
@@ -513,14 +513,16 @@ func Test_marinerv2Wasm(t *testing.T) {
 
 // Returns config for the 'base' E2E scenario
 func Test_ubuntu1804(t *testing.T) {
+	// for ubuntu1804 containerd version is frozen and its using outdated versioning style, hence this modification
+	expected1804ContainredVersion := strings.Replace(getExpectedPackageVersions("containerd", "ubuntu", "r1804")[0], "-", "+azure-ubuntu18.04u", 1)
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.1+azure-1"),
-				runcVersionValidator("1.1.14-1"),
+				mobyComponentVersionValidator("containerd", expected1804ContainredVersion, "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0], "apt"),
 			},
 		},
 	})
@@ -627,8 +629,8 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.22-1"),
-				runcVersionValidator("1.1.14-1"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -651,7 +653,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -676,7 +678,7 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
@@ -937,7 +939,7 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.9"),
+				mobyComponentVersionValidator("containerd", "1.6.9", "apt"),
 			},
 		},
 	})
@@ -956,7 +958,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for containerd we only support one version at a time for each distro/release
-				containerdVersionValidator("1.7.22-1"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -1137,9 +1139,8 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
-						Enabled: true,
-						// TODO(xinhl): create one private acr instead of mcr.microsoft.com
-						ContainerRegistryServer: "mcr.microsoft.com",
+						Enabled:                 true,
+						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
 			},
