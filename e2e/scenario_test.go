@@ -42,9 +42,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "aksvhdtestcr.azurecr.io/aks/oss/kubernetes/kube-proxy:v1.29.8"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -52,6 +50,10 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -300,6 +302,9 @@ func Test_marinerv2AirGap(t *testing.T) {
 						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -657,6 +662,10 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
