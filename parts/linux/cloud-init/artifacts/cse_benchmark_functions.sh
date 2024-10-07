@@ -73,28 +73,3 @@ process_benchmarks() {
   jq ". += $script_object" ${PERFORMANCE_DATA_FILE} > temp-build-perf-file.json && mv temp-build-perf-file.json ${PERFORMANCE_DATA_FILE}
   chmod 755 ${PERFORMANCE_DATA_FILE}
 }
-
-
-#capture_benchmark() {
-  #set +x
-  #local title="$1"
-  #title="${title//[[:space:]]/_}"
-  #title="${title//-/_}"
-  #local is_final_section=${2:-false}
-
-  #local current_time
-  #current_time=$(date +%s.%N) # use %N to get nanoseconds
-  #if [[ "$is_final_section" == true ]]; then
-    #local start_time=$script_start_stopwatch
-  #else
-    #local start_time=$section_start_stopwatch
-  #fi
-  
-  #local total_time_elapsed
-  #total_time_elapsed=$(bc <<< "scale=3; ($current_time - $start_time) / 1") # scale=3 to get milliseconds
-  #total_time_elapsed=$(awk -v t=$total_time_elapsed 'BEGIN {printf "%02d:%02d:%06.3f\n", t/3600, t%3600/60, t%60}')
-  #benchmarks[$title]=${total_time_elapsed}
-  #benchmarks_order+=($title)
-
-  #section_start_stopwatch=$(date +%s.%N)
-}
