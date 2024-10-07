@@ -136,7 +136,7 @@ Note: images without CVEs are also listed" >> "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 
 for CONTAINER_IMAGE in $IMAGE_LIST; do
     # append to table
-    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} --skip-db-update -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
 
     # export to Kusto, one by one
     BASE_CONTAINER_IMAGE=$(basename ${CONTAINER_IMAGE})
