@@ -218,7 +218,7 @@ func canConnectToPrivateACR(t *testing.T, nodeResourceGroup string) (bool, error
 	}
 
 	if resp.StatusCode == http.StatusNotFound {
-		t.Logf("private ACR is not found, private endpoint needs to be created.")
+		t.Logf("private ACR cannot be reached")
 		return false, nil
 	} else {
 		t.Logf("received non-OK status code: %v", resp.StatusCode)

@@ -68,6 +68,7 @@ func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
+	t.Logf("Creating cluster with kubenet and airgap")
 	clusterKubenetAirgapOnce.Do(func() {
 		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true)
 		if err == nil {
@@ -127,6 +128,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
+	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
 	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
@@ -163,6 +165,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
+	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		return &existingCluster.ManagedCluster, nil
@@ -242,6 +245,7 @@ func getOrCreateMaintenanceConfiguration(ctx context.Context, t *testing.T, clus
 	if err != nil {
 		return nil, fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
 	}
+	t.Logf("maintenance configuration already exists for cluster %s in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	return &existingMaintenance.MaintenanceConfiguration, nil
 }
 
