@@ -23,7 +23,7 @@ if [[ -n "$PKR_RG_NAME" ]]; then
     echo "Packer resource group already successfully deleted"
   fi
 fi
-capture_benchmark "${SCRIPT_NAME}_delete_packers_rg"
+capture_benchmark "${SCRIPT_NAME}_delete_packer_rg"
 
 #clean up the test vm resource group
 id=$(az group show --name ${TEST_VM_RESOURCE_GROUP_NAME} | jq .id)
