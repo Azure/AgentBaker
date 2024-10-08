@@ -34,6 +34,7 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
+GPU_COMPONENTS_FILEPATH=/opt/azure/gpu-components.json
 VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
 
 echo ""
@@ -362,9 +363,12 @@ capture_benchmark "artifact_streaming_and_download_teleportd"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-b40b85"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.07-${NVIDIA_DRIVER_IMAGE_SHA}"
-
+  # Get the latest CUDA driver version from the config file
+  LATEST_CUDA_VERSION=$(jq -r '.nvidia.cuda | keys | max' $GPU_COMPONENTS_FILEPATH)
+  CUDA_DRIVER_VERSION=$(jq -r ".nvidia.cuda[\"$LATEST_CUDA_VERSION\"]" $GPU_COMPONENTS_FILEPATH | awk -F'-sha-' '{print $1}' | awk -F'cuda-' '{print $2}')
+  CUDA_DRIVER_SHA=$(jq -r ".nvidia.cuda[\"$LATEST_CUDA_VERSION\"]" $GPU_COMPONENTS_FILEPATH | awk -F'-sha-' '{print $2}')
+  
+  NVIDIA_DRIVER_IMAGE_TAG="cuda-${CUDA_DRIVER_VERSION}-sha-${CUDA_DRIVER_SHA}"
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
