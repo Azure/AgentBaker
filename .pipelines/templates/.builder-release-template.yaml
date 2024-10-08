@@ -135,7 +135,7 @@ steps:
       echo "##vso[task.setvariable variable=OS_DISK_URI]$(cat packer-output | grep "OSDiskUri:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=MANAGED_SIG_ID]$(cat packer-output | grep "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      echo "##vso[task.setvariable variable=BUILD_PERF_DATA_FILE]vhd-build-performance-data.json" && \
+      echo "##vso[task.setvariable variable=PERFORMANCE_DATA_FILE]vhd-build-performance-data.json" && \
       echo "##vso[task.setvariable variable=PKR_RG_NAME]$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
       echo "##vso[task.setvariable variable=IS_NOT_1804]$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false )" && \
       echo "##vso[task.setvariable variable=OS_NAME]Linux" && \

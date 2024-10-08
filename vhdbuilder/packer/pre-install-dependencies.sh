@@ -26,13 +26,13 @@ source /home/packer/packer_source.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
-VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
+PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 #this is used by post build test to check whether the compoenents do indeed exist
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-echo '{}' > ${VHD_BUILD_PERF_DATA}
+echo '{}' > ${PERFORMANCE_DATA_FILE}
 
 if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt
