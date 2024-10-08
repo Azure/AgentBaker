@@ -475,6 +475,6 @@ mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 exit $VALIDATION_ERR
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
-cat ${VHD_BUILD_PERF_DATA} | jq -C .
+cat ${PERFORMANCE_DATA_FILE} | jq -C .
 
 #EOF
