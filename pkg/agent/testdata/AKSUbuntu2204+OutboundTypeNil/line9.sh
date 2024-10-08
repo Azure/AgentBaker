@@ -523,6 +523,7 @@ process_benchmarks() {
  
   jq ". += $script_object" ${PERFORMANCE_DATA_FILE} > temp-build-perf-file.json && mv temp-build-perf-file.json ${PERFORMANCE_DATA_FILE}
   chmod 755 ${PERFORMANCE_DATA_FILE}
+  echo "Yup"
 }
 
 evalPackageDownloadURL() {
