@@ -151,9 +151,12 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
 
 	privateEndpointName := "PE-for-ABE2ETests"
-	if exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName); err != nil {
+	exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
+	if err != nil {
 		return err
-	} else if exists {
+	}
+	if exists {
+		t.Logf("Private Endpoint already exists, skipping creation")
 		return nil
 	}
 
