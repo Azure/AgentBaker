@@ -244,7 +244,6 @@ func getOrCreateMaintenanceConfiguration(ctx context.Context, t *testing.T, clus
 	if err != nil {
 		return nil, fmt.Errorf("failed to get maintenance configuration 'default' for cluster %q: %w", *cluster.Name, err)
 	}
-	t.Logf("maintenance configuration already exists for cluster %s in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	return &existingMaintenance.MaintenanceConfiguration, nil
 }
 

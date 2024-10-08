@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -152,7 +151,6 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
 	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
 
-	/*
 	canConnect, err := canConnectToPrivateACR(t, nodeResourceGroup)
 	if err != nil {
 		return err
@@ -161,7 +159,6 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		t.Logf("Private endpoint connection to ACR is already successful, skipping creation")
 		return nil
 	}
-		*/
 
 	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, vnet)
 	if err != nil {
@@ -190,46 +187,60 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	}
 
 	/*
-	canConnect, err = canConnectToPrivateACR(t, nodeResourceGroup)
-	if err != nil {
-		return err
-	}
-	if !canConnect {
-		return fmt.Errorf("private endpoint connection to ACR is still not successful")
-	}
-		*/
+		canConnect, err = canConnectToPrivateACR(t, nodeResourceGroup)
+		if err != nil {
+			return err
+		}
+		if !canConnect {
+			return fmt.Errorf("private endpoint connection to ACR is still not successful")
+		}
+	*/
 
 	return nil
 }
 
 func canConnectToPrivateACR(t *testing.T, nodeResourceGroup string) (bool, error) {
 	t.Logf("Checking private endpoint connection for ACR in rg %s\n", nodeResourceGroup)
-	client := http.Client{
-		Timeout: 5 * time.Second, // Set a timeout for the request
-	}
 
-	// any aksvhdtestcr url could be used here
-	url := "https://aksvhdtestcr.azurecr.io/aks/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.2-linux-arm64"
-	resp, err := client.Head(url)
+	timeout := 5 * time.Second
+	address := "https://aksvhdtestcr.azurecr.io/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1"
+	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
-		return false, fmt.Errorf("network access to private acr failed: %v", err)
+		return false, fmt.Errorf("unable to connect to ACR: %v", err)
 	}
-	defer resp.Body.Close()
+	defer conn.Close()
 
-	t.Logf("received status code: %v", resp.StatusCode)
+	fmt.Printf("Successfully connected to %s\n", address)
+	return true, nil
 
-	if resp.StatusCode == http.StatusOK {
-		t.Logf("network access to private ACR is successful")
-		return true, nil
-	}
+	/*
+		client := http.Client{
+			Timeout: 5 * time.Second, // Set a timeout for the request
+		}
 
-	if resp.StatusCode == http.StatusNotFound {
-		t.Logf("private ACR cannot be reached")
-		return false, nil
-	} else {
-		t.Logf("received non-OK status code: %v", resp.StatusCode)
-		return false, fmt.Errorf("received non-OK status code: %v", resp.StatusCode)
-	}
+		// any aksvhdtestcr url could be used here
+		url := "https://aksvhdtestcr.azurecr.io/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.2-linux-arm64"
+		resp, err := client.Head(url)
+		if err != nil {
+			return false, fmt.Errorf("network access to private acr failed: %v", err)
+		}
+		defer resp.Body.Close()
+
+		t.Logf("received status code: %v", resp.StatusCode)
+
+		if resp.StatusCode == http.StatusOK {
+			t.Logf("network access to private ACR is successful")
+			return true, nil
+		}
+
+		if resp.StatusCode == http.StatusNotFound {
+			t.Logf("private ACR cannot be reached")
+			return false, nil
+		} else {
+			t.Logf("received non-OK status code: %v", resp.StatusCode)
+			return false, fmt.Errorf("received non-OK status code: %v", resp.StatusCode)
+		}
+	*/
 }
 
 func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
