@@ -1,4 +1,5 @@
 #!/bin/bash
+PERFORMANCE_DATA_FILE="/opt/azure/containers/cse-performance.json"
 ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
@@ -411,6 +412,8 @@ mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 exit $VALIDATION_ERR
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
-cat ${VHD_BUILD_PERF_DATA} | jq -C .
+cat ${PERFORMANCE_DATA_FILE} | jq -C .
+SIZE=$(stat -c %s ${PERFORMANCE_DATA_FILE})
+echo "Size of perf data file: ${SIZE}"
 
 #EOF
