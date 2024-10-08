@@ -6,7 +6,6 @@ import (
 	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -151,16 +150,14 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
 	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
 
-	canConnect, err := canConnectToPrivateACR(t, nodeResourceGroup)
-	if err != nil {
+	privateEndpointName := "PE-for-ABE2ETests"
+	if exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName); err != nil {
 		return err
-	}
-	if canConnect {
-		t.Logf("Private endpoint connection to ACR is already successful, skipping creation")
+	} else if exists {
 		return nil
 	}
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, vnet)
+	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, vnet)
 	if err != nil {
 		return err
 	}
@@ -186,65 +183,22 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return err
 	}
 
-	/*
-		canConnect, err = canConnectToPrivateACR(t, nodeResourceGroup)
-		if err != nil {
-			return err
-		}
-		if !canConnect {
-			return fmt.Errorf("private endpoint connection to ACR is still not successful")
-		}
-	*/
-
 	return nil
 }
 
-func canConnectToPrivateACR(t *testing.T, nodeResourceGroup string) (bool, error) {
-	t.Logf("Checking private endpoint connection for ACR in rg %s\n", nodeResourceGroup)
-
-	timeout := 5 * time.Second
-	address := "https://aksvhdtestcr.azurecr.io/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1"
-	conn, err := net.DialTimeout("tcp", address, timeout)
-	if err != nil {
-		return false, fmt.Errorf("unable to connect to ACR: %v", err)
+func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string) (bool, error) {
+	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
+	if err == nil && existingPE.ID != nil {
+		t.Logf("Private Endpoint already exists with ID: %s\n", *existingPE.ID)
+		return true, nil
 	}
-	defer conn.Close()
-
-	fmt.Printf("Successfully connected to %s\n", address)
-	return true, nil
-
-	/*
-		client := http.Client{
-			Timeout: 5 * time.Second, // Set a timeout for the request
-		}
-
-		// any aksvhdtestcr url could be used here
-		url := "https://aksvhdtestcr.azurecr.io/oss/binaries/kubernetes/azure-acr-credential-provider:v1.29.2-linux-arm64"
-		resp, err := client.Head(url)
-		if err != nil {
-			return false, fmt.Errorf("network access to private acr failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		t.Logf("received status code: %v", resp.StatusCode)
-
-		if resp.StatusCode == http.StatusOK {
-			t.Logf("network access to private ACR is successful")
-			return true, nil
-		}
-
-		if resp.StatusCode == http.StatusNotFound {
-			t.Logf("private ACR cannot be reached")
-			return false, nil
-		} else {
-			t.Logf("received non-OK status code: %v", resp.StatusCode)
-			return false, fmt.Errorf("received non-OK status code: %v", resp.StatusCode)
-		}
-	*/
+	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
+		return false, fmt.Errorf("failed to get private endpoint: %w", err)
+	}
+	return false, nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
-	endpointName := "PE-for-ABE2ETests"
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -253,7 +207,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 			},
 			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
 				{
-					Name: to.Ptr(endpointName),
+					Name: to.Ptr(privateEndpointName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
 						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
 						GroupIDs:             []*string{to.Ptr("registry")},
@@ -266,7 +220,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
-		endpointName,
+		privateEndpointName,
 		peParams,
 		nil,
 	)
