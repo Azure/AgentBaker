@@ -74,7 +74,6 @@ func getFuncMap() template.FuncMap {
 		"getCSEHelpersFilepath":                     getCSEHelpersFilepath,
 		"getCSEDistroHelpersFilepath":               getCSEDistroHelpersFilepath,
 		"getCSEBenchmarkHelpersScriptFilepath":      getCSEBenchmarkHelpersFilepath, // HERE
-		"getCSEDistroBenchmarkHelpersFilepath":      getCSEDistroBenchmarkHelpersFilepath,
 		"getCSEInstallFilepath":                     getCSEInstallFilepath,
 		"getCSEDistroInstallFilepath":               getCSEDistroInstallFilepath,
 		"getCSEConfigFilepath":                      getCSEConfigFilepath,

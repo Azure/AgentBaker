@@ -19,6 +19,7 @@ package parser
 // cloud-init destination file references.
 const (
 	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
+	cseBenchmarkHelpersScriptFilepath    = "/opt/azure/containers/benchmark_helpers.sh"
 	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
 	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
