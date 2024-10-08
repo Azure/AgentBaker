@@ -581,8 +581,6 @@ updateMultiArchVersions() {
   done
 }
 
-#!/bin/bash
-
 script_start_stopwatch=$(date +%s)
 section_start_stopwatch=$(date +%s)
 SCRIPT_NAME=$(basename $0 .sh)
