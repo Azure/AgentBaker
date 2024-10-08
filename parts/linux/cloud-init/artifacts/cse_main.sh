@@ -1,5 +1,6 @@
 #!/bin/bash
 # Timeout waiting for a file
+PERFORMANCE_DATA_FILE="/opt/azure/containers/cse-performance.json"
 ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
@@ -476,5 +477,7 @@ exit $VALIDATION_ERR
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
 cat ${PERFORMANCE_DATA_FILE} | jq -C .
+SIZE=$(stat -c %s ${PERFORMANCE_DATA_FILE})
+echo "Size of perf data file: ${SIZE}"
 
 #EOF
