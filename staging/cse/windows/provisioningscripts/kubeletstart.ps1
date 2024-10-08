@@ -1,4 +1,5 @@
 $Global:ClusterConfiguration = ConvertFrom-Json ((Get-Content "c:\k\kubeclusterconfig.json" -ErrorAction Stop) | out-string)
+$env:Path += ';C:\Program Files\containerd'
 
 $global:MasterIP = $Global:ClusterConfiguration.Kubernetes.ControlPlane.IpAddress
 $global:KubeDnsSearchPath = "svc.cluster.local"
@@ -72,7 +73,7 @@ Write-Host "Stopping kubeproxy service"
 Stop-Service kubeproxy
 
 if ($global:NetworkPlugin -eq "azure") {
-    Write-Host "NetworkPlugin azure, starting kubelet."
+    Write-Host "NetworkPlugin azure, restarting kubeproxy."
 
     if ($global:IsSkipCleanupNetwork) {
         Write-Host "Skipping legacy code: kubeletstart.ps1 invokes cleanupnetwork.ps1"

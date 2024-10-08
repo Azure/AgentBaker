@@ -350,6 +350,17 @@ const (
 	Webhook AuthenticatorType = "webhook"
 )
 
+type BootstrappingMethod string
+
+const (
+	UseArcMsiToMakeCSR        BootstrappingMethod = "UseArcMsiToMakeCSR"
+	UseAzureMsiToMakeCSR      BootstrappingMethod = "UseAzureMsiToMakeCSR"
+	UseArcMsiDirectly         BootstrappingMethod = "UseArcMsiDirectly"
+	UseAzureMsiDirectly       BootstrappingMethod = "UseAzureMsiDirectly"
+	UseSecureTlsBootstrapping BootstrappingMethod = "UseSecureTlsBootstrapping"
+	UseTlsBootstrapToken      BootstrappingMethod = "UseTlsBootstrapToken"
+)
+
 // UserAssignedIdentity contains information that uniquely identifies an identity.
 type UserAssignedIdentity struct {
 	ResourceID string `json:"resourceId,omitempty"`
@@ -369,6 +380,7 @@ type ResourceIdentifiers struct {
 
 // CustomCloudEnv represents the custom cloud env info of the AKS cluster.
 type CustomCloudEnv struct {
+	BootstrappingMethod
 	// TODO(ace): why is Name uppercase?
 	// in Linux, this was historically specified as "name" when serialized.
 	// However Windows relies on the json tag as "Name".
@@ -802,6 +814,11 @@ type AgentPoolProfile struct {
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+	SkipExternalHnsNetwork  bool                     `json:"skipExternalHnsNetwork,omitempty"`
+
+	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
+	BootstrappingMethod            BootstrappingMethod
+	BootstrappingManagedIdentityId string
 }
 
 func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {

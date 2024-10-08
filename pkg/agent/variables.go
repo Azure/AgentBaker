@@ -96,6 +96,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
 		"primaryScaleSetName":                  config.PrimaryScaleSetName,
 		"useManagedIdentityExtension":          useManagedIdentity(cs),
+		"skipExternalHnsNetwork":               skipExternalHnsNetwork(config),
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
 		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
 		"excludeMasterFromStandardLB":          true,
@@ -153,6 +154,17 @@ func useManagedIdentity(cs *datamodel.ContainerService) string {
 	useManagedIdentity := cs.Properties.OrchestratorProfile.KubernetesConfig != nil &&
 		cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity
 	return strconv.FormatBool(useManagedIdentity)
+}
+
+func skipExternalHnsNetwork(config *datamodel.NodeBootstrappingConfiguration) string {
+	skipExternalHnsNetwork := config.AgentPoolProfile != nil &&
+		config.AgentPoolProfile.SkipExternalHnsNetwork
+
+	if skipExternalHnsNetwork {
+		return "$true"
+	} else {
+		return "$false"
+	}
 }
 
 func useInstanceMetadata(cs *datamodel.ContainerService) string {

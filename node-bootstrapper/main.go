@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -74,7 +76,7 @@ func Provision(ctx context.Context) error {
 		return err
 	}
 
-	if err := writeCustomData(config); err != nil {
+	if err := writeCustomData(ctx, config); err != nil {
 		return fmt.Errorf("write custom data: %w", err)
 	}
 
@@ -117,10 +119,25 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 		return fmt.Errorf("cse script: %w", err)
 	}
 
-	slog.Info(fmt.Sprintf("CSE script: %s", cse))
-
-	// TODO: add Windows support
-	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
+	var cmd *exec.Cmd
+	if config.AgentPoolProfile.IsWindows() {
+		systemDrive := os.Getenv("SYSTEMDRIVE")
+		slog.Info(fmt.Sprintf("systemDrive: %s\n\n", systemDrive))
+		if systemDrive == "" {
+			systemDrive = "C:"
+		}
+		script := cse
+		script = strings.ReplaceAll(script, "%SYSTEMDRIVE%", systemDrive)
+		script = strings.ReplaceAll(script, "\"", "")
+		script, found := strings.CutPrefix(script, "powershell.exe -ExecutionPolicy Unrestricted -command ")
+		if !found {
+			return fmt.Errorf("expected windows script prefix not found: %w", err)
+		}
+		slog.Info(fmt.Sprintf("CSE script: %s\n\n", script))
+		cmd = exec.CommandContext(ctx, "powershell.exe", "-ExecutionPolicy", "Unrestricted", "-command", script)
+	} else {
+		cmd = exec.CommandContext(ctx, "/bin/bash", "-c", cse)
+	}
 	cmd.Dir = "/"
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -140,10 +157,23 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 	return nodeBootstrapping.CSE, nil
 }
 
+func OldCustomData(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	ab, err := agent.NewAgentBaker()
+	if err != nil {
+		return "", err
+	}
+
+	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, config)
+	if err != nil {
+		return "", err
+	}
+	return nodeBootstrapping.CustomData, nil
+}
+
 // re-implement CustomData + cloud-init logic from AgentBaker
 // only for files not copied during build process.
-func writeCustomData(config *datamodel.NodeBootstrappingConfiguration) error {
-	files, err := customData(config)
+func writeCustomData(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {
+	files, err := customData(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -166,7 +196,27 @@ type File struct {
 	Mode    os.FileMode
 }
 
-func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]File, error) {
+func customData(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (map[string]File, error) {
+	if config.AgentPoolProfile.IsWindows() {
+		customData, err2 := OldCustomData(ctx, config)
+		if err2 != nil {
+			log.Fatal("error:", err2)
+		}
+		customDataDecoded, err2 := base64.StdEncoding.DecodeString(customData)
+		if err2 != nil {
+			return nil, err2
+		}
+		files := map[string]File{"/AzureData/CustomData.bin": File{
+			Content: string(customDataDecoded),
+			Mode:    ReadOnlyWorld,
+		}}
+		err := useKubeconfig(config, files)
+		if err != nil {
+			return nil, err
+		}
+		return files, nil
+	}
+
 	contentDockerDaemon, err := contentDockerDaemonJSON(config)
 	if err != nil {
 		return nil, fmt.Errorf("content docker daemon json: %w", err)
@@ -198,12 +248,9 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 		}
 	}
 
-	if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
-		if err := useBootstrappingKubeConfig(config, files); err != nil {
-			return nil, err
-		}
-	} else {
-		useHardCodedKubeconfig(config, files)
+	err2 := useKubeconfig(config, files)
+	if err2 != nil {
+		return nil, err2
 	}
 
 	for path, file := range files {
@@ -214,11 +261,114 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 	return files, nil
 }
 
-func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) {
-	files["/var/lib/kubelet/kubeconfig"] = File{
-		Content: contentKubeconfig(config),
-		Mode:    ReadOnlyWorld,
+func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	switch config.AgentPoolProfile.BootstrappingMethod {
+	case datamodel.UseArcMsiToMakeCSR:
+		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+			return err2
+		}
+		if err2 := useArcTokenSh(config, files); err2 != nil {
+			return err2
+		}
+
+	case datamodel.UseArcMsiDirectly:
+		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+			return err2
+		}
+		if err2 := useArcTokenSh(config, files); err2 != nil {
+			return err2
+		}
+
+	case datamodel.UseAzureMsiDirectly:
+		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+			return err2
+		}
+		if err2 := useAzureTokenSh(config, files); err2 != nil {
+			return err2
+		}
+
+	case datamodel.UseAzureMsiToMakeCSR:
+		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+			return err2
+		}
+		if err2 := useAzureTokenSh(config, files); err2 != nil {
+			return err2
+		}
+
+	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
+		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+			return err2
+		}
+
+	default:
+		if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
+			if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
+				return err2
+			}
+		} else {
+			if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
+				return err2
+			}
+		}
 	}
+	return nil
+}
+
+func getBootstrapKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return "c:\\k\\bootstrap-config"
+	}
+	return "/var/lib/kubelet/bootstrap-kubeconfig"
+}
+
+func getHardCodedKubeconfigPath(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return "c:\\k\\config"
+	}
+	return "/var/lib/kubelet/kubeconfig"
+}
+
+func getArcTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return "c:\\k\\arc-token.ps1"
+	}
+	return "/opt/azure/bootstrap/arc-token.sh"
+}
+
+func getAzureTokenPath(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return "c:\\k\\azure-token.ps1"
+	}
+	return "/opt/azure/bootstrap/azure-token.sh"
+}
+
+func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	files[getHardCodedKubeconfigPath(config)] = File{
+		Content: contentKubeconfig(config),
+		Mode:    0644,
+	}
+	return nil
+}
+
+func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	bootstrapKubeconfig := contentArcTokenSh(config)
+	files[getArcTokenPath(config)] = File{
+		Content: bootstrapKubeconfig,
+		Mode:    0755,
+	}
+	return nil
+}
+
+func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	bootstrapKubeconfig := contentAzureTokenSh(config)
+	if config.AgentPoolProfile.IsWindows() {
+		bootstrapKubeconfig = contentAzureTokenPs1(config)
+	}
+	files[getAzureTokenPath(config)] = File{
+		Content: bootstrapKubeconfig,
+		Mode:    0755,
+	}
+	return nil
 }
 
 func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
@@ -226,18 +376,58 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 	if err != nil {
 		return fmt.Errorf("content bootstrap kubeconfig: %w", err)
 	}
-	files["/var/lib/kubelet/bootstrap-kubeconfig"] = File{
+
+	files[getBootstrapKubeconfigPath(config)] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    ReadOnlyWorld,
+		Mode:    0644,
 	}
 	return nil
 }
 
 func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
-	users := `- name: client
+	var users string
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
+
+	switch config.AgentPoolProfile.BootstrappingMethod {
+	case datamodel.UseArcMsiDirectly:
+		users = fmt.Sprintf(`- name: default-auth
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: %s
+      provideClusterInfo: false
+`, getArcTokenPath(config))
+
+	case datamodel.UseAzureMsiDirectly:
+		if config.AgentPoolProfile.IsWindows() {
+			users = `- name: default-auth
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: powershell
+      args:
+      - c:/k/azure-token.ps1
+      provideClusterInfo: false
+`
+
+		} else {
+			users = fmt.Sprintf(`- name: default-auth
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: %s
+      provideClusterInfo: false
+`, getAzureTokenPath(config))
+		}
+	default:
+		users = `- name: client
   user:
     client-certificate: /etc/kubernetes/certs/client.crt
     client-key: /etc/kubernetes/certs/client.key`
+	}
 
 	return fmt.Sprintf(`
 apiVersion: v1
@@ -245,7 +435,7 @@ kind: Config
 clusters:
 - name: localcluster
   cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
+    certificate-authority: %s
     server: https://%s:443
 users:
 %s
@@ -255,10 +445,96 @@ contexts:
     user: client
   name: localclustercontext
 current-context: localclustercontext
-`, agent.GetKubernetesEndpoint(config.ContainerService), users)
+`, getCaCertPath(config), agent.GetKubernetesEndpoint(config.ContainerService), users)
+}
+
+func contentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
+
+	return fmt.Sprintf(`#!/bin/bash
+
+# Fetch an AAD token from Azure Arc HIMDS and output it in the ExecCredential format
+# https://learn.microsoft.com/azure/azure-arc/servers/managed-identity-authentication
+
+TOKEN_URL="http://127.0.0.1:40342/metadata/identity/oauth2/token?api-version=2019-11-01&resource=%s"
+EXECCREDENTIAL='''
+{
+  "kind": "ExecCredential",
+  "apiVersion": "client.authentication.k8s.io/v1",
+  "spec": {
+    "interactive": false
+  },
+  "status": {
+    "expirationTimestamp": .expires_on | tonumber | todate,
+    "token": .access_token
+  }
+}
+'''
+
+# Arc IMDS requires a challenge token from a file only readable by root for security
+CHALLENGE_TOKEN_PATH=$(curl -s -D - -H Metadata:true $TOKEN_URL | grep Www-Authenticate | cut -d "=" -f 2 | tr -d "[:cntrl:]")
+CHALLENGE_TOKEN=$(cat $CHALLENGE_TOKEN_PATH)
+if [ $? -ne 0 ]; then
+    echo "Could not retrieve challenge token, double check that this command is run with root privileges."
+    exit 255
+fi
+
+curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
+`, appID)
+}
+
+func contentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
+	clientId := config.AgentPoolProfile.BootstrappingManagedIdentityId
+
+	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientId)
+}
+
+func contentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
+
+	return fmt.Sprintf(`#!/bin/bash
+
+TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s"
+EXECCREDENTIAL='''
+{
+  "kind": "ExecCredential",
+  "apiVersion": "client.authentication.k8s.io/v1",
+  "spec": {
+    "interactive": false
+  },
+  "status": {
+    "expirationTimestamp": .expires_on | tonumber | todate,
+    "token": .access_token
+  }
+}
+'''
+
+curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
+`, appID)
+}
+
+func getCaCertPath(config *datamodel.NodeBootstrappingConfiguration) string {
+	if config.AgentPoolProfile.IsWindows() {
+		return "c:\\k\\ca.crt"
+	}
+	return "/etc/kubernetes/certs/ca.crt"
 }
 
 func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
 	data := map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Config",
@@ -266,7 +542,7 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 			{
 				"name": "localcluster",
 				"cluster": map[string]any{
-					"certificate-authority": "/etc/kubernetes/certs/ca.crt",
+					"certificate-authority": getCaCertPath(config),
 					"server":                "https://" + agent.GetKubernetesEndpoint(config.ContainerService) + ":443",
 				},
 			},
@@ -275,11 +551,52 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 			{
 				"name": "kubelet-bootstrap",
 				"user": func() map[string]any {
-					if config.EnableSecureTLSBootstrapping {
-						appID := config.CustomSecureTLSBootstrapAADServerAppID
-						if appID == "" {
-							appID = DefaultAksAadAppID
+					switch config.AgentPoolProfile.BootstrappingMethod {
+					case datamodel.UseArcMsiToMakeCSR:
+						if config.AgentPoolProfile.IsWindows() {
+							return map[string]any{
+								"exec": map[string]any{
+									"apiVersion":         "client.authentication.k8s.io/v1",
+									"command":            "powershell",
+									"args":               []string{getArcTokenPath(config)},
+									"interactiveMode":    "Never",
+									"provideClusterInfo": false,
+								},
+							}
+						} else {
+							return map[string]any{
+								"exec": map[string]any{
+									"apiVersion":         "client.authentication.k8s.io/v1",
+									"command":            getArcTokenPath(config),
+									"interactiveMode":    "Never",
+									"provideClusterInfo": false,
+								},
+							}
 						}
+
+					case datamodel.UseAzureMsiToMakeCSR:
+						if config.AgentPoolProfile.IsWindows() {
+							return map[string]any{
+								"exec": map[string]any{
+									"apiVersion":         "client.authentication.k8s.io/v1",
+									"command":            "powershell",
+									"args":               []string{"-C", getAzureTokenPath(config)},
+									"interactiveMode":    "Never",
+									"provideClusterInfo": false,
+								},
+							}
+						} else {
+							return map[string]any{
+								"exec": map[string]any{
+									"apiVersion":         "client.authentication.k8s.io/v1",
+									"command":            getAzureTokenPath(config),
+									"interactiveMode":    "Never",
+									"provideClusterInfo": false,
+								},
+							}
+						}
+					}
+					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
 						return map[string]any{
 							"exec": map[string]any{
 								"apiVersion": "client.authentication.k8s.io/v1",
