@@ -51,6 +51,7 @@ source "${CSE_CONFIG_FILEPATH}"
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
+capture_benchmark "disable_ssh"
 
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
 
@@ -60,11 +61,12 @@ if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
     fi
     configureEtcEnvironment
 fi
-
+capture_benchmark "configure_http_proxy"
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
+capture_benchmark "configure_ca_trust"
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
@@ -72,6 +74,7 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
+capture_benchmark "outbound_command"
 
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
@@ -80,6 +83,7 @@ if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
+capture_benchmark "remove_auto_update_file_flag"
 
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
@@ -88,6 +92,7 @@ if [[ "$ret" != "0" ]]; then
     echo "Failed to determine if nvidia driver install should be skipped"
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
+capture_benchmark "determine_nvidia_install"
 
 if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
@@ -115,13 +120,16 @@ if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
 else
     echo "Golden image; skipping dependencies installation"
 fi
+capture_benchmark "install_deps"
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
+capture_benchmark "install_teleportd"
 
 setupCNIDirs
+capture_benchmark "setupCNIDirs"
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
@@ -136,10 +144,12 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
     logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
 fi
+capture_benchmark "download_and_configure_wasm_shims"
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
     logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
 fi
+capture_benchmark "enable_secure_tls_bootstrapping"
 
 REBOOTREQUIRED=false
 
@@ -174,6 +184,7 @@ EOF
         logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
     fi
 fi
+capture_benchmark "configure_gpu_drivers"
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 
@@ -182,10 +193,12 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
     set -x
 fi
+capture_benchmark "setup_docker_login"
 
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
+capture_benchmark "create_kube_manifest_dir"
 
 if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
@@ -203,16 +216,19 @@ logs_to_events "AKS.CSE.configureCNI" configureCNI
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
+capture_benchmark "ensureDHCPv6"
 
 if isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
+capture_benchmark "configureSystemdUseDomains"
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
+capture_benchmark "determine_needs_containerd"
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
@@ -221,18 +237,22 @@ fi
 if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
     retagMCRImagesForChina
 fi
+capture_benchmark "retagMCRImagesForChina"
 
 if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
+capture_benchmark "configPrivateClusterHosts"
 
 if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 fi
+capture_benchmark "configureTransparentHugePage"
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
+capture_benchmark "configureSwapFile"
 
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
@@ -240,6 +260,7 @@ if [ "${NEEDS_CGROUPV2}" == "true" ]; then
 Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
 EOF
 fi
+capture_benchmark "cgroupv2"
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     mkdir -p /etc/containerd
@@ -265,21 +286,26 @@ Requires=bind-mount.service
 After=bind-mount.service
 EOF
 fi
+capture_benchmark "container_runtime_and_bind_mount"
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+capture_benchmark "ensureSysctl"
 
 if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
+capture_benchmark "configureContainerdUlimits"
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
+capture_benchmark "ensureNoDupOnPromiscuBridge"
 
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
+capture_benchmark "ensureNoDupOnPromiscuBridge"
 
 if $FULL_INSTALL_REQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
@@ -287,6 +313,7 @@ if $FULL_INSTALL_REQUIRED; then
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
     fi
 fi
+capture_benchmark "full_install"
 
 VALIDATION_ERR=0
 
@@ -335,6 +362,7 @@ if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
 fi
+capture_benchmark "man-db_updates"
 
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
@@ -342,6 +370,7 @@ if $REBOOTREQUIRED; then
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         aptmarkWALinuxAgent unhold &
     fi
+    capture_benchmark "reboot_required"
 else
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
@@ -356,7 +385,7 @@ else
             systemctl enable apt-daily.timer apt-daily-upgrade.timer
             systemctl restart --no-block apt-daily.timer apt-daily-upgrade.timer            
             systemctl restart --no-block apt-daily.service
-            
+            capture_benchmark "unattended_upgrades_ubuntu"
         fi
         aptmarkWALinuxAgent unhold &
     elif isMarinerOrAzureLinux "$OS"; then
@@ -369,6 +398,7 @@ else
                 systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
                 systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
                 systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                capture_benchmark "unattended_upgrades_mariner"
             fi
         fi
     fi
@@ -379,6 +409,8 @@ echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
-
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks
+cat ${VHD_BUILD_PERF_DATA} | jq -C .
 
 #EOF

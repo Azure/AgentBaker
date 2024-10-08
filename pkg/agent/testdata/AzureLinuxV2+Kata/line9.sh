@@ -113,6 +113,14 @@ ERR_ORAS_PULL_FAIL_RESERVE_3=210
 ERR_ORAS_PULL_FAIL_RESERVE_4=211 
 ERR_ORAS_PULL_FAIL_RESERVE_5=212 
 
+script_start_stopwatch=$(date +%s)
+section_start_stopwatch=$(date +%s)
+SCRIPT_NAME=$(basename $0 .sh)
+SCRIPT_NAME="${SCRIPT_NAME//-/_}"
+declare -A benchmarks=()
+declare -a benchmarks_order=()
+VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
+
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
@@ -513,8 +521,8 @@ process_benchmarks() {
     '$script_object | .[$script_name] += $section_object')
   done
  
-  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
-  chmod 755 ${VHD_BUILD_PERF_DATA}
+  jq ". += $script_object" ${PERFORMANCE_DATA_FILE} > temp-build-perf-file.json && mv temp-build-perf-file.json ${PERFORMANCE_DATA_FILE}
+  chmod 755 ${PERFORMANCE_DATA_FILE}
 }
 
 evalPackageDownloadURL() {
