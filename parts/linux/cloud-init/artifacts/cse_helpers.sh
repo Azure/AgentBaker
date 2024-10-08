@@ -551,8 +551,8 @@ process_benchmarks() {
     '$script_object | .[$script_name] += $section_object')
   done
  
-  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
-  chmod 755 ${VHD_BUILD_PERF_DATA}
+  jq ". += $script_object" ${PERFORMANCE_DATA_FILE} > temp-build-perf-file.json && mv temp-build-perf-file.json ${PERFORMANCE_DATA_FILE}
+  chmod 755 ${PERFORMANCE_DATA_FILE}
 }
 
 evalPackageDownloadURL() {
