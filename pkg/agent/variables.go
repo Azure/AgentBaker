@@ -20,6 +20,7 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
 			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
 			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
+			"benchmarkHelpers":             getBase64EncodedGzippedCustomScript(kubernetesCSEBenchmarkHelpersScript, config),
 			"provisionSourceUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
 			"provisionSourceMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
 			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),

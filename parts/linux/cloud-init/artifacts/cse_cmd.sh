@@ -107,7 +107,6 @@ AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX="{{- if IsAKSCustomCloud}}{{AKSCu
 CSE_HELPERS_FILEPATH="{{GetCSEHelpersScriptFilepath}}"
 CSE_DISTRO_HELPERS_FILEPATH="{{GetCSEHelpersScriptDistroFilepath}}"
 CSE_BENCHMARK_HELPERS_FILEPATH="{{GetCSEBenchmarkHelpersScriptFilepath}}" ## HERE
-CSE_DISTRO_BENCHMARK_HELPERS_FILEPATH="{{GetCSEBenchmarkHelpersScriptDistroFilepath}}"
 CSE_INSTALL_FILEPATH="{{GetCSEInstallScriptFilepath}}"
 CSE_DISTRO_INSTALL_FILEPATH="{{GetCSEInstallScriptDistroFilepath}}"
 CSE_CONFIG_FILEPATH="{{GetCSEConfigScriptFilepath}}"

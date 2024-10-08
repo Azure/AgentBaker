@@ -432,3 +432,10 @@ write_files:
     [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
       capabilities = ["pull", "resolve"]
 {{- end}}
+
+- path: {{GetCSEBenchmarkHelpersScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "benchmarkHelpers"}}

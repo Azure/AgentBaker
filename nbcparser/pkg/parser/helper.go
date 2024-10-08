@@ -269,10 +269,6 @@ func getCSEBenchmarkHelpersFilepath() string { // HERE
 	return cseBenchmarkHelpersScriptFilepath
 }
 
-func getCSEDistroBenchmarkHelpersFilepath() string {
-	return cseBenchmarkHelpersScriptDistroFilepath
-}
-
 func getCSEInstallFilepath() string {
 	return cseInstallScriptFilepath
 }

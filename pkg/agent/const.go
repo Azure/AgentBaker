@@ -96,17 +96,16 @@ const (
 
 // cloud-init destination file references.
 const (
-	cseHelpersScriptFilepath                = "/opt/azure/containers/provision_source.sh"
-	cseHelpersScriptDistroFilepath          = "/opt/azure/containers/provision_source_distro.sh"
-	cseBenchmarkHelpersScriptFilepath       = "/opt/azure/containers/provision_benchmark_source.sh" // HERE
-	cseBenchmarkHelpersScriptDistroFilepath = "/opt/azure/containers/provision_benchmark_source_distro.sh"
-	cseInstallScriptFilepath                = "/opt/azure/containers/provision_installs.sh"
-	cseInstallScriptDistroFilepath          = "/opt/azure/containers/provision_installs_distro.sh"
-	cseConfigScriptFilepath                 = "/opt/azure/containers/provision_configs.sh"
-	customSearchDomainsCSEScriptFilepath    = "/opt/azure/containers/setup-custom-search-domains.sh"
-	dhcpV6ServiceCSEScriptFilepath          = "/etc/systemd/system/dhcpv6.service"
-	dhcpV6ConfigCSEScriptFilepath           = "/opt/azure/containers/enable-dhcpv6.sh"
-	initAKSCustomCloudFilepath              = "/opt/azure/containers/init-aks-custom-cloud.sh"
+	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
+	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
+	cseBenchmarkHelpersScriptFilepath    = "/opt/azure/containers/benchmark_helpers.sh" // HERE
+	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
+	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
+	cseConfigScriptFilepath              = "/opt/azure/containers/provision_configs.sh"
+	customSearchDomainsCSEScriptFilepath = "/opt/azure/containers/setup-custom-search-domains.sh"
+	dhcpV6ServiceCSEScriptFilepath       = "/etc/systemd/system/dhcpv6.service"
+	dhcpV6ConfigCSEScriptFilepath        = "/opt/azure/containers/enable-dhcpv6.sh"
+	initAKSCustomCloudFilepath           = "/opt/azure/containers/init-aks-custom-cloud.sh"
 )
 
 const (
