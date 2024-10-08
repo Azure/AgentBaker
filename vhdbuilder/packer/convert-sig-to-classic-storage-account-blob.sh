@@ -103,6 +103,7 @@ else
 fi
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
+capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
 az disk revoke-access --ids $disk_resource_id 
 
