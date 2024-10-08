@@ -410,11 +410,12 @@ echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
 mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
-exit $VALIDATION_ERR
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
 cat ${PERFORMANCE_DATA_FILE} | jq -C .
 SIZE=$(stat -c %s ${PERFORMANCE_DATA_FILE})
 echo "Size of perf data file: ${SIZE}"
+
+exit $VALIDATION_ERR
 
 #EOF
