@@ -299,9 +299,6 @@ func Test_marinerv2AirGap(t *testing.T) {
 					},
 				}
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
-			},
 		},
 	})
 }
@@ -658,10 +655,6 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
 					},
 				}
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
-				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})

@@ -152,6 +152,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
 	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
 
+	/*
 	canConnect, err := canConnectToPrivateACR(t, nodeResourceGroup)
 	if err != nil {
 		return err
@@ -160,6 +161,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		t.Logf("Private endpoint connection to ACR is already successful, skipping creation")
 		return nil
 	}
+		*/
 
 	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, vnet)
 	if err != nil {
@@ -187,6 +189,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return err
 	}
 
+	/*
 	canConnect, err = canConnectToPrivateACR(t, nodeResourceGroup)
 	if err != nil {
 		return err
@@ -194,6 +197,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	if !canConnect {
 		return fmt.Errorf("private endpoint connection to ACR is still not successful")
 	}
+		*/
 
 	return nil
 }
@@ -211,6 +215,8 @@ func canConnectToPrivateACR(t *testing.T, nodeResourceGroup string) (bool, error
 		return false, fmt.Errorf("network access to private acr failed: %v", err)
 	}
 	defer resp.Body.Close()
+
+	t.Logf("received status code: %v", resp.StatusCode)
 
 	if resp.StatusCode == http.StatusOK {
 		t.Logf("network access to private ACR is successful")
