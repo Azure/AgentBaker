@@ -73,6 +73,8 @@ func getFuncMap() template.FuncMap {
 		"getHasSearchDomain":                        getHasSearchDomain,
 		"getCSEHelpersFilepath":                     getCSEHelpersFilepath,
 		"getCSEDistroHelpersFilepath":               getCSEDistroHelpersFilepath,
+		"getCSEBenchmarkHelpersScriptFilepath":      getCSEBenchmarkHelpersFilepath, // HERE
+		"getCSEDistroBenchmarkHelpersFilepath":      getCSEDistroBenchmarkHelpersFilepath,
 		"getCSEInstallFilepath":                     getCSEInstallFilepath,
 		"getCSEDistroInstallFilepath":               getCSEDistroInstallFilepath,
 		"getCSEConfigFilepath":                      getCSEConfigFilepath,
@@ -261,6 +263,14 @@ func getCSEHelpersFilepath() string {
 
 func getCSEDistroHelpersFilepath() string {
 	return cseHelpersScriptDistroFilepath
+}
+
+func getCSEBenchmarkHelpersFilepath() string { // HERE
+	return cseBenchmarkHelpersScriptFilepath
+}
+
+func getCSEDistroBenchmarkHelpersFilepath() string {
+	return cseBenchmarkHelpersScriptDistroFilepath
 }
 
 func getCSEInstallFilepath() string {
