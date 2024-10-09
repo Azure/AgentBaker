@@ -43,6 +43,11 @@ capture_benchmark() {
 
 process_benchmarks() {
   set +x
+
+  if [ ! -f ${PERFORMANCE_DATA_FILE} ]; then
+    echo '{}' > ${PERFORMANCE_DATA_FILE}
+  fi
+
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   # create script object, then append each section object to it in the for loop
   script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')

@@ -24,11 +24,6 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
 
-if [ "${OS_TYPE,,}" != "linux" ]; then
-  # Need to include this so benchmarking does not fail the windows build
-  echo '{}' > ${PERFORMANCE_DATA_FILE}
-fi
-
 if [ "${OS_TYPE,,}" == "linux" ]; then
   TEST_VM_RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 else
