@@ -180,6 +180,14 @@ steps:
       Contents: 'trivy-images-table.txt'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+  - task: CopyFiles@2
+    condition: always()
+    displayName: Copy BCC Tools Logs
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'bcc-tools-installation.log'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
   - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes
     inputs:
@@ -205,14 +213,6 @@ steps:
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'image-bom.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: CopyFiles@2
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-    displayName: Copy BCC Tools Logs
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob

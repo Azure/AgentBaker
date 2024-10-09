@@ -562,6 +562,7 @@ EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
+chmod 755 /var/log/bcc_installation.log
 capture_benchmark "finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
