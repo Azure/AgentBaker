@@ -434,7 +434,7 @@ write_files:
 {{- end}}
 
 - path: {{GetCSEBenchmarkHelpersScriptFilepath}}
-  permissions: "0744"
+  permissions: "0755"
   encoding: gzip
   owner: root
   content: !!binary |

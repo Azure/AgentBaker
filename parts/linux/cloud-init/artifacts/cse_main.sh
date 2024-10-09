@@ -1,7 +1,5 @@
 #!/bin/bash
 # Timeout waiting for a file
-PERFORMANCE_DATA_FILE="/opt/azure/containers/cse-performance.json"
-echo '{}' > ${PERFORMANCE_DATA_FILE}
 ERR_FILE_WATCH_TIMEOUT=6 
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
