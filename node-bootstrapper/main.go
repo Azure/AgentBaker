@@ -167,7 +167,7 @@ type File struct {
 }
 
 func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]File, error) {
-	contentDockerDaemon, err := contentDockerDaemonJSON(config)
+	contentDockerDaemon, err := generateContentDockerDaemonJSON(config)
 	if err != nil {
 		return nil, fmt.Errorf("content docker daemon json: %w", err)
 	}
@@ -178,7 +178,7 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 			Mode:    ReadOnlyUser,
 		},
 		"/etc/systemd/system/docker.service.d/exec_start.conf": {
-			Content: contentDockerExecStart(config),
+			Content: generateContentDockerExecStart(config),
 			Mode:    ReadOnlyWorld,
 		},
 		"/etc/docker/daemon.json": {
@@ -186,7 +186,7 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 			Mode:    ReadOnlyWorld,
 		},
 		"/etc/default/kubelet": {
-			Content: contentKubelet(config),
+			Content: generateContentKubelet(config),
 			Mode:    ReadOnlyWorld,
 		},
 	}
@@ -216,13 +216,13 @@ func customData(config *datamodel.NodeBootstrappingConfiguration) (map[string]Fi
 
 func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) {
 	files["/var/lib/kubelet/kubeconfig"] = File{
-		Content: contentKubeconfig(config),
+		Content: generateContentKubeconfig(config),
 		Mode:    ReadOnlyWorld,
 	}
 }
 
 func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig, err := contentBootstrapKubeconfig(config)
+	bootstrapKubeconfig, err := generateContentBootstrapKubeconfig(config)
 	if err != nil {
 		return fmt.Errorf("content bootstrap kubeconfig: %w", err)
 	}
@@ -233,7 +233,7 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 	return nil
 }
 
-func contentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
+func generateContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
 	users := `- name: client
   user:
     client-certificate: /etc/kubernetes/certs/client.crt
@@ -258,7 +258,7 @@ current-context: localclustercontext
 `, agent.GetKubernetesEndpoint(config.ContainerService), users)
 }
 
-func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+func generateContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	data := map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Config",
@@ -317,7 +317,7 @@ func contentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration
 	return string(dataYAML), nil
 }
 
-func contentDockerExecStart(config *datamodel.NodeBootstrappingConfiguration) string {
+func generateContentDockerExecStart(config *datamodel.NodeBootstrappingConfiguration) string {
 	return fmt.Sprintf(`
 [Service]
 ExecStart=
@@ -326,7 +326,7 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 #EOF`, config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.DockerBridgeSubnet)
 }
 
-func contentDockerDaemonJSON(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+func generateContentDockerDaemonJSON(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	data := map[string]any{
 		"live-restore": true,
 		"log-driver":   "json-file",
@@ -354,7 +354,7 @@ func contentDockerDaemonJSON(config *datamodel.NodeBootstrappingConfiguration) (
 	return string(dataJSON), nil
 }
 
-func contentKubelet(config *datamodel.NodeBootstrappingConfiguration) string {
+func generateContentKubelet(config *datamodel.NodeBootstrappingConfiguration) string {
 	data := make([][2]string, 0)
 	data = append(data, [2]string{"KUBELET_FLAGS", agent.GetOrderedKubeletConfigFlagString(config)})
 	data = append(data, [2]string{"KUBELET_REGISTER_SCHEDULABLE", "true"})
