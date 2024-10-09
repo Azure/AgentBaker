@@ -20,11 +20,12 @@ import (
 // it compiles the node-bootstrapper binary and uploads it to Azure Storage.
 // the runs the node-bootstrapper on the VM.
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
+	ctx := newTestCtx(t)
 	if !config.Config.EnableNodeBootstrapperTest {
 		t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
-	cluster, err := ClusterKubenet(context.TODO(), t)
+	cluster, err := ClusterKubenet(ctx, t)
 	require.NoError(t, err)
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
@@ -36,7 +37,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 				containerdVersionValidator("1.7.20-1"),
 				runcVersionValidator("1.1.12-1"),
 			},
-			CSEOverride:       CSENodeBootstrapper(context.TODO(), t, cluster),
+			CSEOverride:       CSENodeBootstrapper(ctx, t, cluster),
 			DisableCustomData: true,
 		},
 	})
