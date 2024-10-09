@@ -326,7 +326,7 @@ write_files:
     [host."https://testserver.azurecr.io"]
       capabilities = ["pull", "resolve"]
 
-- path: /opt/azure/containers/benchmark_helpers.sh
+- path: /opt/azure/containers/provision_source_benchmarks.sh
   permissions: "0744"
   encoding: gzip
   owner: root
