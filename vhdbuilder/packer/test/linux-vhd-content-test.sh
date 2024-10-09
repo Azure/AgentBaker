@@ -458,6 +458,7 @@ testCustomCAScriptExecutable() {
   if [ "$permissions" != "755" ]; then
     err $test "/opt/scripts/update_certs.sh has incorrect permissions"
   fi
+
   echo "$test:Finish"
 }
 
@@ -466,6 +467,16 @@ testCustomCATimerNotStarted() {
   if [[ -n "$isUnitThere" ]]; then
     err $test "Custom CA timer was loaded, but shouldn't be"
   fi
+
+  echo "$test:Finish"
+}
+
+testCustomCATrustNodeCAWatcherRetagged() {
+  isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
+  if [[ -z "$isStaticImageThere" ]]; then
+    err $test "Expected to find Node CA Watcher with static tag on the node"
+  fi
+
   echo "$test:Finish"
 }
 
@@ -1060,6 +1071,7 @@ testCloudInit $OS_SKU
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
+testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
