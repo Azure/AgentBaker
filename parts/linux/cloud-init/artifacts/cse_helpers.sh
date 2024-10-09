@@ -492,6 +492,21 @@ evalPackageDownloadURL() {
     echo ""
 }
 
+installJq() {
+  # jq is not available until downloaded in install-dependencies.sh with the installDeps function
+  # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
+  output=$(jq --version)
+  if [ -n "$output" ]; then
+    echo "$output"
+  else
+    if isMarinerOrAzureLinux "$OS"; then
+      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
+  fi
+}
+
 # sets RELEASE to proper release metadata for the package based on the os and osVersion
 # e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804".
 # Otherwise set RELEASE to "current"
