@@ -353,12 +353,10 @@ KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_T
 ctr namespace create k8s.io
 cliTool="ctr"
 
-# also pre-download Teleportd plugin for containerd
-downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "artifact_streaming_and_download_teleportd"
+capture_benchmark "artifact_streaming_download"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
