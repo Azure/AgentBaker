@@ -446,7 +446,7 @@ wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
 watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
 # this image will never get pulled, the tag must be the same across different SHAs.
