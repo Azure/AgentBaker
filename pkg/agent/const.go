@@ -98,7 +98,7 @@ const (
 const (
 	cseHelpersScriptFilepath             = "/opt/azure/containers/provision_source.sh"
 	cseHelpersScriptDistroFilepath       = "/opt/azure/containers/provision_source_distro.sh"
-	cseBenchmarkHelpersScriptFilepath    = "/opt/azure/containers/benchmark_helpers.sh" // HERE
+	cseBenchmarkHelpersScriptFilepath    = "/opt/azure/containers/provision_source_benchmarks.sh" // HERE
 	cseInstallScriptFilepath             = "/opt/azure/containers/provision_installs.sh"
 	cseInstallScriptDistroFilepath       = "/opt/azure/containers/provision_installs_distro.sh"
 	cseConfigScriptFilepath              = "/opt/azure/containers/provision_configs.sh"

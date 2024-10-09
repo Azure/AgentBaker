@@ -438,4 +438,4 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    {{GetVariableProperty "cloudInitData" "benchmarkHelpers"}}
+    {{GetVariableProperty "cloudInitData" "provisionSourceBenchmarks"}}
