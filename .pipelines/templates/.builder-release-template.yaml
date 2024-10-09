@@ -164,6 +164,21 @@ steps:
     condition: always()
     displayName: Check Build Performance
 
+  - task: PublishPipelineArtifact@0
+    condition: always()
+    displayName: Publish BCC Tools Installation Log
+    inputs:
+      artifactName: 'bcc-tools-installation-log-${{ parameters.artifactName }}'
+      targetPath: 'bcc-tools-installation.log'
+
+  - task: CopyFiles@2
+    condition: always()
+    displayName: Copy BCC Tools Installation Log
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'bcc-tools-installation.log'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
   - task: CopyFiles@2
     condition: eq(variables['IS_NOT_1804'], 'true')
     displayName: Copy Trivy Report
@@ -178,14 +193,6 @@ steps:
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'trivy-images-table.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: CopyFiles@2
-    condition: always()
-    displayName: Copy BCC Tools Logs
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - task: PublishPipelineArtifact@0
