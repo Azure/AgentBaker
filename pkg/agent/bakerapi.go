@@ -87,7 +87,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	return nodeBootstrapping, nil
 }
 
-func (agentBaker *agentBakerImpl) GetNodeBootstrappingForSelfContained(
+func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	ctx context.Context,
 	config *datamodel.NodeBootstrappingConfiguration,
 ) (*datamodel.NodeBootstrapping, error) {

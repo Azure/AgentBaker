@@ -559,11 +559,11 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 	})
 }
 
-func Test_ubuntu2204SelfContainedInstaller(t *testing.T) {
+func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
-			NodeBootstrappingType: SelfContained,
+			NodeBootstrappingType: Scriptless,
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{

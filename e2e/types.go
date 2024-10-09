@@ -114,7 +114,7 @@ type NodeBootstrappingType string
 
 const (
 	CustomScripts NodeBootstrappingType = "CustomScripts"
-	SelfContained NodeBootstrappingType = "SelfContained"
+	Scriptless    NodeBootstrappingType = "Scriptless"
 )
 
 // Config represents the configuration of an AgentBaker E2E scenario

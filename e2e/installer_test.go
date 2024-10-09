@@ -30,7 +30,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
-			//NodeBootstrappingType: SelfContained,
+			//NodeBootstrappingType: Scriptless,
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{

@@ -53,8 +53,8 @@ func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeB
 		return nil, err
 	}
 	switch {
-	case bootstrappingType == SelfContained:
-		return ab.GetNodeBootstrappingForSelfContained(ctx, nbc)
+	case bootstrappingType == Scriptless:
+		return ab.GetNodeBootstrappingForScriptless(ctx, nbc)
 	case bootstrappingType == CustomScripts:
 		return ab.GetNodeBootstrapping(ctx, nbc)
 	default:
