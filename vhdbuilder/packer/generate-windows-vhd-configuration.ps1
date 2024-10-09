@@ -105,10 +105,15 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21", # for k8s 1.27.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21-windows-hpc", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13-windows-hpc", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11-windows-hpc", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7-windows-hpc", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1", # for k8s 1.31.x
+    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1-windows-hpc", # for k8s 1.31.x
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24",
     # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
