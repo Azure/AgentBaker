@@ -466,6 +466,19 @@ evalPackageDownloadURL() {
     echo ""
 }
 
+installJq() {
+  output=$(jq --version)
+  if [ -n "$output" ]; then
+    echo "$output"
+  else
+    if isMarinerOrAzureLinux "$OS"; then
+      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
+  fi
+}
+
 updateRelease() {
     local package="$1"
     local os="$2"
