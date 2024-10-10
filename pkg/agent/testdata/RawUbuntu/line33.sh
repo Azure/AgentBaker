@@ -410,7 +410,7 @@ mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
-cat ${PERFORMANCE_DATA_FILE} | jq -C .
+cat ${PERFORMANCE_DATA_FILE}
 SIZE=$(stat -c %s ${PERFORMANCE_DATA_FILE})
 echo "Size of perf data file: ${SIZE}"
 
