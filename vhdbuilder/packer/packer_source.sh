@@ -248,6 +248,18 @@ copyPackerFiles() {
   NBC_PARSER_DEST=/opt/azure/containers/nbcparser
   cpAndMode $NBC_PARSER_SRC $NBC_PARSER_DEST 0755
 
+  NBCPARSER_SERVICE_SRC=/home/packer/nbcparser.service
+  NBCPARSER_SERVICE_DEST=/etc/systemd/system/nbcparser.service
+  cpAndMode $NBCPARSER_SERVICE_SRC $NBCPARSER_SERVICE_DEST 0644
+
+  NBCPARSER_TARGET_SRC=/home/packer/nbcparser.target
+  NBCPARSER_TARGET_DEST=/etc/systemd/system/nbcparser.target
+  cpAndMode $NBCPARSER_TARGET_SRC $NBCPARSER_TARGET_DEST 0644
+
+  NBCPARSER_SCRIPT_SRC=/home/packer/nbcparser.sh
+  NBCPARSER_SCRIPT_DEST=/opt/azure/containers/nbcparser.sh
+  cpAndMode $NBCPARSER_SCRIPT_SRC $NBCPARSER_SCRIPT_DEST 0744
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 

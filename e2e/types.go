@@ -25,6 +25,7 @@ type Tags struct {
 	GPU                    bool
 	WASM                   bool
 	ServerTLSBootstrapping bool
+	Scriptless             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.

@@ -5,7 +5,8 @@ import (
 )
 
 type scenarioRunOpts struct {
-	clusterConfig *Cluster
-	scenario      *Scenario
-	nbc           *datamodel.NodeBootstrappingConfiguration
+	clusterConfig      *Cluster
+	scenario           *Scenario
+	nbc                *datamodel.NodeBootstrappingConfiguration
+	isSelfContainedVHD bool
 }

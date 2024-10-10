@@ -971,14 +971,70 @@ testNBCParserBinary () {
     return 1
   fi
   echo "$test: nbcparser go binary exists at $go_binary_path"
-  errs=$($go_binary_path 2>/dev/null)
+
+  file_path="config.json"
+  # define sample nbc content
+  nbc_content='{
+      "tls_bootstrapping_config": {
+          "enable_secure_tls_bootstrapping": false
+      },
+      "cluster_config": {
+          "vm_type": 2,
+          "cluster_network_config": {
+              "subnet": "aks-subnet"
+          },
+          "use_instance_metadata": true,
+          "load_balancer_config": {
+              "exclude_master_from_standard_load_balancer": true,
+              "max_load_balancer_rule_count": 250
+          }
+      },
+      "is_vhd": true,
+      "enable_ssh": true,
+      "gpu_config": {
+          "config_gpu_driver": true
+      },
+      "disable_custom_data": true
+  }'
+  echo -n "$nbc_content" > "$file_path"
+
+  errs=$($go_binary_path "$file_path" 2>/dev/null)
   code=$?
   if [ $code -ne 0 ]; then
     err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"
     return 1
   fi
   echo "$test: nbcparser go binary ran successfully"
+}
 
+testNBCParserService() {
+  local test="testNBCParserService"
+  local service_name="nbcparser.service"
+  local script_path="/opt/azure/containers/nbcparser.sh"
+  echo "$test:Start"
+
+  echo "$test: checking existence of nbcparser script invoked by systemd unit at $script_path"
+  if [ ! -f "$script_path" ]; then
+    err "$test: nbcparser.sh does not exist at $script_path"
+    return 1
+  fi
+  echo "$test: nbcparser.sh exists at $script_path"
+
+  # is-enabled returns:
+  # 'enabled' if the service is enabled.
+  # empty string if the service is not installed.
+  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
+  echo "$test: Checking that $service_name is enabled"
+  local is_enabled=
+  is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  echo "$test: logging ${is_enabled} here"
+  if [[ "${is_enabled}" == "enabled" ]]; then
+    echo "$test: $service_name is correctly enabled"
+  else
+    err $test "$service_name is not enabled"
+  fi
+
+  echo "$test:Finish"
 }
 
 testWasmRuntimesInstalled() {
@@ -1083,3 +1139,4 @@ testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
 testNBCParserBinary
+testNBCParserService
