@@ -92,7 +92,6 @@ map[string]string{
   "--image-service-endpoint": "\"\"",
   "--iptables-drop-bit": "\"15\"",
   "--iptables-masquerade-bit": "\"14\"",
-  "--keep-terminated-pod-volumes": "\"false\"",
   "--kernel-memcg-notification": "\"false\"",
   "--kube-api-burst": "\"10\"",
   "--kube-api-content-type": "\"application/vnd.kubernetes.protobuf\"",
