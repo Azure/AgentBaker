@@ -497,7 +497,6 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 fi
 
 # windows_image_version refers to the version from azure gallery
-# aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -531,7 +530,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
-  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
+  "build_date": "${BUILD_DATE}"
 }
 EOF
 
