@@ -618,6 +618,8 @@ EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
     primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
+    # There could be unexpected newline character in IMDS's output(?), so we need to trim it.
+    primaryNicIP=$(echo "$primaryNicIP" | sed 's/[[:space:]]*$//')
     ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
     mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
     touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
