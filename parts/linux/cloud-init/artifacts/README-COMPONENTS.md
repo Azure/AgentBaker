@@ -15,6 +15,7 @@
   - [Can I keep only 1 patch version](#can-i-keep-only-1-patch-version)
   - [Can I avoid repeating a single version for all OS distros/releases](#can-i-avoid-repeating-a-single-version-for-all-os-distrosreleases)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
+- [Were mariner and azurelinux intentionally removed from package runc?](#were-mariner-and-azurelinux-intentionally-removed-from-package-runc)
 
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
@@ -107,6 +108,7 @@ Please refer to [components.cue](../../../../schemas/components.cue) for the mos
 	current?: #ReleaseDownloadURI
 }
 #AzureLinuxOSDistro: {
+  "v3.0"?:  #ReleaseDownloadURI
 	current?: #ReleaseDownloadURI
 }
 ```
@@ -131,7 +133,8 @@ Here are the explanation of the above schema.
 1. In `downloadURIs`, we can define different OS distro. For now for Linux, we have _ubuntu_, _mariner_, _marinerkata_ and _default_.
 1. There are 3 types of OSDistro
     - In `UbuntuOSDistro`, we can define different OS release versions. For example, `r1804` implies release 18.04.
-    - In `MarinerOSDistro`, we only have `current` now, which implies that single configurations will be applied to all Mariner release versions. We can distinguish them in needed.
+     - In `MarinerOSDistro`, we only have `current` now, which implies that single configurations will be applied to all Mariner release versions. We can distinguish them in needed. Note, we confirmed with Mariner team, Azure Linux 2.0 is reporting itself as `mariner` in the file `/etc/os-release`. So for Azure Linux 2.0 case, it will still read the package versions from `mariner` block.
+    - In `AzureLinuxOSDistro`, `v3.0` is for Azure Linux v3.0. `current` is for otherwise but we are not using it now. Azure Linux 2.0 case is described in the `MarinerOSDistro` above. 
     - `DefaultOSDistro` means the default case of OS Distro. If an OSDistro metadata is not defined, it will fetch it from `default`. For example, if a node is Ubuntu 20.04, but we don't specify `ubuntu` in components.json, then it will fetch `default.current`. For another example, if only `default.current` is specified in the components.json, No matter what OSDistro is the node running, it will only fetch `default.current` because it's the default metadata. This provides flexibility while elimiating unnecessary duplication when defining the metadata.
 1. In `ReleaseDownloadURI`, you can see 2 keys.
     - `versionsV2`: This is updated from `versions`. You can define a list of `VersionV2` for a particular package. And in the codes, it's up to the feature developer to determine how to use the list. For example, install all versions in the list or just pick the latest one. Note that in package `containerd`, `marinerkata`, the `versionV2s` array is defined as `<SKIP>`. This is to tell the install-dependencies.sh not to install any `containerd` version for Kata SKU.
@@ -239,3 +242,6 @@ In this example the versions are defined under `default.current`, meaning that f
 
 ## What components are onboarded to Renovate for auto-update and what are not yet?
 please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
+
+## Were `mariner` and `azurelinux` intentionally removed from package `runc`?
+In components.json, `mariner` and `azurelinux` were intentionally removed from package `runc`. It is because for `mariner` and `azurelinux`, `runc` is not installed independently but is installed along with `containerd`. Ubuntu does install `runc` independently so you will find the version config there.

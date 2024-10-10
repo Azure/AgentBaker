@@ -76,19 +76,24 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient) error {
-	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true)
+func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient, isAirgap bool) error {
+	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
 	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
 		return err
 	}
-	nonHostDS := getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false)
+	nonHostDS := getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
 	if err := createDebugDaemonset(ctx, kube, nonHostDS); err != nil {
 		return err
 	}
 	return nil
 }
 
-func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork bool) string {
+func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
+	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
+	if isAirgap {
+		image = "aksvhdtestcr.azurecr.io/aks/cbl-mariner/base/core:2.0"
+	}
+
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -111,7 +116,7 @@ spec:
         kubernetes.azure.com/agentpool: %[3]s 
       hostPID: true
       containers:
-      - image: mcr.microsoft.com/cbl-mariner/base/core:2.0
+      - image: %[4]s
         name: mariner
         command: ["sleep", "infinity"]
         resources:
@@ -121,7 +126,7 @@ spec:
           privileged: true
           capabilities:
             add: ["SYS_PTRACE", "SYS_RAWIO"]
-`, deploymentName, isHostNetwork, targetNodeLabel)
+`, deploymentName, isHostNetwork, targetNodeLabel, image)
 }
 
 func createDebugDaemonset(ctx context.Context, kube *Kubeclient, manifest string) error {

@@ -53,6 +53,11 @@ Describe 'cse_helpers.sh'
             When call updatePackageVersions "$package" "UBUNTU" "unknown_release"
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersionCurrent"
         End
+        It 'returns downloadURIs.default.current.versionsV2 of package fake-runc for MARINER unkown release'
+            package=$(readPackage "fake-runc")
+            When call updatePackageVersions "$package" "MARINER" "unknown_release"
+            The variable PACKAGE_VERSIONS[@] should be undefined
+        End
         It 'returns downloadURIs.default.current.versions of package pkgVersions for default.current as a fallback case'
             package=$(readPackage "pkgVersions")
             When call updatePackageVersions "$package" "default" "current"

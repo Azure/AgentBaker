@@ -34,8 +34,8 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.20-1"),
-				runcVersionValidator("1.1.12-1"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 			CSEOverride:       CSENodeBootstrapper(ctx, t, cluster),
 			DisableCustomData: true,

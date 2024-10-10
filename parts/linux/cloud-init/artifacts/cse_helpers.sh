@@ -565,14 +565,19 @@ updateRelease() {
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
     #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
-    #For MARINER/AZURELINUX, the release is always set to "current" now.
+    #For MARINER, the release is always set to "current" now.
+    #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
     if isMarinerOrAzureLinux "${os}"; then
+        if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.\"v${osVersion}\"") != "null" ]]; then
+            RELEASE="\"v${osVersion}\""
+        fi
         return 0
     fi
-    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.\"r${osVersionWithoutDot}\"") != "null" ]]; then
+    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
+    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.r${osVersionWithoutDot}") != "null" ]]; then
         RELEASE="\"r${osVersionWithoutDot}\""
     fi
 }
@@ -604,10 +609,13 @@ updatePackageVersions() {
         for version in "${previousLatestVersions[@]}"; do
             PACKAGE_VERSIONS+=("${version}")
         done
-        return
+        return 0
     fi
 
     # Fallback to versions if versionsV2 is null
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions") == "null" ]]; then
+        return 0
+    fi
     local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
     for version in "${versions[@]}"; do
         PACKAGE_VERSIONS+=("${version}")
