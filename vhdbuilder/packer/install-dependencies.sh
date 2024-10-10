@@ -12,6 +12,9 @@ MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 
+# Real world examples from the command outputs
+# For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
+# For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
@@ -210,7 +213,7 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+  if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
@@ -350,17 +353,15 @@ KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_T
 ctr namespace create k8s.io
 cliTool="ctr"
 
-# also pre-download Teleportd plugin for containerd
-downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "artifact_streaming_and_download_teleportd"
+capture_benchmark "artifact_streaming_download"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-b40b85"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.07-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-c66998"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
   ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
@@ -443,7 +444,7 @@ wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
 watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
 # this image will never get pulled, the tag must be the same across different SHAs.
@@ -467,7 +468,6 @@ NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
 
 DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
 pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-echo "  - ${DEVICE_PLUGIN_CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 
 # GPU device plugin
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
@@ -486,13 +486,17 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
 fi
 fi
+
 capture_benchmark "download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
-systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
-systemctl enable cgroup-memory-telemetry.service || exit 1
-systemctl restart cgroup-memory-telemetry.service
+# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+if [ ! isMarinerOrAzureLinux "$OS" ]; then
+  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctl enable cgroup-memory-telemetry.service || exit 1
+  systemctl restart cgroup-memory-telemetry.service
+fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
