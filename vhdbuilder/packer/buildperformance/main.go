@@ -24,7 +24,7 @@ func main() {
 	}
 	log.Println("Program config set")
 
-	maps := service.CreateDataMaps()
+	//maps := service.CreateDataMaps()
 
 	client, err := service.CreateKustoClient(config.KustoEndpoint, config.KustoClientId)
 	if err != nil {
@@ -43,17 +43,19 @@ func main() {
 		log.Printf("Data ingested for %s\n", config.SigImageName)
 	}
 
-	queryData, err := service.QueryData(ctx, client, config.SigImageName, config.KustoDatabase)
-	if err != nil {
-		panic(err)
-	}
-	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
+	/*
+		queryData, err := service.QueryData(ctx, client, config.SigImageName, config.KustoDatabase)
+		if err != nil {
+			panic(err)
+		}
+		log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 
-	if err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData); err != nil {
-		panic(err)
-	}
+		if err = maps.PreparePerformanceDataForEvaluation(config.LocalBuildPerformanceFile, queryData); err != nil {
+			panic(err)
+		}
 
-	if err = maps.EvaluatePerformance(); err != nil {
-		panic(err)
-	}
+		if err = maps.EvaluatePerformance(); err != nil {
+			panic(err)
+		}
+	*/
 }
