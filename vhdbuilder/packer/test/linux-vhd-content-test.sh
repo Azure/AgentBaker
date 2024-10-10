@@ -473,7 +473,7 @@ testCustomCATimerNotStarted() {
 
 testCustomCATrustNodeCAWatcherRetagged() {
   isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
-  if [[ -z "$isStaticImageThere" ]]; then
+  if [[ -z "$isStaticTagImageThere" ]]; then
     err $test "Expected to find Node CA Watcher with static tag on the node"
   fi
 
