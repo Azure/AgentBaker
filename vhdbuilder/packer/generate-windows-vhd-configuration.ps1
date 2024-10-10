@@ -51,8 +51,9 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 
 switch -Regex ($windowsSku) {
     "2019-containerd" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
+        # TODO: clean up when you bump 11B
+        $global:patchUrls = @("https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/10/windows10.0-kb5044277-x64_5a0128140341e370680ab2542eb9da87de878110.msu")
+        $global:patchIDs = @("KB5044277")
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
