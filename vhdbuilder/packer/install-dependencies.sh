@@ -346,12 +346,10 @@ KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_T
 ctr namespace create k8s.io
 cliTool="ctr"
 
-# also pre-download Teleportd plugin for containerd
-downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_artifact_streaming_and_download_teleportd"
+capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
@@ -463,7 +461,6 @@ NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
 
 DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
 pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-echo "  - ${DEVICE_PLUGIN_CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 
 # GPU device plugin
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
@@ -482,7 +479,8 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
 fi
 fi
-capture_benchmark "${SCRIPT_NAME}_download_gpu_device_plugin"
+
+capture_benchmark "download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
@@ -555,7 +553,8 @@ EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
 fi
-capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
+chmod 755 /var/log/bcc_installation.log
+capture_benchmark "finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
 if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
