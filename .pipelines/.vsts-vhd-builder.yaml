@@ -104,7 +104,7 @@ stages:
       LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
-  - stage: Generate and Publish Testdata
+  - stage: Generate_and_Publish_Testdata
     condition: succeeded()
     jobs:
       - job: Generate_Publish_Testdata
@@ -113,7 +113,7 @@ stages:
         - bash: |
             make generate
           displayName: Generate Testdata
-        - task: 1ES.PublishPipelineArtifact@1
+        - task: PublishPipelineArtifact@1
           inputs:
             targetPath: $(Pipeline.Workspace)/pkg/agent/testdata
             artifact: testdata
