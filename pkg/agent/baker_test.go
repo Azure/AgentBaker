@@ -107,21 +107,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 
-		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
-
-		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
-		if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-		}
-
-		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &datamodel.K8sComponents{
-			PodInfraContainerImageURL: pauseImage,
-			HyperkubeImageURL:         hyperkubeImage,
-			WindowsPackageURL:         windowsPackage,
-		}
+		k8sComponents := &datamodel.K8sComponents{}
 
 		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
 			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
@@ -1575,21 +1561,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 
-		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
-
-		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
-		if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-		}
-
-		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &datamodel.K8sComponents{
-			PodInfraContainerImageURL: pauseImage,
-			HyperkubeImageURL:         hyperkubeImage,
-			WindowsPackageURL:         windowsPackage,
-		}
+		k8sComponents := &datamodel.K8sComponents{}
 
 		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
 			// This is test only, credential provider version does not align with k8s version

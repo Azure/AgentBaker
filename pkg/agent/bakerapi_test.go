@@ -68,21 +68,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 
-		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
-
-		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
-		if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-		}
-
-		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &datamodel.K8sComponents{
-			PodInfraContainerImageURL: pauseImage,
-			HyperkubeImageURL:         hyperkubeImage,
-			WindowsPackageURL:         windowsPackage,
-		}
+		k8sComponents := &datamodel.K8sComponents{}
 
 		kubeletConfig := map[string]string{
 			"--address":                           "0.0.0.0",
