@@ -28,28 +28,12 @@ configureTransparentHugePage() {
     fi
 }
 
-configureSystemdUseDomains() {
-    NETWORK_CONFIG_FILE="/etc/systemd/networkd.conf"
-
-    if awk '/^\[DHCPv4\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
-        sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
-    fi
-
-    if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
-        if awk '/^\[DHCPv6\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
-            sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
-        fi
-    fi
-
-    systemctl restart systemd-networkd
-
-    systemctl restart rsyslog
-}
-
 configureSwapFile() {
+    # https://learn.microsoft.com/en-us/troubleshoot/azure/virtual-machines/troubleshoot-device-names-problems#identify-disk-luns
     swap_size_kb=$(expr ${SWAP_FILE_SIZE_MB} \* 1000)
     swap_location=""
     
+    # Attempt to use the resource disk
     if [[ -L /dev/disk/azure/resource-part1 ]]; then
         resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
         disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
@@ -61,7 +45,9 @@ configureSwapFile() {
         fi
     fi
 
+    # If we couldn't use the resource disk, attempt to use the OS disk
     if [[ -z "${swap_location}" ]]; then
+        # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
         os_device=$(readlink -f /dev/disk/azure/root)
         disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
         if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
@@ -91,6 +77,7 @@ configureEtcEnvironment() {
     touch /etc/apt/apt.conf.d/95proxy
     chmod 0644 /etc/apt/apt.conf.d/95proxy
 
+    # TODO(ace): this pains me but quick and dirty refactor
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
     if [ "${HTTP_PROXY_URLS}" != "" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
@@ -113,6 +100,7 @@ configureEtcEnvironment() {
         echo "DefaultEnvironment=\"no_proxy=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
 
+    # for kubelet to pick up the proxy
     mkdir -p "/etc/systemd/system/kubelet.service.d"
     tee "/etc/systemd/system/kubelet.service.d/10-httpproxy.conf" > /dev/null <<'EOF'
 [Service]
@@ -128,7 +116,6 @@ configureHTTPProxyCA() {
         cert_dest="/usr/local/share/ca-certificates"
         update_cmd="update-ca-certificates"
     fi
-    HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
     echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
     $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
@@ -136,10 +123,22 @@ configureHTTPProxyCA() {
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
+        # directly referring to the variable as "${CUSTOM_CA_CERT_${i}}"
+        # causes bad substitution errors in bash
+        # dynamically declare and use `!` to add a layer of indirection
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
+    # This will block until the service is considered active.
+    # Update_certs.service is a oneshot type of unit that
+    # is considered active when the ExecStart= command terminates with a zero status code.
     systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    # after new certs are added to trust store, containerd will not pick them up properly before restart.
+    # aim here is to have this working straight away for a freshly provisioned node
+    # so we force a restart after the certs are updated
+    # custom CA daemonset copies certs passed by the user to the node, what then triggers update_certs.path unit
+    # path unit then triggers the script that copies over cert files to correct location on the node and updates the trust store
+    # as a part of this flow we could restart containerd everytime a new cert is added to the trust store using custom CA
     systemctl restart containerd
 }
 
@@ -154,6 +153,7 @@ EOF
   systemctl daemon-reload
   systemctl restart containerd
 }
+
 
 configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
@@ -188,11 +188,12 @@ configureK8s() {
     fi
 
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+    # Perform the required JSON escaping
     SP_FILE="/etc/kubernetes/sp.txt"
     SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
     SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE"
+    rm "$SP_FILE" # unneeded after reading from disk.
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -239,10 +240,7 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
-        configureKubeletServerCert
-    fi
-
+    configureKubeletServerCert
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
@@ -273,6 +271,7 @@ EOF
 }
 
 configureCNI() {
+    # needed for the iptables rules to work on bridges
     retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
@@ -295,8 +294,8 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]]; then
-        echo "Ingoring systemd-resolved query service but using its resolv.conf file"
+    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
+        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
@@ -350,12 +349,7 @@ ensureArtifactStreaming() {
   systemctl enable acr-mirror.service
   systemctl start acr-mirror.service
   sudo /opt/acr/tools/overlaybd/install.sh
-  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
-  sudo /opt/acr/tools/overlaybd/config.sh download.enable false
-  sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.enable true
-  sudo /opt/acr/tools/overlaybd/config.sh exporterConfig.port 9863
   modprobe target_core_user
   curl -X PUT 'localhost:8578/config?ns=_default&enable_suffix=azurecr.io&stream_format=overlaybd' -O
   systemctl enable /opt/overlaybd/overlaybd-tcmu.service
@@ -390,69 +384,17 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
-getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
-    local ip=""
-
-    while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
-        if [[ -n "$ip" && $? -eq 0 ]]; then
-            break
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
-}
-
-clearKubeletNodeLabel() {
-    local LABEL_STRING=$1
-    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
-    fi
-}
-
-disableKubeletServingCertificateRotationForTags() {
-    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
-        echo "kubelet serving certificate rotation is already disabled"
-        return 0
-    fi
-
-    export -f should_disable_kubelet_serving_certificate_rotation
-    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
-    if [ $? -ne 0 ]; then
-        echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
-        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
-    fi
-
-    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
-        echo "nodepool tag \"aks-disable-kubelet-serving-certificate-rotation\" is not true, nothing to disable"
-        return 0
-    fi
-
-    echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
-
-    KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-
-    if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
-        set +x
-        KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
-        set -x
-    fi
-    
-    clearKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
-}
-
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
 
+    # In k8s >= 1.29 kubelet no longer sets node internalIP when using external cloud provider
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    # This regresses node startup performance in Azure CNI Overlay and Podsubnet clusters, which require the node to be
+    # assigned an internal IP before configuring pod networking.
+    # To improve node startup performance, explicitly set `--node-ip` to the IP returned from IMDS so kubelet sets
+    # the internal IP when it registers the node.
+    # If this fails, skip setting --node-ip, which is safe because cloud-node-manager will assign it later anyway.
     if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
         logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
     fi
@@ -465,14 +407,13 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
-    chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
     mkdir -p "$(dirname "${KUBE_CA_FILE}")"
     echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
     chmod 0600 "${KUBE_CA_FILE}"
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    
+    if [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -481,45 +422,6 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-    fi
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
-        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
-            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
-        fi
-        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://${API_SERVER_NAME}:443
-users:
-- name: kubelet-bootstrap
-  user:
-    exec:
-        apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-        args:
-        - bootstrap
-        - --next-proto=aks-tls-bootstrap
-        - --aad-resource=${AAD_RESOURCE}
-        interactiveMode: Never
-        provideClusterInfo: true
-contexts:
-- context:
-    cluster: localcluster
-    user: kubelet-bootstrap
-  name: bootstrap-context
-current-context: bootstrap-context
-EOF
-    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -569,40 +471,21 @@ contexts:
 current-context: localclustercontext
 EOF
     fi
-    
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
 #!/bin/bash
+# Disallow container from reaching out to the special IP address 168.63.129.16
+# for TCP protocol (which http uses)
 #
+# 168.63.129.16 contains protected settings that have priviledged info.
 #
+# The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
 #
+# Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+# for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
-iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 EOF
-
-    primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
-    ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
-    mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
-    touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
-    chmod 0600 "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
-    tee "${ENSURE_IMDS_RESTRICTION_DROP_IN}" > /dev/null <<EOF
-[Service]
-Environment="PRIMARY_NIC_IP=${primaryNicIP}"
-Environment="ENABLE_IMDS_RESTRICTION=${ENABLE_IMDS_RESTRICTION}"
-Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-EOF
-
-    if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
-        echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
-        logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
-    fi
-
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
-}
-
-ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -612,6 +495,10 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
+    # this is expected to fail and work only on next reboot
+    # it MAY succeed, only due to unreliability of systemd
+    # service type=Simple, which does not exit non-zero
+    # on failure if ExecStart failed to invoke.
     systemctlEnableAndStart mig-partition
 }
 
@@ -699,6 +586,7 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
+    # install gpu driver
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
@@ -732,10 +620,12 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
+    # Fix the NVIDIA /dev/char link issue
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
+    # reload containerd/dockerd
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
@@ -745,6 +635,7 @@ configGPUDrivers() {
 
 validateGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
         return
     fi
 
@@ -769,6 +660,7 @@ validateGPUDrivers() {
 
 ensureGPUDrivers() {
     if [[ $(isARM64) == 1 ]]; then
+        # no GPU on ARM64
         return
     fi
 
@@ -786,46 +678,6 @@ disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
 
-configCredentialProvider() {
-    CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
-    mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
-    touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
-    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
-        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-      - "*$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json
-EOF
-    else
-    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
-apiVersion: kubelet.config.k8s.io/v1
-kind: CredentialProviderConfig
-providers:
-  - name: acr-credential-provider
-    matchImages:
-      - "*.azurecr.io"
-      - "*.azurecr.cn"
-      - "*.azurecr.de"
-      - "*.azurecr.us"
-    defaultCacheDuration: "10m"
-    apiVersion: credentialprovider.kubelet.k8s.io/v1
-    args:
-      - /etc/kubernetes/azure.json
-EOF
-    fi
-}
-
 setKubeletNodeIPFlag() {
     imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
     if [[ $? -eq 0 ]]; then
@@ -834,7 +686,7 @@ setKubeletNodeIPFlag() {
         [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
         ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
         [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
-        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") 
+        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
         if [ -n "$nodeIPArg" ]; then
             echo "Adding --node-ip=$nodeIPArg to kubelet flags"
             KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
