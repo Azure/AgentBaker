@@ -56,6 +56,12 @@ capture_benchmark() {
 }
 
 process_benchmarks() {
+  set +x
+
+  if [ ! -f ${PERFORMANCE_DATA_FILE} ]; then
+    echo '{}' > ${PERFORMANCE_DATA_FILE}
+  fi
+
   check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
   # create script object, then append each section object to it in the for loop
   script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
@@ -68,6 +74,6 @@ process_benchmarks() {
     '$script_object | .[$script_name] += $section_object')
   done
  
-  jq ". += $script_object" ${PERFORMANCE_DATA_FILE} > temp-build-perf-file.json && mv temp-build-perf-file.json ${PERFORMANCE_DATA_FILE}
+  jq ". += $script_object" ${PERFORMANCE_DATA_FILE} > temp-perf-file.json && mv temp-perf-file.json ${PERFORMANCE_DATA_FILE}
   chmod 755 ${PERFORMANCE_DATA_FILE}
 }
