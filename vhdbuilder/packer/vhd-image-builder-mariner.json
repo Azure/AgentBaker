@@ -132,6 +132,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh",
+      "destination": "/home/packer/provision_source_benchmarks.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
       "destination": "/home/packer/provision_source_distro.sh"
     },
