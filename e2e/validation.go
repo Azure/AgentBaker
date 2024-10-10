@@ -110,7 +110,7 @@ func commonLiveVMValidators(opts *scenarioRunOpts) []*LiveVMValidator {
 				"cluster-provision-cse-output.log",
 				"cloud-init-files.paved",
 				"vhd-install.complete",
-				"cloud-config.txt",
+				//"cloud-config.txt", // file with UserData
 			},
 		),
 		// this check will run from host's network - we expect it to succeed

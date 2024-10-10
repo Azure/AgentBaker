@@ -61,6 +61,137 @@ const (
 type outputValidator func(*nodeBootstrappingOutput)
 
 var _ = Describe("Assert generated customData and cseCmd", func() {
+	Describe("Tests of template methods", func() {
+		var config *datamodel.NodeBootstrappingConfiguration
+		BeforeEach(func() {
+			config = &datamodel.NodeBootstrappingConfiguration{
+				ContainerService: &datamodel.ContainerService{
+					Properties: &datamodel.Properties{
+						HostedMasterProfile: &datamodel.HostedMasterProfile{},
+						OrchestratorProfile: &datamodel.OrchestratorProfile{
+							KubernetesConfig: &datamodel.KubernetesConfig{
+								ContainerRuntimeConfig: map[string]string{},
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &datamodel.AgentPoolProfile{},
+			}
+		})
+
+		Describe(".HasDataDir()", func() {
+			It("given there is no profile, it returns false", func() {
+				Expect(HasDataDir(config)).To(BeFalse())
+			})
+			It("given there is a data dir, it returns true", func() {
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig["dataDir"] = "data dir"
+				Expect(HasDataDir(config)).To(BeTrue())
+			})
+			It("given there is a temp disk, it returns true", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// - rather than the value of our internal const is mariner.
+				config.AgentPoolProfile.KubeletDiskType = "Temporary"
+				Expect(HasDataDir(config)).To(BeTrue())
+			})
+		})
+
+		Describe(".GetDataDir()", func() {
+			It("given there is no profile, it returns an empty string", func() {
+				Expect(GetDataDir(config)).To(BeEmpty())
+			})
+			It("given there is a data dir, it returns true", func() {
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig["dataDir"] = "data dir"
+				Expect(GetDataDir(config)).To(Equal("data dir"))
+			})
+			It("given there is a temp disk, it returns true", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// - rather than the value of our internal const is mariner.
+				config.AgentPoolProfile.KubeletDiskType = "Temporary"
+				Expect(GetDataDir(config)).To(Equal("/mnt/aks/containers"))
+			})
+		})
+
+		Describe(".GetKubernetesEndpoint()", func() {
+			It("given there is no profile, it returns an empty string", func() {
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(BeEmpty())
+			})
+			It("given there is an ip address, it returns the ip address", func() {
+				config.ContainerService.Properties.HostedMasterProfile.IPAddress = "127.0.0.1"
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(Equal("127.0.0.1"))
+			})
+			It("given there is n fqdn, it returns the fqdn", func() {
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "fqdn"
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(Equal("fqdn"))
+			})
+			It("given there is an ip address and a fqdn, it returns the ip address", func() {
+				config.ContainerService.Properties.HostedMasterProfile.IPAddress = "127.0.0.1"
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "fqdn"
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(Equal("127.0.0.1"))
+			})
+		})
+
+		Describe(".getPortRangeEndValue()", func() {
+			It("given a port range with 2 numbers, it returns an the second number", func() {
+				Expect(getPortRangeEndValue("1 2")).To(Equal(2))
+			})
+			It("given a port range with 3 numbers, it returns an the second number", func() {
+				Expect(getPortRangeEndValue("1 2 3")).To(Equal(2))
+			})
+		})
+
+		Describe(".areCustomCATrustCertsPopulated()", func() {
+			It("given an empty profile, it returns false", func() {
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
+			})
+			It("given no list of certs, it returns false", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
+			})
+			It("given an empty list of certs, it returns false", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{},
+				}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
+			})
+			It("given a single custom ca cert, it returns true", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{"mock cert value"},
+				}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeTrue())
+			})
+			It("given 4 custom ca certs, it returns true", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{"cert1", "cert2", "cert3", "cert4"},
+				}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeTrue())
+			})
+		})
+
+		Describe(".isMariner()", func() {
+			It("given an empty string, that is not mariner", func() {
+				Expect(isMariner("")).To(BeFalse())
+			})
+			It("given datamodel.OSSKUCBLMariner, that is mariner", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// is mariner - rather than the value of our internal const is mariner.
+				Expect(isMariner("CBLMariner")).To(BeTrue())
+			})
+			It("given datamodel.OSSKUMariner, that is mariner", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// is mariner - rather than the value of our internal const is mariner.
+				Expect(isMariner("Mariner")).To(BeTrue())
+			})
+			It("given datamodel.OSSKUAzureLinux, that is mariner", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// is mariner - rather than the value of our internal const is mariner.
+				Expect(isMariner("AzureLinux")).To(BeTrue())
+			})
+			It("given ubuntu, that is not mariner", func() {
+				Expect(isMariner("Ubuntu")).To(BeFalse())
+			})
+		})
+	})
+
 	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration),
 		validator outputValidator) {
 		cs := &datamodel.ContainerService{

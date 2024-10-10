@@ -16,6 +16,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		falseConst = false
 	)
 	return &datamodel.NodeBootstrappingConfiguration{
+		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
 			Location: location,

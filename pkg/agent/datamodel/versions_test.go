@@ -474,13 +474,13 @@ func TestGetMinMaxVersion(t *testing.T) {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			min := GetMinVersion(c.versions, c.preRelease)
-			if min != c.expectedMin {
-				t.Errorf("GetMinVersion returned the wrong min version, expected %s, got %s", c.expectedMin, min)
+			minVersion := GetMinVersion(c.versions, c.preRelease)
+			if minVersion != c.expectedMin {
+				t.Errorf("GetMinVersion returned the wrong min version, expected %s, got %s", c.expectedMin, minVersion)
 			}
-			max := GetMaxVersion(c.versions, c.preRelease)
-			if max != c.expectedMax {
-				t.Errorf("GetMaxVersion returned the wrong max version, expected %s, got %s", c.expectedMax, max)
+			maxVersion := GetMaxVersion(c.versions, c.preRelease)
+			if maxVersion != c.expectedMax {
+				t.Errorf("GetMaxVersion returned the wrong max version, expected %s, got %s", c.expectedMax, maxVersion)
 			}
 		})
 	}

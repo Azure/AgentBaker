@@ -108,6 +108,7 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
 	steps := []string{
 		fmt.Sprintf("ls -la %[1]s", fileName),
+		fmt.Sprintf("sudo cat %[1]s", fileName),
 		fmt.Sprintf("(sudo cat %[1]s | grep -q %[2]q)", fileName, contents),
 	}
 
@@ -252,7 +253,7 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 func mobyComponentVersionValidator(component, version, packageManager string) *LiveVMValidator {
 	installedCommand := "list --installed"
 	if packageManager == "dnf" {
-	    installedCommand = "list installed"
+		installedCommand = "list installed"
 	}
 	if packageManager == "apt" {
 		installedCommand = "list --installed"

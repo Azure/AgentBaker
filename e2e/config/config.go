@@ -32,6 +32,9 @@ type Configuration struct {
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
+	BlobStorageAccount            string        `env:"BLOB_STORAGE_ACCOUNT" envDefault:"https://abe2e.blob.core.windows.net"`
+	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
+	EnableNodeBootstrapperTest    bool          `env:"ENABLE_NODE_BOOTSTRAPPER_TEST"`
 }
 
 func mustLoadConfig() Configuration {

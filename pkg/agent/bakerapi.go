@@ -5,6 +5,8 @@ package agent
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -82,6 +84,32 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		}
 	}
 
+	return nodeBootstrapping, nil
+}
+
+func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
+	ctx context.Context,
+	config *datamodel.NodeBootstrappingConfiguration,
+) (*datamodel.NodeBootstrapping, error) {
+	// TODO: add windows support
+	if config.AgentPoolProfile.IsWindows() {
+		return agentBaker.GetNodeBootstrapping(ctx, config)
+	}
+	config.Version = "v0"
+	nodeBootstrapping, err := agentBaker.GetNodeBootstrapping(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+	//nolint: lll
+	nodeBootstrapping.CSE = fmt.Sprintf(
+		`bash -c "(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && /opt/azure/node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1"`,
+		base64.StdEncoding.EncodeToString(configJSON),
+	) // TODO: simplify this)
+	nodeBootstrapping.CustomData = ""
 	return nodeBootstrapping, nil
 }
 
