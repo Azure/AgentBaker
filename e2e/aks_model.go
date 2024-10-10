@@ -150,7 +150,17 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
 	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, vnet)
+	privateEndpointName := "PE-for-ABE2ETests"
+	exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		t.Logf("Private Endpoint already exists, skipping creation")
+		return nil
+	}
+
+	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, vnet)
 	if err != nil {
 		return err
 	}
@@ -179,8 +189,19 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	return nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
-	endpointName := "PE-for-ABE2ETests"
+func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string) (bool, error) {
+	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
+	if err == nil && existingPE.ID != nil {
+		t.Logf("Private Endpoint already exists with ID: %s\n", *existingPE.ID)
+		return true, nil
+	}
+	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
+		return false, fmt.Errorf("failed to get private endpoint: %w", err)
+	}
+	return false, nil
+}
+
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -189,7 +210,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 			},
 			PrivateLinkServiceConnections: []*armnetwork.PrivateLinkServiceConnection{
 				{
-					Name: to.Ptr(endpointName),
+					Name: to.Ptr(privateEndpointName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
 						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
 						GroupIDs:             []*string{to.Ptr("registry")},
@@ -202,7 +223,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 	poller, err := config.Azure.PrivateEndpointClient.BeginCreateOrUpdate(
 		ctx,
 		nodeResourceGroup,
-		endpointName,
+		privateEndpointName,
 		peParams,
 		nil,
 	)
@@ -213,7 +234,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup 
 	if err != nil {
 		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
-	
+
 	t.Logf("Private Endpoint created or updated with ID: %s\n", *resp.ID)
 	return resp, nil
 }
@@ -346,7 +367,6 @@ func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, e
 	// https://learn.microsoft.com/en-us/azure/aks/outbound-rules-control-egress#azure-global-required-fqdn--application-rules
 	// note that we explicitly exclude packages.microsoft.com
 	requiredDNSNames := []string{
-		"mcr.microsoft.com",
 		"management.azure.com",
 		clusterFQDN,
 	}

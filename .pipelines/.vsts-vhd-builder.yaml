@@ -104,3 +104,18 @@ stages:
       LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
+  - stage: Generate_and_Publish_Testdata
+    condition: succeeded()
+    jobs:
+      - job: Generate_Publish_Testdata
+        timeoutInMinutes: 10
+        steps:
+        - bash: |
+            make generate
+          displayName: Generate Testdata
+        - task: PublishPipelineArtifact@1
+          inputs:
+            targetPath: $(Pipeline.Workspace)/pkg/agent/testdata
+            artifact: testdata
+            publishLocation: pipeline
+
