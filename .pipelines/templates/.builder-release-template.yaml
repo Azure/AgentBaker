@@ -160,10 +160,6 @@ steps:
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
 
-  - bash: make -f packer.mk evaluate-build-performance
-    condition: always()
-    displayName: Check Build Performance
-
   - task: PublishPipelineArtifact@0
     condition: always()
     displayName: Publish BCC Tools Installation Log
