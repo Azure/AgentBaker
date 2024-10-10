@@ -599,6 +599,12 @@
       ]
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/bcc_installation.log",
+      "destination": "bcc-tools-installation.log"
+    },
+    {
       "type": "shell",
       "inline": "sudo reboot",
       "expect_disconnect": true,
