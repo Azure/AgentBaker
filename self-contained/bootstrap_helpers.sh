@@ -114,7 +114,7 @@ export NVIDIA_DRIVER_IMAGE_SHA="sha-e8873b"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
-export DOCKER_GPU_INSTALL_CMD="docker -n k8s.io run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
+export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
