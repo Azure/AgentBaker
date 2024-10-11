@@ -272,7 +272,7 @@ func customData(ctx context.Context, config *datamodel.NodeBootstrappingConfigur
 		return files, nil
 	}
 
-	contentDockerDaemon, err := contentDockerDaemonJSON(config)
+	contentDockerDaemon, err := generateContentDockerDaemonJSON(config)
 	if err != nil {
 		return nil, fmt.Errorf("content docker daemon json: %w", err)
 	}
@@ -406,7 +406,7 @@ func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, fi
 }
 
 func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig := contentArcTokenSh(config)
+	bootstrapKubeconfig := generateContentArcTokenSh(config)
 	files[getArcTokenPath(config)] = File{
 		Content: bootstrapKubeconfig,
 		Mode:    0755,
@@ -415,7 +415,7 @@ func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[s
 }
 
 func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig := contentAzureTokenSh(config)
+	bootstrapKubeconfig := generateContentAzureTokenSh(config)
 	if config.AgentPoolProfile.IsWindows() {
 		bootstrapKubeconfig = contentAzureTokenPs1(config)
 	}
