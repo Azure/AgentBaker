@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eux
 
+source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
@@ -48,6 +50,7 @@ function cleanup() {
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
 trap cleanup EXIT
+capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_OPTIONS="--size Standard_D8ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
@@ -68,6 +71,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
+    
+capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -112,10 +117,15 @@ az vm run-command invoke \
         "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
         "BUILDID"=${BUILD_ID}
 
+capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
+
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login
+capture_benchmark "${SCRIPT_NAME}_download_and_delete_blobs"
 
 echo -e "Trivy Scan Script Completed\n\n\n"
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks

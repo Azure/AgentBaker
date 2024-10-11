@@ -92,6 +92,11 @@
     },
     {
       "type": "file",
+      "source": "node-bootstrapper/dist/node-bootstrapper-linux-amd64",
+      "destination": "/home/packer/node-bootstrapper"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
     },
@@ -129,6 +134,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_helpers.sh",
       "destination": "/home/packer/provision_source.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh",
+      "destination": "/home/packer/provision_source_benchmarks.sh"
     },
     {
       "type": "file",
