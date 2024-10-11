@@ -23,7 +23,7 @@ var (
 )
 
 func TestContianerImage(t *testing.T) {
-	componentsPath := resolveComponentsBasePath(t)
+	componentsPath := resolveComponentsPath(t)
 
 	if strings.EqualFold(os.Getenv(regenerateTestData), "true") {
 		generate(t, componentsPath)
@@ -57,7 +57,7 @@ func generate(t *testing.T, componentsPath string) {
 	assert.NoError(t, err)
 }
 
-func resolveComponentsBasePath(t *testing.T) string {
+func resolveComponentsPath(t *testing.T) string {
 	// this is hack until we can get rid of storing static testdata altogether
 	repoBasePath, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	assert.NoError(t, err, "unable to determine repo root with git rev-parse")
