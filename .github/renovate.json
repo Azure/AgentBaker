@@ -81,6 +81,19 @@
       "assignees": ["UtheMan"]
     },
     {
+      "matchPackageNames": ["kubernetes-csi/livenessprobe", "oss/kubernetes-csi/csi-node-driver-registrar"],
+      "assignees": ["andyzhangx"]
+    },
+    {
+      "matchPackageNames": ["azure-policy/policy-kubernetes-addon-prod"],
+      "assignees": ["anlandu", "nreisch"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "enabled": true
+    },
+    {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
       "extractVersion": "^v?(?<version>.+)$"
     }
