@@ -444,12 +444,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.8.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.7.1",
-          "previousLatestVersion": "1.7.0"
+          "latestVersion": "1.8.0",
+          "previousLatestVersion": "1.7.1"
         }
       ]
     },
@@ -459,12 +455,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.8.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.7.1",
-          "previousLatestVersion": "1.7.0"
+          "latestVersion": "1.8.0",
+          "previousLatestVersion": "1.7.1"
         }
       ]
     },
