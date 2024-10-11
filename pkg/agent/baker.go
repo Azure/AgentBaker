@@ -373,7 +373,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return getAgentKubernetesLabels(profile, config)
+			return GetAgentKubernetesLabels(profile, config)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels()
@@ -411,7 +411,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return IsKubeletServingCertificateRotationEnabled(config)
 		},
 		"GetKubeletConfigKeyVals": func() string {
-			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
+			return GetOrderedKubeletConfigFlagString(config)
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
@@ -484,13 +484,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
 		"GetKubernetesEndpoint": func() string {
-			if cs.Properties.HostedMasterProfile == nil {
-				return ""
-			}
-			if cs.Properties.HostedMasterProfile.IPAddress != "" {
-				return cs.Properties.HostedMasterProfile.IPAddress
-			}
-			return cs.Properties.HostedMasterProfile.FQDN
+			return GetKubernetesEndpoint(cs)
 		},
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
@@ -662,26 +656,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
-				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
-				return true
-			}
-			if profile.KubeletDiskType == datamodel.TempDisk {
-				return true
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
-				cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+			return HasDataDir(config)
 		},
 		"GetDataDir": func() string {
-			if profile != nil && profile.KubernetesConfig != nil &&
-				profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
-				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
-				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
-			}
-			if profile.KubeletDiskType == datamodel.TempDisk {
-				return datamodel.TempDiskContainerDataDir
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+			return GetDataDir(config)
 		},
 		"HasKubeletDiskType": func() bool {
 			return profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk
@@ -999,6 +977,44 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
 	}
+}
+
+func GetDataDir(config *datamodel.NodeBootstrappingConfiguration) string {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	if profile != nil && profile.KubernetesConfig != nil &&
+		profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+		profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+		return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+	}
+	if profile.KubeletDiskType == datamodel.TempDisk {
+		return datamodel.TempDiskContainerDataDir
+	}
+	return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+}
+
+func HasDataDir(config *datamodel.NodeBootstrappingConfiguration) bool {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+		profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+		return true
+	}
+	if profile.KubeletDiskType == datamodel.TempDisk {
+		return true
+	}
+	return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+		cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+}
+
+func GetKubernetesEndpoint(cs *datamodel.ContainerService) string {
+	if cs.Properties.HostedMasterProfile == nil {
+		return ""
+	}
+	if cs.Properties.HostedMasterProfile.IPAddress != "" {
+		return cs.Properties.HostedMasterProfile.IPAddress
+	}
+	return cs.Properties.HostedMasterProfile.FQDN
 }
 
 func getPortRangeEndValue(portRange string) int {
