@@ -49,8 +49,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.35",
-          "previousLatestVersion": "v1.5.32",
+          "latestVersion": "v1.5.38",
+          "previousLatestVersion": "v1.5.35",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -66,7 +66,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.10",
+          "latestVersion": "v1.6.11",
           "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
@@ -89,7 +89,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.52",
+          "latestVersion": "v1.4.56",
+          "previousLatestVersion": "v1.4.52",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -100,8 +101,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.35",
-          "previousLatestVersion": "v1.5.32",
+          "latestVersion": "v1.5.38",
+          "previousLatestVersion": "v1.5.35",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -220,7 +221,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.23"
+          "latestVersion": "3.1.24"
         }
       ]
     },
@@ -339,18 +340,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.28.10",
-          "previousLatestVersion": "v1.28.9"
+          "latestVersion": "v1.28.11",
+          "previousLatestVersion": "v1.28.10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.29.9",
-          "previousLatestVersion": "v1.29.8"
+          "latestVersion": "v1.29.10",
+          "previousLatestVersion": "v1.29.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.4",
-          "previousLatestVersion": "v1.30.3"
+          "latestVersion": "v1.30.5",
+          "previousLatestVersion": "v1.30.4"
         }
       ]
     },
@@ -360,18 +361,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.28.12",
-          "previousLatestVersion": "v1.28.11"
+          "latestVersion": "v1.28.13",
+          "previousLatestVersion": "v1.28.12"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.29.8",
-          "previousLatestVersion": "v1.29.7"
+          "latestVersion": "v1.29.9",
+          "previousLatestVersion": "v1.29.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.5",
-          "previousLatestVersion": "v1.30.3"
+          "latestVersion": "v1.30.6",
+          "previousLatestVersion": "v1.30.5"
         }
       ]
     },
@@ -586,26 +587,6 @@
               }
             ]
           }
-        },
-        "mariner": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.9-5.cm2"
-              }
-            ]
-          }
-        },
-        "azurelinux": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.12-1.azl3"
-              }
-            ]
-          }
         }
       }
     },
@@ -660,7 +641,7 @@
           }
         },
         "azurelinux": {
-          "current": {
+          "v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -708,7 +689,7 @@
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.4.56",
-                "previousLatestVersion": "1.4.52"
+                "previousLatestVersion": "1.4.54"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
