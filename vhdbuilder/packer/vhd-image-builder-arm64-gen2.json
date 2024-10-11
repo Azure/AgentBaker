@@ -91,6 +91,11 @@
     },
     {
       "type": "file",
+      "source": "node-bootstrapper/dist/node-bootstrapper-linux-arm64",
+      "destination": "/home/packer/node-bootstrapper"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
     },
