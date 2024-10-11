@@ -55,6 +55,7 @@ var scenarioOnce sync.Once
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
+	cleanTestDir(t)
 	scenarioOnce.Do(func() {
 		err := ensureResourceGroup(ctx)
 		if err != nil {

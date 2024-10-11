@@ -12,16 +12,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/metrics-server:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/metrics-server",
-          "latestVersion": "v0.7.1"
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -116,7 +106,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.10",
+          "latestVersion": "v1.6.13",
           "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
