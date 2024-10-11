@@ -342,10 +342,32 @@ fi
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
-capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
+capture_benchmark "${SCRIPT_NAME}_artifact_streaming_install_and_configure"
 
+installBpftrace
+echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
+PRESENT_DIR=$(pwd)
+# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
+(
+  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
+  installBcc
+  exit $?
+) > /var/log/bcc_installation.log 2>&1 &
+BCC_PID=$!
+capture_benchmark "${SCRIPT_NAME}_run_installBcc_in_subshell"
 
+enable_containerd_discard_unpacked_layers() {
+  containerd_config_file="/etc/containerd/config.toml"
+  echo -e "[plugins."io.containerd.grpc.v1.cri".containerd]\ndiscard_unpacked_layers = true" >> ${containerd_config_file}
+}
 
+disable_containerd_discard_unpacked_layers() {
+  containerd_config_file="/etc/containerd/config.toml"
+  # removing the last two lines of newly added configuration
+  head -n -2 "${containerd_config_file}" > temp_file && mv temp_file "${containerd_config_file}"
+}
+
+enable_containerd_discard_unpacked_layers
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
@@ -369,18 +391,6 @@ EOF
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_pull_and_install_nvidia_driver_image"
 fi
-
-installBpftrace
-echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-PRESENT_DIR=$(pwd)
-# run installBcc in a subshell and continue on with container image pull in order to decrease total build time
-(
-  cd $PRESENT_DIR || { echo "Subshell in the wrong directory" >&2; exit 1; }
-  installBcc
-  exit $?
-) > /var/log/bcc_installation.log 2>&1 &
-BCC_PID=$!
-capture_benchmark "${SCRIPT_NAME}_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -465,9 +475,9 @@ pullContainerImage "crictl" ${DEVICE_PLUGIN_CONTAINER_IMAGE}
     ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
   fi
 fi
-capture_benchmark "${SCRIPT_NAME}_download_gpu_device_plugin"
+capture_benchmark "${SCRIPT_NAME}_download_and_install_gpu_device_plugin"
 
-
+disable_containerd_discard_unpacked_layers
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
