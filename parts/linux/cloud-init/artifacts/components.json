@@ -458,7 +458,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-webhook",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
           "latestVersion": "1.8.0"
         },
         {
