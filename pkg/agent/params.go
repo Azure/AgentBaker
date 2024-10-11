@@ -89,7 +89,6 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 	// this allows for heteregenous clusters
 	addValue(parametersMap, "containerRuntime", profile.KubernetesConfig.ContainerRuntime)
 	if profile.KubernetesConfig.ContainerRuntime == "containerd" {
-		addValue(parametersMap, "cliTool", "ctr")
 		if config.ContainerdVersion != "" {
 			addValue(parametersMap, "containerdVersion", config.ContainerdVersion)
 		}
@@ -97,8 +96,6 @@ func assignKubernetesParametersFromAgentProfile(profile *datamodel.AgentPoolProf
 			addValue(parametersMap, "teleportdPluginURL", config.TeleportdPluginURL)
 		}
 		addValue(parametersMap, "containerdPackageURL", config.ContainerdPackageURL)
-	} else {
-		addValue(parametersMap, "cliTool", "docker")
 	}
 }
 
