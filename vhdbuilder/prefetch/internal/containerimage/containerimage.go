@@ -19,7 +19,7 @@ var (
 // GeneratePrefetchScript generates the container image prefetch script based on the specified component list.
 func GeneratePrefetchScript(list *components.List) ([]byte, error) {
 	if list == nil {
-		return nil, fmt.Errorf("components list generate opt must be non-nil")
+		return nil, fmt.Errorf("components list must be non-nil")
 	}
 	var args TemplateArgs
 	for _, image := range list.Images {
