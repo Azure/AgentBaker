@@ -58,7 +58,7 @@ func generate(t *testing.T, componentsPath string) {
 }
 
 func resolveComponentsPath(t *testing.T) string {
-	// this is hack until we can get rid of storing static testdata altogether
+	// this is a hack until we can get rid of storing static testdata altogether
 	repoBasePath, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	assert.NoError(t, err, "unable to determine repo root with git rev-parse")
 	basePath := strings.ReplaceAll(string(repoBasePath), "\n", "")
