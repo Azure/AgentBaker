@@ -230,6 +230,8 @@ steps:
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
+    env:
+      BUILD_PERFORMANCE_CLIENT_ID: $(BUILD_PERFORMANCE_CLIENT_ID)
 
   - bash: make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI
