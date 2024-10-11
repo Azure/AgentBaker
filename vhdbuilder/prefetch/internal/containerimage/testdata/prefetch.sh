@@ -20,7 +20,7 @@ prefetch() {
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.4.56" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.11" "/dropgz"
+prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7" "/dropgz"
 prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.4.56" "/usr/local/bin/azure-cns"
 prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38" "/usr/local/bin/azure-cns"
