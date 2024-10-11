@@ -1,8 +1,8 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
-trigger: 
+trigger:
   branches:
-    include: 
-    - master
+    include:
+      - master
 pr:
   branches:
     include:
