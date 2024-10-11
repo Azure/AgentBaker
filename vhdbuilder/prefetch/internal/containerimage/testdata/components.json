@@ -209,7 +209,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.23"
+          "latestVersion": "3.1.24"
         }
       ]
     },
@@ -328,18 +328,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.28.10",
-          "previousLatestVersion": "v1.28.9"
+          "latestVersion": "v1.28.11",
+          "previousLatestVersion": "v1.28.10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.29.9",
-          "previousLatestVersion": "v1.29.8"
+          "latestVersion": "v1.29.10",
+          "previousLatestVersion": "v1.29.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.4",
-          "previousLatestVersion": "v1.30.3"
+          "latestVersion": "v1.30.5",
+          "previousLatestVersion": "v1.30.4"
         }
       ]
     },
@@ -349,18 +349,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.28.12",
-          "previousLatestVersion": "v1.28.11"
+          "latestVersion": "v1.28.13",
+          "previousLatestVersion": "v1.28.12"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.29.8",
-          "previousLatestVersion": "v1.29.7"
+          "latestVersion": "v1.29.9",
+          "previousLatestVersion": "v1.29.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.5",
-          "previousLatestVersion": "v1.30.3"
+          "latestVersion": "v1.30.6",
+          "previousLatestVersion": "v1.30.5"
         }
       ]
     },
@@ -444,12 +444,12 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.7.1",
-          "previousLatestVersion": "1.7.0"
+          "latestVersion": "1.8.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.5.0"
+          "latestVersion": "1.7.1",
+          "previousLatestVersion": "1.7.0"
         }
       ]
     },
@@ -459,12 +459,12 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.7.1",
-          "previousLatestVersion": "1.7.0"
+          "latestVersion": "1.8.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.5.0"
+          "latestVersion": "1.7.1",
+          "previousLatestVersion": "1.7.0"
         }
       ]
     },
@@ -575,26 +575,6 @@
               }
             ]
           }
-        },
-        "mariner": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.9-5.cm2"
-              }
-            ]
-          }
-        },
-        "azurelinux": {
-          "current": {
-            "versionsV2": [
-              {
-                "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.1.12-1.azl3"
-              }
-            ]
-          }
         }
       }
     },
@@ -649,7 +629,7 @@
           }
         },
         "azurelinux": {
-          "current": {
+          "v3.0": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -700,8 +680,8 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.5.32",
-                "previousLatestVersion": "1.5.35"
+                "latestVersion": "1.5.35",
+                "previousLatestVersion": "1.5.32"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
