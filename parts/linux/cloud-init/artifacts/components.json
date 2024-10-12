@@ -375,12 +375,12 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.23.8",
+          "latestVersion": "v1.23.9",
           "previousLatestVersion": "v1.23.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.4",
+          "latestVersion": "v1.24.5",
           "previousLatestVersion": "v1.24.3"
         }
       ]
@@ -391,8 +391,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.13.1",
-          "previousLatestVersion": "v2.13.0"
+          "latestVersion": "v2.14.0",
+          "previousLatestVersion": "v2.13.1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
@@ -406,7 +406,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.11.1"
+          "latestVersion": "v2.12.0",
+          "previousLatestVersion": "v2.11.1"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
