@@ -451,7 +451,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerdPackageURL = "containerd-package-url"
 		}, func(o *nodeBootstrappingOutput) {
-			Expect(o.vars["CLI_TOOL"]).To(Equal("ctr"))
 			Expect(o.vars["CONTAINERD_PACKAGE_URL"]).To(Equal("containerd-package-url"))
 		}),
 
@@ -461,7 +460,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 			config.ContainerdPackageURL = "containerd-package-url"
 		}, func(o *nodeBootstrappingOutput) {
-			Expect(o.vars["CLI_TOOL"]).To(Equal("docker"))
 			Expect(o.vars["CONTAINERD_PACKAGE_URL"]).To(Equal(""))
 		}),
 		Entry("AKSUbuntu1604 with temp disk (api field)", "AKSUbuntu1604+TempDiskExplicit", "1.15.7",

@@ -51,7 +51,6 @@ LOAD_BALANCER_SKU={{getStringFromLoadBalancerSkuType .ClusterConfig.GetLoadBalan
 EXCLUDE_MASTER_FROM_STANDARD_LB={{getExcludeMasterFromStandardLB .ClusterConfig.GetLoadBalancerConfig}}
 MAXIMUM_LOADBALANCER_RULE_COUNT={{getMaxLBRuleCount .ClusterConfig.GetLoadBalancerConfig}}
 CONTAINER_RUNTIME=containerd
-CLI_TOOL=ctr
 CONTAINERD_DOWNLOAD_URL_BASE={{.ContainerdConfig.GetContainerdDownloadUrlBase}} 
 NETWORK_MODE="transparent"
 KUBE_BINARY_URL={{.KubeBinaryConfig.GetKubeBinaryUrl}}
