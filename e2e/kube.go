@@ -91,7 +91,7 @@ func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient, isAirgap bool)
 func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
-		image = "aksvhdtestcr.azurecr.io/aks/cbl-mariner/base/core:2.0"
+		image = "privateacre2e.azurecr.io/aks/cbl-mariner/base/core:2.0"
 	}
 
 	return fmt.Sprintf(`apiVersion: apps/v1
