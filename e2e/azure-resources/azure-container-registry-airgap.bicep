@@ -2,7 +2,7 @@
 @maxLength(50)
 
 @description('Provide a globally unique name of your Azure Container Registry')
-param acrName string 
+param acrName string
 
 resource acrResource 'Microsoft.ContainerRegistry/registries@2023-01-01-preview' = {
   name: acrName

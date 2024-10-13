@@ -5,13 +5,12 @@
     "_generator": {
       "name": "bicep",
       "version": "0.30.23.60470",
-      "templateHash": "5829886085371505027"
+      "templateHash": "17464721101359930360"
     }
   },
   "parameters": {
     "acrName": {
       "type": "string",
-      "defaultValue": "privateacre2e",
       "minLength": 5,
       "maxLength": 50,
       "metadata": {
@@ -22,19 +21,20 @@
   "resources": [
     {
       "type": "Microsoft.ContainerRegistry/registries",
-      "apiVersion": "2023-07-01",
+      "apiVersion": "2023-01-01-preview",
       "name": "[parameters('acrName')]",
       "location": "[resourceGroup().location]",
       "sku": {
         "name": "Premium"
       },
       "properties": {
-        "adminUserEnabled": false
+        "adminUserEnabled": false,
+        "anonymousPullEnabled": true
       }
     },
     {
       "type": "Microsoft.ContainerRegistry/registries/cacheRules",
-      "apiVersion": "2023-07-01",
+      "apiVersion": "2023-01-01-preview",
       "name": "[format('{0}/{1}', parameters('acrName'), 'aks-managed-rule')]",
       "properties": {
         "sourceRepository": "mcr.microsoft.com/*",

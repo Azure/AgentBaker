@@ -198,28 +198,6 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return err
 	}
 
-	exists, err = privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		t.Logf("Private Endpoint was not created successfully")
-		return err
-	}
-
-	return nil
-}
-
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, acrName string) error {
-	// params pass in params for name??
-	params := map[string]interface{}{
-		"acrName": acrName,
-	}
-	err := createAzureResourceWithBicep(ctx, t, params, nodeResourceGroup, "azure-container-registry-airgap", "acr-deployment")
-	if err != nil {
-		return err
-	}
-	t.Logf("Private Azure Container Registry created in rg %s\n", nodeResourceGroup)
 	return nil
 }
 
@@ -235,10 +213,25 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, acrName string) error {
+	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
+	params := map[string]interface{}{
+		"acrName": map[string]interface{}{
+			"value": acrName,
+		},
+	}
+	err := createAzureResourceWithBicep(ctx, t, params, nodeResourceGroup, "azure-container-registry-airgap", "acr-deployment")
+	if err != nil {
+		return err
+	}
+	t.Logf("Private Azure Container Registry created in rg %s\n", nodeResourceGroup)
+	return nil
+}
+
 func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
 	t.Logf("Creating private endpoint in rg %s\n", nodeResourceGroup)
 
-	ACRid := fmt.Sprintf("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", nodeResourceGroup, privateACRName)
+	ACRid := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, privateACRName)
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -493,7 +486,6 @@ func createAzureResourceWithBicep(ctx context.Context, t *testing.T, params map[
 	if err := json.Unmarshal(jsonFile, &template); err != nil {
 		return fmt.Errorf("failed to unmarshal template file: %w", err)
 	}
-	template["parameters"] = params
 
 	deploymentPoller, err := config.Azure.DeploymentClient.BeginCreateOrUpdate(
 		ctx,
@@ -501,8 +493,9 @@ func createAzureResourceWithBicep(ctx context.Context, t *testing.T, params map[
 		deploymentName,
 		armresources.Deployment{
 			Properties: &armresources.DeploymentProperties{
-				Template: template,
-				Mode:     to.Ptr(armresources.DeploymentModeIncremental),
+				Template:   template,
+				Mode:       to.Ptr(armresources.DeploymentModeIncremental),
+				Parameters: params,
 			},
 		},
 		nil,
