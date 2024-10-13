@@ -167,13 +167,12 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	}
 
 	privateACRName := "privateacre2e"
-	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, privateACRName)
 	err = createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, privateACRName)
 	if err != nil {
 		return err
 	}
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, acrID, vnet)
+	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet)
 	if err != nil {
 		return err
 	}
@@ -229,9 +228,10 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	return nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, ACRid string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, acrName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
 	t.Logf("Creating private endpoint in rg %s\n", nodeResourceGroup)
 
+	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, acrName)
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -242,7 +242,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup,
 				{
 					Name: to.Ptr(privateEndpointName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
-						PrivateLinkServiceID: to.Ptr(ACRid),
+						PrivateLinkServiceID: to.Ptr(acrID),
 						GroupIDs:             []*string{to.Ptr("registry")},
 					},
 				},
