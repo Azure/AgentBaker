@@ -2,8 +2,13 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
@@ -148,7 +154,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 }
 
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
-	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
+	t.Logf("Checking if private endpoint for private container registry is in rg %s\n", nodeResourceGroup)
 
 	privateEndpointName := "PE-for-ABE2ETests"
 	exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
@@ -160,7 +166,13 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return nil
 	}
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, vnet)
+	privateACRName := "privateacre2e"
+	err = createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, privateACRName)
+	if err != nil {
+		return err
+	}
+
+	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet)
 	if err != nil {
 		return err
 	}
@@ -186,6 +198,28 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return err
 	}
 
+	exists, err = privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		t.Logf("Private Endpoint was not created successfully")
+		return err
+	}
+
+	return nil
+}
+
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, acrName string) error {
+	// params pass in params for name??
+	params := map[string]interface{}{
+		"acrName": acrName,
+	}
+	err := createAzureResourceWithBicep(ctx, t, params, nodeResourceGroup, "azure-container-registry-airgap", "acr-deployment")
+	if err != nil {
+		return err
+	}
+	t.Logf("Private Azure Container Registry created in rg %s\n", nodeResourceGroup)
 	return nil
 }
 
@@ -201,7 +235,10 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+	t.Logf("Creating private endpoint in rg %s\n", nodeResourceGroup)
+
+	ACRid := fmt.Sprintf("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", nodeResourceGroup, privateACRName)
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -212,7 +249,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup,
 				{
 					Name: to.Ptr(privateEndpointName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
-						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
+						PrivateLinkServiceID: to.Ptr(ACRid),
 						GroupIDs:             []*string{to.Ptr("registry")},
 					},
 				},
@@ -426,5 +463,59 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func createAzureResourceWithBicep(ctx context.Context, t *testing.T, params map[string]interface{}, resourceGroup, filename, deploymentName string) error {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	bicepFileName := fmt.Sprintf("%s.bicep", filename)
+	bicepFilePath := filepath.Join(currentDir, "azure-resources", bicepFileName)
+	cmd := exec.Command("az", "bicep", "build", "--file", bicepFilePath)
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("failed to run az bicep build: %v", err)
+	}
+
+	jsonFileName := fmt.Sprintf("%s.json", filename)
+	jsonFilePath := filepath.Join(currentDir, "azure-resources", jsonFileName)
+	if _, err := os.Stat(jsonFilePath); os.IsNotExist(err) {
+		log.Fatalf("JSON file was not created: %v", err)
+	}
+	jsonFile, err := os.ReadFile(jsonFilePath)
+	if err != nil {
+		log.Fatalf("failed to read the JSON file: %v", err)
+	}
+
+	template := make(map[string]interface{})
+	if err := json.Unmarshal(jsonFile, &template); err != nil {
+		return fmt.Errorf("failed to unmarshal template file: %w", err)
+	}
+	template["parameters"] = params
+
+	deploymentPoller, err := config.Azure.DeploymentClient.BeginCreateOrUpdate(
+		ctx,
+		resourceGroup,
+		deploymentName,
+		armresources.Deployment{
+			Properties: &armresources.DeploymentProperties{
+				Template: template,
+				Mode:     to.Ptr(armresources.DeploymentModeIncremental),
+			},
+		},
+		nil,
+	)
+	if err != nil {
+		log.Fatalf("failed to start the deployment: %v", err)
+	}
+
+	_, err = deploymentPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		log.Fatalf("failed to poll the deployment result: %v", err)
+	}
+	t.Logf("Deployment: %s succeeded", deploymentName)
+
 	return nil
 }

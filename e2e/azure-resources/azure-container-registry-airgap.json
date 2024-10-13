@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.30.23.60470",
+      "templateHash": "5829886085371505027"
+    }
+  },
+  "parameters": {
+    "acrName": {
+      "type": "string",
+      "defaultValue": "privateacre2e",
+      "minLength": 5,
+      "maxLength": 50,
+      "metadata": {
+        "description": "Provide a globally unique name of your Azure Container Registry"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('acrName')]",
+      "location": "[resourceGroup().location]",
+      "sku": {
+        "name": "Premium"
+      },
+      "properties": {
+        "adminUserEnabled": false
+      }
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries/cacheRules",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', parameters('acrName'), 'aks-managed-rule')]",
+      "properties": {
+        "sourceRepository": "mcr.microsoft.com/*",
+        "targetRepository": "aks/*"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
+      ]
+    }
+  ]
+}
