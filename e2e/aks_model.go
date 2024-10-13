@@ -14,10 +14,12 @@ import (
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/google/uuid"
 )
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
@@ -101,7 +103,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, cluster *Cluste
 		return err
 	}
 
-	err = addPrivateEndpointForACR(ctx, t, *cluster.Model.Properties.NodeResourceGroup, vnet)
+	err = addPrivateEndpointForACR(ctx, t, *cluster.Model.Properties.NodeResourceGroup, *cluster.Model.Properties.IdentityProfile["kubeletidentity"].ObjectID, vnet)
 	if err != nil {
 		return err
 	}
@@ -153,7 +155,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 	}, nil
 }
 
-func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
+func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup, managedIdentityID string, vnet VNet) error {
 	t.Logf("Checking if private endpoint for private container registry is in rg %s\n", nodeResourceGroup)
 
 	privateEndpointName := "PE-for-ABE2ETests"
@@ -167,12 +169,18 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	}
 
 	privateACRName := "privateacre2e"
+	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, privateACRName)
 	err = createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, privateACRName)
 	if err != nil {
 		return err
 	}
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet)
+	err = assignACRPullToManagedIdentity(ctx, t, managedIdentityID)
+	if err != nil {
+		return err
+	}
+
+	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, acrID, vnet)
 	if err != nil {
 		return err
 	}
@@ -228,10 +236,36 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	return nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+func assignACRPullToManagedIdentity(ctx context.Context, t *testing.T, managedIdentityID string) error {
+	t.Logf("Assigning acrpull to managed identity %s\n", managedIdentityID)
+
+	scope := fmt.Sprintf("/subscriptions/%s", config.Config.SubscriptionID)
+	acrPullID := fmt.Sprintf("%s/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d", scope)
+	assignmentName := uuid.NewString()
+
+	_, err := config.Azure.RoleAssignmentClient.Get(ctx, scope, assignmentName, nil)
+	if err == nil {
+		t.Logf("Role assignment already exists")
+		return nil
+	}
+
+	roleParams := armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			RoleDefinitionID: &acrPullID,
+			PrincipalID:      &managedIdentityID,
+		},
+	}
+	_, err = config.Azure.RoleAssignmentClient.Create(ctx, scope, assignmentName, roleParams, nil)
+	if err != nil {
+		log.Fatalf("Failed to create role assignment: %v", err)
+	}
+	t.Logf("Role assignment created")
+	return nil
+}
+
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, ACRid string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
 	t.Logf("Creating private endpoint in rg %s\n", nodeResourceGroup)
 
-	ACRid := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, privateACRName)
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{

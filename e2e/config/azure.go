@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
@@ -48,6 +49,7 @@ type AzureClient struct {
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	DeploymentClient          *armresources.DeploymentsClient
 	RegistryClient            *armcontainerregistry.RegistriesClient
+	RoleAssignmentClient      *armauthorization.RoleAssignmentsClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -154,6 +156,11 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.RegistryClient, err = armcontainerregistry.NewRegistriesClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registry client: %w", err)
+	}
+
+	cloud.RoleAssignmentClient, err = armauthorization.NewRoleAssignmentsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create role assignment client: %w", err)
 	}
 
 	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
