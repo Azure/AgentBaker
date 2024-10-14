@@ -155,9 +155,9 @@ func useManagedIdentity(cs *datamodel.ContainerService) string {
 	return strconv.FormatBool(useManagedIdentity)
 }
 
+// TODO: (wrightt) verify this is necessary anymore.
 func skipExternalHnsNetwork(config *datamodel.NodeBootstrappingConfiguration) string {
-	skipExternalHnsNetwork := config.AgentPoolProfile != nil &&
-		config.AgentPoolProfile.SkipExternalHnsNetwork
+	skipExternalHnsNetwork := config.SkipExternalHnsNetwork
 
 	if skipExternalHnsNetwork {
 		return "$true"

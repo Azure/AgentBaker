@@ -815,7 +815,6 @@ type AgentPoolProfile struct {
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
 	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
-	SkipExternalHnsNetwork  bool                     `json:"skipExternalHnsNetwork,omitempty"`
 }
 
 func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
@@ -1763,6 +1762,8 @@ type NodeBootstrappingConfiguration struct {
 
 	// Version is required for node-bootstrapper application to determine the version of the config file.
 	Version string
+
+	SkipExternalHnsNetwork bool `json:"skipExternalHnsNetwork,omitempty"`
 }
 
 type SSHStatus int
