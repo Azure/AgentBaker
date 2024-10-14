@@ -290,16 +290,10 @@ func genContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfigurat
 				"user": func() map[string]any {
 					switch config.AgentPoolProfile.BootstrappingMethod {
 					case datamodel.UseArcMsiToMakeCSR:
-						m, done := getContentKubeletUserArcMsi(config)
-						if done {
-							return m
-						}
+						return getContentKubeletUserArcMsi(config)
 
 					case datamodel.UseAzureMsiToMakeCSR:
-						m, done := getContentKubletUserAzureMsi(config)
-						if done {
-							return m
-						}
+						return getContentKubletUserAzureMsi(config)
 					}
 					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping {
 						return getContentKubeletUserSecureBootstrapping(appID)
