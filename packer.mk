@@ -115,7 +115,7 @@ endif
 build-node-bootstrapper:
 	@echo "Building node bootstrapper binary for $(GOARCH)"
 	@bash -c "pushd node-bootstrapper && \
-    go test ./... && \
+	go test ./... && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/node-bootstrapper-linux-amd64 && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/node-bootstrapper-linux-arm64 && \
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/node-bootstrapper-windows-amd64.exe && \
