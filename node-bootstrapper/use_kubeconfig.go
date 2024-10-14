@@ -105,10 +105,6 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 
 func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
 	var users string
-	appID := config.CustomSecureTLSBootstrapAADServerAppID
-	if appID == "" {
-		appID = DefaultAksAadAppID
-	}
 
 	switch config.AgentPoolProfile.BootstrappingMethod {
 	case datamodel.UseArcMsiDirectly:
