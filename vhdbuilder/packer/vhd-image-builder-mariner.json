@@ -92,18 +92,13 @@
     },
     {
       "type": "file",
-      "source": "node-bootstrapper/dist/node-bootstrapper-linux-amd64",
+      "source": "node-bootstrapper/bin/node-bootstrapper-linux-amd64",
       "destination": "/home/packer/node-bootstrapper"
     },
     {
       "type": "file",
       "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
-    },
-    {
-      "type": "file",
-      "source": "nbcparser/bin/nbcparser-amd64",
-      "destination": "/home/packer/nbcparser"
     },
     {
       "type": "file",
