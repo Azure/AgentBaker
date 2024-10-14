@@ -23,8 +23,6 @@ pool:
   name: $(POOL_NAME)
 
 variables:
-- name: CONTAINER_IMAGE
-  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
 - group: aks-vuln-to-kusto
 
 stages:
@@ -46,6 +44,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
@@ -68,6 +67,7 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
@@ -104,3 +104,4 @@ stages:
       LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
+

@@ -47,6 +47,7 @@ package components
 }
 
 #AzureLinuxOSDistro: {
+	"v3.0"?:  #ReleaseDownloadURI
 	current?: #ReleaseDownloadURI
 }
 

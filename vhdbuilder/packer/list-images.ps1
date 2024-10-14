@@ -6,7 +6,7 @@
         Produces a JSON image BOM for a Windows VHD
 #>
 $windowsSKU = $env:WindowsSKU
-$aksWindowsImageVersion = $env:AKSWindowsImageVersion
+$buildDate = $env:BuildDate
 
 $ErrorActionPreference = "Stop"
 
@@ -100,6 +100,9 @@ Stop-Job  -Name containerd
 Remove-Job -Name containerd
 
 $imageBom=$(echo $bomList | ConvertTo-Json)
+
+$systemInfo = Get-ItemProperty -Path 'HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+$aksWindowsImageVersion="$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR).$buildDate"
 
 $listResult = @"
 {

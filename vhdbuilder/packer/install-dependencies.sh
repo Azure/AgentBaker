@@ -1,17 +1,12 @@
 #!/bin/bash
-
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
-SCRIPT_NAME=$(basename $0 .sh)
-SCRIPT_NAME="${SCRIPT_NAME//-/_}"
-declare -A benchmarks=()
-declare -a benchmarks_order=()
-
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 
+# Real world examples from the command outputs
+# For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
+# For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
@@ -24,6 +19,7 @@ THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
+source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
@@ -31,11 +27,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
-VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
+PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "declare_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -60,7 +56,7 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmark "purge_and_reinstall_ubuntu"
+capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -103,7 +99,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmark "install_dependencies"
+capture_benchmark "${SCRIPT_NAME}_install_dependencies"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -132,7 +128,7 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-capture_benchmark "check_container_runtime_and_network_configurations"
+capture_benchmark "${SCRIPT_NAME}_check_container_runtime_and_network_configurations"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -195,7 +191,7 @@ downloadCNI() {
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_and_configure_runtime_and_network"
+capture_benchmark "${SCRIPT_NAME}_create_containerd_service_directory_and_configure_runtime_and_network"
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f $COMPONENTS_FILEPATH ]; then
@@ -210,7 +206,7 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if [[ "${OS}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+  if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
@@ -313,7 +309,7 @@ while IFS= read -r p; do
       # However, installation could be different for different packages.
       ;;
   esac
-  capture_benchmark "download_${name}"
+  capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
@@ -350,20 +346,18 @@ KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_T
 ctr namespace create k8s.io
 cliTool="ctr"
 
-# also pre-download Teleportd plugin for containerd
-downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "artifact_streaming_and_download_teleportd"
+capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-b40b85"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.07-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-c66998"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
-  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
@@ -394,7 +388,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
+capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_image_and_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -443,7 +437,7 @@ wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
 watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
 # this image will never get pulled, the tag must be the same across different SHAs.
@@ -454,20 +448,19 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmark "pull_and_retag_container_images"
+capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-capture_benchmark "configure_networking_and_interface"
+capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
 
 DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
 pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-echo "  - ${DEVICE_PLUGIN_CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 
 # GPU device plugin
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
@@ -486,13 +479,17 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
 fi
 fi
+
 capture_benchmark "download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
-systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
-systemctl enable cgroup-memory-telemetry.service || exit 1
-systemctl restart cgroup-memory-telemetry.service
+# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+if [ ! isMarinerOrAzureLinux "$OS" ]; then
+  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctl enable cgroup-memory-telemetry.service || exit 1
+  systemctl restart cgroup-memory-telemetry.service
+fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
@@ -504,7 +501,7 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-capture_benchmark "configure_telemetry_create_logging_directory"
+capture_benchmark "${SCRIPT_NAME}_configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -546,6 +543,7 @@ fi
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
+chmod 755 /var/log/bcc_installation.log
 
 if [ $BCC_EXIT_CODE -eq 0 ]; then
   echo "Bcc tools successfully installed."
@@ -555,8 +553,9 @@ if [ $BCC_EXIT_CODE -eq 0 ]; then
 EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
+  exit $BCC_EXIT_CODE
 fi
-capture_benchmark "finish_installing_bcc_tools"
+capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
 if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then

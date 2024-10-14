@@ -90,6 +90,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		falseConst = false
 	)
 	return &datamodel.NodeBootstrappingConfiguration{
+		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
 			Location: location,
@@ -522,7 +523,12 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 	}
 }
 
-func getHTTPServerTemplate(podName, nodeName string) string {
+func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
+	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	if isAirgap {
+		image = "aksvhdtestcr.azurecr.io/aks/cbl-mariner/busybox:2.0"
+	}
+
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
@@ -530,7 +536,7 @@ metadata:
 spec:
   containers:
   - name: mariner
-    image: mcr.microsoft.com/cbl-mariner/busybox:2.0
+    image: %s
     imagePullPolicy: IfNotPresent
     command: ["sh", "-c"]
     args:
@@ -547,7 +553,7 @@ spec:
       httpGet:
         path: /
         port: 80
-`, podName, nodeName)
+`, podName, image, nodeName)
 }
 
 func getWasmSpinPodTemplate(podName, nodeName string) string {

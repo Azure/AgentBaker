@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -323,8 +324,11 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
 // copied from AKS-Engine and filter out flags that already translated to config file.
-func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
-	kubeletConfigFileToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfiguration) string {
+	k := config.KubeletConfig
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	kubeletConfigFileToggleEnabled := config.EnableKubeletConfigFile
 	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
 	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
 	configuration with the customized one. */
@@ -432,7 +436,7 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
-func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
+func GetAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
 	var labels string
 	if profile != nil {
 		labels = profile.GetKubernetesLabels()
@@ -612,6 +616,9 @@ func strToBoolPtr(str string) *bool {
 
 func strToInt32(str string) int32 {
 	i, _ := strconv.ParseInt(str, 10, 32)
+	if i > math.MaxInt32 {
+		panic("Unable to cast int parsed as 32 bits to 32 bit int. Yeah, this shouldn't happen")
+	}
 	return int32(i)
 }
 
