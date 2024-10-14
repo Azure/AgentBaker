@@ -18,7 +18,7 @@ import (
 
 // test node-bootstrapper binary without rebuilding VHD images.
 // it compiles the node-bootstrapper binary and uploads it to Azure Storage.
-// the runs the node-bootstrapper on the VM.
+// the binary is then downloaded and executed on the VM
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	ctx := newTestCtx(t)
 	if !config.Config.EnableNodeBootstrapperTest {
