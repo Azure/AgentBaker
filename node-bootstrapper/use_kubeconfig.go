@@ -9,66 +9,47 @@ import (
 )
 
 func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	if err := useKubeConfig(config, files); err != nil {
+		return err
+	}
 	switch config.AgentPoolProfile.BootstrappingMethod {
-	case datamodel.UseArcMsiToMakeCSR:
-		if err := useBootstrappingKubeConfig(config, files); err != nil {
-			return err
-		}
+	case datamodel.UseArcMsiToMakeCSR,
+		datamodel.UseArcMsiDirectly:
 		if err := useArcTokenSh(config, files); err != nil {
 			return err
 		}
 
-	case datamodel.UseArcMsiDirectly:
-		if err := useHardCodedKubeconfig(config, files); err != nil {
-			return err
-		}
-		if err := useArcTokenSh(config, files); err != nil {
-			return err
-		}
-
-	case datamodel.UseAzureMsiDirectly:
-		if err := useHardCodedKubeconfig(config, files); err != nil {
-			return err
-		}
-		if err := useAzureTokenSh(config, files); err != nil {
-			return err
-		}
-
-	case datamodel.UseAzureMsiToMakeCSR:
-		if err := useBootstrappingKubeConfig(config, files); err != nil {
-			return err
-		}
+	case datamodel.UseAzureMsiDirectly,
+		datamodel.UseAzureMsiToMakeCSR:
 		if err := useAzureTokenSh(config, files); err != nil {
 			return err
 		}
 
 	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTLSBootstrapping:
-		if err := useBootstrappingKubeConfig(config, files); err != nil {
-			return err
-		}
+		break
 
 	default:
-		if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
-			if err := useBootstrappingKubeConfig(config, files); err != nil {
-				return err
-			}
-		} else {
-			if err := useHardCodedKubeconfig(config, files); err != nil {
-				return err
-			}
-		}
+		break
 	}
+
 	return nil
 }
 
-func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+func useKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	kubeConfig, err := genContentKubeconfig(config)
 	if err != nil {
 		return err
 	}
-	files[getHardCodedKubeconfigPath(config)] = File{
-		Content: kubeConfig,
-		Mode:    ReadOnlyWorld,
+	if shouldKubeconfigBeBootstrapConfig(config) {
+		files[getBootstrapKubeconfigPath(config)] = File{
+			Content: kubeConfig,
+			Mode:    ReadOnlyWorld,
+		}
+	} else {
+		files[getHardCodedKubeconfigPath(config)] = File{
+			Content: kubeConfig,
+			Mode:    ReadOnlyWorld,
+		}
 	}
 	return nil
 }
@@ -94,19 +75,6 @@ func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map
 	return nil
 }
 
-func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig, err := genContentKubeconfig(config)
-	if err != nil {
-		return fmt.Errorf("content bootstrap kubeconfig: %w", err)
-	}
-
-	files[getBootstrapKubeconfigPath(config)] = File{
-		Content: bootstrapKubeconfig,
-		Mode:    ReadOnlyWorld,
-	}
-	return nil
-}
-
 func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
@@ -114,7 +82,7 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 	}
 	userName := "client"
 	context := "localclustercontext"
-	if config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping || config.KubeletClientTLSBootstrapToken != nil || config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR {
+	if shouldKubeconfigBeBootstrapConfig(config) {
 		userName = "kubelet-bootstrap"
 		context = "bootstrap-context"
 	}
@@ -170,6 +138,14 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 		return "", err
 	}
 	return string(dataYAML), nil
+}
+
+func shouldKubeconfigBeBootstrapConfig(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping ||
+		config.KubeletClientTLSBootstrapToken != nil ||
+		config.EnableSecureTLSBootstrapping ||
+		config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR ||
+		config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR
 }
 
 func genContentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {

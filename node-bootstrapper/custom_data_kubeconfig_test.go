@@ -48,7 +48,7 @@ func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingCon
 }
 
 func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppID string) {
-	//t.Helper()
+	t.Helper()
 	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
