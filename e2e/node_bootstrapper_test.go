@@ -50,17 +50,16 @@ func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) st
 	binary := compileNodeBootstrapper(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, "node-bootstrapper-"+hashFile(t, binary.Name()), binary)
 	require.NoError(t, err)
-	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && mkdir -p /var/log/azure && ./node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1"`, base64.StdEncoding.EncodeToString(configJSON), url)
+	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON), url)
 }
 
 func compileNodeBootstrapper(t *testing.T) *os.File {
 	cmd := exec.Command("go", "build", "-o", "node-bootstrapper", "-v")
 	cmd.Dir = "../node-bootstrapper"
-	cmd.Env = append([]string{
+	cmd.Env = append(os.Environ(),
+		"CGO_ENABLED=0",
 		"GOOS=linux",
 		"GOARCH=amd64",
-	},
-		os.Environ()..., // it's important to append current environment variables after setting GOOS and GOARCH to avoid cross-compilation issues
 	)
 	log, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(log))
