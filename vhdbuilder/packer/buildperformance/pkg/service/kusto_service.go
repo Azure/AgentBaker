@@ -9,8 +9,6 @@ import (
 	"github.com/Azure/azure-kusto-go/azkustodata"
 	"github.com/Azure/azure-kusto-go/kusto"
 	"github.com/Azure/azure-kusto-go/kusto/azkustoingest"
-	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
-	"github.com/Azure/azure-kusto-go/kusto/data/table"
 	"github.com/Azure/azure-kusto-go/kusto/ingest"
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 )
@@ -61,20 +59,27 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	}
 	defer iter.Stop()
 
-	data := SKU{}
-	if err = iter.DoOnRowOrError(
-		func(row *table.Row, e *kustoErrors.Error) error {
-			if e != nil {
-				return fmt.Errorf("error while iterating over query table: %w", e)
-			}
-			if err := row.ToStruct(&data); err != nil {
-				return fmt.Errorf("failed to convert query row to struct: %w", err)
-			}
-			return nil
-		},
-	); err != nil {
+	data, err := query.ToStructs[SKU](iter)
+	if err != nil {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
+	/*
+		data := SKU{}
+		if err = iter.DoOnRowOrError(
+			func(row *table.Row, e *kustoErrors.Error) error {
+				if e != nil {
+					return fmt.Errorf("error while iterating over query table: %w", e)
+				}
+				if err := row.ToStruct(&data); err != nil {
+					return fmt.Errorf("failed to convert query row to struct: %w", err)
+				}
+				return nil
+			},
+		); err != nil {
+			return nil, fmt.Errorf("failed to persist query data: %w", err)
+		}
+
+	*/
 
 	if err := CheckNumberOfRowsReturned(iter); err != nil {
 		return nil, err
