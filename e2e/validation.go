@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string) string {
+func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string, isAirgap bool) string {
 	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
 	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
-	testPodManifest := getHTTPServerTemplate(testPodName, nodeName)
+	testPodManifest := getHTTPServerTemplate(testPodName, nodeName, isAirgap)
 	err := ensurePod(ctx, t, defaultNamespace, kube, testPodName, testPodManifest)
 	require.NoError(t, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
 	return nodeName
@@ -110,7 +110,7 @@ func commonLiveVMValidators(opts *scenarioRunOpts) []*LiveVMValidator {
 				"cluster-provision-cse-output.log",
 				"cloud-init-files.paved",
 				"vhd-install.complete",
-				"cloud-config.txt",
+				//"cloud-config.txt", // file with UserData
 			},
 		),
 		// this check will run from host's network - we expect it to succeed

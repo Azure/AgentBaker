@@ -104,3 +104,4 @@ stages:
       LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
+

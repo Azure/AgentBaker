@@ -151,7 +151,7 @@ NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
-export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
@@ -482,6 +482,16 @@ isMarinerOrAzureLinux() {
     return 1
 }
 
+evalPackageDownloadURL() {
+    local url=${1:-}
+    if [[ -n "$url" ]]; then
+         eval "result=${url}"
+         echo $result
+         return
+    fi
+    echo ""
+}
+
 installJq() {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
@@ -495,66 +505,6 @@ installJq() {
       apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
     fi
   fi
-}
-
-check_array_size() {
-  declare -n array_name=$1
-  local array_size=${#array_name[@]}
-  if [[ ${array_size} -gt 0 ]]; then
-    last_index=$(( ${#array_name[@]} - 1 ))
-  else
-    return 1
-  fi
-}
-
-capture_benchmark() {
-  set +x
-  local title="$1"
-  title="${title//[[:space:]]/_}"
-  title="${title//-/_}"
-  local is_final_section=${2:-false}
-
-  local current_time=$(date +%s)
-  if [[ "$is_final_section" == true ]]; then
-    local start_time=$script_start_stopwatch
-  else
-    local start_time=$section_start_stopwatch
-  fi
-  
-  total_time_elapsed=$(date -d@$((current_time - start_time)) -u +%H:%M:%S)
-  benchmarks[$title]=${total_time_elapsed}
-  benchmarks_order+=($title) # use this array to maintain order of benchmarks
-
-  # reset timers for next section
-  section_start_stopwatch=$(date +%s)
-}
-
-process_benchmarks() {
-  set +x
-  check_array_size benchmarks || { echo "Benchmarks array is empty"; return; }
-  # create script object, then append each section object to it in the for loop
-  script_object=$(jq -n --arg script_name "${SCRIPT_NAME}" '{($script_name): {}}')
-
-  for ((i=0; i<${#benchmarks_order[@]}; i+=1)); do
-    section_name=${benchmarks_order[i]}
-    section_object=$(jq -n --arg section_name "${section_name}" --arg total_time_elapsed "${benchmarks[${section_name}]}" \
-    '{($section_name): $total_time_elapsed'})
-    script_object=$(jq -n --argjson script_object "$script_object" --argjson section_object "$section_object" --arg script_name "${SCRIPT_NAME}" \
-    '$script_object | .[$script_name] += $section_object')
-  done
- 
-  jq ". += $script_object" ${VHD_BUILD_PERF_DATA} > temp-build-perf-file.json && mv temp-build-perf-file.json ${VHD_BUILD_PERF_DATA}
-  chmod 755 ${VHD_BUILD_PERF_DATA}
-}
-
-evalPackageDownloadURL() {
-    local url=${1:-}
-    if [[ -n "$url" ]]; then
-         eval "result=${url}"
-         echo $result
-         return
-    fi
-    echo ""
 }
 
 # sets RELEASE to proper release metadata for the package based on the os and osVersion

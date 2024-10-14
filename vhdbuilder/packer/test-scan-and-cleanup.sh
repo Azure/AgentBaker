@@ -21,6 +21,8 @@ for v in "${required_env_vars[@]}"; do
   fi
 done
 
+echo "Present working directory: ${PWD}"
+
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
   echo "##[group]$TARGET" >> ${TARGET}-output.txt

@@ -55,6 +55,7 @@ var scenarioOnce sync.Once
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
+	cleanTestDir(t)
 	scenarioOnce.Do(func() {
 		err := ensureResourceGroup(ctx)
 		if err != nil {
@@ -123,7 +124,7 @@ func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
 	createVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
 
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName)
+	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName, opts.scenario.Tags.Airgap)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate

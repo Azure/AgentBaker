@@ -43,7 +43,6 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -556,6 +555,20 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 				ServiceCanRestartValidator("chronyd", 10),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
+			},
+		},
+	})
+}
+
+func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			NodeBootstrappingType: Scriptless,
+			Cluster:               ClusterKubenet,
+			VHD:                   config.VHDUbuntu2204Gen2Containerd,
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper started"),
 			},
 		},
 	})
