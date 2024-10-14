@@ -1,10 +1,14 @@
-module github.com/Azure/agentBaker/vhdbuilder/packer/build-performance
+module github.com/Azure/agentBaker/vhdbuilder/packer/buildperformance
 
 go 1.21
 
 require (
-	github.com/Azure/azure-kusto-go v1.0.0 preview
+	github.com/Azure/azure-kusto-go v1.0.0
 	github.com/tj/assert v0.0.3
+)
+
+replace (
+	github.com/Azure/azure-kusto-go => github.com/Azure/azure-kusto-go v1.0.0
 )
 
 require (
