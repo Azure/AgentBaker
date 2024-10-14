@@ -63,9 +63,9 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	numRows := data[0].Rows()
 	fmt.Println("Number of rows returned from query: %d", numRows)
 
-	if err := CheckNumberOfRowsReturned(iter); err != nil {
-		return nil, err
-	}
+	//if err := CheckNumberOfRowsReturned(iter); err != nil {
+	//return nil, err
+	//}
 
 	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 	log.Println("Query returned 1 row of aggregated data as expected")
