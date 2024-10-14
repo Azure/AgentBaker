@@ -31,6 +31,8 @@ func SetupConfig() (*Config, error) {
 		return nil, fmt.Errorf("required environment variables were not set")
 	}
 
+	log.Println("Program config set")
+
 	return &Config{
 		KustoTable:                envVars["kustoTable"],
 		KustoEndpoint:             envVars["kustoEndpoint"],
