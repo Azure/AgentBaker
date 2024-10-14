@@ -114,7 +114,7 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 	}
 	userName := "client"
 	context := "localclustercontext"
-	if config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR {
+	if config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping || config.KubeletClientTLSBootstrapToken != nil || config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR {
 		userName = "kubelet-bootstrap"
 		context = "bootstrap-context"
 	}

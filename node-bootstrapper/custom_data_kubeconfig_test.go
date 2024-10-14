@@ -48,7 +48,7 @@ func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingCon
 }
 
 func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppID string) {
-	t.Helper()
+	//t.Helper()
 	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
@@ -324,12 +324,13 @@ contexts:
 current-context: localclustercontext
 kind: Config
 users:
-- name: default-auth
+- name: client
   user:
     exec:
        apiVersion: client.authentication.k8s.io/v1
        command: /opt/azure/bootstrap/arc-token.sh
        provideClusterInfo: false
+       interactiveMode: Never
 `)
 	})
 
@@ -365,12 +366,13 @@ contexts:
 current-context: localclustercontext
 kind: Config
 users:
-   - name: default-auth
+   - name: client
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
          command: /opt/azure/bootstrap/azure-token.sh
          provideClusterInfo: false
+         interactiveMode: Never
 `)
 	})
 
@@ -408,14 +410,16 @@ contexts:
 current-context: localclustercontext
 kind: Config
 users:
-   - name: default-auth
+   - name: client
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
          command: powershell
          args: 
-         - c:/k/azure-token.ps1
+         - -C
+         - c:\k\azure-token.ps1
          provideClusterInfo: false
+         interactiveMode: Never
 `)
 	})
 
