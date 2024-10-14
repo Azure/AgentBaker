@@ -20,7 +20,7 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Clien
 }
 
 func IngestData(ctx context.Context, config *Config) error {
-	if config.SourceBranch == "refs/heads/zb/regression2" {
+	if config.SourceBranch == "refs/heads/zb/buildPerfRegression5" {
 		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientId)
 
 		ingestor, err := azkustoingest.New(kustoConnectionString, config.KustoDatabase, config.KustoTable)
