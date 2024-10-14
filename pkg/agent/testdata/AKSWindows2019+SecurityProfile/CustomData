@@ -82,7 +82,7 @@ $global:CACertificate = ""
 $global:AgentCertificate = ""
 
 ## Download sources provided by aks-engine
-$global:KubeBinariesPackageSASURL = "https://acs-mirror.azureedge.net/kubernetes/"
+$global:KubeBinariesPackageSASURL = ""
 $global:WindowsKubeBinariesURL = ""
 $global:KubeBinariesVersion = "1.26.0"
 $global:ContainerdUrl = "https://k8swin.blob.core.windows.net/k8s-windows/containerd/containerplat-aks-test-0.0.8.zip"

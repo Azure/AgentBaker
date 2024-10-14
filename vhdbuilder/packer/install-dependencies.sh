@@ -543,6 +543,7 @@ fi
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
+chmod 755 /var/log/bcc_installation.log
 
 if [ $BCC_EXIT_CODE -eq 0 ]; then
   echo "Bcc tools successfully installed."
@@ -552,8 +553,8 @@ if [ $BCC_EXIT_CODE -eq 0 ]; then
 EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
+  exit $BCC_EXIT_CODE
 fi
-chmod 755 /var/log/bcc_installation.log
 capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages

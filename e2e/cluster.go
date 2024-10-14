@@ -85,7 +85,7 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
-func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
+func nodeBootstrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
 	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
@@ -133,7 +133,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
-	nbc, err := nodeBootsrappingConfig(ctx, t, kube)
+	nbc, err := nodeBootstrappingConfig(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
 	}
