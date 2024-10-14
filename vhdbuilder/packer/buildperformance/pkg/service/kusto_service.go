@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Azure/azure-kusto-go/azkustodata"
 	"github.com/Azure/azure-kusto-go/kusto"
 	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
 	"github.com/Azure/azure-kusto-go/kusto/data/table"
@@ -14,8 +15,8 @@ import (
 )
 
 func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Client, error) {
-	kcsb := kusto.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientId)
-	client, err := kusto.New(kcsb)
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientId)
+	client, err := azkustodata.New(kustoConnectionString)
 	if err != nil {
 		return nil, err
 	}
