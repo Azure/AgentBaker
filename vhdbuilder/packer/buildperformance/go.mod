@@ -3,7 +3,7 @@ module github.com/Azure/agentBaker/vhdbuilder/packer/build-performance
 go 1.21
 
 require (
-	github.com/Azure/azure-kusto-go v0.16.1
+	github.com/Azure/azure-kusto-go v1.0.0 preview
 	github.com/tj/assert v0.0.3
 )
 

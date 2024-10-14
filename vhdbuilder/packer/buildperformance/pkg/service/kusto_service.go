@@ -7,10 +7,7 @@ import (
 	"log"
 
 	"github.com/Azure/azure-kusto-go/azkustodata"
-	"github.com/Azure/azure-kusto-go/kusto"
-	"github.com/Azure/azure-kusto-go/kusto/azkustoingest"
-	"github.com/Azure/azure-kusto-go/kusto/ingest"
-	"github.com/Azure/azure-kusto-go/kusto/kql"
+	"github.com/Azure/azure-kusto-go/azkustoingest"
 )
 
 func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Client, error) {
@@ -53,13 +50,13 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
 	params := kql.NewParameters().AddString("SKU", config.SigImageName)
 
-	iter, err := client.Query(ctx, config.KustoDatabase, query, kusto.QueryParameters(params))
+	dataset, err := client.Query(ctx, config.KustoDatabase, query, azkustodata.QueryParameters(params))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query kusto database: %w", err)
 	}
-	defer iter.Stop()
+	defer dataset.Stop()
 
-	data, err := query.ToStructs[SKU](iter)
+	data, err := query.ToStructs[SKU](dataset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
