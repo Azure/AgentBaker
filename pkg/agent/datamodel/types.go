@@ -358,7 +358,8 @@ const (
 	UseArcMsiDirectly         BootstrappingMethod = "UseArcMsiDirectly"
 	UseAzureMsiDirectly       BootstrappingMethod = "UseAzureMsiDirectly"
 	UseSecureTLSBootstrapping BootstrappingMethod = "UseSecureTLSBootstrapping"
-	UseTLSBootstrapToken      BootstrappingMethod = "UseTLSBootstrapToken" //nolint:gosec
+	//nolint:gosec // this is a const string to use in switch statements, not hardcoded credentials
+	UseTLSBootstrapToken BootstrappingMethod = "UseTLSBootstrapToken"
 )
 
 // UserAssignedIdentity contains information that uniquely identifies an identity.
