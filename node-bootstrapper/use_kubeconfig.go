@@ -62,8 +62,12 @@ func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[s
 }
 
 func useHardCodedKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
+	kubeConfig, err := genContentKubeconfig(config)
+	if err != nil {
+		return err
+	}
 	files[getHardCodedKubeconfigPath(config)] = File{
-		Content: genContentKubeconfig(config),
+		Content: kubeConfig,
 		Mode:    ReadOnlyWorld,
 	}
 	return nil
@@ -91,7 +95,7 @@ func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map
 }
 
 func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
-	bootstrapKubeconfig, err := genContentBootstrapKubeconfig(config)
+	bootstrapKubeconfig, err := genContentKubeconfig(config)
 	if err != nil {
 		return fmt.Errorf("content bootstrap kubeconfig: %w", err)
 	}
@@ -103,63 +107,63 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 	return nil
 }
 
-func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) string {
-	var users string
-
-	switch config.AgentPoolProfile.BootstrappingMethod {
-	case datamodel.UseArcMsiDirectly:
-		users = fmt.Sprintf(`- name: default-auth
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1
-      command: %s
-      provideClusterInfo: false
-`, getArcTokenPath(config))
-
-	case datamodel.UseAzureMsiDirectly:
-		if config.AgentPoolProfile.IsWindows() {
-			users = `- name: default-auth
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1
-      command: powershell
-      args:
-      - c:/k/azure-token.ps1
-      provideClusterInfo: false
-`
-		} else {
-			users = fmt.Sprintf(`- name: default-auth
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1
-      command: %s
-      provideClusterInfo: false
-`, getAzureTokenPath(config))
-		}
-	default:
-		users = `- name: client
-  user:
-    client-certificate: /etc/kubernetes/certs/client.crt
-    client-key: /etc/kubernetes/certs/client.key`
+func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
 	}
+	userName := "kubelet-bootstrap"
+	context := "bootstrap-context"
+	if config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiDirectly || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiDirectly {
+		userName = "client"
+		context = "localclustercontext"
+	}
+	data := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Config",
+		"clusters":   getContentKubletClusterInfo(config),
+		"users": []map[string]any{
+			{
+				"name": userName,
+				"user": func() map[string]any {
+					switch config.AgentPoolProfile.BootstrappingMethod {
+					case datamodel.UseArcMsiToMakeCSR, datamodel.UseArcMsiDirectly:
+						return getContentKubeletUserArcMsi(config)
 
-	return fmt.Sprintf(`
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: %s
-    server: https://%s:443
-users:
-%s
-contexts:
-- context:
-    cluster: localcluster
-    user: client
-  name: localclustercontext
-current-context: localclustercontext
-`, getCaCertPath(config), agent.GetKubernetesEndpoint(config.ContainerService), users)
+					case datamodel.UseAzureMsiToMakeCSR, datamodel.UseAzureMsiDirectly:
+						return getContentKubletUserAzureMsi(config)
+
+					case datamodel.UseSecureTLSBootstrapping:
+						return getContentKubeletUserSecureBootstrapping(appID)
+
+					case datamodel.UseTlsBootstrapToken:
+						return getContentKubeletUserBootstrapToken(config)
+
+					default:
+						if config.EnableSecureTLSBootstrapping {
+							return getContentKubeletUserSecureBootstrapping(appID)
+						}
+						return getContentKubeletUserBootstrapToken(config)
+					}
+				}(),
+			},
+		},
+		"contexts": []map[string]any{
+			{
+				"context": map[string]any{
+					"cluster": "localcluster",
+					"user":    userName,
+				},
+				"name": context,
+			},
+		},
+		"current-context": context,
+	}
+	dataYAML, err := yaml.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(dataYAML), nil
 }
 
 func genContentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -269,55 +273,6 @@ func genContentKubelet(config *datamodel.NodeBootstrappingConfiguration) string 
 		result += fmt.Sprintf("%s=%s\n", d[0], d[1])
 	}
 	return result
-}
-
-func genContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (string, error) {
-	appID := config.CustomSecureTLSBootstrapAADServerAppID
-	if appID == "" {
-		appID = DefaultAksAadAppID
-	}
-	data := map[string]any{
-		"apiVersion": "v1",
-		"kind":       "Config",
-		"clusters":   getContentKubletClusterInfo(config),
-		"users": []map[string]any{
-			{
-				"name": "kubelet-bootstrap",
-				"user": func() map[string]any {
-					switch config.AgentPoolProfile.BootstrappingMethod {
-					case datamodel.UseArcMsiToMakeCSR:
-						return getContentKubeletUserArcMsi(config)
-
-					case datamodel.UseAzureMsiToMakeCSR:
-						return getContentKubletUserAzureMsi(config)
-					}
-					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping {
-						return getContentKubeletUserSecureBootstrapping(appID)
-					}
-					return getContentKubeletUserBootstrapToken(config)
-				}(),
-			},
-		},
-		"contexts":        getContentKubeletContexts(),
-		"current-context": "bootstrap-context",
-	}
-	dataYAML, err := yaml.Marshal(data)
-	if err != nil {
-		return "", err
-	}
-	return string(dataYAML), nil
-}
-
-func getContentKubeletContexts() []map[string]any {
-	return []map[string]any{
-		{
-			"context": map[string]any{
-				"cluster": "localcluster",
-				"user":    "kubelet-bootstrap",
-			},
-			"name": "bootstrap-context",
-		},
-	}
 }
 
 func getContentKubeletUserBootstrapToken(config *datamodel.NodeBootstrappingConfiguration) map[string]any {
