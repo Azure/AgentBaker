@@ -357,7 +357,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
   export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
 
   mkdir -p /opt/{actions,gpu}
-  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
