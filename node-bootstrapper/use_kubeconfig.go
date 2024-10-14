@@ -112,11 +112,11 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 	if appID == "" {
 		appID = DefaultAksAadAppID
 	}
-	userName := "kubelet-bootstrap"
-	context := "bootstrap-context"
-	if config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiDirectly || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiDirectly {
-		userName = "client"
-		context = "localclustercontext"
+	userName := "client"
+	context := "localclustercontext"
+	if config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR {
+		userName = "kubelet-bootstrap"
+		context = "bootstrap-context"
 	}
 	data := map[string]any{
 		"apiVersion": "v1",
@@ -143,7 +143,13 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 						if config.EnableSecureTLSBootstrapping {
 							return getContentKubeletUserSecureBootstrapping(appID)
 						}
-						return getContentKubeletUserBootstrapToken(config)
+						if config.KubeletClientTLSBootstrapToken != nil && *config.KubeletClientTLSBootstrapToken != "" {
+							return getContentKubeletUserBootstrapToken(config)
+						}
+						return map[string]any{
+							"client-certificate": "/etc/kubernetes/certs/client.crt",
+							"client-key":         "/etc/kubernetes/certs/client.key",
+						}
 					}
 				}(),
 			},
