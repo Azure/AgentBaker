@@ -20,8 +20,8 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// some options are intentionally non-configurable to avoid customization by users
-// it will help us to avoid introducing any breaking changes in the future
+// Some options are intentionally non-configurable to avoid customization by users
+// it will help us to avoid introducing any breaking changes in the future.
 const (
 	ConfigVersion                  = "v0"
 	DefaultAksAadAppID             = "6dae42f8-4368-4678-94ff-3960e28e3630"
@@ -37,6 +37,7 @@ type Config struct {
 func main() {
 	logFile, err := os.OpenFile(LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to open log file: %s\n", err)
 		os.Exit(1)
 	}
