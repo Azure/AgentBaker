@@ -137,10 +137,8 @@ type Config struct {
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*LiveVMValidator
 
-	CSEOverride                         string
-	DisableCustomData                   bool
-	DisableNodeBootstrapperSoftwareTest bool
-	DisableCseBootstrapperTest          bool
+	CSEOverride       string
+	DisableCustomData bool
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
