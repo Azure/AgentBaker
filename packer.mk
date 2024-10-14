@@ -113,7 +113,7 @@ ifeq (${MODE},linuxVhdMode)
 endif
 
 build-node-bootstrapper:
-	@echo "Building node bootstrapper binary for $(GOARCH)"
+	@echo "Building node bootstrapper binaries"
 	@bash -c "pushd node-bootstrapper && \
 	go test ./... && \
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/node-bootstrapper-linux-amd64 && \
