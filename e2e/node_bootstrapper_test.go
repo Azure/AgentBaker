@@ -56,9 +56,11 @@ func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) st
 func compileNodeBootstrapper(t *testing.T) *os.File {
 	cmd := exec.Command("go", "build", "-o", "node-bootstrapper", "-v")
 	cmd.Dir = "../node-bootstrapper"
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append([]string{
 		"GOOS=linux",
 		"GOARCH=amd64",
+	},
+		os.Environ()..., // it's important to append current environment variables after setting GOOS and GOARCH to avoid cross-compilation issues
 	)
 	log, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(log))
