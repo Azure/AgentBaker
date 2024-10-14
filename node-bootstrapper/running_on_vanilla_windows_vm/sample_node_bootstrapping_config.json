@@ -1,0 +1,270 @@
+{
+  "Version":"v0",
+  "bootstrappingMethod": "UseAzureMsiToMakeCSR",
+  "bootstrappingManagedIdentityId": "c034a0e4-d963-4a82-ab0f-6df7957e1c55",
+  "skipExternalHnsNetwork": true,
+  "ContainerService": {
+    "id": "",
+    "location": "eastus",
+    "name": "",
+    "tags": null,
+    "type": "Microsoft.ContainerService/ManagedClusters",
+    "properties": {
+      "orchestratorProfile": {
+        "orchestratorType": "Kubernetes",
+        "orchestratorVersion": "1.30.3",
+        "kubernetesConfig": {
+          "networkPlugin": "none",
+          "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
+          "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+          "useInstanceMetadata": true,
+          "cloudProviderBackoffMode": "v2",
+          "cloudProviderBackoff": true,
+          "cloudProviderBackoffRetries": 6,
+          "cloudProviderBackoffDuration": 5,
+          "cloudProviderRateLimit": true,
+          "cloudProviderRateLimitQPS": 10,
+          "cloudProviderRateLimitQPSWrite": 10,
+          "cloudProviderRateLimitBucket": 100,
+          "cloudProviderRateLimitBucketWrite": 100,
+          "cloudProviderDisableOutboundSNAT": false,
+          "loadBalancerSku": "Standard",
+          "azureCNIURLLinux": "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz",
+          "maximumLoadBalancerRuleCount": 250,
+          "azureCNIURLWindows": "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+          "useCloudControllerManager": true,
+          "useManagedIdentity": true,
+          "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
+          "dnsServiceIP": "192.168.2.10",
+          "clusterSubnet": "192.168.0.0/16",
+          "serviceCidr": "192.168.2.0/24",
+          "DNSServiceIP": "192.168.2.10"
+        }
+      },
+      "agentPoolProfiles": [
+        {
+          "name": "winnp",
+          "osType": "Windows",
+          "availabilityProfile": "VirtualMachineScaleSets",
+          "storageProfile": "ManagedDisks",
+          "customNodeLabels": {
+            "kubernetes.azure.com/mode": "user"
+          },
+          "preProvisionExtension": null,
+          "kubernetesConfig": {
+            "containerRuntime": "containerd",
+            "cloudProviderBackoffMode": ""
+          },
+          "vnetCidrs": [
+            "192.168.0.0/16"
+          ]
+        }
+      ],
+      "linuxProfile": {
+        "adminUsername": "tim",
+        "ssh": {
+          "publicKeys": [
+            {
+              "keyData": "public key data"
+            }
+          ]
+        }
+      },
+      "extensionProfiles": null,
+      "servicePrincipalProfile": {
+        "clientId": "aad_client_id",
+        "secret": "c2VjcmV0Cg=="
+      },
+      "certificateProfile": {
+        "caCertificate": "-----BEGIN CERTIFICATE-----\nMIIE6TCCAtGgAwIBAgIRAK5RDe5EGkF2bT0NbmPjWWkwDQYJKoZIhvcNAQELBQAw\nDTELMAkGA1UEAxMCY2EwIBcNMjQwMzIwMjE0MTE0WhgPMjA1NDAzMjAyMTUxMTRa\nMA0xCzAJBgNVBAMTAmNhMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA\ns7zl0hNkhrogfNoHEbqX6Y1KR4ApWVbXFu+07cpFXvkZqUYbUDcSL7jEVrVRasRW\nCg8NB5L+hbevBJ9ENsk58MVdoy3PTVxn2N73t+uM74cBGjyLZRVNZVPf2CR3En0W\n7kEf6AFBbggb4bFhhNR7XbHVm6VCx+8yO5pFbdyLrdN/3Nap8hvsG56EvD/\nNLYmz\nJl9XDfLSEpKk0mzhIezLaO+cYh8Sg7z8lAtiI8zCY4zrYIwFCltYnE6gqvmXMwXL\ng8dk0abFnFGI/6keUs/3AQdwzsItWrp1uBLuatPLN8D3FzV+HmzdMnktr1vm3XEX\nfOcxYiGE2J98Agd83zEDfPvXj0yOFUfCUscnf0ZO27kgX0FmyrizwRVwCRLIjNmg\n5crIRmFjtlY/eXWAAkAlzEeIjQZtUqNhiOjfUk5l12cPoZ1wxBhFZkxgBkEZ20Em\nmWU03lySr456lw8B1qMCu/0VEpuiS/I3N8Wu3rPzQyJV8OAlRUB973Ithh9CKsfE\nlRyCw+lxFHVT6tINHODiZpJyFHl0LseL1FHciqb+q7JsAAF7P1pkZsUIv3duNAaY\nE3pmP64TmQZ1nRB\nbQGNZhaWHSwjEE5YvKR5XlarfSZ2RKLKLyA0nJed1FloV1CUl\nLikHCmwdWlRXY6D2kmaX08Z8H3Z1AwmaNwQ4K4heNPcCAwEAAaNCMEAwDgYDVR0P\nAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFLl90SrLpA8clVBc\np2q+6CvuoslZMA0GCSqGSIb3DQEBCwUAA4ICAQASifuqqmO88S+ZqQNHIcS2R+AY\nHrggE6zTLmC6cE8bxGBOf/AAWC454RPZHEspSCBTnvZjrXc74xVspzuYFzHk5DvT\nAXBm3wI5QF0zLq9dfPV4fgJ4WKXdtyhTLd5ytpVodWy3maOI0SDsGuemu8yPv94c\nlI15hZlDHfCoQ6ni6GUWJOREeRUtcFF6icpii\ngD/SatFhX1yhXneUupdO4Tpx7Eu\nH7tHkidLduMmNVu0w+viTI/x1G906jA3zYryi8tPl9oFH7fjE0eE1ZHaCH4uI+SJ\ng1hCUz2xZ57T5B7nKRpGT/6h8acnvjKFmvEJA063K/y/tlGGZdjiz4nzxHeIp+z5\nEeZF+LAWRqWtEVOBq0/VbJMhF/GKvpTY6dDf0+qvREm6d34+/rlcUB1bzgGdLI3w\nuvFAVKwz1vCuoO9YLbgzj2mZ74p//qeVKU56IrJBbJKAhViaoqahr2pAeKjTTZ1P\nnRU+j0PZGnNOiLAkw3O2L0QVbPN9hwCgEJPIVItf2FfkLX5yLScn6BiUnm+jmLYc\nqWHO7xte7oozbbZsWngifBhv6kpimtvX1pwfSXOSga5wdAFBiMSyBI6crD64ym89\nBtiMKNWrwq//BE6R+f+6GJSJ0jAlMetJCwQIybaL/mdSc07PaMy9Ez4rUWdnLVQL\nJtTIMfzvOyIw7zGgng==\n-----END CERTIFICATE-----\n",
+        "apiServerCertificate": "",
+        "clientPrivateKey": "",
+        "clientCertificate": ""
+      },
+      "hostedMasterProfile": {
+        "dnsPrefix": "",
+        "fqdnSubdomain": "",
+        "subnet": "",
+        "apiServerWhiteListRange": null,
+        "ipMasqAgent": true,
+        "IPAddress_old": "20.193.6.5",
+        "fqdn": "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
+      },
+      "featureFlags": {
+        "enableWinDSR": true,
+        "enableIPv6DualStack": false
+      },
+      "windowsProfile": {
+        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+        "enableAutomaticUpdates": false,
+        "enableCSIProxy": true,
+        "hnsRemediatorIntervalInMinutes": 1,
+        "imageVersion": "",
+        "sshEnabled": true,
+        "windowsDockerVersion": "",
+        "windowsImageSourceURL": "",
+        "windowsOffer": "aks-windows",
+        "windowsPublisher": "microsoft-aks",
+        "windowsSku": "",
+        "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+        "alwaysPullWindowsPauseImage": false,
+        "cseScriptsPackageURL": "https://acs-mirror.azureedge.net/aks/windows/cse/",
+        "gpuDriverUrl": ""
+      },
+      "clusterID": ""
+    }
+  },
+  "CloudSpecConfig": {
+    "cloudName": "AzurePublicCloud",
+    "dockerSpecConfig": {
+      "dockerEngineRepo": "https://aptdocker.azureedge.net/repo",
+      "dockerComposeDownloadURL": "https://github.com/docker/compose/releases/download"
+    },
+    "kubernetesSpecConfig": {
+      "kubernetesImageBase": "k8s.gcr.io/",
+      "tillerImageBase": "gcr.io/kubernetes-helm/",
+      "aciConnectorImageBase": "microsoft/",
+      "mcrKubernetesImageBase": "mcr.microsoft.com/",
+      "nvidiaImageBase": "nvidia/",
+      "azureCNIImageBase": "mcr.microsoft.com/containernetworking/",
+      "CalicoImageBase": "calico/",
+      "kubeBinariesSASURLBase": "https://acs-mirror.azureedge.net/kubernetes/",
+      "windowsTelemetryGUID": "fb801154-36b9-41bc-89c2-f4d4f05472b0",
+      "cniPluginsDownloadURL": "https://acs-mirror.azureedge.net/cni/cni-plugins-amd64-v0.7.6.tgz",
+      "vnetCNILinuxPluginsDownloadURL": "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+      "vnetCNIWindowsPluginsDownloadURL": "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.1.3.zip",
+      "containerdDownloadURLBase": "https://storage.googleapis.com/cri-containerd-release/",
+      "csiProxyDownloadURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz",
+      "windowsProvisioningScriptsPackageURL": "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.2.2.zip",
+      "windowsPauseImageURL": "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
+      "cseScriptsPackageURL": "https://acs-mirror.azureedge.net/aks/windows/cse/csescripts-v0.0.1.zip",
+      "cniARM64PluginsDownloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz",
+      "vnetCNIARM64LinuxPluginsDownloadURL": "https://acs-mirror.azureedge.net/azure-cni/v1.4.13/binaries/azure-vnet-cni-linux-arm64-v1.4.14.tgz"
+    },
+    "endpointConfig": {
+      "resourceManagerVMDNSSuffix": "cloudapp.azure.com"
+    }
+  },
+  "K8sComponents": {
+    "PodInfraContainerImageURL": "mcr.microsoft.com/oss/kubernetes/pause:3.5",
+    "HyperkubeImageURL": "mcr.microsoft.com/oss/kubernetes/",
+    "WindowsPackageURL": "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip"
+  },
+  "AgentPoolProfile": {
+    "name": "winnp",
+    "vmSize": "Standard_DS1_v2",
+    "osType": "Windows",
+    "availabilityProfile": "VirtualMachineScaleSets",
+    "storageProfile": "ManagedDisks",
+    "distro": "aks-windows-2022-containerd",
+    "customNodeLabels": {
+      "kubernetes.azure.com/mode": "user"
+    },
+    "preProvisionExtension": null,
+    "kubernetesConfig": {
+      "containerRuntime": "containerd",
+      "cloudProviderBackoffMode": ""
+    },
+    "notRebootWindowsNode": true
+  },
+  "TenantID": "tenantId",
+  "OSSKU": "",
+  "ConfigGPUDriverIfNeeded": false,
+  "Disable1804SystemdResolved": false,
+  "EnableGPUDevicePluginIfNeeded": false,
+  "EnableKubeletConfigFile": false,
+  "EnableNvidia": false,
+  "DisableUnattendedUpgrades": true,
+  "EnableACRTeleportPlugin": false,
+  "TeleportdPluginURL": "",
+  "ContainerdVersion": "",
+  "RuncVersion": "",
+  "ContainerdPackageURL": "",
+  "RuncPackageURL": "",
+  "FIPSEnabled": false,
+  "HTTPProxyConfig": {
+    "noProxy": [
+      "localhost",
+      "127.0.0.1",
+      "168.63.129.16",
+      "169.254.169.254",
+      "192.168.0.0/16",
+      "20.193.6.5",
+      "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
+    ]
+  },
+  "KubeletConfig": {
+    "--address": "0.0.0.0",
+    "--anonymous-auth": "false",
+    "--authentication-token-webhook": "true",
+    "--authorization-mode": "Webhook",
+    "--cgroups-per-qos": "false",
+    "--cloud-provider": "external",
+    "--cluster-dns": "192.168.2.10",
+    "--cluster-domain": "cluster.local",
+    "--dynamic-config-dir": "/k",
+    "--enforce-node-allocatable": "\"\"\"\"",
+    "--event-qps": "0",
+    "--eviction-hard": "\"\"\"\"",
+    "--feature-gates": "DynamicKubeletConfig=false",
+    "--image-gc-high-threshold": "85",
+    "--image-gc-low-threshold": "80",
+    "--keep-terminated-pod-volumes": "false",
+    "--kube-reserved": "cpu=100m,memory=3891Mi",
+    "--kubeconfig": "c:\\k\\config",
+    "--max-pods": "30",
+    "--node-status-update-frequency": "10s",
+    "--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+    "--pod-max-pids": "-1",
+    "--protect-kernel-defaults": "true",
+    "--read-only-port": "0",
+    "--resolv-conf": "\"\"\"\"",
+    "--rotate-certificates": "true",
+    "--streaming-connection-idle-timeout": "4h",
+    "--tls-cipher-suites": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
+    "--bootstrap-kubeconfig": "c:\\k\\bootstrap-config",
+    "--cert-dir": "c:\\k\\pki",
+    "--hairpin-mode": "promiscuous-bridge",
+    "--client-ca-file": "c:\\k\\ca.crt"
+  },
+  "old_kubelet_flags": {
+    "--pod-manifest-path": "c:\\k\\manifests",
+    "--tls-private-key-file": "c:\\k\\pki\\kubeletserver.key",
+    "--tls-cert-file": "c:\\k\\pki\\kubeletserver.crt"
+  },
+  "KubeproxyConfig": null,
+  "EnableRuncShimV2": false,
+  "GPUInstanceProfile": "",
+  "PrimaryScaleSetName": "akswin30",
+  "SIGConfig": {
+    "tenantID": "tenantID",
+    "subscriptionID": "subId",
+    "Galleries": {
+      "AKSUbuntu": {
+        "GalleryName": "aksubuntu",
+        "ResourceGroup": "resourcegroup"
+      },
+      "AKSCBLMariner": {
+        "GalleryName": "akscblmariner",
+        "ResourceGroup": "resourcegroup"
+      },
+      "AKSAzureLinux": {
+        "GalleryName": "aksazurelinux",
+        "ResourceGroup": "resourcegroup"
+      },
+      "AKSWindows": {
+        "GalleryName": "AKSWindows",
+        "ResourceGroup": "AKS-Windows"
+      },
+      "AKSUbuntuEdgeZone": {
+        "GalleryName": "AKSUbuntuEdgeZone",
+        "ResourceGroup": "AKS-Ubuntu-EdgeZone"
+      }
+    }
+  },
+  "IsARM64": false,
+  "SubscriptionID": "subID",
+  "ResourceGroupName": "resourceGroup",
+  "UserAssignedIdentityClientID": "",
+  "KubeletClientTLSBootstrapToken": ""
+}
