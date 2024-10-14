@@ -106,7 +106,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	}
 	//nolint: lll
 	nodeBootstrapping.CSE = fmt.Sprintf(
-		`bash -c "(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && /opt/azure/node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1"`,
+		`(echo '%s' | base64 -d > config.json && mkdir -p /var/log/azure && /opt/azure/node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1`,
 		base64.StdEncoding.EncodeToString(configJSON),
 	) // TODO: simplify this)
 	nodeBootstrapping.CustomData = ""
