@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"testing"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 const (
@@ -21,7 +23,7 @@ const (
 
 func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
 	t.Helper()
-	files, err := customData(nil, nbc)
+	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, bootstrapConfigFile)
 	var configFile = kubeConfigFile
@@ -34,7 +36,7 @@ func assertKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguratio
 
 func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, expected string) {
 	t.Helper()
-	files, err := customData(nil, nbc)
+	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, kubeConfigFile)
 	var configFile = bootstrapConfigFile
@@ -45,9 +47,9 @@ func assertBootstrapKubeconfig(t *testing.T, nbc *datamodel.NodeBootstrappingCon
 	assert.YAMLEq(t, expected, actual)
 }
 
-func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
+func assertArcTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppID string) {
 	t.Helper()
-	files, err := customData(nil, nbc)
+	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
 	require.NotContains(t, files, azureTokenPs1)
@@ -82,13 +84,13 @@ if [ $? -ne 0 ]; then
 fi
 
 curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL | jq "$EXECCREDENTIAL"
-`, aadAppId)
+`, aadAppID)
 	assert.Equal(t, expected, actual)
 }
 
-func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string) {
+func assertAzureTokenSh(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppID string) {
 	t.Helper()
-	files, err := customData(nil, nbc)
+	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, arcTokenSh)
 	require.NotContains(t, files, azureTokenPs1)
@@ -112,25 +114,24 @@ EXECCREDENTIAL='''
 '''
 
 curl -s -H Metadata:true $TOKEN_URL | jq "$EXECCREDENTIAL"
-`, aadAppId)
+`, aadAppID)
 	assert.Equal(t, expected, actual)
 }
 
-func assertAzureTokenPs1(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppId string, clientId string) {
-	//t.Helper()
-	files, err := customData(nil, nbc)
+func assertAzureTokenPs1(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, aadAppID string, clientID string) {
+	t.Helper()
+	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 	require.NotContains(t, files, azureTokenSh)
 	require.NotContains(t, files, arcTokenSh)
 	require.NotContains(t, files, arcTokenPs1)
 	actual := getFile(t, nbc, azureTokenPs1, 0755)
 
-	expected := fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, aadAppId, clientId)
+	expected := fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, aadAppID, clientID)
 	assert.Equal(t, expected, actual)
 }
 
 func TestKubeConfigGeneratedCorrectly(t *testing.T) {
-
 	t.Run("kubeconfig", func(t *testing.T) {
 		nbc := validNBC()
 		assertKubeconfig(t, nbc, `
@@ -507,7 +508,7 @@ users:
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
 
-		files, err := customData(nil, nbc)
+		files, err := customData(context.TODO(), nbc)
 		require.NoError(t, err)
 		require.NotContains(t, files, arcTokenSh)
 		require.NotContains(t, files, azureTokenSh)

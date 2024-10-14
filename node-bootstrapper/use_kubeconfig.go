@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
@@ -72,7 +73,7 @@ func useArcTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map[s
 	bootstrapKubeconfig := genContentArcTokenSh(config)
 	files[getArcTokenPath(config)] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    0755,
+		Mode:    ExecutableWorld,
 	}
 	return nil
 }
@@ -84,7 +85,7 @@ func useAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration, files map
 	}
 	files[getAzureTokenPath(config)] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    0755,
+		Mode:    ExecutableWorld,
 	}
 	return nil
 }
@@ -97,7 +98,7 @@ func useBootstrappingKubeConfig(config *datamodel.NodeBootstrappingConfiguration
 
 	files[getBootstrapKubeconfigPath(config)] = File{
 		Content: bootstrapKubeconfig,
-		Mode:    0644,
+		Mode:    ReadOnlyWorld,
 	}
 	return nil
 }
@@ -130,7 +131,6 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) stri
       - c:/k/azure-token.ps1
       provideClusterInfo: false
 `
-
 		} else {
 			users = fmt.Sprintf(`- name: default-auth
   user:
@@ -209,9 +209,9 @@ func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) s
 	if appID == "" {
 		appID = DefaultAksAadAppID
 	}
-	clientId := config.AgentPoolProfile.BootstrappingManagedIdentityId
+	clientID := config.AgentPoolProfile.BootstrappingManagedIdentityId
 
-	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientId)
+	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientID)
 }
 
 func genContentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
@@ -372,7 +372,6 @@ func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfigurati
 			},
 		}, true
 	}
-	return nil, false
 }
 
 func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguration) (map[string]any, bool) {
@@ -396,7 +395,6 @@ func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguratio
 			},
 		}, true
 	}
-	return nil, false
 }
 
 func getContentKubletClusterInfo(config *datamodel.NodeBootstrappingConfiguration) []map[string]any {

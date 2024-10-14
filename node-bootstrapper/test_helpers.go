@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io/fs"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 
 func getFile(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, path string, expectedMode fs.FileMode) string {
 	t.Helper()
-	files, err := customData(nil, nbc)
+	files, err := customData(context.TODO(), nbc)
 	require.NoError(t, err)
 
 	require.Contains(t, files, path)

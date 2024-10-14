@@ -28,6 +28,7 @@ const (
 	LogFile                        = "/var/log/azure/node-bootstrapper.log"
 	ReadOnlyUser       os.FileMode = 0600
 	ReadOnlyWorld      os.FileMode = 0644
+	ExecutableWorld    os.FileMode = 755
 )
 
 type Config struct {
