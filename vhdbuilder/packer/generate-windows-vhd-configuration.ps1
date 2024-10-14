@@ -93,8 +93,10 @@ $global:imagesToPull += @(
     # CSI. Owner: andyzhangx (Andy Zhang)
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.1", # for k8s 1.30+
+    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0", # for k8s 1.30+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1", # for k8s 1.30+
+    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0", # for k8s 1.30+
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.11-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.9-windows-hp", # for k8s 1.28.x
@@ -131,7 +133,7 @@ $global:imagesToPull += @(
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.10"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
 )
 
 $global:map = @{
