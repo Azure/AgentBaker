@@ -191,7 +191,7 @@ func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) s
 	if appID == "" {
 		appID = DefaultAksAadAppID
 	}
-	clientID := config.AgentPoolProfile.BootstrappingManagedIdentityID
+	clientID := config.BootstrappingManagedIdentityID
 
 	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientID)
 }

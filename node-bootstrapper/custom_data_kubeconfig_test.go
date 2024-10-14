@@ -394,7 +394,7 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
-		nbc.AgentPoolProfile.BootstrappingManagedIdentityID = "5f0b9406-fbf1-4e1c-8a61-b6f4a6702057"
+		nbc.BootstrappingManagedIdentityID = "5f0b9406-fbf1-4e1c-8a61-b6f4a6702057"
 		assertKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
@@ -427,7 +427,7 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.BootstrappingMethod = datamodel.UseAzureMsiDirectly
-		nbc.AgentPoolProfile.BootstrappingManagedIdentityID = "client-id"
+		nbc.BootstrappingManagedIdentityID = "client-id"
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
 
 		assertAzureTokenPs1(t, nbc, "different_app_id", "client-id")
@@ -478,7 +478,7 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
-		nbc.AgentPoolProfile.BootstrappingManagedIdentityID = "mi-client-id"
+		nbc.BootstrappingManagedIdentityID = "mi-client-id"
 		assertBootstrapKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
