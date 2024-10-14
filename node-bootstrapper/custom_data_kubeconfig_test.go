@@ -210,9 +210,9 @@ users:
 `)
 	})
 
-	t.Run("BootstrappingMethod=UseSecureTlsBootstrapping sets bootstrap-kubeconfig correctly", func(t *testing.T) {
+	t.Run("BootstrappingMethod=UseSecureTLSBootstrapping sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseSecureTlsBootstrapping
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseSecureTLSBootstrapping
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
     - cluster:
@@ -392,7 +392,7 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
-		nbc.AgentPoolProfile.BootstrappingManagedIdentityId = "5f0b9406-fbf1-4e1c-8a61-b6f4a6702057"
+		nbc.AgentPoolProfile.BootstrappingManagedIdentityID = "5f0b9406-fbf1-4e1c-8a61-b6f4a6702057"
 		assertKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:
@@ -423,7 +423,7 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiDirectly
-		nbc.AgentPoolProfile.BootstrappingManagedIdentityId = "client-id"
+		nbc.AgentPoolProfile.BootstrappingManagedIdentityID = "client-id"
 		nbc.CustomSecureTLSBootstrapAADServerAppID = "different_app_id"
 
 		assertAzureTokenPs1(t, nbc, "different_app_id", "client-id")
@@ -474,7 +474,7 @@ users:
 		nbc := validNBC()
 		nbc.AgentPoolProfile.OSType = datamodel.Windows
 		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseAzureMsiToMakeCSR
-		nbc.AgentPoolProfile.BootstrappingManagedIdentityId = "mi-client-id"
+		nbc.AgentPoolProfile.BootstrappingManagedIdentityID = "mi-client-id"
 		assertBootstrapKubeconfig(t, nbc, `
 apiVersion: v1
 clusters:

@@ -357,7 +357,7 @@ const (
 	UseAzureMsiToMakeCSR      BootstrappingMethod = "UseAzureMsiToMakeCSR"
 	UseArcMsiDirectly         BootstrappingMethod = "UseArcMsiDirectly"
 	UseAzureMsiDirectly       BootstrappingMethod = "UseAzureMsiDirectly"
-	UseSecureTlsBootstrapping BootstrappingMethod = "UseSecureTlsBootstrapping"
+	UseSecureTLSBootstrapping BootstrappingMethod = "UseSecureTLSBootstrapping"
 	UseTlsBootstrapToken      BootstrappingMethod = "UseTlsBootstrapToken"
 )
 
@@ -818,7 +818,7 @@ type AgentPoolProfile struct {
 
 	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
 	BootstrappingMethod            BootstrappingMethod
-	BootstrappingManagedIdentityId string
+	BootstrappingManagedIdentityID string
 }
 
 func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {

@@ -42,7 +42,7 @@ func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[s
 			return err
 		}
 
-	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
+	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTLSBootstrapping:
 		if err := useBootstrappingKubeConfig(config, files); err != nil {
 			return err
 		}
@@ -209,7 +209,7 @@ func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) s
 	if appID == "" {
 		appID = DefaultAksAadAppID
 	}
-	clientID := config.AgentPoolProfile.BootstrappingManagedIdentityId
+	clientID := config.AgentPoolProfile.BootstrappingManagedIdentityID
 
 	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientID)
 }
@@ -301,7 +301,7 @@ func genContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfigurat
 							return m
 						}
 					}
-					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
+					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping {
 						return getContentKubeletUserSecureBootstrapping(appID)
 					}
 					return getContentKubeletUserBootstrapToken(config)
@@ -351,7 +351,7 @@ func getContentKubeletUserSecureBootstrapping(appID string) map[string]any {
 	}
 }
 
-func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfiguration) (map[string]any, bool) {
+func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfiguration) map[string]any {
 	if config.AgentPoolProfile.IsWindows() {
 		return map[string]any{
 			"exec": map[string]any{
@@ -361,7 +361,7 @@ func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfigurati
 				"interactiveMode":    "Never",
 				"provideClusterInfo": false,
 			},
-		}, true
+		}
 	} else {
 		return map[string]any{
 			"exec": map[string]any{
@@ -370,11 +370,11 @@ func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfigurati
 				"interactiveMode":    "Never",
 				"provideClusterInfo": false,
 			},
-		}, true
+		}
 	}
 }
 
-func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguration) (map[string]any, bool) {
+func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguration) map[string]any {
 	if config.AgentPoolProfile.IsWindows() {
 		return map[string]any{
 			"exec": map[string]any{
@@ -384,7 +384,7 @@ func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguratio
 				"interactiveMode":    "Never",
 				"provideClusterInfo": false,
 			},
-		}, true
+		}
 	} else {
 		return map[string]any{
 			"exec": map[string]any{
@@ -393,7 +393,7 @@ func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguratio
 				"interactiveMode":    "Never",
 				"provideClusterInfo": false,
 			},
-		}, true
+		}
 	}
 }
 
