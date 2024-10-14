@@ -54,37 +54,20 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query kusto database: %w", err)
 	}
-	defer dataset.Stop()
 
 	data, err := query.ToStructs[SKU](dataset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
-	/*
-		data := SKU{}
-		if err = iter.DoOnRowOrError(
-			func(row *table.Row, e *kustoErrors.Error) error {
-				if e != nil {
-					return fmt.Errorf("error while iterating over query table: %w", e)
-				}
-				if err := row.ToStruct(&data); err != nil {
-					return fmt.Errorf("failed to convert query row to struct: %w", err)
-				}
-				return nil
-			},
-		); err != nil {
-			return nil, fmt.Errorf("failed to persist query data: %w", err)
-		}
-
-	*/
 
 	if err := CheckNumberOfRowsReturned(iter); err != nil {
 		return nil, err
 	}
+
 	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 	log.Println("Query returned 1 row of aggregated data as expected")
 
-	return &data, nil
+	return &data[0], nil
 }
 
 func CheckNumberOfRowsReturned(iter *kusto.RowIterator) error {
