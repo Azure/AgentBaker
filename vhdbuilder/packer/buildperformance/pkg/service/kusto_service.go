@@ -19,7 +19,7 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Clien
 	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientId)
 	client, err := azkustodata.New(kustoConnectionString)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create kusto client: %w", err)
 	}
 	return client, nil
 }
@@ -44,11 +44,18 @@ func IngestData(ctx context.Context, config *Config) error {
 	return nil
 }
 
-func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, kustoDatabase string) (*SKU, error) {
-	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
-	params := kql.NewParameters().AddString("SKU", sigImageName)
+func QueryData(ctx context.Context, config *Config) (*SKU, error) {
+	client, err := CreateKustoClient(config.KustoEndpoint, config.KustoClientId)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+	log.Println("Kusto query client created")
 
-	iter, err := client.Query(ctx, kustoDatabase, query, kusto.QueryParameters(params))
+	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
+	params := kql.NewParameters().AddString("SKU", config.SigImageName)
+
+	iter, err := client.Query(ctx, config.KustoDatabase, query, kusto.QueryParameters(params))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query kusto database: %w", err)
 	}
@@ -72,6 +79,7 @@ func QueryData(ctx context.Context, client *kusto.Client, sigImageName string, k
 	if err := CheckNumberOfRowsReturned(iter); err != nil {
 		return nil, err
 	}
+	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
 	log.Println("Query returned 1 row of aggregated data as expected")
 
 	return &data, nil
