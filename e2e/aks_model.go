@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/stretchr/testify/require"
 )
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
@@ -156,9 +157,10 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
 	t.Logf("Checking if private endpoint for private container registry is in rg %s\n", nodeResourceGroup)
 
+	var err error
+	var exists bool
 	privateEndpointName := "PE-for-ABE2ETests"
-	exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
-	if err != nil {
+	if exists, err = privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName); err != nil {
 		return err
 	}
 	if exists {
@@ -167,34 +169,30 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	}
 
 	privateACRName := "privateacre2e"
-	err = createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, privateACRName)
-	if err != nil {
+	if err := createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, privateACRName); err != nil {
 		return err
 	}
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet)
-	if err != nil {
+	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
+	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet); err != nil {
 		return err
 	}
 
 	privateZoneName := "privatelink.azurecr.io"
-	pzResp, err := createPrivateZone(ctx, t, nodeResourceGroup, privateZoneName)
-	if err != nil {
+	var pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse
+	if pzResp, err = createPrivateZone(ctx, t, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	err = createPrivateDNSLink(ctx, t, vnet, nodeResourceGroup, privateZoneName)
-	if err != nil {
+	if err = createPrivateDNSLink(ctx, t, vnet, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	err = addRecordSetToPrivateDNSZone(ctx, t, peResp, nodeResourceGroup, privateZoneName)
-	if err != nil {
+	if err = addRecordSetToPrivateDNSZone(ctx, t, peResp, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	err = addDNSZoneGroup(ctx, t, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name)
-	if err != nil {
+	if err = addDNSZoneGroup(ctx, t, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name); err != nil {
 		return err
 	}
 
@@ -461,9 +459,7 @@ func updateSubnet(ctx context.Context, cluster *armcontainerservice.ManagedClust
 
 func createAzureResourceWithBicep(ctx context.Context, t *testing.T, params map[string]interface{}, resourceGroup, filename, deploymentName string) error {
 	currentDir, err := os.Getwd()
-	if err != nil {
-		log.Fatalf("failed to get current working directory: %v", err)
-	}
+	require.NoError(t, err)
 
 	bicepFileName := fmt.Sprintf("%s.bicep", filename)
 	bicepFilePath := filepath.Join(currentDir, "azure-resources", bicepFileName)
