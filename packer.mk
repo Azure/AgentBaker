@@ -5,7 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-lister-binary
+build-packer: generate-prefetch-scripts build-lister-binary build-node-bootstrapper
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
