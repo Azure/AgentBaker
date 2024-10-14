@@ -25,7 +25,7 @@ func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[s
 			return err
 		}
 
-	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTLSBootstrapping:
+	case datamodel.UseTLSBootstrapToken, datamodel.UseSecureTLSBootstrapping:
 		break
 
 	default:
@@ -104,7 +104,7 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 					case datamodel.UseSecureTLSBootstrapping:
 						return getContentKubeletUserSecureBootstrapping(appID)
 
-					case datamodel.UseTlsBootstrapToken:
+					case datamodel.UseTLSBootstrapToken:
 						return getContentKubeletUserBootstrapToken(config)
 
 					default:

@@ -241,9 +241,9 @@ users:
 `)
 	})
 
-	t.Run("BootstrappingMethod=UseTlsBootstrapToken sets bootstrap-kubeconfig correctly", func(t *testing.T) {
+	t.Run("BootstrappingMethod=UseTLSBootstrapToken sets bootstrap-kubeconfig correctly", func(t *testing.T) {
 		nbc := validNBC()
-		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseTlsBootstrapToken
+		nbc.AgentPoolProfile.BootstrappingMethod = datamodel.UseTLSBootstrapToken
 		nbc.KubeletClientTLSBootstrapToken = Ptr("test-token-value")
 		assertBootstrapKubeconfig(t, nbc, `apiVersion: v1
 clusters:
