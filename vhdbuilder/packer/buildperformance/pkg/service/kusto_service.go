@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/azure-kusto-go/azkustodata"
 	"github.com/Azure/azure-kusto-go/kusto"
+	"github.com/Azure/azure-kusto-go/kusto/azkustoingest"
 	kustoErrors "github.com/Azure/azure-kusto-go/kusto/data/errors"
 	"github.com/Azure/azure-kusto-go/kusto/data/table"
 	"github.com/Azure/azure-kusto-go/kusto/ingest"
@@ -27,7 +28,7 @@ func IngestData(ctx context.Context, config *Config) error {
 	if config.SourceBranch == "refs/heads/zb/regression2" {
 		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientId)
 
-		ingestor, err := ingest.New(kustoConnectionString, config.KustoDatabase, config.KustoTable)
+		ingestor, err := azkustoingest.New(kustoConnectionString, config.KustoDatabase, config.KustoTable)
 		if err != nil {
 			return fmt.Errorf("failed to create ingestor: %w", err)
 		}
@@ -39,7 +40,7 @@ func IngestData(ctx context.Context, config *Config) error {
 		log.Printf("Data ingested for %s\n", config.SigImageName)
 		return nil
 	}
-	log.Println("Data not ingested as source branch is not refs/heads/zb/regression2")
+	log.Println("Data not ingested as source branch is not master")
 	return nil
 }
 
