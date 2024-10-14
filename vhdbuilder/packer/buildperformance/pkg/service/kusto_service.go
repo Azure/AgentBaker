@@ -96,5 +96,7 @@ func CheckNumberOfRowsReturned(iter *kusto.RowIterator) error {
 		return fmt.Errorf("unexpected number of rows returned from query: %v", numRows)
 	}
 
+	log.Println("Query returned 1 row of aggregated data as expected")
+
 	return nil
 }
