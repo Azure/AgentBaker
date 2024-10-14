@@ -60,6 +60,9 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
 
+	numRows := data[0].Rows()
+	fmt.Println("Number of rows returned from query: %d", numRows)
+
 	if err := CheckNumberOfRowsReturned(iter); err != nil {
 		return nil, err
 	}
