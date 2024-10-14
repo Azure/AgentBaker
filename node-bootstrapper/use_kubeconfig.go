@@ -4,57 +4,56 @@ import (
 	"fmt"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-
-	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[string]File) error {
 	switch config.AgentPoolProfile.BootstrappingMethod {
 	case datamodel.UseArcMsiToMakeCSR:
-		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
-			return err2
+		if err := useBootstrappingKubeConfig(config, files); err != nil {
+			return err
 		}
-		if err2 := useArcTokenSh(config, files); err2 != nil {
-			return err2
+		if err := useArcTokenSh(config, files); err != nil {
+			return err
 		}
 
 	case datamodel.UseArcMsiDirectly:
-		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
-			return err2
+		if err := useHardCodedKubeconfig(config, files); err != nil {
+			return err
 		}
-		if err2 := useArcTokenSh(config, files); err2 != nil {
-			return err2
+		if err := useArcTokenSh(config, files); err != nil {
+			return err
 		}
 
 	case datamodel.UseAzureMsiDirectly:
-		if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
-			return err2
+		if err := useHardCodedKubeconfig(config, files); err != nil {
+			return err
 		}
-		if err2 := useAzureTokenSh(config, files); err2 != nil {
-			return err2
+		if err := useAzureTokenSh(config, files); err != nil {
+			return err
 		}
 
 	case datamodel.UseAzureMsiToMakeCSR:
-		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
-			return err2
+		if err := useBootstrappingKubeConfig(config, files); err != nil {
+			return err
 		}
-		if err2 := useAzureTokenSh(config, files); err2 != nil {
-			return err2
+		if err := useAzureTokenSh(config, files); err != nil {
+			return err
 		}
 
 	case datamodel.UseTlsBootstrapToken, datamodel.UseSecureTlsBootstrapping:
-		if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
-			return err2
+		if err := useBootstrappingKubeConfig(config, files); err != nil {
+			return err
 		}
 
 	default:
 		if config.EnableSecureTLSBootstrapping || agent.IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken) {
-			if err2 := useBootstrappingKubeConfig(config, files); err2 != nil {
-				return err2
+			if err := useBootstrappingKubeConfig(config, files); err != nil {
+				return err
 			}
 		} else {
-			if err2 := useHardCodedKubeconfig(config, files); err2 != nil {
-				return err2
+			if err := useHardCodedKubeconfig(config, files); err != nil {
+				return err
 			}
 		}
 	}
@@ -284,93 +283,32 @@ func genContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfigurat
 	data := map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Config",
-		"clusters": []map[string]any{
-			{
-				"name": "localcluster",
-				"cluster": map[string]any{
-					"certificate-authority": getCaCertPath(config),
-					"server":                "https://" + agent.GetKubernetesEndpoint(config.ContainerService) + ":443",
-				},
-			},
-		},
+		"clusters":   getContentKubletClusterInfo(config),
 		"users": []map[string]any{
 			{
 				"name": "kubelet-bootstrap",
 				"user": func() map[string]any {
 					switch config.AgentPoolProfile.BootstrappingMethod {
 					case datamodel.UseArcMsiToMakeCSR:
-						if config.AgentPoolProfile.IsWindows() {
-							return map[string]any{
-								"exec": map[string]any{
-									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            "powershell",
-									"args":               []string{getArcTokenPath(config)},
-									"interactiveMode":    "Never",
-									"provideClusterInfo": false,
-								},
-							}
-						} else {
-							return map[string]any{
-								"exec": map[string]any{
-									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            getArcTokenPath(config),
-									"interactiveMode":    "Never",
-									"provideClusterInfo": false,
-								},
-							}
+						m, done := getContentKubeletUserArcMsi(config)
+						if done {
+							return m
 						}
 
 					case datamodel.UseAzureMsiToMakeCSR:
-						if config.AgentPoolProfile.IsWindows() {
-							return map[string]any{
-								"exec": map[string]any{
-									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            "powershell",
-									"args":               []string{"-C", getAzureTokenPath(config)},
-									"interactiveMode":    "Never",
-									"provideClusterInfo": false,
-								},
-							}
-						} else {
-							return map[string]any{
-								"exec": map[string]any{
-									"apiVersion":         "client.authentication.k8s.io/v1",
-									"command":            getAzureTokenPath(config),
-									"interactiveMode":    "Never",
-									"provideClusterInfo": false,
-								},
-							}
+						m, done := getContentKubletUserAzureMsi(config)
+						if done {
+							return m
 						}
 					}
 					if config.EnableSecureTLSBootstrapping || config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTlsBootstrapping {
-						return map[string]any{
-							"exec": map[string]any{
-								"apiVersion": "client.authentication.k8s.io/v1",
-								"command":    "/opt/azure/tlsbootstrap/tls-bootstrap-client",
-								"args": []string{
-									"bootstrap",
-									"--next-proto=aks-tls-bootstrap",
-									"--aad-resource=" + appID},
-								"interactiveMode":    "Never",
-								"provideClusterInfo": true,
-							},
-						}
+						return getContentKubeletUserSecureBootstrapping(appID)
 					}
-					return map[string]any{
-						"token": agent.GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken),
-					}
+					return getContentKubeletUserBootstrapToken(config)
 				}(),
 			},
 		},
-		"contexts": []map[string]any{
-			{
-				"context": map[string]any{
-					"cluster": "localcluster",
-					"user":    "kubelet-bootstrap",
-				},
-				"name": "bootstrap-context",
-			},
-		},
+		"contexts":        getContentKubeletContexts(),
 		"current-context": "bootstrap-context",
 	}
 	dataYAML, err := yaml.Marshal(data)
@@ -378,6 +316,99 @@ func genContentBootstrapKubeconfig(config *datamodel.NodeBootstrappingConfigurat
 		return "", err
 	}
 	return string(dataYAML), nil
+}
+
+func getContentKubeletContexts() []map[string]any {
+	return []map[string]any{
+		{
+			"context": map[string]any{
+				"cluster": "localcluster",
+				"user":    "kubelet-bootstrap",
+			},
+			"name": "bootstrap-context",
+		},
+	}
+}
+
+func getContentKubeletUserBootstrapToken(config *datamodel.NodeBootstrappingConfiguration) map[string]any {
+	return map[string]any{
+		"token": agent.GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken),
+	}
+}
+
+func getContentKubeletUserSecureBootstrapping(appID string) map[string]any {
+	return map[string]any{
+		"exec": map[string]any{
+			"apiVersion": "client.authentication.k8s.io/v1",
+			"command":    "/opt/azure/tlsbootstrap/tls-bootstrap-client",
+			"args": []string{
+				"bootstrap",
+				"--next-proto=aks-tls-bootstrap",
+				"--aad-resource=" + appID},
+			"interactiveMode":    "Never",
+			"provideClusterInfo": true,
+		},
+	}
+}
+
+func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfiguration) (map[string]any, bool) {
+	if config.AgentPoolProfile.IsWindows() {
+		return map[string]any{
+			"exec": map[string]any{
+				"apiVersion":         "client.authentication.k8s.io/v1",
+				"command":            "powershell",
+				"args":               []string{"-C", getAzureTokenPath(config)},
+				"interactiveMode":    "Never",
+				"provideClusterInfo": false,
+			},
+		}, true
+	} else {
+		return map[string]any{
+			"exec": map[string]any{
+				"apiVersion":         "client.authentication.k8s.io/v1",
+				"command":            getAzureTokenPath(config),
+				"interactiveMode":    "Never",
+				"provideClusterInfo": false,
+			},
+		}, true
+	}
+	return nil, false
+}
+
+func getContentKubeletUserArcMsi(config *datamodel.NodeBootstrappingConfiguration) (map[string]any, bool) {
+	if config.AgentPoolProfile.IsWindows() {
+		return map[string]any{
+			"exec": map[string]any{
+				"apiVersion":         "client.authentication.k8s.io/v1",
+				"command":            "powershell",
+				"args":               []string{getArcTokenPath(config)},
+				"interactiveMode":    "Never",
+				"provideClusterInfo": false,
+			},
+		}, true
+	} else {
+		return map[string]any{
+			"exec": map[string]any{
+				"apiVersion":         "client.authentication.k8s.io/v1",
+				"command":            getArcTokenPath(config),
+				"interactiveMode":    "Never",
+				"provideClusterInfo": false,
+			},
+		}, true
+	}
+	return nil, false
+}
+
+func getContentKubletClusterInfo(config *datamodel.NodeBootstrappingConfiguration) []map[string]any {
+	return []map[string]any{
+		{
+			"name": "localcluster",
+			"cluster": map[string]any{
+				"certificate-authority": getCaCertPath(config),
+				"server":                "https://" + agent.GetKubernetesEndpoint(config.ContainerService) + ":443",
+			},
+		},
+	}
 }
 
 func getCaCertPath(config *datamodel.NodeBootstrappingConfiguration) string {
