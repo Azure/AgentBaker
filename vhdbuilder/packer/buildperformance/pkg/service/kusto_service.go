@@ -23,16 +23,23 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*kusto.Clien
 	return client, nil
 }
 
-func IngestData(ctx context.Context, client *kusto.Client, kustoDatabase string, kustoTable string, buildPerformanceDataFile string, kustoIngestionMap string) error {
-	ingestor, err := ingest.New(client, kustoDatabase, kustoTable)
-	if err != nil {
-		return fmt.Errorf("failed to create ingestor: %w", err)
-	}
-	defer ingestor.Close()
+func IngestData(ctx context.Context, config *Config) error {
+	if config.SourceBranch == "refs/heads/zb/regression2" {
+		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientId)
 
-	if _, err = ingestor.FromFile(ctx, buildPerformanceDataFile, ingest.IngestionMappingRef(kustoIngestionMap, ingest.MultiJSON)); err != nil {
-		return fmt.Errorf("failed to ingest build performance data: %w", err)
+		ingestor, err := ingest.New(kustoConnectionString, config.KustoDatabase, config.KustoTable)
+		if err != nil {
+			return fmt.Errorf("failed to create ingestor: %w", err)
+		}
+		defer ingestor.Close()
+
+		if _, err = ingestor.FromFile(ctx, config.LocalBuildPerformanceFile, ingest.IngestionMappingRef(config.KustoIngestionMapping, ingest.MultiJSON)); err != nil {
+			return fmt.Errorf("failed to ingest build performance data: %w", err)
+		}
+		log.Printf("Data ingested for %s\n", config.SigImageName)
+		return nil
 	}
+	log.Println("Data not ingested as source branch is not refs/heads/zb/regression2")
 	return nil
 }
 
