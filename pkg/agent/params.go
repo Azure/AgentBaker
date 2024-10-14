@@ -18,7 +18,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	parametersMap := paramsMap{}
 	cloudSpecConfig := config.CloudSpecConfig
 
-	addValue(parametersMap, "bootstrappingMethod", config.AgentPoolProfile.BootstrappingMethod)
+	addValue(parametersMap, "bootstrappingMethod", config.BootstrappingMethod)
 	addValue(parametersMap, "bootstrappingClientManagedIdentity", config.AgentPoolProfile.BootstrappingManagedIdentityID)
 
 	linuxProfile := properties.LinuxProfile

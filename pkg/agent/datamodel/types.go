@@ -813,12 +813,9 @@ type AgentPoolProfile struct {
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
 	/* This is a new property and all old agent pools do no have this field. We need to keep the default
 	behavior to reboot Windows node when it is nil. */
-	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
-	AgentPoolWindowsProfile *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
-	SkipExternalHnsNetwork  bool                     `json:"skipExternalHnsNetwork,omitempty"`
-
-	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
-	BootstrappingMethod            BootstrappingMethod
+	NotRebootWindowsNode           *bool                    `json:"notRebootWindowsNode,omitempty"`
+	AgentPoolWindowsProfile        *AgentPoolWindowsProfile `json:"agentPoolWindowsProfile,omitempty"`
+	SkipExternalHnsNetwork         bool                     `json:"skipExternalHnsNetwork,omitempty"`
 	BootstrappingManagedIdentityID string
 }
 
@@ -1729,6 +1726,8 @@ type NodeBootstrappingConfiguration struct {
 	// Currently both configurations are for test purpose, and only deb package is supported.
 	ContainerdPackageURL string
 	RuncPackageURL       string
+	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
+	BootstrappingMethod BootstrappingMethod
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	/* When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap
 	kubeconfig. */

@@ -12,7 +12,7 @@ func useKubeconfig(config *datamodel.NodeBootstrappingConfiguration, files map[s
 	if err := useKubeConfig(config, files); err != nil {
 		return err
 	}
-	switch config.AgentPoolProfile.BootstrappingMethod {
+	switch config.BootstrappingMethod {
 	case datamodel.UseArcMsiToMakeCSR,
 		datamodel.UseArcMsiDirectly:
 		if err := useArcTokenSh(config, files); err != nil {
@@ -94,7 +94,7 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 			{
 				"name": userName,
 				"user": func() map[string]any {
-					switch config.AgentPoolProfile.BootstrappingMethod {
+					switch config.BootstrappingMethod {
 					case datamodel.UseArcMsiToMakeCSR, datamodel.UseArcMsiDirectly:
 						return getContentKubeletUserArcMsi(config)
 
@@ -141,11 +141,11 @@ func genContentKubeconfig(config *datamodel.NodeBootstrappingConfiguration) (str
 }
 
 func shouldKubeconfigBeBootstrapConfig(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.AgentPoolProfile.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping ||
+	return config.BootstrappingMethod == datamodel.UseSecureTLSBootstrapping ||
 		config.KubeletClientTLSBootstrapToken != nil ||
 		config.EnableSecureTLSBootstrapping ||
-		config.AgentPoolProfile.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR ||
-		config.AgentPoolProfile.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR
+		config.BootstrappingMethod == datamodel.UseAzureMsiToMakeCSR ||
+		config.BootstrappingMethod == datamodel.UseArcMsiToMakeCSR
 }
 
 func genContentArcTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {
