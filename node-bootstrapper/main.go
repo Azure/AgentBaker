@@ -159,6 +159,7 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 		return fmt.Errorf("preparing CSE: %w", err)
 	}
 	// TODO: add Windows support
+	//nolint:gosec // we generate the script, so it's safe to execute
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse.UnsafeValue())
 	cmd.Dir = "/"
 	var stdoutBuf, stderrBuf bytes.Buffer
