@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/azure-kusto-go/azkustodata"
 	"github.com/Azure/azure-kusto-go/azkustodata/kql"
+	queryPkg "github.com/Azure/azure-kusto-go/azkustodata/query"
 	"github.com/Azure/azure-kusto-go/azkustoingest"
 )
 
@@ -56,12 +57,12 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 		return nil, fmt.Errorf("failed to query kusto database: %w", err)
 	}
 
-	data, err := query.ToStructs[SKU](dataset)
+	data, err := queryPkg.ToStructs[SKU](dataset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to persist query data: %w", err)
 	}
 
-	numRows := data[0].Rows()
+	numRows := len(dataset.Tables()[0].Rows())
 	fmt.Println("Number of rows returned from query: %d", numRows)
 
 	//if err := CheckNumberOfRowsReturned(iter); err != nil {
