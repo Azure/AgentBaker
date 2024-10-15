@@ -55,9 +55,14 @@ create_release() {
     # we do it this way for now since the devops CLI extension doesn't support what we need: https://github.com/Azure/azure-devops-cli-extension/issues/1257
     echo "sending POST request to $RELEASE_API_ENDPOINT"
     REQUEST_BODY="{'artifacts': [{'alias': '$RELEASE_EV2_ARTIFACTS_ALIAS_NAME', 'instanceReference': {'id': '$EV2_BUILD_ID', 'name': '$EV2_BUILD_NUMBER'}}], 'definitionId': $SIG_RELEASE_PIPELINE_ID}"
-    RESPONSE=$(curl "$RELEASE_API_ENDPOINT" -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY" --http1.1)
-    echo $RESPONSE
+    RESPONSE=$(curl "$RELEASE_API_ENDPOINT" -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY")
     
+    if [ $? -ne 0 ]; then
+        echo "failed to create release, received response:"
+        echo "$RESPONSE"
+        exit 1
+    fi
+
     RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
     if [ -z "$RELEASE_ID" ]; then
         echo "Error: SIG release not created successfully, unable to extract release ID"
