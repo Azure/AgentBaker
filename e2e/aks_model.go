@@ -9,10 +9,14 @@ import (
 
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
+
+// global var used here and in scenario_test.go, kube.go, template.go
+var PrivateACRName string = "privateacre2e"
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	model := getBaseClusterModel(name)
@@ -148,11 +152,12 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 }
 
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
-	t.Logf("Adding private endpoint for ACR in rg %s\n", nodeResourceGroup)
+	t.Logf("Checking if private endpoint for private container registry is in rg %s\n", nodeResourceGroup)
 
+	var err error
+	var exists bool
 	privateEndpointName := "PE-for-ABE2ETests"
-	exists, err := privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName)
-	if err != nil {
+	if exists, err = privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName); err != nil {
 		return err
 	}
 	if exists {
@@ -160,32 +165,32 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return nil
 	}
 
-	peResp, err := createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, vnet)
-	if err != nil {
+	if err := createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, PrivateACRName); err != nil {
+		return err
+	}
+
+	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
+	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, PrivateACRName, vnet); err != nil {
 		return err
 	}
 
 	privateZoneName := "privatelink.azurecr.io"
-	pzResp, err := createPrivateZone(ctx, t, nodeResourceGroup, privateZoneName)
-	if err != nil {
+	var pzResp armprivatedns.PrivateZonesClientCreateOrUpdateResponse
+	if pzResp, err = createPrivateZone(ctx, t, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	err = createPrivateDNSLink(ctx, t, vnet, nodeResourceGroup, privateZoneName)
-	if err != nil {
+	if err = createPrivateDNSLink(ctx, t, vnet, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	err = addRecordSetToPrivateDNSZone(ctx, t, peResp, nodeResourceGroup, privateZoneName)
-	if err != nil {
+	if err = addRecordSetToPrivateDNSZone(ctx, t, peResp, nodeResourceGroup, privateZoneName); err != nil {
 		return err
 	}
 
-	err = addDNSZoneGroup(ctx, t, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name)
-	if err != nil {
+	if err = addDNSZoneGroup(ctx, t, pzResp, nodeResourceGroup, privateZoneName, *peResp.Name); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -201,7 +206,39 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string) error {
+	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
+
+	params := &armcontainerregistry.RegistryUpdateParameters{
+		Properties: &armcontainerregistry.RegistryPropertiesUpdateParameters{
+			AdminUserEnabled:     to.Ptr(false),
+			AnonymousPullEnabled: to.Ptr(false),
+		},
+	}
+	pollerResp, err := config.Azure.RegistriesClient.BeginUpdate(
+		ctx,
+		nodeResourceGroup,
+		privateACRName,
+		*params,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create private ACR in BeginUpdate: %w", err)
+	}
+
+	_, err = pollerResp.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create private ACR in polling: %w", err)
+	}
+
+	t.Logf("Private Azure Container Registry created or updated\n")
+	return nil
+}
+
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, acrName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
+	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, acrName)
+
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
 		Properties: &armnetwork.PrivateEndpointProperties{
@@ -212,7 +249,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup,
 				{
 					Name: to.Ptr(privateEndpointName),
 					Properties: &armnetwork.PrivateLinkServiceConnectionProperties{
-						PrivateLinkServiceID: to.Ptr("/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.ContainerRegistry/registries/aksvhdtestcr"),
+						PrivateLinkServiceID: to.Ptr(acrID),
 						GroupIDs:             []*string{to.Ptr("registry")},
 					},
 				},

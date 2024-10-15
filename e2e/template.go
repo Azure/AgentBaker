@@ -452,7 +452,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if isAirgap {
-		image = "aksvhdtestcr.azurecr.io/aks/cbl-mariner/busybox:2.0"
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", PrivateACRName)
 	}
 
 	return fmt.Sprintf(`apiVersion: v1
