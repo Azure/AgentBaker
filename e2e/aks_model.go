@@ -212,7 +212,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	params := &armcontainerregistry.RegistryUpdateParameters{
 		Properties: &armcontainerregistry.RegistryPropertiesUpdateParameters{
 			AdminUserEnabled:     to.Ptr(false),
-			AnonymousPullEnabled: to.Ptr(false),
+			AnonymousPullEnabled: to.Ptr(true), // required to pull images from the private ACR
 		},
 	}
 	pollerResp, err := config.Azure.RegistriesClient.BeginUpdate(
