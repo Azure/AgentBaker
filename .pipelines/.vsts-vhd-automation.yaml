@@ -1,5 +1,5 @@
 pool:
-  name: nodesig-test-pool-westus3
+  name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
 
 parameters:
 - name: ImageBump
