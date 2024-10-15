@@ -12,7 +12,7 @@ import (
 )
 
 func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*azkustodata.Client, error) {
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserManagedIdentity(kustoClientId)
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserAssignedIdentityResourceId(kustoClientId)
 	client, err := azkustodata.New(kustoConnectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kusto client: %w", err)
@@ -22,9 +22,9 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*azkustodata
 
 func IngestData(ctx context.Context, config *Config) error {
 	if config.SourceBranch == "refs/heads/zb/buildPerfRegression5" {
-		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserManagedIdentity(config.KustoClientId)
+		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.KustoClientId)
 
-		ingestor, err := azkustoingest.New(kustoConnectionString, config.KustoDatabase, config.KustoTable)
+		ingestor, err := azkustoingest.New(kustoConnectionString)
 		if err != nil {
 			return fmt.Errorf("failed to create ingestor: %w", err)
 		}

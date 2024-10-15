@@ -15,7 +15,7 @@ func SetupConfig() (*Config, error) {
 		"kustoTable":            os.Getenv("BUILD_PERFORMANCE_TABLE_NAME"),
 		"kustoEndpoint":         os.Getenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT"),
 		"kustoDatabase":         os.Getenv("BUILD_PERFORMANCE_DATABASE_NAME"),
-		"kustoClientId":         os.Getenv("BUILD_PERFORMANCE_CLIENT_ID"),
+		"kustoClientId":         os.Getenv("AZURE_MSI_RESOURCE_STRING"),
 		"kustoIngestionMapping": os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING"),
 		"sourceBranch":          os.Getenv("GIT_BRANCH"),
 		"sigImageName":          os.Getenv("SIG_IMAGE_NAME"),
