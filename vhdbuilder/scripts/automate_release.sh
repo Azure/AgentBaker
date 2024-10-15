@@ -54,7 +54,7 @@ create_release() {
 
     curl --version
 
-    apt-get upgrade -y curl
+    sudo apt-get upgrade -y curl
 
     curl --version
 
