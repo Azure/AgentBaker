@@ -11,15 +11,6 @@ import (
 	"github.com/Azure/azure-kusto-go/azkustoingest"
 )
 
-func CreateKustoClient(kustoEndpoint string, commonIdentity string) (*azkustodata.Client, error) {
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserAssignedIdentityResourceId(commonIdentity)
-	client, err := azkustodata.New(kustoConnectionString)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kusto client: %w", err)
-	}
-	return client, nil
-}
-
 func IngestData(ctx context.Context, config *Config) error {
 	if config.SourceBranch == "refs/heads/zb/buildPerfMods" {
 		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
@@ -41,9 +32,10 @@ func IngestData(ctx context.Context, config *Config) error {
 }
 
 func QueryData(ctx context.Context, config *Config) (*SKU, error) {
-	client, err := CreateKustoClient(config.KustoEndpoint, config.CommonIdentityId)
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
+	client, err := azkustodata.New(kustoConnectionString)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create kusto query client: %w", err)
 	}
 	defer client.Close()
 	log.Println("Kusto query client created")
@@ -62,14 +54,11 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	}
 
 	numRows := len(dataset.Tables()[0].Rows())
-	log.Printf("Number of rows returned from query: %d", numRows)
+	if numRows != 1 {
+		return nil, fmt.Errorf("query returned %d rows", numRows)
+	}
 
-	//if err := CheckNumberOfRowsReturned(iter); err != nil {
-	//return nil, err
-	//}
-
-	log.Printf("Queried aggregated performance data for %s\n", config.SigImageName)
-	log.Println("Query returned 1 row of aggregated data as expected")
+	log.Printf("Queried aggregated performance data for %s and received %d row of data", config.SigImageName, numRows)
 
 	return &data[0], nil
 }
