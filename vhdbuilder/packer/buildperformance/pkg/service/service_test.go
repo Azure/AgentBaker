@@ -239,7 +239,7 @@ func TestSumSlice(t *testing.T) {
 		{
 			name:     "should correctly add values in slice",
 			slice:    []float64{30.0, 20},
-			expected: 70.0,
+			expected: 90.0,
 			err:      nil,
 		},
 		{
