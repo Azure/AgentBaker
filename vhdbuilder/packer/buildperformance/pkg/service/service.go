@@ -20,6 +20,7 @@ func SetupConfig() (*Config, error) {
 		"sourceBranch":          os.Getenv("GIT_BRANCH"),
 		"sigImageName":          os.Getenv("SIG_IMAGE_NAME"),
 	}
+
 	missingVar := false
 	for name, value := range envVars {
 		if value == "" {
