@@ -194,7 +194,8 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.2-hotfix.20240712/windowszip/v1.30.2-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.4/windowszip/v1.30.4-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
