@@ -149,7 +149,7 @@ func (maps *DataMaps) EvaluatePerformance() error {
 		}
 	}
 
-	if err := maps.CheckRegressionsMap; err != nil {
+	if err := maps.CheckRegressionsMap(); err != nil {
 		return fmt.Errorf("error checking regression map: %w", err)
 	}
 
