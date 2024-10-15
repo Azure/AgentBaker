@@ -62,7 +62,7 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	}
 
 	numRows := len(dataset.Tables()[0].Rows())
-	fmt.Println("Number of rows returned from query: %d", numRows)
+	log.Printf("Number of rows returned from query: %d", numRows)
 
 	//if err := CheckNumberOfRowsReturned(iter); err != nil {
 	//return nil, err
