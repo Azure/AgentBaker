@@ -58,14 +58,15 @@ func CreateDataMaps() *DataMaps {
 	}
 }
 
-// Prepare performance data for evaluation with PreparePerformanceDataForEvaluation and associated helper functions
 func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceFile string, queriedData *SKU) error {
 	if err := maps.DecodeLocalPerformanceData(localBuildPerformanceFile); err != nil {
 		return fmt.Errorf("error decoding local performance data: %w", err)
 	}
+
 	if err := maps.ParseKustoData(queriedData); err != nil {
 		return fmt.Errorf("error parsing kusto data: %w", err)
 	}
+
 	return nil
 }
 
@@ -99,15 +100,18 @@ func (maps *DataMaps) ConvertTimestampsToSeconds(holdingMap StagingMap) error {
 		}
 		maps.LocalPerformanceDataMap[key] = script
 	}
+
 	return nil
 }
 
 func (maps *DataMaps) ParseKustoData(data *SKU) error {
 	data.SKUPerformanceData = data.CleanData()
 	kustoData := []byte(data.SKUPerformanceData)
+
 	if err := json.Unmarshal(kustoData, &maps.QueriedPerformanceDataMap); err != nil {
 		return fmt.Errorf("error unmarshalling kusto data: %w", err)
 	}
+
 	return nil
 }
 
@@ -115,13 +119,11 @@ func (sku *SKU) CleanData() string {
 	return strings.ReplaceAll(sku.SKUPerformanceData, "NaN", "-1")
 }
 
-// After preparing performance data, evaluate it with EvaluatePerformance and associated helper functions
 func (maps *DataMaps) EvaluatePerformance() error {
 	// Iterate over LocalPerformanceDataMap and compare it against identical sections in QueriedPerformanceDataMap
 	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
 		for section, timeElapsed := range scriptData {
-			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 2*stdev]
-			// First we check that the queried data contains this section
+			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 3*stdev]
 			sectionDataSlice, ok := maps.QueriedPerformanceDataMap[scriptName][section]
 			if !ok {
 				log.Printf("no data available for %s in %s\n", section, scriptName)
@@ -146,14 +148,18 @@ func (maps *DataMaps) EvaluatePerformance() error {
 			}
 		}
 	}
+
 	if len(maps.RegressionMap) > 0 {
 		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 3 stdev above the mean")
 		if err := maps.DisplayRegressions(); err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
+
 		return nil
 	}
+
 	log.Println("\nNo regressions found for this pipeline run")
+
 	return nil
 }
 
@@ -162,11 +168,14 @@ func SumSlice(slice []float64) (float64, error) {
 	if len(slice) != 2 {
 		return sum, fmt.Errorf("expected 2 elements in slice, got %d: %v", len(slice), slice)
 	}
+
 	if slice[0] == -1 || slice[1] == -1 {
 		sum = -1
 		return sum, nil
 	}
+
 	sum = slice[0] + slice[1]*3
+
 	return sum, nil
 }
 
@@ -179,5 +188,6 @@ func (maps DataMaps) DisplayRegressions() error {
 
 	// Print JSON to the console for review by the user
 	log.Println(string(data))
+
 	return nil
 }
