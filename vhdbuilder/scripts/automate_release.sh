@@ -49,6 +49,8 @@ trigger_ev2_artifacts() {
 
 create_release() {
     echo "creating SIG release for VHD with build ID: $VHD_BUILD_ID"
+    EV2_BUILD_ID=105825377
+    EV2_BUILD_NUMBER=20241015.8
 
     # we do it this way for now since the devops CLI extension doesn't support what we need: https://github.com/Azure/azure-devops-cli-extension/issues/1257
     echo "sending POST request to $RELEASE_API_ENDPOINT"
@@ -76,5 +78,5 @@ if [ -z "$VHD_BUILD_ID" ]; then
     exit 1
 fi
 
-retrycmd_if_failure 3 60 trigger_ev2_artifacts || exit $?
+# retrycmd_if_failure 3 60 trigger_ev2_artifacts || exit $?
 retrycmd_if_failure 3 60 create_release || exit $?
