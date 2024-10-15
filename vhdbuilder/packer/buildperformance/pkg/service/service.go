@@ -175,7 +175,7 @@ func SumSlice(slice []float64) (float64, error) {
 
 func (maps *DataMaps) CheckRegressionsMap() error {
 	if len(maps.RegressionMap) > 0 {
-		message := fmt.Sprintf("Regressions listed below. Values are listed in seconds and represent the excess time over 3 stdev above the mean")
+		message := fmt.Sprintln("Regressions listed below. Values are listed in seconds and represent the excess time over 3 stdev above the mean")
 		log.Printf("##vso[task.logissue type=warning;sourcepath=buildperformance;]%s", message)
 		if err := maps.DisplayRegressions(); err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
