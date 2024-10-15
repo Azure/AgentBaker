@@ -121,15 +121,14 @@ func (sku *SKU) CleanData() string {
 
 func (maps *DataMaps) EvaluatePerformance() error {
 	// Iterate over LocalPerformanceDataMap and compare it against identical sections in QueriedPerformanceDataMap
+	// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 3*stdev]
 	for scriptName, scriptData := range maps.LocalPerformanceDataMap {
 		for section, timeElapsed := range scriptData {
-			// The value of QueriedPerformanceDataMap[scriptName][section] is an array with two elements: [avg, 3*stdev]
 			sectionDataSlice, ok := maps.QueriedPerformanceDataMap[scriptName][section]
 			if !ok {
 				log.Printf("no data available for %s in %s\n", section, scriptName)
 				continue
 			}
-			// Adding the slice values together gives us the maximum time allowed for the section
 			maxTimeAllowed, err := SumSlice(sectionDataSlice)
 			if err != nil {
 				log.Printf("error calculating max time allowed for %s in %s: %v\n", section, scriptName, err)
@@ -163,7 +162,9 @@ func (maps *DataMaps) CheckRegressionsMap() error {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
 	}
+
 	log.Println("\nNo regressions found for this pipeline run")
+
 	return nil
 }
 
@@ -178,6 +179,7 @@ func SumSlice(slice []float64) (float64, error) {
 		return sum, nil
 	}
 
+	// Adding the slice values together gives us the maximum time allowed for the section
 	sum = slice[0] + slice[1]*3
 
 	return sum, nil
