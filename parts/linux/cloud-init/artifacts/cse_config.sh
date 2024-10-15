@@ -618,6 +618,8 @@ EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
     primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
+    # There could be unexpected newline character in IMDS's output(?), so we need to trim it.
+    primaryNicIP=$(echo "$primaryNicIP" | sed 's/[[:space:]]*$//')
     ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
     mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
     touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
@@ -744,14 +746,14 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
-            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
