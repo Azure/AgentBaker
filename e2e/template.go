@@ -584,3 +584,14 @@ spec:
     kubernetes.io/hostname: %s
 `, podName, nodeName)
 }
+
+func getScriptlessCustomDataTemplate(encodedNBCJson string) string {
+	return fmt.Sprintf(`#cloud-config
+
+write_files:
+- path: /opt/azure/containers/nbc.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+    %s`, encodedNBCJson)
+}

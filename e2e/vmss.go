@@ -47,7 +47,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 
 	var model armcompute.VirtualMachineScaleSet
 	if opts.scriptless {
-		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), opts)
+		model = getBaseVMSSModelSelfContained(t, vmssName, string(publicKeyBytes), opts)
 	} else {
 		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
 	}
@@ -248,21 +248,14 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModelSelfContained(t *testing.T, name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
 	if err != nil {
+		require.NoError(t, err)
 		return armcompute.VirtualMachineScaleSet{}
 	}
 
-	nbcEntry := `#cloud-config
-
-write_files:
-- path: /opt/azure/containers/nbc.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-    %s`
-	customData := fmt.Sprintf(nbcEntry, base64.StdEncoding.EncodeToString(nbc))
+	customData := getScriptlessCustomDataTemplate(base64.StdEncoding.EncodeToString(nbc))
 	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
