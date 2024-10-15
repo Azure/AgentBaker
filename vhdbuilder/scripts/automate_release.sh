@@ -52,8 +52,6 @@ create_release() {
     EV2_BUILD_ID=105825377
     EV2_BUILD_NUMBER=20241015.8
 
-    curl --version
-
     # we do it this way for now since the devops CLI extension doesn't support what we need: https://github.com/Azure/azure-devops-cli-extension/issues/1257
     echo "sending POST request to $RELEASE_API_ENDPOINT"
     REQUEST_BODY="{'artifacts': [{'alias': '$RELEASE_EV2_ARTIFACTS_ALIAS_NAME', 'instanceReference': {'id': '$EV2_BUILD_ID', 'name': '$EV2_BUILD_NUMBER'}}], 'definitionId': $SIG_RELEASE_PIPELINE_ID}"
