@@ -16,10 +16,6 @@ type SKU struct {
 	SKUPerformanceData string `kusto:"BUILD_PERFORMANCE"`
 }
 
-type QueryCompletionInfo struct {
-	Payload []map[string]int `json:"dataset_statistics"`
-}
-
 type DataMaps struct {
 	LocalPerformanceDataMap   EvaluationMap
 	QueriedPerformanceDataMap QueryMap

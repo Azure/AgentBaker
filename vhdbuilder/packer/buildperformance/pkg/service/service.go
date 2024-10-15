@@ -176,13 +176,13 @@ func SumSlice(slice []float64) (float64, error) {
 func (maps *DataMaps) CheckRegressionsMap() error {
 	if len(maps.RegressionMap) > 0 {
 		message := fmt.Sprintln("Regressions listed below. Values are listed in seconds and represent the excess time over 3 stdev above the mean")
-		log.Printf("##vso[task.logissue type=warning;sourcepath=buildperformance;]%s", message)
+		log.Printf("##vso[task.logissue type=warning;sourcepath=buildperformance;]%s\n", message)
 		if err := maps.DisplayRegressions(); err != nil {
 			return fmt.Errorf("error printing regressions: %w", err)
 		}
+	} else {
+		log.Println("No regressions found for this pipeline run")
 	}
-
-	log.Println("\nNo regressions found for this pipeline run")
 
 	return nil
 }
@@ -196,6 +196,13 @@ func (maps DataMaps) DisplayRegressions() error {
 
 	// Print JSON to the console for review by the user
 	log.Println(string(data))
+
+	for script, section := range maps.RegressionMap {
+		for sectionName, _ := range section {
+			queriedData := maps.QueriedPerformanceDataMap[script][sectionName]
+			fmt.Printf("", queriedData[0], queriedData[1], maps.RegressionMap)
+		}
+	}
 
 	return nil
 }
