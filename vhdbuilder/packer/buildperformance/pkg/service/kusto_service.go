@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -22,7 +21,7 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*azkustodata
 }
 
 func IngestData(ctx context.Context, config *Config) error {
-	if config.SourceBranch == "refs/heads/zb/buildPerfRegression5" {
+	if config.SourceBranch == "refs/heads/zb/buildPerfMods" {
 		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.KustoClientId)
 
 		ingestor, err := azkustoingest.New(kustoConnectionString)
@@ -73,37 +72,4 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	log.Println("Query returned 1 row of aggregated data as expected")
 
 	return &data[0], nil
-}
-
-func CheckNumberOfRowsReturned(iter *azkustodata.RowIterator) error {
-	// GetQueryCompletionInformation returns a datatable with information about the query
-	infoTable, err := iter.GetQueryCompletionInformation()
-	if err != nil {
-		return fmt.Errorf("unable to get query completion information: %v", err)
-	}
-
-	if len(infoTable.KustoRows) == 0 {
-		return fmt.Errorf("query completion information is empty")
-	}
-
-	// Custom struct to unmarshal the query completion information
-	QueryInformation := QueryCompletionInfo{}
-
-	// The number of rows returned by the query is stored in the last element of a slice in the last row in the datatable returned by GetQueryCompletionInformation
-	row := infoTable.KustoRows[len(infoTable.KustoRows)-1]
-	payload := row[len(row)-1].String()
-
-	if err = json.Unmarshal([]byte(payload), &QueryInformation); err != nil {
-		return fmt.Errorf("could not unmarshal query completion information: %v", err)
-	}
-
-	numRows := QueryInformation.Payload[0]["table_row_count"]
-
-	if numRows != 1 {
-		return fmt.Errorf("unexpected number of rows returned from query: %v", numRows)
-	}
-
-	log.Println("Query returned 1 row of aggregated data as expected")
-
-	return nil
 }
