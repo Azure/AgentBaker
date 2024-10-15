@@ -11,8 +11,8 @@ import (
 	"github.com/Azure/azure-kusto-go/azkustoingest"
 )
 
-func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*azkustodata.Client, error) {
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserAssignedIdentityResourceId(kustoClientId)
+func CreateKustoClient(kustoEndpoint string, commonIdentity string) (*azkustodata.Client, error) {
+	kustoConnectionString := azkustodata.NewConnectionStringBuilder(kustoEndpoint).WithUserAssignedIdentityResourceId(commonIdentity)
 	client, err := azkustodata.New(kustoConnectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kusto client: %w", err)
@@ -22,7 +22,7 @@ func CreateKustoClient(kustoEndpoint string, kustoClientId string) (*azkustodata
 
 func IngestData(ctx context.Context, config *Config) error {
 	if config.SourceBranch == "refs/heads/zb/buildPerfMods" {
-		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.KustoClientId)
+		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
 
 		ingestor, err := azkustoingest.New(kustoConnectionString)
 		if err != nil {
@@ -41,7 +41,7 @@ func IngestData(ctx context.Context, config *Config) error {
 }
 
 func QueryData(ctx context.Context, config *Config) (*SKU, error) {
-	client, err := CreateKustoClient(config.KustoEndpoint, config.KustoClientId)
+	client, err := CreateKustoClient(config.KustoEndpoint, config.CommonIdentityId)
 	if err != nil {
 		return nil, err
 	}
