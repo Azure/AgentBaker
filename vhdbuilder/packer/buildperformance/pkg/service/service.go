@@ -73,11 +73,11 @@ func (maps *DataMaps) PreparePerformanceDataForEvaluation(localBuildPerformanceF
 func (maps *DataMaps) DecodeLocalPerformanceData(filePath string) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("error reading file: %v", err)
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	if err = json.Unmarshal(data, &maps); err != nil {
-		return fmt.Errorf("error unmarshaling JSON to temoporary map: %v", err)
+		return fmt.Errorf("error unmarshaling JSON to temoporary map: %w", err)
 	}
 
 	if err = maps.ConvertTimestampsToSeconds(maps.StagingMap); err != nil {
