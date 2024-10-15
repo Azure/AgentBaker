@@ -155,19 +155,6 @@ func (maps *DataMaps) EvaluatePerformance() error {
 	return nil
 }
 
-func (maps *DataMaps) CheckRegressionsMap() error {
-	if len(maps.RegressionMap) > 0 {
-		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 3 stdev above the mean")
-		if err := maps.DisplayRegressions(); err != nil {
-			return fmt.Errorf("error printing regressions: %w", err)
-		}
-	}
-
-	log.Println("\nNo regressions found for this pipeline run")
-
-	return nil
-}
-
 func SumSlice(slice []float64) (float64, error) {
 	var sum float64
 	if len(slice) != 2 {
@@ -183,6 +170,19 @@ func SumSlice(slice []float64) (float64, error) {
 	sum = slice[0] + slice[1]*3
 
 	return sum, nil
+}
+
+func (maps *DataMaps) CheckRegressionsMap() error {
+	if len(maps.RegressionMap) > 0 {
+		log.Println("##vso[task.logissue type=warning;sourcepath=buildperformance;]Regressions listed below. Values are the excess time over 3 stdev above the mean")
+		if err := maps.DisplayRegressions(); err != nil {
+			return fmt.Errorf("error printing regressions: %w", err)
+		}
+	}
+
+	log.Println("\nNo regressions found for this pipeline run")
+
+	return nil
 }
 
 func (maps DataMaps) DisplayRegressions() error {
