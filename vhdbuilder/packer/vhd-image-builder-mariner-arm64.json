@@ -105,18 +105,18 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/nbcparser.service",
-      "destination": "/home/packer/nbcparser.service"
+      "source": "parts/linux/cloud-init/artifacts/bootstrap.service",
+      "destination": "/home/packer/bootstrap.service"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/nbcparser.target",
-      "destination": "/home/packer/nbcparser.target"
+      "source": "parts/linux/cloud-init/artifacts/cloud-init-complete.target",
+      "destination": "/home/packer/cloud-init-complete.target"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/nbcparser.sh",
-      "destination": "/home/packer/nbcparser.sh"
+      "source": "parts/linux/cloud-init/artifacts/bootstrap.sh",
+      "destination": "/home/packer/bootstrap.sh"
     },
     {
       "type": "file",

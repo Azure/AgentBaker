@@ -998,7 +998,7 @@ testNBCParserBinary () {
   }'
   echo -n "$nbc_content" > "$file_path"
 
-  errs=$($go_binary_path "$file_path" 2>/dev/null)
+  errs=$($go_binary_path --filename="$file_path" --test 2>/dev/null)
   code=$?
   if [ $code -ne 0 ]; then
     err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"
@@ -1009,29 +1009,28 @@ testNBCParserBinary () {
 
 testNBCParserService() {
   local test="testNBCParserService"
-  local service_name="nbcparser.service"
-  local script_path="/opt/azure/containers/nbcparser.sh"
+  local service_name="bootstrap.service"
+  local script_path="/opt/azure/containers/bootstrap.sh"
   echo "$test:Start"
 
   echo "$test: checking existence of nbcparser script invoked by systemd unit at $script_path"
   if [ ! -f "$script_path" ]; then
-    err "$test: nbcparser.sh does not exist at $script_path"
+    err "$test: bootstrap.sh does not exist at $script_path"
     return 1
   fi
-  echo "$test: nbcparser.sh exists at $script_path"
+  echo "$test: bootstrap.sh exists at $script_path"
 
   # is-enabled returns:
   # 'enabled' if the service is enabled.
   # empty string if the service is not installed.
   # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
   echo "$test: Checking that $service_name is enabled"
-  local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
   if [[ "${is_enabled}" == "enabled" ]]; then
     echo "$test: $service_name is correctly enabled"
   else
-    err $test "$service_name is not enabled"
+    err $test "$service_name is not enabled, instead in state $is_enabled"
   fi
 
   echo "$test:Finish"

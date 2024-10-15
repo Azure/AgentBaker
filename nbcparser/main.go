@@ -1,8 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	"log"
 	"os"
+	"os/exec"
 
 	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 )
@@ -17,20 +19,37 @@ const (
 )
 
 func main() {
-	if len(os.Args) < parser.MinArgs {
-		fmt.Printf("Usage: %s <input.json>", os.Args[0])
+	filename := flag.String("filename", "", "nbc json file to parse")
+	test := flag.Bool("test", false, "test mode")
+	flag.Parse()
+
+	if *filename == "" {
+		log.Default().Printf("filename is a required argument")
 		os.Exit(1)
 	}
 	// Read in the JSON file
-	inputJSON, err := os.ReadFile(os.Args[1])
+	inputJSON, err := os.ReadFile(*filename)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 		os.Exit(1)
 	}
 	cseCmd, err := parser.Parse(inputJSON)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 		os.Exit(1)
 	}
-	fmt.Println(cseCmd)
+	// if test flag is set, do not trigger bootstrapping
+	if *test {
+		log.Default().Printf("Test mode, skip executing cse_cmd: %s", cseCmd)
+		os.Exit(0)
+	}
+	if err := os.WriteFile(CSE_CMD, []byte(cseCmd), 0655); err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	_, err = exec.Command("/bin/sh", CSE_CMD).Output()
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
 }

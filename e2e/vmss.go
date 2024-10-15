@@ -30,18 +30,6 @@ const (
 	vmssNamePrefix                           = "abe2e"
 )
 
-type WriteFile struct {
-	Path        string `yaml:"path"`
-	Permissions string `yaml:"permissions"`
-	Encoding    string `yaml:"encoding"`
-	Owner       string `yaml:"owner"`
-	Content     string `yaml:"content"`
-}
-
-type CustomDataConfig struct {
-	WriteFiles []WriteFile `yaml:"write_files"`
-}
-
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
 	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc, opts.scenario.Config.NodeBootstrappingType)
@@ -57,7 +45,12 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 		customData = ""
 	}
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
+	var model armcompute.VirtualMachineScaleSet
+	if opts.scriptless {
+		model = getBaseVMSSModelSelfContained(vmssName, string(publicKeyBytes), opts)
+	} else {
+		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
+	}
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
@@ -253,6 +246,94 @@ func getVmssName(t *testing.T) string {
 	// AKS converts VM names to lowercase at some stage, avoid potential matching issues
 	name = strings.ToLower(name)
 	return name
+}
+
+func getBaseVMSSModelSelfContained(name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
+	if err != nil {
+		return armcompute.VirtualMachineScaleSet{}
+	}
+
+	nbcEntry := `#cloud-config
+
+write_files:
+- path: /opt/azure/containers/nbc.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+    %s`
+	customData := fmt.Sprintf(nbcEntry, base64.StdEncoding.EncodeToString(nbc))
+	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
+	return armcompute.VirtualMachineScaleSet{
+		Location: to.Ptr(config.Config.Location),
+		SKU: &armcompute.SKU{
+			Name:     to.Ptr("Standard_D2ds_v5"),
+			Capacity: to.Ptr[int64](1),
+		},
+		Properties: &armcompute.VirtualMachineScaleSetProperties{
+			Overprovision: to.Ptr(false),
+			UpgradePolicy: &armcompute.UpgradePolicy{
+				Mode: to.Ptr(armcompute.UpgradeModeManual),
+			},
+			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
+				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
+					ComputerNamePrefix: to.Ptr(name),
+					AdminUsername:      to.Ptr("azureuser"),
+					CustomData:         &encodedCustomData,
+					LinuxConfiguration: &armcompute.LinuxConfiguration{
+						SSH: &armcompute.SSHConfiguration{
+							PublicKeys: []*armcompute.SSHPublicKey{
+								{
+									KeyData: to.Ptr(sshPublicKey),
+									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
+								},
+							},
+						},
+					},
+				},
+				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
+					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
+						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
+						DiskSizeGB:   to.Ptr(int32(512)),
+						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
+					},
+				},
+				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
+					NetworkInterfaceConfigurations: []*armcompute.VirtualMachineScaleSetNetworkConfiguration{
+						{
+							Name: to.Ptr(name),
+							Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
+								Primary:            to.Ptr(true),
+								EnableIPForwarding: to.Ptr(true),
+								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
+									{
+										Name: to.Ptr(fmt.Sprintf("%s0", name)),
+										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
+											Primary: to.Ptr(true),
+											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
+												{
+													ID: to.Ptr(
+														fmt.Sprintf(
+															loadBalancerBackendAddressPoolIDTemplate,
+															config.Config.SubscriptionID,
+															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
+														),
+													),
+												},
+											},
+											Subnet: &armcompute.APIEntityReference{
+												ID: to.Ptr(opts.clusterConfig.SubnetID),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cluster) armcompute.VirtualMachineScaleSet {

@@ -1,12 +1,12 @@
 [Unit]
 Description=Parse contract and run csecmd
 After=cloud-init.target
-Wants=nbcparser.target
+Wants=cloud-init-complete.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/azure/containers/nbcparser.sh
+ExecStart=/bin/bash /opt/azure/containers/bootstrap.sh
 RemainAfterExit=no
 
 [Install]
-WantedBy=nbcparser.target
+WantedBy=cloud-init-complete.target

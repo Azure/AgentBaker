@@ -651,7 +651,7 @@ func Test_ubuntu2204(t *testing.T) {
 
 func Test_ubuntu2204Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
+		Description: "Tests that a node using the Ubuntu 2204 Scriptless VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,

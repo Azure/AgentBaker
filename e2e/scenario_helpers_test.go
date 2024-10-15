@@ -74,7 +74,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 		clusterConfig:      model,
 		scenario:           s,
 		nbc:                nbc,
-		isSelfContainedVHD: s.Tags.Scriptless,
+		scriptless: s.Tags.Scriptless,
 	})
 }
 
