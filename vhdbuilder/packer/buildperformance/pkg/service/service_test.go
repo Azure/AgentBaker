@@ -374,14 +374,14 @@ func TestEvaluatePerformance(t *testing.T) {
 			expected: &DataMaps{
 				RegressionMap: EvaluationMap{
 					"pre_install_dependencies": {
-						"enable_modified_log_rotate_service": 30,
+						"enable_modified_log_rotate_service": 20,
 					},
 					"install_dependencies": {
-						"download_azure_cni":                 30,
-						"configure_networking_and_interface": 30,
+						"download_azure_cni":                 20,
+						"configure_networking_and_interface": 20,
 					},
 					"post_install_dependencies": {
-						"resolve_conf": 30,
+						"resolve_conf": 20,
 					},
 				},
 			},
