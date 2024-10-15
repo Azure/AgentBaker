@@ -54,10 +54,14 @@ create_release() {
 
     curl --version
 
+    apt-get upgrade -y curl
+
+    curl --version
+
     # we do it this way for now since the devops CLI extension doesn't support what we need: https://github.com/Azure/azure-devops-cli-extension/issues/1257
     echo "sending POST request to $RELEASE_API_ENDPOINT"
     REQUEST_BODY="{'artifacts': [{'alias': '$RELEASE_EV2_ARTIFACTS_ALIAS_NAME', 'instanceReference': {'id': '$EV2_BUILD_ID', 'name': '$EV2_BUILD_NUMBER'}}], 'definitionId': $SIG_RELEASE_PIPELINE_ID}"
-    RESPONSE=$(curl -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY" "$RELEASE_API_ENDPOINT" --http1.1)
+    RESPONSE=$(curl -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY" "$RELEASE_API_ENDPOINT")
     
     if [ $? -ne 0 ]; then
         echo "failed to create release, received response:"
