@@ -63,6 +63,8 @@ create_release() {
         exit 1
     fi
 
+    echo "$RESPONSE"
+
     RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
     if [ -z "$RELEASE_ID" ]; then
         echo "Error: SIG release not created successfully, unable to extract release ID"
