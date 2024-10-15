@@ -13,9 +13,9 @@ import (
 
 func IngestData(ctx context.Context, config *Config) error {
 	if config.SourceBranch == "refs/heads/zb/buildPerfMods" {
-		kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
+		kcsb := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
 
-		ingestor, err := azkustoingest.New(kustoConnectionString)
+		ingestor, err := azkustoingest.New(kcsb, azkustoingest.WithDefaultDatabase(config.KustoDatabase), azkustoingest.WithDefaultTable(config.KustoTable))
 		if err != nil {
 			return fmt.Errorf("failed to create ingestor: %w", err)
 		}
@@ -32,8 +32,8 @@ func IngestData(ctx context.Context, config *Config) error {
 }
 
 func QueryData(ctx context.Context, config *Config) (*SKU, error) {
-	kustoConnectionString := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
-	client, err := azkustodata.New(kustoConnectionString)
+	kcsb := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
+	client, err := azkustodata.New(kcsb)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kusto query client: %w", err)
 	}
