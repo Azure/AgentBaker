@@ -149,6 +149,7 @@ copyPackerFiles() {
     elif [[ $OS_VERSION == "3.0" ]]; then
       KATA_CONFIG_DIR=/usr/share/kata-containers
     else
+      echo "Unexpected OS version '${OS_VERSION}' in kata feature flag code path"
       exit 1
     fi
     KATACC_CONFIG_DIR=/opt/confidential-containers/share/kata-containers
