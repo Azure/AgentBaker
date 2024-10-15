@@ -27,7 +27,9 @@ func IngestData(ctx context.Context, config *Config) error {
 		log.Printf("Data ingested for %s\n", config.SigImageName)
 		return nil
 	}
+
 	log.Println("Data not ingested as source branch is not master")
+
 	return nil
 }
 
