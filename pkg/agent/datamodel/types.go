@@ -1700,6 +1700,9 @@ type GetLatestSigImageConfigRequest struct {
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
+	// Version is required for node-bootstrapper application to determine the version of the config file.
+	Version string
+
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
 	K8sComponents                 *K8sComponents
@@ -1759,9 +1762,6 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
-	// Version is required for node-bootstrapper application to determine the version of the config file.
-	Version string
 
 	SkipExternalHnsNetwork bool `json:"skipExternalHnsNetwork,omitempty"`
 }
