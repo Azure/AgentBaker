@@ -24,7 +24,9 @@ func IngestData(ctx context.Context, config *Config) error {
 		if _, err = ingestor.FromFile(ctx, config.LocalBuildPerformanceFile, azkustoingest.IngestionMappingRef(config.KustoIngestionMapping, azkustoingest.MultiJSON)); err != nil {
 			return fmt.Errorf("failed to ingest build performance data: %w", err)
 		}
+
 		log.Printf("Data ingested for %s\n", config.SigImageName)
+
 		return nil
 	}
 
@@ -35,11 +37,13 @@ func IngestData(ctx context.Context, config *Config) error {
 
 func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	kcsb := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
+
 	client, err := azkustodata.New(kcsb)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kusto query client: %w", err)
 	}
 	defer client.Close()
+
 	log.Println("Kusto query client created")
 
 	query := kql.New("Get_Performance_Data | where SIG_IMAGE_NAME == SKU")
