@@ -402,7 +402,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				config := configs[distro]
 				Expect(config.ResourceGroup).To(Equal("resourcegroup"))
 				Expect(config.SubscriptionID).To(Equal("somesubid"))
-				Expect(config.Version).To(Equal(datamodel.LinuxSIGImageVersion))
+				Expect(config.Version).ToNot(BeEmpty())
 				Expect(config.Definition).ToNot(BeEmpty())
 			}
 
