@@ -188,14 +188,6 @@ func (maps *DataMaps) CheckRegressionsMap() error {
 }
 
 func (maps DataMaps) DisplayRegressions() error {
-	for script, section := range maps.RegressionMap {
-		for sectionName := range section {
-			queriedData := maps.QueriedPerformanceDataMap[script][sectionName]
-			fmt.Printf("Regression detected: %s\n", sectionName)
-			fmt.Printf("     Average duration: %f seconds, Standard deviation: %f seconds, Duration for this pipeline run: %f seconds\n", queriedData[0], queriedData[1], maps.LocalPerformanceDataMap[script][sectionName])
-		}
-	}
-
 	// Log regressions
 	// Marshall JSON data and indent for better readability
 	data, err := json.MarshalIndent(maps.RegressionMap, "", "  ")
@@ -205,6 +197,14 @@ func (maps DataMaps) DisplayRegressions() error {
 
 	// Print JSON to the console for review by the user
 	log.Println(string(data))
+
+	for script, section := range maps.RegressionMap {
+		for sectionName := range section {
+			queriedData := maps.QueriedPerformanceDataMap[script][sectionName]
+			fmt.Printf("\nRegression detected: %s\n", sectionName)
+			fmt.Printf("     Average duration: %f seconds, Standard deviation: %f seconds, Duration for this pipeline run: %f seconds\n", queriedData[0], queriedData[1], maps.LocalPerformanceDataMap[script][sectionName])
+		}
+	}
 
 	return nil
 }
