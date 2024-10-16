@@ -400,13 +400,13 @@ func TestEvaluatePerformance(t *testing.T) {
 
 func TestDisplayRegressions(t *testing.T) {
 	cases := []struct {
-		name          string
-		regressionmap *DataMaps
-		err           error
+		name string
+		maps *DataMaps
+		err  error
 	}{
 		{
 			name: "should correctly unmarshal regression map into JSON",
-			regressionmap: &DataMaps{
+			maps: &DataMaps{
 				RegressionMap: EvaluationMap{
 					"pre_install_dependencies": {
 						"enable_modified_log_rotate_service": 30,
@@ -419,6 +419,18 @@ func TestDisplayRegressions(t *testing.T) {
 						"resolve_conf": 30,
 					},
 				},
+				QueriedPerformanceDataMap: QueryMap{
+					"pre_install_dependencies": {
+						"enable_modified_log_rotate_service": []float64{15.0, 10.0},
+					},
+					"install_dependencies": {
+						"download_azure_cni":                 []float64{15.0, 10.0},
+						"configure_networking_and_interface": []float64{15.0, 10.0},
+					},
+					"post_install_dependencies": {
+						"resolve_conf": []float64{15.0, 10.0},
+					},
+				},
 			},
 			err: nil,
 		},
@@ -426,7 +438,7 @@ func TestDisplayRegressions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := c.regressionmap.DisplayRegressions()
+			err := c.maps.DisplayRegressions()
 			assert.NoError(t, err)
 		})
 	}
