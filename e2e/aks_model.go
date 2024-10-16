@@ -237,6 +237,8 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 		if err != nil {
 			return fmt.Errorf("failed to create private ACR during polling: %w", err)
 		}
+
+		t.Logf("Private Azure Container Registry created or updated\n")
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to get private ACR: %w", err)
