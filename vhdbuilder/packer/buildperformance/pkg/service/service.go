@@ -188,14 +188,13 @@ func (maps *DataMaps) CheckRegressionsMap() error {
 }
 
 func (maps DataMaps) DisplayRegressions() error {
-	// Log regressions
 	// Marshall JSON data and indent for better readability
 	data, err := json.MarshalIndent(maps.RegressionMap, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshalling regression data: %w", err)
 	}
 
-	// Print JSON to the console for review by the user
+	// Log regressions
 	log.Println(string(data))
 
 	for script, section := range maps.RegressionMap {
