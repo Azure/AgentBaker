@@ -909,6 +909,9 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				NvidiaSMIInstalledValidator(),
+				// ensure kubelet is not restarted
+				FileHasContentsValidator("/var/log/messages", "Starting Kubelet"),
+				FileExcludesContentsValidator("/var/log/messages", "Stopping Kubelet", "Stopping Kubelet"),
 			},
 		},
 	})
