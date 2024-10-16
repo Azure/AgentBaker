@@ -383,6 +383,10 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.30.6",
           "previousLatestVersion": "v1.30.5"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
+          "latestVersion": "v1.31.0"
         }
       ]
     },
