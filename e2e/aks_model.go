@@ -209,7 +209,40 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string) error {
 	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
 
-	params := &armcontainerregistry.RegistryUpdateParameters{
+	createParams := armcontainerregistry.Registry{
+		Location: to.Ptr(config.Config.Location), // Replace with your desired location
+		SKU: &armcontainerregistry.SKU{
+			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
+		},
+		Properties: &armcontainerregistry.RegistryProperties{
+			AdminUserEnabled:     to.Ptr(false),
+			AnonymousPullEnabled: to.Ptr(true), // required to pull images from the private ACR without authentication
+		},
+	}
+
+	_, err := config.Azure.RegistriesClient.Get(ctx, nodeResourceGroup, privateACRName, nil)
+	if err != nil && strings.Contains(err.Error(), "ResourceNotFound") {
+		// Create the private ACR if it doesn't exist
+		pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
+			ctx,
+			nodeResourceGroup,
+			privateACRName,
+			createParams,
+			nil,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create private ACR in BeginCreate: %w", err)
+		}
+		_, err = pollerResp.PollUntilDone(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create private ACR during polling: %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get private ACR: %w", err)
+	}
+
+	updateParams := &armcontainerregistry.RegistryUpdateParameters{
 		Properties: &armcontainerregistry.RegistryPropertiesUpdateParameters{
 			AdminUserEnabled:     to.Ptr(false),
 			AnonymousPullEnabled: to.Ptr(true), // required to pull images from the private ACR without authentication
@@ -219,7 +252,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 		ctx,
 		nodeResourceGroup,
 		privateACRName,
-		*params,
+		*updateParams,
 		nil,
 	)
 	if err != nil {
