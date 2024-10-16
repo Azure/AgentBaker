@@ -56,11 +56,17 @@ for script in "${scripts[@]}"; do
   echo "##[endgroup]"
 done
 
-mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
-pushd vhdbuilder/packer/buildperformance || exit 0
-  echo -e "\nRunning build performance evaluation program...\n"
-  ./buildPerformance
+echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
+if [ "${ENVIRONMENT,,}" != "prod" ]; then
+  mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
+  pushd vhdbuilder/packer/buildperformance || exit 0
+    echo -e "\nRunning build performance evaluation program...\n"
+    ./buildPerformance
+    rm ${SIG_IMAGE_NAME}-build-performance.json
+  popd || exit 0
+else
   rm ${SIG_IMAGE_NAME}-build-performance.json
-popd || exit 0
+  echo -e "Skipping build performance evaluation for prod"
+fi
 
 echo -e "\nBuild performance evaluation script completed."
