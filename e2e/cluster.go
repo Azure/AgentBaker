@@ -86,13 +86,11 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func nodeBootstrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	t.Logf("extracting cluster parameters")
 	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
 
-	t.Logf("getting base node bootstrapping configuration")
 	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
 	if err != nil {
 		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
@@ -109,7 +107,6 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, err
 	}
 
-	t.Logf("cluster %s created / exists successfully", *cluster.Name)
 	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, t, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get or create maintenance configuration: %w", err)
@@ -134,10 +131,10 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 
 	// private acr must be created before we add the debug daemonsets
 	if isAirgap {
-		if err := createPrivateAzureContainerRegistry(ctx, t, *cluster.Properties.NodeResourceGroup, PrivateACRName); err != nil {
+		if err := createPrivateAzureContainerRegistry(ctx, t, *cluster.Properties.NodeResourceGroup, config.PrivateACRName); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
-		if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, *cluster.Properties.NodeResourceGroup, PrivateACRName); err != nil {
+		if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, *cluster.Properties.NodeResourceGroup, config.PrivateACRName); err != nil {
 			return nil, fmt.Errorf("failed to add cache rules to private acr: %w", err)
 		}
 
@@ -182,7 +179,6 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
 	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
-	t.Logf("existing cluster provisioning state: %s\n", *existingCluster.Properties.ProvisioningState)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		return &existingCluster.ManagedCluster, nil

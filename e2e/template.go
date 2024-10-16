@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 // this is huge, but accurate, so leave it here.
@@ -452,7 +453,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", PrivateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
 	}
 
 	return fmt.Sprintf(`apiVersion: v1

@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	Config                      = mustLoadConfig()
-	Azure                       = mustNewAzureClient(Config.SubscriptionID)
-	ResourceGroupName           = "abe2e-" + Config.Location + "alison-test"
+	Config            = mustLoadConfig()
+	Azure             = mustNewAzureClient(Config.SubscriptionID)
+	ResourceGroupName = "abe2e-" + Config.Location + "alison-test"
+	PrivateACRName    = "privateacre2e"
+
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
 	}

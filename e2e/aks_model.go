@@ -17,9 +17,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 )
 
-// global var used here and in scenario_test.go, kube.go, template.go
-var PrivateACRName string = "privateacre2e"
-
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
 	model := getBaseClusterModel(name)
 	model.Properties.NetworkProfile.NetworkPlugin = to.Ptr(armcontainerservice.NetworkPluginKubenet)
@@ -168,7 +165,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	}
 
 	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
-	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, PrivateACRName, vnet); err != nil {
+	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, config.PrivateACRName, vnet); err != nil {
 		return err
 	}
 
