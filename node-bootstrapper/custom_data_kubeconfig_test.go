@@ -136,7 +136,7 @@ $HEADERS = @{
 $RESULT = Invoke-WebRequest -Method GET -Headers $HEADERS -Uri $TOKEN_URL 
 $CONTENT = $RESULT.Content | ConvertFrom-Json -Depth 4
 $ACCESS_TOKEN = $CONTENT.access_token
-$EXPIRES_ON = Get-Date -Format "o" (Get-Date 01.01.1970).AddSeconds($CONTENT.expires_on)
+$EXPIRES_ON = Get-Date -AsUTC -Format "o" (Get-Date 01.01.1970).AddSeconds($CONTENT.expires_on)
 
 $EXECCREDENTIAL=@{
   'kind' = 'ExecCredential'
