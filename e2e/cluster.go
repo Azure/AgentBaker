@@ -70,9 +70,6 @@ func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
 		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true)
-		if err == nil {
-			err = addAirgapNetworkSettings(ctx, t, cluster)
-		}
 		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
@@ -86,11 +83,13 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func nodeBootstrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
+	t.Logf("extracting cluster parameters")
 	clusterParams, err := extractClusterParameters(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("extract cluster parameters: %w", err)
 	}
 
+	t.Logf("getting base node bootstrapping configuration")
 	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
 	if err != nil {
 		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
@@ -123,22 +122,32 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	if err := ensureDebugDaemonsets(ctx, kube, isAirgap); err != nil {
-		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
-	}
-
 	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
+	// airgap network settings and the private acr must be created before we add the debug daemonsets
+	if isAirgap {
+		err = addAirgapNetworkSettings(ctx, t, pCluster)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add airgap network settings: %w", err)
+		}
+	}
+
+	if err := ensureDebugDaemonsets(ctx, kube, isAirgap); err != nil {
+		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
+	}
+
+	// nodeboostrappingConfig requires the debug pod to already be created
+	t.Logf("getting the node bootstrapping configuration for cluster")
 	nbc, err := nodeBootstrappingConfig(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
 	}
 
-	return &Cluster{Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc, Maintenance: maintenance}, nil
+	return {Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc, Maintenance: maintenance}, nil
 }
 
 func hash(cluster *armcontainerservice.ManagedCluster) string {

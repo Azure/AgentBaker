@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
 	v1 "k8s.io/api/apps/v1"
@@ -77,7 +78,8 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient, isAirgap bool) error {
-	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+	// airgap set to false since acr does not exist during cluster creation
+	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true, false)
 	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
 		return err
 	}
@@ -148,7 +150,7 @@ func createDebugDaemonset(ctx context.Context, kube *Kubeclient, manifest string
 	return nil
 }
 
-func getClusterSubnetID(ctx context.Context, mcResourceGroupName string) (string, error) {
+func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *testing.T) (string, error) {
 	pager := config.Azure.VNet.NewListPager(mcResourceGroupName, nil)
 	for pager.More() {
 		nextResult, err := pager.NextPage(ctx)
