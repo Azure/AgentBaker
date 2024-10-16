@@ -156,7 +156,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 
 	var err error
 	var exists bool
-	privateEndpointName := "PE-for-ABE2ETests"
+	privateEndpointName := "PE-for-ABE2ETests2"
 	if exists, err = privateEndpointExists(ctx, t, nodeResourceGroup, privateEndpointName); err != nil {
 		return err
 	}
