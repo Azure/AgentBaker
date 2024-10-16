@@ -214,7 +214,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
 
 	createParams := armcontainerregistry.Registry{
-		Location: to.Ptr(config.Config.Location), // Replace with your desired location
+		Location: to.Ptr(config.Config.Location),
 		SKU: &armcontainerregistry.SKU{
 			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
 		},
@@ -285,7 +285,7 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 		ctx,
 		nodeResourceGroup,
 		privateACRName,
-		"aks-managed-rul",
+		"aks-managed-rule",
 		cacheParams,
 		nil,
 	)
@@ -302,7 +302,7 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 }
 
 func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, acrName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
-	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
+	t.Logf("Creating private Endpoint in rg %s\n", nodeResourceGroup)
 	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, nodeResourceGroup, acrName)
 
 	peParams := armnetwork.PrivateEndpoint{
