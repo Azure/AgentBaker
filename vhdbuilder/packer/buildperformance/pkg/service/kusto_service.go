@@ -12,7 +12,7 @@ import (
 )
 
 func IngestData(ctx context.Context, config *Config) error {
-	if config.SourceBranch == "refs/heads/zb/buildPerfMods" {
+	if config.SourceBranch == "refs/heads/zb/regression2" {
 		kcsb := azkustodata.NewConnectionStringBuilder(config.KustoEndpoint).WithUserAssignedIdentityResourceId(config.CommonIdentityId)
 
 		ingestor, err := azkustoingest.New(kcsb, azkustoingest.WithDefaultDatabase(config.KustoDatabase), azkustoingest.WithDefaultTable(config.KustoTable))
