@@ -86,6 +86,7 @@ func getFuncMap() template.FuncMap {
 		"getMaxLBRuleCount":                         getMaxLBRuleCount,
 		"getGpuImageSha":                            getGpuImageSha,
 		"getGpuDriverVersion":                       getGpuDriverVersion,
+		"getGPUDriverType":                          getGPUDriverType,
 		"getIsSgxEnabledSKU":                        getIsSgxEnabledSKU,
 		"getShouldConfigureHTTPProxy":               getShouldConfigureHTTPProxy,
 		"getShouldConfigureHTTPProxyCA":             getShouldConfigureHTTPProxyCA,
@@ -547,6 +548,10 @@ func getGpuImageSha(vmSize string) string {
 
 func getGpuDriverVersion(vmSize string) string {
 	return common.GetGPUDriverVersion(vmSize)
+}
+
+func getGPUDriverType(vmSize string) string {
+	return common.GetGPUDriverType()
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.

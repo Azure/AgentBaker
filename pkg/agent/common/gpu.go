@@ -253,6 +253,13 @@ func GetGPUDriverVersion(size string) string {
 	return nvidia550CudaDriverVersion
 }
 
+func GetGPUDriverType(size string) string {
+	if useGridDrivers(size) {
+		return "grid"
+	}
+	return "cuda"
+}
+
 func isStandardNCv1(size string) bool {
 	tmp := strings.ToLower(size)
 	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
