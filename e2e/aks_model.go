@@ -169,6 +169,10 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return err
 	}
 
+	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, PrivateACRName); err != nil {
+		return err
+	}
+
 	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
 	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, PrivateACRName, vnet); err != nil {
 		return err
@@ -267,6 +271,33 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	}
 
 	t.Logf("Private Azure Container Registry updated\n")
+	return nil
+}
+
+func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string) error {
+	cacheParams := armcontainerregistry.CacheRule{
+		Properties: &armcontainerregistry.CacheRuleProperties{
+			SourceRepository: to.Ptr("mcr.microsoft.com/*"),
+			TargetRepository: to.Ptr("aks/*"),
+		},
+	}
+	cacheCreateResp, err := config.Azure.CacheRulesClient.BeginCreate(
+		ctx,
+		nodeResourceGroup,
+		privateACRName,
+		"aks-managed-rul",
+		cacheParams,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create cache rule in BeginCreate: %w", err)
+	}
+	_, err = cacheCreateResp.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create cache rule in polling: %w", err)
+	}
+
+	t.Logf("Cache rule created\n")
 	return nil
 }
 

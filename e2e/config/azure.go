@@ -47,6 +47,7 @@ type AzureClient struct {
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	RegistriesClient          *armcontainerregistry.RegistriesClient
+	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -123,6 +124,11 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registry client: %w", err)
+	}
+
+	cloud.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache rules client: %w", err)
 	}
 
 	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(subscription, credential, opts)
