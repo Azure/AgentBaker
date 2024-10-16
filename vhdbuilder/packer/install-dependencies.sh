@@ -529,6 +529,8 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
+exit 1
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
