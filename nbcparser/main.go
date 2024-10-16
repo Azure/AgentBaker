@@ -47,9 +47,10 @@ func main() {
 		log.Fatal(err)
 		os.Exit(1)
 	}
-	_, err = exec.Command("/bin/sh", CSE_CMD).Output()
+	bootstrapOutput, err := exec.Command("/bin/sh", CSE_CMD).Output()
 	if err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}
+	log.Default().Printf("bootstrap output: %s", bootstrapOutput)
 }
