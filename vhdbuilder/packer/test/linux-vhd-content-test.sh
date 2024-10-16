@@ -998,7 +998,7 @@ testNBCParserBinary () {
   }'
   echo -n "$nbc_content" > "$file_path"
 
-  errs=$($go_binary_path --filename="$file_path" --test 2>/dev/null)
+  errs=$($go_binary_path --bootstrap-config="$file_path" --test 2>/dev/null)
   code=$?
   if [ $code -ne 0 ]; then
     err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"

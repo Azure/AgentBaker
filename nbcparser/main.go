@@ -10,47 +10,46 @@ import (
 )
 
 // This script will take in the bootstrap contract in JSON format,
-// it will be deserialized to the contract that the VHD this binary will be on supports.
-// Parse will be called using that deserialized struct and output the generated cse_cmd to trigger the bootstrap process.
-//
-//nolint:gosec // generated cse_cmd.sh file needs execute permissions for bootstrapping
-const (
-	CSE_CMD = "cse_cmd.sh"
-)
-
+// it will be deserialized to the contract that the VHD this binary supports.
+// The contract will be used to generate cse_cmd and trigger the bootstrap process.
 func main() {
-	filename := flag.String("filename", "", "nbc json file to parse")
+	configFile := flag.String("bootstrap-config", "", "bootstrap configuration json filepath")
 	test := flag.Bool("test", false, "test mode")
 	flag.Parse()
-
-	if *filename == "" {
-		log.Default().Printf("filename is a required argument")
-		os.Exit(1)
+	if *configFile == "" {
+		log.Fatal("bootstrap-config is a required argument")
 	}
-	// Read in the JSON file
-	inputJSON, err := os.ReadFile(*filename)
+
+	cseCmd := parseConfig(*configFile)
+	err := bootstrap(cseCmd, *test)
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(1)
+	}
+	log.Println("Provisioning completed successfully")
+}
+
+func parseConfig(configFile string) string {
+	// Read in the JSON file
+	inputJSON, err := os.ReadFile(configFile)
+	if err != nil {
+		log.Fatal(err)
 	}
 	cseCmd, err := parser.Parse(inputJSON)
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
+	log.Printf("Generated cse_cmd: %s\n", cseCmd)
+	return cseCmd
+}
+
+func bootstrap(cseCmd string, test bool) error {
 	// if test flag is set, do not trigger bootstrapping
-	if *test {
-		log.Default().Printf("Test mode, skip executing cse_cmd: %s", cseCmd)
-		os.Exit(0)
+	if test {
+		log.Println("Test mode, skip provisioning")
+		return nil
 	}
-	if err := os.WriteFile(CSE_CMD, []byte(cseCmd), 0655); err != nil {
-		log.Fatal(err)
-		os.Exit(1)
-	}
-	bootstrapOutput, err := exec.Command("/bin/sh", CSE_CMD).Output()
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(1)
-	}
-	log.Default().Printf("bootstrap output: %s", bootstrapOutput)
+	cmd := exec.Command("/bin/bash", "-c", cseCmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }

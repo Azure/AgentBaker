@@ -47,7 +47,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 
 	var model armcompute.VirtualMachineScaleSet
 	if opts.scriptless {
-		model = getBaseVMSSModelSelfContained(t, vmssName, string(publicKeyBytes), opts)
+		model = getBaseVMSSModelScriptless(t, vmssName, string(publicKeyBytes), opts)
 	} else {
 		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
 	}
@@ -248,7 +248,7 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModelSelfContained(t *testing.T, name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModelScriptless(t *testing.T, name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
 	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
 	if err != nil {
 		require.NoError(t, err)
