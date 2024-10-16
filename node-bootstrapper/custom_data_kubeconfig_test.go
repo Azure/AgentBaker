@@ -438,7 +438,7 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: powershell
+         command: pwsh
          args: 
          - -C
          - c:\k\azure-token.ps1
@@ -522,7 +522,7 @@ users:
      user:
        exec:
          apiVersion: client.authentication.k8s.io/v1
-         command: powershell
+         command: pwsh
          args: 
          - -C
          - c:\k\azure-token.ps1

@@ -317,7 +317,7 @@ func getContentKubletUserAzureMsi(config *datamodel.NodeBootstrappingConfigurati
 		return map[string]any{
 			"exec": map[string]any{
 				"apiVersion":         "client.authentication.k8s.io/v1",
-				"command":            "powershell",
+				"command":            "pwsh",
 				"args":               []string{"-C", getAzureTokenPath(config)},
 				"interactiveMode":    "Never",
 				"provideClusterInfo": false,
