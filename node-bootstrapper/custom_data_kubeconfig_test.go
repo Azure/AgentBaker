@@ -127,7 +127,31 @@ func assertAzureTokenPs1(t *testing.T, nbc *datamodel.NodeBootstrappingConfigura
 	require.NotContains(t, files, arcTokenPs1)
 	actual := getFile(t, nbc, azureTokenPs1, 0755)
 
-	expected := fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, aadAppID, clientID)
+	expected := fmt.Sprintf(`
+$TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s&client_id=%s"
+$HEADERS = @{
+ 'Metadata' = 'true'
+}
+
+$RESULT = Invoke-WebRequest -Method GET -Headers $HEADERS -Uri $TOKEN_URL 
+$CONTENT = $RESULT.Content | ConvertFrom-Json -Depth 4
+$ACCESS_TOKEN = $CONTENT.access_token
+$EXPIRES_ON = Get-Date -Format "o" (Get-Date 01.01.1970).AddSeconds($CONTENT.expires_on)
+
+$EXECCREDENTIAL=@{
+  'kind' = 'ExecCredential'
+  'apiVersion' = "client.authentication.k8s.io/v1"
+  'spec' = @{
+    'interactive' = $False
+  }
+  'status' = @{
+    'expirationTimestamp' = $EXPIRES_ON
+    'token' = $ACCESS_TOKEN
+  }
+}
+
+$EXECCREDENTIAL | ConvertTo-Json -Depth 4
+`, aadAppID, clientID)
 	assert.Equal(t, expected, actual)
 }
 

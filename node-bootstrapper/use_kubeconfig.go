@@ -186,7 +186,7 @@ curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL |
 `, appID)
 }
 
-func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) string {
+func genContentAzureTokenPs1Old(config *datamodel.NodeBootstrappingConfiguration) string {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
 		appID = DefaultAksAadAppID
@@ -194,6 +194,40 @@ func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) s
 	clientID := config.BootstrappingManagedIdentityID
 
 	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientID)
+}
+
+func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) string {
+	appID := config.CustomSecureTLSBootstrapAADServerAppID
+	if appID == "" {
+		appID = DefaultAksAadAppID
+	}
+	clientID := config.BootstrappingManagedIdentityID
+
+	return fmt.Sprintf(`
+$TOKEN_URL="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=%s&client_id=%s"
+$HEADERS = @{
+ 'Metadata' = 'true'
+}
+
+$RESULT = Invoke-WebRequest -Method GET -Headers $HEADERS -Uri $TOKEN_URL 
+$CONTENT = $RESULT.Content | ConvertFrom-Json -Depth 4
+$ACCESS_TOKEN = $CONTENT.access_token
+$EXPIRES_ON = Get-Date -Format "o" (Get-Date 01.01.1970).AddSeconds($CONTENT.expires_on)
+
+$EXECCREDENTIAL=@{
+  'kind' = 'ExecCredential'
+  'apiVersion' = "client.authentication.k8s.io/v1"
+  'spec' = @{
+    'interactive' = $False
+  }
+  'status' = @{
+    'expirationTimestamp' = $EXPIRES_ON
+    'token' = $ACCESS_TOKEN
+  }
+}
+
+$EXECCREDENTIAL | ConvertTo-Json -Depth 4
+`, appID, clientID)
 }
 
 func genContentAzureTokenSh(config *datamodel.NodeBootstrappingConfiguration) string {

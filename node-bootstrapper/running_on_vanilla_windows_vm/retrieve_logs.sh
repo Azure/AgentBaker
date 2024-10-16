@@ -1,6 +1,6 @@
 #!/bin/sh
 
-HOST=windows2
+HOST=windows
 
 mkdir -p logs
 rm -f logs/*
