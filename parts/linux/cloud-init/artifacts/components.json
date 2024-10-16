@@ -38,8 +38,19 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.35",
-          "previousLatestVersion": "v1.5.32",
+          "latestVersion": "v1.4.56",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            }
+          }
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
+          "latestVersion": "v1.5.38",
+          "previousLatestVersion": "v1.5.35",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -78,7 +89,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.52",
+          "latestVersion": "v1.4.56",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -89,8 +100,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.35",
-          "previousLatestVersion": "v1.5.32",
+          "latestVersion": "v1.5.38",
+          "previousLatestVersion": "v1.5.35",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -127,6 +138,17 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-ipam:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
+          "latestVersion": "v0.0.7",
+          "containerImagePrefetch": {
+            "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            }
+          }
+        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
           "latestVersion": "v0.2.0",
@@ -445,12 +467,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.7.1",
-          "previousLatestVersion": "1.7.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.5.0"
+          "latestVersion": "1.8.0",
+          "previousLatestVersion": "1.7.1"
         }
       ]
     },
@@ -460,12 +478,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.7.1",
-          "previousLatestVersion": "1.7.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.5.0"
+          "latestVersion": "1.8.0",
+          "previousLatestVersion": "1.7.1"
         }
       ]
     },
@@ -517,6 +531,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
           "latestVersion": "v1.30.5",
           "previousLatestVersion": "v1.30.4"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
+          "latestVersion": "v1.31.1",
+          "previousLatestVersion": "v1.31.0"
         }
       ]
     }
@@ -556,7 +575,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=20.04",
-                "latestVersion": "1.1.14-ubuntu20.04u1"
+                "latestVersion": "1.1.15-ubuntu20.04u1"
               }
             ]
           },
@@ -564,7 +583,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=22.04",
-                "latestVersion": "1.1.14-ubuntu22.04u1"
+                "latestVersion": "1.1.15-ubuntu22.04u1"
               }
             ]
           },
@@ -572,7 +591,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=24.04",
-                "latestVersion": "1.1.14-ubuntu24.04u1"
+                "latestVersion": "1.1.15-ubuntu24.04u1"
               }
             ]
           }
@@ -677,16 +696,16 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.54"
+                "latestVersion": "1.4.56"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.5.35",
-                "previousLatestVersion": "1.5.32"
+                "latestVersion": "1.5.38",
+                "previousLatestVersion": "1.5.35"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.10",
+                "latestVersion": "1.6.13",
                 "previousLatestVersion": "1.6.7"
               }
             ],
@@ -742,6 +761,12 @@
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.30.5",
                 "previousLatestVersion": "1.30.4"
+              },
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.31.1",
+                "previousLatestVersion": "1.31.0"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${version}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
