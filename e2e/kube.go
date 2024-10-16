@@ -77,24 +77,25 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func ensureDebugDaemonsets(ctx context.Context, kube *Kubeclient, isAirgap bool) error {
+func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, isAirgap bool) error {
 	// airgap set to false since acr does not exist during cluster creation
-	hostDS := getDebugDaemonsetTemplate(hostNetworkDebugAppLabel, "nodepool1", true, false)
+	hostDS := getDebugDaemonsetTemplate(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
 	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
 		return err
 	}
-	nonHostDS := getDebugDaemonsetTemplate(podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	nonHostDS := getDebugDaemonsetTemplate(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
 	if err := createDebugDaemonset(ctx, kube, nonHostDS); err != nil {
 		return err
 	}
 	return nil
 }
 
-func getDebugDaemonsetTemplate(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
+func getDebugDaemonsetTemplate(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/base/core:2.0", PrivateACRName)
 	}
+	t.Logf("using image %s for debug daemonset", image)
 
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: DaemonSet

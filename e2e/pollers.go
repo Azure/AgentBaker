@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
@@ -58,14 +59,26 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 	return nodeName
 }
 
-func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) error {
+func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
 	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
+		if deadline, ok := ctx.Deadline(); ok {
+			remaining := time.Until(deadline)
+			t.Logf("Remaining time before timeout for pod %s: %v", podName, remaining)
+		}
+
 		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
+		t.Logf("pod %s status: %s", podName, pod.Status.Phase)
 		if err != nil {
+			// pod might not be created yet, let the poller continue
+			if errors.IsNotFound(err) {
+				t.Logf("pod %s not found yet. Err %v", podName, err)
+				return false, nil
+			}
 			return false, err
 		}
 
 		for _, containerStatus := range pod.Status.ContainerStatuses {
+			t.Logf("container %s status: %s", containerStatus.Name, containerStatus.State.String())
 			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
 				return false, fmt.Errorf("pod %s is in CrashLoopBackOff state", podName)
 			}
@@ -81,6 +94,7 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) er
 		}
 
 		for _, cond := range pod.Status.Conditions {
+			t.Logf("pod %s condition %s: %s", podName, cond.Type, cond.Status)
 			if cond.Type == "Ready" && cond.Status == "True" {
 				return true, nil
 			}

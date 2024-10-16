@@ -2,12 +2,14 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
@@ -67,16 +69,16 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 	}
 }
 
-func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterName, nodeResourceGroup, clusterFqdn string, clusterModel *armcontainerservice.ManagedCluster) error {
-	t.Logf("Adding network settings for airgap cluster %s in rg %s\n", clusterName, nodeResourceGroup)
+func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *armcontainerservice.ManagedCluster) error {
+	t.Logf("Adding network settings for airgap cluster %s in rg %s\n", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
-	vnet, err := getClusterVNet(ctx, nodeResourceGroup)
+	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
 		return err
 	}
 	subnetId := vnet.subnetId
 
-	nsgParams, err := airGapSecurityGroup(config.Config.Location, clusterFqdn)
+	nsgParams, err := airGapSecurityGroup(config.Config.Location, *clusterModel.Properties.Fqdn)
 	if err != nil {
 		return err
 	}
@@ -99,12 +101,12 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterName, no
 		return err
 	}
 
-	err = addPrivateEndpointForACR(ctx, t, nodeResourceGroup, vnet)
+	err = addPrivateEndpointForACR(ctx, t, *clusterModel.Properties.NodeResourceGroup, vnet)
 	if err != nil {
 		return err
 	}
 
-	t.Logf("updated cluster %s subnet with airgap settings", clusterName)
+	t.Logf("updated cluster %s subnet with airgap settings", *clusterModel.Name)
 	return nil
 }
 
@@ -165,14 +167,6 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 		return nil
 	}
 
-	if err := createPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, PrivateACRName); err != nil {
-		return err
-	}
-
-	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, nodeResourceGroup, PrivateACRName); err != nil {
-		return err
-	}
-
 	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
 	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, PrivateACRName, vnet); err != nil {
 		return err
@@ -213,6 +207,19 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string) error {
 	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
 
+	acr, err := config.Azure.RegistriesClient.Get(ctx, nodeResourceGroup, privateACRName, nil)
+	if err == nil {
+		t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
+		return nil
+	}
+
+	// check if error is anything but not found
+	var azErr *azcore.ResponseError
+	if errors.As(err, &azErr) && azErr.StatusCode != 404 {
+		return fmt.Errorf("failed to get private ACR: %w", err)
+	}
+
+	t.Logf("ACR does not exist, creating...")
 	createParams := armcontainerregistry.Registry{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcontainerregistry.SKU{
@@ -223,54 +230,22 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 			AnonymousPullEnabled: to.Ptr(true), // required to pull images from the private ACR without authentication
 		},
 	}
-
-	_, err := config.Azure.RegistriesClient.Get(ctx, nodeResourceGroup, privateACRName, nil)
-	if err != nil && strings.Contains(err.Error(), "ResourceNotFound") {
-		// Create the private ACR if it doesn't exist
-		pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
-			ctx,
-			nodeResourceGroup,
-			privateACRName,
-			createParams,
-			nil,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create private ACR in BeginCreate: %w", err)
-		}
-		_, err = pollerResp.PollUntilDone(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create private ACR during polling: %w", err)
-		}
-
-		t.Logf("Private Azure Container Registry created\n")
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get private ACR: %w", err)
-	}
-
-	updateParams := &armcontainerregistry.RegistryUpdateParameters{
-		Properties: &armcontainerregistry.RegistryPropertiesUpdateParameters{
-			AdminUserEnabled:     to.Ptr(false),
-			AnonymousPullEnabled: to.Ptr(true), // required to pull images from the private ACR without authentication
-		},
-	}
-	pollerResp, err := config.Azure.RegistriesClient.BeginUpdate(
+	pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
 		ctx,
 		nodeResourceGroup,
 		privateACRName,
-		*updateParams,
+		createParams,
 		nil,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create private ACR in BeginUpdate: %w", err)
+		return fmt.Errorf("failed to create private ACR in BeginCreate: %w", err)
 	}
-
 	_, err = pollerResp.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create private ACR in polling: %w", err)
+		return fmt.Errorf("failed to create private ACR during polling: %w", err)
 	}
 
-	t.Logf("Private Azure Container Registry updated\n")
+	t.Logf("Private Azure Container Registry created\n")
 	return nil
 }
 
