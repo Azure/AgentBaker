@@ -4,8 +4,8 @@ type Config struct {
 	KustoTable                string
 	KustoEndpoint             string
 	KustoDatabase             string
-	KustoClientId             string
 	KustoIngestionMapping     string
+	CommonIdentityId          string
 	SigImageName              string
 	LocalBuildPerformanceFile string
 	SourceBranch              string
@@ -14,10 +14,6 @@ type Config struct {
 type SKU struct {
 	Name               string `kusto:"SIG_IMAGE_NAME"`
 	SKUPerformanceData string `kusto:"BUILD_PERFORMANCE"`
-}
-
-type QueryCompletionInfo struct {
-	Payload []map[string]int `json:"dataset_statistics"`
 }
 
 type DataMaps struct {
