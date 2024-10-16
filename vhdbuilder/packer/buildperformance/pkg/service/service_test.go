@@ -409,14 +409,14 @@ func TestDisplayRegressions(t *testing.T) {
 			maps: &DataMaps{
 				RegressionMap: EvaluationMap{
 					"pre_install_dependencies": {
-						"enable_modified_log_rotate_service": 30,
+						"enable_modified_log_rotate_service": 20,
 					},
 					"install_dependencies": {
-						"download_azure_cni":                 30,
-						"configure_networking_and_interface": 30,
+						"download_azure_cni":                 20,
+						"configure_networking_and_interface": 20,
 					},
 					"post_install_dependencies": {
-						"resolve_conf": 30,
+						"resolve_conf": 20,
 					},
 				},
 				QueriedPerformanceDataMap: QueryMap{
@@ -429,6 +429,18 @@ func TestDisplayRegressions(t *testing.T) {
 					},
 					"post_install_dependencies": {
 						"resolve_conf": []float64{15.0, 10.0},
+					},
+				},
+				LocalPerformanceDataMap: EvaluationMap{
+					"pre_install_dependencies": {
+						"enable_modified_log_rotate_service": 65,
+					},
+					"install_dependencies": {
+						"download_azure_cni":                 65,
+						"configure_networking_and_interface": 65,
+					},
+					"post_install_dependencies": {
+						"resolve_conf": 65,
 					},
 				},
 			},
