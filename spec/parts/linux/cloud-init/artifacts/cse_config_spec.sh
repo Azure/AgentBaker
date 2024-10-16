@@ -1,6 +1,7 @@
 #!/bin/bash
 
 Describe 'cse_config.sh'
+    Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Describe 'getPrimaryNicIP()'
         It 'should return the correct IP when a single network interface is attached to the VM'
             curl() {
