@@ -231,7 +231,7 @@ steps:
     condition: always()
     displayName: Check Build Performance
     env:
-      BUILD_PERFORMANCE_CLIENT_ID: $(BUILD_PERFORMANCE_CLIENT_ID)
+      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
 
   - bash: make -f packer.mk generate-sas
     displayName: Getting Shared Access Signature URI

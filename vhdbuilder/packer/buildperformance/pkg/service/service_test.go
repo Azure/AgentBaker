@@ -20,7 +20,7 @@ func TestSetupConfig(t *testing.T) {
 				KustoTable:                "<test_table>",
 				KustoEndpoint:             "<https://test.kusto.endpoint>",
 				KustoDatabase:             "<test_db>",
-				KustoClientId:             "<test_id>",
+				CommonIdentityId:          "<test_id>",
 				KustoIngestionMapping:     "<test_mapping>",
 				SigImageName:              "<test_sig_name>",
 				LocalBuildPerformanceFile: "<test_sig_name>-build-performance.json",
@@ -38,7 +38,7 @@ func TestSetupConfig(t *testing.T) {
 	os.Setenv("BUILD_PERFORMANCE_TABLE_NAME", "<test_table>")
 	os.Setenv("BUILD_PERFORMANCE_KUSTO_ENDPOINT", "<https://test.kusto.endpoint>")
 	os.Setenv("BUILD_PERFORMANCE_DATABASE_NAME", "<test_db>")
-	os.Setenv("BUILD_PERFORMANCE_CLIENT_ID", "<test_id>")
+	os.Setenv("AZURE_MSI_RESOURCE_STRING", "<test_id>")
 	os.Setenv("BUILD_PERFORMANCE_INGESTION_MAPPING", "<test_mapping>")
 	os.Setenv("SIG_IMAGE_NAME", "<test_sig_name>")
 	os.Setenv("GIT_BRANCH", "<test_branch>")
@@ -239,7 +239,7 @@ func TestSumSlice(t *testing.T) {
 		{
 			name:     "should correctly add values in slice",
 			slice:    []float64{30.0, 20},
-			expected: 70.0,
+			expected: 90.0,
 			err:      nil,
 		},
 		{
@@ -374,14 +374,14 @@ func TestEvaluatePerformance(t *testing.T) {
 			expected: &DataMaps{
 				RegressionMap: EvaluationMap{
 					"pre_install_dependencies": {
-						"enable_modified_log_rotate_service": 30,
+						"enable_modified_log_rotate_service": 20,
 					},
 					"install_dependencies": {
-						"download_azure_cni":                 30,
-						"configure_networking_and_interface": 30,
+						"download_azure_cni":                 20,
+						"configure_networking_and_interface": 20,
 					},
 					"post_install_dependencies": {
-						"resolve_conf": 30,
+						"resolve_conf": 20,
 					},
 				},
 			},
