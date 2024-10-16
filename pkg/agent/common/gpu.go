@@ -24,15 +24,16 @@ import (
 
 const (
 	nvidia470CudaDriverVersion = "cuda-470.82.01"
-	nvidia550CudaDriverVersion = "cuda-550.90.12"
-	nvidia535GridDriverVersion = "grid-535.161.08"
+
+	nvidia550CudaDriverVersion = "550.90.12-20241008175307"
+	nvidia535GridDriverVersion = "535.161.08-20241008175311"
 )
 
 // These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
 // So for now these will be kept here like this.
 const (
-	aksGPUCudaSHA = "sha-c66998"
-	aksGPUGridSHA = "sha-c66998"
+	aksGPUCudaSHA = "20241008175307"
+	aksGPUGridSHA = "20241008175311"
 )
 
 /*
