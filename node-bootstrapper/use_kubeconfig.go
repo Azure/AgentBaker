@@ -186,16 +186,6 @@ curl -s -H Metadata:true -H "Authorization: Basic $CHALLENGE_TOKEN" $TOKEN_URL |
 `, appID)
 }
 
-func genContentAzureTokenPs1Old(config *datamodel.NodeBootstrappingConfiguration) string {
-	appID := config.CustomSecureTLSBootstrapAADServerAppID
-	if appID == "" {
-		appID = DefaultAksAadAppID
-	}
-	clientID := config.BootstrappingManagedIdentityID
-
-	return fmt.Sprintf(`C:\Users\tim\.azure-kubelogin\kubelogin get-token --environment AzurePublicCloud --server-id  %s --login msi --client-id %s`, appID, clientID)
-}
-
 func genContentAzureTokenPs1(config *datamodel.NodeBootstrappingConfiguration) string {
 	appID := config.CustomSecureTLSBootstrapAADServerAppID
 	if appID == "" {
