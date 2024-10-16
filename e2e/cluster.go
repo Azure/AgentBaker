@@ -102,6 +102,16 @@ func nodeBootstrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 
+	// private acr must be created before we add the debug daemonsets
+	if isAirgap {
+		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+		if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to add cache rules to private acr: %w", err)
+		}
+	}
+
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
@@ -127,17 +137,6 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
-	}
-
-	// private acr must be created before we add the debug daemonsets
-	if isAirgap {
-		if err := createPrivateAzureContainerRegistry(ctx, t, *cluster.Properties.NodeResourceGroup, config.PrivateACRName); err != nil {
-			return nil, fmt.Errorf("failed to create private acr: %w", err)
-		}
-		if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, *cluster.Properties.NodeResourceGroup, config.PrivateACRName); err != nil {
-			return nil, fmt.Errorf("failed to add cache rules to private acr: %w", err)
-		}
-
 	}
 
 	t.Logf("ensuring debug daemonsets")
