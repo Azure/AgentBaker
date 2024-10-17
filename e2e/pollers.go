@@ -60,14 +60,13 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 }
 
 func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
-	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
-		if deadline, ok := ctx.Deadline(); ok {
-			remaining := time.Until(deadline)
-			t.Logf("Remaining time before timeout for pod %s: %v", podName, remaining)
-		}
+	lastLogTime := time.Now()
+	logInterval := 5 * time.Minute // log every 5 minutes
 
+	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
+		currentLogTime := time.Now()
+		
 		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
-		t.Logf("pod %s status: %s", podName, pod.Status.Phase)
 		if err != nil {
 			// pod might not be created yet, let the poller continue
 			if errors.IsNotFound(err) {
@@ -76,9 +75,16 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 			}
 			return false, err
 		}
+		if deadline, ok := ctx.Deadline(); ok {
+			remaining := time.Until(deadline)
+			if currentLogTime.Sub(lastLogTime) > logInterval {
+				// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
+				t.Logf("pod %s status: %s time before timeout: %v", podName, pod.Status.Phase, remaining)
+				lastLogTime = currentLogTime
+			}
+		}
 
 		for _, containerStatus := range pod.Status.ContainerStatuses {
-			t.Logf("container %s status: %s", containerStatus.Name, containerStatus.State.String())
 			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
 				return false, fmt.Errorf("pod %s is in CrashLoopBackOff state", podName)
 			}
@@ -94,7 +100,6 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 		}
 
 		for _, cond := range pod.Status.Conditions {
-			t.Logf("pod %s condition %s: %s", podName, cond.Type, cond.Status)
 			if cond.Type == "Ready" && cond.Status == "True" {
 				return true, nil
 			}
