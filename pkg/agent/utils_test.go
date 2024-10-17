@@ -750,34 +750,36 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	//https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-configuration-merging-order
 	// [we are producing this -> command line flags] > drop in config file > kubelet config
 	It("should return expected kubelet command line flags when a config file is being used, following overriding rules", func() {
-		cs := &datamodel.ContainerService{
-			Location: "southcentralus",
-			Type:     "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{
-				CustomConfiguration: &datamodel.CustomConfiguration{
-					KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
-						"kubelet": {
-							Config: map[string]string{
-								"--seccomp-default": "true",
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-labels": "topology.kubernetes.io/region=southcentralus",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--seccomp-default": "true",
+								},
 							},
 						},
 					},
 				},
 			},
-		}
-		k := map[string]string{
-			"--node-labels": "topology.kubernetes.io/region=southcentralus",
-		}
-
-		ap := &datamodel.AgentPoolProfile{
-			CustomKubeletConfig: &datamodel.CustomKubeletConfig{
-				SeccompDefault: to.BoolPtr(false),
+			EnableKubeletConfigFile: true,
+			AgentPoolProfile: &datamodel.AgentPoolProfile{
+				CustomKubeletConfig: &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.BoolPtr(false),
+				},
 			},
 		}
 
 		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
-		actualStr := GetOrderedKubeletConfigFlagString(k, cs, ap, true)
-		Expect(expectedStr).To(Equal(actualStr), fmt.Sprintf("Expected: %s\n, but got: %s", expectedStr, actualStr))
+		actualStr := GetOrderedKubeletConfigFlagString(config)
+		Expect(expectedStr).To(Equal(actualStr))
 	})
 })
 
