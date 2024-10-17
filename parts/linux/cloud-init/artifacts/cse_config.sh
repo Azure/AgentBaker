@@ -413,7 +413,7 @@ getPrimaryNicIP() {
     local ip=""
 
     while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
         if [[ -n "$ip" && $? -eq 0 ]]; then
             break
         fi
@@ -618,8 +618,6 @@ EOF
 
     # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
     primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
-    # There could be unexpected newline character in IMDS's output(?), so we need to trim it.
-    primaryNicIP=$(echo "$primaryNicIP" | sed 's/[[:space:]]*$//')
     ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
     mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
     touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
