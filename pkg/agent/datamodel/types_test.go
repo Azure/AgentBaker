@@ -2321,7 +2321,7 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2350,7 +2350,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--image-gc-high-threshold":      "80",
 					"--image-gc-low-threshold":       "60",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{
@@ -2377,7 +2376,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--node-status-report-frequency": "1m0s",
 					"--cgroups-per-qos":              "true",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{

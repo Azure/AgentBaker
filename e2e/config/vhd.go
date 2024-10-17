@@ -99,7 +99,7 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image %s", i.vhdErr)
+			t.Logf("failed to find the latest image version for %s", i.vhdErr)
 		}
 	})
 	return i.vhd, i.vhdErr
@@ -176,7 +176,6 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 		return "", fmt.Errorf("parsing image definition resource ID: %w", err)
 	}
 	definition := newSIGImageDefinitionFromResourceID(rid)
-
 	pager := Azure.GalleryImageVersion.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
