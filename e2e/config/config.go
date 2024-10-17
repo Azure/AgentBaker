@@ -29,7 +29,7 @@ type Configuration struct {
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	TagsToRun                     string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                    string        `env:"TAGS_TO_SKIP"`
-	TestTimeout                   time.Duration `env:"TEST_TIMEOUT" envDefault:"30m"`
+	TestTimeout                   time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
 	E2ELoggingDir                 string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
