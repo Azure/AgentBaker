@@ -751,6 +751,7 @@ type SysctlConfig struct {
 	NetIpv4NeighDefaultGcThresh3   *int32 `json:"netIpv4NeighDefaultGcThresh3,omitempty"`
 	NetNetfilterNfConntrackMax     *int32 `json:"netNetfilterNfConntrackMax,omitempty"`
 	NetNetfilterNfConntrackBuckets *int32 `json:"netNetfilterNfConntrackBuckets,omitempty"`
+	FsInotifyMaxUserInstances      *int32 `json:"fsInotifyMaxUserInstances,omitempty"`
 	FsInotifyMaxUserWatches        *int32 `json:"fsInotifyMaxUserWatches,omitempty"`
 	FsFileMax                      *int32 `json:"fsFileMax,omitempty"`
 	FsAioMaxNr                     *int32 `json:"fsAioMaxNr,omitempty"`
