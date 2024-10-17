@@ -11,7 +11,7 @@ import (
 var (
 	Config            = mustLoadConfig()
 	Azure             = mustNewAzureClient(Config.SubscriptionID)
-	ResourceGroupName = "abe2e-" + Config.Location + "alison-test"
+	ResourceGroupName = "abe2e-" + Config.Location
 	PrivateACRName    = "privateacre2e"
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
