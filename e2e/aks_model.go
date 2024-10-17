@@ -201,10 +201,10 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string) error {
-	t.Logf("Creating private Azure Container Registry in rg %s\n", nodeResourceGroup)
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
+	t.Logf("Creating private Azure Container Registry in rg %s\n", resourceGroup)
 
-	acr, err := config.Azure.RegistriesClient.Get(ctx, nodeResourceGroup, privateACRName, nil)
+	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
 		t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
 		return nil
@@ -229,7 +229,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	}
 	pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
 		ctx,
-		nodeResourceGroup,
+		resourceGroup,
 		privateACRName,
 		createParams,
 		nil,
@@ -246,7 +246,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, node
 	return nil
 }
 
-func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string) error {
+func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
 	cacheParams := armcontainerregistry.CacheRule{
 		Properties: &armcontainerregistry.CacheRuleProperties{
 			SourceRepository: to.Ptr("mcr.microsoft.com/*"),
@@ -255,7 +255,7 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 	}
 	cacheCreateResp, err := config.Azure.CacheRulesClient.BeginCreate(
 		ctx,
-		nodeResourceGroup,
+		resourceGroup,
 		privateACRName,
 		"aks-managed-rule",
 		cacheParams,
