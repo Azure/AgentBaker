@@ -394,7 +394,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			"--feature-gates":                     "RotateKubeletServerCertificate=true",
 			"--image-gc-high-threshold":           "85",
 			"--image-gc-low-threshold":            "80",
-			"--keep-terminated-pod-volumes":       "false",
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 			"--kubeconfig":                        "/var/lib/kubelet/kubeconfig",
 			"--max-pods":                          "110",
