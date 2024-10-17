@@ -703,7 +703,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 								Config: map[string]string{
 									"--node-status-update-frequency":      "20s",
 									"--streaming-connection-idle-timeout": "4h0m0s",
-								"--seccomp-default":                   "true",
+									"--seccomp-default":                   "true",
 								},
 							},
 						},
@@ -746,7 +746,6 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
-
 
 	//https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-configuration-merging-order
 	// [we are producing this -> command line flags] > drop in config file > kubelet config
