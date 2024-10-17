@@ -568,7 +568,7 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper started"),
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished"),
 			},
 		},
 	})
