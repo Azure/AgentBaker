@@ -7,7 +7,7 @@ VHD_BUILD_TIMESTAMP_JSON="${VHD_BUILD_TIMESTAMP_JSON:-./vhdbuilder/vhd_build_tim
 SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr -d '"')}"
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
-exit 1
+
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
 
