@@ -2,7 +2,6 @@
   "Version":"v0",
   "bootstrappingMethod": "UseAzureMsiToMakeCSR",
   "bootstrappingManagedIdentityId": "c034a0e4-d963-4a82-ab0f-6df7957e1c55",
-  "skipExternalHnsNetwork": true,
   "ContainerService": {
     "id": "",
     "location": "eastus",
@@ -14,7 +13,9 @@
         "orchestratorType": "Kubernetes",
         "orchestratorVersion": "1.30.3",
         "kubernetesConfig": {
-          "networkPlugin": "none",
+          "networkPlugin": "azure",
+          "networkPluginMode": "overlay",
+          "networkDataplane": "azure",
           "customKubeProxyImage": "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.24.0.1",
           "customKubeBinaryURL": "https://acs-mirror.azureedge.net/kubernetes/v1.24.0/binaries/kubernetes-node-linux-amd64.tar.gz",
           "useInstanceMetadata": true,
@@ -35,10 +36,9 @@
           "useCloudControllerManager": true,
           "useManagedIdentity": true,
           "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
-          "dnsServiceIP": "192.168.2.10",
-          "clusterSubnet": "192.168.0.0/16",
-          "serviceCidr": "192.168.2.0/24",
-          "DNSServiceIP": "192.168.2.10"
+          "dnsServiceIP": "10.0.0.10",
+          "clusterSubnet": "10.244.0.0/16",
+          "podCidr": "10.244.0.0/16"
         }
       },
       "agentPoolProfiles": [
@@ -56,7 +56,7 @@
             "cloudProviderBackoffMode": ""
           },
           "vnetCidrs": [
-            "192.168.0.0/16"
+            "10.224.0.0/12"
           ]
         }
       ],
@@ -76,7 +76,7 @@
         "secret": "c2VjcmV0Cg=="
       },
       "certificateProfile": {
-        "caCertificate": "-----BEGIN CERTIFICATE-----\nMIIE6TCCAtGgAwIBAgIRAK5RDe5EGkF2bT0NbmPjWWkwDQYJKoZIhvcNAQELBQAw\nDTELMAkGA1UEAxMCY2EwIBcNMjQwMzIwMjE0MTE0WhgPMjA1NDAzMjAyMTUxMTRa\nMA0xCzAJBgNVBAMTAmNhMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA\ns7zl0hNkhrogfNoHEbqX6Y1KR4ApWVbXFu+07cpFXvkZqUYbUDcSL7jEVrVRasRW\nCg8NB5L+hbevBJ9ENsk58MVdoy3PTVxn2N73t+uM74cBGjyLZRVNZVPf2CR3En0W\n7kEf6AFBbggb4bFhhNR7XbHVm6VCx+8yO5pFbdyLrdN/3Nap8hvsG56EvD/\nNLYmz\nJl9XDfLSEpKk0mzhIezLaO+cYh8Sg7z8lAtiI8zCY4zrYIwFCltYnE6gqvmXMwXL\ng8dk0abFnFGI/6keUs/3AQdwzsItWrp1uBLuatPLN8D3FzV+HmzdMnktr1vm3XEX\nfOcxYiGE2J98Agd83zEDfPvXj0yOFUfCUscnf0ZO27kgX0FmyrizwRVwCRLIjNmg\n5crIRmFjtlY/eXWAAkAlzEeIjQZtUqNhiOjfUk5l12cPoZ1wxBhFZkxgBkEZ20Em\nmWU03lySr456lw8B1qMCu/0VEpuiS/I3N8Wu3rPzQyJV8OAlRUB973Ithh9CKsfE\nlRyCw+lxFHVT6tINHODiZpJyFHl0LseL1FHciqb+q7JsAAF7P1pkZsUIv3duNAaY\nE3pmP64TmQZ1nRB\nbQGNZhaWHSwjEE5YvKR5XlarfSZ2RKLKLyA0nJed1FloV1CUl\nLikHCmwdWlRXY6D2kmaX08Z8H3Z1AwmaNwQ4K4heNPcCAwEAAaNCMEAwDgYDVR0P\nAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFLl90SrLpA8clVBc\np2q+6CvuoslZMA0GCSqGSIb3DQEBCwUAA4ICAQASifuqqmO88S+ZqQNHIcS2R+AY\nHrggE6zTLmC6cE8bxGBOf/AAWC454RPZHEspSCBTnvZjrXc74xVspzuYFzHk5DvT\nAXBm3wI5QF0zLq9dfPV4fgJ4WKXdtyhTLd5ytpVodWy3maOI0SDsGuemu8yPv94c\nlI15hZlDHfCoQ6ni6GUWJOREeRUtcFF6icpii\ngD/SatFhX1yhXneUupdO4Tpx7Eu\nH7tHkidLduMmNVu0w+viTI/x1G906jA3zYryi8tPl9oFH7fjE0eE1ZHaCH4uI+SJ\ng1hCUz2xZ57T5B7nKRpGT/6h8acnvjKFmvEJA063K/y/tlGGZdjiz4nzxHeIp+z5\nEeZF+LAWRqWtEVOBq0/VbJMhF/GKvpTY6dDf0+qvREm6d34+/rlcUB1bzgGdLI3w\nuvFAVKwz1vCuoO9YLbgzj2mZ74p//qeVKU56IrJBbJKAhViaoqahr2pAeKjTTZ1P\nnRU+j0PZGnNOiLAkw3O2L0QVbPN9hwCgEJPIVItf2FfkLX5yLScn6BiUnm+jmLYc\nqWHO7xte7oozbbZsWngifBhv6kpimtvX1pwfSXOSga5wdAFBiMSyBI6crD64ym89\nBtiMKNWrwq//BE6R+f+6GJSJ0jAlMetJCwQIybaL/mdSc07PaMy9Ez4rUWdnLVQL\nJtTIMfzvOyIw7zGgng==\n-----END CERTIFICATE-----\n",
+        "caCertificate": "-----BEGIN CERTIFICATE-----\nMIIE6DCCAtCgAwIBAgIQeMEWzjvHXjJ1X5yvHGzgNzANBgkqhkiG9w0BAQsFADAN\nMQswCQYDVQQDEwJjYTAgFw0yNDEwMTcwMDI0MDBaGA8yMDU0MTAxNzAwMzQwMFow\nDTELMAkGA1UEAxMCY2EwggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDM\nujdVgnc67MSOMkuCii+O1JGo9CXEzo8rkTVrT5H+VmPPgJGQFJDttaRjPDBpjQ8P\nQ4NXIogyWdu4ThcPkTL0uRQd78L8clC21+c0sxNlTndZ0bpGrECp8QKPBu1EX9X3\nDIj9An2xqpv+GAytjY8eocC5qD2+j6Rdjv7/N0gc/XDJgv6xr7TqZtLmfUr8Unwf\nZSf7ro6VT50p2N5mVPgiOllpuE2YOM6oIBDeBhXIQ9qTyG7fFD0KLOBnwVLJMESa\n78jA5sCseejQbmiTPPcbTwq9Eblxjdl2CvawLSVqKeKs/jCzx5JJnUlAwWQcf099\nDgXhBe5Bp0P8ldYOWTGYjSVmeZz46LSPIxrl1/DR8bobqtoT5dgxi3UUlOQS+co5\nbqBXCg8bnOy+QZYd180+tWF8EPEijLOCmnfvG+4Mo41CLMo6NFvG2T85dxaZR6Mz\n1KMqtN7foeA+JYmr7lsG7PRT56b/stQWM6JJJvJo8rO5SzB3GsquqKAyfBOtQRt+\nNF0FPSEq2d2LPyLPO14ELIUda+JCJqTOocLjnKaVkbHwV2No8/jJyNteY+Ms6H02\nlvNX541Jc6eSbI4cZScJ4NoagS5ngkl3WEDiiDr+gT6WpAEAycRblmWcq1y2QX99\n1aLbBhZ4wmRmiBaGU8J914PRXM6DSDhkxDd4p9JKSQIDAQABo0IwQDAOBgNVHQ8B\nAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUZ6BBRnqZBPSDw8+V\nKUnOExudVFMwDQYJKoZIhvcNAQELBQADggIBAF8U5Lw9Y49t9z37XAuuZQT1flsm\nkoQqURWQ1MRQuUsosm9YPQk2tYjJql7KsrPV1nH1LHAtvGjh60O2MFW70aQaH9hq\nQD2Ec6o6xsCCyEfJnqEo2aQJ0m/qwY41ToJ57fw5QDQBPNF8V7CqGCZmCY83KW+X\nszDJicjlGJExTf2K9oVY7E/hy3XJKoZnBVv+YftqKCpXznI5VCXN4i1JGlvAtSiu\nMhenqVKwODOvp6Pfm/cG4L1LfPO3N6BBuZOl65TlSRGC4+03rOj4fK5vSk5YCkhx\niVsuKRPnRYLyjUH5usLgEqNN8aXq8w8ax/pZ7uX4iFs976rpcW4zB5IZd39lh3cE\nSDSxgmtA3YrdSivGNG68IClUg75qQiAzJQqoVbEsLYv5GyX7izEU3xVdFqOrkflW\n3cSSqgOjyEkBAzS/nsIb8oLBh5iaCJeJFOGawv/kY3E4aepWvR/JP0/UGw2GBRgp\nH9LxWR7PtZwzqIFJlVOF+ZCGA748pl4tQu4heVx8P8XHbz36RTR7nS56G9tfFY7B\nzTgAok9cu4JmFWEX6pSfUyNts9Dt/g+WpqFByt6gsR6+Ah4mjBlEQ9vaM+ZbddYT\nvQgsoRRT1hA1cukX2Ey1mArrk+2iScMGG1Q70DR+jwC7+BkkAvQb0cU/L78O+U4S\napX/UdZIzdp82WPd\n-----END CERTIFICATE-----",
         "apiServerCertificate": "",
         "clientPrivateKey": "",
         "clientCertificate": ""
@@ -87,8 +87,7 @@
         "subnet": "",
         "apiServerWhiteListRange": null,
         "ipMasqAgent": true,
-        "IPAddress_old": "20.193.6.5",
-        "fqdn": "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
+        "fqdn": "aks-timmy-win-dns-bwwafkhp.hcp.australiaeast.azmk8s.io"
       },
       "featureFlags": {
         "enableWinDSR": true,
@@ -190,7 +189,8 @@
       "169.254.169.254",
       "192.168.0.0/16",
       "20.193.6.5",
-      "aks-timmy-wrightt-resource-82acd5-zr3wop33.hcp.australiaeast.azmk8s.io"
+      "10.224.0.0/12",
+      "aks-timmy-win-dns-bwwafkhp.hcp.australiaeast.azmk8s.io"
     ]
   },
   "KubeletConfig": {
@@ -200,7 +200,7 @@
     "--authorization-mode": "Webhook",
     "--cgroups-per-qos": "false",
     "--cloud-provider": "external",
-    "--cluster-dns": "192.168.2.10",
+    "--cluster-dns": "10.0.0.10",
     "--cluster-domain": "cluster.local",
     "--dynamic-config-dir": "/k",
     "--enforce-node-allocatable": "\"\"\"\"",

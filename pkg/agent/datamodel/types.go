@@ -1762,8 +1762,6 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
-	SkipExternalHnsNetwork bool `json:"skipExternalHnsNetwork,omitempty"`
 }
 
 type SSHStatus int
