@@ -14,7 +14,6 @@ import (
 	"text/template"
 
 	"github.com/Azure/agentbaker/parts"
-	"github.com/Azure/agentbaker/pkg/agent/common"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -911,13 +910,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return false
 		},
 		"GPUNeedsFabricManager": func() bool {
-			return common.GPUNeedsFabricManager(profile.VMSize)
+			return gpuNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return common.GetGPUDriverVersion(profile.VMSize)
+			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return common.GetAKSGPUImageSHA(profile.VMSize)
+			return getAKSGPUImageSHA(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -1024,6 +1023,39 @@ func getPortRangeEndValue(portRange string) int {
 		return -1
 	}
 	return num
+}
+
+// NV series GPUs target graphics workloads vs NC which targets compute.
+// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
+// NVv1 seems to run with CUDA, NVv5 requires GRID.
+// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
+func getGPUDriverVersion(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.Nvidia535GridDriverVersion
+	}
+	if isStandardNCv1(size) {
+		return datamodel.Nvidia470CudaDriverVersion
+	}
+	return datamodel.Nvidia550CudaDriverVersion
+}
+
+func isStandardNCv1(size string) bool {
+	tmp := strings.ToLower(size)
+	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func useGridDrivers(size string) bool {
+	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
+}
+
+func getAKSGPUImageSHA(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.AKSGPUGridSHA
+	}
+	return datamodel.AKSGPUCudaSHA
+}
+func gpuNeedsFabricManager(size string) bool {
+	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {

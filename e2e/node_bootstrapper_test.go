@@ -18,7 +18,7 @@ import (
 
 // test node-bootstrapper binary without rebuilding VHD images.
 // it compiles the node-bootstrapper binary and uploads it to Azure Storage.
-// the runs the node-bootstrapper on the VM.
+// the binary is then downloaded and executed on the VM
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	ctx := newTestCtx(t)
 	if !config.Config.EnableNodeBootstrapperTest {
@@ -50,13 +50,14 @@ func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) st
 	binary := compileNodeBootstrapper(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, "node-bootstrapper-"+hashFile(t, binary.Name()), binary)
 	require.NoError(t, err)
-	return fmt.Sprintf(`bash -c "(echo '%s' | base64 -d > config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && mkdir -p /var/log/azure && ./node-bootstrapper provision --provision-config=config.json) > /var/log/azure/node-bootstrapper.log 2>&1"`, base64.StdEncoding.EncodeToString(configJSON), url)
+	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON), url)
 }
 
 func compileNodeBootstrapper(t *testing.T) *os.File {
 	cmd := exec.Command("go", "build", "-o", "node-bootstrapper", "-v")
 	cmd.Dir = "../node-bootstrapper"
 	cmd.Env = append(os.Environ(),
+		"CGO_ENABLED=0",
 		"GOOS=linux",
 		"GOARCH=amd64",
 	)
