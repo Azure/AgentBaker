@@ -67,28 +67,28 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 		currentLogTime := time.Now()
 
 		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
-		if err != nil {
-			// pod might not be created yet, let the poller continue
-			if errors.IsNotFound(err) {
-				// end polling if container is in ImagePullBackOff state
-				for _, containerStatus := range pod.Status.ContainerStatuses {
-					if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "ImagePullBackOff" {
-						t.Logf("pod %s is in ImagePullBackOff. Reason: %s", podName, containerStatus.State.Waiting.Message)
-						return false, fmt.Errorf("pod %s is in ImagePullBackOff state", podName)
-					}
-				}
-				t.Logf("pod %s not found yet. Err %v", podName, err)
-				return false, nil
-			}
-			return false, err
-		}
+
+		printLog := false
 		if deadline, ok := ctx.Deadline(); ok {
 			remaining := time.Until(deadline)
 			if currentLogTime.Sub(lastLogTime) > logInterval {
 				// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
 				t.Logf("pod %s status: %s time before timeout: %v", podName, pod.Status.Phase, remaining)
 				lastLogTime = currentLogTime
+				printLog = true
 			}
+		}
+
+		if err != nil {
+			// pod might not be created yet, let the poller continue
+			if errors.IsNotFound(err) {
+				if printLog {
+					// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
+					t.Logf("pod %s not found yet. Err %v", podName, err)
+				}
+				return false, nil
+			}
+			return false, err
 		}
 
 		for _, containerStatus := range pod.Status.ContainerStatuses {
