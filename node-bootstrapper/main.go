@@ -67,6 +67,17 @@ func isWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
 
+func mainWithDefer(logFile *os.File) error {
+	defer logFile.Close()
+
+	logger := slog.New(slog.NewJSONHandler(logFile, nil))
+	slog.SetDefault(logger)
+
+	slog.Info("node-bootstrapper started")
+	ctx := context.Background()
+	return Run(ctx)
+}
+
 func main() {
 	logFile, err := getLogFile()
 	if err != nil {
@@ -75,17 +86,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	defer logFile.Close()
+	// mainWithDefer is responsible for closing the log file. That way we know it's closed
+	// and can use os.Exit safely in this method.
+	err = mainWithDefer(logFile)
 
-	logger := slog.New(slog.NewJSONHandler(logFile, nil))
-	slog.SetDefault(logger)
-
-	slog.Info("node-bootstrapper started")
-	ctx := context.Background()
-	if err := Run(ctx); err != nil {
+	if err != nil {
 		slog.Error("node-bootstrapper finished with error", "error", err.Error())
 		var exitErr *exec.ExitError
-		_ = logFile.Close()
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
 		}
@@ -198,7 +205,6 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 			return fmt.Errorf("expected windows script prefix not found: %w", err)
 		}
 		slog.Info(fmt.Sprintf("CSE script: %s\n\n", script))
-		//nolint:gosec // we generate the script, so it's safe to execute
 		cmd = exec.CommandContext(ctx, "powershell.exe", "-ExecutionPolicy", "Unrestricted", "-command", script)
 	} else {
 		//nolint:gosec // we generate the script, so it's safe to execute
