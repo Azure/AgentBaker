@@ -219,7 +219,15 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 . c:\AzureData\windows\windowscsehelper.ps1
 # util functions only can be used after this line, for example, Write-Log
 
+# make sure the global logging directory exists. If the script is not being running as a CSE then it won't exist.
+md $global:EventsLoggingDir -ea 0
+
 $global:OperationId = New-Guid
+if ("$global:OperationId2" -eq "") {
+    $global:OperationId = "00000000-0000-0000-0000-000000000000"
+}
+
+$env:Path += ';C:\Program Files\containerd'
 
 try
 {
@@ -345,28 +353,39 @@ try
         New-CsiProxyService -CsiProxyPackageUrl $global:CsiProxyUrl -KubeDir $global:KubeDir
     }
 
-    if ($global:TLSBootstrapToken) {
+    if ($global:TLSBootstrapToken)
+    {
         Write-BootstrapKubeConfig -CACertificate $global:CACertificate `
-            -KubeDir $global:KubeDir `
-            -MasterFQDNPrefix $MasterFQDNPrefix `
-            -MasterIP $MasterIP `
-            -TLSBootstrapToken $global:TLSBootstrapToken
-        
+        -KubeDir $global:KubeDir `
+        -MasterFQDNPrefix $MasterFQDNPrefix `
+        -MasterIP $MasterIP `
+        -TLSBootstrapToken $global:TLSBootstrapToken
+
         # NOTE: we need kubeconfig to setup calico even if TLS bootstrapping is enabled
         #       This kubeconfig will deleted after calico installation.
         # TODO(hbc): once TLS bootstrap is fully enabled, remove this if block
         Write-Log "Write temporary kube config"
-    } else {
-        Write-Log "Write kube config"
+    }
+    else
+    {
+        Write-Log "Not writing bootstrap kube config as no bootstrap token present"
     }
 
-    Write-KubeConfig -CACertificate $global:CACertificate `
+    if ($global:AgentCertificate)
+    {
+        Write-KubeConfig -CACertificate $global:CACertificate `
         -KubeDir $global:KubeDir `
         -MasterFQDNPrefix $MasterFQDNPrefix `
         -MasterIP $MasterIP `
         -AgentKey $AgentKey `
         -AgentCertificate $global:AgentCertificate
-    
+        Write-Log "Write kube config based on agent certificate"
+    }
+    else
+    {
+        Write-Log "Not writing kube config as no agent certificate present"
+    }
+
     if ($global:EnableHostsConfigAgent) {
         New-HostsConfigService
     }
@@ -402,8 +421,9 @@ try
             -IdentitySystem "azure_ad"
     }
 
+    Write-Log "Setting up ExternalHnsNetwork"
     New-ExternalHnsNetwork -IsDualStackEnabled $global:IsDualStackEnabled
-    
+
     Install-KubernetesServices `
         -KubeDir $global:KubeDir
 
