@@ -397,7 +397,7 @@ getPrimaryNicIP() {
     local ip=""
 
     while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
         if [[ -n "$ip" && $? -eq 0 ]]; then
             break
         fi
@@ -581,7 +581,6 @@ iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 EOF
 
     primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
-    primaryNicIP=$(echo "$primaryNicIP" | sed 's/[[:space:]]*$//')
     ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
     mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
     touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
