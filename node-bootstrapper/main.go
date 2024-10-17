@@ -25,7 +25,8 @@ import (
 const (
 	ConfigVersion                  = "v0"
 	DefaultAksAadAppID             = "6dae42f8-4368-4678-94ff-3960e28e3630"
-	LogFile                        = "/var/log/azure/node-bootstrapper.log"
+	LinuxLogFile                   = "/var/log/azure/node-bootstrapper.log"
+	WindowsLogFile                 = "c:/k/node-bootstrapper.log"
 	ReadOnlyUser       os.FileMode = 0600
 	ReadOnlyWorld      os.FileMode = 0644
 	ExecutableWorld    os.FileMode = 0755
@@ -61,13 +62,18 @@ func (s SensitiveString) UnsafeValue() string {
 	return string(s)
 }
 
+func isWindows() bool {
+	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
+}
+
 func main() {
-	logFile, err := os.OpenFile(LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := getLogFile()
 	if err != nil {
 		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to open log file: %s\n", err)
 		os.Exit(1)
 	}
+
 	defer logFile.Close()
 
 	logger := slog.New(slog.NewJSONHandler(logFile, nil))
@@ -85,6 +91,15 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("node-bootstrapper finished")
+}
+
+func getLogFile() (*os.File, error) {
+	logFilePath := LinuxLogFile
+	if isWindows() {
+		logFilePath = WindowsLogFile
+	}
+
+	return os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
 
 func Run(ctx context.Context) error {
