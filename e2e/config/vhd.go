@@ -61,6 +61,14 @@ var (
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
 	}
+
+	// without kubelet, kubectl, credential-provider and wasm
+	VHDUbuntu2204Gen2ContainerdAirgapped = &Image{
+		Name:    "2204gen2containerd",
+		OS:      "ubuntu",
+		Arch:    "amd64",
+		Version: "1.1725612526.29638",
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
@@ -91,7 +99,7 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image %s", i.vhdErr)
+			t.Logf("failed to find the latest image version for %s", i.vhdErr)
 		}
 	})
 	return i.vhd, i.vhdErr
@@ -145,7 +153,7 @@ func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersion
 	}
 	version := newSIGImageVersionFromResourceID(rid)
 
-	resp, err := Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
+	resp, err := Azure.GalleryImageVersion.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
@@ -168,8 +176,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 		return "", fmt.Errorf("parsing image definition resource ID: %w", err)
 	}
 	definition := newSIGImageDefinitionFromResourceID(rid)
-
-	pager := Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
+	pager := Azure.GalleryImageVersion.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -233,7 +240,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
 
-	resp, err := Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
+	resp, err := Azure.GalleryImageVersion.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}

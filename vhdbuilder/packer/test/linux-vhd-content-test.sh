@@ -4,6 +4,7 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+AZURELINUX_OS_NAME="AZURELINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -78,25 +79,27 @@ testPackagesInstalled() {
   echo "$test:Start"
   packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for p in ${packages[*]}; do
+  while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [[ "$OS_SKU" == "CBLMariner" || "$OS_SKU" == "AzureLinux" ]]; then
+    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
       OS=$MARINER_OS_NAME
+    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
+      OS=$AZURELINUX_OS_NAME
     else
       OS=$UBUNTU_OS_NAME
     fi
     PACKAGE_VERSIONS=()
-    returnPackageVersions ${p} ${OS} ${OS_VERSION}
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
-    returnPackageDownloadURL ${p} ${OS} ${OS_VERSION}
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
-    for version in ${PACKAGE_VERSIONS[@]}; do
+    for version in "${PACKAGE_VERSIONS[@]}"; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
         # we can further think of adding a check to see if the package is installed through apt-get
@@ -124,13 +127,21 @@ testPackagesInstalled() {
 
       # if the downloadLocation is /usr/local/bin verify that the package is installed
       if [ "$downloadLocation" == "/usr/local/bin" ]; then
-          if command -v "$name" >/dev/null 2>&1; then
-              echo "$name is installed."
-              continue
-          else
-              err $test "$name is not installed. Expected to be installed in $downloadLocation"
-              continue
-          fi
+        if command -v "$name" >/dev/null 2>&1; then
+          echo "$name is installed."
+          continue
+        elif [ "$name" == "containerd-wasm-shims" ]; then
+          testWasmRuntimesInstalled $downloadLocation $version
+          echo "$test $name binaries are in the expected location of $downloadLocation"
+          continue
+        elif [ "$name" == "spinkube" ]; then
+          testSpinKubeInstalled $downloadLocation $version
+          echo "$test $name binaries are in the expected location of $downloadLocation"
+          continue
+        else
+          err $test "$name is not installed. Expected to be installed in $downloadLocation"
+          continue
+        fi
       fi
       
       # if there isn't a directory, we check if the file exists and the size is correct
@@ -161,12 +172,13 @@ testPackagesInstalled() {
     done
 
     echo "---"
-  done
+  done <<<"$packages"
   echo "$test:Finish"
 }
 
 testImagesPulled() {
   test="testImagesPulled"
+  local componentsJsonContent="$2"
   echo "$test:Start"
   containerRuntime=$1
   if [ $containerRuntime == 'containerd' ]; then
@@ -178,25 +190,23 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(echo $2 | jq .ContainerImages[] --monochrome-output --compact-output)
+  imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
-  for imageToBePulled in ${imagesToBePulled[*]}; do
+  while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+    MULTI_ARCH_VERSIONS=()
+    updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
     if [[ ${amd64OnlyVersionsStr} != null ]]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
-    multiArchVersions=""
-    if [[ ${multiArchVersionsStr} != null ]]; then
-      multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-    fi
+
     if [[ $(isARM64) == 1 ]]; then
-      versions="${multiArchVersions}"
+      versions="${MULTI_ARCH_VERSIONS}"
     else
-      versions="${amd64OnlyVersions} ${multiArchVersions}"
+      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
@@ -209,7 +219,7 @@ testImagesPulled() {
     done
 
     echo "---"
-  done
+  done <<<"$imagesToBePulled"
   echo "$test:Finish"
 }
 
@@ -228,14 +238,14 @@ testImagesRetagged() {
   fi
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
-  for pulledImage in ${pulledImages[@]}; do
+  while IFS= read -r pulledImage; do
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
-  done
+  done <<<"$pulledImages"
   if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
     echo "all the images are:"
@@ -270,7 +280,7 @@ testChrony() {
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
-  #if mariner check chronyd, else check chrony
+  #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
   if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     os_chrony="chronyd"
@@ -419,10 +429,18 @@ testKubeBinariesPresent() {
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
+
+  #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
   if ! nc -h 2>/dev/null; then
     err $test "nc is not installed"
   else
     echo $test "nc is installed"
+  fi
+
+  if ! curl -h 2>/dev/null; then
+    err $test "curl is not installed"
+  else
+    echo $test "curl is installed"
   fi
 
   if ! nslookup -version 2>/dev/null; then
@@ -440,6 +458,7 @@ testCustomCAScriptExecutable() {
   if [ "$permissions" != "755" ]; then
     err $test "/opt/scripts/update_certs.sh has incorrect permissions"
   fi
+
   echo "$test:Finish"
 }
 
@@ -448,6 +467,16 @@ testCustomCATimerNotStarted() {
   if [[ -n "$isUnitThere" ]]; then
     err $test "Custom CA timer was loaded, but shouldn't be"
   fi
+
+  echo "$test:Finish"
+}
+
+testCustomCATrustNodeCAWatcherRetagged() {
+  isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
+  if [[ -z "$isStaticTagImageThere" ]]; then
+    err $test "Expected to find Node CA Watcher with static tag on the node"
+  fi
+
   echo "$test:Finish"
 }
 
@@ -667,7 +696,7 @@ testPamDSettings() {
   local settings_file=/etc/security/faillock.conf
   echo "$test:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -858,7 +887,7 @@ testPam() {
   local retval=0
   echo "${test}:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -920,13 +949,15 @@ testContainerImagePrefetchScript() {
 }
 
 testBccTools () {
-  for line in '- bcc-tools' '- libbcc-examples'; do
-    if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
-      echo "BCC tools were not successfully downloaded."
+  local test="BCCInstallTest"
+  echo "$test: checking if BCC tools were successfully installed"
+  for line in '  - bcc-tools' '  - libbcc-examples'; do
+    if ! grep -F -x -e "$line" $VHD_LOGS_FILEPATH; then
+      err "BCC tools were not successfully installed"
       return 1
     fi
   done
-  echo "BCC tools were successfully downloaded."
+  echo "$test: BCC tools were successfully installed"
   return 0
 }
 
@@ -948,6 +979,53 @@ testNBCParserBinary () {
   fi
   echo "$test: nbcparser go binary ran successfully"
 
+}
+
+testWasmRuntimesInstalled() {
+  local test="testWasmRuntimesInstalled"
+  local wasm_runtimes_path=${1}
+  local shim_version=${2}
+  shim_version="v${shim_version}"
+
+  echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
+
+  local shims_to_download=("spin" "slight")
+  if [[ "${shim_version}" == "0.8.0" ]]; then
+    shims_to_download+=("wws")
+  fi
+
+  binary_version="$(echo "${shim_version}" | tr . -)"
+  for shim in "${shims_to_download[@]}"; do
+    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
+    if [ ! -f $binary_path_pattern ]; then
+      output=$(ls -la /usr/local/bin)
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
+      return 1
+    else
+      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+    fi
+  done
+}
+
+testSpinKubeInstalled() {
+  local test="testSpinKubeInstalled"
+  local spinKube_runtimes_path=${1}
+  local shim_version=${2}
+  shim_version="v${shim_version}"
+  binary_version="$(echo "${shim_version}" | tr . -)"
+
+  # v0.15.1 does not have a version encoded in the binary name
+  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
+  if [ ! -f $binary_path_pattern ]; then
+    output=$(ls -la /usr/local/bin)
+    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
+    return 1
+  else
+    echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+  fi
+
+  echo "$test: Test finished successfully."
+  return 0
 }
 
 checkPerformanceData() {
@@ -993,6 +1071,7 @@ testCloudInit $OS_SKU
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
+testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings

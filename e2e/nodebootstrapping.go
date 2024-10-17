@@ -15,16 +15,16 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 )
 
-func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, bootstrappingType NodeBootstrappingType) (*datamodel.NodeBootstrapping, error) {
 	switch e2eMode {
 	case "coverage":
-		return getNodeBootstrappingForCoverage(ctx, nbc)
+		return getNodeBootstrappingForCoverage(nbc)
 	default:
-		return getNodeBootstrappingForValidation(ctx, nbc)
+		return getNodeBootstrappingForValidation(ctx, nbc, bootstrappingType)
 	}
 }
 
-func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForCoverage(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	payload, err := json.Marshal(nbc)
 	if err != nil {
 		log.Fatalf("failed to marshal nbc, error: %s", err)
@@ -47,16 +47,20 @@ func getNodeBootstrappingForCoverage(ctx context.Context, nbc *datamodel.NodeBoo
 	return nodeBootstrapping, nil
 }
 
-func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, bootstrappingType NodeBootstrappingType) (*datamodel.NodeBootstrapping, error) {
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
 		return nil, err
 	}
-	nodeBootstrapping, err := ab.GetNodeBootstrapping(ctx, nbc)
-	if err != nil {
-		return nil, err
+	switch {
+	case bootstrappingType == Scriptless:
+		return ab.GetNodeBootstrappingForScriptless(ctx, nbc)
+	case bootstrappingType == CustomScripts:
+		return ab.GetNodeBootstrapping(ctx, nbc)
+	default:
+		// fallback to custom scripts
+		return ab.GetNodeBootstrapping(ctx, nbc)
 	}
-	return nodeBootstrapping, nil
 }
 
 func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {

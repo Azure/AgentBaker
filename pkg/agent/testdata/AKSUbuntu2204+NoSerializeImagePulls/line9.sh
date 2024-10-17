@@ -105,6 +105,14 @@ ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205
 
 ERR_CNI_VERSION_INVALID=206 
 
+ERR_CURL_REMOVE_TIMEOUT=300 
+ERR_CURL_DOWNLOAD_TIMEOUT=301 
+ERR_CURL_EXTRACT_TIMEOUT=302 
+ERR_CURL_DOWNGRADE_LIBSSL=303 
+ERR_CURL_DOWNLOAD_DEV_TIMEOUT=304 
+ERR_CURL_INSTALL_TIMEOUT=305 
+ERR_CURL_VERSION_MISMATCH=306 
+
 if find /etc -type f -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -473,7 +481,7 @@ process_benchmarks() {
 #return proper release metadata for the package based on the os and osVersion
 #e.g., For os UBUNTU 18.04, if there is a release "r1804" defined in components.json, then set RELEASE to "r1804"
 #Otherwise set RELEASE to "current"
-returnRelease() {
+updateRelease() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
@@ -490,12 +498,12 @@ returnRelease() {
     fi
 }
 
-returnPackageVersions() {
+updatePackageVersions() {
     local package="$1"
     local os="$2"
     local osVersion="$3"
     RELEASE="current"
-    returnRelease "${package}" "${os}" "${osVersion}"
+    updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
 
@@ -518,12 +526,12 @@ returnPackageVersions() {
     return 0
 }
 
-returnPackageDownloadURL() {
+updatePackageDownloadURL() {
     local package=$1
     local os=$2
     local osVersion=$3
     RELEASE="current"
-    returnRelease "${package}" "${os}" "${osVersion}"
+    updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.

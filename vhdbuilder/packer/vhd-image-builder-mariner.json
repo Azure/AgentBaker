@@ -92,6 +92,11 @@
     },
     {
       "type": "file",
+      "source": "node-bootstrapper/dist/node-bootstrapper-linux-amd64",
+      "destination": "/home/packer/node-bootstrapper"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
     },
@@ -132,6 +137,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh",
+      "destination": "/home/packer/provision_source_benchmarks.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/mariner/cse_helpers_mariner.sh",
       "destination": "/home/packer/provision_source_distro.sh"
     },
@@ -169,6 +179,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/block_wireserver.sh",
       "destination": "/home/packer/block_wireserver.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/ensure_imds_restriction.sh",
+      "destination": "/home/packer/ensure_imds_restriction.sh"
     },
     {
       "type": "file",
@@ -585,6 +600,12 @@
       ]
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/var/log/bcc_installation.log",
+      "destination": "bcc-tools-installation.log"
+    },
+    {
       "type": "shell",
       "inline": "sudo reboot",
       "expect_disconnect": true,
@@ -637,7 +658,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
+        "sudo waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ]

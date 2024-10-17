@@ -61,6 +61,137 @@ const (
 type outputValidator func(*nodeBootstrappingOutput)
 
 var _ = Describe("Assert generated customData and cseCmd", func() {
+	Describe("Tests of template methods", func() {
+		var config *datamodel.NodeBootstrappingConfiguration
+		BeforeEach(func() {
+			config = &datamodel.NodeBootstrappingConfiguration{
+				ContainerService: &datamodel.ContainerService{
+					Properties: &datamodel.Properties{
+						HostedMasterProfile: &datamodel.HostedMasterProfile{},
+						OrchestratorProfile: &datamodel.OrchestratorProfile{
+							KubernetesConfig: &datamodel.KubernetesConfig{
+								ContainerRuntimeConfig: map[string]string{},
+							},
+						},
+					},
+				},
+				AgentPoolProfile: &datamodel.AgentPoolProfile{},
+			}
+		})
+
+		Describe(".HasDataDir()", func() {
+			It("given there is no profile, it returns false", func() {
+				Expect(HasDataDir(config)).To(BeFalse())
+			})
+			It("given there is a data dir, it returns true", func() {
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig["dataDir"] = "data dir"
+				Expect(HasDataDir(config)).To(BeTrue())
+			})
+			It("given there is a temp disk, it returns true", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// - rather than the value of our internal const is mariner.
+				config.AgentPoolProfile.KubeletDiskType = "Temporary"
+				Expect(HasDataDir(config)).To(BeTrue())
+			})
+		})
+
+		Describe(".GetDataDir()", func() {
+			It("given there is no profile, it returns an empty string", func() {
+				Expect(GetDataDir(config)).To(BeEmpty())
+			})
+			It("given there is a data dir, it returns true", func() {
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig["dataDir"] = "data dir"
+				Expect(GetDataDir(config)).To(Equal("data dir"))
+			})
+			It("given there is a temp disk, it returns true", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// - rather than the value of our internal const is mariner.
+				config.AgentPoolProfile.KubeletDiskType = "Temporary"
+				Expect(GetDataDir(config)).To(Equal("/mnt/aks/containers"))
+			})
+		})
+
+		Describe(".GetKubernetesEndpoint()", func() {
+			It("given there is no profile, it returns an empty string", func() {
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(BeEmpty())
+			})
+			It("given there is an ip address, it returns the ip address", func() {
+				config.ContainerService.Properties.HostedMasterProfile.IPAddress = "127.0.0.1"
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(Equal("127.0.0.1"))
+			})
+			It("given there is n fqdn, it returns the fqdn", func() {
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "fqdn"
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(Equal("fqdn"))
+			})
+			It("given there is an ip address and a fqdn, it returns the ip address", func() {
+				config.ContainerService.Properties.HostedMasterProfile.IPAddress = "127.0.0.1"
+				config.ContainerService.Properties.HostedMasterProfile.FQDN = "fqdn"
+				Expect(GetKubernetesEndpoint(config.ContainerService)).To(Equal("127.0.0.1"))
+			})
+		})
+
+		Describe(".getPortRangeEndValue()", func() {
+			It("given a port range with 2 numbers, it returns an the second number", func() {
+				Expect(getPortRangeEndValue("1 2")).To(Equal(2))
+			})
+			It("given a port range with 3 numbers, it returns an the second number", func() {
+				Expect(getPortRangeEndValue("1 2 3")).To(Equal(2))
+			})
+		})
+
+		Describe(".areCustomCATrustCertsPopulated()", func() {
+			It("given an empty profile, it returns false", func() {
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
+			})
+			It("given no list of certs, it returns false", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
+			})
+			It("given an empty list of certs, it returns false", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{},
+				}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
+			})
+			It("given a single custom ca cert, it returns true", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{"mock cert value"},
+				}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeTrue())
+			})
+			It("given 4 custom ca certs, it returns true", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					CustomCATrustCerts: []string{"cert1", "cert2", "cert3", "cert4"},
+				}
+				Expect(areCustomCATrustCertsPopulated(*config)).To(BeTrue())
+			})
+		})
+
+		Describe(".isMariner()", func() {
+			It("given an empty string, that is not mariner", func() {
+				Expect(isMariner("")).To(BeFalse())
+			})
+			It("given datamodel.OSSKUCBLMariner, that is mariner", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// is mariner - rather than the value of our internal const is mariner.
+				Expect(isMariner("CBLMariner")).To(BeTrue())
+			})
+			It("given datamodel.OSSKUMariner, that is mariner", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// is mariner - rather than the value of our internal const is mariner.
+				Expect(isMariner("Mariner")).To(BeTrue())
+			})
+			It("given datamodel.OSSKUAzureLinux, that is mariner", func() {
+				// test the actual string because this data is posted to agentbaker and we want to check a particular posted string
+				// is mariner - rather than the value of our internal const is mariner.
+				Expect(isMariner("AzureLinux")).To(BeTrue())
+			})
+			It("given ubuntu, that is not mariner", func() {
+				Expect(isMariner("Ubuntu")).To(BeFalse())
+			})
+		})
+	})
+
 	DescribeTable("Generated customData and CSE", func(folder, k8sVersion string, configUpdator func(*datamodel.NodeBootstrappingConfiguration),
 		validator outputValidator) {
 		cs := &datamodel.ContainerService{
@@ -107,21 +238,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 
-		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
-
-		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
-		if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-		}
-
-		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &datamodel.K8sComponents{
-			PodInfraContainerImageURL: pauseImage,
-			HyperkubeImageURL:         hyperkubeImage,
-			WindowsPackageURL:         windowsPackage,
-		}
+		k8sComponents := &datamodel.K8sComponents{}
 
 		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
 			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
@@ -1056,7 +1173,7 @@ oom_score = 0
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
       BinaryName = "/usr/bin/runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
+      runtime_type = "io.containerd.spin.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
       runtime_type = "io.containerd.slight-v0-3-0.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
@@ -1066,7 +1183,15 @@ oom_score = 0
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]
       runtime_type = "io.containerd.spin-v0-5-1.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"`
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]
+      runtime_type = "io.containerd.spin-v0-8-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]
+      runtime_type = "io.containerd.slight-v0-8-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
+      runtime_type = "io.containerd.wws-v0-8-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
+      runtime_type = "io.containerd.spin.v2"`
 
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfig))
 			},
@@ -1567,21 +1692,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 		agentPool := cs.Properties.AgentPoolProfiles[0]
 
-		fullK8sComponentsMap := K8sComponentsByVersionMap[cs.Properties.OrchestratorProfile.OrchestratorVersion]
-		pauseImage := cs.Properties.OrchestratorProfile.KubernetesConfig.MCRKubernetesImageBase + fullK8sComponentsMap["pause"]
-
-		hyperkubeImageBase := cs.Properties.OrchestratorProfile.KubernetesConfig.KubernetesImageBase
-		hyperkubeImage := hyperkubeImageBase + fullK8sComponentsMap["hyperkube"]
-		if cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage != "" {
-			hyperkubeImage = cs.Properties.OrchestratorProfile.KubernetesConfig.CustomHyperkubeImage
-		}
-
-		windowsPackage := datamodel.AzurePublicCloudSpecForTest.KubernetesSpecConfig.KubeBinariesSASURLBase + fullK8sComponentsMap["windowszip"]
-		k8sComponents := &datamodel.K8sComponents{
-			PodInfraContainerImageURL: pauseImage,
-			HyperkubeImageURL:         hyperkubeImage,
-			WindowsPackageURL:         windowsPackage,
-		}
+		k8sComponents := &datamodel.K8sComponents{}
 
 		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
 			// This is test only, credential provider version does not align with k8s version
@@ -2004,5 +2115,31 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
+	})
+})
+
+var _ = Describe("getGPUDriverVersion", func() {
+	It("should use 470 with nc v1", func() {
+		Expect(getGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
+	})
+	It("should use cuda with nc v3", func() {
+		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
+	})
+	It("should use grid with nv v5", func() {
+		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
+		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
+	})
+	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
+	It("should use cuda with nv v1", func() {
+		Expect(getGPUDriverVersion("standard_nv6")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
+	})
+})
+
+var _ = Describe("getAKSGPUImageSHA", func() {
+	It("should use newest AKSGPUGridSHA with nv v5", func() {
+		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridSHA))
+	})
+	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
+		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaSHA))
 	})
 })

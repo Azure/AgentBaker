@@ -1,6 +1,27 @@
 #!/bin/bash
 
-# TODO: assert required variables are set
+required_env_vars=(
+  "SIG_IMAGE_NAME"
+  "AZURE_RESOURCE_GROUP_NAME"
+  "CAPTURED_SIG_VERSION"
+  "ENVIRONMENT"
+  "SIG_GALLERY_NAME"
+  "OS_VERSION"
+  "SIG_IMAGE_NAME"
+  "UMSI_RESOURCE_ID"
+  "UMSI_PRINCIPAL_ID"
+  "UMSI_CLIENT_ID"
+  "BUILD_RUN_NUMBER"
+)
+
+for v in "${required_env_vars[@]}"; do
+  if [ -z "${!v}" ]; then
+    echo "$v was not set!"
+    exit 1
+  fi
+done
+
+echo "Present working directory: ${PWD}"
 
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
@@ -22,20 +43,16 @@ retrycmd_if_failure() {
   cat ${TARGET}-output.txt && rm ${TARGET}-output.txt
 }
 
-if [[ -z "$SIG_GALLERY_NAME" ]]; then
-  SIG_GALLERY_NAME="PackerSigGalleryEastUS"
-fi
-
 # Always run cleanup
 SCRIPT_ARRAY+=("./vhdbuilder/packer/cleanup.sh")
 
 # Check to ensure the build step succeeded
 SIG_VERSION=$(az sig image-version show \
--e ${CAPTURED_SIG_VERSION} \
--i ${SIG_IMAGE_NAME} \
--r ${SIG_GALLERY_NAME} \
--g ${AZURE_RESOURCE_GROUP_NAME} \
---query id --output tsv)
+  -e ${CAPTURED_SIG_VERSION} \
+  -i ${SIG_IMAGE_NAME} \
+  -r ${SIG_GALLERY_NAME} \
+  -g ${AZURE_RESOURCE_GROUP_NAME} \
+  --query id --output tsv)
 
 if [ -z "${SIG_VERSION}" ]; then
   echo -e "\nBuild step did not produce an image version. Running cleanup and then exiting."
@@ -43,12 +60,8 @@ if [ -z "${SIG_VERSION}" ]; then
   exit $?
 fi
 
-# Setup tests
-if [ "$IMG_SKU" != "20_04-lts-cvm" ]; then
-  SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
-else
-  echo -e "\n\nSkipping tests for CVM 20.04"
-fi
+# Setup testing
+SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"

@@ -30,6 +30,13 @@ SEVERITY=${17}
 MODULE_VERSION=${18}
 UMSI_PRINCIPAL_ID=${19}
 UMSI_CLIENT_ID=${20}
+BUILD_RUN_NUMBER=${21}
+export BUILD_REPOSITORY_NAME=${22}
+export BUILD_SOURCEBRANCH=${23}
+export BUILD_SOURCEVERSION=${24}
+export SYSTEM_COLLECTIONURI=${25}
+export SYSTEM_TEAMPROJECT=${26}
+export BUILD_BUILDID=${27}
 
 install_azure_cli() {
     OS_SKU=${1}
@@ -110,6 +117,7 @@ export PATH="$(pwd):$PATH"
 ./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
 if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
     ./vuln-to-kusto-vhd scan-report \
+        --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
         --vhd-vhdname="${VHD_NAME}" \
         --vhd-ossku="${OS_SKU}" \
         --vhd-osversion="${OS_VERSION}" \
@@ -128,15 +136,16 @@ Note: images without CVEs are also listed" >> "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 
 for CONTAINER_IMAGE in $IMAGE_LIST; do
     # append to table
-    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} --skip-db-update -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
 
     # export to Kusto, one by one
     BASE_CONTAINER_IMAGE=$(basename ${CONTAINER_IMAGE})
     TRIVY_REPORT_IMAGE_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-image-${BASE_CONTAINER_IMAGE}.json
-    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
+    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
 
     if [[ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]]; then
         ./vuln-to-kusto-vhd scan-report \
+            --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
             --vhd-vhdname="${VHD_NAME}" \
             --vhd-ossku="${OS_SKU}" \
             --vhd-osversion="${OS_VERSION}" \

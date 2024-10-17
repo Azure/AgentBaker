@@ -1,6 +1,8 @@
 #!/bin/bash
 set -eux
 
+source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
+
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
@@ -19,13 +21,6 @@ SUBNET_NAME="scanning"
 # version to the staging gallery, as the particular image version will only have a single replica in this region.
 if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
-    exit 1
-fi 
-
-# We assign this identity to the scanning VM so that it has permission
-# to push the trivy output to the storage blob and to export output to the Kusto table.
-if [ -z "$UMSI_RESOURCE_ID" ]; then
-    echo "UMSI_RESOURCE_ID must be set to run VHD scanning"
     exit 1
 fi
 
@@ -55,6 +50,7 @@ function cleanup() {
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
 trap cleanup EXIT
+capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_OPTIONS="--size Standard_D8ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
@@ -75,6 +71,8 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
+    
+capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -83,6 +81,9 @@ TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 TIMESTAMP=$(date +%s%3N)
 TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
+
+# Extract date, revision from build number
+BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $SCAN_VM_NAME \
@@ -107,12 +108,24 @@ az vm run-command invoke \
         "SEVERITY"=${SEVERITY} \
         "MODULE_VERSION"=${MODULE_VERSION} \
         "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
-        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID}
+        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID} \
+        "BUILD_RUN_NUMBER"=${BUILD_RUN_NUMBER} \
+        "BUILD_REPOSITORY_NAME"=${BUILD_REPOSITORY_NAME} \
+        "BUILD_SOURCEBRANCH"=${GIT_BRANCH} \
+        "BUILD_SOURCEVERSION"=${BUILD_SOURCEVERSION} \
+        "SYSTEM_COLLECTIONURI"=${SYSTEM_COLLECTIONURI} \
+        "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
+        "BUILDID"=${BUILD_ID}
+
+capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login
+capture_benchmark "${SCRIPT_NAME}_download_and_delete_blobs"
 
 echo -e "Trivy Scan Script Completed\n\n\n"
+capture_benchmark "${SCRIPT_NAME}_overall" true
+process_benchmarks

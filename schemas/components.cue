@@ -1,21 +1,32 @@
 package components
 
 #ContainerImagePrefetchOptimization: {
-	version: string
 	binaries: [...string]
+}
+
+#ContainerImagePrefetchOptimizations: {
+	latestVersion:          #ContainerImagePrefetchOptimization
+	previousLatestVersion?: #ContainerImagePrefetchOptimization
 }
 
 #ContainerImage: {
 	downloadURL: string
-	amd64OnlyVersions: [...string]
-	multiArchVersions: [...]
-	prefetchOptimizations: [...#ContainerImagePrefetchOptimization]
+	amd64OnlyVersions:     [...string]
+	multiArchVersionsV2:   [...#VersionV2]
 }
 
 #Images: [...#ContainerImage]
 #Packages: [...#Package]
+#VersionV2: {
+	k8sVersion?:             string
+	renovateTag?:            string
+	latestVersion:           string
+	previousLatestVersion?:  string
+	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
+}
+
 #ReleaseDownloadURI: {
-	versions:     [...string]
+	versionsV2:   [...#VersionV2]
 	downloadURL?:  string
 }
 
@@ -35,11 +46,17 @@ package components
 	current?: #ReleaseDownloadURI
 }
 
+#AzureLinuxOSDistro: {
+	"v3.0"?:  #ReleaseDownloadURI
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
 	default?:      #DefaultOSDistro
 	ubuntu?:       #UbuntuOSDistro
 	mariner?:      #MarinerOSDistro
 	marinerkata?:  #MarinerOSDistro
+	azurelinux?:   #AzureLinuxOSDistro
 }
 
 #Package: {

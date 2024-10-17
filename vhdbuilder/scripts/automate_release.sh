@@ -56,6 +56,10 @@ create_release() {
     RESPONSE=$(curl -X POST -H "Authorization: Basic $(echo -n ":$ADO_PAT" | base64)" -H "Content-Type: application/json" -d "$REQUEST_BODY" "$RELEASE_API_ENDPOINT")
     
     RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+    if [ -z "$RELEASE_ID" ]; then
+        echo "Error: SIG release not created successfully, unable to extract release ID"
+        return 1
+    fi
     echo "SIG release successfully created for VHD build with ID: $VHD_BUILD_ID"
     echo "release URL: https://msazure.visualstudio.com/CloudNativeCompute/_releaseProgress?_a=release-pipeline-progress&releaseId=$RELEASE_ID"
 

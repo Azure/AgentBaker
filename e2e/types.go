@@ -17,13 +17,14 @@ import (
 )
 
 type Tags struct {
-	Name      string
-	ImageName string
-	OS        string
-	Arch      string
-	Airgap    bool
-	GPU       bool
-	WASM      bool
+	Name                   string
+	ImageName              string
+	OS                     string
+	Arch                   string
+	Airgap                 bool
+	GPU                    bool
+	WASM                   bool
+	ServerTLSBootstrapping bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -109,10 +110,19 @@ type Scenario struct {
 	Config
 }
 
+type NodeBootstrappingType string
+
+const (
+	CustomScripts NodeBootstrappingType = "CustomScripts"
+	Scriptless    NodeBootstrappingType = "Scriptless"
+)
+
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
+
+	NodeBootstrappingType NodeBootstrappingType
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
 	VHD *config.Image
@@ -126,6 +136,9 @@ type Config struct {
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*LiveVMValidator
+
+	CSEOverride       string
+	DisableCustomData bool
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content

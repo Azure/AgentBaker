@@ -82,10 +82,6 @@ fi
 if [ -z "${VNET_RG_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
 		VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# for now preserve original functionality for prod builds
-			VNET_RG_NAME="nodesigprod-agent-pool"
-		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
@@ -99,10 +95,6 @@ fi
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# for now preserve original functionality for prod builds
-			VNET_NAME="nodesig-pool-vnet"
-		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet"
@@ -162,6 +154,9 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			else
 				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
+		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
+			# for Azure Linux 3.0, only use AzureLinux prefix
+			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -248,26 +243,55 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		--gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-		TARGET_COMMAND_STRING=""
-		if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-			TARGET_COMMAND_STRING+="--architecture Arm64"
-		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-			TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
-		elif [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
-			TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunch"
-		fi
+		# The following conditionals do not require NVMe tagging on disk controller type
+		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
+		  TARGET_COMMAND_STRING=""
+		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+        TARGET_COMMAND_STRING+="--architecture Arm64"
+      elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+      fi
 
-		az sig image-definition create \
-			--resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-			--gallery-name ${SIG_GALLERY_NAME} \
-			--gallery-image-definition ${SIG_IMAGE_NAME} \
-			--publisher microsoft-aks \
-			--offer ${SIG_GALLERY_NAME} \
-			--sku ${SIG_IMAGE_NAME} \
-			--os-type ${OS_TYPE} \
-			--hyper-v-generation ${HYPERV_GENERATION} \
-			--location ${AZURE_LOCATION} \
-			${TARGET_COMMAND_STRING}
+      az sig image-definition create \
+        --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+        --gallery-name ${SIG_GALLERY_NAME} \
+        --gallery-image-definition ${SIG_IMAGE_NAME} \
+        --publisher microsoft-aks \
+        --offer ${SIG_GALLERY_NAME} \
+        --sku ${SIG_IMAGE_NAME} \
+        --os-type ${OS_TYPE} \
+        --hyper-v-generation ${HYPERV_GENERATION} \
+        --location ${AZURE_LOCATION} \
+        ${TARGET_COMMAND_STRING}
+		else
+		  # TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
+		  if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+		    az sig image-definition create \
+          --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+          --gallery-name ${SIG_GALLERY_NAME} \
+          --gallery-image-definition ${SIG_IMAGE_NAME} \
+          --publisher microsoft-aks \
+          --offer ${SIG_GALLERY_NAME} \
+          --sku ${SIG_IMAGE_NAME} \
+          --os-type ${OS_TYPE} \
+          --hyper-v-generation ${HYPERV_GENERATION} \
+          --location ${AZURE_LOCATION} \
+          --features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
+      else
+        # For vanilla Gen2, mark only NVMe
+        az sig image-definition create \
+          --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
+          --gallery-name ${SIG_GALLERY_NAME} \
+          --gallery-image-definition ${SIG_IMAGE_NAME} \
+          --publisher microsoft-aks \
+          --offer ${SIG_GALLERY_NAME} \
+          --sku ${SIG_IMAGE_NAME} \
+          --os-type ${OS_TYPE} \
+          --hyper-v-generation ${HYPERV_GENERATION} \
+          --location ${AZURE_LOCATION} \
+          --features DiskControllerTypes=SCSI,NVMe
+      fi
+		fi
 	else
 		echo "Image definition ${SIG_IMAGE_NAME} existing in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 	fi
@@ -473,7 +497,6 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 fi
 
 # windows_image_version refers to the version from azure gallery
-# aks_windows_image_version refers to the version built by AKS Windows SIG
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
   "subscription_id":  "${SUBSCRIPTION_ID}",
@@ -507,7 +530,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
-  "aks_windows_image_version": "${AKS_WINDOWS_IMAGE_VERSION}"
+  "build_date": "${BUILD_DATE}"
 }
 EOF
 

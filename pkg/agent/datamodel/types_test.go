@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -40,15 +41,14 @@ func TestHasAadProfile(t *testing.T) {
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
-	properities := getMockProperitesWithCustomClouEnv()
+	properties := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
-	actual, err := properities.GetCustomEnvironmentJSON(false)
+	actual, err := properties.GetCustomEnvironmentJSON(false)
 	if err != nil {
 		t.Error(err)
 	}
-	if expectedRet != actual {
-		t.Errorf("Expected GetCustomEnvironmentJSON() to return %s, but got %s . ", expectedRet, actual)
-	}
+
+	assert.JSONEq(t, expectedRet, actual)
 }
 
 func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
@@ -1022,9 +1022,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2,
 			},
 			expected: true,
 		},
@@ -1036,6 +1050,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen1 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2FIPS,
@@ -1043,9 +1064,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2FIPS,
 			},
 			expected: true,
 		},
@@ -2093,7 +2128,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon := c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2129,7 +2164,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon = c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 

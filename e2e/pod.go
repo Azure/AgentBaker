@@ -25,14 +25,15 @@ func getHostNetworkDebugPodName(ctx context.Context, kube *Kubeclient) (string, 
 	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": hostNetworkDebugAppLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
 	}
-	for _, pod := range podList.Items {
-		err := waitUntilPodReady(ctx, kube, pod.Name)
-		if err != nil {
-			return "", fmt.Errorf("failed to wait for pod to be in running state: %w", err)
-		}
-		return pod.Name, nil
+	if podList.Size() == 0 {
+		return "", fmt.Errorf("failed to find host debug pod")
 	}
-	return "", fmt.Errorf("failed to find non host debug pod")
+	pod := podList.Items[0]
+	err := waitUntilPodReady(ctx, kube, pod.Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to wait for pod to be in running state: %w", err)
+	}
+	return pod.Name, nil
 }
 
 // Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return

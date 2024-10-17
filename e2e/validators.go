@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"fmt"
+	"net"
+	"regexp"
 	"strings"
 )
 
@@ -15,7 +17,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 			}
 			for _, file := range files {
 				if !strings.Contains(stdout, file) {
-					return fmt.Errorf(fmt.Sprintf("expected to find file %s within directory %s, but did not", file, path))
+					return fmt.Errorf("expected to find file %s within directory %s, but did not", file, path)
 				}
 			}
 			return nil
@@ -25,7 +27,7 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 
 func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 	keysToCheck := make([]string, len(customSysctls))
-	for k, _ := range customSysctls {
+	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
 	// regex used in sed command to remove extra spaces between two numerical values, used to verify correct values for
@@ -39,7 +41,7 @@ func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
 			}
 			for name, value := range customSysctls {
 				if !strings.Contains(stdout, fmt.Sprintf("%s = %v", name, value)) {
-					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", name, value))
+					return fmt.Errorf("expected to find %s set to %v, but was not", name, value)
 				}
 			}
 			return nil
@@ -105,9 +107,9 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 
 func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("ls -la %[1]s", fileName),
-		fmt.Sprintf("(sudo cat %[1]s | grep -q '%[2]s')", fileName, contents),
+		fmt.Sprintf("sudo cat %[1]s", fileName),
+		fmt.Sprintf("(sudo cat %[1]s | grep -q %[2]q)", fileName, contents),
 	}
 
 	command := makeExecutableCommand(steps)
@@ -140,9 +142,7 @@ func FileExcludesContentsValidator(fileName string, contents string, contentsNam
 
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
 func cleanse(str string) string {
-	str = strings.Replace(str, "'", "", -1)
-
-	return str
+	return strings.Replace(str, "'", "", -1)
 }
 
 func makeExecutableCommand(steps []string) string {
@@ -197,7 +197,7 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 		Command:     command,
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
-				return fmt.Errorf("service kill and check terminated with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s\n", code, command, stdout, stderr)
+				return fmt.Errorf("service kill and check terminated with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s", code, command, stdout, stderr)
 			}
 			return nil
 		},
@@ -206,8 +206,7 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 
 func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *LiveVMValidator {
 	steps := []string{
-		// Verify the service is active - print the state then verify so we have logs
-		fmt.Sprintf("%s", commandToExecute),
+		fmt.Sprint(commandToExecute),
 	}
 
 	command := makeExecutableCommand(steps)
@@ -217,10 +216,10 @@ func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *
 		Command:     command,
 		Asserter: func(code, stdout, stderr string) error {
 			if !strings.Contains(stderr, expectedOutput) {
-				return fmt.Errorf("'%s' output did not contain expected string Stdout:\n%s\n\n Stderr:\n%s\n", command, stdout, stderr)
+				return fmt.Errorf("'%s' output did not contain expected string Stdout:\n%s\n\n Stderr:\n%s", command, stdout, stderr)
 			}
 			if code != "0" {
-				return fmt.Errorf("command failed with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s\n", code, command, stdout, stderr)
+				return fmt.Errorf("command failed with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s", code, command, stdout, stderr)
 			}
 			return nil
 		},
@@ -250,35 +249,120 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 	}
 }
 
-func containerdVersionValidator(version string) *LiveVMValidator {
+// can be used to validate version of moby components like moby-containerd or moby-runc
+func mobyComponentVersionValidator(component, version, packageManager string) *LiveVMValidator {
+	installedCommand := "list --installed"
+	if packageManager == "dnf" {
+		installedCommand = "list installed"
+	}
+	if packageManager == "apt" {
+		installedCommand = "list --installed"
+	} else if packageManager == "dnf" {
+		installedCommand = "list installed"
+	}
+
 	return &LiveVMValidator{
-		Description: "assert containerd version",
-		Command:     "containerd --version",
+		Description: fmt.Sprintf("assert the installed version of %s", component),
+		Command:     fmt.Sprintf("%[2]s %[3]s moby-%[1]s | grep '%[1]s' | awk '{print $2}'", component, packageManager, installedCommand),
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
 			}
 
 			if !strings.Contains(stdout, version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find containerd version %s, got: %s", version, stdout))
+				return fmt.Errorf(fmt.Sprintf("expected to find %s version %s, got: %s", component, version, stdout))
 			}
 			return nil
 		},
 	}
 }
 
-func runcVersionValidator(version string) *LiveVMValidator {
+// K8s 1.29+ should set --node-ip in kubelet flags due to behavior change in
+// https://github.com/kubernetes/kubernetes/pull/121028
+func kubeletNodeIPValidator() *LiveVMValidator {
 	return &LiveVMValidator{
-		Description: "assert runc version",
-		Command:     "runc --version",
+		Description: "assert /etc/default/kubelet has --node-ip flag set",
+		Command:     "cat /etc/default/kubelet",
 		Asserter: func(code, stdout, stderr string) error {
 			if code != "0" {
 				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
 			}
 
-			// runc output
-			if !strings.Contains(stdout, "runc version "+version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find runc version %s, got: %s", version, stdout))
+			// Search for "--node-ip" flag and its value.
+			matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
+			if matches == nil || len(matches) < 2 {
+				return fmt.Errorf("could not find kubelet flag --node-ip")
+			}
+
+			ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
+			if len(ipAddresses) == 0 || len(ipAddresses) > 2 {
+				return fmt.Errorf("expected one or two --node-ip addresses, but got %d", len(ipAddresses))
+			}
+
+			// Check that each IP is a valid address.
+			for _, ipAddress := range ipAddresses {
+				if parsedIP := net.ParseIP(ipAddress); parsedIP == nil {
+					return fmt.Errorf("--node-ip value %q is not a valid IP address", ipAddress)
+				}
+			}
+
+			return nil
+		},
+	}
+}
+
+func imdsRestrictionRuleValidator(table string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert that the IMDS restriction rule is present",
+		Command:     fmt.Sprintf("iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("expected to find the IMDS restriction rule, but did not")
+			}
+			return nil
+		},
+	}
+}
+
+func containerdWasmShimsValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert containerd config.toml contains expected Wasm shims",
+		Command:     "cat /etc/containerd/config.toml",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0. stderr: %q", code, stderr)
+			}
+
+			expectedShims := []string{
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]`,
+				`runtime_type = "io.containerd.spin.v2"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]`,
+				`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]`,
+				`runtime_type = "io.containerd.spin-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-3-0]`,
+				`runtime_type = "io.containerd.slight-v0-3-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-5-1]`,
+				`runtime_type = "io.containerd.spin-v0-5-1.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-5-1]`,
+				`runtime_type = "io.containerd.slight-v0-5-1.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-8-0]`,
+				`runtime_type = "io.containerd.spin-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight-v0-8-0]`,
+				`runtime_type = "io.containerd.slight-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]`,
+				`runtime_type = "io.containerd.wws-v0-8-0.v1"`,
+				`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]`,
+				`runtime_type = "io.containerd.spin.v2"`,
+			}
+
+			for i := 0; i < len(expectedShims); i += 2 {
+				section := expectedShims[i]
+				runtimeType := expectedShims[i+1]
+
+				if !strings.Contains(stdout, section) || !strings.Contains(stdout, runtimeType) {
+					return fmt.Errorf("expected to find section %q with runtime type %q in containerd config.toml, but it was not found. Full config.toml content:\n%s", section, runtimeType, stdout)
+				}
 			}
 			return nil
 		},
