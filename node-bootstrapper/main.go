@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -18,23 +20,64 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
+// Some options are intentionally non-configurable to avoid customization by users
+// it will help us to avoid introducing any breaking changes in the future.
 const (
-	DefaultAksAadAppID             = "6dae42f8-4368-4678-94ff-3960e28e3630"
-	ReadOnlyWorld      os.FileMode = 0644
-	ReadOnlyUser       os.FileMode = 0600
 	ConfigVersion                  = "v0"
+	DefaultAksAadAppID             = "6dae42f8-4368-4678-94ff-3960e28e3630"
+	LogFile                        = "/var/log/azure/node-bootstrapper.log"
+	ReadOnlyUser       os.FileMode = 0600
+	ReadOnlyWorld      os.FileMode = 0644
 )
 
 type Config struct {
 	Version string `json:"version"`
 }
 
+// SensitiveString is a custom type for sensitive information, like passwords or tokens.
+// It reduces the risk of leaking sensitive information in logs.
+type SensitiveString string
+
+// String implements the fmt.Stringer interface.
+func (s SensitiveString) String() string {
+	return "[REDACTED]"
+}
+
+func (s SensitiveString) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+
+func (s SensitiveString) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+//nolint:unparam // this is an interface implementation
+func (s SensitiveString) MarshalYAML() (interface{}, error) {
+	return s.String(), nil
+}
+
+func (s SensitiveString) UnsafeValue() string {
+	return string(s)
+}
+
 func main() {
+	logFile, err := os.OpenFile(LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		//nolint:forbidigo // there is no other way to communicate the error
+		fmt.Printf("failed to open log file: %s\n", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
+
+	logger := slog.New(slog.NewJSONHandler(logFile, nil))
+	slog.SetDefault(logger)
+
 	slog.Info("node-bootstrapper started")
 	ctx := context.Background()
 	if err := Run(ctx); err != nil {
 		slog.Error("node-bootstrapper finished with error", "error", err.Error())
 		var exitErr *exec.ExitError
+		_ = logFile.Close()
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
 		}
@@ -111,23 +154,31 @@ func loadConfig(path string) (*datamodel.NodeBootstrappingConfiguration, error) 
 func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) error {
 	// CSEScript can't be logged because it contains sensitive information.
 	slog.Info("Running CSE script")
-	defer slog.Info("CSE script finished")
 	cse, err := CSEScript(ctx, config)
 	if err != nil {
-		return fmt.Errorf("cse script: %w", err)
+		return fmt.Errorf("preparing CSE: %w", err)
 	}
-
-	slog.Info(fmt.Sprintf("CSE script: %s", cse))
-
 	// TODO: add Windows support
-	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse)
+	//nolint:gosec // we generate the script, so it's safe to execute
+	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse.UnsafeValue())
 	cmd.Dir = "/"
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	var stdoutBuf, stderrBuf bytes.Buffer
+	// We want to preserve the original stdout and stderr to avoid any issues during migration to the "scriptless" approach
+	// RP may rely on stdout and stderr for error handling
+	// it's also nice to have a single log file for all the important information, so write to both places
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+	err = cmd.Run()
+	exitCode := -1
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+	// Is it ok to log a single line? Is it too much?
+	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
+	return err
 }
 
-func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
+func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (SensitiveString, error) {
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
 		return "", err
@@ -137,7 +188,7 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 	if err != nil {
 		return "", err
 	}
-	return nodeBootstrapping.CSE, nil
+	return SensitiveString(nodeBootstrapping.CSE), nil
 }
 
 // re-implement CustomData + cloud-init logic from AgentBaker
