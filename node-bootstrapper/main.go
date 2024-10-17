@@ -25,8 +25,9 @@ import (
 const (
 	ConfigVersion                  = "v0"
 	DefaultAksAadAppID             = "6dae42f8-4368-4678-94ff-3960e28e3630"
-	LinuxLogFile                   = "/var/log/azure/node-bootstrapper.log"
-	WindowsLogFile                 = "c:/k/node-bootstrapper.log"
+	LinuxLogFilePath               = "/var/log/azure"
+	WindowsLogFilePath             = "c:\\k"
+	LogFileName                    = "node-bootstrapper.log"
 	ReadOnlyUser       os.FileMode = 0600
 	ReadOnlyWorld      os.FileMode = 0644
 	ExecutableWorld    os.FileMode = 0755
@@ -94,12 +95,19 @@ func main() {
 }
 
 func getLogFile() (*os.File, error) {
-	logFilePath := LinuxLogFile
+	logFilePath := LinuxLogFilePath
 	if isWindows() {
-		logFilePath = WindowsLogFile
+		logFilePath = WindowsLogFilePath
 	}
 
-	return os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	err := os.MkdirAll(logFilePath, ExecutableWorld)
+	if err != nil {
+		return nil, err
+	}
+
+	logFile := filepath.Join(logFilePath, LogFileName)
+
+	return os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, ReadOnlyWorld)
 }
 
 func Run(ctx context.Context) error {
