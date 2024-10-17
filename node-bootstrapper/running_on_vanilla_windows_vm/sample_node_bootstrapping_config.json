@@ -49,7 +49,8 @@
           "availabilityProfile": "VirtualMachineScaleSets",
           "storageProfile": "ManagedDisks",
           "customNodeLabels": {
-            "kubernetes.azure.com/mode": "user"
+            "kubernetes.azure.com/mode": "user",
+            "kubernetes.azure.com/cluster": "MC_wrightt-resource-group_aks-timmy-win_australiaeast"
           },
           "preProvisionExtension": null,
           "kubernetesConfig": {
