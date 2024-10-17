@@ -1,5 +1,5 @@
 {
-  "Version":"v0",
+  "Version": "v0",
   "bootstrappingMethod": "UseAzureMsiToMakeCSR",
   "bootstrappingManagedIdentityId": "c034a0e4-d963-4a82-ab0f-6df7957e1c55",
   "ContainerService": {
@@ -50,7 +50,8 @@
           "storageProfile": "ManagedDisks",
           "customNodeLabels": {
             "kubernetes.azure.com/mode": "user",
-            "kubernetes.azure.com/cluster": "MC_wrightt-resource-group_aks-timmy-win_australiaeast"
+            "kubernetes.azure.com/cluster": "MC_wrightt-resource-group_aks-timmy-win_australiaeast",
+            "randomLabel": "apps.app.cnl"
           },
           "preProvisionExtension": null,
           "kubernetesConfig": {
@@ -159,7 +160,9 @@
     "storageProfile": "ManagedDisks",
     "distro": "aks-windows-2022-containerd",
     "customNodeLabels": {
-      "kubernetes.azure.com/mode": "user"
+        "kubernetes.azure.com/mode": "user",
+        "kubernetes.azure.com/cluster": "MC_wrightt-resource-group_aks-timmy-win_australiaeast",
+        "randomLabel": "nbc.cnl"
     },
     "preProvisionExtension": null,
     "kubernetesConfig": {
