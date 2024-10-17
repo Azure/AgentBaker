@@ -8,8 +8,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"io"
+	"log"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -167,7 +167,7 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 		if systemDrive == "" {
 			systemDrive = "C:"
 		}
-		script := cse
+		script := string(cse)
 		script = strings.ReplaceAll(script, "%SYSTEMDRIVE%", systemDrive)
 		script = strings.ReplaceAll(script, "\"", "")
 		script, found := strings.CutPrefix(script, "powershell.exe -ExecutionPolicy Unrestricted -command ")
@@ -179,7 +179,7 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 		cmd = exec.CommandContext(ctx, "powershell.exe", "-ExecutionPolicy", "Unrestricted", "-command", script)
 	} else {
 		//nolint:gosec // we generate the script, so it's safe to execute
-		cmd = exec.CommandContext(ctx, "/bin/bash", "-c", cse)
+		cmd = exec.CommandContext(ctx, "/bin/bash", "-c", string(cse))
 	}
 	cmd.Dir = "/"
 	var stdoutBuf, stderrBuf bytes.Buffer
