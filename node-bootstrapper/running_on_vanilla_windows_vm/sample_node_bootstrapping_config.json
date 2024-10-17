@@ -38,7 +38,8 @@
           "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
           "dnsServiceIP": "10.0.0.10",
           "clusterSubnet": "10.244.0.0/16",
-          "podCidr": "10.244.0.0/16"
+          "podCidr": "10.244.0.0/16",
+          "serviceCidr": "10.0.0.0/16"
         }
       },
       "agentPoolProfiles": [
