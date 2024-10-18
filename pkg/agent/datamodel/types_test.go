@@ -400,7 +400,6 @@ func TestGenerateClusterID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetClusterID()
@@ -647,7 +646,6 @@ func TestGetSubnetName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetSubnetName()
@@ -742,7 +740,6 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetVirtualNetworkName()
@@ -1839,7 +1836,6 @@ func TestIsFeatureEnabled(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.flags.IsFeatureEnabled(test.feature)
@@ -1963,7 +1959,6 @@ func TestGetKubeProxyFeatureGatesWindowsArguments(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			actual := test.properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -2280,7 +2275,6 @@ func TestHasContainerd(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			ret := test.k.NeedsContainerd()

@@ -292,7 +292,6 @@ func TestWrapAsVerbatim(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			ret := WrapAsVerbatim(test.s)
@@ -331,7 +330,6 @@ func TestIndentString(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got := IndentString(test.input, test.count)
@@ -365,7 +363,6 @@ func TestGetContainerImageNameFromURL(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := getContainerImageNameFromURL(test.downloadURL)
@@ -404,7 +401,6 @@ func TestGetComponentNameFromURL(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := getComponentNameFromURL(test.downloadURL)
