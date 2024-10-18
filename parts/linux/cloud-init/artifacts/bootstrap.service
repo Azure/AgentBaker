@@ -9,4 +9,4 @@ ExecStart=/bin/bash /opt/azure/containers/bootstrap.sh
 RemainAfterExit=No
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=cloud-init.target
