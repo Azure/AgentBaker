@@ -98,13 +98,20 @@ generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 
-.PHONY: generate # TODO: ONLY generate go testdata
-generate: bootstrap
+.PHONY: generate-testdata
+generate-testdata:
 	@echo $(GOFLAGS)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+
+.PHONY: generate # TODO: ONLY generate go testdata
+generate: bootstrap
+	@echo "Generating go testdata"
+	@$(MAKE) generate-testdata
+	@echo "Generating manifest.cue"
+	@$(MAKE) generate-manifest
 	@echo "Running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
-	@echo "Validating if components.json conforms to the schema schemas/components.cue."
+	@echo "Validating components.json conforms to the schema schemas/components.cue."
 	@$(MAKE) validate-components
 
 .PHONY: validate-prefetch
