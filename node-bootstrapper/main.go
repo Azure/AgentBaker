@@ -60,12 +60,25 @@ func (s SensitiveString) UnsafeValue() string {
 	return string(s)
 }
 
+type Exit struct{ Code int }
+
+func handleExit() {
+	if e := recover(); e != nil {
+		if exit, ok := e.(Exit); ok {
+			os.Exit(exit.Code)
+		}
+		panic(e) // not an Exit, bubble up
+	}
+}
+
 func main() {
+	defer handleExit()
+
 	logFile, err := os.OpenFile(LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to open log file: %s\n", err)
-		os.Exit(1)
+		panic(Exit{Code: 1})
 	}
 	defer logFile.Close()
 
@@ -77,13 +90,11 @@ func main() {
 	if err := Run(ctx); err != nil {
 		slog.Error("node-bootstrapper finished with error", "error", err.Error())
 		var exitErr *exec.ExitError
-		_ = logFile.Close()
+		logFile.Close()
 		if errors.As(err, &exitErr) {
-			slog.Error("node-bootstrapper finished with exit code", "exitCode", exitErr.ExitCode())
-			return
+			panic(Exit{Code: exitErr.ExitCode()})
 		}
-		slog.Error("node-bootstrapper finished with error", "error", err.Error())
-		return
+		panic(Exit{Code: 1})
 	}
 	slog.Info("node-bootstrapper finished")
 }
