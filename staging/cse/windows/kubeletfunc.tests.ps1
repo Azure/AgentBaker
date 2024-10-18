@@ -88,7 +88,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
-        $global:EnableKubeletServingCertificateRotation = $false
+        $global:EnableKubeletServingCertificateRotation = $true
         Configure-KubeletServingCertificateRotation
         Compare-Object $global:KubeletConfigArgs "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false" | Should -Be $null
         Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
@@ -101,7 +101,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
-        $global:EnableKubeletServingCertificateRotation = $false
+        $global:EnableKubeletServingCertificateRotation = $true
         Configure-KubeletServingCertificateRotation
         Compare-Object $global:KubeletConfigArgs "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false" | Should -Be $null
         Compare-Object $global:KubeletNodeLabels "kubernetes.azure.com/agentpool=wp0" | Should -Be $null
@@ -114,7 +114,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
-        $global:EnableKubeletServingCertificateRotation = $false
+        $global:EnableKubeletServingCertificateRotation = $true
         Configure-KubeletServingCertificateRotation
         Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
         Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
@@ -127,7 +127,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
-        $global:EnableKubeletServingCertificateRotation = $false
+        $global:EnableKubeletServingCertificateRotation = $true
         Configure-KubeletServingCertificateRotation
         Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
         Compare-Object $global:KubeletNodeLabels "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" | Should -Be $null
@@ -140,7 +140,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
         $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" 
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
-        $global:EnableKubeletServingCertificateRotation = $false
+        $global:EnableKubeletServingCertificateRotation = $true
         Configure-KubeletServingCertificateRotation
         Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
         Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null

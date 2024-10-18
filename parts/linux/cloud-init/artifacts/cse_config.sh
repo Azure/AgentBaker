@@ -425,7 +425,7 @@ getPrimaryNicIP() {
 
 addKubeletNodeLabel() {
     local LABEL_STRING=$1
-    if grep -i "$LABEL_STRING" <<< "$KUBELET_NODE_LABELS"; then
+    if grep -i "$LABEL_STRING" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         echo "kubelet node label $LABEL_STRING is already present, nothing to add"
         return 0
     fi
@@ -442,11 +442,11 @@ addKubeletNodeLabel() {
 # removes the specified LABEL_STRING (which should be in the form of 'label=value') from KUBELET_NODE_LABELS
 removeKubeletNodeLabel() {
     local LABEL_STRING=$1
-    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
+    if grep -e ",${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
+    elif grep -e "${LABEL_STRING}," <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
+    elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
     fi
 }
