@@ -1,10 +1,11 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer:
-ifeq (${MODE},linuxVhdMode)
-	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
+GOARCH=amd64
+ifeq (${ARCHITECTURE},ARM64)
+	GOARCH=arm64
 endif
+
+build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -19,8 +20,6 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
-	@echo "${MODE}: Convert os disk snapshot to SIG"
-	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
 else ifeq (${ARCHITECTURE},X86_64)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 x86_64 VM"
@@ -77,7 +76,7 @@ init-packer:
 	@./vhdbuilder/packer/init-variables.sh
 
 run-packer: az-login
-	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
@@ -97,3 +96,30 @@ convert-sig-to-classic-storage-account-blob: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
+
+scanning-vhd: az-login
+	@./vhdbuilder/packer/vhd-scanning.sh
+
+test-scan-and-cleanup: az-login
+	@./vhdbuilder/packer/test-scan-and-cleanup.sh
+
+evaluate-build-performance: az-login
+	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+
+generate-prefetch-scripts:
+ifeq (${MODE},linuxVhdMode)
+	@echo "${MODE}: Generating prefetch scripts"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+endif
+
+build-nbcparser-all:
+	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
+	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
+
+build-nbcparser-binary:
+	@echo "Building nbcparser binary"
+	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
+
+build-lister-binary:
+	@echo "Building lister binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"

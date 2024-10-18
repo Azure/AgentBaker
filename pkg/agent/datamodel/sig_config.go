@@ -113,6 +113,13 @@ var AvailableUbuntu2204Distros = []Distro{
 }
 
 //nolint:gochecknoglobals
+var AvailableUbuntu2404Distros = []Distro{
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
+}
+
+//nolint:gochecknoglobals
 var AvailableContainerdDistros = []Distro{
 	AKSUbuntuContainerd1804,
 	AKSUbuntuContainerd1804Gen2,
@@ -129,20 +136,26 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
+	AKSAzureLinuxV3,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2FIPS,
 	AKSAzureLinuxV2FIPS,
+	AKSAzureLinuxV3FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -151,6 +164,8 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -172,15 +187,19 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuFipsContainerd2204Gen2,
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuEdgeZoneContainerd2204Gen2,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404Gen2,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2Gen2FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
@@ -188,6 +207,7 @@ var AvailableGen2Distros = []Distro{
 	AKSCBLMarinerV2KataGen2TL,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
 }
 
 //nolint:gochecknoglobals
@@ -195,16 +215,21 @@ var AvailableAzureLinuxDistros = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
+	AKSAzureLinuxV3,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2FIPS,
 	AKSAzureLinuxV2FIPS,
+	AKSAzureLinuxV3FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
@@ -213,11 +238,16 @@ var AvailableAzureLinuxDistros = []Distro{
 //nolint:gochecknoglobals
 var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV2,
+	AKSAzureLinuxV3,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSAzureLinuxV2FIPS,
+	AKSAzureLinuxV3FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
 	AKSAzureLinuxV2Gen2TL,
 }
 
@@ -343,6 +373,10 @@ const (
 	// CBLMarinerV1 pinned to the last image build as Mariner 1.0 is out
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
+
+	// This is currently for testing only, we do not build 2404 images regularly
+	// Once 2404 is preview in AKS, we will refer to the images using regular LinuxSIGImageVersion and remove this.
+	Ubuntu2404SIGImageVersionForTest string = "202405.20.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -501,6 +535,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404gen2arm64containerd",
+		Version:       Ubuntu2404SIGImageVersionForTest, // TODO(artunduman): Update version to LinuxSIGImageVersion when the image is ready
+	}
+
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
@@ -550,6 +591,20 @@ var (
 		Version:       FrozenLinuxSIGImageVersionForEgressTest,
 	}
 
+	SIGUbuntuContainerd2404ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404containerd",
+		Version:       Ubuntu2404SIGImageVersionForTest,
+	}
+
+	SIGUbuntuContainerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404gen2containerd",
+		Version:       Ubuntu2404SIGImageVersionForTest,
+	}
+
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -571,6 +626,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGAzureLinuxV3Gen1ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -582,6 +644,13 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGAzureLinuxV3Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3gen2",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -599,6 +668,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGAzureLinuxV3Gen1FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -610,6 +686,13 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGAzureLinuxV3Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3gen2fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -638,6 +721,13 @@ var (
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
 		Definition:    "V2gen2arm64",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGAzureLinuxV3Arm64ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3gen2arm64",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -726,10 +816,13 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2204Gen2:        SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuArm64Containerd2404Gen2:   SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204:     SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204Gen2: SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuEgressContainerd2204Gen2:  SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404:            SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404Gen2:        SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
@@ -750,11 +843,16 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSAzureLinuxV2:          SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3:          SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Gen2:      SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Gen2:      SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2FIPS:      SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3FIPS:      SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Gen2FIPS:  SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Gen2FIPS:  SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Gen2Kata:  SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Arm64Gen2: SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Arm64Gen2: SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Gen2TL:    SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
 	}
 }

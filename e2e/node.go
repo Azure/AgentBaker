@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	"context"
@@ -10,11 +10,10 @@ import (
 )
 
 const (
-	wasmHandlerSpin   = "spin"
-	wasmHandlerSlight = "slight"
+	wasmHandlerSpin = "spin"
 )
 
-func ensureWasmRuntimeClasses(ctx context.Context, kube *kubeclient) error {
+func ensureWasmRuntimeClasses(ctx context.Context, kube *Kubeclient) error {
 	// Only create spin class for now
 	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
 	if err := createRuntimeClass(ctx, kube, spinClassName, wasmHandlerSpin); err != nil {
@@ -23,13 +22,13 @@ func ensureWasmRuntimeClasses(ctx context.Context, kube *kubeclient) error {
 	return nil
 }
 
-func createRuntimeClass(ctx context.Context, kube *kubeclient, name, handler string) error {
+func createRuntimeClass(ctx context.Context, kube *Kubeclient, name, handler string) error {
 	runtimeClass := &nodev1.RuntimeClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}
-	_, err := controllerutil.CreateOrUpdate(ctx, kube.dynamic, runtimeClass, func() error {
+	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, runtimeClass, func() error {
 		if runtimeClass.ObjectMeta.CreationTimestamp.IsZero() {
 			runtimeClass.Handler = handler
 		}

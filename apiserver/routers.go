@@ -40,12 +40,6 @@ func (api *APIServer) NewRouter() *mux.Router {
 		Name("GetDistroSigImageConfig").
 		HandlerFunc(api.GetDistroSigImageConfig)
 
-	router.
-		Methods("GET").
-		Path(RoutePathGetCachedVersionsOnVHD).
-		Name("GetCachedVersionsOnVHD").
-		HandlerFunc(api.GetCachedVersionsOnVHD)
-
 	router.Methods("GET").Path("/healthz").Name("healthz").HandlerFunc(healthz)
 
 	// global timeout and panic handlers.

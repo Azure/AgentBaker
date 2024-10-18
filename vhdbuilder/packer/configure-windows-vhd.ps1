@@ -47,19 +47,20 @@ function Download-FileWithAzCopy {
         New-Item -ItemType Directory $global:aksTempDir -Force
     }
 
-    if (!(Test-Path -Path "$global:aksTempDir\azcopy")) {
+    if (!(Test-Path -Path "$global:aksTempDir\azcopy.exe")) {
         Write-Log "Downloading azcopy"
         Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile "$global:aksTempDir\azcopy.zip"
-        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\azcopy" -Force
+        Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\tmp" -Force
+        Move-Item "$global:aksTempDir\tmp\*\azcopy.exe" "$global:aksTempDir\azcopy.exe"
     }
 
-    $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    $env:AZCOPY_MSI_RESOURCE_STRING=$env:WindowsMSIResourceString
-    $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
-    $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
-
-    Invoke-Expression -Command "$global:aksTempDir\azcopy\*\azcopy.exe copy $URL $dest"
-
+    pushd "$global:aksTempDir"
+        $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
+        $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
+        .\azcopy.exe login --login-type=MSI
+        .\azcopy.exe copy $URL $Dest
+    popd
 }
 
 function Cleanup-TemporaryFiles {
@@ -239,15 +240,14 @@ function Get-FilesToCacheOnVHD {
 }
 
 function Get-ToolsToVHD {
-    # Rely on the completion of Get-FilesToCacheOnVHD
-    $cacheDir = "c:\akse-cache\tools"
-
     if (!(Test-Path -Path $global:aksToolsDir)) {
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
     Write-Log "Getting DU (Windows Disk Usage)"
-    Expand-Archive -Path "$cacheDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+    Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
+    Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
+    Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
 }
 
 function Register-ExpandVolumeTask {
@@ -268,9 +268,24 @@ function Register-ExpandVolumeTask {
 '@
 
     $taskScriptPath = Join-Path $global:aksToolsDir "expand-volume.ps1"
-    $taskScript| Set-Content -Path $taskScriptPath -Force
+    $taskScript | Set-Content -Path $taskScriptPath -Force
+
+    # It sometimes failed with below error
+    # New-ScheduledTask : Cannot validate argument on parameter 'Action'. The argument is null or empty. Provide an argument
+    # that is not null or empty, and then try the command again.
+    # Add below logs and retry logic to test it
+    $scriptContent = Get-Content -Path $taskScriptPath
+    Write-Log "Task script content: $scriptContent"
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
+    if (-not $action) {
+        Write-Log "action is null or empty. taskScriptPath: $taskScriptPath. Recreating it"
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
+        if (-not $action) {
+            Write-Log "action is still null"
+            exit 1
+        }
+    }
     $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
     $trigger = New-JobTrigger -AtStartup
     $definition = New-ScheduledTask -Action $action -Principal $principal -Trigger $trigger -Description "aks-expand-volume"
@@ -285,6 +300,8 @@ function Get-PrivatePackagesToCacheOnVHD {
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
+        $mappingFile = "c:\akse-cache\private-packages\mapping.json"
+        $content = @{}
         $urls = $env:WindowsPrivatePackagesURL.Split(",")
         foreach ($url in $urls) {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
@@ -292,7 +309,15 @@ function Get-PrivatePackagesToCacheOnVHD {
 
             Write-Log "Downloading a private package to $dest"
             Download-FileWithAzCopy -URL $URL -Dest $dest
+
+            # Example: v1.29.2-hotfix.2024101-1int.zip
+            $version = $fileName.Split('-')[0].SubString(1)
+            Write-Log "Adding $version to $mappingFile"
+            $content[$version] = $url
         }
+
+        Write-Log "Writing mapping file to $mappingFile"
+        $content | ConvertTo-Json -Depth 10 | Out-File -FilePath $mappingFile
     }
 }
 
@@ -347,10 +372,12 @@ function Install-OpenSSH {
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
+    Write-Log "Updating $ConfigPath for CVE-2006-5051"
+    $ModifiedConfigContents = $ModifiedConfigContents.Replace("#LoginGraceTime 2m", "LoginGraceTime 0")
     Stop-Service sshd
     Out-File -FilePath $ConfigPath -InputObject $ModifiedConfigContents -Encoding UTF8
     Start-Service sshd
-    Write-Log "Updated $ConfigPath for CVE-2023-48795"
+    Write-Log "Updated $ConfigPath for CVEs"
 }
 
 function Install-WindowsPatches {
@@ -577,6 +604,9 @@ function Update-Registry {
         Write-Log "Enable 2 fixes in 2024-04B"
         Enable-WindowsFixInFeatureManagement -Name 2290715789
         Enable-WindowsFixInFeatureManagement -Name 3152880268
+
+        Write-Log "Enable 1 fix in 2024-06B"
+        Enable-WindowsFixInFeatureManagement -Name 1605443213
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -655,12 +685,28 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 4186914956
         Enable-WindowsFixInFeatureManagement -Name 3173070476
         Enable-WindowsFixInFeatureManagement -Name 3958450316
+
+        Write-Log "Enable 3 fixes in 2024-06B"
+        Enable-WindowsFixInFeatureManagement -Name 2540111500
+        Enable-WindowsFixInFeatureManagement -Name 50261647
+        Enable-WindowsFixInFeatureManagement -Name 1475968140
+
+        Write-Log "Enable 1 fix in 2024-07B"
+        Enable-WindowsFixInFeatureManagement -Name 747051149
+
+        Write-Log "Enable 1 fix in 2024-08B"
+        Enable-WindowsFixInFeatureManagement -Name 260097166
+
+        Write-Log "Enable 1 fix in 2024-09B"
+        Enable-WindowsFixInFeatureManagement -Name 4288867982
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
-        Write-Log "Exclude port 65330 in 23H2"
-        Enable-WindowsFixInHnsState -Name NamespaceExcludedUdpPorts -Value 65330 -Type STRING
-        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 1
+        Write-Log "Disable port exclusion change in 23H2"
+        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 0
+
+        Write-Log "Enable 1 fix in 2024-08B"
+        Enable-WindowsFixInFeatureManagement -Name 1800977551
     }
 }
 
@@ -712,10 +758,20 @@ function Get-SystemDriveDiskInfo {
     foreach($disk in $disksInfo) {
         if ($disk.DeviceID -eq "C:") {
             Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+        }
+    }
+}
 
+function Validate-VHDFreeSize {
+    Clear-TempFolder
+    Write-Log "Get Disk info"
+    $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach($disk in $disksInfo) {
+        if ($disk.DeviceID -eq "C:") {
             if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
-                throw "Disk C: Free space is less than $($global:lowestFreeSpace)"
+                Write-Log "Disk C: Free space $($disk.FreeSpace) is less than $($global:lowestFreeSpace)"
             }
+            break
         }
     }
 }
@@ -739,7 +795,9 @@ function Get-LatestWindowsDefenderPlatformUpdate {
     $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
  
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
-    $latestDefenderProductVersion = ([xml]((Invoke-WebRequest -UseBasicParsing -Uri:"$global:defenderUpdateInfoUrl").Content)).versions.platform
+    $doc = New-Object xml
+    $doc.Load("$global:defenderUpdateInfoUrl")
+    $latestDefenderProductVersion = $doc.versions.platform
  
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
@@ -779,6 +837,18 @@ function Log-ReofferUpdate {
     }
 }
 
+function Test-AzureExtensions {
+    # Expect the Windows VHD without any other extensions
+    if (Test-Path "C:\Packages\Plugins") {
+        $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
+        if ($actualExtensions.Length -gt 0) {
+            Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
+            exit 1
+        }
+    }
+    Write-Log "Azure extensions are not found"
+}
+
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
@@ -806,7 +876,7 @@ try{
             Update-Registry
             Get-ContainerImages
             Get-FilesToCacheOnVHD
-            Get-ToolsToVHD # Rely on the completion of Get-FilesToCacheOnVHD
+            Get-ToolsToVHD
             Get-PrivatePackagesToCacheOnVHD
             Log-ReofferUpdate
         }
@@ -815,6 +885,8 @@ try{
             Remove-Item -Path c:\windows-vhd-configuration.ps1
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
+            Validate-VHDFreeSize
+            Test-AzureExtensions
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

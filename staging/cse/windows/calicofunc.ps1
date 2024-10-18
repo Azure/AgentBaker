@@ -30,6 +30,20 @@ function Set-CalicoStaticRules {
                 "RuleType": "Switch",
                 "Type": "ACL"
             }
+        },
+        {
+            "Name": "EndpointPolicy",
+            "Rule": {
+                "Action": "Block",
+                "Direction": "Out",
+                "Id": "block-wireserver-32526",
+                "Priority": 200,
+                "Protocol": 6,
+                "RemoteAddresses": "168.63.129.16/32",
+                "RemotePorts": "32526",
+                "RuleType": "Switch",
+                "Type": "ACL"
+            }
         }
     ],
     "version": "0.1.0"

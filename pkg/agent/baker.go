@@ -14,7 +14,6 @@ import (
 	"text/template"
 
 	"github.com/Azure/agentbaker/parts"
-	"github.com/Azure/agentbaker/pkg/agent/common"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -266,46 +265,57 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 }
 
 func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
-	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
-	// we should only allow users to configure from API (20201101 and later)
-	dockerShimFlags := []string{
-		"--cni-bin-dir",
-		"--cni-cache-dir",
-		"--cni-conf-dir",
-		"--docker-endpoint",
-		"--image-pull-progress-deadline",
-		"--network-plugin",
-		"--network-plugin-mtu",
+	if config.KubeletConfig == nil {
+		return
 	}
 	profile := config.AgentPoolProfile
-	if config.KubeletConfig != nil {
-		kubeletFlags := config.KubeletConfig
-		delete(kubeletFlags, "--dynamic-config-dir")
-		delete(kubeletFlags, "--non-masquerade-cidr")
-		if profile != nil && profile.KubernetesConfig != nil &&
-			profile.KubernetesConfig.ContainerRuntime != "" &&
-			profile.KubernetesConfig.ContainerRuntime == "containerd" {
-			for _, flag := range dockerShimFlags {
-				delete(kubeletFlags, flag)
-			}
-		}
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
-		}
+	kubeletFlags := config.KubeletConfig
 
-		/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
-		deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
-		 version 1.20 or higher */
-		/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
-		continue to work */
-		/* Reference -
-		https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
-		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
-			!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
+	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
+	// we should only allow users to configure from API (20201101 and later)
+	delete(kubeletFlags, "--dynamic-config-dir")
+	delete(kubeletFlags, "--non-masquerade-cidr")
+
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		dockerShimFlags := []string{
+			"--cni-bin-dir",
+			"--cni-cache-dir",
+			"--cni-conf-dir",
+			"--docker-endpoint",
+			"--image-pull-progress-deadline",
+			"--network-plugin",
+			"--network-plugin-mtu",
 		}
+		for _, flag := range dockerShimFlags {
+			delete(kubeletFlags, flag)
+		}
+	}
+
+	if IsKubeletServingCertificateRotationEnabled(config) {
+		// ensure the required feature gate is set
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		// backfill deletion of --tls-cert-file and --tls-private-key-file, which are incompatible with --rotate-server-certificates
+		// these are set as defaults on the RP-side for Linux
+		delete(kubeletFlags, "--tls-cert-file")
+		delete(kubeletFlags, "--tls-private-key-file")
+	}
+
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+		kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+	} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+	}
+
+	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
+	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
+		version 1.20 or higher */
+	/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
+	continue to work */
+	/* Reference -
+	https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
+	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
+		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
 }
 
@@ -315,17 +325,25 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 		if config.KubeletConfig == nil {
 			config.KubeletConfig = make(map[string]string)
 		}
-
 		config.KubeletConfig["--bootstrap-kubeconfig"] = "c:\\k\\bootstrap-config"
 		config.KubeletConfig["--cert-dir"] = "c:\\k\\pki"
 	}
+
 	if config.KubeletConfig != nil {
 		kubeletFlags := config.KubeletConfig
 		delete(kubeletFlags, "--dynamic-config-dir")
+
 		if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
 			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
 		} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+		}
+
+		if IsKubeletServingCertificateRotationEnabled(config) {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+			// RP doesn't currently set these flags for windows, though we filter them out anyways just to be safe
+			delete(kubeletFlags, "--tls-cert-file")
+			delete(kubeletFlags, "--tls-private-key-file")
 		}
 	}
 }
@@ -354,7 +372,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return profile.GetKubernetesLabels()
+			return GetAgentKubernetesLabels(profile, config)
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels()
@@ -388,8 +406,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetTLSBootstrapTokenForKubeConfig": func() string {
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
+		"EnableKubeletServingCertificateRotation": func() bool {
+			return IsKubeletServingCertificateRotationEnabled(config)
+		},
 		"GetKubeletConfigKeyVals": func() string {
-			return GetOrderedKubeletConfigFlagString(config.KubeletConfig, cs, profile, config.EnableKubeletConfigFile)
+			return GetOrderedKubeletConfigFlagString(config)
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
@@ -398,7 +419,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.GetOrderedKubeproxyConfigStringForPowershell()
 		},
 		"IsCgroupV2": func() bool {
-			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro()
+			return profile.Is2204VHDDistro() || profile.IsAzureLinuxCgroupV2VHDDistro() || profile.Is2404VHDDistro()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
@@ -462,13 +483,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes()
 		},
 		"GetKubernetesEndpoint": func() string {
-			if cs.Properties.HostedMasterProfile == nil {
-				return ""
-			}
-			if cs.Properties.HostedMasterProfile.IPAddress != "" {
-				return cs.Properties.HostedMasterProfile.IPAddress
-			}
-			return cs.Properties.HostedMasterProfile.FQDN
+			return GetKubernetesEndpoint(cs)
 		},
 		"IsAzureCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsAzureCNI()
@@ -640,26 +655,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.RequiresDocker()
 		},
 		"HasDataDir": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
-				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
-				return true
-			}
-			if profile.KubeletDiskType == datamodel.TempDisk {
-				return true
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
-				cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+			return HasDataDir(config)
 		},
 		"GetDataDir": func() string {
-			if profile != nil && profile.KubernetesConfig != nil &&
-				profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
-				profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
-				return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
-			}
-			if profile.KubeletDiskType == datamodel.TempDisk {
-				return datamodel.TempDiskContainerDataDir
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+			return GetDataDir(config)
 		},
 		"HasKubeletDiskType": func() bool {
 			return profile != nil && profile.KubeletDiskType != "" && profile.KubeletDiskType != datamodel.OSDisk
@@ -904,14 +903,20 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetOutboundCommand": func() string {
 			return getOutBoundCmd(config, config.CloudSpecConfig)
 		},
+		"BlockOutboundNetwork": func() bool {
+			if config.OutboundType == datamodel.OutboundTypeBlock || config.OutboundType == datamodel.OutboundTypeNone {
+				return true
+			}
+			return false
+		},
 		"GPUNeedsFabricManager": func() bool {
-			return common.GPUNeedsFabricManager(profile.VMSize)
+			return gpuNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return common.GetGPUDriverVersion(profile.VMSize)
+			return getGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return common.GetAKSGPUImageSHA(profile.VMSize)
+			return getAKSGPUImageSHA(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -958,6 +963,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
 		},
+		"GetBootstrapProfileContainerRegistryServer": func() string {
+			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
+		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
 		},
@@ -970,6 +978,44 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 	}
 }
 
+func GetDataDir(config *datamodel.NodeBootstrappingConfiguration) string {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	if profile != nil && profile.KubernetesConfig != nil &&
+		profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+		profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+		return profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+	}
+	if profile.KubeletDiskType == datamodel.TempDisk {
+		return datamodel.TempDiskContainerDataDir
+	}
+	return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey]
+}
+
+func HasDataDir(config *datamodel.NodeBootstrappingConfiguration) bool {
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+		profile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != "" {
+		return true
+	}
+	if profile.KubeletDiskType == datamodel.TempDisk {
+		return true
+	}
+	return cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig != nil &&
+		cs.Properties.OrchestratorProfile.KubernetesConfig.ContainerRuntimeConfig[datamodel.ContainerDataDirKey] != ""
+}
+
+func GetKubernetesEndpoint(cs *datamodel.ContainerService) string {
+	if cs.Properties.HostedMasterProfile == nil {
+		return ""
+	}
+	if cs.Properties.HostedMasterProfile.IPAddress != "" {
+		return cs.Properties.HostedMasterProfile.IPAddress
+	}
+	return cs.Properties.HostedMasterProfile.FQDN
+}
+
 func getPortRangeEndValue(portRange string) int {
 	arr := strings.Split(portRange, " ")
 	num, err := strconv.Atoi(arr[1])
@@ -977,6 +1023,39 @@ func getPortRangeEndValue(portRange string) int {
 		return -1
 	}
 	return num
+}
+
+// NV series GPUs target graphics workloads vs NC which targets compute.
+// they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
+// NVv1 seems to run with CUDA, NVv5 requires GRID.
+// NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
+func getGPUDriverVersion(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.Nvidia535GridDriverVersion
+	}
+	if isStandardNCv1(size) {
+		return datamodel.Nvidia470CudaDriverVersion
+	}
+	return datamodel.Nvidia550CudaDriverVersion
+}
+
+func isStandardNCv1(size string) bool {
+	tmp := strings.ToLower(size)
+	return strings.HasPrefix(tmp, "standard_nc") && !strings.Contains(tmp, "_v")
+}
+
+func useGridDrivers(size string) bool {
+	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
+}
+
+func getAKSGPUImageSHA(size string) string {
+	if useGridDrivers(size) {
+		return datamodel.AKSGPUGridSHA
+	}
+	return datamodel.AKSGPUCudaSHA
+}
+func gpuNeedsFabricManager(size string) bool {
+	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
@@ -1188,7 +1267,7 @@ root = "{{GetDataDir}}"{{- end}}
     {{- end}}
     {{- if IsKrustlet }}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
+      runtime_type = "io.containerd.spin.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
       runtime_type = "io.containerd.slight-v0-3-0.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
@@ -1205,6 +1284,8 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.slight-v0-8-0.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
       runtime_type = "io.containerd.wws-v0-8-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
+      runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]
@@ -1300,7 +1381,7 @@ root = "{{GetDataDir}}"{{- end}}
       BinaryName = "/usr/bin/runc"
     {{- if IsKrustlet }}
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
+      runtime_type = "io.containerd.spin.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.slight]
       runtime_type = "io.containerd.slight-v0-3-0.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-3-0]
@@ -1317,6 +1398,8 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.slight-v0-8-0.v1"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.wws-v0-8-0]
       runtime_type = "io.containerd.wws-v0-8-0.v1"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin-v0-15-1]
+      runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
   [plugins."io.containerd.grpc.v1.cri".cni]

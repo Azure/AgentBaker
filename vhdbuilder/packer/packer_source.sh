@@ -5,6 +5,8 @@ copyPackerFiles() {
   SYSCTL_CONFIG_DEST=/etc/sysctl.d/60-CIS.conf
   RSYSLOG_CONFIG_SRC=/home/packer/rsyslog-d-60-CIS.conf
   RSYSLOG_CONFIG_DEST=/etc/rsyslog.d/60-CIS.conf
+  LOGROTATE_CIS_CONFIG_SRC=/home/packer/logrotate-d-rsyslog-CIS.conf
+  LOGROTATE_CIS_CONFIG_DEST=/etc/logrotate.d/rsyslog-cis.conf
   ETC_ISSUE_CONFIG_SRC=/home/packer/etc-issue
   ETC_ISSUE_CONFIG_DEST=/etc/issue
   ETC_ISSUE_NET_CONFIG_SRC=/home/packer/etc-issue.net
@@ -105,6 +107,8 @@ copyPackerFiles() {
   AKS_CHECK_NETWORK_SERVICE_DEST=/etc/systemd/system/aks-check-network.service
   BLOCK_WIRESERVER_SRC=/home/packer/block_wireserver.sh
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
+  ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
+  ENSURE_IMDS_RESTRICTION_DEST=/opt/azure/containers/ensure_imds_restriction.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
@@ -121,6 +125,8 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
+  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
+  NODE_BOOTSTRAPPER_DEST=/opt/azure/node-bootstrapper
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -240,6 +246,10 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
+  NBC_PARSER_SRC=/home/packer/nbcparser
+  NBC_PARSER_DEST=/opt/azure/containers/nbcparser
+  cpAndMode $NBC_PARSER_SRC $NBC_PARSER_DEST 0755
+
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
 
@@ -277,9 +287,11 @@ copyPackerFiles() {
 
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
+  cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
+  cpAndMode $LOGROTATE_CIS_CONFIG_SRC $LOGROTATE_CIS_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_CONFIG_SRC $ETC_ISSUE_CONFIG_DEST 644
   cpAndMode $ETC_ISSUE_NET_CONFIG_SRC $ETC_ISSUE_NET_CONFIG_DEST 644
   cpAndMode $SSHD_CONFIG_SRC $SSHD_CONFIG_DEST 600
@@ -311,19 +323,19 @@ copyPackerFiles() {
   cpAndMode $SNAPSHOT_UPDATE_SERVICE_SRC $SNAPSHOT_UPDATE_SERVICE_DEST 644
   cpAndMode $SNAPSHOT_UPDATE_TIMER_SRC $SNAPSHOT_UPDATE_TIMER_DEST 644
 
-  if [[ $OS != $MARINER_OS_NAME ]]; then
+  if ! isMarinerOrAzureLinux "$OS"; then
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
   fi
-  if [[ $OS == $MARINER_OS_NAME ]]; then
+  if isMarinerOrAzureLinux "$OS"; then
     cpAndMode $CONTAINERD_SERVICE_SRC $CONTAINERD_SERVICE_DEST 644
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
 
-    # MarinerV2 uses system-auth and system-password instead of common-auth and common-password.
-    if [[ ${OS_VERSION} == "2.0" ]]; then
+    # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
+    if isMarinerOrAzureLinux "$OS"; then
       cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
       cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
     else
@@ -347,6 +359,7 @@ copyPackerFiles() {
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
+  cpAndMode $NODE_BOOTSTRAPPER_SRC $NODE_BOOTSTRAPPER_DEST 755
 }
 
 cpAndMode() {
