@@ -98,20 +98,14 @@ generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 
-# To replace the old monolithic 'generate' target for running go tests, generating test data, and other validations
-.PHONY: validate
-validate: generate
-	@echo "Running validate-shell to make sure generated cse scripts are correct"
-	@$(MAKE) validate-shell
-	@echo "Running shellspec tests to validate shell/bash scripts"
-	@$(MAKE) shellspec
-	@echo "Validating if components.json conforms to the schema schemas/components.cue."
-	@$(MAKE) validate-components
-
-.PHONY: generate
+.PHONY: generate # TODO: ONLY generate go testdata
 generate: bootstrap
 	@echo $(GOFLAGS)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
+	@echo "Running validate-shell to make sure generated cse scripts are correct"
+	@$(MAKE) validate-shell
+	@echo "Validating if components.json conforms to the schema schemas/components.cue."
+	@$(MAKE) validate-components
 
 .PHONY: validate-prefetch
 validate-prefetch:
