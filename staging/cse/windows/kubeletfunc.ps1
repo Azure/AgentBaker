@@ -218,8 +218,8 @@ function Add-KubeletNodeLabel {
     )
 
     $labelList = $KubeletNodeLabels -split ","
-    foreach ($label in $labelList) {
-        if ($label -eq $Label) {
+    foreach ($existingLabel in $labelList) {
+        if ($existingLabel -eq $Label) {
             return $KubeletNodeLabels
         }
     }
