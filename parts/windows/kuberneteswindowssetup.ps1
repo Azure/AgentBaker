@@ -296,10 +296,10 @@ try
 
     # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
     # to mutate both kubelet config args and kubelet node labels.
-    Disable-KubeletServingCertificateRotationForTags
+    # Disable-KubeletServingCertificateRotationForTags
 
     # TODO(cameissner): uncomment once CSE package has been updated
-    # Configure-KubeletServingCertificateRotation
+    Configure-KubeletServingCertificateRotation
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 
