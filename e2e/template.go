@@ -6,8 +6,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
@@ -467,7 +466,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			"--feature-gates":                     "RotateKubeletServerCertificate=true",
 			"--image-gc-high-threshold":           "85",
 			"--image-gc-low-threshold":            "80",
-			"--keep-terminated-pod-volumes":       "false",
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 			"--kubeconfig":                        "/var/lib/kubelet/kubeconfig",
 			"--max-pods":                          "110",
@@ -526,7 +524,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if isAirgap {
-		image = "aksvhdtestcr.azurecr.io/aks/cbl-mariner/busybox:2.0"
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
 	}
 
 	return fmt.Sprintf(`apiVersion: v1
