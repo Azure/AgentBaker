@@ -436,6 +436,7 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
+// TODO(cameissner): remove special logic for kubelet serving label
 func GetAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
 	var labels string
 	if profile != nil {
