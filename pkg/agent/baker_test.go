@@ -2135,6 +2135,21 @@ var _ = Describe("getGPUDriverVersion", func() {
 	})
 })
 
+var _ = Describe("getGPUDriverType", func() {
+
+	It("should use cuda with nc v3", func() {
+		Expect(getGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+	})
+	It("should use grid with nv v5", func() {
+		Expect(getGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(getGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+	})
+	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
+	It("should use cuda with nv v1", func() {
+		Expect(getGPUDriverType("standard_nv6")).To(Equal("cuda"))
+	})
+})
+
 var _ = Describe("getAKSGPUImageSHA", func() {
 	It("should use newest AKSGPUGridSHA with nv v5", func() {
 		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridSHA))
