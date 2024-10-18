@@ -20,7 +20,7 @@ const (
 )
 
 // Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
-func getHostNetworkDebugPodName(ctx context.Context, kube *Kubeclient) (string, error) {
+func getHostNetworkDebugPodName(ctx context.Context, kube *Kubeclient, t *testing.T) (string, error) {
 	podList := corev1.PodList{}
 	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": hostNetworkDebugAppLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
@@ -29,7 +29,7 @@ func getHostNetworkDebugPodName(ctx context.Context, kube *Kubeclient) (string, 
 		return "", fmt.Errorf("failed to find host debug pod")
 	}
 	pod := podList.Items[0]
-	err := waitUntilPodReady(ctx, kube, pod.Name)
+	err := waitUntilPodReady(ctx, kube, pod.Name, t)
 	if err != nil {
 		return "", fmt.Errorf("failed to wait for pod to be in running state: %w", err)
 	}
@@ -38,7 +38,7 @@ func getHostNetworkDebugPodName(ctx context.Context, kube *Kubeclient) (string, 
 
 // Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
-func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vmssName string) (string, error) {
+func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vmssName string, t *testing.T) (string, error) {
 	podList := corev1.PodList{}
 	if err := kube.Dynamic.List(ctx, &podList, client.MatchingLabels{"app": podNetworkDebugAppLabel}); err != nil {
 		return "", fmt.Errorf("failed to list debug pod: %w", err)
@@ -46,7 +46,7 @@ func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vms
 
 	for _, pod := range podList.Items {
 		if strings.Contains(pod.Spec.NodeName, vmssName) {
-			err := waitUntilPodReady(ctx, kube, pod.Name)
+			err := waitUntilPodReady(ctx, kube, pod.Name, t)
 			if err != nil {
 				return "", fmt.Errorf("failed to wait for pod to be in running state: %w", err)
 			}
@@ -89,7 +89,7 @@ func ensurePod(ctx context.Context, t *testing.T, namespace string, kube *Kubecl
 			t.Logf("couldn't not delete pod %s: %v", podName, err)
 		}
 	})
-	if err := waitUntilPodReady(ctx, kube, podName); err != nil {
+	if err := waitUntilPodReady(ctx, kube, podName, t); err != nil {
 		return fmt.Errorf("failed to wait for pod to be in running state: %w", err)
 	}
 
