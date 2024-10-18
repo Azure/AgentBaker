@@ -220,7 +220,6 @@ function Add-KubeletNodeLabel {
     $labelList = $KubeletNodeLabels -split ","
     foreach ($label in $labelList) {
         if ($label -eq $Label) {
-            Write-Log "Kubelet node label $Label is already present, nothing to add"
             return $KubeletNodeLabels
         }
     }
