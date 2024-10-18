@@ -372,6 +372,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
 
   mkdir -p /opt/{actions,gpu}
   pullContainerImage "crictl" $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  echo "  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}" >> ${VHD_LOGS_FILEPATH}
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
@@ -379,12 +380,10 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
       echo "Failed to install GPU driver, exiting..."
       exit $ret
     fi
+    ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
   fi
 
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
-ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+
 capture_benchmark "${SCRIPT_NAME}_pull_and_install_nvidia_driver_image"
 fi
 
@@ -484,7 +483,7 @@ capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if [ ! isMarinerOrAzureLinux "$OS" ]; then
+if ! isMarinerOrAzureLinux "$OS" ; then
   systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
