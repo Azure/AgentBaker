@@ -33,6 +33,17 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/coredns:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
+          "latestVersion": "v1.11.3-2",
+          "previousLatestVersion": "v1.9.4-2"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
