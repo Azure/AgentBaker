@@ -187,8 +187,6 @@ linters-settings:
     # Default: 1
     tab-width: 1
 
-
-
 linters:
   disable-all: true
   enable:
