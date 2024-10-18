@@ -88,7 +88,10 @@ func (nBCB *NBContractBuilder) deepCopy(src, dst interface{}) error {
 	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
 		return err
 	}
-	return gob.NewDecoder(&buf).Decode(dst)
+	if err := gob.NewDecoder(&buf).Decode(dst); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ValidateNBContract validates the NBContract.
