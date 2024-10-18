@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
@@ -58,10 +59,35 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 	return nodeName
 }
 
-func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string) error {
+func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
+	lastLogTime := time.Now()
+	logInterval := 5 * time.Minute // log every 5 minutes
+
 	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
+		currentLogTime := time.Now()
+
 		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
+
+		printLog := false
+		if deadline, ok := ctx.Deadline(); ok {
+			remaining := time.Until(deadline)
+			if currentLogTime.Sub(lastLogTime) > logInterval {
+				// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
+				t.Logf("pod %s status: %s time before timeout: %v", podName, pod.Status.Phase, remaining)
+				lastLogTime = currentLogTime
+				printLog = true
+			}
+		}
+
 		if err != nil {
+			// pod might not be created yet, let the poller continue
+			if errors.IsNotFound(err) {
+				if printLog {
+					// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
+					t.Logf("pod %s not found yet. Err %v", podName, err)
+				}
+				return false, nil
+			}
 			return false, err
 		}
 

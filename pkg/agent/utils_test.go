@@ -684,6 +684,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
 		Expect(expectStr).To(Equal(actucalStr))
 	})
+
 	It("should return expected kubelet config when custom configuration is set", func() {
 		config := &datamodel.NodeBootstrappingConfiguration{
 			KubeletConfig: map[string]string{
@@ -702,6 +703,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 								Config: map[string]string{
 									"--node-status-update-frequency":      "20s",
 									"--streaming-connection-idle-timeout": "4h0m0s",
+									"--seccomp-default":                   "true",
 								},
 							},
 						},
@@ -712,10 +714,11 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --streaming-connection-idle-timeout=4h0m0s "
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
 		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
+
 	It("should return expected kubelet command line flags when a config file is being used", func() {
 		config := &datamodel.NodeBootstrappingConfiguration{
 			KubeletConfig: map[string]string{
@@ -740,6 +743,41 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		}
 
 		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		actualStr := GetOrderedKubeletConfigFlagString(config)
+		Expect(expectedStr).To(Equal(actualStr))
+	})
+
+	//https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-configuration-merging-order
+	// [we are producing this -> command line flags] > drop in config file > kubelet config
+	It("should return expected kubelet command line flags when a config file is being used, following overriding rules", func() {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-labels": "topology.kubernetes.io/region=southcentralus",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--seccomp-default": "true",
+								},
+							},
+						},
+					},
+				},
+			},
+			EnableKubeletConfigFile: true,
+			AgentPoolProfile: &datamodel.AgentPoolProfile{
+				CustomKubeletConfig: &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.BoolPtr(false),
+				},
+			},
+		}
+
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})

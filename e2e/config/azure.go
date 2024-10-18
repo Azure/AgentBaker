@@ -16,6 +16,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
@@ -45,6 +46,8 @@ type AzureClient struct {
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
+	RegistriesClient          *armcontainerregistry.RegistriesClient
+	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -116,6 +119,16 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.Core, err = azcore.NewClient("agentbakere2e.e2e_test", "v0.0.0", plOpts, clOpts)
 	if err != nil {
 		return nil, fmt.Errorf("create core client: %w", err)
+	}
+
+	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registry client: %w", err)
+	}
+
+	cloud.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cache rules client: %w", err)
 	}
 
 	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(subscription, credential, opts)
