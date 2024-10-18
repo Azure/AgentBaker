@@ -6,7 +6,9 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
