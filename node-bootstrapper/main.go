@@ -79,9 +79,11 @@ func main() {
 		var exitErr *exec.ExitError
 		_ = logFile.Close()
 		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.ExitCode())
+			slog.Error("node-bootstrapper finished with exit code", "exitCode", exitErr.ExitCode())
+			return
 		}
-		os.Exit(1)
+		slog.Error("node-bootstrapper finished with error", "error", err.Error())
+		return
 	}
 	slog.Info("node-bootstrapper finished")
 }

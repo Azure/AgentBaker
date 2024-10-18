@@ -54,7 +54,6 @@ func TestValidateDNSPrefix(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			err := ValidateDNSPrefix(c.dnsPrefix)
@@ -153,7 +152,6 @@ func TestIsSGXEnabledSKU(t *testing.T) {
 	cases := getCSeriesVMCasesForTesting()
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ret := IsSgxEnabledSKU(c.VMSKU)
@@ -195,7 +193,6 @@ func TestGetOrderedEscapedKeyValsString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ret := GetOrderedEscapedKeyValsString(c.input)
@@ -266,7 +263,6 @@ func TestSliceIntIsNonEmpty(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ret := SliceIntIsNonEmpty(c.input)

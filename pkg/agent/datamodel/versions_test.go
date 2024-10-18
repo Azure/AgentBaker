@@ -156,7 +156,6 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			if c.expectedResult != IsKubernetesVersionGe(c.actualVersion, c.version) {
@@ -471,7 +470,6 @@ func TestGetMinMaxVersion(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			minVersion := GetMinVersion(c.versions, c.preRelease)
