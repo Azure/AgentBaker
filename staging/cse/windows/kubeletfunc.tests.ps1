@@ -111,7 +111,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
     It "Should no-op if kubelet args and node labels are already correct when the opt-out tag is set" {
         Mock Get-TagValue -MockWith { "true" }
         $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
-        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
         $global:KubeletNodeLabels = $kubeletNodeLabels
         $global:KubeletConfigArgs = $kubeletConfigArgs
         $global:EnableKubeletServingCertificateRotation = $true
