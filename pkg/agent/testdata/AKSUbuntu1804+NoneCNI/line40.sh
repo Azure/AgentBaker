@@ -359,12 +359,13 @@ downloadCrictl() {
 }
 
 installCrictl() {
+    local crictlVersion=${1}
     CPU_ARCH=$(getCPUArch)
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
-        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${1%.*}.0"
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${crictlVersion%.*}.0"
     else
-        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
+        CRICTL_TGZ_TEMP="crictl-v${crictlVersion}-linux-${CPU_ARCH}.tar.gz"
         if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
             rm -rf ${CRICTL_DOWNLOAD_DIR}
             echo "pre-cached crictl not found: skipping installCrictl"
