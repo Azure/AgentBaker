@@ -1,8 +1,8 @@
-name: check-shell
+name: Lint Shell/Bash Scripts
 on: pull_request
 
 jobs:
-  check-tests:
+  shellcheck:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -11,4 +11,4 @@ jobs:
         go-version: '1.22'
     - run: |
         make validate-shell
-      name: Verify Shell scripts
+      name: Lint shell/bash scripts with ShellCheck
