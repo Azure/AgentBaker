@@ -1,8 +1,8 @@
-name: check-generated
+name: Validate testdata
 on: pull_request
 
 jobs:
-  check-generated:
+  check-generated-testdata:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -12,4 +12,4 @@ jobs:
     - run: |
         make
         git diff --exit-code
-      name: Make generate and diff
+      name: Ensure testdata is updated as necessary
