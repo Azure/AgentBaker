@@ -71,9 +71,10 @@ func RunScenario(t *testing.T, s *Scenario) {
 	require.NoError(t, err)
 
 	executeScenario(ctx, t, &scenarioRunOpts{
-		clusterConfig: model,
-		scenario:      s,
-		nbc:           nbc,
+		clusterConfig:      model,
+		scenario:           s,
+		nbc:                nbc,
+		scriptless: s.Tags.Scriptless,
 	})
 }
 
