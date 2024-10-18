@@ -62,7 +62,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		"node-bootstrapper":            "cat /var/log/azure/node-bootstrapper.log",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube)
+	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -100,7 +100,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, kube)
+	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
 	if err != nil {
 		return nil, err
 	}
