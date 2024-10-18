@@ -1,7 +1,7 @@
 [Unit]
 Description=Parse contract and run csecmd
 After=cloud-init.target
-Wants=cloud-init-complete.target
+Wants=cloud-init.target
 
 [Service]
 Type=oneshot
@@ -9,4 +9,4 @@ ExecStart=/bin/bash /opt/azure/containers/bootstrap.sh
 RemainAfterExit=no
 
 [Install]
-WantedBy=cloud-init-complete.target
+WantedBy=multi-user.target
