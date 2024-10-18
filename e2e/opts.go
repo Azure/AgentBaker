@@ -8,4 +8,5 @@ type scenarioRunOpts struct {
 	clusterConfig *Cluster
 	scenario      *Scenario
 	nbc           *datamodel.NodeBootstrappingConfiguration
+	scriptless    bool
 }

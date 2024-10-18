@@ -1,11 +1,85 @@
 package e2e
 
 import (
+	"encoding/base64"
 	"fmt"
 
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/go-autorest/autorest/to"
 )
+
+func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
+	cs := opts.nbc.ContainerService
+	agentPool := opts.nbc.AgentPoolProfile
+
+	nbc := &nbcontractv1.Configuration{
+		DisableCustomData:  false,
+		LinuxAdminUsername: "azureuser",
+		VmSize:             "Standard_D2ds_v5",
+		ClusterConfig: &nbcontractv1.ClusterConfig{
+			Location:      location,
+			ResourceGroup: opts.nbc.ResourceGroupName,
+			VmType:        nbcontractv1.ClusterConfig_VMSS,
+			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
+				SecurityGroupName: cs.Properties.GetNSGName(),
+				VnetName:          cs.Properties.GetVirtualNetworkName(),
+				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
+				Subnet:            cs.Properties.GetSubnetName(),
+				RouteTable:        cs.Properties.GetRouteTableName(),
+			},
+			PrimaryScaleSet: opts.nbc.PrimaryScaleSetName,
+		},
+		ApiServerConfig: &nbcontractv1.ApiServerConfig{
+			ApiServerName: cs.Properties.HostedMasterProfile.FQDN,
+		},
+		AuthConfig: &nbcontractv1.AuthConfig{
+			ServicePrincipalId:     cs.Properties.ServicePrincipalProfile.ClientID,
+			ServicePrincipalSecret: cs.Properties.ServicePrincipalProfile.Secret,
+			TenantId:               opts.nbc.TenantID,
+			SubscriptionId:         opts.nbc.SubscriptionID,
+			AssignedIdentityId:     opts.nbc.UserAssignedIdentityClientID,
+		},
+		NetworkConfig: &nbcontractv1.NetworkConfig{
+			NetworkPlugin:     nbcontractv1.NetworkPlugin_NP_KUBENET,
+			CniPluginsUrl:     opts.nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
+			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
+		},
+		GpuConfig: &nbcontractv1.GPUConfig{
+			ConfigGpuDriver: true,
+			GpuDevicePlugin: false,
+		},
+		EnableUnattendedUpgrade: true,
+		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
+		ContainerdConfig: &nbcontractv1.ContainerdConfig{
+			ContainerdDownloadUrlBase: opts.nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
+		},
+		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
+		KubeletConfig: &nbcontractv1.KubeletConfig{
+			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
+			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(opts.nbc.KubeletConfig, opts.nbc.AgentPoolProfile.CustomKubeletConfig))),
+			EnableKubeletConfigFile:  false,
+			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(opts.nbc.KubeletConfig, cs, agentPool, false),
+			KubeletNodeLabels:        nbcontractv1.GetKubeletNodeLabels(agentPool),
+		},
+		TlsBootstrappingConfig: &nbcontractv1.TLSBootstrappingConfig{
+			TlsBootstrappingToken: *opts.nbc.KubeletClientTLSBootstrapToken,
+		},
+		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
+		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
+			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
+			PodInfraContainerImageUrl: opts.nbc.K8sComponents.PodInfraContainerImageURL,
+		},
+		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
+		HttpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+			NoProxyEntries: *opts.nbc.HTTPProxyConfig.NoProxy,
+		},
+		NeedsCgroupv2: to.BoolPtr(true),
+	}
+	return nbc
+}
 
 // this is huge, but accurate, so leave it here.
 // TODO(ace): minimize the actual required defaults.
@@ -509,4 +583,15 @@ spec:
   nodeSelector:
     kubernetes.io/hostname: %s
 `, podName, nodeName)
+}
+
+func getScriptlessCustomDataTemplate(encodedNBCJson string) string {
+	return fmt.Sprintf(`#cloud-config
+
+write_files:
+- path: /opt/azure/containers/nbc.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+    %s`, encodedNBCJson)
 }
