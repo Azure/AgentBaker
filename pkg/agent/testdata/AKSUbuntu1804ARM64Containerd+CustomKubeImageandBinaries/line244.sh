@@ -1,0 +1,4 @@
+KUBELET_FLAGS=--feature-gates=DisableAcceleratorUsageMetrics=false,DynamicKubeletConfig=false 
+KUBELET_REGISTER_SCHEDULABLE=true
+NETWORK_POLICY=
+KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2

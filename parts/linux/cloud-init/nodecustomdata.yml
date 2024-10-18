@@ -292,64 +292,19 @@ write_files:
 {{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
+  encoding: gzip
   owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: kubelet-bootstrap
-      user:
-      {{- if EnableSecureTLSBootstrapping }}
-        exec:
-          apiVersion: client.authentication.k8s.io/v1
-          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-          args:
-          - bootstrap
-          - --next-proto=aks-tls-bootstrap
-          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
-          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
-          {{- else}}
-          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
-          {{- end}}
-          interactiveMode: Never
-          provideClusterInfo: true
-      {{- else }}
-        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-      {{- end }}
-    contexts:
-    - context:
-        cluster: localcluster
-        user: kubelet-bootstrap
-      name: bootstrap-context
-    current-context: bootstrap-context
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bootstrapKubeConfig"}}
+
 {{else -}}
 - path: /var/lib/kubelet/kubeconfig
   permissions: "0644"
+  encoding: gzip
   owner: root
-  content: |
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - name: localcluster
-      cluster:
-        certificate-authority: /etc/kubernetes/certs/ca.crt
-        server: https://{{GetKubernetesEndpoint}}:443
-    users:
-    - name: client
-      user:
-        client-certificate: /etc/kubernetes/certs/client.crt
-        client-key: /etc/kubernetes/certs/client.key
-    contexts:
-    - context:
-        cluster: localcluster
-        user: client
-      name: localclustercontext
-    current-context: localclustercontext
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeConfig"}}
+
 {{- end}}
 
 - path: /opt/azure/containers/kubelet.sh
