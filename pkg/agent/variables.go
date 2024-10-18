@@ -53,6 +53,11 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"packageUpdateServiceMariner":  getBase64EncodedGzippedCustomScript(packageUpdateSystemdServiceMariner, config),
 			"packageUpdateTimerMariner":    getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
+
+			//
+			"kubeletDefault":        getBase64EncodedGzippedCustomScript(kubeletDefault, config),
+			"nvidiaModprobeService": getBase64EncodedGzippedCustomScript(nvidiaModprobeService, config),
+			"teleportdService":      getBase64EncodedGzippedCustomScript(teleportdService, config),
 		},
 	}
 

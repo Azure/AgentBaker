@@ -268,57 +268,26 @@ write_files:
 
 - path: /etc/systemd/system/teleportd.service
   permissions: "0644"
+  encoding: gzip
   owner: root
-  content: |
-    [Unit]
-    Description=teleportd teleport runtime
-    After=network.target
-    [Service]
-    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-    Delegate=yes
-    KillMode=process
-    Restart=always
-    LimitNPROC=infinity
-    LimitCORE=infinity
-    LimitNOFILE=1048576
-    TasksMax=infinity
-    [Install]
-    WantedBy=multi-user.target
-    #EOF
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "teleportdService"}}
 
 - path: /etc/systemd/system/nvidia-modprobe.service
   permissions: "0644"
+  encoding: gzip
   owner: root
-  content: |
-    [Unit]
-    Description=Installs and loads Nvidia GPU kernel module
-    [Service]
-    Type=oneshot
-    RemainAfterExit=true
-    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-    ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
-    [Install]
-    WantedBy=multi-user.target
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "nvidiaModprobeService"}}
+
 
 - path: /etc/default/kubelet
   permissions: "0644"
+  encoding: gzip
   owner: root
-  content: |
-    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
-    KUBELET_REGISTER_SCHEDULABLE=true
-    NETWORK_POLICY={{GetParameter "networkPolicy"}}
-{{- if not (IsKubernetesVersionGe "1.17.0")}}
-    KUBELET_IMAGE={{GetHyperkubeImageReference}}
-{{- end}}
-{{- if IsKubernetesVersionGe "1.16.0"}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
-{{- else}}
-    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
-{{- end}}
-{{- if IsAKSCustomCloud}}
-    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
-{{- end}}
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletDefault"}}
+
 
 {{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig

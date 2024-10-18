@@ -91,6 +91,11 @@ const (
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
+
+	//
+	kubeletDefault        = "linux/cloud-init/artifacts/kubelet-default"
+	nvidiaModprobeService = "linux/cloud-init/artifacts/nvidia-modprobe.service"
+	teleportdService      = "linux/cloud-init/artifacts/teleportd.service"
 )
 
 // cloud-init destination file references.
