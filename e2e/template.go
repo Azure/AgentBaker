@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/agentbakere2e/config"
 )
 
 // this is huge, but accurate, so leave it here.
@@ -393,7 +394,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			"--feature-gates":                     "RotateKubeletServerCertificate=true",
 			"--image-gc-high-threshold":           "85",
 			"--image-gc-low-threshold":            "80",
-			"--keep-terminated-pod-volumes":       "false",
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 			"--kubeconfig":                        "/var/lib/kubelet/kubeconfig",
 			"--max-pods":                          "110",
@@ -452,7 +452,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if isAirgap {
-		image = "aksvhdtestcr.azurecr.io/aks/cbl-mariner/busybox:2.0"
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
 	}
 
 	return fmt.Sprintf(`apiVersion: v1

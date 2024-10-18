@@ -34,12 +34,12 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	hostPodName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
+	hostPodName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube, t)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
 	}
 
-	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, vmssName)
+	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, opts.clusterConfig.Kube, vmssName, t)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}

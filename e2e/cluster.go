@@ -71,7 +71,7 @@ func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
 		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true)
 		if err == nil {
-			err = addAirgapNetworkSettings(ctx, t, cluster)
+			err = addAirgapNetworkSettings(ctx, t, cluster.Model)
 		}
 		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
 	})
@@ -102,6 +102,16 @@ func nodeBootstrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 
+	// private acr must be created before we add the debug daemonsets
+	if isAirgap {
+		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+		if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to add cache rules to private acr: %w", err)
+		}
+	}
+
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
@@ -123,16 +133,19 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	if err := ensureDebugDaemonsets(ctx, kube, isAirgap); err != nil {
-		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
-	}
-
 	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
+	t.Logf("ensuring debug daemonsets")
+	if err := ensureDebugDaemonsets(ctx, t, kube, isAirgap); err != nil {
+		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
+	}
+
+	// nodeBootstrappingConfig requires the debug deamonset to already be created
+	t.Logf("getting the node bootstrapping configuration for cluster")
 	nbc, err := nodeBootstrappingConfig(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
@@ -159,7 +172,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	existingCluster, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		return createNewAKSClusterWithRetry(ctx, t, cluster)
+		return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
@@ -172,7 +185,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		return waitUntilClusterReady(ctx, config.ResourceGroupName, *cluster.Name)
 	default:
 		// this operation will try to update the cluster if it's in a failed state
-		return createNewAKSClusterWithRetry(ctx, t, cluster)
+		return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
 	}
 }
 
@@ -202,12 +215,12 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 // that retries creating a cluster if it fails with a 409 Conflict error
 // clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
 // simple retry should be sufficient to avoid such conflicts
-func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup string) (*armcontainerservice.ManagedCluster, error) {
 	maxRetries := 10
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		t.Logf("Attempt %d: creating or updating cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
+		t.Logf("Attempt %d: creating or updating cluster %s in region %s and rg %s\n", attempt+1, *cluster.Name, *cluster.Location, resourceGroup)
 
 		createdCluster, err := createNewAKSCluster(ctx, t, cluster)
 		if err == nil {
