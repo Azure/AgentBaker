@@ -107,9 +107,6 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
-		if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
-			return nil, fmt.Errorf("failed to add cache rules to private acr: %w", err)
-		}
 	}
 
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
