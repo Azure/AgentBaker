@@ -77,7 +77,7 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
-.PHONY: shellspec
+.PHONY: shellspec # TODO: have this run in a container with a stable bash installation
 shellspec: bootstrap
 	@bash ./hack/tools/bin/shellspec
 
