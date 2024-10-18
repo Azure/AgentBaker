@@ -58,7 +58,7 @@ func TestIsNvidiaEnabledSKU(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.name, func(_ *testing.T) {
 			result := IsNvidiaEnabledSKU(test.input)
 			assert.Equal(test.output, result, "Failed for input: %s", test.input)
 		})
@@ -155,7 +155,7 @@ func TestIsMarinerEnabledGPUSKU(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.name, func(_ *testing.T) {
 			result := IsMarinerEnabledGPUSKU(test.input)
 			assert.Equal(test.output, result, "Failed for input: %s", test.input)
 		})
@@ -179,7 +179,7 @@ func TestGetAKSGPUImageSHA(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.name, func(_ *testing.T) {
 			result := GetAKSGPUImageSHA(test.size)
 			assert.Equal(test.output, result, "Failed for size: %s", test.size)
 		})
@@ -206,7 +206,7 @@ func TestGetGPUDriverVersion(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(test.name, func(_ *testing.T) {
 			result := GetGPUDriverVersion(test.size)
 			assert.Equal(test.output, result, "Failed for size: %s", test.size)
 		})

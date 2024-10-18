@@ -17,10 +17,10 @@ var _ = Describe("tgls tests", func() {
 	BeforeEach(func() {
 		tgls = &Toggles{
 			Maps: map[string]MapToggle{
-				"mt1": func(entity *Entity) map[string]string {
+				"mt1": func(_ *Entity) map[string]string {
 					return map[string]string{"key": "value"}
 				},
-				"mt2": func(entity *Entity) map[string]string {
+				"mt2": func(_ *Entity) map[string]string {
 					return map[string]string{
 						"otherKey":     "otherValue",
 						"someOtherKey": "someOtherValue",
@@ -28,10 +28,10 @@ var _ = Describe("tgls tests", func() {
 				},
 			},
 			Strings: map[string]StringToggle{
-				"st1": func(entity *Entity) string {
+				"st1": func(_ *Entity) string {
 					return "value"
 				},
-				"st2": func(entity *Entity) string {
+				"st2": func(_ *Entity) string {
 					return "otherValue"
 				},
 			},
@@ -68,11 +68,11 @@ var _ = Describe("tgls tests", func() {
 		When("toggle exists", func() {
 			It("should return the correct value", func() {
 				m := tgls.getMap("mt1", e)
-				Expect(len(m)).To(Equal(1))
+				Expect(m).To(HaveLen(1))
 				Expect(m).To(HaveKeyWithValue("key", "value"))
 
 				m = tgls.getMap("mt2", e)
-				Expect(len(m)).To(Equal(2))
+				Expect(m).To(HaveLen(2))
 				Expect(m).To(HaveKeyWithValue("otherKey", "otherValue"))
 				Expect(m).To(HaveKeyWithValue("someOtherKey", "someOtherValue"))
 			})

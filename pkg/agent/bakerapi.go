@@ -12,7 +12,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/vhd/cache"
 )
 
-//nolint:revive // Name does not need to be modified to baker
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error)
@@ -26,7 +25,6 @@ type agentBakerImpl struct {
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
-//nolint:revive // fine to return unexported type due to interface usage
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
 		toggles: toggles.New(),

@@ -219,55 +219,55 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// GetNodeBootstrappingPayload mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
 		// unit tests should always rely on unmutated copies of the base config.
 		configCustomDataInput, err := deepcopy.Anything(config)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		configCseInput, err := deepcopy.Anything(config)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		// customData
 		ab, err := NewAgentBaker()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
 			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
 		)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 		customData := string(customDataBytes)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		if generateTestData() {
 			backfillCustomData(folder, customData)
 		}
 
 		expectedCustomData, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CustomData", folder))
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(customData).To(Equal(string(expectedCustomData)))
 
 		// CSE
 		ab, err = NewAgentBaker()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
 			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
 		)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
 			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
 		files, err := getDecodedFilesFromCustomdata(customDataBytes)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCommand))
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		result := &nodeBootstrappingOutput{
 			customData: customData,
@@ -303,16 +303,16 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 
 		kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		var kubeletConfigFile datamodel.AKSKubeletConfiguration
 
 		err = json.Unmarshal([]byte(kubeletConfigFileContent), &kubeletConfigFile)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		dynamicConfigFeatureGate, dynamicConfigFeatureGateExists := kubeletConfigFile.FeatureGates["DynamicKubeletConfig"]
-		Expect(dynamicConfigFeatureGateExists).To(Equal(true))
-		Expect(dynamicConfigFeatureGate).To(Equal(false))
+		Expect(dynamicConfigFeatureGateExists).To(BeTrue())
+		Expect(dynamicConfigFeatureGate).To(BeFalse())
 	}),
 		Entry("AKSUbuntu1604 with k8s version 1.18", "AKSUbuntu1604+K8S118", "1.18.2", nil, nil),
 		Entry("AKSUbuntu1604 with k8s version 1.17", "AKSUbuntu1604+K8S117", "1.17.7", nil, nil),
@@ -503,7 +503,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				}
 			}, func(o *nodeBootstrappingOutput) {
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				// assert defaults for gc_thresh2 and gc_thresh3
 				// assert custom values for all others.
 				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=1638499"))
@@ -564,7 +564,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				}
 			}, func(o *nodeBootstrappingOutput) {
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				// assert defaults for all.
 				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=16384"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.tcp_max_syn_backlog=16384"))
@@ -854,7 +854,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(strings.Contains(cseMain, "eval $PROXY_VARS")).To(BeTrue())
 				Expect(strings.Contains(cseMain, "$OUTBOUND_COMMAND")).To(BeTrue())
 				// assert we eval exporting the proxy vars before checking outbound connectivity
-				Expect(strings.Index(cseMain, "eval $PROXY_VARS") < strings.Index(cseMain, "$OUTBOUND_COMMAND")).To(BeTrue())
+				Expect(strings.Index(cseMain, "eval $PROXY_VARS")).To(BeNumerically("<", strings.Index(cseMain, "$OUTBOUND_COMMAND")))
 				Expect(strings.Contains(o.cseCmd, httpProxyStr)).To(BeTrue())
 			},
 		),
@@ -868,7 +868,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			Expect(o.vars["SHOULD_CONFIGURE_CUSTOM_CA_TRUST"]).To(Equal("true"))
 			Expect(o.vars["CUSTOM_CA_CERT_0"]).To(Equal(encodedTestCert))
 			err := verifyCertsEncoding(o.vars["CUSTOM_CA_CERT_0"])
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		}),
 
 		Entry("AKSUbuntu1804 with containerd and runcshimv2", "AKSUbuntu1804+Containerd+runcshimv2", "1.19.13",
@@ -937,7 +937,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expectedShimConfig := `version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
@@ -980,7 +980,7 @@ oom_score = 0
 
 				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expectedOverlaybdConfig := `version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
@@ -1028,7 +1028,7 @@ oom_score = 0
 
 				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expectedOverlaybdConfig := `[plugins."io.containerd.grpc.v1.cri".containerd]
     snapshotter = "overlaybd"
     disable_snapshot_annotations = false
@@ -1103,7 +1103,7 @@ oom_score = 0
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]).NotTo(BeEmpty())
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expectedShimConfig := `version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
@@ -1146,7 +1146,7 @@ oom_score = 0
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]).NotTo(BeEmpty())
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expectedShimConfig := `version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
@@ -1309,7 +1309,7 @@ oom_score = 0
 				}
 			}, func(o *nodeBootstrappingOutput) {
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				// assert defaults for gc_thresh2 and gc_thresh3
 				// assert custom values for all others.
 				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=1638499"))
@@ -1542,13 +1542,13 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 		// customData
 		ab, err := NewAgentBaker()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(context.Background(), config)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		base64EncodedCustomData := nodeBootstrapping.CustomData
 		customDataBytes, err := base64.StdEncoding.DecodeString(base64EncodedCustomData)
 		customData := string(customDataBytes)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		if generateTestData() {
 			backfillCustomData(folder, customData)
@@ -1562,14 +1562,14 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 		// CSE
 		ab, err = NewAgentBaker()
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(context.Background(), config)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		cseCommand := nodeBootstrapping.CSE
 
 		if generateTestData() {
 			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
@@ -1578,13 +1578,13 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		}
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
-	}, Entry("AKSWindows2019 with k8s version 1.16", "AKSWindows2019+K8S116", "1.16.15", func(config *datamodel.NodeBootstrappingConfiguration) {
+	}, Entry("AKSWindows2019 with k8s version 1.16", "AKSWindows2019+K8S116", "1.16.15", func(_ *datamodel.NodeBootstrappingConfiguration) {
 	}),
-		Entry("AKSWindows2019 with k8s version 1.17", "AKSWindows2019+K8S117", "1.17.7", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with k8s version 1.17", "AKSWindows2019+K8S117", "1.17.7", func(_ *datamodel.NodeBootstrappingConfiguration) {
 		}),
-		Entry("AKSWindows2019 with k8s version 1.18", "AKSWindows2019+K8S118", "1.18.2", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with k8s version 1.18", "AKSWindows2019+K8S118", "1.18.2", func(_ *datamodel.NodeBootstrappingConfiguration) {
 		}),
-		Entry("AKSWindows2019 with k8s version 1.19", "AKSWindows2019+K8S119", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
+		Entry("AKSWindows2019 with k8s version 1.19", "AKSWindows2019+K8S119", "1.19.0", func(_ *datamodel.NodeBootstrappingConfiguration) {
 		}),
 		Entry("AKSWindows2019 with k8s version 1.19 + CSI", "AKSWindows2019+K8S119+CSI", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz"
@@ -1715,15 +1715,15 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 func backfillCustomData(folder, customData string) {
 	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
-		Expect(e).To(BeNil())
+		Expect(e).ToNot(HaveOccurred())
 	}
 	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
-	Expect(writeFileError).To(BeNil())
+	Expect(writeFileError).ToNot(HaveOccurred())
 	if strings.Contains(folder, "AKSWindows") {
 		return
 	}
 	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-	Expect(err).To(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {

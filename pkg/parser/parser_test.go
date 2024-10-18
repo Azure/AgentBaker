@@ -171,19 +171,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			log.Printf("Failed to marshal the nbcontractv1 to json: %v", err)
 		}
 		cseCmd, err := parser.Parse(inputJSON)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		if generateTestData() {
 			if _, err = os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 				e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
-				Expect(e).To(BeNil())
+				Expect(e).ToNot(HaveOccurred())
 			}
 			err = os.WriteFile(fmt.Sprintf("./testdata/%s/generatedCSECommand", folder), []byte(cseCmd), 0644)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 
 		result := &nodeBootstrappingOutput{
 			cseCmd: cseCmd,
@@ -208,7 +208,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			// GPU driver install, since it will fail to run even non-GPU
 			// pods, as it will not be installed.
 			containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			expectedShimConfig := `version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
@@ -274,7 +274,7 @@ oom_score = 0
 			},
 			func(o *nodeBootstrappingOutput) {
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				// assert defaults for gc_thresh2 and gc_thresh3
 				// assert custom values for all others.
 				Expect(sysctlContent).To(ContainSubstring("net.core.somaxconn=1638499"))

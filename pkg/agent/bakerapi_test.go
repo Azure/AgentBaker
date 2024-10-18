@@ -184,7 +184,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return the correct bootstrapping data when linux node image version override is present", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"linux-node-image-version": func(_ *agenttoggles.Entity) map[string]string {
 					return map[string]string{
 						string(datamodel.AKSUbuntu1604): "202402.27.0",
 					}
@@ -211,7 +211,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return the correct bootstrapping data when linux node image version is present but does not specify for distro", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"linux-node-image-version": func(_ *agenttoggles.Entity) map[string]string {
 					return map[string]string{
 						string(datamodel.AKSUbuntu1804): "202402.27.0",
 					}
@@ -239,7 +239,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			// this CloudSpecConfig is shared across all AgentBaker UTs,
 			// thus we need to make and use a copy when performing mutations for mocking
 			cloudSpecConfigCopy, err := deepcopy.Anything(config.CloudSpecConfig)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			cloudSpecConfig, ok := cloudSpecConfigCopy.(*datamodel.AzureEnvironmentSpecConfig)
 			Expect(ok).To(BeTrue())
 			config.CloudSpecConfig = cloudSpecConfig
@@ -314,7 +314,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return correct value for existing distro when linux node image version override is provided", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"linux-node-image-version": func(_ *agenttoggles.Entity) map[string]string {
 					return map[string]string{
 						string(datamodel.AKSUbuntu1604): "202402.27.0",
 					}
@@ -339,7 +339,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return correct value for existing distro when linux node image version override is provided but not for distro", func() {
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"linux-node-image-version": func(_ *agenttoggles.Entity) map[string]string {
 					return map[string]string{
 						string(datamodel.AKSUbuntu1804): "202402.27.0",
 					}
@@ -428,7 +428,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 
 		It("should return correct value for all existing distros", func() {
 			agentBaker, err := NewAgentBaker()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			agentBaker = agentBaker.WithToggles(toggles)
 
 			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
@@ -436,7 +436,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				TenantID:       config.TenantID,
 				Region:         cs.Location,
 			})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			for _, distro := range allLinuxDistros {
 				Expect(configs).To(HaveKey(distro))
@@ -480,13 +480,13 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				imageVersionOverrides[string(distro)] = azureLinuxOverrideVersion
 			}
 			toggles.Maps = map[string]agenttoggles.MapToggle{
-				"linux-node-image-version": func(entity *agenttoggles.Entity) map[string]string {
+				"linux-node-image-version": func(_ *agenttoggles.Entity) map[string]string {
 					return imageVersionOverrides
 				},
 			}
 
 			agentBaker, err := NewAgentBaker()
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			agentBaker = agentBaker.WithToggles(toggles)
 
 			configs, err := agentBaker.GetDistroSigImageConfig(config.SIGConfig, &datamodel.EnvironmentInfo{
@@ -494,7 +494,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				TenantID:       config.TenantID,
 				Region:         cs.Location,
 			})
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 
 			for _, distro := range allLinuxDistros {
 				Expect(configs).To(HaveKey(distro))

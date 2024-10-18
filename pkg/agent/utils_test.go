@@ -570,7 +570,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39"}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(cseStatus.ExitCode).To(Equal("51"))
 		Expect(cseStatus.Output).To(Equal("test"))
 		Expect(cseStatus.Error).To(Equal(""))
@@ -578,14 +578,15 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 
 	It("When cse output format is correct and contains call known fields", func() {
-		//lint:ignore lll
+		//lint:ignore lll // long line for test message
 		testMessage := `{"ExitCode": "51", "Output": "test", "Error": "",
 		"ExecDuration": "39", "KernelStartTime": "kernel start time", 
 		"SystemdSummary": "systemd summary", "CSEStartTime": "cse start time",
 		"GuestAgentStartTime": "guest agent start time", "BootDatapoints": {"dp1": "1"}}`
+
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).To(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(cseStatus.ExitCode).To(Equal("51"))
 		Expect(cseStatus.Output).To(Equal("test"))
 		Expect(cseStatus.Error).To(Equal(""))
@@ -594,7 +595,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		Expect(cseStatus.SystemdSummary).To(Equal("systemd summary"))
 		Expect(cseStatus.CSEStartTime).To(Equal("cse start time"))
 		Expect(cseStatus.GuestAgentStartTime).To(Equal("guest agent start time"))
-		Expect(len(cseStatus.BootDatapoints)).To(Equal(1))
+		Expect(cseStatus.BootDatapoints).To(HaveLen(1))
 		Expect(cseStatus.BootDatapoints["dp1"]).To(Equal("1"))
 	})
 
@@ -603,7 +604,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39"}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When ExecDuration is missing", func() {
@@ -611,7 +612,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).ToNot(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When Output is missing", func() {
@@ -619,7 +620,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "Output": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When Error is missing", func() {
@@ -627,7 +628,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "Error": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When KernelStartTime is missing", func() {
@@ -635,7 +636,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "KernelStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When SystemdSummary is missing", func() {
@@ -643,7 +644,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "SystemdSummary": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When CSEStartTime is missing", func() {
@@ -651,7 +652,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "CSEStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When GuestAgentStartTime is missing", func() {
@@ -659,7 +660,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "GuestAgentStartTime": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When BootDatapoints is missing", func() {
@@ -667,7 +668,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "BootDatapoints": }`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("When BootDatapoints is malformed", func() {
@@ -675,7 +676,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": "39", "BootDatapoints": {datapoint:1}}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("when ExecDuration is an integer", func() {
@@ -683,7 +684,7 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 		"Error": "", "ExecDuration": 39}`
 		var cseStatus datamodel.CSEStatus
 		err := json.Unmarshal([]byte(testMessage), &cseStatus)
-		Expect(err).NotTo(BeNil())
+		Expect(err).To(HaveOccurred())
 	})
 })
 

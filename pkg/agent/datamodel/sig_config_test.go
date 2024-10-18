@@ -47,7 +47,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(23))
+		Expect(sigConfig.SigUbuntuImageConfig).To(HaveLen(23))
 
 		aksUbuntuGPU1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuGPU1804Gen2]
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
@@ -55,7 +55,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntuGPU1804Gen2.Definition).To(Equal("1804gen2gpu"))
 		Expect(aksUbuntuGPU1804Gen2.Version).To(Equal("2022.08.29"))
 
-		Expect(len(sigConfig.SigCBLMarinerImageConfig)).To(Equal(9))
+		Expect(sigConfig.SigCBLMarinerImageConfig).To(HaveLen(9))
 
 		mariner := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV1]
 		Expect(mariner.ResourceGroup).To(Equal("resourcegroup"))
@@ -63,7 +63,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(7))
+		Expect(sigConfig.SigAzureLinuxImageConfig).To(HaveLen(7))
 
 		azurelinux := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinux.ResourceGroup).To(Equal("resourcegroup"))
@@ -71,7 +71,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinux.Definition).To(Equal("V2"))
 		Expect(azurelinux.Version).To(Equal(LinuxSIGImageVersion))
 
-		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(6))
+		Expect(sigConfig.SigWindowsImageConfig).To(HaveLen(6))
 
 		windows2019 := sigConfig.SigWindowsImageConfig[AKSWindows2019]
 		Expect(windows2019.ResourceGroup).To(Equal("AKS-Windows"))
@@ -151,7 +151,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2204TLGen2Containerd.Definition).To(Equal("2204gen2TLcontainerd"))
 		Expect(aksUbuntu2204TLGen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
 
-		Expect(len(sigConfig.SigUbuntuEdgeZoneImageConfig)).To(Equal(4))
+		Expect(sigConfig.SigUbuntuEdgeZoneImageConfig).To(HaveLen(4))
 
 		aksUbuntuEdgeZoneContainerd1804 := sigConfig.SigUbuntuEdgeZoneImageConfig[AKSUbuntuEdgeZoneContainerd1804]
 		Expect(aksUbuntuEdgeZoneContainerd1804.ResourceGroup).To(Equal("AKS-Ubuntu-EdgeZone"))

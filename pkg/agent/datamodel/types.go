@@ -511,9 +511,9 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
-	//nolint:revive, stylecheck // keep field names the same as RP
+	//nolint:stylecheck // keep field names the same as RP
 	WindowsSecureTlsEnabled *bool `json:"windowsSecureTlsEnabled,omitempty"`
-	//nolint:revive, stylecheck // keep field names the same as RP
+	//nolint:stylecheck // keep field names the same as RP
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
 	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
@@ -1307,7 +1307,7 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 
 // IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
 //
-//nolint:revive,stylecheck // allign func name with field name
+//nolint:stylecheck // allign func name with field name
 func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 	if w.WindowsSecureTlsEnabled != nil {
 		return *w.WindowsSecureTlsEnabled
