@@ -113,11 +113,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/cloud-init-complete.target",
-      "destination": "/home/packer/cloud-init-complete.target"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/bootstrap.sh",
       "destination": "/home/packer/bootstrap.sh"
     },

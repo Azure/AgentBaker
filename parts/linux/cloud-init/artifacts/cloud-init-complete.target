@@ -1,5 +1,0 @@
-[Unit]
-Description=Custom Target for Cloud Init Completion
-
-[Install]
-WantedBy=multi-user.target

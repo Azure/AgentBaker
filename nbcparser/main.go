@@ -25,7 +25,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println("Provisioning completed successfully")
 }
 
 func parseConfig(configFile string) string {

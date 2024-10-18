@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -euxo pipefail
 # TODO: propagate exit status to bootstrapper
 if [ ! -f /opt/azure/containers/nbc.json ]; then 
     exit 1

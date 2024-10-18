@@ -254,10 +254,6 @@ copyPackerFiles() {
   NBCPARSER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
   cpAndMode $NBCPARSER_SERVICE_SRC $NBCPARSER_SERVICE_DEST 0644
 
-  NBCPARSER_TARGET_SRC=/home/packer/cloud-init-complete.target
-  NBCPARSER_TARGET_DEST=/etc/systemd/system/cloud-init-complete.target
-  cpAndMode $NBCPARSER_TARGET_SRC $NBCPARSER_TARGET_DEST 0644
-
   NBCPARSER_SCRIPT_SRC=/home/packer/bootstrap.sh
   NBCPARSER_SCRIPT_DEST=/opt/azure/containers/bootstrap.sh
   cpAndMode $NBCPARSER_SCRIPT_SRC $NBCPARSER_SCRIPT_DEST 0744
