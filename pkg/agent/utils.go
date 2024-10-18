@@ -179,16 +179,20 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
+
 	// translate the parameters.
 	b = removeComments(b)
-	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
+	funcMap := getBakerFuncMap(config, getParameters(config), paramsMap{})
+	// funcMap := getContainerServiceFuncMap(config)
+
+	templ := template.New("ContainerService template").Option("missingkey=error").Funcs(funcMap)
 	_, err = templ.Parse(string(b))
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
 	}
 	var buffer bytes.Buffer
-	err = templ.Execute(&buffer, config.ContainerService)
+	err = templ.Execute(&buffer, config.AgentPoolProfile)
 	if err != nil {
 		// this should never happen and this is a bug.
 		panic(fmt.Sprintf("BUG: %s", err.Error()))
