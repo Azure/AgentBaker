@@ -1,40 +1,54 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
+	"os/exec"
 
 	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 )
 
-// input to this function will be the serialized JSON from userdata + custom data.
-// it will be deserialized to the contract that the VHD this binary will be on supports.
-// Parse will be called using that deserialized struct and output the generated cse_cmd to trigger the bootstrap process.
-// example usage:
-// to build: go build main.go.
-// to run: ./main testdata/test_nbc.json.
-//
-//nolint:gosec // generated cse_cmd.sh file needs execute permissions for bootstrapping
+// This script will take in the bootstrap contract in JSON format,
+// it will be deserialized to the contract that the VHD this binary supports.
+// The contract will be used to generate cse_cmd and trigger the bootstrap process.
 func main() {
-	if len(os.Args) < parser.MinArgs {
-		log.Default().Printf("Usage: %s <input.json>", os.Args[0])
-		return
+	configFile := flag.String("bootstrap-config", "", "bootstrap configuration json filepath")
+	test := flag.Bool("test", false, "test mode")
+	flag.Parse()
+	if *configFile == "" {
+		log.Fatal("bootstrap-config is a required argument")
 	}
 
-	// Read in the JSON file
-	inputJSON, err := os.ReadFile(os.Args[1])
+	cseCmd := parseConfig(*configFile)
+	err := bootstrap(cseCmd, *test)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
+}
 
+func parseConfig(configFile string) string {
+	// Read in the JSON file
+	inputJSON, err := os.ReadFile(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 	cseCmd, err := parser.Parse(inputJSON)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
-	if err = os.WriteFile("cse_cmd.sh", []byte(cseCmd), 0655); err != nil {
-		log.Fatal(err)
-		return
+	log.Printf("Generated cse_cmd: %s\n", cseCmd)
+	return cseCmd
+}
+
+func bootstrap(cseCmd string, test bool) error {
+	// if test flag is set, do not trigger bootstrapping
+	if test {
+		log.Println("Test mode, skip provisioning")
+		return nil
 	}
+	cmd := exec.Command("/bin/bash", "-c", cseCmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
