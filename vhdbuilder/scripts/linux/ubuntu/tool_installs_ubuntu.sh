@@ -68,7 +68,7 @@ installBcc() {
       git checkout v0.29.0
     fi
 
-    cmake .. || exit 1
+    cmake -DENABLE_EXAMPLES=off .. || exit 1
     make
     sudo make install || exit 1
     cmake -DPYTHON_CMD=python3 .. || exit 1 # build python3 binding 
@@ -90,6 +90,8 @@ installBcc() {
     if [[ "${VERSION}" == "24.04" ]]; then
       apt_get_purge 120 5 300 libpolly-14-dev || exit $ERR_BCC_INSTALL_TIMEOUT
     fi
+
+    rm -rf /tmp/bcc
 }
 
 installBpftrace() {
