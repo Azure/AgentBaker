@@ -362,6 +362,7 @@ enable_containerd_discard_unpacked_layers() {
 
 disable_containerd_discard_unpacked_layers() {
   rm -rf /etc/containerd
+  systemctl restart containerd
 }
 
 enable_containerd_discard_unpacked_layers
