@@ -355,8 +355,9 @@ capture_benchmark "${SCRIPT_NAME}_run_installBcc_in_subshell"
 enable_containerd_discard_unpacked_layers() {
   containerd_config_file="/etc/containerd/config.toml"
   mkdir -p /etc/containerd
-  touch ${containerd_config_file}
-  echo -e '[plugins."io.containerd.grpc.v1.cri".containerd]\ndiscard_unpacked_layers = true' >> ${containerd_config_file}
+  containerd config default > ${containerd_config_file}
+  sed -i 's/enable_unpacked_layers = false/enable_unpacked_layers = true/g' ${containerd_config_file}
+  systemctl restart containerd
 }
 
 disable_containerd_discard_unpacked_layers() {
