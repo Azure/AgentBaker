@@ -1314,4 +1314,43 @@ stages:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
-      - template: ./templates/e2e-template.yaml
+      - template: ./templates/e2e-template.yaml  
+  - stage: Create_Production_VMs
+    dependsOn: build
+    condition: eq(variables.Create_Production_VMS, 'true'), 
+    steps:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download VHD info artifact
+      inputs:
+        artifact: 'vhd-info'
+        targetPath: '$(Pipeline.Workspace)/downloaded-artifacts' # Download the vhd-publishing-info.json into to the workspace
+    - Job: Create_Production_VMs
+      pool:
+        name: nodesigtest-pool # todo (alburgess) check if this is correct
+      timeotInMinutes: 90
+      displayName: Create Production VMs
+      steps:
+        - bash: |
+            set -ex
+            az login --identity
+            az account set --subscription $(AZURE_SUBSCRIPTION_ID)
+          displayName: Azure login
+        - bash: bash .pipelines/scripts/setup_go.sh
+          displayName: Setup go
+        - bash: |
+            set -ex
+            LOGGING_DIR="creating-production-vms-$(date +%s)"
+            echo "setting up logging in $LOGGING_DIR"
+            echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
+          displayName: Setup logging directory
+        - bash: |
+            set -ex
+            export PATH="/usr/local/go/bin:$PATH"
+            go version
+
+            cd production-vms
+            mkdir -p bin
+            GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
+            go run main.go --json-dir $(Pipeline.Workspace)/downloaded-artifacts
+          displayName: Run Go program with JSON files
+
