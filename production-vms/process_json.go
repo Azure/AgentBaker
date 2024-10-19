@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func extract_all_vhd_ids(jsonDir *string) ([]string, error) {
@@ -31,11 +30,7 @@ func extract_all_vhd_ids(jsonDir *string) ([]string, error) {
 			}
 
 			if vhdURL, ok := data["vhd_url"].(string); ok {
-				parts := strings.Split(vhdURL, "/")
-				if len(parts) > 0 {
-					vhdID := parts[len(parts)-1] // 1.**.vhd ...
-					vhdIDs = append(vhdIDs, vhdID)
-				}
+				vhdIDs = append(vhdIDs, vhdURL)
 			}
 		}
 		return nil

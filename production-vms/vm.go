@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 )
+
+// create a main_test.go in order to test this function
 
 func create_produciton_vm(location, imageResourceID, vmName string) {
 	// implement create_produciton_vm
@@ -38,4 +42,5 @@ func create_produciton_vm(location, imageResourceID, vmName string) {
 			},
 		},
 	}
+	fmt.Printf("Creating VM %s in resource group %s\n", vmParameters.Name, "<your-resource-group-name>")
 }
