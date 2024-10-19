@@ -355,10 +355,8 @@ enable_containerd_discard_unpacked_layers() {
   mkdir -p /etc/containerd
   containerd config default > ${containerd_config_file}
   cat ${containerd_config_file}
-  sed -i 's/enable_unpacked_layers = false/enable_unpacked_layers = true/g' ${containerd_config_file}
-  cat ${containerd_config_file}
+  sed -i 's/discard_unpacked_layers = false/discard_unpacked_layers = true/g' ${containerd_config_file}
   systemctl restart containerd
-  systemctl status containerd
 }
 
 disable_containerd_discard_unpacked_layers() {
