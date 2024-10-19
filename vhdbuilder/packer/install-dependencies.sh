@@ -262,8 +262,6 @@ while IFS= read -r p; do
           installStandaloneContainerd "${version}"
         fi
         echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # k8s will use images in the k8s.io namespaces - create it
-        ctr namespace create k8s.io
       done
       ;;
     "oras")
@@ -356,8 +354,11 @@ enable_containerd_discard_unpacked_layers() {
   containerd_config_file="/etc/containerd/config.toml"
   mkdir -p /etc/containerd
   containerd config default > ${containerd_config_file}
+  cat ${containerd_config_file}
   sed -i 's/enable_unpacked_layers = false/enable_unpacked_layers = true/g' ${containerd_config_file}
+  cat ${containerd_config_file}
   systemctl restart containerd
+  systemctl status containerd
 }
 
 disable_containerd_discard_unpacked_layers() {
