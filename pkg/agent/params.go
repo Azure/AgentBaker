@@ -18,6 +18,9 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	parametersMap := paramsMap{}
 	cloudSpecConfig := config.CloudSpecConfig
 
+	addValue(parametersMap, "bootstrappingMethod", config.BootstrappingMethod)
+	addValue(parametersMap, "bootstrappingClientManagedIdentity", config.BootstrappingManagedIdentityID)
+
 	linuxProfile := properties.LinuxProfile
 	if linuxProfile != nil {
 		addValue(parametersMap, "linuxAdminUsername", linuxProfile.AdminUsername)
