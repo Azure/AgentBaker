@@ -52,6 +52,10 @@ type ArtifactBuild struct {
 	Name string
 }
 
+func (b *ArtifactBuild) URL() string {
+	return fmt.Sprintf("https://msazure.visualstudio.com/%s/_build/results?buildId=%d&view=results", projectName, b.ID)
+}
+
 func (c *Client) BuildEV2Artifacts(ctx context.Context, vhdBuildID string) (*ArtifactBuild, error) {
 	run, err := c.pipelines.RunPipeline(ctx, pipelines.RunPipelineArgs{
 		Project:    to.Ptr(projectName),
@@ -67,9 +71,11 @@ func (c *Client) BuildEV2Artifacts(ctx context.Context, vhdBuildID string) (*Art
 		return nil, fmt.Errorf("new pipeline run %d has unexpected state: %s", *run.Id, *run.State)
 	}
 
-	buildID := *run.Id
-	buildName := *run.Name
-	log.Printf("EV2 artifact build started; ID: %d, URL: %s", buildID, getBuildURL(buildID))
+	build := &ArtifactBuild{
+		ID:   *run.Id,
+		Name: *run.Name,
+	}
+	log.Printf("EV2 artifact build started; ID: %d, URL: %s", build.ID, build.URL())
 
 	ticker := time.NewTicker(pollBuildCompletionInterval)
 	for !isTerminal(*run.State) {
@@ -78,22 +84,19 @@ func (c *Client) BuildEV2Artifacts(ctx context.Context, vhdBuildID string) (*Art
 			run, err = c.pipelines.GetRun(ctx, pipelines.GetRunArgs{
 				Project:    to.Ptr(projectName),
 				PipelineId: to.Ptr(sigReleaseArtifactBuildPipelineID),
-				RunId:      &buildID,
+				RunId:      &build.ID,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("getting SIG release EV2 artifact build pipeline run: %w", err)
 			}
-			log.Printf("SIG release EV2 artifact build %d is in state %q, will check status again in %s", buildID, *run.State, pollBuildCompletionInterval)
+			log.Printf("SIG release EV2 artifact build %d is in state %q, will check status again in %s", build.ID, *run.State, pollBuildCompletionInterval)
 		case <-ctx.Done():
 			return nil, fmt.Errorf("waiting for EV2 artifact build to finish: %w", ctx.Err())
 		}
 	}
 
-	log.Printf("SIG release EV2 artifact build %d finished with result: %s", buildID, *run.State)
-	return &ArtifactBuild{
-		ID:   buildID,
-		Name: buildName,
-	}, nil
+	log.Printf("SIG release EV2 artifact build %d finished with result: %s", build.ID, *run.State)
+	return build, nil
 }
 
 func (c *Client) CreateSIGRelease(ctx context.Context, source *ArtifactBuild) error {
@@ -115,7 +118,11 @@ func (c *Client) CreateSIGRelease(ctx context.Context, source *ArtifactBuild) er
 	if err != nil {
 		return fmt.Errorf("creating SIG release: %w", err)
 	}
-	log.Printf("created SIG release: %d", sigRelease.Id)
+	releaseURL, err := extractReleaseURL(sigRelease)
+	if err != nil {
+		return fmt.Errorf("extracting release URL: %w", err)
+	}
+	log.Printf("created SIG release: %s", releaseURL)
 	return nil
 }
 
@@ -128,10 +135,23 @@ func getArtifactBuildVariables(vhdBuildID string) map[string]pipelines.Variable 
 	}
 }
 
-func getBuildURL(buildID int) string {
-	return fmt.Sprintf("https://msazure.visualstudio.com/%s/_build/results?buildId=%d&view=results", projectName, buildID)
-}
-
 func isTerminal(state pipelines.RunState) bool {
 	return state != pipelines.RunStateValues.InProgress && state != "NotStarted"
+}
+
+func extractReleaseURL(r *release.Release) (string, error) {
+	linkMap, ok := r.Links.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unable to convert release links to map[string]interface{}")
+	}
+	webLinks := linkMap["web"]
+	webLinkMap, ok := webLinks.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unable to convert release web links to map[string]string")
+	}
+	releaseURL, ok := webLinkMap["href"].(string)
+	if !ok {
+		return "", fmt.Errorf("failed to convert release URL to string")
+	}
+	return releaseURL, nil
 }
