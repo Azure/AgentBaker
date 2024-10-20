@@ -171,8 +171,8 @@ func escapeSingleLine(escapedStr string) string {
 	return escapedStr
 }
 
-// getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
-func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
+// getBase64EncodedCustomScript will return a base64 of the CSE.
+func getBase64EncodedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
 	b, err := parts.Templates.ReadFile(csFilename)
 	if err != nil {
 		// this should never happen and this is a bug.
@@ -194,7 +194,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	}
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
-	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
+	return base64.StdEncoding.EncodeToString([]byte(csStr))
 }
 
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.

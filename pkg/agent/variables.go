@@ -16,43 +16,43 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	cs := config.ContainerService
 	cloudInitFiles := map[string]interface{}{
 		"cloudInitData": paramsMap{
-			"provisionStartScript":         getBase64EncodedGzippedCustomScript(kubernetesCSEStartScript, config),
-			"provisionScript":              getBase64EncodedGzippedCustomScript(kubernetesCSEMainScript, config),
-			"provisionSource":              getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScript, config),
-			"provisionSourceUbuntu":        getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
-			"provisionSourceMariner":       getBase64EncodedGzippedCustomScript(kubernetesCSEHelpersScriptMariner, config),
-			"provisionInstalls":            getBase64EncodedGzippedCustomScript(kubernetesCSEInstall, config),
-			"provisionInstallsUbuntu":      getBase64EncodedGzippedCustomScript(kubernetesCSEInstallUbuntu, config),
-			"provisionInstallsMariner":     getBase64EncodedGzippedCustomScript(kubernetesCSEInstallMariner, config),
-			"provisionConfigs":             getBase64EncodedGzippedCustomScript(kubernetesCSEConfig, config),
-			"provisionSendLogs":            getBase64EncodedGzippedCustomScript(kubernetesCSESendLogs, config),
-			"provisionRedactCloudConfig":   getBase64EncodedGzippedCustomScript(kubernetesCSERedactCloudConfig, config),
-			"customSearchDomainsScript":    getBase64EncodedGzippedCustomScript(kubernetesCustomSearchDomainsScript, config),
-			"dhcpv6SystemdService":         getBase64EncodedGzippedCustomScript(dhcpv6SystemdService, config),
-			"dhcpv6ConfigurationScript":    getBase64EncodedGzippedCustomScript(dhcpv6ConfigurationScript, config),
-			"kubeletSystemdService":        getBase64EncodedGzippedCustomScript(kubeletSystemdService, config),
-			"reconcilePrivateHostsScript":  getBase64EncodedGzippedCustomScript(reconcilePrivateHostsScript, config),
-			"reconcilePrivateHostsService": getBase64EncodedGzippedCustomScript(reconcilePrivateHostsService, config),
-			"ensureNoDupEbtablesScript":    getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesScript, config),
-			"ensureNoDupEbtablesService":   getBase64EncodedGzippedCustomScript(ensureNoDupEbtablesService, config),
-			"bindMountScript":              getBase64EncodedGzippedCustomScript(bindMountScript, config),
-			"bindMountSystemdService":      getBase64EncodedGzippedCustomScript(bindMountSystemdService, config),
-			"migPartitionSystemdService":   getBase64EncodedGzippedCustomScript(migPartitionSystemdService, config),
-			"migPartitionScript":           getBase64EncodedGzippedCustomScript(migPartitionScript, config),
-			"ensureIMDSRestrictionScript":  getBase64EncodedGzippedCustomScript(ensureIMDSRestrictionScript, config),
-			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
-			"cgroupv2KubeletDropin":        getBase64EncodedGzippedCustomScript(cgroupv2KubeletDropin, config),
-			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
-			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
-			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
-			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
-			"snapshotUpdateScript":         getBase64EncodedGzippedCustomScript(snapshotUpdateScript, config),
-			"snapshotUpdateService":        getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdService, config),
-			"snapshotUpdateTimer":          getBase64EncodedGzippedCustomScript(snapshotUpdateSystemdTimer, config),
-			"packageUpdateScriptMariner":   getBase64EncodedGzippedCustomScript(packageUpdateScriptMariner, config),
-			"packageUpdateServiceMariner":  getBase64EncodedGzippedCustomScript(packageUpdateSystemdServiceMariner, config),
-			"packageUpdateTimerMariner":    getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
-			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
+			"provisionStartScript":         getBase64EncodedCustomScript(kubernetesCSEStartScript, config),
+			"provisionScript":              getBase64EncodedCustomScript(kubernetesCSEMainScript, config),
+			"provisionSource":              getBase64EncodedCustomScript(kubernetesCSEHelpersScript, config),
+			"provisionSourceUbuntu":        getBase64EncodedCustomScript(kubernetesCSEHelpersScriptUbuntu, config),
+			"provisionSourceMariner":       getBase64EncodedCustomScript(kubernetesCSEHelpersScriptMariner, config),
+			"provisionInstalls":            getBase64EncodedCustomScript(kubernetesCSEInstall, config),
+			"provisionInstallsUbuntu":      getBase64EncodedCustomScript(kubernetesCSEInstallUbuntu, config),
+			"provisionInstallsMariner":     getBase64EncodedCustomScript(kubernetesCSEInstallMariner, config),
+			"provisionConfigs":             getBase64EncodedCustomScript(kubernetesCSEConfig, config),
+			"provisionSendLogs":            getBase64EncodedCustomScript(kubernetesCSESendLogs, config),
+			"provisionRedactCloudConfig":   getBase64EncodedCustomScript(kubernetesCSERedactCloudConfig, config),
+			"customSearchDomainsScript":    getBase64EncodedCustomScript(kubernetesCustomSearchDomainsScript, config),
+			"dhcpv6SystemdService":         getBase64EncodedCustomScript(dhcpv6SystemdService, config),
+			"dhcpv6ConfigurationScript":    getBase64EncodedCustomScript(dhcpv6ConfigurationScript, config),
+			"kubeletSystemdService":        getBase64EncodedCustomScript(kubeletSystemdService, config),
+			"reconcilePrivateHostsScript":  getBase64EncodedCustomScript(reconcilePrivateHostsScript, config),
+			"reconcilePrivateHostsService": getBase64EncodedCustomScript(reconcilePrivateHostsService, config),
+			"ensureNoDupEbtablesScript":    getBase64EncodedCustomScript(ensureNoDupEbtablesScript, config),
+			"ensureNoDupEbtablesService":   getBase64EncodedCustomScript(ensureNoDupEbtablesService, config),
+			"bindMountScript":              getBase64EncodedCustomScript(bindMountScript, config),
+			"bindMountSystemdService":      getBase64EncodedCustomScript(bindMountSystemdService, config),
+			"migPartitionSystemdService":   getBase64EncodedCustomScript(migPartitionSystemdService, config),
+			"migPartitionScript":           getBase64EncodedCustomScript(migPartitionScript, config),
+			"ensureIMDSRestrictionScript":  getBase64EncodedCustomScript(ensureIMDSRestrictionScript, config),
+			"containerdKubeletDropin":      getBase64EncodedCustomScript(containerdKubeletDropin, config),
+			"cgroupv2KubeletDropin":        getBase64EncodedCustomScript(cgroupv2KubeletDropin, config),
+			"componentConfigDropin":        getBase64EncodedCustomScript(componentConfigDropin, config),
+			"tlsBootstrapDropin":           getBase64EncodedCustomScript(tlsBootstrapDropin, config),
+			"bindMountDropin":              getBase64EncodedCustomScript(bindMountDropin, config),
+			"httpProxyDropin":              getBase64EncodedCustomScript(httpProxyDropin, config),
+			"snapshotUpdateScript":         getBase64EncodedCustomScript(snapshotUpdateScript, config),
+			"snapshotUpdateService":        getBase64EncodedCustomScript(snapshotUpdateSystemdService, config),
+			"snapshotUpdateTimer":          getBase64EncodedCustomScript(snapshotUpdateSystemdTimer, config),
+			"packageUpdateScriptMariner":   getBase64EncodedCustomScript(packageUpdateScriptMariner, config),
+			"packageUpdateServiceMariner":  getBase64EncodedCustomScript(packageUpdateSystemdServiceMariner, config),
+			"packageUpdateTimerMariner":    getBase64EncodedCustomScript(packageUpdateSystemdTimerMariner, config),
+			"componentManifestFile":        getBase64EncodedCustomScript(componentManifestFile, config),
 		},
 	}
 
@@ -60,17 +60,17 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 	if cs.IsAKSCustomCloud() {
 		// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner.
 		if config.AgentPoolProfile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU) {
-			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudMarinerScript, config)
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedCustomScript(initAKSCustomCloudMarinerScript, config)
 		} else {
-			cloudInitData["initAKSCustomCloud"] = getBase64EncodedGzippedCustomScript(initAKSCustomCloudScript, config)
+			cloudInitData["initAKSCustomCloud"] = getBase64EncodedCustomScript(initAKSCustomCloudScript, config)
 		}
 	}
 
 	if !cs.Properties.IsVHDDistroForAllNodes() {
-		cloudInitData["provisionCIS"] = getBase64EncodedGzippedCustomScript(kubernetesCISScript, config)
-		cloudInitData["kmsSystemdService"] = getBase64EncodedGzippedCustomScript(kmsSystemdService, config)
-		cloudInitData["aptPreferences"] = getBase64EncodedGzippedCustomScript(aptPreferences, config)
-		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedGzippedCustomScript(dockerClearMountPropagationFlags, config)
+		cloudInitData["provisionCIS"] = getBase64EncodedCustomScript(kubernetesCISScript, config)
+		cloudInitData["kmsSystemdService"] = getBase64EncodedCustomScript(kmsSystemdService, config)
+		cloudInitData["aptPreferences"] = getBase64EncodedCustomScript(aptPreferences, config)
+		cloudInitData["dockerClearMountPropagationFlags"] = getBase64EncodedCustomScript(dockerClearMountPropagationFlags, config)
 	}
 
 	return cloudInitFiles
