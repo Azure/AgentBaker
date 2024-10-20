@@ -77,10 +77,8 @@ stages:
       - bash: |
           set +x
           set -e
-          export ADO_PAT
-          export VHD_BUILD_ID
           pushd vhdbuilder/automation/cmd
-            go run main.go
+            ADO_PAT=$ADO_PAT VHD_BUILD_ID=$VHD_BUILD_ID go run main.go
           popd
         env:
           ADO_PAT: $(PAT-aksdevassistant)
