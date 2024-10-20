@@ -76,6 +76,7 @@ func (c *Client) BuildEV2Artifacts(ctx context.Context, vhdBuildID string) (*Art
 		Name: *run.Name,
 	}
 	log.Printf("EV2 artifact build started; ID: %d, URL: %s", build.ID, build.URL())
+	log.Printf("will poll build status every %s", pollBuildCompletionInterval)
 
 	ticker := time.NewTicker(pollBuildCompletionInterval)
 	for !isTerminal(*run.State) {
@@ -89,7 +90,7 @@ func (c *Client) BuildEV2Artifacts(ctx context.Context, vhdBuildID string) (*Art
 			if err != nil {
 				return nil, fmt.Errorf("getting SIG release EV2 artifact build pipeline run: %w", err)
 			}
-			log.Printf("SIG release EV2 artifact build %d is in state %q, will check status again in %s", build.ID, *run.State, pollBuildCompletionInterval)
+			log.Printf("EV2 artifact build %d is in state %q", build.ID, *run.State)
 		case <-ctx.Done():
 			return nil, fmt.Errorf("waiting for EV2 artifact build to finish: %w", ctx.Err())
 		}
