@@ -1,5 +1,0 @@
-package ado
-
-func CreateRelease() {
-
-}
