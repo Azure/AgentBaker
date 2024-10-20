@@ -195,7 +195,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	}
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
-	return convertStringToBase64EncodedGzip(csStr)
+	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
@@ -252,8 +252,8 @@ func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
 	return gzip.NewWriter(buf)
 }
 
-// convertStringToBase64EncodedGzip will return a base64-encoded string of the gzip'd source data.
-func convertStringToBase64EncodedGzip(str string) string {
+// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
+func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
 	w := newGzipWriter(&gzipB)
 	_, err := w.Write([]byte(str))

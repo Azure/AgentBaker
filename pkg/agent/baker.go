@@ -37,7 +37,7 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
 
-	return convertStringToBase64EncodedGzip(customData)
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
