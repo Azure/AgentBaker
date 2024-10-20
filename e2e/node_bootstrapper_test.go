@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"testing"
 
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/stretchr/testify/require"
 )
@@ -19,6 +20,9 @@ import (
 // test node-bootstrapper binary without rebuilding VHD images.
 // it compiles the node-bootstrapper binary and uploads it to Azure Storage.
 // the binary is then downloaded and executed on the VM
+// the test results are unreliable, as there can be a version mismatch between the binary and the rest content of VHD image
+// it's intended to be used for quick testing without rebuilding VHD images
+// mostly executed locally
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	ctx := newTestCtx(t)
 	if !config.Config.EnableNodeBootstrapperTest {
@@ -27,6 +31,13 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
 	cluster, err := ClusterKubenet(ctx, t)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		log, err := os.ReadFile("./scenario-logs/" + t.Name() + "/node-bootstrapper.stdout.txt")
+		if err != nil {
+			t.Logf("failed to read node-bootstrapper log: %v", err)
+		}
+		t.Logf("node-bootstrapper log: %s", string(log))
+	})
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
@@ -44,7 +55,9 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 }
 
 func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) string {
-	configJSON, err := json.Marshal(cluster.NodeBootstrappingConfiguration)
+	configJSON, err := json.Marshal(nbcontractv1.Configuration{
+		Version: "v0",
+	})
 	require.NoError(t, err)
 
 	binary := compileNodeBootstrapper(t)
