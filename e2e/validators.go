@@ -127,6 +127,22 @@ func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator
 	}
 }
 
+func AssertFileContentEqual(fileName string, expected string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: fmt.Sprintf("assert %s has contents equal to %s", fileName, expected),
+		Command:     fmt.Sprintf("cat %s", fileName),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+			if stdout != expected {
+				return fmt.Errorf("expected to find file %s with contents %s, but got %s", fileName, expected, stdout)
+			}
+			return nil
+		},
+	}
+}
+
 func FileExcludesContentsValidator(fileName string, contents string, contentsName string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: fmt.Sprintf("assert %s does not contain %s", fileName, contentsName),

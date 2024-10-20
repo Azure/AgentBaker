@@ -6,6 +6,7 @@ package agent
 import (
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -36,7 +37,15 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write([]byte(customData)); err != nil {
+		panic(err)
+	}
+	if err := gz.Close(); err != nil {
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(buf.Bytes())
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
