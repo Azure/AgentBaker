@@ -77,7 +77,9 @@ stages:
       - bash: |
           set +x
           echo "Creating EV2 artifacts and corresponding SIG release"
-          /bin/bash vhdbuilder/scripts/automate_release.sh
+          pushd vhdbuilder/automation/cmd
+            go run main.go
+          popd
         env:
           ADO_PAT: $(PAT-aksdevassistant)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
