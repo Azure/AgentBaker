@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
+	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
