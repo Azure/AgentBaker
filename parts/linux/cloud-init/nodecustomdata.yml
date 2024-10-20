@@ -1,6 +1,11 @@
 #cloud-config
 
 write_files:
+- path: /opt/azure/containers/delete-me.json
+  permissions: "0744"
+  owner: root
+  content: test-content
+
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
   encoding: gzip

@@ -13,6 +13,22 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
+func AssertFileContentEqual(fileName string, expected string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: fmt.Sprintf("assert %s has contents equal to %s", fileName, expected),
+		Command:     fmt.Sprintf("cat %s", fileName),
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+			if stdout != expected {
+				return fmt.Errorf("expected to find file %s with contents %s, but got %s", fileName, expected, stdout)
+			}
+			return nil
+		},
+	}
+}
+
 func Test_azurelinuxv2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -24,6 +40,7 @@ func Test_azurelinuxv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
+				AssertFileContentEqual("/opt/azure/containers/delete-me.json", "test-content"),
 				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
