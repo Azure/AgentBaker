@@ -65,6 +65,12 @@ dev:
 validate-dependencies: bootstrap
 	@./scripts/validate-dependencies.sh
 
+.PHONY: validate-components
+validate-components:
+	@echo "Validating if components.json conforms to the schema schemas/components.cue."
+	@echo "Error will be shown if any."
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
+
 .PHONY: validate-copyright-headers
 validate-copyright-headers:
 	@./scripts/validate-copyright-header.sh
@@ -79,6 +85,7 @@ validate-shell:
 
 .PHONY: shellspec
 shellspec:
+	@echo "Running shellspec tests to validate shell/bash scripts"
 	@bash ./hack/tools/bin/shellspec
 
 .PHONY: validate-image-version
@@ -99,13 +106,6 @@ generate: bootstrap
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
-	@echo "running validate-shell to make sure generated cse scripts are correct"
-	@$(MAKE) validate-shell
-	@echo "Running shellspec tests to validate shell/bash scripts"
-	@$(MAKE) shellspec
-	@echo "Validating if components.json conforms to the schema schemas/components.cue."
-	@echo "Error will be shown if any."
-	@$(MAKE) validate-components
 
 .PHONY: validate-prefetch
 validate-prefetch:
@@ -173,9 +173,8 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: generate
+test: generate validate-shell shellspec validate-components
 	go test ./...
-
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
@@ -219,9 +218,5 @@ coverage:
 .PHONY: unit-tests
 unit-tests:
 	$(GO) test `go list ./... | grep -v e2e` -coverprofile coverage_raw.out -covermode count
-
-.PHONY: validate-components
-validate-components:
-	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
 
 include versioning.mk

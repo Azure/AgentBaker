@@ -19,6 +19,10 @@ test/e2e/kubernetes/junit.xml
 _logs/
 *.swp
 
+# test data
+pkg/agent/testdata/
+vhdbuilder/prefetch/internal/containerimage/testdata/
+
 # test outputs
 cmd/_test_output
 *.test
@@ -40,3 +44,4 @@ hack/tools/bin
 # migration off of go-bindata
 pkg/templates/templates_generated.go
 e2e/scenario-logs/
+coverage_raw.out

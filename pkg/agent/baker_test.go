@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -12,7 +13,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -1958,17 +1959,60 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 })
 
 func backfillCustomData(folder, customData string) {
-	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
-		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
+	testDataFolder := fmt.Sprintf("./testdata/%s", folder)
+	if _, err := os.Stat(testDataFolder); os.IsNotExist(err) {
+		e := os.MkdirAll(testDataFolder, 0755)
 		Expect(e).To(BeNil())
 	}
-	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
+	writeFileError := os.WriteFile(testDataFolder+"/CustomData", []byte(customData), 0644)
 	Expect(writeFileError).To(BeNil())
-	if strings.Contains(folder, "AKSWindows") {
+	if strings.Contains(testDataFolder, "AKSWindows") {
 		return
 	}
-	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
-	Expect(err).To(BeNil())
+	convertTestData(testDataFolder)
+}
+
+func convertTestData(testCaseDataFolder string) {
+	// Remove files matching the pattern
+	files, err := filepath.Glob(filepath.Join(testCaseDataFolder, "line*.sh"))
+	Expect(err).To(BeNil(), "Error finding files")
+	for _, file := range files {
+		err = os.Remove(file)
+		Expect(err).To(BeNil(), "Error removing file")
+	}
+
+	// Process the CustomData file
+	file := filepath.Join(testCaseDataFolder, "CustomData")
+	f, err := os.Open(file)
+	Expect(err).To(BeNil(), "Error opening file")
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	lineNumber := 0
+	for scanner.Scan() {
+		lineNumber++
+		line := scanner.Text()
+		if strings.Contains(line, "content: !!binary") {
+			if scanner.Scan() {
+				lineNumber++
+				content := strings.TrimLeft(scanner.Text(), " ")
+				decoded, decodeErr := base64.StdEncoding.DecodeString(content)
+				Expect(decodeErr).To(BeNil(), fmt.Sprintf("Error decoding base64: %s \n %b", content, decoded))
+				if len(decoded) > 0 {
+					reader, readerErr := gzip.NewReader(bytes.NewReader(decoded))
+					Expect(readerErr).To(BeNil(), fmt.Sprintf("Error creating gzip reader:\n\t%d\n\t%s\n\t%b", lineNumber, content, decoded))
+					defer reader.Close()
+					decoded, decodeErr = io.ReadAll(reader)
+					Expect(decodeErr).To(BeNil(), "Error reading gzip content")
+				}
+
+				outputFile := filepath.Join(testCaseDataFolder, fmt.Sprintf("line%d.sh", lineNumber))
+				err = os.WriteFile(outputFile, decoded, 0644)
+				Expect(err).To(BeNil(), "Error writing file")
+			}
+		}
+	}
+	Expect(scanner.Err()).To(BeNil(), "Error reading file")
 }
 
 func getDecodedVarsFromCseCmd(data []byte) (map[string]string, error) {
