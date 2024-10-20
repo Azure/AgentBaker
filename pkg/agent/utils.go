@@ -195,7 +195,7 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	}
 	csStr := buffer.String()
 	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
-	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
+	return convertStringToBase64EncodedGzip(csStr)
 }
 
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
@@ -244,10 +244,18 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
-// getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
-func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
+func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
+	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
+	if err == nil {
+		return writer
+	}
+	return gzip.NewWriter(buf)
+}
+
+// convertStringToBase64EncodedGzip will return a base64-encoded string of the gzip'd source data.
+func convertStringToBase64EncodedGzip(str string) string {
 	var gzipB bytes.Buffer
-	w := gzip.NewWriter(&gzipB)
+	w := newGzipWriter(&gzipB)
 	_, err := w.Write([]byte(str))
 	if err != nil {
 		// this should never happen and this is a bug.
