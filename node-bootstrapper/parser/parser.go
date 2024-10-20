@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/node-bootstrapper/utils"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
@@ -28,7 +29,7 @@ func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string
 
 // this function will eventually take a pointer to the bootstrap contract struct.
 // it will then template out the variables into the final bootstrap trigger script.
-func Parse(inputJSON []byte) (string, error) {
+func Parse(inputJSON []byte) (utils.SensitiveString, error) {
 	// Parse the JSON into a nbcontractv1.Configuration struct
 	var nbc nbcontractv1.Configuration
 	err := json.Unmarshal(inputJSON, &nbc)
@@ -44,5 +45,5 @@ func Parse(inputJSON []byte) (string, error) {
 	}
 
 	// Convert to one-liner
-	return strings.ReplaceAll(triggerBootstrapScript, "\n", " "), nil
+	return utils.SensitiveString(strings.ReplaceAll(triggerBootstrapScript, "\n", " ")), nil
 }

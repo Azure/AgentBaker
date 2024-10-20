@@ -5,9 +5,12 @@ go 1.21
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/Azure/go-autorest/autorest/to v0.4.0
+	github.com/onsi/ginkgo v1.16.5
+	github.com/onsi/gomega v1.33.1
 )
 
 require (
+	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
@@ -22,10 +25,4 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.26.2 // indirect
-)
-
-require (
-	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.33.1
 )
