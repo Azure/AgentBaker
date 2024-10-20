@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Azure/agentbaker/node-bootstrapper/utils"
 	yaml "sigs.k8s.io/yaml/goyaml.v3" // TODO: should we use JSON instead of YAML to avoid 3rd party dependencies?
 
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -32,32 +33,6 @@ const (
 
 type Config struct {
 	Version string `json:"version"`
-}
-
-// SensitiveString is a custom type for sensitive information, like passwords or tokens.
-// It reduces the risk of leaking sensitive information in logs.
-type SensitiveString string
-
-// String implements the fmt.Stringer interface.
-func (s SensitiveString) String() string {
-	return "[REDACTED]"
-}
-
-func (s SensitiveString) LogValue() slog.Value {
-	return slog.StringValue(s.String())
-}
-
-func (s SensitiveString) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
-}
-
-//nolint:unparam // this is an interface implementation
-func (s SensitiveString) MarshalYAML() (interface{}, error) {
-	return s.String(), nil
-}
-
-func (s SensitiveString) UnsafeValue() string {
-	return string(s)
 }
 
 func main() {
@@ -178,7 +153,7 @@ func provisionStart(ctx context.Context, config *datamodel.NodeBootstrappingConf
 	return err
 }
 
-func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (SensitiveString, error) {
+func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (utils.SensitiveString, error) {
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
 		return "", err
@@ -188,7 +163,7 @@ func CSEScript(ctx context.Context, config *datamodel.NodeBootstrappingConfigura
 	if err != nil {
 		return "", err
 	}
-	return SensitiveString(nodeBootstrapping.CSE), nil
+	return utils.SensitiveString(nodeBootstrapping.CSE), nil
 }
 
 // re-implement CustomData + cloud-init logic from AgentBaker
