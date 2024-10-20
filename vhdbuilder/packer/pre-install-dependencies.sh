@@ -130,7 +130,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   # Purge all current kernels and dependencies
   DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*' 2>&1
 
   # Install lts-22.04 kernel
   DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04

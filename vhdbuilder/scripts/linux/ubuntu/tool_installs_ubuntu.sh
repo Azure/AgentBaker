@@ -125,8 +125,8 @@ installBpftrace() {
     install_dir="$BPFTRACE_DOWNLOADS_DIR/$version"
     mkdir -p "$install_dir"
     download_path="$install_dir/$bpftrace_tools"
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$bpftrace_filepath" "$bpftrace_url/$bpftrace_bin" || exit $ERR_BPFTRACE_BIN_DOWNLOAD_FAIL
-    retrycmd_if_failure 30 5 60 curl -fSL -o "$download_path" "$bpftrace_url/$bpftrace_tools" || exit $ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL
+    retrycmd_if_failure 30 5 60 curl -sfSL -o "$bpftrace_filepath" "$bpftrace_url/$bpftrace_bin" || exit $ERR_BPFTRACE_BIN_DOWNLOAD_FAIL
+    retrycmd_if_failure 30 5 60 curl -sfSL -o "$download_path" "$bpftrace_url/$bpftrace_tools" || exit $ERR_BPFTRACE_TOOLS_DOWNLOAD_FAIL
     tar -xvf "$download_path" -C "$tools_filepath"
     chmod +x "$bpftrace_filepath"
     chmod -R +x "$tools_filepath/tools"

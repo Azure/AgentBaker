@@ -226,11 +226,8 @@ while IFS= read -r p; do
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadCrictl "${downloadDir}" "${evaluatedURL}"
+        installCrictl "${version}"
         echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
-        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-        CRICTL_VERSION=${version} 
-        CRICTL_VERSIONS=${version}
       done
       ;;
     "azure-cni")
@@ -339,44 +336,10 @@ fi
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
-
-KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
-
-# k8s will use images in the k8s.io namespaces - create it
-ctr namespace create k8s.io
-cliTool="ctr"
-
-
-INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
-echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
-
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-  gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-c66998"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
-
-  mkdir -p /opt/{actions,gpu}
-  ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
-    fi
-  fi
-
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
-fi
-
-ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+capture_benchmark "${SCRIPT_NAME}_artifact_streaming_install_and_configure"
 
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
-
 PRESENT_DIR=$(pwd)
 # run installBcc in a subshell and continue on with container image pull in order to decrease total build time
 (
@@ -384,16 +347,50 @@ PRESENT_DIR=$(pwd)
   installBcc
   exit $?
 ) > /var/log/bcc_installation.log 2>&1 &
-
 BCC_PID=$!
+capture_benchmark "${SCRIPT_NAME}_run_installBcc_in_subshell"
 
-echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_image_and_run_installBcc_in_subshell"
+enable_containerd_discard_unpacked_layers() {
+  containerd_config_file="/etc/containerd/config.toml"
+  mkdir -p /etc/containerd
+  containerd config default > ${containerd_config_file}
+  cat ${containerd_config_file}
+  sed -i 's/discard_unpacked_layers = false/discard_unpacked_layers = true/g' ${containerd_config_file}
+  systemctl restart containerd
+}
+
+disable_containerd_discard_unpacked_layers() {
+  rm -rf /etc/containerd
+  systemctl restart containerd
+}
+
+enable_containerd_discard_unpacked_layers
+
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+  gpu_action="copy"
+  NVIDIA_DRIVER_IMAGE_SHA="sha-c66998"
+  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
+
+  mkdir -p /opt/{actions,gpu}
+  pullContainerImage "crictl" $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+  echo "  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}" >> ${VHD_LOGS_FILEPATH}
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
+    ret=$?
+    if [[ "$ret" != "0" ]]; then
+      echo "Failed to install GPU driver, exiting..."
+      exit $ret
+    fi
+    ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+  fi
+
+
+capture_benchmark "${SCRIPT_NAME}_pull_and_install_nvidia_driver_image"
+fi
 
 string_replace() {
   echo ${1//\*/$2}
 }
-
 # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
 # Account for possibility that number of cores is 3 or less
 num_proc=$(nproc)
@@ -405,7 +402,7 @@ fi
 echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
 
 declare -a image_pids=()
-
+echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 while IFS= read -r imageToBePulled; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
@@ -425,7 +422,7 @@ while IFS= read -r imageToBePulled; do
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
+    pullContainerImage "crictl" "${CONTAINER_IMAGE}" &
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
@@ -434,6 +431,7 @@ while IFS= read -r imageToBePulled; do
   done
 done <<< "$ContainerImages"
 wait ${image_pids[@]}
+capture_benchmark "${SCRIPT_NAME}_pulled_images_in_parallel"
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
@@ -446,9 +444,36 @@ watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 # may be intercepted by an untrusted TLS MITM firewall.
 watcherStaticImg=${watcherBaseImg//\*/static}
 
-# can't use cliTool because crictl doesn't support retagging.
+# can't use crictl since it doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
+capture_benchmark "${SCRIPT_NAME}_retag_aks_node_ca_watcher_image"
+
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
+
+DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
+pullContainerImage "crictl" ${DEVICE_PLUGIN_CONTAINER_IMAGE}
+
+  # GPU device plugin
+  if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
+    kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
+    mkdir -p $kubeletDevicePluginPath
+    echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
+
+    DEST="/usr/local/nvidia/bin"
+    mkdir -p $DEST
+    ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} $DEVICE_PLUGIN_CONTAINER_IMAGE plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
+    chmod a+x $DEST/nvidia-device-plugin
+    echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
+    ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
+
+    systemctlEnableAndStart nvidia-device-plugin || exit 1
+    ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
+  fi
+fi
+capture_benchmark "${SCRIPT_NAME}_download_and_install_gpu_device_plugin"
+
+disable_containerd_discard_unpacked_layers
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
@@ -456,36 +481,10 @@ if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
-
-DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-
-# GPU device plugin
-if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
-  kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
-  mkdir -p $kubeletDevicePluginPath
-  echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
-
-  DEST="/usr/local/nvidia/bin"
-  mkdir -p $DEST
-  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} $DEVICE_PLUGIN_CONTAINER_IMAGE plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  chmod a+x $DEST/nvidia-device-plugin
-  echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
-  ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
-
-  systemctlEnableAndStart nvidia-device-plugin || exit 1
-  ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
-fi
-fi
-
-capture_benchmark "download_gpu_device_plugin"
-
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if [ ! isMarinerOrAzureLinux "$OS" ]; then
+if ! isMarinerOrAzureLinux "$OS" ; then
   systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service

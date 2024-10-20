@@ -195,7 +195,7 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     plugin_download_path="${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR}/tls-bootstrap-client"
 
     if [ ! -f "$plugin_download_path" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
+        retrycmd_if_failure 30 5 60 curl -sfSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
         chown -R root:root "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
         chmod -R 755 "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
     fi
@@ -385,21 +385,22 @@ downloadCrictl() {
 }
 
 installCrictl() {
+    local crictlVersion=${1}
     CPU_ARCH=$(getCPUArch)
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
     if [[ "${currentVersion}" != "" ]]; then
-        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
+        echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${crictlVersion%.*}.0"
     else
         # this is only called during cse. VHDs should have crictl binaries pre-cached so no need to download.
         # if the vhd does not have crictl pre-baked, return early
-        CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
+        CRICTL_TGZ_TEMP="crictl-v${crictlVersion}-linux-${CPU_ARCH}.tar.gz"
         if [[ ! -f "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" ]]; then
             rm -rf ${CRICTL_DOWNLOAD_DIR}
             echo "pre-cached crictl not found: skipping installCrictl"
             return 1
         fi
         echo "Unpacking crictl into ${CRICTL_BIN_DIR}"
-        tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR}
+        tar zxvf "$CRICTL_DOWNLOAD_DIR/${CRICTL_TGZ_TEMP}" -C ${CRICTL_BIN_DIR} || exit $ERR_CRICTL_OPERATION_ERROR
         chown root:root $CRICTL_BIN_DIR/crictl
         chmod 755 $CRICTL_BIN_DIR/crictl
     fi
@@ -626,29 +627,29 @@ installKubeletKubectlAndKubeProxy() {
 }
 
 pullContainerImage() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE_URL=$2
-    echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
+    local cliTool=$1
+    local containerImageURL=$2
+    echo "pulling the image ${containerImageURL} using ${cliTool}"
+    if [[ ${cliTool} == "ctr" ]]; then
+        logs_to_events "AKS.CSE.imagepullctr.${containerImageURL}" "retrycmd_if_failure 2 1 120 ctr --namespace k8s.io image pull $containerImageURL" || (echo "timed out pulling image ${containerImageURL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
+    elif [[ ${cliTool} == "crictl" ]]; then
+        logs_to_events "AKS.CSE.imagepullcrictl.${containerImageURL}" "retrycmd_if_failure 2 1 120 crictl pull $containerImageURL" || (echo "timed out pulling image ${containerImageURL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepull.${containerImageURL}" "retrycmd_if_failure 2 1 120 docker pull $containerImageURL" || (echo "timed out pulling image ${containerImageURL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
 retagContainerImage() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE_URL=$2
-    RETAG_IMAGE_URL=$3
-    echo "retagging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
-    if [[ ${CLI_TOOL} == "ctr" ]]; then
-        ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
-    elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        crictl image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+    local cliTool=$1
+    local containerImageURL=$2
+    local retagImageURL=$3
+    echo "retagging from ${containerImageURL} to ${retagImageURL} using ${cliTool}"
+    if [[ ${cliTool} == "ctr" ]]; then
+        ctr --namespace k8s.io image tag $containerImageURL $retagImageURL
+    elif [[ ${cliTool} == "crictl" ]]; then
+        crictl image tag $containerImageURL $retagImageURL
     else
-        docker image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
+        docker image tag $containerImageURL $retagImageURL
     fi
 }
 
@@ -668,7 +669,6 @@ retagMCRImagesForChina() {
         # in mooncake, the mcr endpoint is: mcr.azk8s.cn
         # shellcheck disable=SC2001
         retagMCRImage=$(echo ${mcrImage} | sed -e 's/^mcr.microsoft.com/mcr.azk8s.cn/g')
-        # can't use CLI_TOOL because crictl doesn't support retagging.
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
             retagContainerImage "ctr" ${mcrImage} ${retagMCRImage}
         else
@@ -678,22 +678,22 @@ retagMCRImagesForChina() {
 }
 
 removeContainerImage() {
-    CLI_TOOL=$1
-    CONTAINER_IMAGE_URL=$2
-    if [[ "${CLI_TOOL}" == "docker" ]]; then
-        docker image rm $CONTAINER_IMAGE_URL
+   local cliTool=$1
+   local containerImageURL=$2
+    if [[ "${cliTool}" == "docker" ]]; then
+        docker image rm $containerImageURL
     else
         # crictl should always be present
-        crictl rmi $CONTAINER_IMAGE_URL
+        crictl rmi $containerImageURL
     fi
 }
 
 cleanUpImages() {
-    local targetImage=$1
-    export targetImage
     function cleanupImagesRun() {
+        local cliTool=$1
+        local targetImage=$2
         if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-            if [[ "${CLI_TOOL}" == "crictl" ]]; then
+            if [[ "${cliTool}" == "crictl" ]]; then
                 images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
             else
                 images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
@@ -707,52 +707,26 @@ cleanUpImages() {
         elif [[ "${images_to_delete}" != "" ]]; then
             echo "${images_to_delete}" | while read image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                    removeContainerImage ${CLI_TOOL} ${image}
+                    removeContainerImage ${cliTool} ${image}
                 else
                     removeContainerImage "docker" ${image}
                 fi
             done
         fi
     }
+
     export -f cleanupImagesRun
-    retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun
+    retrycmd_if_failure 10 5 120 bash -c cleanupImagesRun ${1} ${2}
 }
 
 cleanUpKubeProxyImages() {
     echo $(date),$(hostname), startCleanUpKubeProxyImages
-    cleanUpImages "kube-proxy"
+    cleanUpImages "ctr" "kube-proxy"
     echo $(date),$(hostname), endCleanUpKubeProxyImages
-}
-
-cleanupRetaggedImages() {
-    if [[ "${TARGET_CLOUD}" != "AzureChinaCloud" ]]; then
-        if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-            if [[ "${CLI_TOOL}" == "crictl" ]]; then
-                images_to_delete=$(crictl images | awk '{print $1":"$2}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            else
-                images_to_delete=$(ctr --namespace k8s.io images list | awk '{print $1}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-            fi
-        else
-            images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
-        fi
-        if [[ "${images_to_delete}" != "" ]]; then
-            echo "${images_to_delete}" | while read image; do
-                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-                    # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
-                    removeContainerImage "ctr" ${image}
-                else
-                    removeContainerImage "docker" ${image}
-                fi
-            done
-        fi
-    else
-        echo "skipping container cleanup for AzureChinaCloud"
-    fi
 }
 
 cleanUpContainerImages() {
     export KUBERNETES_VERSION
-    export CLI_TOOL
     export -f retrycmd_if_failure
     export -f removeContainerImage
     export -f cleanUpImages

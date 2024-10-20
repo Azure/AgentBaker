@@ -65,7 +65,7 @@ getAzCopyCurrentPath() {
     local downloadedPkg="downloadazcopy"
     pkgprefix="azcopy_linux_"
 
-    retrycmd_if_failure 30 5 60 curl -fSL -k -o "$downloadedPkg" "$azcopyDownloadURL" || exit $ERR_AZCOPY_TOOLS_DOWNLOAD_FAIL &&
+    retrycmd_if_failure 30 5 60 curl -sfSL -k -o "$downloadedPkg" "$azcopyDownloadURL" || exit $ERR_AZCOPY_TOOLS_DOWNLOAD_FAIL &&
     echo "$azcopySha256 $downloadedPkg" | sha256sum --check >/dev/null &&
     tar -xvf ./$downloadedPkg &&
     cp ./$pkgprefix*/azcopy ./azcopy &&

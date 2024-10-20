@@ -188,7 +188,12 @@ retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        if [ -f $tarball ]; then
+            tar -tzf $tarball
+            if [ $? -eq 0 ]; then 
+                break
+            fi
+        fi
         if [ $i -eq $tar_retries ]; then
             return 1
         else
@@ -205,7 +210,12 @@ retrycmd_get_tarball_from_registry_with_oras() {
     tar_folder=$(dirname "$tarball")
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        if [ -f $tarball ]; then
+            tar -tzf $tarball
+            if [ $? -eq 0 ]; then 
+                break
+            fi
+        fi
         if [ $i -eq $tar_retries ]; then
             return 1
         else
@@ -419,6 +429,7 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
+    mkdir -p ${EVENTS_LOGGING_DIR}
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     if [ "$ret" != "0" ]; then
