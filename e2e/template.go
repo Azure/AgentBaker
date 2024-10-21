@@ -11,17 +11,17 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbcontractv1.Configuration {
-	cs := opts.nbc.ContainerService
-	agentPool := opts.nbc.AgentPoolProfile
+func baseNodeBootstrappingContract(location string, nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
+	cs := nbc.ContainerService
+	agentPool := nbc.AgentPoolProfile
 
-	nbc := &nbcontractv1.Configuration{
+	config := &nbcontractv1.Configuration{
 		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
 		VmSize:             "Standard_D2ds_v5",
 		ClusterConfig: &nbcontractv1.ClusterConfig{
 			Location:      location,
-			ResourceGroup: opts.nbc.ResourceGroupName,
+			ResourceGroup: nbc.ResourceGroupName,
 			VmType:        nbcontractv1.ClusterConfig_VMSS,
 			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
 				SecurityGroupName: cs.Properties.GetNSGName(),
@@ -30,7 +30,7 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 				Subnet:            cs.Properties.GetSubnetName(),
 				RouteTable:        cs.Properties.GetRouteTableName(),
 			},
-			PrimaryScaleSet: opts.nbc.PrimaryScaleSetName,
+			PrimaryScaleSet: nbc.PrimaryScaleSetName,
 		},
 		ApiServerConfig: &nbcontractv1.ApiServerConfig{
 			ApiServerName: cs.Properties.HostedMasterProfile.FQDN,
@@ -38,13 +38,13 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 		AuthConfig: &nbcontractv1.AuthConfig{
 			ServicePrincipalId:     cs.Properties.ServicePrincipalProfile.ClientID,
 			ServicePrincipalSecret: cs.Properties.ServicePrincipalProfile.Secret,
-			TenantId:               opts.nbc.TenantID,
-			SubscriptionId:         opts.nbc.SubscriptionID,
-			AssignedIdentityId:     opts.nbc.UserAssignedIdentityClientID,
+			TenantId:               nbc.TenantID,
+			SubscriptionId:         nbc.SubscriptionID,
+			AssignedIdentityId:     nbc.UserAssignedIdentityClientID,
 		},
 		NetworkConfig: &nbcontractv1.NetworkConfig{
 			NetworkPlugin:     nbcontractv1.NetworkPlugin_NP_KUBENET,
-			CniPluginsUrl:     opts.nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
+			CniPluginsUrl:     nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
 			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
 		},
 		GpuConfig: &nbcontractv1.GPUConfig{
@@ -54,31 +54,31 @@ func baseNodeBootstrappingContract(location string, opts *scenarioRunOpts) *nbco
 		EnableUnattendedUpgrade: true,
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
 		ContainerdConfig: &nbcontractv1.ContainerdConfig{
-			ContainerdDownloadUrlBase: opts.nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
+			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
 		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
 		KubeletConfig: &nbcontractv1.KubeletConfig{
 			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
-			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(opts.nbc.KubeletConfig, opts.nbc.AgentPoolProfile.CustomKubeletConfig))),
+			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
 			EnableKubeletConfigFile:  false,
-			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(opts.nbc.KubeletConfig, cs, agentPool, false),
+			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
 			KubeletNodeLabels:        nbcontractv1.GetKubeletNodeLabels(agentPool),
 		},
 		TlsBootstrappingConfig: &nbcontractv1.TLSBootstrappingConfig{
-			TlsBootstrappingToken: *opts.nbc.KubeletClientTLSBootstrapToken,
+			TlsBootstrappingToken: *nbc.KubeletClientTLSBootstrapToken,
 		},
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
 			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
-			PodInfraContainerImageUrl: opts.nbc.K8sComponents.PodInfraContainerImageURL,
+			PodInfraContainerImageUrl: nbc.K8sComponents.PodInfraContainerImageURL,
 		},
 		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
 		HttpProxyConfig: &nbcontractv1.HTTPProxyConfig{
-			NoProxyEntries: *opts.nbc.HTTPProxyConfig.NoProxy,
+			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		NeedsCgroupv2: to.BoolPtr(true),
 	}
-	return nbc
+	return config
 }
 
 // this is huge, but accurate, so leave it here.

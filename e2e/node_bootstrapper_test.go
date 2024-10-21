@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"testing"
 
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/stretchr/testify/require"
 )
@@ -48,16 +47,16 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
-			CSEOverride:       CSENodeBootstrapper(ctx, t, cluster),
-			DisableCustomData: true,
+			CSEOverride: CSENodeBootstrapper(ctx, t, cluster),
 		},
+		Tags: Tags{Scriptless: true},
 	})
 }
 
 func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) string {
-	configJSON, err := json.Marshal(nbcontractv1.Configuration{
-		Version: "v0",
-	})
+	configContent := baseNodeBootstrappingContract(config.Config.Location, cluster.NodeBootstrappingConfiguration)
+
+	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)
 
 	binary := compileNodeBootstrapper(t)

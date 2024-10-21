@@ -41,12 +41,9 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	}
 
 	customData := nodeBootstrapping.CustomData
-	if opts.scenario.DisableCustomData {
-		customData = ""
-	}
 
 	var model armcompute.VirtualMachineScaleSet
-	if opts.scriptless {
+	if opts.scenario.Tags.Scriptless {
 		model = getBaseVMSSModelScriptless(t, vmssName, string(publicKeyBytes), opts)
 	} else {
 		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
@@ -249,7 +246,7 @@ func getVmssName(t *testing.T) string {
 }
 
 func getBaseVMSSModelScriptless(t *testing.T, name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
+	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts.nbc))
 	if err != nil {
 		require.NoError(t, err)
 		return armcompute.VirtualMachineScaleSet{}
@@ -257,6 +254,7 @@ func getBaseVMSSModelScriptless(t *testing.T, name, sshPublicKey string, opts *s
 
 	customData := getScriptlessCustomDataTemplate(base64.StdEncoding.EncodeToString(nbc))
 	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
+	// TODO: remove duplication
 	return armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
