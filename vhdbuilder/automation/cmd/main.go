@@ -3,34 +3,27 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 
 	"github.com/Azure/agentbaker/vhdbuilder/automation/internal/ado"
-)
-
-const (
-	envKeyADOPAT     = "ADO_PAT"
-	envKeyVHDBuildID = "VHD_BUILD_ID"
+	"github.com/Azure/agentbaker/vhdbuilder/automation/internal/env"
 )
 
 func main() {
-	pat := os.Getenv(envKeyADOPAT)
-	if pat == "" {
+	if env.Variables.ADOPAT == "" {
 		log.Fatal("expected to find non-empty ADO_PAT from environment")
 	}
-	vhdBuildID := os.Getenv(envKeyVHDBuildID)
-	if vhdBuildID == "" {
+	if env.Variables.VHDBuildID == "" {
 		log.Fatal("expected to find non-empty VHD_BUILD_ID from environment")
 	}
 
 	ctx := context.Background()
-	adoClient, err := ado.NewClient(ctx, pat)
+	adoClient, err := ado.NewClient(ctx, env.Variables.ADOPAT)
 	if err != nil {
 		log.Fatalf("constructing ADO client: %s", err)
 	}
 
 	log.Println("building EV2 artifacts...")
-	build, err := adoClient.BuildEV2Artifacts(ctx, vhdBuildID)
+	build, err := adoClient.BuildEV2Artifacts(ctx, env.Variables.VHDBuildID, nil)
 	if err != nil {
 		log.Fatalf("building EV2 artifacts: %s", err)
 	}
