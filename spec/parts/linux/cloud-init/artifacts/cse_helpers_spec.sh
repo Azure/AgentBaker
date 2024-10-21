@@ -64,6 +64,7 @@ Describe 'cse_helpers.sh'
             The variable PACKAGE_VERSIONS[@] should equal "dummyVersionFallback1.1 dummyVersionFallback1.0"
         End
     End
+
     Describe 'updatePackageDownloadURL'
         It 'returns downloadURIs.ubuntu.r2204.downloadURL of package pkgVersionsV2 for ubuntu.r2204'
             package=$(readPackage "pkgVersionsV2")
@@ -76,6 +77,7 @@ Describe 'cse_helpers.sh'
             The variable PACKAGE_DOWNLOAD_URL should equal "https://dummydefaultcurrentpath/v\${version}/dummy_\${version}_linux_\${CPU_ARCH}.tar.gz"
         End
     End
+
     Describe 'evalPackageDownloadURL'
         It 'returns empty string for empty downloadURL'
             When call evalPackageDownloadURL ""
@@ -88,6 +90,7 @@ Describe 'cse_helpers.sh'
             The output should equal 'https://dummypath/v0.0.1/binaries/dummypath-linux-amd64-v0.0.1.tgz'
         End
     End
+
     Describe 'pkgVersionsV2'
         It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
             package=$(readPackage "pkgVersionsV2")
@@ -104,6 +107,7 @@ Describe 'cse_helpers.sh'
             The variable RELEASE should equal "current"
         End
     End
+
     Describe 'updateMultiArchVersions'
         It 'returns multiArchVersionsV2 for containerImage mcr.microsoft.com/dummyImageWithMultiArchVersionsV2'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2")
@@ -114,6 +118,54 @@ Describe 'cse_helpers.sh'
             containerImage=$(readContainerImage "mcr.microsoft.com/dummyImageWithOldMultiArchVersions")
             When call updateMultiArchVersions "$containerImage"
             The variable MULTI_ARCH_VERSIONS[@] should equal "dummyVersion3 dummyVersion4 dummyVersion5"
+        End
+    End
+
+        Describe 'addKubeletNodeLabel'
+        It 'should perform a no-op when the specified label already exists within the label string'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+            When call addKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
+            The stdout should include 'kubelet node label kubernetes.azure.com/kubelet-serving-ca=cluster is already present, nothing to add'
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0'
+        End
+
+        It 'should append the label when it does not already exist within the label string'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+            When call addKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
+            The stdout should not include 'kubelet node label kubernetes.azure.com/kubelet-serving-ca=cluster is already present, nothing to add'
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
+        End
+    End
+
+    Describe 'removeKubeletNodeLabel'
+        It 'should remove the specified label when it exists within kubelet node labels'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+            When call removeKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0'
+        End
+
+        It 'should remove the specified label when it is the first label within kubelet node labels'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+            When call removeKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0'
+        End
+
+        It 'should remove the specified label when it is the last label within kubelet node labels'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+            When call removeKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0'
+        End
+
+        It 'should not alter kubelet node labels if the target label does not exist'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+            When call removeKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
+            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0'
+        End
+
+        It 'should return an empty string if the only label within kubelet node labels is the target'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/kubelet-serving-ca=cluster"
+            When call removeKubeletNodeLabel kubernetes.azure.com/kubelet-serving-ca=cluster
+            The variable KUBELET_NODE_LABELS should equal ''
         End
     End
 End
