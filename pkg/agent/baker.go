@@ -36,7 +36,12 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+
+	if config.AgentPoolProfile.IsWindows() {
+		return base64.StdEncoding.EncodeToString([]byte(customData))
+	}
+
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.

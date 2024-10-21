@@ -105,6 +105,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bootstrap.service",
+      "destination": "/home/packer/bootstrap.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/bootstrap.sh",
+      "destination": "/home/packer/bootstrap.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
     },
