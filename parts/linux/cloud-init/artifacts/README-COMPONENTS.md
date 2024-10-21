@@ -15,7 +15,7 @@
   - [Can I keep only 1 patch version](#can-i-keep-only-1-patch-version)
   - [Can I avoid repeating a single version for all OS distros/releases](#can-i-avoid-repeating-a-single-version-for-all-os-distrosreleases)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
-- [Were mariner and azurelinux intentionally removed from package runc?](#were-mariner-and-azurelinux-intentionally-removed-from-package-runc)
+  - [Were mariner and azurelinux intentionally removed from package runc?](#were-mariner-and-azurelinux-intentionally-removed-from-package-runc)
 
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
