@@ -2,6 +2,9 @@ pool:
   name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
 
 parameters:
+- name: VHD_BUILD_ID
+  displayName: VHD Build ID
+  type: string
 - name: ImageBump
   displayName: Image Bump + Create Official Branch
   type: boolean
@@ -31,15 +34,15 @@ stages:
           ADO_PAT: $(PAT-aksdevassistant)
       - template: ./templates/.set-image-version-template.yaml
         parameters:
-          VHD_BUILD_ID: $(VHD_BUILD_ID)
-          IMAGE_VERSION: $(IMAGE_VERSION) # pass in the image version in case one was supplied
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          IMAGE_VERSION_OVERRIDE: $(IMAGE_VERSION_OVERRIDE) # pass in the image version in case one was supplied
       - bash: |
           echo "PR for Image Bumping, Official Branch Cutting"
           /bin/bash vhdbuilder/scripts/automate_version_bump.sh
         env:
           GITHUB_PAT: $(GITHUB_PAT)
           IMAGE_VERSION: $(IMAGE_VERSION)
-          VHD_BUILD_ID: $(VHD_BUILD_ID)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
         displayName: 'Bump image version and create official branch'
   - stage: generate_release_notes
     dependsOn: []
@@ -53,15 +56,15 @@ stages:
           ADO_PAT: $(PAT-aksdevassistant)
       - template: ./templates/.set-image-version-template.yaml
         parameters:
-          VHD_BUILD_ID: $(VHD_BUILD_ID)
-          IMAGE_VERSION: $(IMAGE_VERSION)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          IMAGE_VERSION_OVERRIDE: $(IMAGE_VERSION_OVERRIDE)
       - bash: |
           echo "PR for Release Notes"
           /bin/bash vhdbuilder/scripts/automate_release_notes.sh
         env:
           GITHUB_PAT: $(GITHUB_PAT)
           IMAGE_VERSION: $(IMAGE_VERSION)
-          VHD_BUILD_ID: $(VHD_BUILD_ID)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
           SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
         displayName: 'Generate release notes'
   - stage: create_release
@@ -76,9 +79,11 @@ stages:
           ADO_PAT: $(PAT-aksdevassistant)
       - bash: |
           set +x
-          echo "Creating EV2 artifacts and corresponding SIG release"
-          /bin/bash vhdbuilder/scripts/automate_release.sh
+          set -e
+          pushd vhdbuilder/automation/cmd
+            go run main.go
+          popd
         env:
           ADO_PAT: $(PAT-aksdevassistant)
-          VHD_BUILD_ID: $(VHD_BUILD_ID)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
         displayName: 'Create SIG release'
