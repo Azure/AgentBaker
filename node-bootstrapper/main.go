@@ -67,7 +67,8 @@ func main() {
 		fmt.Printf("failed to open log file: %s\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close() //nolint:gocritic // TODO: ensure log file is closed before exiting from errors
+	//nolint:gocritic // TODO: ensure log file is closed before exiting from errors
+	defer logFile.Close()
 
 	logger := slog.New(slog.NewJSONHandler(logFile, nil))
 	slog.SetDefault(logger)
