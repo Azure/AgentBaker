@@ -1,6 +1,15 @@
 # MUST define global variable with "global"
 # This script is used to generate shared configuration for configure-windows-vhd.ps1 and windows-vhd-content-test.ps1.
 # MUST NOT add any shared functions in this script.
+
+param(
+    [string]
+    $windowsSKUParam
+)
+if (![string]::IsNullOrEmpty($windowsSKUParam)) {
+    $env:WindowsSKU = $windowsSKUParam
+}
+
 $windowsConfig = @'
 $global:windowsSKU = $env:WindowsSKU
 $validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
