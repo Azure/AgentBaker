@@ -43,9 +43,6 @@ func Parse(inputJSON []byte) (string, error) {
 		return "", err
 	}
 
-	log.Println("output env vars:")
-	log.Println(triggerBootstrapScript)
-
 	// Convert to one-liner
 	return strings.ReplaceAll(triggerBootstrapScript, "\n", " "), nil
 }

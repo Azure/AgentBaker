@@ -244,10 +244,18 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
+func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
+	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
+	if err == nil {
+		return writer
+	}
+	return gzip.NewWriter(buf)
+}
+
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
 func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
-	w := gzip.NewWriter(&gzipB)
+	w := newGzipWriter(&gzipB)
 	_, err := w.Write([]byte(str))
 	if err != nil {
 		// this should never happen and this is a bug.
