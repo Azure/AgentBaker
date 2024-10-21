@@ -564,12 +564,14 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
 		Config: Config{
-			NodeBootstrappingType: Scriptless,
-			Cluster:               ClusterKubenet,
-			VHD:                   config.VHDUbuntu2204Gen2Containerd,
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
 				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished"),
 			},
+		},
+		Tags: Tags{
+			Scriptless: true,
 		},
 	})
 }
@@ -645,31 +647,6 @@ func Test_ubuntu2204(t *testing.T) {
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
-		},
-	})
-}
-
-func Test_ubuntu2204Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Ubuntu 2204 Scriptless VHD can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				// Check that we don't leak these secrets if they're
-				// set (which they mostly aren't in these scenarios).
-				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
-				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
-				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
-			},
-		},
-		Tags: Tags{
-			Scriptless: true,
 		},
 	})
 }

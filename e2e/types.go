@@ -111,19 +111,10 @@ type Scenario struct {
 	Config
 }
 
-type NodeBootstrappingType string
-
-const (
-	CustomScripts NodeBootstrappingType = "CustomScripts"
-	Scriptless    NodeBootstrappingType = "Scriptless"
-)
-
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
-
-	NodeBootstrappingType NodeBootstrappingType
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
 	VHD *config.Image

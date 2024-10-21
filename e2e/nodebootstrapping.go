@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,12 +16,12 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 )
 
-func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, bootstrappingType NodeBootstrappingType) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrapping(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, scriptless bool) (*datamodel.NodeBootstrapping, error) {
 	switch e2eMode {
 	case "coverage":
 		return getNodeBootstrappingForCoverage(nbc)
 	default:
-		return getNodeBootstrappingForValidation(ctx, nbc, bootstrappingType)
+		return getNodeBootstrappingForValidation(ctx, nbc, scriptless)
 	}
 }
 
@@ -47,20 +48,23 @@ func getNodeBootstrappingForCoverage(nbc *datamodel.NodeBootstrappingConfigurati
 	return nodeBootstrapping, nil
 }
 
-func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, bootstrappingType NodeBootstrappingType) (*datamodel.NodeBootstrapping, error) {
+func getNodeBootstrappingForValidation(ctx context.Context, nbc *datamodel.NodeBootstrappingConfiguration, scriptless bool) (*datamodel.NodeBootstrapping, error) {
 	ab, err := agent.NewAgentBaker()
 	if err != nil {
 		return nil, err
 	}
-	switch {
-	case bootstrappingType == Scriptless:
-		return ab.GetNodeBootstrappingForScriptless(ctx, nbc)
-	case bootstrappingType == CustomScripts:
-		return ab.GetNodeBootstrapping(ctx, nbc)
-	default:
-		// fallback to custom scripts
-		return ab.GetNodeBootstrapping(ctx, nbc)
+	if scriptless {
+		nbcJSON, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, nbc))
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal nbc, error: %w", err)
+		}
+		customData := base64.StdEncoding.EncodeToString([]byte(getScriptlessCustomDataTemplate(base64.StdEncoding.EncodeToString(nbcJSON))))
+		return &datamodel.NodeBootstrapping{
+			CSE:        "",
+			CustomData: customData,
+		}, nil
 	}
+	return ab.GetNodeBootstrapping(ctx, nbc)
 }
 
 func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {

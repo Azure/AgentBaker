@@ -5,7 +5,6 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -32,22 +31,15 @@ const (
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc, opts.scenario.Config.NodeBootstrappingType)
+	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc, opts.scenario.Tags.Scriptless)
 	require.NoError(t, err)
-
-	customData := nodeBootstrapping.CustomData
 
 	cse := nodeBootstrapping.CSE
 	if opts.scenario.CSEOverride != "" {
 		cse = opts.scenario.CSEOverride
 	}
 
-	if opts.scenario.Tags.Scriptless {
-		nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts.nbc))
-		require.NoError(t, err)
-		customData = base64.StdEncoding.EncodeToString([]byte(getScriptlessCustomDataTemplate(base64.StdEncoding.EncodeToString(nbc))))
-	}
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, cse, opts.clusterConfig)
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
