@@ -883,6 +883,10 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				NvidiaModProbeInstalledValidator(),
+				KubeletHasNotStoppedValidator(),
+			},
 		},
 	})
 }
@@ -909,9 +913,8 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				NvidiaSMIInstalledValidator(),
-				// ensure kubelet is not restarted
-				FileHasContentsValidator("/var/log/messages", "Starting Kubelet"),
-				FileExcludesContentsValidator("/var/log/messages", "Stopping Kubelet", "Stopping Kubelet"),
+				NvidiaModProbeInstalledValidator(),
+				KubeletHasNotStoppedValidator(),
 			},
 		},
 	})
