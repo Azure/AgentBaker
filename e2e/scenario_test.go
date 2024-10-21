@@ -47,7 +47,7 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -97,7 +97,7 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -295,7 +295,7 @@ func Test_marinerv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -345,7 +345,7 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 
@@ -568,7 +568,7 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			Cluster:               ClusterKubenet,
 			VHD:                   config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper started"),
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished"),
 			},
 		},
 	})
@@ -649,6 +649,31 @@ func Test_ubuntu2204(t *testing.T) {
 	})
 }
 
+func Test_ubuntu2204Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 Scriptless VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
+			},
+		},
+		Tags: Tags{
+			Scriptless: true,
+		},
+	})
+}
+
 func Test_ubuntu2204AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
@@ -666,7 +691,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -691,7 +716,7 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -1153,7 +1178,7 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "aksvhdtestcr.azurecr.io/aks",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
