@@ -355,8 +355,9 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 		} else {
+			var zippedDataBytes []byte
 			// try to unzip the bytes. If this fails then the custom data was not zipped. And it should be due to customdata size limitations.
-			zippedDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
+			zippedDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
 			Expect(err).To(BeNil())
 			customDataBytes, err = getGzipDecodedValue(zippedDataBytes)
 			Expect(err).To(BeNil())
