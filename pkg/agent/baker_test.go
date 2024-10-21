@@ -350,7 +350,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		)
 		Expect(err).To(BeNil())
 		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
-		customData := string(customDataBytes)
+		Expect(err).To(BeNil())
+
+		// try to unzip the bytes. If this fails then the custom data was not zipped. And it should be due to customdata size limitations.
+		unzippedDataBytes, err := getGzipDecodedValue(customDataBytes)
+		Expect(err).To(BeNil())
+
+		customData := string(unzippedDataBytes)
 		Expect(err).To(BeNil())
 
 		if generateTestData() {
@@ -1998,19 +2004,19 @@ func getValueWithoutQuotes(value string) string {
 }
 
 //lint:ignore U1000 this is used for test helpers in the future
-func getGzipDecodedValue(data []byte) (string, error) {
+func getGzipDecodedValue(data []byte) ([]byte, error) {
 	reader := bytes.NewReader(data)
 	gzipReader, err := gzip.NewReader(reader)
 	if err != nil {
-		return "", fmt.Errorf("failed to create gzip reader: %w", err)
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 
 	output, err := io.ReadAll(gzipReader)
 	if err != nil {
-		return "", fmt.Errorf("read from gzipped buffered string: %w", err)
+		return nil, fmt.Errorf("read from gzipped buffered string: %w", err)
 	}
 
-	return string(output), nil
+	return output, nil
 }
 
 func getBase64DecodedValue(data []byte) (string, error) {
@@ -2043,7 +2049,12 @@ func verifyCertsEncoding(cert string) error {
 func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error) {
 	var customData cloudInit
 
-	if err := yaml.Unmarshal(data, &customData); err != nil {
+	decodedCse, err := getGzipDecodedValue(data)
+	if err != nil {
+		decodedCse = data
+	}
+
+	if err := yaml.Unmarshal(decodedCse, &customData); err != nil {
 		return nil, err
 	}
 
@@ -2059,7 +2070,7 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode gzip value: %q with error %w", maybeEncodedValue, err)
 				}
-				maybeEncodedValue = output
+				maybeEncodedValue = string(output)
 				encoding = cseVariableEncodingGzip
 			}
 		}
