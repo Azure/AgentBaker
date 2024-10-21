@@ -615,4 +615,33 @@ updatePackageDownloadURL() {
     return    
 }
 
+# adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
+addKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if grep -i "$LABEL_STRING" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        echo "kubelet node label $LABEL_STRING is already present, nothing to add"
+        return 0
+    fi
+
+    echo "adding label $LABEL_STRING to kubelet node labels..."
+    if [ -n "$KUBELET_NODE_LABELS" ]; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS},${LABEL_STRING}"
+    else
+        # node labels shouldn't ever be empty, but we guard against it to be safe
+        KUBELET_NODE_LABELS=$LABEL_STRING
+    fi
+}
+
+# removes the specified LABEL_STRING (which should be in the form of 'label=value') from KUBELET_NODE_LABELS
+removeKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if grep -e ",${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
+    elif grep -e "${LABEL_STRING}," <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
+    elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
 #HELPERSEOF
