@@ -151,6 +151,7 @@ Describe 'Configure-KubeletServingCertificateRotation' {
 Describe 'Disable-KubeletServingCertificateRotationForTags' {
     BeforeEach {
         Mock Logs-To-Event
+        Mock Write-Log
     }
 
     It "Should no-op when EnableKubeletServingCertificateRotation is already disabled" {
