@@ -222,8 +222,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.4.5",
-          "previousLatestVersion": "v1.4.4"
+          "latestVersion": "v1.4.5"
         }
       ]
     },
@@ -233,8 +232,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.5.3",
-          "previousLatestVersion": "v1.5.2"
+          "latestVersion": "v1.5.3"
         }
       ]
     },
@@ -375,6 +373,10 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
           "latestVersion": "v1.30.5",
           "previousLatestVersion": "v1.30.4"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
+          "latestVersion": "v1.31.0"
         }
       ]
     },
@@ -396,6 +398,10 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.30.6",
           "previousLatestVersion": "v1.30.5"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
+          "latestVersion": "v1.31.0"
         }
       ]
     },
@@ -405,11 +411,6 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.22.9",
-          "previousLatestVersion": "v1.22.8"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
           "latestVersion": "v1.23.9",
           "previousLatestVersion": "v1.23.7"
         },
@@ -417,6 +418,10 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
           "latestVersion": "v1.24.5",
           "previousLatestVersion": "v1.24.3"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.25.0"
         }
       ]
     },
