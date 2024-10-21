@@ -77,8 +77,8 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
-.PHONY: shellspec
-shellspec:
+.PHONY: shellspec # TODO: have this run in a container with a stable bash installation
+shellspec: bootstrap
 	@bash ./hack/tools/bin/shellspec
 
 .PHONY: validate-image-version
@@ -93,18 +93,25 @@ generate-kubelet-flags:
 compile-proto-files:
 	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
 
-.PHONY: generate
-generate: bootstrap
-	@echo $(GOFLAGS)
+.PHONY: generate-manifest
+generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
 	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
+
+.PHONY: generate-testdata
+generate-testdata:
+	@echo $(GOFLAGS)
 	GENERATE_TEST_DATA="true" go test ./pkg/agent...
-	@echo "running validate-shell to make sure generated cse scripts are correct"
+
+.PHONY: generate # TODO: ONLY generate go testdata
+generate: bootstrap
+	@echo "Generating go testdata"
+	@$(MAKE) generate-testdata
+	@echo "Generating manifest.cue"
+	@$(MAKE) generate-manifest
+	@echo "Running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
-	@echo "Running shellspec tests to validate shell/bash scripts"
-	@$(MAKE) shellspec
-	@echo "Validating if components.json conforms to the schema schemas/components.cue."
-	@echo "Error will be shown if any."
+	@echo "Validating components.json conforms to the schema schemas/components.cue."
 	@$(MAKE) validate-components
 
 .PHONY: validate-prefetch
@@ -173,9 +180,8 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: generate
+test:
 	go test ./...
-
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
