@@ -253,3 +253,48 @@ func TestGetOutBoundCmd(t *testing.T) {
 		})
 	}
 }
+
+func TestIsKubeletServingCertificateRotationEnabled(t *testing.T) {
+	tests := []struct {
+		name         string
+		kubeletFlags map[string]string
+		expected     bool
+	}{
+		{
+			name:         "should return false with nil kubelet flags",
+			kubeletFlags: nil,
+			expected:     false,
+		},
+		{
+			name: "should return false if kubelet flags does not set --rotate-server-certificates to true",
+			kubeletFlags: map[string]string{
+				"--rotate-certificates": "true",
+			},
+			expected: false,
+		},
+		{
+			name: "should return false if kubelet flags explicitly sets --rotate-server-certificates to false",
+			kubeletFlags: map[string]string{
+				"--rotate-certificates":        "true",
+				"--rotate-server-certificates": "false",
+			},
+			expected: false,
+		},
+		{
+			name: "should return true if kubelet flags set --rotate-server-certificates to true",
+			kubeletFlags: map[string]string{
+				"--rotate-certificates":        "true",
+				"--rotate-server-certificates": "true",
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := isKubeletServingCertificateRotationEnabled(tt.kubeletFlags); actual != tt.expected {
+				t.Errorf("expected isKubeletServingCertificateRotationEnabled to be %t, but was %t", tt.expected, actual)
+			}
+		})
+	}
+}
