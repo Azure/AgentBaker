@@ -16,6 +16,7 @@ func baseNodeBootstrappingContract(location string, nbc *datamodel.NodeBootstrap
 	agentPool := nbc.AgentPoolProfile
 
 	config := &nbcontractv1.Configuration{
+		Version:            "v0",
 		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
 		VmSize:             "Standard_D2ds_v5",

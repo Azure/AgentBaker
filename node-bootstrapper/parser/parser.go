@@ -4,7 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
-	"log"
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -34,14 +34,16 @@ func Parse(inputJSON []byte) (utils.SensitiveString, error) {
 	var nbc nbcontractv1.Configuration
 	err := json.Unmarshal(inputJSON, &nbc)
 	if err != nil {
-		log.Printf("Failed to unmarshal the json to nbcontractv1: %v", err)
-		return "", err
+		return "", fmt.Errorf("failed to unmarshal the json to nbcontractv1: %w", err)
+	}
+
+	if nbc.Version != "v0" {
+		return "", fmt.Errorf("unsupported version: %s", nbc.Version)
 	}
 
 	triggerBootstrapScript, err := executeBootstrapTemplate(&nbc)
 	if err != nil {
-		log.Printf("Failed to execute the template: %v", err)
-		return "", err
+		return "", fmt.Errorf("failed to execute the template: %w", err)
 	}
 
 	// Convert to one-liner
