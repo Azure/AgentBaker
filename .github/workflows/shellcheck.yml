@@ -1,8 +1,8 @@
-name: check-generated
+name: Lint Shell/Bash Scripts
 on: pull_request
 
 jobs:
-  check-generated:
+  shellcheck:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -10,6 +10,5 @@ jobs:
       with:
         go-version: '1.22'
     - run: |
-        make
-        git diff --exit-code
-      name: Make generate and diff
+        make validate-shell
+      name: Lint shell/bash scripts with ShellCheck

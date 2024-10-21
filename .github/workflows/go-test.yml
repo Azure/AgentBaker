@@ -1,8 +1,8 @@
-name: check-shell
+name: Go Unit Tests
 on: pull_request
 
 jobs:
-  check-tests:
+  go-test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -10,5 +10,5 @@ jobs:
       with:
         go-version: '1.22'
     - run: |
-        make validate-shell
-      name: Verify Shell scripts
+        make test
+      name: Run unit tests for go code in pkg/agent
