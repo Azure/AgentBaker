@@ -129,7 +129,7 @@ func getScriptlessCustomDataTemplate(config any) (string, error) {
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
 	customDataTAML := fmt.Sprintf(`#cloud-config
 write_files:
-- path: /opt/azure/containers/nbc.json
+- path: /opt/azure/containers/node-bootstrapper-config.json
   permissions: "0755"
   owner: root
   content: !!binary |
