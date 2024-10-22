@@ -1181,6 +1181,9 @@ net.netfilter.nf_conntrack_max={{$s.NetNetfilterNfConntrackMax}}
 {{- if $s.NetNetfilterNfConntrackBuckets}}
 net.netfilter.nf_conntrack_buckets={{$s.NetNetfilterNfConntrackBuckets}}
 {{- end}}
+{{- if $s.FsInotifyMaxUserInstances}}
+fs.inotify.max_user_instances={{$s.FsInotifyMaxUserInstances}}
+{{- end}}
 {{- if $s.FsInotifyMaxUserWatches}}
 fs.inotify.max_user_watches={{$s.FsInotifyMaxUserWatches}}
 {{- end}}

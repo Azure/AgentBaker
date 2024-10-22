@@ -46,14 +46,15 @@ message SysctlConfig {
   optional int32 NetIpv4NeighDefaultGcThresh3 = 18;
   optional int32 NetNetfilterNfConntrackMax = 19;
   optional int32 NetNetfilterNfConntrackBuckets = 20;
-  optional int32 FsInotifyMaxUserWatches = 21;
-  optional int32 FsFileMax = 22;
-  optional int32 FsAioMaxNr = 23;
-  optional int32 FsNrOpen = 24;
-  optional int32 KernelThreadsMax = 25;
-  optional int32 VMMaxMapCount = 26;
-  optional int32 VMSwappiness = 27;
-  optional int32 VMVfsCachePressure = 28;
+  optional int32 FsInotifyMaxUserInstances = 21;
+  optional int32 FsInotifyMaxUserWatches = 22;
+  optional int32 FsFileMax = 23;
+  optional int32 FsAioMaxNr = 24;
+  optional int32 FsNrOpen = 25;
+  optional int32 KernelThreadsMax = 26;
+  optional int32 VMMaxMapCount = 27;
+  optional int32 VMSwappiness = 28;
+  optional int32 VMVfsCachePressure = 29;
 }
 
 message UlimitConfig {

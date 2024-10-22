@@ -406,6 +406,10 @@ func getSysctlContent(s *nbcontractv1.SysctlConfig) string {
 		m["net.netfilter.nf_conntrack_buckets"] = s.GetNetNetfilterNfConntrackBuckets()
 	}
 
+	if s.FsInotifyMaxUserInstances != nil {
+		m["fs.inotify.max_user_instances"] = s.GetFsInotifyMaxUserInstances()
+	}
+
 	if s.FsInotifyMaxUserWatches != nil {
 		m["fs.inotify.max_user_watches"] = s.GetFsInotifyMaxUserWatches()
 	}
