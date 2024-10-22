@@ -127,9 +127,10 @@ type Config struct {
 
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators []*LiveVMValidator
-
-	CSEOverride string
+	LiveVMValidators  []*LiveVMValidator
+	CSEOverride       string
+	DisableCustomData bool
+	Distro            datamodel.Distro
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content

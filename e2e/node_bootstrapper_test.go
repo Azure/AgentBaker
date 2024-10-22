@@ -12,7 +12,9 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,15 +48,35 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
 			},
-			CSEOverride: CSENodeBootstrapper(ctx, t, cluster),
+			CSEOverride:       CSENodeBootstrapper(ctx, t, cluster),
+			DisableCustomData: true,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				// Check that we don't leak these secrets if they're
+				// set (which they mostly aren't in these scenarios).
+				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+			},
 		},
 		Tags: Tags{Scriptless: true},
 	})
 }
 
 func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) string {
-	configContent := baseNodeBootstrappingContract(config.Config.Location, cluster.NodeBootstrappingConfiguration)
+	nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
+	require.NoError(t, err)
+	nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+	nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+	// Check that we don't leak these secrets if they're
+	// set (which they mostly aren't in these scenarios).
+	nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
+	nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+
+	configContent := nbcToNbcContractV1(nbc)
 
 	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)

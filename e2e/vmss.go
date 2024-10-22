@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -31,15 +33,27 @@ const (
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc, opts.scenario.Tags.Scriptless)
+	var nodeBootstrapping *datamodel.NodeBootstrapping
+	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
+	if opts.scenario.Tags.Scriptless {
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(opts.nbc), opts.scenario.Config.Distro, datamodel.AzurePublicCloud)
+		require.NoError(t, err)
+	} else {
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, opts.nbc)
+		require.NoError(t, err)
+	}
 
 	cse := nodeBootstrapping.CSE
 	if opts.scenario.CSEOverride != "" {
 		cse = opts.scenario.CSEOverride
 	}
+	customData := nodeBootstrapping.CustomData
+	if opts.scenario.DisableCustomData {
+		customData = ""
+	}
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, cse, opts.clusterConfig)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)

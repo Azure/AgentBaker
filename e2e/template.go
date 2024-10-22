@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func baseNodeBootstrappingContract(location string, nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
+func nbcToNbcContractV1(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
 	cs := nbc.ContainerService
 	agentPool := nbc.AgentPoolProfile
 
@@ -21,7 +21,7 @@ func baseNodeBootstrappingContract(location string, nbc *datamodel.NodeBootstrap
 		LinuxAdminUsername: "azureuser",
 		VmSize:             "Standard_D2ds_v5",
 		ClusterConfig: &nbcontractv1.ClusterConfig{
-			Location:      location,
+			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
 			VmType:        nbcontractv1.ClusterConfig_VMSS,
 			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{

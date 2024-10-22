@@ -28,23 +28,35 @@ func main() {
 		fmt.Printf("failed to open log file: %s\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close()
 
 	logger := slog.New(slog.NewJSONHandler(logFile, nil))
 	slog.SetDefault(logger)
-
 	slog.Info("node-bootstrapper started")
+
 	ctx := context.Background()
-	if err := Run(ctx); err != nil {
+	err = Run(ctx)
+	exitCode := errToExitCode(err)
+
+	if exitCode == 0 {
+		slog.Info("node-bootstrapper finished successfully")
+	} else {
 		slog.Error("node-bootstrapper finished with error", "error", err.Error())
-		var exitErr *exec.ExitError
-		_ = logFile.Close()
-		if errors.As(err, &exitErr) {
-			os.Exit(exitErr.ExitCode())
-		}
-		os.Exit(1)
 	}
-	slog.Info("node-bootstrapper finished")
+
+	_ = logFile.Close()
+	os.Exit(exitCode)
+}
+
+func errToExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return 1
+
 }
 
 func Run(ctx context.Context) error {
