@@ -15,7 +15,13 @@ package components
 	multiArchVersionsV2:   [...#VersionV2]
 }
 
+#GPUContainerImage: {
+	downloadURL: string
+	multiArchVersionsV2:   [...#VersionV2]
+}
+
 #Images: [...#ContainerImage]
+#GPUContainerImage: [...#GPUContainerImage]
 #Packages: [...#Package]
 #VersionV2: {
 	k8sVersion?:             string
@@ -67,7 +73,8 @@ package components
 
 #Components: {
 	ContainerImages: #Images
-	Packages:        #Packages    
+	Packages:        #Packages
+	GPUContainerImages: #GPUContainerImage
 }
 
 #Components
