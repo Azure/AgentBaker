@@ -141,8 +141,8 @@ const (
 // These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
 // So for now these will be kept here like this.
 const (
-	AKSGPUCudaVersionSuffix = "20241008175307"
-	AKSGPUGridVersionSuffix = "20241008175311"
+	AKSGPUCudaVersionSuffix = "20241021235610"
+	AKSGPUGridVersionSuffix = "20241021235607"
 )
 
 /* convergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
