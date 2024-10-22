@@ -2169,10 +2169,10 @@ var _ = Describe("getGPUDriverType", func() {
 })
 
 var _ = Describe("getAKSGPUImageSHA", func() {
-	It("should use newest AKSGPUGridSHA with nv v5", func() {
-		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridSHA))
+	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
+		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
 	})
-	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
-		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaSHA))
+	It("should use newest AKSGPUCudaVersionSuffix with non grid SKU", func() {
+		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
 	})
 })

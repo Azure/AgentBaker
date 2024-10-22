@@ -74,12 +74,7 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerToolkit() {
-    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.13.0"
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.15.0"
-
-    if [[ $OS_VERSION == "2.0" ]]; then
-      MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.13.5"
-    fi
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
     
     for nvidia_package in nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
@@ -87,11 +82,6 @@ installNvidiaContainerToolkit() {
       fi
     done
 
-    if [[ $OS_VERSION == "2.0" ]]; then
-      if ! dnf_install 30 1 600 nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION}; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    fi
 }
 
 enableNvidiaPersistenceMode() {
