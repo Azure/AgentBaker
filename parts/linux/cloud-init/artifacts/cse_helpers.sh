@@ -145,12 +145,11 @@ DOCKER=/usr/bin/docker
 # prefer empty string to avoid potential "it works but did something weird" scenarios
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
 export GPU_DEST=/usr/local/nvidia
-NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
 export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
+export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
 export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
@@ -614,6 +613,35 @@ updatePackageDownloadURL() {
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
     return    
+}
+
+# adds the specified LABEL_STRING (which should be in the form of 'label=value') to KUBELET_NODE_LABELS
+addKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if grep -i "$LABEL_STRING" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        echo "kubelet node label $LABEL_STRING is already present, nothing to add"
+        return 0
+    fi
+
+    echo "adding label $LABEL_STRING to kubelet node labels..."
+    if [ -n "$KUBELET_NODE_LABELS" ]; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS},${LABEL_STRING}"
+    else
+        # node labels shouldn't ever be empty, but we guard against it to be safe
+        KUBELET_NODE_LABELS=$LABEL_STRING
+    fi
+}
+
+# removes the specified LABEL_STRING (which should be in the form of 'label=value') from KUBELET_NODE_LABELS
+removeKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if grep -e ",${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
+    elif grep -e "${LABEL_STRING}," <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
+    elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
 }
 
 #HELPERSEOF

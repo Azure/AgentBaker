@@ -220,10 +220,9 @@ fi
 # for drop ins, so they don't all have to check/create the dir
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
-# we do this here since this function has the potential to mutate kubelet flags, 
-# kubelet config file, and node labels if a special tag has been added to the underlying VM. 
-# kubelet config file content is decoded and written to disk by configureK8s, thus we need to make sure the content is correct beforehand.
-logs_to_events "AKS.CSE.disableKubeletServingCertificateRotationForTags" disableKubeletServingCertificateRotationForTags
+# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
+# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
+logs_to_events "AKS.CSE.configureKubeletServingCertificateRotation" configureKubeletServingCertificateRotation
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 

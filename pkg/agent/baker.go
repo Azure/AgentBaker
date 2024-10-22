@@ -36,7 +36,12 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+
+	if config.AgentPoolProfile.IsWindows() {
+		return base64.StdEncoding.EncodeToString([]byte(customData))
+	}
+
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -918,6 +923,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GPUImageSHA": func() string {
 			return getAKSGPUImageSHA(profile.VMSize)
 		},
+		"GPUDriverType": func() string {
+			return getGPUDriverType(profile.VMSize)
+		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
 			if cs.Properties.WindowsProfile != nil && profile.Distro == datamodel.AKSWindows2019Containerd {
@@ -1054,6 +1062,14 @@ func getAKSGPUImageSHA(size string) string {
 	}
 	return datamodel.AKSGPUCudaSHA
 }
+
+func getGPUDriverType(size string) string {
+	if useGridDrivers(size) {
+		return "grid"
+	}
+	return "cuda"
+}
+
 func gpuNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
