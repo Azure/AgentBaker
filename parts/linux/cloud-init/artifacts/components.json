@@ -556,6 +556,26 @@
           "previousLatestVersion": "v1.31.0"
         }
       ]
+
+    },
+
+    {
+      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
+      "amd64OnlyVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
+          "latestVersion": "550.90.12-20241021233454"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
+          "latestVersion": "535.161.08-20241021235607"
+        }
+      ]
     }
   ],
   "Packages": [
