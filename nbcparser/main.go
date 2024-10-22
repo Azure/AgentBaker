@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
 )
@@ -23,6 +24,17 @@ func main() {
 	cseCmd := parseConfig(*configFile)
 	err := bootstrap(cseCmd, *test)
 	if err != nil {
+		// Check if the error is an ExitError
+		if exitError, ok := err.(*exec.ExitError); ok {
+			// Get the exit status code
+			if status, ok := exitError.Sys().(syscall.WaitStatus); ok {
+				log.Printf("cse_cmd exited with status: %d\n", status.ExitStatus())
+				os.Exit(status.ExitStatus())
+			}
+		} else {
+			// Other types of errors (e.g., command not found)
+			log.Printf("Error running command: %v\n", err)
+		}
 		log.Fatal(err)
 	}
 }
