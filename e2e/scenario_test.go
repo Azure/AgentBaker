@@ -574,10 +574,10 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			Distro:  "aks-ubuntu-containerd-22.04-gen2",
 			LiveVMValidators: []*LiveVMValidator{
 				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
 			},
+			// TODO: add support for nbccontract instead
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"

@@ -130,7 +130,6 @@ type Config struct {
 	LiveVMValidators  []*LiveVMValidator
 	CSEOverride       string
 	DisableCustomData bool
-	Distro            datamodel.Distro
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
