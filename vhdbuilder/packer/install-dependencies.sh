@@ -353,8 +353,9 @@ capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-c66998"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE_SHA="20241008175307"
+  export NVIDIA_DRIVER_IMAGE_TAG="550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
+  NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"
 
   mkdir -p /opt/{actions,gpu}
   ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
