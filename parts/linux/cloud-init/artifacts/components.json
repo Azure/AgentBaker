@@ -561,12 +561,16 @@
 
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
-      "amd64OnlyVersions": [
+      "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
           "latestVersion": "550.90.12-20241021233454"
         }
-      ]
+      ],
+      "osSelector": {
+        "os": "ubuntu",
+        "arch": "amd64" 
+      }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
@@ -575,7 +579,10 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
           "latestVersion": "535.161.08-20241021235607"
         }
-      ]
+      ],
+      "osSelector": {
+        "os": "Never"
+      }
     }
   ],
   "Packages": [

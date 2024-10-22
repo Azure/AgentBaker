@@ -9,10 +9,16 @@ package components
 	previousLatestVersion?: #ContainerImagePrefetchOptimization
 }
 
+#OSSelector: {
+    os:   string
+    arch: string
+}
+
 #ContainerImage: {
 	downloadURL: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
+	osSelector?:          #OSSelector
 }
 
 #Images: [...#ContainerImage]
