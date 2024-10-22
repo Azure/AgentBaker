@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -29,9 +30,10 @@ var (
 		Arch: "arm64",
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name: "2204gen2containerd",
-		OS:   "ubuntu",
-		Arch: "amd64",
+		Name:   "2204gen2containerd",
+		OS:     "ubuntu",
+		Arch:   "amd64",
+		Distro: datamodel.AKSUbuntuContainerd2404Gen2,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
 		Name: "AzureLinuxV2gen2arm64",
@@ -78,6 +80,7 @@ type Image struct {
 	Name    string
 	OS      string
 	Version string
+	Distro  datamodel.Distro
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once

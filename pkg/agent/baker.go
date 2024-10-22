@@ -269,7 +269,8 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	return truncated
 }
 
-func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+// ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
+func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	if config.KubeletConfig == nil {
 		return
 	}

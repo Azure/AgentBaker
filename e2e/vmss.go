@@ -37,7 +37,8 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
 	if opts.scenario.Tags.Scriptless {
-		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(opts.nbc), opts.scenario.Config.Distro, datamodel.AzurePublicCloud)
+		agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(opts.nbc)
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(opts.nbc), opts.scenario.VHD.Distro, datamodel.AzurePublicCloud)
 		require.NoError(t, err)
 	} else {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, opts.nbc)

@@ -42,7 +42,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
-		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 
 	templateGenerator := InitializeTemplateGenerator()

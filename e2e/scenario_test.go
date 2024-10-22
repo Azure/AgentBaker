@@ -577,7 +577,7 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
 			},
-			// TODO: add support for nbccontract instead
+			// TODO: replace it with nbccontract
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
