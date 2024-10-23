@@ -409,6 +409,33 @@ declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 while IFS= read -r imageToBePulled; do
+  os=$(echo "${imageToBePulled}" | jq -r '.osSelector.os // empty')
+  arch=$(echo "${imageToBePulled}" | jq -r '.osSelector.arch // empty')
+
+  skip_image=false
+  if [[ -n "$os" ]]; then
+    if [[ "$os" == "Never" ]]; then
+      echo "Skipping image because osSelector.os is 'Never'."
+      skip_image=true
+    elif [[ "$os" != "$CURRENT_OS" ]]; then
+      echo "Skipping image because osSelector.os ('$os') does not match current OS ('$CURRENT_OS')."
+      skip_image=true
+    fi
+  fi
+
+  if [[ "$skip_image" == false ]] && [[ -n "$arch" ]]; then
+    if [[ "$arch" != "$CURRENT_ARCH" ]]; then
+      echo "Skipping image because osSelector.arch ('$arch') does not match current architecture ('$CURRENT_ARCH')."
+      skip_image=true
+    fi
+  fi
+
+  if [[ "$skip_image" == true ]]; then
+    continue  # Skip to the next image
+  fi
+
+
+
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
   MULTI_ARCH_VERSIONS=()
