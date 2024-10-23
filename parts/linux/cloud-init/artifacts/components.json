@@ -561,7 +561,7 @@
 
   "GPUContainerImages": [
     {
-      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid",
+      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
@@ -570,7 +570,7 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid",
+      "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "multiArchVersionsV2": [
       { 
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",

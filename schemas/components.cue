@@ -21,7 +21,7 @@ package components
 }
 
 #Images: [...#ContainerImage]
-#GPUContainerImage: [...#GPUContainerImage]
+#GPUContainerImages: [...#GPUContainerImage]
 #Packages: [...#Package]
 #VersionV2: {
 	k8sVersion?:             string
