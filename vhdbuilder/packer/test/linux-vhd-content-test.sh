@@ -962,7 +962,7 @@ testBccTools () {
 }
 
 testNodeBootstrapperBinary () {
-  local test="testNBCParserBinary"
+  local test="testNodeBootstrapperBinary"
   local go_binary_path="/opt/azure/containers/node-bootstrapper"
 
   echo "$test: checking existence of node-bootstrapper go binary at $go_binary_path"
@@ -1129,5 +1129,5 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
-testNBCParserBinary
+testNodeBootstrapperBinary
 testNodeBootstrapperService
