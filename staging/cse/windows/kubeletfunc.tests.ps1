@@ -232,10 +232,6 @@ Describe 'Get-TagValue' {
 }
 
 Describe 'Add-KubeletNodeLabel' {
-    BeforeEach {
-        Mock Write-Log
-    }
-
     It "Should perform a no-op when the specified label already exists within the label string" {
         $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
