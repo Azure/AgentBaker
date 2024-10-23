@@ -21,7 +21,7 @@ package components
 }
 
 #Images: [...#ContainerImage]
-#GPUContainerImages: [...#GPUContainerImage]
+#GPUImages: [...#GPUContainerImage]
 #Packages: [...#Package]
 #VersionV2: {
 	k8sVersion?:             string
@@ -74,7 +74,7 @@ package components
 #Components: {
 	ContainerImages: #Images
 	Packages:        #Packages
-	GPUContainerImages: #GPUContainerImage
+	GPUContainerImages?: #GPUImages
 }
 
 #Components
