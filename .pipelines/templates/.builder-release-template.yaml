@@ -38,7 +38,7 @@ steps:
         exit 1
       fi
       echo "Found source components.json to use for overrides: ${COMPONENT_JSON_SRC}"
-      
+
       echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
       cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
     displayName: Apply Overrides
@@ -71,6 +71,7 @@ steps:
         **/kata-containers-igvm-debug.img**
         **/igvm-measurement**
         **/kata-containers-igvm.img**
+        **/kata-containers-cc.img**
         **/kata-containers.img**
         **/kata-containers-initrd-base.img**
         **/reference-info-base64**
