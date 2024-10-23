@@ -9,7 +9,8 @@ while true; do
     # Check if the unit has completed
     if [ "$UNIT_STATUS" == "inactive" ] || [ "$UNIT_STATUS" == "failed" ] || [ "$UNIT_STATUS" == "active" ]; then
         echo "Unit has completed with status: $UNIT_STATUS"
-        break
+        local exit_status=$(systemctl show $UNIT_NAME -p ExecMainStatus --value)
+        exit $exit_status
     fi
     
     sleep 3

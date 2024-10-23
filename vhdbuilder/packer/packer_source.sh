@@ -246,17 +246,13 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
-  NBC_PARSER_SRC=/home/packer/nbcparser
-  NBC_PARSER_DEST=/opt/azure/containers/nbcparser
-  cpAndMode $NBC_PARSER_SRC $NBC_PARSER_DEST 0755
+  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
+  NODE_BOOTSTRAPPER_DEST=/opt/azure/containers/node-bootstrapper
+  cpAndMode $NODE_BOOTSTRAPPER_SRC $NODE_BOOTSTRAPPER_DEST 755
 
-  NBCPARSER_SERVICE_SRC=/home/packer/bootstrap.service
-  NBCPARSER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
-  cpAndMode $NBCPARSER_SERVICE_SRC $NBCPARSER_SERVICE_DEST 0644
-
-  NBCPARSER_SCRIPT_SRC=/home/packer/bootstrap.sh
-  NBCPARSER_SCRIPT_DEST=/opt/azure/containers/bootstrap.sh
-  cpAndMode $NBCPARSER_SCRIPT_SRC $NBCPARSER_SCRIPT_DEST 0744
+  NODE_BOOTSTRAPPER_SERVICE_SRC=/home/packer/bootstrap.service
+  NODE_BOOTSTRAPPER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
+  cpAndMode $NODE_BOOTSTRAPPER_SERVICE_SRC $NODE_BOOTSTRAPPER_SERVICE_DEST 0644
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -367,7 +363,6 @@ copyPackerFiles() {
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
-  cpAndMode $NODE_BOOTSTRAPPER_SRC $NODE_BOOTSTRAPPER_DEST 755
 }
 
 cpAndMode() {

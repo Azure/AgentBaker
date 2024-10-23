@@ -2136,20 +2136,20 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 	})
 })
 
-var _ = Describe("getGPUDriverVersion", func() {
+var _ = Describe("GetGPUDriverVersion", func() {
 	It("should use 470 with nc v1", func() {
-		Expect(getGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
-		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
-		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
+		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(getGPUDriverVersion("standard_nv6")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
 	})
 })
 
@@ -2168,11 +2168,11 @@ var _ = Describe("getGPUDriverType", func() {
 	})
 })
 
-var _ = Describe("getAKSGPUImageSHA", func() {
-	It("should use newest AKSGPUGridSHA with nv v5", func() {
-		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridSHA))
+var _ = Describe("GetAKSGPUImageSHA", func() {
+	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
+		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
 	})
-	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
-		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaSHA))
+	It("should use newest AKSGPUCudaVersionSuffix with non grid SKU", func() {
+		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
 	})
 })

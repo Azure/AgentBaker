@@ -42,7 +42,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
-		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
@@ -87,30 +87,54 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	return nodeBootstrapping, nil
 }
 
+// TODO: config supposed to be type *nbcontractv1.Configuration, but can't import it here
+// because of circular dependency.
 func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	ctx context.Context,
-	config *datamodel.NodeBootstrappingConfiguration,
+	config any,
+	distro datamodel.Distro,
+	cloudName string,
 ) (*datamodel.NodeBootstrapping, error) {
-	// TODO: add windows support
-	if config.AgentPoolProfile.IsWindows() {
-		return agentBaker.GetNodeBootstrapping(ctx, config)
-	}
-	config.Version = "v0"
-	nodeBootstrapping, err := agentBaker.GetNodeBootstrapping(ctx, config)
+	customData, err := getScriptlessCustomDataTemplate(config)
 	if err != nil {
 		return nil, err
 	}
-	configJSON, err := json.Marshal(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal nbc, error: %w", err)
+
+	nodeBootstrapping := &datamodel.NodeBootstrapping{
+		CSE:        "",
+		CustomData: customData,
 	}
-	//nolint:lll // don't want to split script into multiple lines
-	nodeBootstrapping.CSE = fmt.Sprintf(
-		`mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && /opt/azure/node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json`,
-		base64.StdEncoding.EncodeToString(configJSON),
-	)
-	nodeBootstrapping.CustomData = ""
+
+	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage || distro == datamodel.CustomizedImageKata {
+		return nodeBootstrapping, nil
+	}
+
+	osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[cloudName]
+	if !hasCloud {
+		return nil, fmt.Errorf("don't have settings for cloud %s", cloudName)
+	}
+
+	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage {
+		nodeBootstrapping.OSImageConfig = &osImageConfig
+	}
+
 	return nodeBootstrapping, nil
+}
+
+func getScriptlessCustomDataTemplate(config any) (string, error) {
+	nbcJSON, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
+	customDataTAML := fmt.Sprintf(`#cloud-config
+write_files:
+- path: /opt/azure/containers/node-bootstrapper-config.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s`, encodedNBCJson)
+	return base64.StdEncoding.EncodeToString([]byte(customDataTAML)), nil
 }
 
 func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SIGConfig,
