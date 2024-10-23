@@ -916,13 +916,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return false
 		},
 		"GPUNeedsFabricManager": func() bool {
-			return gpuNeedsFabricManager(profile.VMSize)
+			return GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return getGPUDriverVersion(profile.VMSize)
+			return GetGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return getAKSGPUImageSHA(profile.VMSize)
+			return GetAKSGPUImageSHA(profile.VMSize)
 		},
 		"GPUDriverType": func() string {
 			return getGPUDriverType(profile.VMSize)
@@ -1038,7 +1038,7 @@ func getPortRangeEndValue(portRange string) int {
 // they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
-func getGPUDriverVersion(size string) string {
+func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.Nvidia535GridDriverVersion
 	}
@@ -1057,7 +1057,7 @@ func useGridDrivers(size string) bool {
 	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
 }
 
-func getAKSGPUImageSHA(size string) string {
+func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
 		return datamodel.AKSGPUGridSHA
 	}
@@ -1071,7 +1071,7 @@ func getGPUDriverType(size string) string {
 	return "cuda"
 }
 
-func gpuNeedsFabricManager(size string) bool {
+func GPUNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
 
