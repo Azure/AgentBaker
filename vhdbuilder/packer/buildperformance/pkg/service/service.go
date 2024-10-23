@@ -19,6 +19,8 @@ func SetupConfig() (*Config, error) {
 		"kustoIngestionMapping": os.Getenv("BUILD_PERFORMANCE_INGESTION_MAPPING"),
 		"sourceBranch":          os.Getenv("GIT_BRANCH"),
 		"sigImageName":          os.Getenv("SIG_IMAGE_NAME"),
+		"storedFunctionName":    os.Getenv("STORED_FUNCTION_NAME"),
+		"primaryKey":            os.Getenv("PRIMARY_KEY"),
 	}
 
 	missingVar := false
@@ -43,6 +45,8 @@ func SetupConfig() (*Config, error) {
 		SigImageName:              envVars["sigImageName"],
 		LocalBuildPerformanceFile: envVars["sigImageName"] + "-build-performance.json",
 		SourceBranch:              envVars["sourceBranch"],
+		StoredFunctionName:        envVars["storedFunctionName"],
+		PrimaryKey:                envVars["primaryKey"],
 	}, nil
 }
 
