@@ -95,7 +95,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	distro datamodel.Distro,
 	cloudName string,
 ) (*datamodel.NodeBootstrapping, error) {
-	customData, err := getScriptlessCustomDataTemplate(config)
+	customData, err := getScriptlessCustomDataContent(config)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	return nodeBootstrapping, nil
 }
 
-func getScriptlessCustomDataTemplate(config any) (string, error) {
+func getScriptlessCustomDataContent(config any) (string, error) {
 	nbcJSON, err := json.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
