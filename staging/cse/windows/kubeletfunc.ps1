@@ -220,11 +220,12 @@ function Add-KubeletNodeLabel {
     $labelList = $KubeletNodeLabels -split ","
     foreach ($existingLabel in $labelList) {
         if ($existingLabel -eq $Label) {
-            Write-Host "found existing kubelet node label $existingLabel, will continue without adding anything"
+            # we need to use Write-Host since Write-Log will add content to the return value, which we don't want
+            Write-Host("found existing kubelet node label $existingLabel, will continue without adding anything" | Timestamp)
             return $KubeletNodeLabels
         }
     }
-    Write-Host "adding label $Label to kubelet node labels..."
+    Write-Host("adding label $Label to kubelet node labels..." | Timestamp)
     $labelList += $Label
     return $labelList -join ","
 }
