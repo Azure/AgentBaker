@@ -44,8 +44,8 @@ func TestSetupConfig(t *testing.T) {
 	os.Setenv("BUILD_PERFORMANCE_INGESTION_MAPPING", "<test_mapping>")
 	os.Setenv("SIG_IMAGE_NAME", "<test_sig_name>")
 	os.Setenv("GIT_BRANCH", "<test_branch>")
-	os.Setenv("StoredFunctionName", "<test_function_name>")
-	os.Setenv("PrimaryKey", "<test_primary_key>")
+	os.Setenv("STORED_FUNCTION_NAME", "<test_function_name>")
+	os.Setenv("PRIMARY_KEY", "<test_primary_key>")
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
