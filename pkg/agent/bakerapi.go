@@ -88,7 +88,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 }
 
 // TODO: config supposed to be type *nbcontractv1.Configuration, but can't import it here
-// because of circular dependency
+// because of circular dependency.
 func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	ctx context.Context,
 	config any,
