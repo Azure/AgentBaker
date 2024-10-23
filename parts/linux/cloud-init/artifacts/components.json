@@ -6,8 +6,17 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "1.8.22",
-          "previousLatestVersion": "1.8.20"
+          "latestVersion": "1.8.22"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/addon-resizer:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/addon-resizer",
+          "latestVersion": "v1.8.22-2"
         }
       ]
     },
@@ -42,6 +51,20 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
           "latestVersion": "v1.9.4-2"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/metrics-server:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/metrics-server",
+          "latestVersion": "v0.7.2-3"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/metrics-server",
+          "latestVersion": "v0.6.3-2"
         }
       ]
     },
