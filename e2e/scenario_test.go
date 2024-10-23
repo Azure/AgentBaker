@@ -885,6 +885,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				NvidiaModProbeInstalledValidator(),
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				KubeletHasNotStoppedValidator(),
 			},
 		},

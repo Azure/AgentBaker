@@ -387,6 +387,8 @@ func containerdWasmShimsValidator() *LiveVMValidator {
 	}
 }
 
+// Ensure kubelet does not restart which can result in delays deploying pods and unnecessary nodepool scaling while the node is incapacitated.
+// This is intended to stop services (e.g. nvidia-modprobe), restarting kubelet rather than specifying the dependency order to run before kubelet.service
 func KubeletHasNotStoppedValidator() *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: "assert that kubelet has not stopped or restarted",
