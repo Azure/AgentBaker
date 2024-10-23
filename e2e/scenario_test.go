@@ -1254,3 +1254,30 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204Kubelet_CustomConfig_SeccompDefaultEnabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			KubeletCustomConfig: true,
+			OS:                  "ubuntu",
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet custom config for seccomp set to runtime default",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/default/kubelet", "\\-\\-kubeconfig=/var/lib/kubelet/kubeconfig"),
+				FileHasContentsValidator("/var/lib/kubelet/kubeconfig", "\\-\\-seccomp-default=true"),
+			},
+		},
+	})
+}
