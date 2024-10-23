@@ -164,6 +164,8 @@ configureKubeletServerCert() {
 }
 
 configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+    
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -173,8 +175,6 @@ configureK8s() {
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
-
-    mkdir -p "/etc/kubernetes/certs"
 
     set +x
     if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
@@ -407,20 +407,9 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
-clearKubeletNodeLabel() {
-    local LABEL_STRING=$1
-    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
-    fi
-}
-
-disableKubeletServingCertificateRotationForTags() {
-    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
-        echo "kubelet serving certificate rotation is already disabled"
+configureKubeletServingCertificateRotation() {
+    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
+        echo "kubelet serving certificate rotation is disabled, nothing to configure"
         return 0
     fi
 
@@ -431,22 +420,25 @@ disableKubeletServingCertificateRotationForTags() {
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
-    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
-        echo "nodepool tag \"aks-disable-kubelet-serving-certificate-rotation\" is not true, nothing to disable"
+    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" == "true" ]; then
+        echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels"
+
+        KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
+
+        if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+            set +x
+            KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
+            set -x
+        fi
+
+        removeKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
         return 0
     fi
-
-    echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
-
-    KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-
-    if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
-        set +x
-        KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
-        set -x
-    fi
     
-    clearKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
+    echo "kubelet serving certificate rotation is enabled, will add node label if needed"
+    addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
 }
 
 ensureKubelet() {
