@@ -1059,9 +1059,9 @@ func useGridDrivers(size string) bool {
 
 func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridSHA
+		return datamodel.AKSGPUGridVersionSuffix
 	}
-	return datamodel.AKSGPUCudaSHA
+	return datamodel.AKSGPUCudaVersionSuffix
 }
 
 func getGPUDriverType(size string) string {
