@@ -207,7 +207,7 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.4/windowszip/v1.30.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.6/windowszip/v1.30.6-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip"，
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.31.2/windowszip/v1.31.2-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
