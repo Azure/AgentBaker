@@ -25,6 +25,8 @@ func TestSetupConfig(t *testing.T) {
 				SigImageName:              "<test_sig_name>",
 				LocalBuildPerformanceFile: "<test_sig_name>-build-performance.json",
 				SourceBranch:              "<test_branch>",
+				StoredFunctionName:        "<test_function_name>",
+				PrimaryKey:                "<test_primary_key>",
 			},
 			err: nil,
 		},
@@ -42,6 +44,8 @@ func TestSetupConfig(t *testing.T) {
 	os.Setenv("BUILD_PERFORMANCE_INGESTION_MAPPING", "<test_mapping>")
 	os.Setenv("SIG_IMAGE_NAME", "<test_sig_name>")
 	os.Setenv("GIT_BRANCH", "<test_branch>")
+	os.Setenv("StoredFunctionName", "<test_function_name>")
+	os.Setenv("PrimaryKey", "<test_primary_key>")
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
