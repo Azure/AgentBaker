@@ -34,7 +34,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Azure/agentbaker/pkg/agent/common"
+	"github.com/Azure/agentbaker/pkg/agent"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
@@ -542,11 +542,11 @@ func getMaxLBRuleCount(lb *nbcontractv1.LoadBalancerConfig) int32 {
 }
 
 func getGpuImageSha(vmSize string) string {
-	return common.GetAKSGPUImageSHA(vmSize)
+	return agent.GetAKSGPUImageSHA(vmSize)
 }
 
 func getGpuDriverVersion(vmSize string) string {
-	return common.GetGPUDriverVersion(vmSize)
+	return agent.GetGPUDriverVersion(vmSize)
 }
 
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
@@ -673,12 +673,12 @@ func getInitAKSCustomCloudFilepath() string {
 }
 
 func getGPUNeedsFabricManager(vmSize string) bool {
-	return common.GPUNeedsFabricManager(vmSize)
+	return agent.GPUNeedsFabricManager(vmSize)
 }
 
 func getEnableNvidia(config *nbcontractv1.Configuration) bool {
 	if config.GpuConfig != nil && config.GpuConfig.EnableNvidia != nil {
 		return *config.GpuConfig.EnableNvidia
 	}
-	return common.IsNvidiaEnabledSKU(config.GetVmSize())
+	return false
 }
