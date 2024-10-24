@@ -23,7 +23,7 @@ package components
 
 #GPUContainerImage: {
 	downloadURL: string
-	multiArchVersionsV2:   [...#VersionV2]
+	gpuImageVersion:   #VersionV2
 	cached: bool
 	osSelectors?:         [...#OSSelector]
 }

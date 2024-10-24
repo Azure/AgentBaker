@@ -352,7 +352,8 @@ echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
 gpu_action=""
-declare -A pulled_gpu_images
+gpu_install_done=0
+pulled_gpu_images=()
 
 # Loop over each GPUContainerImage
 while IFS= read -r gpuImageToBePulled; do
@@ -375,7 +376,6 @@ while IFS= read -r gpuImageToBePulled; do
       os=$(echo "$selector" | jq -r '.os')
       arch=$(echo "$selector" | jq -r '.arch')
 
-      # Check OS and arch in one line, and remove "Any" cases
       if [[ "$os" == "$CURRENT_OS" && "$arch" == "$CPU_ARCH" ]]; then
         shouldPull=1
         break  # Found a matching selector
@@ -383,8 +383,8 @@ while IFS= read -r gpuImageToBePulled; do
     done <<< "$(echo "$osSelectors" | jq -c '.[]')"
   else
     # No osSelectors provided; decide whether to pull
-    # Assuming we pull the image if no osSelectors are specified
-    shouldPull=1
+    # Assuming we do not pull the image if no osSelectors are specified
+    shouldPull=0
   fi
 
   if [[ "$shouldPull" == "1" ]]; then
@@ -392,52 +392,49 @@ while IFS= read -r gpuImageToBePulled; do
     downloadURL=$(echo "${gpuImageToBePulled}" | jq -r '.downloadURL')
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
-    # Get the versions using updateMultiArchVersions
-    MULTI_ARCH_VERSIONS=()
-    updateMultiArchVersions "${gpuImageToBePulled}"
+    # Extract the version from gpuImageVersion
+    latestVersion=$(echo "${gpuImageToBePulled}" | jq -r '.gpuImageVersion.latestVersion')
 
-    if [[ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]]; then
-      echo "Error: No versions found for $imageName"
+    if [[ -z "$latestVersion" || "$latestVersion" == "null" ]]; then
+      echo "Error: latestVersion not found for $imageName"
       exit 1
     fi
 
-    for latestVersion in "${MULTI_ARCH_VERSIONS[@]}"; do
-      fullImage="$imageName:$latestVersion"
+    fullImage="$imageName:$latestVersion"
 
-      # Pull the image
-      echo "Pulling image: $fullImage"
-      ctr -n k8s.io image pull "$fullImage"
-      if [[ $? -ne 0 ]]; then
-        echo "Failed to pull image: $fullImage"
-        exit 1
-      fi
+    # Pull the image
+    echo "Pulling image: $fullImage"
+    ctr -n k8s.io image pull "$fullImage"
+    if [[ $? -ne 0 ]]; then
+      echo "Failed to pull image: $fullImage"
+      exit 1
+    fi
 
-      # Record the pulled image
-      pulled_gpu_images+=("$fullImage")
+    # Record the pulled image
+    pulled_gpu_images+=("$fullImage")
 
-      # Set gpu_action if pulling the aks-gpu-cuda image
-      if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
-        gpu_action="copy"
+    # Set gpu_action if pulling the aks-gpu-cuda image
+    if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
+      gpu_action="copy"
 
-        # Create necessary directories
-        mkdir -p /opt/{actions,gpu}
+      # Create necessary directories
+      mkdir -p /opt/{actions,gpu}
 
-        # Run gpuinstall only once
-        if [[ "$gpu_install_done" -eq 0 ]]; then
-          # Check for the "fullgpu" feature flag
-          if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-            echo "Installing GPU driver from image: $fullImage"
-            bash -c "$CTR_GPU_INSTALL_CMD $fullImage gpuinstall /entrypoint.sh install"
-            ret=$?
-            if [[ "$ret" != "0" ]]; then
-              echo "Failed to install GPU driver, exiting..."
-              exit $ret
-            fi
+      # Run gpuinstall only once
+      if [[ "$gpu_install_done" -eq 0 ]]; then
+        # Check for the "fullgpu" feature flag
+        if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+          echo "Installing GPU driver from image: $fullImage"
+          bash -c "$CTR_GPU_INSTALL_CMD $fullImage gpuinstall /entrypoint.sh install"
+          ret=$?
+          if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ret
           fi
-          gpu_install_done=1
         fi
+        gpu_install_done=1
       fi
-    done
+    fi
   else
     echo "Skipping image $imageName due to osSelector constraints or cached=false."
   fi
@@ -452,6 +449,7 @@ if [[ "${#pulled_gpu_images[@]}" -gt 0 ]]; then
 else
   echo "No GPU images were pulled."
 fi
+
 
 
 
