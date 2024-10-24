@@ -20,6 +20,7 @@
   - [Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.](#okay-i-just-have-5-minutes-please-just-tell-me-how-to-onboard-a-new-packagecontainer-now-to-renovatejson-for-auto-update)
   - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
+  - [Special considerations for GPU Container Images](#special-considerations-for-gpu-container-images)
 
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
@@ -349,3 +350,7 @@ As of 9/18/2024,
 - Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, `kubernetes-binaries` and `azure-acr-credential-provider`, are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.
+
+## Special considerations for GPU Container Images
+
+AKS-GPU container images are container images built by the config and scripts in the aks-gpu repo, for Ubuntu. They contain drivers and relevant dependencies. `GPUContainerImages` is added as a special config for only those images, and they contain additional config for deciding which OS and architecture they should be cached in (if necessary). Do not add other images that are not specific to AKS GPU config management, to that list. 
