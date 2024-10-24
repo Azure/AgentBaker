@@ -9,8 +9,6 @@ type Config struct {
 	SigImageName              string
 	LocalBuildPerformanceFile string
 	SourceBranch              string
-	StoredFunctionName        string
-	PrimaryKey                string
 }
 
 type SKU struct {
