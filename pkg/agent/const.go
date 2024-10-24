@@ -113,10 +113,9 @@ const (
 	ACIConnectorAddonName = "aci-connector"
 )
 
-const cseBootstrapStatusScript = `#!/bin/bash
-/opt/azure/containers/node-bootstrapper monitor
-`
+const cseBootstrapStatusScript = `sh -c "/opt/azure/containers/node-bootstrapper monitor"`
 const scriptlessCustomDataTemplate = `#cloud-config
+
 write_files:
 - path: /opt/azure/containers/node-bootstrapper-config.json
   permissions: "0755"
