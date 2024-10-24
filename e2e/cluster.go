@@ -142,7 +142,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	// nodeBootstrappingConfig requires the debug deamonset to already be created
-	t.Logf("getting the node bootstrapping configuration for cluster")
+	t.Log("getting the node bootstrapping configuration for cluster")
 	nbc, err := nodeBootstrappingConfig(ctx, t, kube)
 	if err != nil {
 		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
