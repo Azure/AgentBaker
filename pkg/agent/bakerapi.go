@@ -127,14 +127,14 @@ func getScriptlessCustomDataContent(config any) (string, error) {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataTAML := fmt.Sprintf(`#cloud-config
+	customDataYAML := fmt.Sprintf(`#cloud-config
 write_files:
 - path: /opt/azure/containers/node-bootstrapper-config.json
   permissions: "0755"
   owner: root
   content: !!binary |
    %s`, encodedNBCJson)
-	return base64.StdEncoding.EncodeToString([]byte(customDataTAML)), nil
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SIGConfig,
