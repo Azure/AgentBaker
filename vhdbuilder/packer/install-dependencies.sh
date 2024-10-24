@@ -375,11 +375,10 @@ while IFS= read -r gpuImageToBePulled; do
       os=$(echo "$selector" | jq -r '.os')
       arch=$(echo "$selector" | jq -r '.arch')
 
-      if [[ "$os" == "$CURRENT_OS" ]]; then
-        if [[ "$arch" == "$CPU_ARCH" ]]; then
-          shouldPull=1
-          break  # Found a matching selector
-        fi
+      # Check OS and arch in one line, and remove "Any" cases
+      if [[ "$os" == "$CURRENT_OS" && "$arch" == "$CPU_ARCH" ]]; then
+        shouldPull=1
+        break  # Found a matching selector
       fi
     done <<< "$(echo "$osSelectors" | jq -c '.[]')"
   else
@@ -393,45 +392,52 @@ while IFS= read -r gpuImageToBePulled; do
     downloadURL=$(echo "${gpuImageToBePulled}" | jq -r '.downloadURL')
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
-    # Get the latestVersion
-    latestVersion=$(echo "${gpuImageToBePulled}" | jq -r '.multiArchVersionsV2[0].latestVersion')
+    # Get the versions using updateMultiArchVersions
+    MULTI_ARCH_VERSIONS=()
+    updateMultiArchVersions "${gpuImageToBePulled}"
 
-    if [[ -z "$latestVersion" || "$latestVersion" == "null" ]]; then
-      echo "Error: latestVersion not found for $imageName"
+    if [[ ${#MULTI_ARCH_VERSIONS[@]} -eq 0 ]]; then
+      echo "Error: No versions found for $imageName"
       exit 1
     fi
 
-    fullImage="$imageName:$latestVersion"
+    for latestVersion in "${MULTI_ARCH_VERSIONS[@]}"; do
+      fullImage="$imageName:$latestVersion"
 
-    # Pull the image
-    echo "Pulling image: $fullImage"
-    ctr -n k8s.io image pull "$fullImage"
-    if [[ $? -ne 0 ]]; then
-      echo "Failed to pull image: $fullImage"
-      exit 1
-    fi
+      # Pull the image
+      echo "Pulling image: $fullImage"
+      ctr -n k8s.io image pull "$fullImage"
+      if [[ $? -ne 0 ]]; then
+        echo "Failed to pull image: $fullImage"
+        exit 1
+      fi
 
-    # Record the pulled image
-    pulled_gpu_images["$imageName"]="$latestVersion"
+      # Record the pulled image
+      pulled_gpu_images+=("$fullImage")
 
-    # Set gpu_action if pulling the aks-gpu-cuda image
-    if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
-      gpu_action="copy"
+      # Set gpu_action if pulling the aks-gpu-cuda image
+      if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
+        gpu_action="copy"
 
-      # Create necessary directories
-      mkdir -p /opt/{actions,gpu}
+        # Create necessary directories
+        mkdir -p /opt/{actions,gpu}
 
-      # Check for the "fullgpu" feature flag
-      if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-        echo "Installing GPU driver from image: $fullImage"
-        bash -c "$CTR_GPU_INSTALL_CMD $fullImage gpuinstall /entrypoint.sh install"
-        ret=$?
-        if [[ "$ret" != "0" ]]; then
-          echo "Failed to install GPU driver, exiting..."
-          exit $ret
+        # Run gpuinstall only once
+        if [[ "$gpu_install_done" -eq 0 ]]; then
+          # Check for the "fullgpu" feature flag
+          if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+            echo "Installing GPU driver from image: $fullImage"
+            bash -c "$CTR_GPU_INSTALL_CMD $fullImage gpuinstall /entrypoint.sh install"
+            ret=$?
+            if [[ "$ret" != "0" ]]; then
+              echo "Failed to install GPU driver, exiting..."
+              exit $ret
+            fi
+          fi
+          gpu_install_done=1
         fi
       fi
-    fi
+    done
   else
     echo "Skipping image $imageName due to osSelector constraints or cached=false."
   fi
@@ -440,13 +446,13 @@ done <<< "$GPUContainerImages"
 # Log the pulled images
 if [[ "${#pulled_gpu_images[@]}" -gt 0 ]]; then
   echo "Logging pulled GPU images to $VHD_LOGS_FILEPATH"
-  for imageName in "${!pulled_gpu_images[@]}"; do
-    imageVersion=${pulled_gpu_images[$imageName]}
-    echo "  - $imageName=$imageVersion" >> "$VHD_LOGS_FILEPATH"
+  for image in "${pulled_gpu_images[@]}"; do
+    echo "  - $image" >> "$VHD_LOGS_FILEPATH"
   done
 else
   echo "No GPU images were pulled."
 fi
+
 
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
