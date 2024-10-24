@@ -15,6 +15,8 @@ import (
 
 	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	"github.com/Azure/agentbaker/node-bootstrapper/utils"
+	"github.com/Azure/agentbaker/node-bootstrapper/parser"
+	"github.com/Azure/agentbaker/node-bootstrapper/utils"
 )
 
 // Some options are intentionally non-configurable to avoid customization by users

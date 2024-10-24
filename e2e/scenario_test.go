@@ -877,6 +877,11 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				NvidiaModProbeInstalledValidator(),
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				KubeletHasNotStoppedValidator(),
+			},
 		},
 	})
 }
@@ -903,6 +908,8 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				NvidiaSMIInstalledValidator(),
+				NvidiaModProbeInstalledValidator(),
+				KubeletHasNotStoppedValidator(),
 			},
 		},
 	})
