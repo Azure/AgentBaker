@@ -43,7 +43,6 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
 		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
-		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
@@ -90,8 +89,6 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 
 // TODO: config supposed to be type *nbcontractv1.Configuration, but can't import it here
 // because of circular dependency.
-// TODO: config supposed to be type *nbcontractv1.Configuration, but can't import it here
-// because of circular dependency.
 func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	ctx context.Context,
 	config any,
@@ -124,29 +121,13 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	return nodeBootstrapping, nil
 }
 
-func getScriptlessCustomDataTemplate(config any) (string, error) {
-	nbcJSON, err := json.Marshal(config)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-	}
-	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataTAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
-	return base64.StdEncoding.EncodeToString([]byte(customDataTAML)), nil
-}
-
 func getScriptlessCustomDataContent(config any) (string, error) {
 	nbcJSON, err := json.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(`#cloud-config
-write_files:
-- path: /opt/azure/containers/node-bootstrapper-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s`, encodedNBCJson)
+	customDataYAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
