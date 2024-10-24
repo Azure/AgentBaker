@@ -101,7 +101,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	}
 
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CSE:        "",
+		CSE:        cseBootstrapStatusScript,
 		CustomData: customData,
 	}
 
@@ -127,13 +127,7 @@ func getScriptlessCustomDataTemplate(config any) (string, error) {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataTAML := fmt.Sprintf(`#cloud-config
-write_files:
-- path: /opt/azure/containers/node-bootstrapper-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s`, encodedNBCJson)
+	customDataTAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataTAML)), nil
 }
 

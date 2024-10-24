@@ -112,3 +112,15 @@ const (
 	// ACIConnectorAddonName is the name of the aci-connector addon deployment.
 	ACIConnectorAddonName = "aci-connector"
 )
+
+const cseBootstrapStatusScript = `#!/bin/bash
+/opt/azure/containers/node-bootstrapper monitor
+`
+const scriptlessCustomDataTemplate = `#cloud-config
+write_files:
+- path: /opt/azure/containers/node-bootstrapper-config.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+  %s
+`
