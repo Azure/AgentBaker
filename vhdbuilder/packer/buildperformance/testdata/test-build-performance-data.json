@@ -1,0 +1,55 @@
+{
+  "sig_image_name": "AzureLinuxV6",
+  "architecture": "X86_64",
+  "build_id": "101101101",
+  "build_datetime": "2023-12-17T15:00:00Z",
+  "build_status": "Succeeded",
+  "branch": "refs/heads/zb/regression",
+  "commit": "0ea7g1ef71876ceeacb9c3d904733xe7907bhbb2",
+  "scripts": {
+    "pre_install_dependencies": {
+      "source_packer_files_declare_variables_and_set_mariner_permissions": "00:01:05",
+      "copy_packer_files": "00:01:05",
+      "make_directory_and_update_certs": "00:01:05",
+      "start_system_logs_and_aks_log_collector": "00:01:05",
+      "enable_modified_log_rotate_service": "00:01:05",
+      "sync_container_logs": "00:01:05",
+      "handle_mariner_and_fips_configurations": "00:01:05",
+      "handle_azureLinux_and_cgroupV2": "00:01:05",
+      "pre_install_dependencies_overall": "00:01:05"
+	  },
+    "install_dependencies": {
+      "declare_variables_and_source_packer_files": "00:01:05",
+      "purge_and_reinstall_ubuntu": "00:01:05",
+      "install_dependencies": "00:01:05",
+      "check_container_runtime_and_network_configurations": "00:01:05",
+      "create_containerd_service_directory_download_shims_configure_runtime_and_network": "00:01:05",
+      "download_oras": "00:01:05",
+      "download_runc": "00:01:05",
+      "download_containerd": "00:01:05",
+      "download_cni_plugins": "00:01:05",
+      "download_azure_cni": "00:01:05",
+      "download_cri_tools": "00:01:05",
+      "download_kubernetes_binaries": "00:01:05",
+      "download_azure_acr_credential_provider": "00:01:05",
+      "artifact_streaming_and_download_teleportd": "00:01:05",
+      "pull_nvidia_driver_image_and_run_installBcc_in_subshell": "00:01:05",
+      "pull_and_retag_container_images": "00:01:05",
+      "configure_networking_and_interface": "00:01:05",
+      "download_gpu_device_plugin": "00:01:05",
+      "configure_telemetry_create_logging_directory": "00:01:05",
+      "finish_installing_bcc_tools": "00:01:05",
+      "install_dependencies_overall": "00:01:05"
+	  },
+    "post_install_dependencies": {
+      "set_variables_and_source_packer_files": "00:01:05",
+      "log_and_detach_ua": "00:01:05",
+      "list_installed_packages": "00:01:05",
+      "determine_disk_usage": "00:01:05",
+      "write_logs": "00:01:05",
+      "install_asc_baseline": "00:01:05",
+      "resolve_conf": "00:01:05",
+      "post_install_dependencies_overall": "00:01:05"
+	  }
+  }
+}
