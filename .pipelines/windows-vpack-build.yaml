@@ -16,11 +16,12 @@ jobs:
         IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$(WINDOWS_OS_VERSION)/versions/latest"
 
         az group create -g ${VPACK_VM_RESOURCE_GROUP_NAME} -l $(AZURE_BUILD_LOCATION)
-        az vm create -n vpack-build-vm -g ${VPACK_VM_RESOURCE_GROUP_NAME} --image $IMAGE_REFERENCE --assgin-identity $(AZURE_MSI_RESOURCE_STRING)
+        az vm create -n vpack-build-vm -g ${VPACK_VM_RESOURCE_GROUP_NAME} --image $IMAGE_REFERENCE --assign-identity $(AZURE_MSI_RESOURCE_STRING)
       displayName: Create Windows VM
 
 
 - job: Execute_VPack_Script
+  dependsOn: Create_Windows_VM
   steps:
     - bash: |
         az vm run-command invoke --command-id RunPowerShellScript \
@@ -36,6 +37,7 @@ jobs:
       displayName: Exectue VPack Script
 
 - job: Delete_Windows_VM
+  dependsOn: Execute_VPack_Script
   steps:
     - bash: |
         az group delete --name ${VPACK_VM_RESOURCE_GROUP_NAME} --yes
