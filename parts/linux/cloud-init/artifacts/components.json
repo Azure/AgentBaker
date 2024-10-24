@@ -537,8 +537,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.28.14",
-          "previousLatestVersion": "v1.28.13"
+          "latestVersion": "v1.28.15",
+          "previousLatestVersion": "v1.28.14"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
