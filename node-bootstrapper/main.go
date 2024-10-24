@@ -20,7 +20,7 @@ import (
 // Some options are intentionally non-configurable to avoid customization by users
 // it will help us to avoid introducing any breaking changes in the future.
 const (
-	LogFile          = "/var/log/azure/node-bootstrapper.log"
+	LogFile          = "node-bootstrapper.log"
 	BootstrapService = "bootstrap.service"
 )
 
@@ -70,22 +70,21 @@ func Run(ctx context.Context) error {
 func Monitor(ctx context.Context) error {
 	for {
 		// Check the active state of the unit
-		unitStatus, err := runSystemctlCommand("is-active", BootstrapService)
+		unitStatus, err := runSystemctlCommand(ctx, "is-active", BootstrapService)
 		if err != nil {
-			fmt.Printf("Error checking unit status: %v\n", err)
-			return err
+			return fmt.Errorf("systemctl is-active %s failed with %w", BootstrapService, err)
 		}
 
 		// Check if the unit has completed
 		if unitStatus == "inactive" || unitStatus == "failed" || unitStatus == "active" {
-			exitStatus, err := runSystemctlCommand("show", BootstrapService, "-p", "ExecMainStatus", "--value")
+			exitStatus, err := runSystemctlCommand(ctx, "show", BootstrapService, "-p", "ExecMainStatus", "--value")
 			if err != nil {
-				return err
+				return fmt.Errorf("systemctl show %s -p ExecMainStatus --value failed with %w", BootstrapService, err)
 			}
 
-			statusOutput, err := runSystemctlCommand("status", BootstrapService)
+			statusOutput, err := runSystemctlCommand(ctx, "status", BootstrapService)
 			if err != nil {
-				return err
+				return fmt.Errorf("systemctl status %s failed with %w", BootstrapService, err)
 			}
 
 			// Convert exitStatus to an integer for exit code
@@ -156,8 +155,8 @@ func provisionStart(ctx context.Context, cse utils.SensitiveString) error {
 }
 
 // runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
-func runSystemctlCommand(args ...string) (string, error) {
-	cmd := exec.Command("systemctl", args...)
+func runSystemctlCommand(ctx context.Context, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
