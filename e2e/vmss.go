@@ -5,7 +5,6 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -15,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -32,25 +33,28 @@ const (
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc, opts.scenario.Config.NodeBootstrappingType)
+	var nodeBootstrapping *datamodel.NodeBootstrapping
+	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
+	if opts.scenario.Tags.Scriptless {
+		agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(opts.nbc)
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(opts.nbc), opts.scenario.VHD.Distro, datamodel.AzurePublicCloud)
+		require.NoError(t, err)
+	} else {
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, opts.nbc)
+		require.NoError(t, err)
+	}
 
 	cse := nodeBootstrapping.CSE
 	if opts.scenario.CSEOverride != "" {
 		cse = opts.scenario.CSEOverride
 	}
-
 	customData := nodeBootstrapping.CustomData
 	if opts.scenario.DisableCustomData {
 		customData = ""
 	}
 
-	var model armcompute.VirtualMachineScaleSet
-	if opts.scriptless {
-		model = getBaseVMSSModelScriptless(t, vmssName, string(publicKeyBytes), opts)
-	} else {
-		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
-	}
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
@@ -248,89 +252,8 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModelScriptless(t *testing.T, name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
-	if err != nil {
-		require.NoError(t, err)
-		return armcompute.VirtualMachineScaleSet{}
-	}
-
-	customData := getScriptlessCustomDataTemplate(base64.StdEncoding.EncodeToString(nbc))
-	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
-	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(config.Config.Location),
-		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_D2ds_v5"),
-			Capacity: to.Ptr[int64](1),
-		},
-		Properties: &armcompute.VirtualMachineScaleSetProperties{
-			Overprovision: to.Ptr(false),
-			UpgradePolicy: &armcompute.UpgradePolicy{
-				Mode: to.Ptr(armcompute.UpgradeModeManual),
-			},
-			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
-					ComputerNamePrefix: to.Ptr(name),
-					AdminUsername:      to.Ptr("azureuser"),
-					CustomData:         &encodedCustomData,
-					LinuxConfiguration: &armcompute.LinuxConfiguration{
-						SSH: &armcompute.SSHConfiguration{
-							PublicKeys: []*armcompute.SSHPublicKey{
-								{
-									KeyData: to.Ptr(sshPublicKey),
-									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
-								},
-							},
-						},
-					},
-				},
-				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
-					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
-						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-						DiskSizeGB:   to.Ptr(int32(512)),
-						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
-					},
-				},
-				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
-					NetworkInterfaceConfigurations: []*armcompute.VirtualMachineScaleSetNetworkConfiguration{
-						{
-							Name: to.Ptr(name),
-							Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
-								Primary:            to.Ptr(true),
-								EnableIPForwarding: to.Ptr(true),
-								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
-									{
-										Name: to.Ptr(fmt.Sprintf("%s0", name)),
-										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-											Primary: to.Ptr(true),
-											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
-												{
-													ID: to.Ptr(
-														fmt.Sprintf(
-															loadBalancerBackendAddressPoolIDTemplate,
-															config.Config.SubscriptionID,
-															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
-														),
-													),
-												},
-											},
-											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(opts.clusterConfig.SubnetID),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cluster) armcompute.VirtualMachineScaleSet {
-	return armcompute.VirtualMachineScaleSet{
+	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_D2ds_v5"),
@@ -342,23 +265,6 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
-					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-						{
-							Name: to.Ptr("vmssCSE"),
-							Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-								Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-								Type:                    to.Ptr("CustomScript"),
-								TypeHandlerVersion:      to.Ptr("2.0"),
-								AutoUpgradeMinorVersion: to.Ptr(true),
-								Settings:                map[string]interface{}{},
-								ProtectedSettings: map[string]interface{}{
-									"commandToExecute": cseCmd,
-								},
-							},
-						},
-					},
-				},
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
@@ -417,6 +323,26 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 			},
 		},
 	}
+	if cseCmd != "" {
+		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
+			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+				{
+					Name: to.Ptr("vmssCSE"),
+					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+						Type:                    to.Ptr("CustomScript"),
+						TypeHandlerVersion:      to.Ptr("2.0"),
+						AutoUpgradeMinorVersion: to.Ptr(true),
+						Settings:                map[string]interface{}{},
+						ProtectedSettings: map[string]interface{}{
+							"commandToExecute": cseCmd,
+						},
+					},
+				},
+			},
+		}
+	}
+	return model
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

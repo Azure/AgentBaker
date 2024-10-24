@@ -90,28 +90,18 @@
     },
     {
       "type": "file",
-      "source": "node-bootstrapper/dist/node-bootstrapper-linux-arm64",
-      "destination": "/home/packer/node-bootstrapper"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/lister/bin/lister",
       "destination": "/home/packer/lister"
     },
     {
       "type": "file",
-      "source": "nbcparser/bin/nbcparser-arm64",
-      "destination": "/home/packer/nbcparser"
+      "source": "node-bootstrapper/bin/node-bootstrapper-linux-arm64",
+      "destination": "/home/packer/node-bootstrapper"
     },
     {
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/bootstrap.service",
       "destination": "/home/packer/bootstrap.service"
-    },
-    {
-      "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/bootstrap.sh",
-      "destination": "/home/packer/bootstrap.sh"
     },
     {
       "type": "file",
