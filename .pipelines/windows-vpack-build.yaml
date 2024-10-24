@@ -1,0 +1,60 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
+trigger: none
+
+pool:
+  name: $(AZURE_POOL_NAME)
+
+stages:
+- stage: Create_Windows_VM_Stage
+  jobs:
+  - job: Create_Windows_VM_Job
+    steps:
+    - bash: |
+        az login --identity
+        az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
+        
+        VPACK_VM_RESOURCE_GROUP_NAME="vpack-build-$(date +%s)-$RANDOM"
+        echo "##vso[task.setvariable variable=VPACK_VM_RESOURCE_GROUP_NAME;isOutput=true]$VPACK_VM_RESOURCE_GROUP_NAME"
+        IMAGE_REFERENCE="MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition-core:latest"
+        # IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_OS_VERSION/versions/latest"
+
+        # az group create -g $VPACK_VM_RESOURCE_GROUP_NAME -l westus
+        # az vm create -n vpack-build-vm -g $VPACK_VM_RESOURCE_GROUP_NAME --image $IMAGE_REFERENCE --assign-identity $(AZURE_MSI_RESOURCE_STRING) --admin-password $(ADMIN_PASSWORD)
+      name: Create_Windows_VM_Step
+      displayName: Create Windows VM
+
+- stage: Exectue_VPack_Script_Stage
+  dependsOn: Create_Windows_VM_Stage
+  condition: succeeded()
+  variables:
+    VPACK_VM_RESOURCE_GROUP_NAME: $[ stageDependencies.Create_Windows_VM_Stage.Create_Windows_VM_Job.outputs['Create_Windows_VM_Step.VPACK_VM_RESOURCE_GROUP_NAME'] ]
+  jobs:
+  - job: Exectue_VPack_Script_Job
+    steps:
+    - bash: |
+        cd e2e/windows/
+        az vm run-command invoke --command-id RunPowerShellScript \
+          --resource-group $VPACK_VM_RESOURCE_GROUP_NAME \
+          --name vpack-build-vm \
+          --scripts @vpack.ps1 \
+          --parameters arg1=$(GitBranch) arg2=$(VpackName) arg3=$(VpackFolder) arg4=$(UserName) arg5=$(PAT)
+      name: Exectue_VPack_Script_Step
+      displayName: Exectue VPack Script
+
+- stage: Delete_Windows_VM_Stage
+  dependsOn: 
+    - Create_Windows_VM_Stage
+    - Exectue_VPack_Script_Stage
+  condition: always()
+  variables:
+      VPACK_VM_RESOURCE_GROUP_NAME: $[ stageDependencies.Create_Windows_VM_Stage.Create_Windows_VM_Job.outputs['Create_Windows_VM_Step.VPACK_VM_RESOURCE_GROUP_NAME'] ]
+  jobs:
+  - job: Delete_Windows_VM_Job
+    steps:
+    - bash: |
+        exists=$(az group exists --name $VPACK_VM_RESOURCE_GROUP_NAME)
+        if [ $exists == 1 ]; then
+          az group delete --name $VPACK_VM_RESOURCE_GROUP_NAME --yes
+        fi
+      name: Delete_Windows_VM_Step
+      displayName: Delete Windows VM
