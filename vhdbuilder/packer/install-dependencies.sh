@@ -351,27 +351,107 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-  gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="20241008175307"
-  export NVIDIA_DRIVER_IMAGE_TAG="550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
-  NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"
+gpu_action=""
+gpu_install_done=0
+pulled_gpu_images=()
 
-  mkdir -p /opt/{actions,gpu}
-  ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
-    fi
+# Loop over each GPUContainerImage
+while IFS= read -r gpuImageToBePulled; do
+  # Extract 'cached' field and convert it to lowercase
+  cached=$(echo "${gpuImageToBePulled}" | jq -r '.cached' | tr '[:upper:]' '[:lower:]')
+
+  if [[ "$cached" != "true" ]]; then
+    # Skip images that are not meant to be cached
+    continue
   fi
 
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
+  # Extract 'osSelectors' if present
+  osSelectors=$(echo "${gpuImageToBePulled}" | jq -r '.osSelectors // empty')
+
+  shouldPull=0  # Default to not pull
+
+  if [[ -n "$osSelectors" ]]; then
+    # osSelectors is provided; check if current OS and arch match any entry
+    while IFS= read -r selector; do
+      os=$(echo "$selector" | jq -r '.os')
+      arch=$(echo "$selector" | jq -r '.arch')
+
+      if [[ "$os" == "$CURRENT_OS" && "$arch" == "$CPU_ARCH" ]]; then
+        shouldPull=1
+        break  # Found a matching selector
+      fi
+    done <<< "$(echo "$osSelectors" | jq -c '.[]')"
+  else
+    # No osSelectors provided; decide whether to pull
+    # Assuming we do not pull the image if no osSelectors are specified
+    shouldPull=0
+  fi
+
+  if [[ "$shouldPull" == "1" ]]; then
+    # Extract image details
+    downloadURL=$(echo "${gpuImageToBePulled}" | jq -r '.downloadURL')
+    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+    # Extract the version from gpuImageVersion
+    latestVersion=$(echo "${gpuImageToBePulled}" | jq -r '.gpuImageVersion.latestVersion')
+
+    if [[ -z "$latestVersion" || "$latestVersion" == "null" ]]; then
+      echo "Error: latestVersion not found for $imageName"
+      exit 1
+    fi
+
+    fullImage="$imageName:$latestVersion"
+
+    # Pull the image
+    echo "Pulling image: $fullImage"
+    ctr -n k8s.io image pull "$fullImage"
+    if [[ $? -ne 0 ]]; then
+      echo "Failed to pull image: $fullImage"
+      exit 1
+    fi
+
+    # Record the pulled image
+    pulled_gpu_images+=("$fullImage")
+
+    # Set gpu_action if pulling the aks-gpu-cuda image
+    if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
+      gpu_action="copy"
+
+      # Create necessary directories
+      mkdir -p /opt/{actions,gpu}
+
+      # Run gpuinstall only once
+      if [[ "$gpu_install_done" -eq 0 ]]; then
+        # Check for the "fullgpu" feature flag
+        if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+          echo "Installing GPU driver from image: $fullImage"
+          bash -c "$CTR_GPU_INSTALL_CMD $fullImage gpuinstall /entrypoint.sh install"
+          ret=$?
+          if [[ "$ret" != "0" ]]; then
+            echo "Failed to install GPU driver, exiting..."
+            exit $ret
+          fi
+        fi
+        gpu_install_done=1
+      fi
+    fi
+  else
+    echo "Skipping image $imageName due to osSelector constraints or cached=false."
+  fi
+done <<< "$GPUContainerImages"
+
+# Log the pulled images
+if [[ "${#pulled_gpu_images[@]}" -gt 0 ]]; then
+  echo "Logging pulled GPU images to $VHD_LOGS_FILEPATH"
+  for image in "${pulled_gpu_images[@]}"; do
+    echo "  - $image" >> "$VHD_LOGS_FILEPATH"
+  done
+else
+  echo "No GPU images were pulled."
 fi
+
+
+
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
