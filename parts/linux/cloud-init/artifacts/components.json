@@ -583,7 +583,7 @@
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
         "latestVersion": "535.161.08-20241021235607"
       }
-  ],
+     ],
       "cached": false
     }
   ],
