@@ -147,3 +147,21 @@ Describe 'Validate Exit Codes' {
     }
   }
 }
+
+# When using return to return values in a function with using Write-Log, the logs will be returned as well.
+Describe "Mock Write-Log" {
+  It 'should never exist in ut' {
+    # Path to the PowerShell script you want to test
+    $scriptPaths = @()
+    $cseScripts = Get-ChildItem -Path "$PSScriptRoot\..\..\staging\cse\windows\" -Filter "*tests.ps1"
+    foreach($script in $cseScripts) {
+      $scriptPaths += $script.FullName
+    }
+    
+    foreach($scriptPath in $scriptPaths) {
+      Write-Host "Validating $scriptPath"
+      $scriptContent = Get-Content -Path $scriptPath
+      $scriptContent -join "`n" | Should -Not -Match "Mock Write-Log"
+    }
+  }
+}
