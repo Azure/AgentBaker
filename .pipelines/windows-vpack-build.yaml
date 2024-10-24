@@ -1,0 +1,39 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_e2e
+trigger: none
+
+pool:
+  name: $(AZURE_POOL_NAME)
+
+jobs:
+- job: Create_Windows_VM
+  steps:
+    - bash: |
+        az login ----identity
+        az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
+        
+        VPACK_VM_RESOURCE_GROUP_NAME="vpack-build-$(date +%s)-$RANDOM"
+        echo "##vso[task.setvariable variable=VPACK_VM_RESOURCE_GROUP_NAME]$VPACK_VM_RESOURCE_GROUP_NAME"
+        IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_E2E_IMAGE/versions/latest"
+
+        az group create -g $VPACK_VM_RESOURCE_GROUP_NAME
+        az vm create -n vpack-build-vm -g $VPACK_VM_RESOURCE_GROUP_NAME --image $IMAGE_REFERENCE 
+      displayName: Create Windows VM
+
+
+- job: Execute_VPack_Script
+  steps:
+    - bash: |
+        az vm run-command invoke --command-id RunPowerShellScript \
+          --resource-group $VPACK_VM_RESOURCE_GROUP_NAME \
+          --name vpack-build-vm \
+          --scripts  \
+          --parameters arg1=$(GitBranch) arg2=$(VpackName) arg3=$(VpackFolder) || retval=$?
+
+        if [ "$retval" -ne 0 ]; then
+          printf "\\033[1;31m%s\\033[0m\\n" "Failed to execute vpack script."
+          exit 1
+        fi
+      displayName: Exectue VPack Script
+
+- job: Delete_Windows_VM
+
