@@ -13,10 +13,10 @@ jobs:
         
         VPACK_VM_RESOURCE_GROUP_NAME="vpack-build-$(date +%s)-$RANDOM"
         echo "##vso[task.setvariable variable=VPACK_VM_RESOURCE_GROUP_NAME]$VPACK_VM_RESOURCE_GROUP_NAME"
-        IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_E2E_IMAGE/versions/latest"
+        IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$(WINDOWS_OS_VERSION)/versions/latest"
 
-        az group create -g $VPACK_VM_RESOURCE_GROUP_NAME -l $(AZURE_BUILD_LOCATION)
-        az vm create -n vpack-build-vm -g $VPACK_VM_RESOURCE_GROUP_NAME --image $IMAGE_REFERENCE 
+        az group create -g ${VPACK_VM_RESOURCE_GROUP_NAME} -l $(AZURE_BUILD_LOCATION)
+        az vm create -n vpack-build-vm -g ${VPACK_VM_RESOURCE_GROUP_NAME} --image $IMAGE_REFERENCE 
       displayName: Create Windows VM
 
 
@@ -24,7 +24,7 @@ jobs:
   steps:
     - bash: |
         az vm run-command invoke --command-id RunPowerShellScript \
-          --resource-group $VPACK_VM_RESOURCE_GROUP_NAME \
+          --resource-group ${VPACK_VM_RESOURCE_GROUP_NAME} \
           --name vpack-build-vm \
           --scripts  \
           --parameters arg1=$(GitBranch) arg2=$(VpackName) arg3=$(VpackFolder) || retval=$?
@@ -38,6 +38,6 @@ jobs:
 - job: Delete_Windows_VM
   steps:
     - bash: |
-        az group delete --name $VPACK_VM_RESOURCE_GROUP_NAME --yes
+        az group delete --name ${VPACK_VM_RESOURCE_GROUP_NAME} --yes
       displayName: Delete Windows VM
 
