@@ -92,6 +92,24 @@ func NvidiaSMIInstalledValidator() *LiveVMValidator {
 	}
 }
 
+func NvidiaModProbeInstalledValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert nvidia-modprobe is installed",
+		Command:     "nvidia-modprobe",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf(
+					"nvidia-modprobe installed should trigger exit 0 actual was: %q, stdout: %q, stderr: %q",
+					code,
+					stdout,
+					stderr,
+				)
+			}
+			return nil
+		},
+	}
+}
+
 func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	return &LiveVMValidator{
 		Description: fmt.Sprintf("assert that there are files in %s", dirName),
@@ -363,6 +381,28 @@ func containerdWasmShimsValidator() *LiveVMValidator {
 				if !strings.Contains(stdout, section) || !strings.Contains(stdout, runtimeType) {
 					return fmt.Errorf("expected to find section %q with runtime type %q in containerd config.toml, but it was not found. Full config.toml content:\n%s", section, runtimeType, stdout)
 				}
+			}
+			return nil
+		},
+	}
+}
+
+// Ensure kubelet does not restart which can result in delays deploying pods and unnecessary nodepool scaling while the node is incapacitated.
+// This is intended to stop services (e.g. nvidia-modprobe), restarting kubelet rather than specifying the dependency order to run before kubelet.service
+func KubeletHasNotStoppedValidator() *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert that kubelet has not stopped or restarted",
+		Command:     "journalctl -u kubelet",
+		Asserter: func(code, stdout, stderr string) error {
+			startedText := "Started Kubelet"
+			stoppedText := "Stopped Kubelet"
+			stoppedCount := strings.Count(stdout, stoppedText)
+			startedCount := strings.Count(stdout, startedText)
+			if stoppedCount > 0 {
+				return fmt.Errorf("expected no occurences of '%s' in kubelet log, but found %d", stoppedText, stoppedCount)
+			}
+			if startedCount == 0 {
+				return fmt.Errorf("expected at least one occurence of '%s' in kubelet log, but found 0", startedText)
 			}
 			return nil
 		},
