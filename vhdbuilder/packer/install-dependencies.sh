@@ -351,50 +351,101 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
-GPUContainerImages=$(jq ".GPUContainerImages" $COMPONENTS_FILEPATH | jq -c '.[]')
+gpu_action=""
+declare -A pulled_gpu_images
 
-NVIDIA_DRIVER_IMAGE=""
-NVIDIA_DRIVER_IMAGE_TAG=""
+# Loop over each GPUContainerImage
+while IFS= read -r gpuImageToBePulled; do
+  # Extract 'cached' field and convert it to lowercase
+  cached=$(echo "${gpuImageToBePulled}" | jq -r '.cached' | tr '[:upper:]' '[:lower:]')
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GPU now
-  gpu_action="copy"
+  if [[ "$cached" != "true" ]]; then
+    # Skip images that are not meant to be cached
+    continue
+  fi
 
-  while IFS= read -r imageToBePulled; do
-    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+  # Extract 'osSelectors' if present
+  osSelectors=$(echo "${gpuImageToBePulled}" | jq -r '.osSelectors // empty')
+
+  shouldPull=0  # Default to not pull
+
+  if [[ -n "$osSelectors" ]]; then
+    # osSelectors is provided; check if current OS and arch match any entry
+    while IFS= read -r selector; do
+      os=$(echo "$selector" | jq -r '.os')
+      arch=$(echo "$selector" | jq -r '.arch')
+
+      if [[ "$os" == "$CURRENT_OS" ]]; then
+        if [[ "$arch" == "$CPU_ARCH" ]]; then
+          shouldPull=1
+          break  # Found a matching selector
+        fi
+      fi
+    done <<< "$(echo "$osSelectors" | jq -c '.[]')"
+  else
+    # No osSelectors provided; decide whether to pull
+    # Assuming we pull the image if no osSelectors are specified
+    shouldPull=1
+  fi
+
+  if [[ "$shouldPull" == "1" ]]; then
+    # Extract image details
+    downloadURL=$(echo "${gpuImageToBePulled}" | jq -r '.downloadURL')
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
+    # Get the latestVersion
+    latestVersion=$(echo "${gpuImageToBePulled}" | jq -r '.multiArchVersionsV2[0].latestVersion')
+
+    if [[ -z "$latestVersion" || "$latestVersion" == "null" ]]; then
+      echo "Error: latestVersion not found for $imageName"
+      exit 1
+    fi
+
+    fullImage="$imageName:$latestVersion"
+
+    # Pull the image
+    echo "Pulling image: $fullImage"
+    ctr -n k8s.io image pull "$fullImage"
+    if [[ $? -ne 0 ]]; then
+      echo "Failed to pull image: $fullImage"
+      exit 1
+    fi
+
+    # Record the pulled image
+    pulled_gpu_images["$imageName"]="$latestVersion"
+
+    # Set gpu_action if pulling the aks-gpu-cuda image
     if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
-      latestVersion=$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2[0].latestVersion')
-      NVIDIA_DRIVER_IMAGE="$imageName"
-      NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
-      break  # Exit the loop once we find the image
+      gpu_action="copy"
+
+      # Create necessary directories
+      mkdir -p /opt/{actions,gpu}
+
+      # Check for the "fullgpu" feature flag
+      if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
+        echo "Installing GPU driver from image: $fullImage"
+        bash -c "$CTR_GPU_INSTALL_CMD $fullImage gpuinstall /entrypoint.sh install"
+        ret=$?
+        if [[ "$ret" != "0" ]]; then
+          echo "Failed to install GPU driver, exiting..."
+          exit $ret
+        fi
+      fi
     fi
-  done <<< "$GPUContainerImages"
-
-  # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
-  if [[ -z "$NVIDIA_DRIVER_IMAGE" || -z "$NVIDIA_DRIVER_IMAGE_TAG" ]]; then
-    echo "Error: Unable to find aks-gpu-cuda image in components.json"
-    exit 1
+  else
+    echo "Skipping image $imageName due to osSelector constraints or cached=false."
   fi
+done <<< "$GPUContainerImages"
 
-  mkdir -p /opt/{actions,gpu}
-
-  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
-
-  # Check for the "fullgpu" feature flag
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
-    fi
-  fi
-
-    cat << EOF >> ${VHD_LOGS_FILEPATH}
-  - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
-EOF
-
+# Log the pulled images
+if [[ "${#pulled_gpu_images[@]}" -gt 0 ]]; then
+  echo "Logging pulled GPU images to $VHD_LOGS_FILEPATH"
+  for imageName in "${!pulled_gpu_images[@]}"; do
+    imageVersion=${pulled_gpu_images[$imageName]}
+    echo "  - $imageName=$imageVersion" >> "$VHD_LOGS_FILEPATH"
+  done
+else
+  echo "No GPU images were pulled."
 fi
 
 
