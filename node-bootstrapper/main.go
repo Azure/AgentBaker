@@ -37,103 +37,70 @@ func main() {
 	slog.Info("node-bootstrapper started")
 
 	ctx := context.Background()
-	exitCode := Run(ctx)
+	err = Run(ctx)
+	exitCode := utils.ErrToExitCode(err)
+
+	if exitCode == 0 {
+		slog.Info("node-bootstrapper finished successfully")
+	} else {
+		slog.Error("node-bootstrapper finished with error", "error", err.Error())
+	}
 
 	_ = logFile.Close()
 	os.Exit(exitCode)
 }
 
-func errToExitCode(err error) int {
-	if err == nil {
-		return 0
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		return exitErr.ExitCode()
-	}
-	return 1
-}
-
-func Run(ctx context.Context) int {
+func Run(ctx context.Context) error {
 	const minNumberArgs = 2
 	if len(os.Args) < minNumberArgs {
-		slog.Error("missing command argument")
-		return 1
+		return errors.New("missing command argument")
 	}
 	switch os.Args[1] {
 	case "provision":
-		err := Provision(ctx)
-		exitCode := errToExitCode(err)
-
-		if exitCode == 0 {
-			slog.Info("node-bootstrapper finished successfully")
-		} else {
-			slog.Error("node-bootstrapper finished with error", "error", err.Error())
-		}
-		return exitCode
+		return Provision(ctx)
 	case "monitor":
-		exitCode, err := Monitor(ctx)
-		if err != nil {
-			slog.Error("monitor failed", "error", err.Error())
-		}
-		return exitCode
+		return Monitor(ctx)
 	default:
-		slog.Error("unknown command: %s", os.Args[1])
-		return 1
+		return fmt.Errorf("unknown command: %s", os.Args[1])
 	}
 }
 
 // usage example:
 // node-bootstrapper monitor
-func Monitor(ctx context.Context) (int, error) {
+func Monitor(ctx context.Context) error {
 	for {
 		// Check the active state of the unit
-		unitStatus, err := checkUnitStatus(BootstrapService)
+		unitStatus, err := runSystemctlCommand("is-active", BootstrapService)
 		if err != nil {
 			fmt.Printf("Error checking unit status: %v\n", err)
-			return 1, err
+			return err
 		}
 
 		// Check if the unit has completed
 		if unitStatus == "inactive" || unitStatus == "failed" || unitStatus == "active" {
-			fmt.Printf("Unit has completed with status: %s\n", unitStatus)
-
-			exitStatus, err := getExitStatus(BootstrapService)
+			exitStatus, err := runSystemctlCommand("show", BootstrapService, "-p", "ExecMainStatus", "--value")
 			if err != nil {
-				fmt.Printf("Error getting exit status: %v\n", err)
-				return 1, err
+				return err
 			}
-			fmt.Printf("Exiting with status: %s\n", exitStatus)
+
+			statusOutput, err := runSystemctlCommand("status", BootstrapService)
+			if err != nil {
+				return err
+			}
 
 			// Convert exitStatus to an integer for exit code
-			exitCode := 0
+			exitCode := -1
 			fmt.Sscanf(exitStatus, "%d", &exitCode)
-			return exitCode, nil
+			err = &utils.CustomExitError{
+				Code: exitCode,
+				Msg:  statusOutput,
+			}
+			return err
 		}
 
 		// Sleep for 3 seconds before checking again
 		time.Sleep(3 * time.Second)
 	}
-}
-
-// checkUnitStatus executes `systemctl is-active <unit>` and returns the status
-func checkUnitStatus(unitName string) (string, error) {
-	cmd := exec.Command("systemctl", "is-active", unitName)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-// getExitStatus executes `systemctl show <unit> -p ExecMainStatus --value` and returns the exit status
-func getExitStatus(unitName string) (string, error) {
-	cmd := exec.Command("systemctl", "show", unitName, "-p", "ExecMainStatus", "--value")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
 }
 
 // usage example:
@@ -186,4 +153,14 @@ func provisionStart(ctx context.Context, cse utils.SensitiveString) error {
 	// Is it ok to log a single line? Is it too much?
 	slog.Info("CSE finished", "exitCode", exitCode, "stdout", stdoutBuf.String(), "stderr", stderrBuf.String(), "error", err)
 	return err
+}
+
+// runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
+func runSystemctlCommand(args ...string) (string, error) {
+	cmd := exec.Command("systemctl", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }
