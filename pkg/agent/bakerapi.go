@@ -124,7 +124,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	return nodeBootstrapping, nil
 }
 
-func getScriptlessCustomDataTemplate(config any) (string, error) {
+func getScriptlessCustomDataContent(config any) (string, error) {
 	nbcJSON, err := json.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
@@ -132,22 +132,6 @@ func getScriptlessCustomDataTemplate(config any) (string, error) {
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
 	customDataTAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataTAML)), nil
-}
-
-func getScriptlessCustomDataContent(config any) (string, error) {
-	nbcJSON, err := json.Marshal(config)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-	}
-	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(`#cloud-config
-write_files:
-- path: /opt/azure/containers/node-bootstrapper-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s`, encodedNBCJson)
-	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SIGConfig,
