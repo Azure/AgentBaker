@@ -47,10 +47,7 @@ func QueryData(ctx context.Context, config *Config) (*SKU, error) {
 	log.Println("Kusto query client created")
 
 	query := kql.New("storedFunction | where primaryKey == SKU")
-	params := kql.NewParameters().
-		AddString("storedFunction", config.StoredFunctionName).
-		AddString("primaryKey", config.PrimaryKey).
-		AddString("SKU", config.SigImageName)
+	params := kql.NewParameters().AddString("storedFunction", config.StoredFunctionName).AddString("primaryKey", config.PrimaryKey).AddString("SKU", config.SigImageName)
 
 	dataset, err := client.Query(ctx, config.KustoDatabase, query, azkustodata.QueryParameters(params))
 	if err != nil {
