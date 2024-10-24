@@ -444,38 +444,6 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
-// TODO(cameissner): remove special logic for kubelet serving label
-func GetAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
-	var labels string
-	if profile != nil {
-		labels = profile.GetKubernetesLabels()
-	}
-	kubeletServingSignerLabel := getKubeletServingCALabel(config)
-
-	if labels == "" {
-		return kubeletServingSignerLabel
-	}
-	if kubeletServingSignerLabel == "" {
-		return labels
-	}
-	return fmt.Sprintf("%s,%s", labels, kubeletServingSignerLabel)
-}
-
-// getKubeletServingCALabel determines the value of the special kubelet serving CA label,
-// based on the specified NodeBootstrappingConfiguration. This label is used to denote, out-of-band from RP-set
-// CustomNodeLabels, whether or not the given kubelet is started with the --rotate-server-certificates flag.
-// When the flag is set, this label will in the form of "kubernetes.azure.com/kubelet-serving-ca=cluster",
-// indicating the CA that signed the kubelet's serving certificate is the cluster CA.
-// Otherwise, this will return an empty string, and no extra labels will be added to the node.
-// TODO(cameissner): revisit whether to add a negative label for the disabled case,
-// e.g. "kubernetes.azure.com/kubelet-serving-ca=self", before this feature is rolled out.
-func getKubeletServingCALabel(config *datamodel.NodeBootstrappingConfiguration) string {
-	if IsKubeletServingCertificateRotationEnabled(config) {
-		return "kubernetes.azure.com/kubelet-serving-ca=cluster"
-	}
-	return ""
-}
-
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",

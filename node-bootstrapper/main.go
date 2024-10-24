@@ -421,9 +421,6 @@ func generateContentKubelet(config *datamodel.NodeBootstrappingConfiguration) st
 	}
 
 	labels := func() string {
-		if isKubernetesVersionGe("1.16.0") {
-			return agent.GetAgentKubernetesLabels(config.AgentPoolProfile, config)
-		}
 		return config.AgentPoolProfile.GetKubernetesLabels()
 	}
 
