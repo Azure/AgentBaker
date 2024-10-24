@@ -351,14 +351,37 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+GPUContainerImages=$(jq ".GPUContainerImages" $COMPONENTS_FILEPATH | jq -c '.[]')
+
+NVIDIA_DRIVER_IMAGE=""
+NVIDIA_DRIVER_IMAGE_TAG=""
+
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="20241008175307"
-  export NVIDIA_DRIVER_IMAGE_TAG="550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
-  NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"
+
+  while IFS= read -r imageToBePulled; do
+    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+    if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
+      latestVersion=$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2[0].latestVersion')
+      NVIDIA_DRIVER_IMAGE="$imageName"
+      NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
+      break  # Exit the loop once we find the image
+    fi
+  done <<< "$GPUContainerImages"
+
+  # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
+  if [[ -z "$NVIDIA_DRIVER_IMAGE" || -z "$NVIDIA_DRIVER_IMAGE_TAG" ]]; then
+    echo "Error: Unable to find aks-gpu-cuda image in components.json"
+    exit 1
+  fi
 
   mkdir -p /opt/{actions,gpu}
-  ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+
+  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+
+  # Check for the "fullgpu" feature flag
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
@@ -368,10 +391,12 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     fi
   fi
 
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+
 fi
+
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
