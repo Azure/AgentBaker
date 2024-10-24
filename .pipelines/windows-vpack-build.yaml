@@ -23,10 +23,11 @@ jobs:
   dependsOn: Create_Windows_VM
   steps:
     - bash: |
+        git clone "https://github.com/Azure/AgentBaker.git"
         az vm run-command invoke --command-id RunPowerShellScript \
           --resource-group $VPACK_VM_RESOURCE_GROUP_NAME \
           --name vpack-build-vm \
-          --scripts  \
+          --scripts @AgentBaker/e2e/windows/vpack.ps1 \
           --parameters arg1=$(GitBranch) arg2=$(VpackName) arg3=$(VpackFolder) || retval=$?
 
         if [ "$retval" -ne 0 ]; then
