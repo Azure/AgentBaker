@@ -46,4 +46,4 @@ This table is describing the all the AKSNodeConfig Fields converted to .go files
 | `PrivateEgressProxyAddress` | `string` | Private egress proxy address | `PRIVATE_EGRESS_PROXY_ADDRESS` |
 | `PrivateEgressProxyAddress` | `bool` | Specifies whether artifact streaming is enabled or disabled on the VM node | `ARTIFACT_STREAMING_ENABLED` |
 | `IsKata` | `bool` | Specifies if it is a Kata node | `IS_KATA` |
-| `NeedsCgroupv2` | `*bool` | Specifies whether the node needs cgroupv2. Labeled as optional (explicit presence) so that we know whether it's set or not. If it's not set, the default value will be nil and it's defaulted to false. Future plan is to get the value from VHD during bootstrapping. | NEEDS_CGROUPV2 |
+| `NeedsCgroupv2` | `*bool` | Specifies whether the node needs cgroupv2. Labeled as optional (explicit presence) so that we know whether it's set or not. If it's not set, the default value will be nil and it's defaulted to false. Future plan is to get the value from VHD during bootstrapping. | `NEEDS_CGROUPV2` |
