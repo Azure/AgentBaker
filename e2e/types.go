@@ -109,6 +109,14 @@ type Scenario struct {
 
 	// Config contains the configuration of the scenario
 	Config
+
+	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
+	Runtime *ScenarioRuntime
+}
+
+type ScenarioRuntime struct {
+	NBC     *datamodel.NodeBootstrappingConfiguration
+	Cluster *Cluster
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario
@@ -210,5 +218,16 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 			vmss.Tags = map[string]*string{}
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
+	}
+}
+
+func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
+	cluster, err := s.Config.Cluster(ctx, t)
+	require.NoError(t, err)
+	nbc, err := s.PrepareNodeBootstrappingConfiguration(cluster.NodeBootstrappingConfiguration)
+	require.NoError(t, err)
+	s.Runtime = &ScenarioRuntime{
+		NBC:     nbc,
+		Cluster: cluster,
 	}
 }
