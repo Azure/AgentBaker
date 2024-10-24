@@ -67,7 +67,6 @@ Describe 'Get-KubePackage' {
 Describe 'Configure-KubeletServingCertificateRotation' {
     BeforeEach {
         Mock Logs-To-Event
-        Mock Write-Log
     }
 
     It "Should no-op when EnableKubeletServingCertificateRotation is false" {
@@ -233,64 +232,67 @@ Describe 'Get-TagValue' {
 
 Describe 'Add-KubeletNodeLabel' {
     BeforeEach {
-        Mock Write-Log
+        $global:KubeletNodeLabels = ""
     }
 
     It "Should perform a no-op when the specified label already exists within the label string" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
-        $result = Add-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Add-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should append the label when it does not already exist within the label string" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
-        $result = Add-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Add-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 }
 
 Describe 'Remove-KubeletNodeLabel' {
+    BeforeEach {
+        $global:KubeletNodeLabels = ""
+    }
     It "Should remove the specified label when it exists within the label string" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should remove the specified label when it is the first label within the label string" {
-        $labelString = "kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should remove the specified label when it is the last label within the label string" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should not alter the specified label string if the target label does not exist" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
-        $expected = $labelString
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        $expected = $global:KubeletNodeLabels
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should return an empty string if the only label within the label string is the target" {
-        $labelString = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = ""
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 }
