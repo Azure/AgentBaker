@@ -353,12 +353,9 @@ capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="20241008175307"
-  export NVIDIA_DRIVER_IMAGE_TAG="550.90.12-${NVIDIA_DRIVER_IMAGE_SHA}"
-  NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-cuda"
+  
 
   mkdir -p /opt/{actions,gpu}
-  ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
@@ -409,6 +406,33 @@ declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 while IFS= read -r imageToBePulled; do
+  os=$(echo "${imageToBePulled}" | jq -r '.osSelector.os // empty')
+  arch=$(echo "${imageToBePulled}" | jq -r '.osSelector.arch // empty')
+
+  skip_image=false
+  if [[ -n "$os" ]]; then
+    if [[ "$os" == "Never" ]]; then
+      echo "Skipping image because osSelector.os is 'Never'."
+      skip_image=true
+    elif [[ "$os" != "$CURRENT_OS" ]]; then
+      echo "Skipping image because osSelector.os ('$os') does not match current OS ('$CURRENT_OS')."
+      skip_image=true
+    fi
+  fi
+
+  if [[ "$skip_image" == false ]] && [[ -n "$arch" ]]; then
+    if [[ "$arch" != "$CURRENT_ARCH" ]]; then
+      echo "Skipping image because osSelector.arch ('$arch') does not match current architecture ('$CURRENT_ARCH')."
+      skip_image=true
+    fi
+  fi
+
+  if [[ "$skip_image" == true ]]; then
+    continue  # Skip to the next image
+  fi
+
+
+
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
   MULTI_ARCH_VERSIONS=()
