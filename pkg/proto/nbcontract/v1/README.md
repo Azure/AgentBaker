@@ -113,7 +113,7 @@ Nevertheless, it’s not a big harm to use `optional` even though it’s not nee
 1. Set default values for your variables, if the existing defaulting provided by `proto3` doesn't fit your purpose. For example, if a bool variable is not set, `proto` will default it to `false`. However, if you want to default it to `true`, then you can set your own default function. `getDisableSSH` in `cse_cmd.sh.gtpl` is 1 example.
 
 ## Detailed steps with example
-Example: IMDSRescrtionConfig
+Example: IMDSRescrtionConfig [Example PR](https://github.com/Azure/AgentBaker/pull/5154)
 1. Create a proto file with name `imdsrestrictionconfig.proto` with the following contents.
 ```
 syntax = "proto3";
