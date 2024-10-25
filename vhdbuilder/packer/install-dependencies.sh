@@ -351,7 +351,7 @@ INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
-GPUContainerImages=$(jq ".GPUContainerImages" $COMPONENTS_FILEPATH)
+GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
