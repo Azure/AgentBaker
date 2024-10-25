@@ -562,12 +562,11 @@
   "GPUContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
-      "multiArchVersionsV2": [
-        {
+      "gpuImageVersion": {
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
           "latestVersion": "550.90.12-20241021233454"
         }
-      ], 
+      , 
       "cached": true,
       "osSelectors":[
         { 
@@ -578,12 +577,11 @@
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
-      "multiArchVersionsV2": [
-      { 
+      "gpuImageVersion": { 
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
         "latestVersion": "535.161.08-20241021235607"
       }
-     ],
+     ,
       "cached": false
     }
   ],
