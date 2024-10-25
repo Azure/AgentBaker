@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"testing"
 
@@ -50,20 +49,13 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
-var scenarioOnce sync.Once
-
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
 	cleanTestDir(t)
-	scenarioOnce.Do(func() {
-		err := ensureResourceGroup(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
-	s.PrepareRuntime(ctx, t)
+	ensureResourceGroupOnce(ctx)
 	maybeSkipScenario(ctx, t, s)
+	s.PrepareRuntime(ctx, t)
 	executeScenario(ctx, t, s)
 }
 

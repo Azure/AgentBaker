@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -77,7 +78,7 @@ func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) st
 
 func compileNodeBootstrapper(t *testing.T) *os.File {
 	cmd := exec.Command("go", "build", "-o", "node-bootstrapper", "-v")
-	cmd.Dir = "../node-bootstrapper"
+	cmd.Dir = filepath.Join("..", "node-bootstrapper")
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
 		"GOOS=linux",
@@ -85,8 +86,8 @@ func compileNodeBootstrapper(t *testing.T) *os.File {
 	)
 	log, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(log))
-	t.Logf("Compiled %s", "../node-bootstrapper")
-	f, err := os.Open("../node-bootstrapper/node-bootstrapper")
+	t.Logf("Compiled node-bootstrapper")
+	f, err := os.Open(filepath.Join("..", "node-bootstrapper", "node-bootstrapper"))
 	require.NoError(t, err)
 	return f
 }

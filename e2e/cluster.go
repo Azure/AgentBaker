@@ -357,6 +357,16 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 	return rgExistence.Success, nil
 }
 
+var rgOnce sync.Once
+
+func ensureResourceGroupOnce(ctx context.Context) {
+	rgOnce.Do(func() {
+		err := ensureResourceGroup(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
+}
 func ensureResourceGroup(ctx context.Context) error {
 	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
 	if err != nil {
