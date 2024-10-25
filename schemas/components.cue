@@ -17,7 +17,7 @@ package components
 
 #GPUContainerImage: {
 	downloadURL: string
-	multiArchVersionsV2:   [...#VersionV2]
+	gpuVersion:   #VersionV2
 }
 
 #Images: [...#ContainerImage]

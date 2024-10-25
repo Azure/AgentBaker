@@ -364,7 +364,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GP
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
     if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
-      latestVersion=$(echo "${imageToBePulled}" | jq -r '.multiArchVersionsV2[0].latestVersion')
+      latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
       NVIDIA_DRIVER_IMAGE="$imageName"
       NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
       break  # Exit the loop once we find the image
