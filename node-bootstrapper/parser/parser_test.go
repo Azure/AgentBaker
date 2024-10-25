@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Azure/agentbaker/nbcparser/pkg/parser"
+	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
@@ -169,13 +169,13 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		cseCmd, err := parser.Parse(inputJSON)
 		Expect(err).To(BeNil())
 
-		generateTestDataIfRequested(folder, cseCmd)
+		generateTestDataIfRequested(folder, cseCmd.UnsafeValue())
 
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
 		Expect(err).To(BeNil())
 
 		result := &nodeBootstrappingOutput{
-			cseCmd: cseCmd,
+			cseCmd: cseCmd.UnsafeValue(),
 			vars:   vars,
 		}
 
@@ -329,13 +329,13 @@ var _ = Describe("Test NBContract compatibility from Json to CSE command", func(
 		cseCmd, err := parser.Parse(inputJSON)
 		Expect(err).To(BeNil())
 
-		generateTestDataIfRequested(folder, cseCmd)
+		generateTestDataIfRequested(folder, cseCmd.UnsafeValue())
 
 		vars, err := getDecodedVarsFromCseCmd([]byte(cseCmd))
 		Expect(err).To(BeNil())
 
 		result := &nodeBootstrappingOutput{
-			cseCmd: cseCmd,
+			cseCmd: cseCmd.UnsafeValue(),
 			vars:   vars,
 		}
 

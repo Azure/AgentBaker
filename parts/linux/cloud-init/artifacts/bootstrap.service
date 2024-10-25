@@ -5,7 +5,7 @@ Wants=cloud-init.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/azure/containers/bootstrap.sh
+ExecStart=/opt/azure/containers/node-bootstrapper provision --provision-config=/opt/azure/containers/node-bootstrapper-config.json
 RemainAfterExit=No
 
 [Install]
