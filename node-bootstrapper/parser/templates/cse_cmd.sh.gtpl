@@ -148,7 +148,7 @@ IS_KATA="{{.GetIsKata}}"
 ARTIFACT_STREAMING_ENABLED="{{.GetEnableArtifactStreaming}}"
 SYSCTL_CONTENT="{{getSysctlContent .CustomLinuxOsConfig.GetSysctlConfig}}"
 PRIVATE_EGRESS_PROXY_ADDRESS="{{.GetPrivateEgressProxyAddress}}"
-BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{.IMDSRestrictionConfig.GetBootstrapProfileContainerRegistryServer}}"
-ENABLE_IMDS_RESTRICTION={{.IMDSRestrictionConfig.GetEnableImdsRestriction}}
-INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE={{.GetInsertImdsRestrictionRuleToMangleTable}}
+BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="{{.GetBootstrapProfileContainerRegistryServer}}"
+ENABLE_IMDS_RESTRICTION={{.ImdsRestrictionConfig.GetEnableImdsRestriction}}
+INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE={{.ImdsRestrictionConfig.GetInsertImdsRestrictionRuleToMangleTable}}
 /usr/bin/nohup /bin/bash -c "/bin/bash /opt/azure/containers/provision_start.sh"
