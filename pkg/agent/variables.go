@@ -204,17 +204,22 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
 	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
+	// note that we set both upper case and lower case varients. curl can use both, but has a preference for the
+	// lower case variant. And we set both during CSE in /etc/environment.
 	proxyVars := ""
 	if nbc.HTTPProxyConfig != nil {
 		if nbc.HTTPProxyConfig.HTTPProxy != nil {
 			// from https://curl.se/docs/manual.html, curl uses http_proxy but uppercase for others?
-			proxyVars = fmt.Sprintf("export http_proxy=\"%s\";", *nbc.HTTPProxyConfig.HTTPProxy)
+			proxyVars += fmt.Sprintf("export http_proxy=\"%s\"; ", *nbc.HTTPProxyConfig.HTTPProxy)
+			proxyVars += fmt.Sprintf("export HTTP_PROXY=\"%s\"; ", *nbc.HTTPProxyConfig.HTTPProxy)
 		}
 		if nbc.HTTPProxyConfig.HTTPSProxy != nil {
-			proxyVars = fmt.Sprintf("export HTTPS_PROXY=\"%s\"; %s", *nbc.HTTPProxyConfig.HTTPSProxy, proxyVars)
+			proxyVars += fmt.Sprintf("export https_proxy=\"%s\"; ", *nbc.HTTPProxyConfig.HTTPSProxy)
+			proxyVars += fmt.Sprintf("export HTTPS_PROXY=\"%s\"; ", *nbc.HTTPProxyConfig.HTTPSProxy)
 		}
 		if nbc.HTTPProxyConfig.NoProxy != nil {
-			proxyVars = fmt.Sprintf("export NO_PROXY=\"%s\"; %s", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","), proxyVars)
+			proxyVars += fmt.Sprintf("export no_proxy=\"%s\"; ", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","))
+			proxyVars += fmt.Sprintf("export NO_PROXY=\"%s\"; ", strings.Join(*nbc.HTTPProxyConfig.NoProxy, ","))
 		}
 	}
 	return proxyVars
