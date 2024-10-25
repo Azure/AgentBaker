@@ -53,7 +53,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 	if !found {
 		t.Logf("node %q isn't connected to the AKS cluster", vmssName)
 	}
-	require.NoError(t, err, "failed to find or wait for %q to be ready %v", vmssName, nodeStatus)
+	require.NoError(t, err, "failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
 	t.Logf("node %s is ready", nodeName)
 
 	return nodeName
