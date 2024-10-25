@@ -2143,3 +2143,11 @@ var _ = Describe("getAKSGPUImageSHA", func() {
 		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaSHA))
 	})
 })
+
+var _ = Describe("getComponents", func() {
+	It("should return the correct components", func() {
+		componentsData, err := LoadComponentsJson()
+		Expect(err).To(BeNil())
+		Expect(componentsData.ContainerImages[0].DownloadURL).To(Equal("mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*"))
+	})
+})

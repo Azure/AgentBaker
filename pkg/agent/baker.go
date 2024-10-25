@@ -7,7 +7,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1470,4 +1473,42 @@ func containerdConfigFromTemplate(
 		return "", fmt.Errorf("failed to execute sysctl template: %w", err)
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}
+
+type ContainerImage struct {
+	DownloadURL         string             `json:"downloadURL"`
+	Amd64OnlyVersions   []string           `json:"amd64OnlyVersions"`
+	MultiArchVersionsV2 []MultiArchVersion `json:"multiArchVersionsV2"`
+}
+
+type MultiArchVersion struct {
+	RenovateTag           string `json:"renovateTag"`
+	LatestVersion         string `json:"latestVersion"`
+	PreviousLatestVersion string `json:"previousLatestVersion"`
+}
+
+type ContainerImagesData struct {
+	ContainerImages []ContainerImage `json:"ContainerImages"`
+}
+
+func LoadComponentsJson() (ContainerImagesData, error) {
+	var componentsData ContainerImagesData
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return componentsData, err
+	}
+	absolutePath := filepath.Join(cwd, "..", "..", "parts", "linux", "cloud-init", "artifacts", "components.json")
+
+	fileBytes, err := os.ReadFile(absolutePath)
+	if err != nil {
+		return componentsData, fmt.Errorf("failed to read components.json file: %w", err)
+	}
+
+	err = json.Unmarshal(fileBytes, &componentsData)
+	if err != nil {
+		return componentsData, fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+
+	return componentsData, nil
 }
