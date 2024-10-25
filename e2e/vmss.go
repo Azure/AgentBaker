@@ -33,17 +33,15 @@ const (
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	cluster := scenario.Runtime.Cluster
-	nbc := scenario.Runtime.NBC
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
-	if scenario.Tags.Scriptless {
-		agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
-		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(nbc), scenario.VHD.Distro, datamodel.AzurePublicCloud)
+	if scenario.AKSNodeConfigMutator != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, scenario.Runtime.AKSNodeConfig, scenario.VHD.Distro, datamodel.AzurePublicCloud)
 		require.NoError(t, err)
 	} else {
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, nbc)
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, scenario.Runtime.NBC)
 		require.NoError(t, err)
 	}
 

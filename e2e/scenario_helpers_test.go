@@ -56,7 +56,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ensureResourceGroupOnce(ctx)
 	maybeSkipScenario(ctx, t, s)
 	s.PrepareRuntime(ctx, t)
-	executeScenario(ctx, t, s)
+	createAndValidateVM(ctx, t, s)
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -95,7 +95,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
 }
 
-func executeScenario(ctx context.Context, t *testing.T, scenario *Scenario) {
+func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) {
 	rid, _ := scenario.VHD.VHDResourceID(ctx, t)
 
 	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *scenario.Runtime.Cluster.Model.ID)

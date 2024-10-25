@@ -15,6 +15,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
@@ -52,10 +53,10 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
 			},
-			CSEOverride:       CSENodeBootstrapper(ctx, t, cluster),
-			DisableCustomData: true,
+			CSEOverride:          CSENodeBootstrapper(ctx, t, cluster),
+			DisableCustomData:    true,
+			AKSNodeConfigMutator: func(config *nbcontractv1.Configuration) {},
 		},
-		Tags: Tags{Scriptless: true},
 	})
 }
 

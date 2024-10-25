@@ -93,34 +93,36 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
-	commandList := map[string]string{
-		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
-		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
-		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
-	}
+type ClusterParams struct {
+	AzureJSON           []byte
+	CACert              []byte
+	BootstrapKubeconfig []byte
+}
 
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (ClusterParams, error) {
 	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
 	if err != nil {
-		return nil, err
+		return ClusterParams{}, err
 	}
 
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
-
-		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
+	var resultErr error
+	exec := func(command string) *podExecResult {
+		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, command)
+		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, command)
 		if execResult != nil {
 			execResult.dumpStderr(t)
 		}
 		if err != nil {
-			return nil, err
+			resultErr = err
 		}
-
-		result[file] = execResult.stdout.String()
+		return execResult
 	}
 
-	return result, nil
+	return ClusterParams{
+		AzureJSON:           exec("cat /etc/kubernetes/azure.json").stdout.Bytes(),
+		CACert:              exec("cat etc/kubernetes/certs/ca.crt").stdout.Bytes(),
+		BootstrapKubeconfig: exec("cat /var/lib/kubelet/bootstrap-kubeconfig").stdout.Bytes(),
+	}, resultErr
 }
 
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {

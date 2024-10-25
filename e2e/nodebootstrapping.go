@@ -9,11 +9,11 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 )
 
-func getBaseNodeBootstrappingConfiguration(clusterParams map[string]string) (*datamodel.NodeBootstrappingConfiguration, error) {
+func getBaseNodeBootstrappingConfiguration(clusterParams ClusterParams) (*datamodel.NodeBootstrappingConfiguration, error) {
 	nbc := baseTemplate(config.Config.Location)
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = clusterParams["/etc/kubernetes/certs/ca.crt"]
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
 
-	bootstrapKubeconfig := clusterParams["/var/lib/kubelet/bootstrap-kubeconfig"]
+	bootstrapKubeconfig := string(clusterParams.BootstrapKubeconfig)
 
 	bootstrapToken, err := extractKeyValuePair("token", bootstrapKubeconfig)
 	if err != nil {

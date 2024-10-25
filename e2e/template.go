@@ -14,6 +14,8 @@ import (
 func nbcToNbcContractV1(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
 	cs := nbc.ContainerService
 	agentPool := nbc.AgentPoolProfile
+	// TODO: delete me
+	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	config := &nbcontractv1.Configuration{
 		Version:            "v0",
