@@ -438,7 +438,6 @@ while IFS= read -r gpuImageToBePulled; do
   else
     echo "Skipping image $imageName due to osSelector constraints or cached=false."
   fi
-done <<< "$GPUContainerImages"
 
 # Log the pulled images
 if [[ "${#pulled_gpu_images[@]}" -gt 0 ]]; then
