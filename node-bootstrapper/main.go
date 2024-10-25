@@ -67,35 +67,39 @@ func Run(ctx context.Context) error {
 // usage example:
 // node-bootstrapper monitor
 func Monitor(ctx context.Context) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	for {
-		// Check the active state of the unit
-		_, err := runSystemctlCommand(ctx, "is-active", "--quiet", BootstrapService)
+		select {
+		case <-timeoutCtx.Done():
+			// If the timeout or cancel occurs, exit with a timeout error
+			return fmt.Errorf("monitoring timed out: %s still active after 5 minutes", BootstrapService)
+		default:
+			// Check the active state of the unit
+			statusOutput, err := runSystemctlCommand(ctx, "status", BootstrapService)
 
-		// if service is inactive or failed, error code will be non-zero
-		if err == nil {
-			// Unit is still active, sleep for 3 seconds before checking again
-			time.Sleep(3 * time.Second)
-			continue
-		}
+			// if service is inactive or failed, error code will be non-zero
+			if err == nil {
+				// Unit is still active, sleep for 3 seconds before checking again
+				time.Sleep(3 * time.Second)
+				continue
+			}
 
-		exitStatus, err := runSystemctlCommand(ctx, "show", BootstrapService, "-p", "ExecMainStatus", "--value")
-		if err != nil {
-			return fmt.Errorf("systemctl show %s -p ExecMainStatus --value failed with %w", BootstrapService, err)
-		}
+			exitStatus, err := runSystemctlCommand(ctx, "show", BootstrapService, "-p", "ExecMainStatus", "--value")
+			if err != nil {
+				return fmt.Errorf("systemctl show %s -p ExecMainStatus --value failed with %w", BootstrapService, err)
+			}
 
-		statusOutput, err := runSystemctlCommand(ctx, "status", BootstrapService)
-		if err != nil {
-			return fmt.Errorf("systemctl status %s failed with %w", BootstrapService, err)
+			// Convert exitStatus to an integer for exit code
+			exitCode := -1
+			fmt.Sscanf(exitStatus, "%d", &exitCode)
+			err = &utils.CustomExitError{
+				Code: exitCode,
+				Msg:  statusOutput,
+			}
+			return err
 		}
-
-		// Convert exitStatus to an integer for exit code
-		exitCode := -1
-		fmt.Sscanf(exitStatus, "%d", &exitCode)
-		err = &utils.CustomExitError{
-			Code: exitCode,
-			Msg:  statusOutput,
-		}
-		return err
 	}
 }
 
