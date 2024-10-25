@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -94,35 +96,41 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 }
 
 type ClusterParams struct {
-	AzureJSON           []byte
-	CACert              []byte
-	BootstrapKubeconfig []byte
+	CACert         []byte
+	BootstrapToken string
+	FQDN           string
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (ClusterParams, error) {
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) ClusterParams {
 	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
-	if err != nil {
-		return ClusterParams{}, err
-	}
+	require.NoError(t, err)
 
-	var resultErr error
-	exec := func(command string) *podExecResult {
-		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, command)
-		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, command)
-		if execResult != nil {
-			execResult.dumpStderr(t)
-		}
-		if err != nil {
-			resultErr = err
-		}
-		return execResult
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+	require.NoError(t, err)
+
+	bootstrapConfig := execResult.stdout.Bytes()
+	bootstrapToken, err := extractKeyValuePair("token", string(bootstrapConfig))
+	require.NoError(t, err)
+
+	bootstrapToken, err = strconv.Unquote(bootstrapToken)
+	require.NoError(t, err)
+
+	server, err := extractKeyValuePair("server", string(bootstrapConfig))
+	require.NoError(t, err)
+	tokens := strings.Split(server, ":")
+	if len(tokens) != 3 {
+		t.Fatalf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
 	}
+	fqdn := tokens[1][2:]
+
+	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
+	require.NoError(t, err)
 
 	return ClusterParams{
-		AzureJSON:           exec("cat /etc/kubernetes/azure.json").stdout.Bytes(),
-		CACert:              exec("cat etc/kubernetes/certs/ca.crt").stdout.Bytes(),
-		BootstrapKubeconfig: exec("cat /var/lib/kubelet/bootstrap-kubeconfig").stdout.Bytes(),
-	}, resultErr
+		CACert:         caCert.stdout.Bytes(),
+		BootstrapToken: bootstrapToken,
+		FQDN:           fqdn,
+	}
 }
 
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {

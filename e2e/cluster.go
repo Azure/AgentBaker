@@ -130,10 +130,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	t.Log("getting the node bootstrapping configuration for cluster")
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
-	if err != nil {
-		return nil, fmt.Errorf("extract cluster parameters: %w", err)
-	}
+	clusterParams := extractClusterParameters(ctx, t, kube)
 
 	nbc, err := getBaseNodeBootstrappingConfiguration(clusterParams)
 	if err != nil {
