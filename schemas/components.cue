@@ -9,13 +9,27 @@ package components
 	previousLatestVersion?: #ContainerImagePrefetchOptimization
 }
 
+#OSSelector: {
+    os:   string
+    arch: string
+}
+
+
 #ContainerImage: {
 	downloadURL: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
 }
 
+#GPUContainerImage: {
+	downloadURL: string
+	gpuImageVersion:   #VersionV2
+	cached: bool
+	osSelectors?:         [...#OSSelector]
+}
+
 #Images: [...#ContainerImage]
+#GPUImages: [...#GPUContainerImage]
 #Packages: [...#Package]
 #VersionV2: {
 	k8sVersion?:             string
@@ -67,7 +81,8 @@ package components
 
 #Components: {
 	ContainerImages: #Images
-	Packages:        #Packages    
+	Packages:        #Packages
+	GPUContainerImages?: #GPUImages
 }
 
 #Components
