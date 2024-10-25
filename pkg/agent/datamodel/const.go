@@ -3,6 +3,14 @@
 
 package datamodel
 
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/Azure/agentbaker/parts"
+)
+
 // the orchestrators supported by vlabs.
 const (
 	// Kubernetes is the string constant for the Kubernetes orchestrator type.
@@ -132,18 +140,66 @@ const (
 	EnableWinDSR          = "EnableWinDSR"
 )
 
-const (
-	Nvidia470CudaDriverVersion = "cuda-470.82.01"
-	Nvidia550CudaDriverVersion = "550.90.12"
-	Nvidia535GridDriverVersion = "535.161.08"
+const Nvidia470CudaDriverVersion = "cuda-470.82.01"
+
+//nolint:gochecknoglobals
+var (
+	NvidiaCudaDriverVersion string
+	NvidiaGridDriverVersion string
+	AKSGPUCudaVersionSuffix string
+	AKSGPUGridVersionSuffix string
 )
 
-// These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
-// So for now these will be kept here like this.
-const (
-	AKSGPUCudaVersionSuffix = "20241021235610"
-	AKSGPUGridVersionSuffix = "20241021235607"
-)
+type gpuVersion struct {
+	RenovateTag   string `json:"renovateTag"`
+	LatestVersion string `json:"latestVersion"`
+}
+
+type gpuContainerImage struct {
+	DownloadURL string     `json:"downloadURL"`
+	GPUVersion  gpuVersion `json:"gpuVersion"`
+}
+
+type componentsConfig struct {
+	GPUContainerImages []gpuContainerImage `json:"GPUContainerImages"`
+}
+
+func LoadConfig() error {
+	// Read the embedded components.json file
+	data, err := parts.Templates.ReadFile("linux/cloud-init/artifacts/components.json")
+	if err != nil {
+		return fmt.Errorf("failed to read components.json: %w", err)
+	}
+
+	var config componentsConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("failed to unmarshal components.json: %w", err)
+	}
+
+	for _, image := range config.GPUContainerImages {
+		parts := strings.Split(image.GPUVersion.LatestVersion, "-")
+		if len(parts) != 2 {
+			continue
+		}
+		version, suffix := parts[0], parts[1]
+
+		if strings.Contains(image.DownloadURL, "aks-gpu-cuda") {
+			NvidiaCudaDriverVersion = version
+			AKSGPUCudaVersionSuffix = suffix
+		} else if strings.Contains(image.DownloadURL, "aks-gpu-grid") {
+			NvidiaGridDriverVersion = version
+			AKSGPUGridVersionSuffix = suffix
+		}
+	}
+	return nil
+}
+
+//nolint:gochecknoinits
+func init() {
+	if err := LoadConfig(); err != nil {
+		panic(fmt.Sprintf("Failed to load configuration: %v", err))
+	}
+}
 
 /* convergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
 how do you figure this out? ask HPC or find out by trial and error.
