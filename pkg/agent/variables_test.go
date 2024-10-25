@@ -40,6 +40,8 @@ func TestNoProxyIsSet(t *testing.T) {
 	vars := strings.Split(proxyVars, ";")
 	MutateMap(vars, trim)
 
+	// curl looks for both of these, and prefers the lower case one. We set both because they are both set in /etc/environment and
+	// we want to make sure both are overwritten
 	assert.Contains(t, vars, "export NO_PROXY=\"no_proxy_domain,another_domain\"")
 	assert.Contains(t, vars, "export no_proxy=\"no_proxy_domain,another_domain\"")
 }
@@ -66,6 +68,8 @@ func TestHttpProxyIsSet(t *testing.T) {
 	vars := strings.Split(proxyVars, ";")
 	MutateMap(vars, trim)
 
+	// curl looks for both of these, and prefers the lower case one. We set both because they are both set in /etc/environment and
+	// we want to make sure both are overwritten
 	assert.Contains(t, vars, "export HTTP_PROXY=\"https://httpproxy:80/\"")
 	assert.Contains(t, vars, "export http_proxy=\"https://httpproxy:80/\"")
 }
@@ -92,6 +96,8 @@ func TestHttpsProxyIsSet(t *testing.T) {
 	vars := strings.Split(proxyVars, ";")
 	MutateMap(vars, trim)
 
+	// curl looks for both of these, and prefers the lower case one. We set both because they are both set in /etc/environment and
+	// we want to make sure both are overwritten
 	assert.Contains(t, vars, "export HTTPS_PROXY=\"https://httpproxy:80/\"")
 	assert.Contains(t, vars, "export https_proxy=\"https://httpproxy:80/\"")
 }

@@ -205,7 +205,7 @@ func getOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration, cloudSpecConf
 func getProxyVariables(nbc *datamodel.NodeBootstrappingConfiguration) string {
 	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
 	// note that we set both upper case and lower case varients. curl can use both, but has a preference for the
-	// lower case variant. And we set both during CSE in /etc/environment.
+	// lower case variant. And we set both during CSE in /etc/environment in cse_config.sh (assuming that's still the file name).
 	proxyVars := ""
 	if nbc.HTTPProxyConfig != nil {
 		if nbc.HTTPProxyConfig.HTTPProxy != nil {
