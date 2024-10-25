@@ -57,6 +57,15 @@ Removed old environment variables from cse_cmd.sh:
 Many variables are changed to optional and we have a builder function as a helper to provide default values. For example, the builder function defaults `LinuxAdminUsername` to value `azureuser`, `OutboundCommand` to a default outbound command `curl -v --insecure --proxy-insecure https://mcr.microsoft.com/v2/`.
 
 # Guideline to add a new variable to AKSNodeConfig
+## Why Protobuf? (Feel free to skip)
+We use `Protobuf`.`proto3` to define the data contract and make use of its benefits as follows:
+- Support across different programming languages
+- Schema definition in a structured way
+- Easier to validate at compile time
+- Natively support backward/forward compatibility
+
+Protobuf provides another benefit that we are not planning to use yet, which is encoding/decoding the payload. Since we are only bootstrapping the node once at the first boot, the transfer speed is not the major concern of this project. In the future, we can still consider transferring encoded payload. The proposed design is flexible to adapt to this future change.
+
 ## Defining a variable in the contract
 In protobuf, a variable can be defined as one of the general types: bool, string, a group of sub-level variables, an array of variables, etc. Here are some examples.
 | In protobuf | In Go |
@@ -68,6 +77,7 @@ In protobuf, a variable can be defined as one of the general types: bool, string
 |optional bool var5|Var5 *bool|
 
 ## When to use the label `optional` specifically in `proto3`? (Feel free to come back to read this section when needed. You can skip to next section _High level Steps_)
+For 90% of the cases, we don't need to add label `optional`.
 In `proto3`, variable without `optional` label is considered as no presence and the one with `optional` label is explicit presence. Application Note: Field Presence | Protocol Buffers Documentation (protobuf.dev)
 In an intuitive way to explain this,
 1.	No presence (without `optional` label)
@@ -123,11 +133,11 @@ message IMDSRestrictionConfig {
   IMDSRestrictionConfig imds_restriction_config = 39;
 ```
 
-3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in the `nbcparser/pkg/parser/templates/cse_cmd.sh.gtpl`, which is a Go template file that will be converted to a .sh script file in the end, you can add the following lines,
+3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `nbcparser/pkg/parser/templates/cse_cmd.sh.gtpl`, which is a Go template file that will be converted to a .sh script file in the end, you can add the following lines,
 ```
 ENABLE_IMDS_RESTRICTION={{.GetEnableImdsRestriction}}
 INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE={{.GetInsertImdsRestrictionRuleToMangleTable}}
 ```
-This is to tell when Go executes/resolves this template file, call that function to get the actual values. In this case, it's a bool. If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
+This is to tell Go when it executes/resolves this template file, call those functions to get the actual values. In this case, it's a bool. If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
 
 This should fit most of the use cases. However, for some reasons if you want to explicitly know if the client really sets `false` (because you can't tell this variable is really set to `false` or client doesn't set it and it was set by defaulting), then you will need to set it with a label `optional` explicity presence. Now you will need to read through an earlier section _When to use the label `optional` specifically in `proto3`?_
