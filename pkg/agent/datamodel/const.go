@@ -176,12 +176,16 @@ func LoadConfig() error {
 		return fmt.Errorf("failed to unmarshal components.json: %w", err)
 	}
 
+	const driverIndex = 0
+	const suffixIndex = 1
+	const expectedLength = 2
+
 	for _, image := range config.GPUContainerImages {
 		parts := strings.Split(image.GPUVersion.LatestVersion, "-")
-		if len(parts) != 2 {
+		if len(parts) != expectedLength {
 			continue
 		}
-		version, suffix := parts[0], parts[1]
+		version, suffix := parts[driverIndex], parts[suffixIndex]
 
 		if strings.Contains(image.DownloadURL, "aks-gpu-cuda") {
 			NvidiaCudaDriverVersion = version
