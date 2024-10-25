@@ -6,15 +6,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/Azure/agentbaker/node-bootstrapper/parser"
+	"github.com/Azure/agentbaker/node-bootstrapper/utils"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/Azure/agentbaker/node-bootstrapper/parser"
-	"github.com/Azure/agentbaker/node-bootstrapper/utils"
 )
 
 // Some options are intentionally non-configurable to avoid customization by users
@@ -70,35 +69,33 @@ func Run(ctx context.Context) error {
 func Monitor(ctx context.Context) error {
 	for {
 		// Check the active state of the unit
-		unitStatus, err := runSystemctlCommand("is-active", BootstrapService)
+		_, err := runSystemctlCommand(ctx, "is-active", "--quiet", BootstrapService)
+
+		// if service is inactive or failed, error code will be non-zero
+		if err == nil {
+			// Unit is still active, sleep for 3 seconds before checking again
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		exitStatus, err := runSystemctlCommand(ctx, "show", BootstrapService, "-p", "ExecMainStatus", "--value")
 		if err != nil {
-			return fmt.Errorf("systemctl is-active %s failed with %w", BootstrapService, err)
+			return fmt.Errorf("systemctl show %s -p ExecMainStatus --value failed with %w", BootstrapService, err)
 		}
 
-		// Check if the unit has completed
-		if unitStatus == "inactive" || unitStatus == "failed" || unitStatus == "active" {
-			exitStatus, err := runSystemctlCommand("show", BootstrapService, "-p", "ExecMainStatus", "--value")
-			if err != nil {
-				return fmt.Errorf("systemctl show %s -p ExecMainStatus --value failed with %w", BootstrapService, err)
-			}
-
-			statusOutput, err := runSystemctlCommand("status", BootstrapService)
-			if err != nil {
-				return fmt.Errorf("systemctl status %s failed with %w", BootstrapService, err)
-			}
-
-			// Convert exitStatus to an integer for exit code
-			exitCode := -1
-			fmt.Sscanf(exitStatus, "%d", &exitCode)
-			err = &utils.CustomExitError{
-				Code: exitCode,
-				Msg:  statusOutput,
-			}
-			return err
+		statusOutput, err := runSystemctlCommand(ctx, "status", BootstrapService)
+		if err != nil {
+			return fmt.Errorf("systemctl status %s failed with %w", BootstrapService, err)
 		}
 
-		// Sleep for 3 seconds before checking again
-		time.Sleep(3 * time.Second)
+		// Convert exitStatus to an integer for exit code
+		exitCode := -1
+		fmt.Sscanf(exitStatus, "%d", &exitCode)
+		err = &utils.CustomExitError{
+			Code: exitCode,
+			Msg:  statusOutput,
+		}
+		return err
 	}
 }
 
@@ -155,8 +152,8 @@ func provisionStart(ctx context.Context, cse utils.SensitiveString) error {
 }
 
 // runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
-func runSystemctlCommand(args ...string) (string, error) {
-	cmd := exec.Command("systemctl", args...)
+func runSystemctlCommand(ctx context.Context, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "systemctl", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
