@@ -400,6 +400,9 @@ testKubeBinariesPresent() {
       patchedK8sVersion=$(echo ${patchedK8sVersion} | cut -d"." -f1,2,3)
     fi
     k8sVersion=$(echo ${patchedK8sVersion} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    if grep -iq akslts <<<${patchedK8sVersion}; then
+      k8sVersion="$k8sVersion-akslts"
+    fi
     kubeletDownloadLocation="$binaryDir/kubelet-$k8sVersion"
     kubectlDownloadLocation="$binaryDir/kubectl-$k8sVersion"
     kubeletInstallLocation="/usr/local/bin/kubelet"
