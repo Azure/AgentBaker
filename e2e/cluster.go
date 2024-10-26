@@ -129,13 +129,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	t.Log("getting the node bootstrapping configuration for cluster")
-	clusterParams := extractClusterParameters(ctx, t, kube)
-
-	nbc, err := getBaseNodeBootstrappingConfiguration(clusterParams)
-	if err != nil {
-		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
-	}
+	nbc := getBaseNodeBootstrappingConfiguration(ctx, t, kube)
 
 	return &Cluster{
 		Model:                          cluster,
