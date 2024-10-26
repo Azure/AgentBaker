@@ -159,22 +159,29 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 }
 
 func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
-	logPath := "/var/log/azure/cluster-provision.log"
-	nbc := scenario.Runtime.NBC
-	clientPrivateKey := nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey
-	spSecret := nbc.ContainerService.Properties.ServicePrincipalProfile.Secret
-	bootstrapToken := *nbc.KubeletClientTLSBootstrapToken
-
+	var secrets map[string]string
 	b64Encoded := func(val string) string {
 		return base64.StdEncoding.EncodeToString([]byte(val))
 	}
-	return []*LiveVMValidator{
-		// Base64 encoded in baker.go (GetKubeletClientKey)
-		FileExcludesContentsValidator(logPath, b64Encoded(clientPrivateKey), "client private key"),
-		// Base64 encoded in baker.go (GetServicePrincipalSecret)
-		FileExcludesContentsValidator(logPath, b64Encoded(spSecret), "service principal secret"),
-		// Bootstrap token is already encoded so we don't need to
-		// encode it again here.
-		FileExcludesContentsValidator(logPath, bootstrapToken, "bootstrap token"),
+	if scenario.Runtime.NBC != nil {
+		secrets = map[string]string{
+			"client private key":       b64Encoded(scenario.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
+			"service principal secret": b64Encoded(scenario.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
+			"bootstrap token":          *scenario.Runtime.NBC.KubeletClientTLSBootstrapToken,
+		}
+	} else {
+		secrets = map[string]string{
+			"client private key":       b64Encoded(scenario.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
+			"service principal secret": b64Encoded(scenario.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
+			"bootstrap token":          scenario.Runtime.AKSNodeConfig.TlsBootstrappingConfig.TlsBootstrappingToken,
+		}
 	}
+
+	validators := make([]*LiveVMValidator, 0)
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/node-bootstrapper.log"} {
+		for secretName, secretValue := range secrets {
+			validators = append(validators, FileExcludesContentsValidator(logFile, secretValue, secretName))
+		}
+	}
+	return validators
 }
