@@ -14,7 +14,7 @@ type VHD struct {
 	ImageArch  string
 }
 
-// takes the json from vhd-publishing-info in order to get the VM information that we want
+// takes the json from x in order to get the VM information that we want
 func extractVHDInformation(jsonDir *string) ([]VHD, error) {
 	var vhdData []VHD
 

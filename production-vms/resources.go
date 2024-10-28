@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"production-vms/config"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -27,10 +28,12 @@ func createProductionVM(ctx context.Context, vhd VHD, subnetID string) error {
 		return fmt.Errorf("cannot create NIC: %v", err)
 	}
 
+	currentDate := time.Now().Format("2006-01-02")
 	vmParameters := armcompute.VirtualMachine{
 		Location: to.Ptr(config.Config.Location),
 		Tags: map[string]*string{
 			"SkipLinuxAzSecPack": to.Ptr("false"),
+			"CreationDate":       to.Ptr(currentDate),
 		},
 		Properties: &armcompute.VirtualMachineProperties{
 			HardwareProfile: &armcompute.HardwareProfile{
