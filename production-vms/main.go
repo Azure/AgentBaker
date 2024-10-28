@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to extract all VHD IDs: %v", err)
 	}
-	fmt.Printf("Found %d VHD IDs: %s\n", len(vhdData), vhdData)
+	fmt.Printf("Found %d VHD IDs: %v\n", len(vhdData), vhdData)
 
 	subnetID, err := setUpAzureResources(ctx)
 	if err != nil {

@@ -16,15 +16,15 @@ type VHD struct {
 }
 
 // takes the json from vhd-publishing-info in order to get the VM information that we want
-func extractVHDInformation(jsonDir *string) ([]VHD, error) {
-	var vhdData []VHD
+func extractVHDInformation(jsonDir *string) ([]*VHD, error) {
+	var vhdData []*VHD
 
 	err := filepath.Walk(*jsonDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if filepath.Ext(path) == ".json" {
+		if filepath.Ext(path) == ".json" && strings.Contains(path, "vhd-publishing-info") {
 			fmt.Println("Found JSON file:", path)
 
 			file, err := os.Open(path)
@@ -46,7 +46,7 @@ func extractVHDInformation(jsonDir *string) ([]VHD, error) {
 				curVHD.ImageArch = imageArch
 			}
 			curVHD.name = generateVMName(curVHD.resourceId)
-			vhdData = append(vhdData, curVHD)
+			vhdData = append(vhdData, &curVHD)
 		}
 		return nil
 	})
@@ -64,7 +64,7 @@ returns - testVM-yyyy-mm-dd-AzureLinuxV2gen2-1.1730016408.31319
 func generateVMName(resourceID string) string {
 	currentDate := time.Now().Format("2006-01-02")
 	parts := strings.Split(resourceID, "/")
-	imageName := parts[len(parts)-2]
+	imageName := parts[len(parts)-3]
 	version := parts[len(parts)-1]
 	vmName := fmt.Sprintf("testVM-%s-%s-%s", currentDate, imageName, version)
 	return vmName

@@ -12,7 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
-func createProductionVM(ctx context.Context, vhd VHD, subnetID string) error {
+func createProductionVM(ctx context.Context, vhd *VHD, subnetID string) error {
 	fmt.Printf("Creating VM %s in resource group %s\n", vhd.name, config.ResourceGroupName)
 
 	fmt.Printf("vhd resource: %s\n", vhd)
