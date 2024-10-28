@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type VHD struct {
@@ -14,7 +15,7 @@ type VHD struct {
 	ImageArch  string
 }
 
-// takes the json from x in order to get the VM information that we want
+// takes the json from vhd-publishing-info in order to get the VM information that we want
 func extractVHDInformation(jsonDir *string) ([]VHD, error) {
 	var vhdData []VHD
 
@@ -58,20 +59,13 @@ func extractVHDInformation(jsonDir *string) ([]VHD, error) {
 
 /*
 takes - /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2gen2/versions/1.1730016408.31319
-returns - testVM-AzureLinuxV2gen2-1.1730016408.31319
+returns - testVM-yyyy-mm-dd-AzureLinuxV2gen2-1.1730016408.31319
 */
 func generateVMName(resourceID string) string {
-	// todo(alburgess) - also put the date in the name for readability
+	currentDate := time.Now().Format("2006-01-02")
 	parts := strings.Split(resourceID, "/")
-	imageName := ""
-	version := ""
-	for i, part := range parts {
-		if part == "images" && i+2 < len(parts) {
-			imageName = parts[i+1]
-			version = parts[i+3]
-			break
-		}
-	}
-	vmName := fmt.Sprintf("testVM-%s-%s", imageName, version)
+	imageName := parts[len(parts)-2]
+	version := parts[len(parts)-1]
+	vmName := fmt.Sprintf("testVM-%s-%s-%s", currentDate, imageName, version)
 	return vmName
 }
