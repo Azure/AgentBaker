@@ -400,6 +400,9 @@ testKubeBinariesPresent() {
       patchedK8sVersion=$(echo ${patchedK8sVersion} | cut -d"." -f1,2,3)
     fi
     k8sVersion=$(echo ${patchedK8sVersion} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    if grep -iq akslts <<<${patchedK8sVersion}; then
+      k8sVersion="$k8sVersion-akslts"
+    fi
     kubeletDownloadLocation="$binaryDir/kubelet-$k8sVersion"
     kubectlDownloadLocation="$binaryDir/kubectl-$k8sVersion"
     kubeletInstallLocation="/usr/local/bin/kubelet"
@@ -961,64 +964,22 @@ testBccTools () {
   return 0
 }
 
-testNBCParserBinary () {
-  local test="testNBCParserBinary"
-  local go_binary_path="/opt/azure/containers/nbcparser"
+testNodeBootstrapperBinary () {
+  local test="testNodeBootstrapperBinary"
+  local go_binary_path="/opt/azure/containers/node-bootstrapper"
 
-  echo "$test: checking existence of nbcparser go binary at $go_binary_path"
+  echo "$test: checking existence of node-bootstrapper go binary at $go_binary_path"
   if [ ! -f "$go_binary_path" ]; then
-    err "$test: nbcparser go binary does not exist at $go_binary_path"
+    err "$test: node-bootstrapper go binary does not exist at $go_binary_path"
     return 1
   fi
-  echo "$test: nbcparser go binary exists at $go_binary_path"
-
-  file_path="config.json"
-  # define sample nbc content
-  nbc_content='{
-      "tls_bootstrapping_config": {
-          "enable_secure_tls_bootstrapping": false
-      },
-      "cluster_config": {
-          "vm_type": 2,
-          "cluster_network_config": {
-              "subnet": "aks-subnet"
-          },
-          "use_instance_metadata": true,
-          "load_balancer_config": {
-              "exclude_master_from_standard_load_balancer": true,
-              "max_load_balancer_rule_count": 250
-          }
-      },
-      "is_vhd": true,
-      "enable_ssh": true,
-      "gpu_config": {
-          "config_gpu_driver": true
-      },
-      "disable_custom_data": true
-  }'
-  echo -n "$nbc_content" > "$file_path"
-
-  errs=$($go_binary_path --bootstrap-config="$file_path" --test 2>/dev/null)
-  code=$?
-  if [ $code -ne 0 ]; then
-    err "$test: nbcparser go binary exited with code $code, stderr:\n$errs"
-    return 1
-  fi
-  echo "$test: nbcparser go binary ran successfully"
+  echo "$test: node-bootstrapper go binary exists at $go_binary_path"
 }
 
-testNBCParserService() {
+testNodeBootstrapperService() {
   local test="testNBCParserService"
   local service_name="bootstrap.service"
-  local script_path="/opt/azure/containers/bootstrap.sh"
   echo "$test:Start"
-
-  echo "$test: checking existence of nbcparser script invoked by systemd unit at $script_path"
-  if [ ! -f "$script_path" ]; then
-    err "$test: bootstrap.sh does not exist at $script_path"
-    return 1
-  fi
-  echo "$test: bootstrap.sh exists at $script_path"
 
   # is-enabled returns:
   # 'enabled' if the service is enabled.
@@ -1137,5 +1098,5 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
-testNBCParserBinary
-testNBCParserService
+testNodeBootstrapperBinary
+testNodeBootstrapperService

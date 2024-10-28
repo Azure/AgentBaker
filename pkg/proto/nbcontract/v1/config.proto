@@ -17,6 +17,7 @@ import "pkg/proto/nbcontract/v1/apiserverconfig.proto";
 import "pkg/proto/nbcontract/v1/tlsbootstrappingconfig.proto";
 import "pkg/proto/nbcontract/v1/clusterconfig.proto";
 import "pkg/proto/nbcontract/v1/networkconfig.proto";
+import "pkg/proto/nbcontract/v1/imdsrestrictionconfig.proto";
 
 enum WorkloadRuntime {
   WR_UNSPECIFIED = 0;
@@ -25,23 +26,23 @@ enum WorkloadRuntime {
 }
 
 message Configuration {
-  // Semantic version of this node bootstrap contract
+  // Version of configuration
   string version = 1;
 
-  // TLS bootstrap config 
-  TLSBootstrappingConfig tls_bootstrapping_config = 2;
-
   // Kube binary URL config
-  KubeBinaryConfig kube_binary_config = 3;
+  KubeBinaryConfig kube_binary_config = 2;
 
   // Custom cloud config
-  CustomCloudConfig custom_cloud_config = 4;
+  CustomCloudConfig custom_cloud_config = 3;
 
   // Kubernetes API server configuration
-  ApiServerConfig api_server_config = 5;
+  ApiServerConfig api_server_config = 4;
   
   // Various Kubernetes cluster level configuration
-  ClusterConfig cluster_config = 6;
+  ClusterConfig cluster_config = 5;
+
+  // TLS bootstrap config 
+  TLSBootstrappingConfig tls_bootstrapping_config = 6;
 
   // Authentication configuration
   AuthConfig auth_config = 7;
@@ -76,8 +77,8 @@ message Configuration {
   // Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server
   string kubernetes_ca_cert = 17;
 
-  // Cluster/user config
-  string kubernetes_version = 18; // Q: can this be auto-detected? Or is this part of specifying the desired node version?
+  // Kubernetes version
+  string kubernetes_version = 18;
 
   // Kube proxy URL
   string kube_proxy_url = 19;
@@ -122,26 +123,29 @@ message Configuration {
   // Command to use for outbound traffic
   string outbound_command = 31; 
 
-  // specifies whether to ensure no duplicate promiscuous bridge
-  bool ensure_no_dupe_promiscuous_bridge = 32; 
-
   // Azure private registry server URI
-  string azure_private_registry_server = 33;
+  string azure_private_registry_server = 32;
 
   //Private egress proxy address
-  string private_egress_proxy_address = 34;
+  string private_egress_proxy_address = 33;
 
   // Specifies whether artifact streaming is enabled or disabled on the VM node
-  bool enable_artifact_streaming = 35;
+  bool enable_artifact_streaming = 34;
 
-  // Specifies whether the node is a Kata node
-  bool is_kata = 36; 
+  // Specifies if it is a Kata node
+  bool is_kata = 35; 
 
   // Specifies whether the node needs cgroupv2.
   // Labeled as optional (explicit presence) so that we know whether it's set or not.
   // If it's not set, the default value will be nil and we will get the value on the VHD during bootstrapping.
-  optional bool needs_cgroupv2 = 37;
+  optional bool needs_cgroupv2 = 36;
 
   // Specified whether the node wants to disable custom data scripts for bootstrapping
-  bool disable_custom_data = 38;
+  bool disable_custom_data = 37;
+
+  // Bootstrap profile container registry server URI
+  string bootstrap_profile_container_registry_server = 38;
+
+  // IMDS restriction configuration
+  IMDSRestrictionConfig imds_restriction_config = 39;
 }

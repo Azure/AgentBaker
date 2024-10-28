@@ -64,6 +64,90 @@ Describe 'Get-KubePackage' {
     }
 }
 
+Describe 'Configure-KubeletServingCertificateRotation' {
+    BeforeEach {
+        Mock Logs-To-Event
+    }
+
+    It "Should no-op when EnableKubeletServingCertificateRotation is false" {
+        Mock Get-TagValue -MockWith { "false" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:EnableKubeletServingCertificateRotation = $false
+        Configure-KubeletServingCertificateRotation
+        Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
+        Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 0
+    }
+
+    It "Should reconfigure kubelet args to disable kubelet serving certificate rotation if opt-out tag is set" {
+        Mock Get-TagValue -MockWith { "true" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:EnableKubeletServingCertificateRotation = $true
+        Configure-KubeletServingCertificateRotation
+        Compare-Object $global:KubeletConfigArgs "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false" | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
+        Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 1
+    }
+
+    It "Should reconfigure kubelet args and node labels to disable kubelet serving certificate rotation if opt-out tag is set" {
+        Mock Get-TagValue -MockWith { "true" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:EnableKubeletServingCertificateRotation = $true
+        Configure-KubeletServingCertificateRotation
+        Compare-Object $global:KubeletConfigArgs "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false" | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels "kubernetes.azure.com/agentpool=wp0" | Should -Be $null
+        Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 1
+    }
+
+    It "Should no-op if kubelet args and node labels are already correct when the opt-out tag is set" {
+        Mock Get-TagValue -MockWith { "true" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:EnableKubeletServingCertificateRotation = $true
+        Configure-KubeletServingCertificateRotation
+        Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
+        Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 1
+    }
+
+    It "Should reconfigure kubelet node labels to enable kubelet serving certificate rotation if opt-out tag is not set" {
+        Mock Get-TagValue -MockWith { "false" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:EnableKubeletServingCertificateRotation = $true
+        Configure-KubeletServingCertificateRotation
+        Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" | Should -Be $null
+        Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 1
+    }
+
+    It "Should no-op if kubelet args and node labels are already correct when the opt-out tag is not set" {
+        Mock Get-TagValue -MockWith { "false" }
+        $kubeletConfigArgs = "--rotate-certificates=true,--rotate-server-certificates=true,--node-ip=10.0.0.1,anonymous-auth=false"
+        $kubeletNodeLabels = "kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster" 
+        $global:KubeletNodeLabels = $kubeletNodeLabels
+        $global:KubeletConfigArgs = $kubeletConfigArgs
+        $global:EnableKubeletServingCertificateRotation = $true
+        Configure-KubeletServingCertificateRotation
+        Compare-Object $global:KubeletConfigArgs $kubeletConfigArgs | Should -Be $null
+        Compare-Object $global:KubeletNodeLabels $kubeletNodeLabels | Should -Be $null
+        Assert-MockCalled -CommandName 'Get-TagValue' -Exactly -Times 1
+    }
+}
+
 Describe 'Disable-KubeletServingCertificateRotationForTags' {
     BeforeEach {
         Mock Logs-To-Event
@@ -146,44 +230,69 @@ Describe 'Get-TagValue' {
     }
 }
 
+Describe 'Add-KubeletNodeLabel' {
+    BeforeEach {
+        $global:KubeletNodeLabels = ""
+    }
+
+    It "Should perform a no-op when the specified label already exists within the label string" {
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+        Add-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
+    }
+
+    It "Should append the label when it does not already exist within the label string" {
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        Add-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
+    }
+}
+
 Describe 'Remove-KubeletNodeLabel' {
+    BeforeEach {
+        $global:KubeletNodeLabels = ""
+    }
     It "Should remove the specified label when it exists within the label string" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should remove the specified label when it is the first label within the label string" {
-        $labelString = "kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/kubelet-serving-ca=cluster,kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should remove the specified label when it is the last label within the label string" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should not alter the specified label string if the target label does not exist" {
-        $labelString = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/nodepool-type=VirtualMachineScaleSets,kubernetes.azure.com/agentpool=wp0"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
-        $expected = $labelString
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        $expected = $global:KubeletNodeLabels
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 
     It "Should return an empty string if the only label within the label string is the target" {
-        $labelString = "kubernetes.azure.com/kubelet-serving-ca=cluster"
+        $global:KubeletNodeLabels = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $label = "kubernetes.azure.com/kubelet-serving-ca=cluster"
         $expected = ""
-        $result = Remove-KubeletNodeLabel -KubeletNodeLabels $labelString -Label $label
-        Compare-Object $result $expected | Should -Be $null
+        Remove-KubeletNodeLabel -Label $label
+        Compare-Object $global:KubeletNodeLabels $expected | Should -Be $null
     }
 }

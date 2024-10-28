@@ -36,7 +36,12 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	} else {
 		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
 	}
-	return base64.StdEncoding.EncodeToString([]byte(customData))
+
+	if config.AgentPoolProfile.IsWindows() {
+		return base64.StdEncoding.EncodeToString([]byte(customData))
+	}
+
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -264,7 +269,8 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	return truncated
 }
 
-func validateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
+// ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
+func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
 	if config.KubeletConfig == nil {
 		return
 	}
@@ -372,7 +378,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.IsKubernetes() && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, version)
 		},
 		"GetAgentKubernetesLabels": func(profile *datamodel.AgentPoolProfile) string {
-			return GetAgentKubernetesLabels(profile, config)
+			return profile.GetKubernetesLabels()
 		},
 		"GetAgentKubernetesLabelsDeprecated": func(profile *datamodel.AgentPoolProfile) string {
 			return profile.GetKubernetesLabels()
@@ -910,13 +916,16 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return false
 		},
 		"GPUNeedsFabricManager": func() bool {
-			return gpuNeedsFabricManager(profile.VMSize)
+			return GPUNeedsFabricManager(profile.VMSize)
 		},
 		"GPUDriverVersion": func() string {
-			return getGPUDriverVersion(profile.VMSize)
+			return GetGPUDriverVersion(profile.VMSize)
 		},
 		"GPUImageSHA": func() string {
-			return getAKSGPUImageSHA(profile.VMSize)
+			return GetAKSGPUImageSHA(profile.VMSize)
+		},
+		"GPUDriverType": func() string {
+			return getGPUDriverType(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -1029,14 +1038,14 @@ func getPortRangeEndValue(portRange string) int {
 // they typically use GRID, not CUDA drivers, and will fail to install CUDA drivers.
 // NVv1 seems to run with CUDA, NVv5 requires GRID.
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
-func getGPUDriverVersion(size string) string {
+func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
-		return datamodel.Nvidia535GridDriverVersion
+		return datamodel.NvidiaGridDriverVersion
 	}
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.Nvidia550CudaDriverVersion
+	return datamodel.NvidiaCudaDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
@@ -1048,13 +1057,21 @@ func useGridDrivers(size string) bool {
 	return datamodel.ConvergedGPUDriverSizes[strings.ToLower(size)]
 }
 
-func getAKSGPUImageSHA(size string) string {
+func GetAKSGPUImageSHA(size string) string {
 	if useGridDrivers(size) {
-		return datamodel.AKSGPUGridSHA
+		return datamodel.AKSGPUGridVersionSuffix
 	}
-	return datamodel.AKSGPUCudaSHA
+	return datamodel.AKSGPUCudaVersionSuffix
 }
-func gpuNeedsFabricManager(size string) bool {
+
+func getGPUDriverType(size string) string {
+	if useGridDrivers(size) {
+		return "grid"
+	}
+	return "cuda"
+}
+
+func GPUNeedsFabricManager(size string) bool {
 	return datamodel.FabricManagerGPUSizes[strings.ToLower(size)]
 }
 

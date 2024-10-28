@@ -117,7 +117,7 @@ $global:KubeClusterCIDR = "10.240.0.0/16"
 $global:KubeServiceCIDR = "10.0.0.0/16"
 $global:VNetCIDR = "10.0.0.0/8"
 
-$global:KubeletNodeLabels = "agentpool=wpool2,kubernetes.azure.com/agentpool=wpool2,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111,kubernetes.azure.com/kubelet-serving-ca=cluster"
+$global:KubeletNodeLabels = "agentpool=wpool2,kubernetes.azure.com/agentpool=wpool2,kubernetes.azure.com/node-image-version=AKSWindows-2019-17763.1577.201111"
 
 $global:KubeletConfigArgs = @( "--address=0.0.0.0", "--anonymous-auth=false", "--authentication-token-webhook=true", "--authorization-mode=Webhook", "--azure-container-registry-config=c:\k\azure.json", "--cgroups-per-qos=false", "--client-ca-file=c:\k\ca.crt", "--cloud-config=c:\k\azure.json", "--cloud-provider=azure", "--cluster-dns=10.0.0.10", "--cluster-domain=cluster.local", "--enforce-node-allocatable=", "--event-qps=0", "--eviction-hard=", "--feature-gates=RotateKubeletServerCertificate=true", "--hairpin-mode=promiscuous-bridge", "--image-gc-high-threshold=85", "--image-gc-low-threshold=80", "--kube-reserved=cpu=100m,memory=1843Mi", "--kubeconfig=c:\k\config", "--max-pods=30", "--network-plugin=cni", "--node-status-update-frequency=10s", "--pod-infra-container-image=mcr.microsoft.com/oss/kubernetes/pause:3.9", "--pod-max-pids=-1", "--read-only-port=0", "--resolv-conf=""", "--rotate-certificates=false", "--rotate-server-certificates=true", "--streaming-connection-idle-timeout=4h", "--system-reserved=memory=2Gi", "--tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" )
 $global:KubeproxyConfigArgs = @( "--metrics-bind-address=0.0.0.0:10249" )
@@ -235,7 +235,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
-    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.48.zip"
+    $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.50.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
     # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
@@ -292,7 +292,7 @@ try
 
     # NOTE: this function MUST be called before Write-KubeClusterConfig since it has the potential
     # to mutate both kubelet config args and kubelet node labels.
-    Disable-KubeletServingCertificateRotationForTags
+    Configure-KubeletServingCertificateRotation
     
     Write-KubeClusterConfig -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp
 

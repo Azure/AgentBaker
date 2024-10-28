@@ -5,7 +5,6 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -15,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -30,41 +31,44 @@ const (
 	vmssNamePrefix                           = "abe2e"
 )
 
-func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
-	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc, opts.scenario.Config.NodeBootstrappingType)
+func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
+	cluster := scenario.Runtime.Cluster
+	t.Logf("creating VMSS %q in resource group %q", vmssName, *cluster.Model.Properties.NodeResourceGroup)
+	var nodeBootstrapping *datamodel.NodeBootstrapping
+	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
-
-	cse := nodeBootstrapping.CSE
-	if opts.scenario.CSEOverride != "" {
-		cse = opts.scenario.CSEOverride
-	}
-
-	customData := nodeBootstrapping.CustomData
-	if opts.scenario.DisableCustomData {
-		customData = ""
-	}
-
-	var model armcompute.VirtualMachineScaleSet
-	if opts.scriptless {
-		model = getBaseVMSSModelScriptless(t, vmssName, string(publicKeyBytes), opts)
+	if scenario.AKSNodeConfigMutator != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, scenario.Runtime.AKSNodeConfig, scenario.VHD.Distro, datamodel.AzurePublicCloud)
+		require.NoError(t, err)
 	} else {
-		model = getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
-	}
-
-	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
-	require.NoError(t, err, vmssName, opts)
-
-	if isAzureCNI {
-		err = addPodIPConfigsForAzureCNI(&model, vmssName, opts)
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, scenario.Runtime.NBC)
 		require.NoError(t, err)
 	}
 
-	opts.scenario.PrepareVMSSModel(ctx, t, &model)
+	cse := nodeBootstrapping.CSE
+	if scenario.CSEOverride != "" {
+		cse = scenario.CSEOverride
+	}
+	customData := nodeBootstrapping.CustomData
+	if scenario.DisableCustomData {
+		customData = ""
+	}
+
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, cluster)
+
+	isAzureCNI, err := cluster.IsAzureCNI()
+	require.NoError(t, err, "checking if cluster is using Azure CNI")
+
+	if isAzureCNI {
+		err = addPodIPConfigsForAzureCNI(&model, vmssName, cluster)
+		require.NoError(t, err)
+	}
+
+	scenario.PrepareVMSSModel(ctx, t, &model)
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
-		*opts.clusterConfig.Model.Properties.NodeResourceGroup,
+		*cluster.Model.Properties.NodeResourceGroup,
 		vmssName,
 		model,
 		nil,
@@ -72,7 +76,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, opts.clusterConfig, privateKeyBytes)
+		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes)
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
@@ -131,8 +135,8 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Clu
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
-func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
-	maxPodsPerNode, err := opts.clusterConfig.MaxPodsPerNode()
+func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, cluster *Cluster) error {
+	maxPodsPerNode, err := cluster.MaxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
@@ -143,7 +147,7 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
 			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 				Subnet: &armcompute.APIEntityReference{
-					ID: to.Ptr(opts.clusterConfig.SubnetID),
+					ID: to.Ptr(cluster.SubnetID),
 				},
 			},
 		}
@@ -248,89 +252,8 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModelScriptless(t *testing.T, name, sshPublicKey string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	nbc, err := json.Marshal(baseNodeBootstrappingContract(config.Config.Location, opts))
-	if err != nil {
-		require.NoError(t, err)
-		return armcompute.VirtualMachineScaleSet{}
-	}
-
-	customData := getScriptlessCustomDataTemplate(base64.StdEncoding.EncodeToString(nbc))
-	encodedCustomData := base64.StdEncoding.EncodeToString([]byte(customData))
-	return armcompute.VirtualMachineScaleSet{
-		Location: to.Ptr(config.Config.Location),
-		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_D2ds_v5"),
-			Capacity: to.Ptr[int64](1),
-		},
-		Properties: &armcompute.VirtualMachineScaleSetProperties{
-			Overprovision: to.Ptr(false),
-			UpgradePolicy: &armcompute.UpgradePolicy{
-				Mode: to.Ptr(armcompute.UpgradeModeManual),
-			},
-			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
-					ComputerNamePrefix: to.Ptr(name),
-					AdminUsername:      to.Ptr("azureuser"),
-					CustomData:         &encodedCustomData,
-					LinuxConfiguration: &armcompute.LinuxConfiguration{
-						SSH: &armcompute.SSHConfiguration{
-							PublicKeys: []*armcompute.SSHPublicKey{
-								{
-									KeyData: to.Ptr(sshPublicKey),
-									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
-								},
-							},
-						},
-					},
-				},
-				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
-					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
-						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-						DiskSizeGB:   to.Ptr(int32(512)),
-						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
-					},
-				},
-				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
-					NetworkInterfaceConfigurations: []*armcompute.VirtualMachineScaleSetNetworkConfiguration{
-						{
-							Name: to.Ptr(name),
-							Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
-								Primary:            to.Ptr(true),
-								EnableIPForwarding: to.Ptr(true),
-								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
-									{
-										Name: to.Ptr(fmt.Sprintf("%s0", name)),
-										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
-											Primary: to.Ptr(true),
-											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
-												{
-													ID: to.Ptr(
-														fmt.Sprintf(
-															loadBalancerBackendAddressPoolIDTemplate,
-															config.Config.SubscriptionID,
-															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
-														),
-													),
-												},
-											},
-											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(opts.clusterConfig.SubnetID),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cluster) armcompute.VirtualMachineScaleSet {
-	return armcompute.VirtualMachineScaleSet{
+	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_D2ds_v5"),
@@ -342,23 +265,6 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
-					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-						{
-							Name: to.Ptr("vmssCSE"),
-							Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-								Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-								Type:                    to.Ptr("CustomScript"),
-								TypeHandlerVersion:      to.Ptr("2.0"),
-								AutoUpgradeMinorVersion: to.Ptr(true),
-								Settings:                map[string]interface{}{},
-								ProtectedSettings: map[string]interface{}{
-									"commandToExecute": cseCmd,
-								},
-							},
-						},
-					},
-				},
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
@@ -417,6 +323,26 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 			},
 		},
 	}
+	if cseCmd != "" {
+		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
+			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+				{
+					Name: to.Ptr("vmssCSE"),
+					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+						Type:                    to.Ptr("CustomScript"),
+						TypeHandlerVersion:      to.Ptr("2.0"),
+						AutoUpgradeMinorVersion: to.Ptr(true),
+						Settings:                map[string]interface{}{},
+						ProtectedSettings: map[string]interface{}{
+							"commandToExecute": cseCmd,
+						},
+					},
+				},
+			},
+		}
+	}
+	return model
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

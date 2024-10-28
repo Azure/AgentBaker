@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -109,21 +110,21 @@ type Scenario struct {
 
 	// Config contains the configuration of the scenario
 	Config
+
+	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
+	Runtime *ScenarioRuntime
 }
 
-type NodeBootstrappingType string
-
-const (
-	CustomScripts NodeBootstrappingType = "CustomScripts"
-	Scriptless    NodeBootstrappingType = "Scriptless"
-)
+type ScenarioRuntime struct {
+	NBC           *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig *nbcontractv1.Configuration
+	Cluster       *Cluster
+}
 
 // Config represents the configuration of an AgentBaker E2E scenario
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
-
-	NodeBootstrappingType NodeBootstrappingType
 
 	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
 	VHD *config.Image
@@ -131,13 +132,15 @@ type Config struct {
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 
+	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
+	AKSNodeConfigMutator func(*nbcontractv1.Configuration)
+
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators []*LiveVMValidator
-
+	LiveVMValidators  []*LiveVMValidator
 	CSEOverride       string
 	DisableCustomData bool
 }
@@ -169,19 +172,8 @@ type LiveVMValidator struct {
 	IsPodNetwork bool
 }
 
-// PrepareNodeBootstrappingConfiguration mutates the input NodeBootstrappingConfiguration by calling the
-// scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
-	// avoid mutating cluster config
-	nbcAny, err := deepcopy.Anything(nbc)
-	if err != nil {
-		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
-	}
-	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-	}
-	return nbc, nil
+func (s *Scenario) PrepareAKSNodeConfig() {
+
 }
 
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
@@ -221,4 +213,46 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+}
+
+func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
+	cluster, err := s.Config.Cluster(ctx, t)
+	require.NoError(t, err)
+
+	s.Runtime = &ScenarioRuntime{
+		Cluster: cluster,
+	}
+
+	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
+		t.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+	}
+
+	if s.BootstrapConfigMutator != nil {
+		nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
+		require.NoError(t, err)
+		nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+		s.BootstrapConfigMutator(nbc)
+		s.Runtime.NBC = nbc
+	}
+	if s.AKSNodeConfigMutator != nil {
+		configAny, err := deepcopy.Anything(cluster.AKSNodeConfig)
+		require.NoError(t, err)
+		config := configAny.(*nbcontractv1.Configuration)
+		s.AKSNodeConfigMutator(config)
+		s.Runtime.AKSNodeConfig = config
+	}
+}
+
+// scenario's BootstrapConfigMutator on it, if configured.
+func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+	// avoid mutating cluster config
+	nbcAny, err := deepcopy.Anything(nbc)
+	if err != nil {
+		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
+	}
+	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+	if s.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator(nbc)
+	}
+	return nbc, nil
 }

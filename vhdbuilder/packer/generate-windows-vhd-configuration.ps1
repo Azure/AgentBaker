@@ -1,6 +1,15 @@
 # MUST define global variable with "global"
 # This script is used to generate shared configuration for configure-windows-vhd.ps1 and windows-vhd-content-test.ps1.
 # MUST NOT add any shared functions in this script.
+
+param(
+    [string]
+    $windowsSKUParam
+)
+if (![string]::IsNullOrEmpty($windowsSKUParam)) {
+    $env:WindowsSKU = $windowsSKUParam
+}
+
 $windowsConfig = @'
 $global:windowsSKU = $env:WindowsSKU
 $validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
@@ -103,12 +112,14 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.4-windows-hp", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.0-windows-hp", # for k8s 1.31.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.13-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.8-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.5-windows-hp", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.0-windows-hp", # for k8s 1.31.x
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
@@ -143,9 +154,9 @@ $global:imagesToPull += @(
 $global:map = @{
     "c:\akse-cache\"              = @(
         "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.45.zip",
         "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.46.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip",
+        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -180,22 +191,20 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.14-hotfix.20240712/windowszip/v1.27.14-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.15-hotfix.20240712/windowszip/v1.27.15-hotfix.20240712-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.27.16/windowszip/v1.27.16-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.11-hotfix.20240712/windowszip/v1.28.11-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.12/windowszip/v1.28.12-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.27.100-akslts/windowszip/v1.27.100-akslts-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.13/windowszip/v1.28.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.14/windowszip/v1.28.14-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.6-hotfix.20240712/windowszip/v1.29.6-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.7/windowszip/v1.29.7-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.8/windowszip/v1.29.8-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.9/windowszip/v1.29.9-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.2-hotfix.20240712/windowszip/v1.30.2-hotfix.20240712-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.3/windowszip/v1.30.3-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.10/windowszip/v1.29.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.4/windowszip/v1.30.4-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.6/windowszip/v1.30.6-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.2/windowszip/v1.31.2-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)

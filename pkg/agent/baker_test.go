@@ -349,7 +349,20 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
 		)
 		Expect(err).To(BeNil())
-		customDataBytes, err := base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
+
+		var customDataBytes []byte
+		if config.AgentPoolProfile.IsWindows() {
+			customDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
+			Expect(err).To(BeNil())
+		} else {
+			var zippedDataBytes []byte
+			// try to unzip the bytes. If this fails then the custom data was not zipped. And it should be due to customdata size limitations.
+			zippedDataBytes, err = base64.StdEncoding.DecodeString(nodeBootstrapping.CustomData)
+			Expect(err).To(BeNil())
+			customDataBytes, err = getGzipDecodedValue(zippedDataBytes)
+			Expect(err).To(BeNil())
+		}
+
 		customData := string(customDataBytes)
 		Expect(err).To(BeNil())
 
@@ -1998,19 +2011,19 @@ func getValueWithoutQuotes(value string) string {
 }
 
 //lint:ignore U1000 this is used for test helpers in the future
-func getGzipDecodedValue(data []byte) (string, error) {
+func getGzipDecodedValue(data []byte) ([]byte, error) {
 	reader := bytes.NewReader(data)
 	gzipReader, err := gzip.NewReader(reader)
 	if err != nil {
-		return "", fmt.Errorf("failed to create gzip reader: %w", err)
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 
 	output, err := io.ReadAll(gzipReader)
 	if err != nil {
-		return "", fmt.Errorf("read from gzipped buffered string: %w", err)
+		return nil, fmt.Errorf("read from gzipped buffered string: %w", err)
 	}
 
-	return string(output), nil
+	return output, nil
 }
 
 func getBase64DecodedValue(data []byte) (string, error) {
@@ -2043,7 +2056,12 @@ func verifyCertsEncoding(cert string) error {
 func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error) {
 	var customData cloudInit
 
-	if err := yaml.Unmarshal(data, &customData); err != nil {
+	decodedCse, err := getGzipDecodedValue(data)
+	if err != nil {
+		decodedCse = data
+	}
+
+	if err := yaml.Unmarshal(decodedCse, &customData); err != nil {
 		return nil, err
 	}
 
@@ -2059,7 +2077,7 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode gzip value: %q with error %w", maybeEncodedValue, err)
 				}
-				maybeEncodedValue = output
+				maybeEncodedValue = string(output)
 				encoding = cseVariableEncodingGzip
 			}
 		}
@@ -2118,28 +2136,43 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 	})
 })
 
-var _ = Describe("getGPUDriverVersion", func() {
+var _ = Describe("GetGPUDriverVersion", func() {
 	It("should use 470 with nc v1", func() {
-		Expect(getGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6")).To(Equal(datamodel.Nvidia470CudaDriverVersion))
 	})
 	It("should use cuda with nc v3", func() {
-		Expect(getGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nc6_v3")).To(Equal(datamodel.NvidiaCudaDriverVersion))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(getGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
-		Expect(getGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.Nvidia535GridDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6ads_a10_v5")).To(Equal(datamodel.NvidiaGridDriverVersion))
+		Expect(GetGPUDriverVersion("Standard_nv36adms_A10_V5")).To(Equal(datamodel.NvidiaGridDriverVersion))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(getGPUDriverVersion("standard_nv6")).To(Equal(datamodel.Nvidia550CudaDriverVersion))
+		Expect(GetGPUDriverVersion("standard_nv6")).To(Equal(datamodel.NvidiaCudaDriverVersion))
 	})
 })
 
-var _ = Describe("getAKSGPUImageSHA", func() {
-	It("should use newest AKSGPUGridSHA with nv v5", func() {
-		Expect(getAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridSHA))
+var _ = Describe("getGPUDriverType", func() {
+
+	It("should use cuda with nc v3", func() {
+		Expect(getGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
 	})
-	It("should use newest AKSGPUCudaSHA with non grid SKU", func() {
-		Expect(getAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaSHA))
+	It("should use grid with nv v5", func() {
+		Expect(getGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(getGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+	})
+	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
+	It("should use cuda with nv v1", func() {
+		Expect(getGPUDriverType("standard_nv6")).To(Equal("cuda"))
+	})
+})
+
+var _ = Describe("GetAKSGPUImageSHA", func() {
+	It("should use newest AKSGPUGridVersionSuffix with nv v5", func() {
+		Expect(GetAKSGPUImageSHA("standard_nv6ads_a10_v5")).To(Equal(datamodel.AKSGPUGridVersionSuffix))
+	})
+	It("should use newest AKSGPUCudaVersionSuffix with non grid SKU", func() {
+		Expect(GetAKSGPUImageSHA("standard_nc6_v3")).To(Equal(datamodel.AKSGPUCudaVersionSuffix))
 	})
 })
