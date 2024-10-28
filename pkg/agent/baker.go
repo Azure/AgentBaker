@@ -1040,12 +1040,12 @@ func getPortRangeEndValue(portRange string) int {
 // NVv3 is untested on AKS, NVv4 is AMD so n/a, and NVv2 no longer seems to exist (?).
 func GetGPUDriverVersion(size string) string {
 	if useGridDrivers(size) {
-		return datamodel.Nvidia535GridDriverVersion
+		return datamodel.NvidiaGridDriverVersion
 	}
 	if isStandardNCv1(size) {
 		return datamodel.Nvidia470CudaDriverVersion
 	}
-	return datamodel.Nvidia550CudaDriverVersion
+	return datamodel.NvidiaCudaDriverVersion
 }
 
 func isStandardNCv1(size string) bool {
