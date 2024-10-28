@@ -7,13 +7,6 @@ import (
 	"os"
 )
 
-// Some options are intentionally non-configurable to avoid customization by users
-// it will help us to avoid introducing any breaking changes in the future.
-const (
-	LogFile          = "/var/log/azure/node-bootstrapper.log"
-	BootstrapService = "bootstrap.service"
-)
-
 func main() {
 	logFile, err := os.OpenFile(LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {

@@ -133,6 +133,7 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	require.NoError(t, err)
 
 	err = getCustomScriptExtensionStatus(ctx, t, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
+	require.NoError(t, err)
 
 	t.Logf("node %s bootstrapping succeeded!", vmssName)
 }

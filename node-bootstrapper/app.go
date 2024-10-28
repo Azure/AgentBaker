@@ -107,14 +107,14 @@ func (a *App) provisionStart(ctx context.Context, cse utils.SensitiveString) err
 // usage example:
 // node-bootstrapper monitor
 func (a *App) Monitor(ctx context.Context) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
 	for {
 		select {
 		case <-timeoutCtx.Done():
 			// If the timeout or cancel occurs, exit with a timeout error
-			return fmt.Errorf("monitoring timed out: %s still active after 5 minutes", BootstrapService)
+			return fmt.Errorf("monitoring timed out: %s still active after 15 minutes", BootstrapService)
 		default:
 			// Check the active state of the unit
 			_, err := a.runSystemctlCommand(ctx, "status", BootstrapService)
@@ -149,10 +149,8 @@ func (a *App) runSystemctlCommand(ctx context.Context, args ...string) (string, 
 
 // getProvisionJSON returns the contents of provision.json containing bootstrap status info
 func (a *App) getProvisionJSON() (string, error) {
-	filePath := "/var/log/azure/aks/provision.json"
-
 	// Read the file contents
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(ProvisionJSONFilePath)
 	if err != nil {
 		return "", err
 	}
