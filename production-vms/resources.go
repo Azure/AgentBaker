@@ -128,7 +128,7 @@ func createSubnet(ctx context.Context, vnetName, subnetName string) (string, err
 	fmt.Printf("Creating subnet %s in VNet %s\n", subnetName, vnetName)
 	subnetParams := armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: to.Ptr("10.0.1.0/24"), // Adjust your subnet prefix as needed
+			AddressPrefix: to.Ptr("10.0.1.0/24"),
 		},
 	}
 
