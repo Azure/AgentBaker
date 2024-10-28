@@ -37,7 +37,7 @@ func main() {
 
 	ctx := context.Background()
 	err = Run(ctx)
-	exitCode := utils.ErrToExitCode(err)
+	exitCode := errToExitCode(err)
 
 	if exitCode == 0 {
 		slog.Info("node-bootstrapper finished successfully")
@@ -47,6 +47,18 @@ func main() {
 
 	_ = logFile.Close()
 	os.Exit(exitCode)
+}
+
+func errToExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	return 1
+
 }
 
 func Run(ctx context.Context) error {
@@ -77,7 +89,7 @@ func Monitor(ctx context.Context) error {
 			return fmt.Errorf("monitoring timed out: %s still active after 5 minutes", BootstrapService)
 		default:
 			// Check the active state of the unit
-			statusOutput, err := runSystemctlCommand(ctx, "status", BootstrapService)
+			_, err := runSystemctlCommand(ctx, "status", BootstrapService)
 
 			// if service is inactive or failed, error code will be non-zero
 			if err == nil {
@@ -86,19 +98,13 @@ func Monitor(ctx context.Context) error {
 				continue
 			}
 
-			exitStatus, err := runSystemctlCommand(ctx, "show", BootstrapService, "-p", "ExecMainStatus", "--value")
+			provisionJSON, err := getProvisionJSON()
 			if err != nil {
-				return fmt.Errorf("systemctl show %s -p ExecMainStatus --value failed with %w", BootstrapService, err)
+				return fmt.Errorf("error getting provision.json output, %w", err)
 			}
-
-			// Convert exitStatus to an integer for exit code
-			exitCode := -1
-			fmt.Sscanf(exitStatus, "%d", &exitCode)
-			err = &utils.CustomExitError{
-				Code: exitCode,
-				Msg:  statusOutput,
-			}
-			return err
+			// print to stdout so it will be returned by custom script extension
+			fmt.Println(provisionJSON)
+			return nil
 		}
 	}
 }
@@ -163,4 +169,16 @@ func runSystemctlCommand(ctx context.Context, args ...string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// getProvisionJSON returns the contents of provision.json containing bootstrap status info
+func getProvisionJSON() (string, error) {
+	filePath := "/var/log/azure/aks/provision.json"
+
+	// Read the file contents
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

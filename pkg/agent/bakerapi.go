@@ -101,7 +101,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	}
 
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CSE:        cseBootstrapStatusScript,
+		CSE:        scriptlessBootstrapStatusCSE,
 		CustomData: customData,
 	}
 
