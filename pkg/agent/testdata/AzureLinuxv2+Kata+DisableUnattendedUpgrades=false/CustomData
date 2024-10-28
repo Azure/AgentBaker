@@ -72,7 +72,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAC/wEAAP//AAAAAAAAAAA=
+    H4sIAAAAAAAC/6qu5VJ29XfjAgQAAP//mfanrwgAAAA=
 
 - path: /opt/azure/containers/init-aks-custom-cloud.sh
   permissions: "0744"
