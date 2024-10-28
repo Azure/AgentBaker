@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -39,6 +40,7 @@ type Cluster struct {
 	Kube                           *Kubeclient
 	SubnetID                       string
 	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig                  *nbcontractv1.Configuration
 	Maintenance                    *armcontainerservice.MaintenanceConfiguration
 }
 
@@ -85,20 +87,6 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
-func nodeBootstrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
-	if err != nil {
-		return nil, fmt.Errorf("extract cluster parameters: %w", err)
-	}
-
-	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
-	if err != nil {
-		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
-	}
-
-	return baseNodeBootstrappingConfig, nil
-}
-
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 
@@ -141,14 +129,16 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	// nodeBootstrappingConfig requires the debug deamonset to already be created
-	t.Log("getting the node bootstrapping configuration for cluster")
-	nbc, err := nodeBootstrappingConfig(ctx, t, kube)
-	if err != nil {
-		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
-	}
+	nbc := getBaseNodeBootstrappingConfiguration(ctx, t, kube)
 
-	return &Cluster{Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc, Maintenance: maintenance}, nil
+	return &Cluster{
+		Model:                          cluster,
+		Kube:                           kube,
+		SubnetID:                       subnetID,
+		NodeBootstrappingConfiguration: nbc,
+		Maintenance:                    maintenance,
+		AKSNodeConfig:                  nbcToNbcContractV1(nbc), // TODO: replace with base template
+	}, nil
 }
 
 func hash(cluster *armcontainerservice.ManagedCluster) string {
@@ -357,6 +347,16 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 	return rgExistence.Success, nil
 }
 
+var rgOnce sync.Once
+
+func ensureResourceGroupOnce(ctx context.Context) {
+	rgOnce.Do(func() {
+		err := ensureResourceGroup(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
+}
 func ensureResourceGroup(ctx context.Context) error {
 	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
 	if err != nil {
