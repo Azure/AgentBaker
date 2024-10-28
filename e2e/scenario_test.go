@@ -532,6 +532,7 @@ func Test_ubuntu1804(t *testing.T) {
 				mobyComponentVersionValidator("containerd", expected1804ContainredVersion, "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0], "apt"),
 			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 		},
 	})
 }
