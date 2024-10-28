@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,31 +50,14 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
-var scenarioOnce sync.Once
-
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
 	cleanTestDir(t)
-	scenarioOnce.Do(func() {
-		err := ensureResourceGroup(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
+	ensureResourceGroupOnce(ctx)
 	maybeSkipScenario(ctx, t, s)
-
-	model, err := s.Cluster(ctx, t)
-	require.NoError(t, err, "creating AKS cluster")
-
-	nbc, err := s.PrepareNodeBootstrappingConfiguration(model.NodeBootstrappingConfiguration)
-	require.NoError(t, err)
-
-	executeScenario(ctx, t, &scenarioRunOpts{
-		clusterConfig: model,
-		scenario:      s,
-		nbc:           nbc,
-	})
+	s.PrepareRuntime(ctx, t)
+	createAndValidateVM(ctx, t, s)
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -113,32 +96,36 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
 }
 
-func executeScenario(ctx context.Context, t *testing.T, opts *scenarioRunOpts) {
-	rid, _ := opts.scenario.VHD.VHDResourceID(ctx, t)
-	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *opts.clusterConfig.Model.ID)
+func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) {
+	rid, _ := scenario.VHD.VHDResourceID(ctx, t)
+
+	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *scenario.Runtime.Cluster.Model.ID)
 
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
 	assert.NoError(t, err)
 
 	vmssName := getVmssName(t)
-	createVMSS(ctx, t, vmssName, opts, privateKeyBytes, publicKeyBytes)
+	createVMSS(ctx, t, vmssName, scenario, privateKeyBytes, publicKeyBytes)
 
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-	nodeName := validateNodeHealth(ctx, t, opts.clusterConfig.Kube, vmssName, opts.scenario.Tags.Airgap)
+	nodeName := validateNodeHealth(ctx, t, scenario.Runtime.Cluster.Kube, vmssName, scenario.Tags.Airgap)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
-	if opts.nbc.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && (opts.nbc.OutboundType != datamodel.OutboundTypeBlock && opts.nbc.OutboundType != datamodel.OutboundTypeNone) {
-		validateWasm(ctx, t, opts.clusterConfig.Kube, nodeName)
+	if scenario.Runtime.NBC != nil && scenario.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
+		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	}
+	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == nbcontractv1.WorkloadRuntime_WASM_WASI {
+		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
 	}
 
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
 	require.NoError(t, err)
 
 	require.NoError(t, err, "get vm private IP %v", vmssName)
-	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
+	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
 	require.NoError(t, err)
 
 	t.Logf("node %s bootstrapping succeeded!", vmssName)
