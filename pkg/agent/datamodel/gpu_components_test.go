@@ -47,5 +47,4 @@ func TestLoadConfig(t *testing.T) {
 	if !suffixPattern.MatchString(AKSGPUGridVersionSuffix) {
 		t.Errorf("AKSGPUGridVersionSuffix '%s' does not match expected format", AKSGPUGridVersionSuffix)
 	}
-
 }
