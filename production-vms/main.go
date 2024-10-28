@@ -57,12 +57,4 @@ func setUpAzureResources(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to create subnet: %v", err)
 	}
 	return subNetID, nil
-	/*
-		nicName := "alison-test-nic"
-		nicID, err := createNetworkInterface(ctx, nicName, subNetID)
-		if err != nil {
-			return "", fmt.Errorf("failed to create network interface: %v", err)
-		}
-		return nicID, nil
-	*/
 }

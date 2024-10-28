@@ -14,6 +14,7 @@ type VHD struct {
 	ImageArch  string
 }
 
+// takes the json from vhd-publishing-info in order to get the VM information that we want
 func extractVHDInformation(jsonDir *string) ([]VHD, error) {
 	var vhdData []VHD
 
@@ -60,14 +61,14 @@ takes - /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvh
 returns - testVM-AzureLinuxV2gen2-1.1730016408.31319
 */
 func generateVMName(resourceID string) string {
-	// todo(alburgess) - also put the date in the name for readability 
+	// todo(alburgess) - also put the date in the name for readability
 	parts := strings.Split(resourceID, "/")
 	imageName := ""
 	version := ""
 	for i, part := range parts {
 		if part == "images" && i+2 < len(parts) {
-			imageName = parts[i+1] // Image name is the element after "images"
-			version = parts[i+3]   // Version is the element after "versions"
+			imageName = parts[i+1]
+			version = parts[i+3]
 			break
 		}
 	}
