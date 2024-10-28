@@ -66,18 +66,6 @@
 			"default": "1.1.12"
 		}
     },
-    "nvidia-container-runtime": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": [],
-    },
-    "nvidia-drivers": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": [],
-    },
     "_template": {
         "fileName": "",
         "downloadLocation": "",
