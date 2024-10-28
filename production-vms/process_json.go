@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func extract_all_vhd_ids(jsonDir *string) ([]string, error) {
+func extractVHDIDs(jsonDir *string) ([]string, error) {
 	var vhdIDs []string
 
 	err := filepath.Walk(*jsonDir, func(path string, info os.FileInfo, err error) error {

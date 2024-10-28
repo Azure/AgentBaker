@@ -22,7 +22,7 @@ func main() {
 		fmt.Println("No JSON directory provided.")
 		return
 	}
-	vhdIDs, err := extract_all_vhd_ids(jsonDir)
+	vhdIDs, err := extractVHDIDs(jsonDir)
 	if err != nil {
 		log.Fatalf("failed to extract all VHD IDs: %v", err)
 	}
