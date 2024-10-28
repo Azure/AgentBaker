@@ -11,30 +11,45 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 )
 
-// create a main_test.go in order to test this function
+func createProductionVM(ctx context.Context, vhd VHD, subnetID string) error {
+	fmt.Printf("Creating VM %s in resource group %s\n", vhd.name, config.ResourceGroupName)
 
-func createProductionVM(ctx context.Context, imageResourceID, nicID, vmName string) error {
-	fmt.Printf("Creating VM %s in resource group %s\n", vmName, config.ResourceGroupName)
+	fmt.Printf("vhd resource: %s\n", vhd)
+
+	vmSize := "Standard_D8ds_v5"
+	if vhd.ImageArch == "Arm64" {
+		vmSize = "Standard_D8pds_v5"
+	}
+
+	// create unique NIC for VM
+	nicID, err := createNetworkInterface(ctx, vhd.name+"-nic", subnetID)
+	if err != nil {
+		return fmt.Errorf("cannot create NIC: %v", err)
+	}
+
 	vmParameters := armcompute.VirtualMachine{
 		Location: to.Ptr(config.Config.Location),
+		Tags: map[string]*string{
+			"SkipLinuxAzSecPack": to.Ptr("false"),
+		},
 		Properties: &armcompute.VirtualMachineProperties{
 			HardwareProfile: &armcompute.HardwareProfile{
-				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes("Standard_D8pds_v5")),
+				VMSize: to.Ptr(armcompute.VirtualMachineSizeTypes(vmSize)),
 			},
 			StorageProfile: &armcompute.StorageProfile{
 				// Use the managed image reference
 				ImageReference: &armcompute.ImageReference{
-					ID: to.Ptr(imageResourceID),
+					ID: to.Ptr(vhd.resourceId),
 				},
 				OSDisk: &armcompute.OSDisk{
-					Name:         to.Ptr("myVM-osdisk"),
+					Name:         to.Ptr(vhd.name + "-osdisk"),
 					CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 				},
 			},
 			OSProfile: &armcompute.OSProfile{
-				ComputerName:  to.Ptr(vmName),
+				ComputerName:  to.Ptr(vhd.name),
 				AdminUsername: to.Ptr("azureuser"),
-				AdminPassword: to.Ptr("YourPassword123!"),
+				AdminPassword: to.Ptr("Azure123!"),
 			},
 			NetworkProfile: &armcompute.NetworkProfile{
 				NetworkInterfaces: []*armcompute.NetworkInterfaceReference{
@@ -45,9 +60,8 @@ func createProductionVM(ctx context.Context, imageResourceID, nicID, vmName stri
 			},
 		},
 	}
-	fmt.Printf("Finished creating the params, about to create the VM\n")
 
-	pollerResp, err := config.Azure.VirtualMachinesClient.BeginCreateOrUpdate(ctx, config.ResourceGroupName, vmName, vmParameters, nil)
+	pollerResp, err := config.Azure.VirtualMachinesClient.BeginCreateOrUpdate(ctx, config.ResourceGroupName, vhd.name, vmParameters, nil)
 	if err != nil {
 		return fmt.Errorf("cannot create VM: %v", err)
 	}
@@ -56,7 +70,7 @@ func createProductionVM(ctx context.Context, imageResourceID, nicID, vmName stri
 		return fmt.Errorf("cannot get the VM to create or update due to: %v", err)
 	}
 
-	fmt.Printf("VM %s created successfully\n", vmName)
+	fmt.Printf("VM %s created successfully\n", vhd.name)
 	return nil
 }
 

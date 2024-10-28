@@ -5,10 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-func extractVHDIDs(jsonDir *string) ([]string, error) {
-	var vhdIDs []string
+type VHD struct {
+	name       string
+	resourceId string
+	ImageArch  string
+}
+
+func extractVHDInformation(jsonDir *string) ([]VHD, error) {
+	var vhdData []VHD
 
 	err := filepath.Walk(*jsonDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -29,9 +36,15 @@ func extractVHDIDs(jsonDir *string) ([]string, error) {
 				return fmt.Errorf("failed to decode JSON: %w", err)
 			}
 
-			if vhdURL, ok := data["captured_sig_resource_id"].(string); ok {
-				vhdIDs = append(vhdIDs, vhdURL)
+			curVHD := VHD{}
+			if vhdID, ok := data["captured_sig_resource_id"].(string); ok {
+				curVHD.resourceId = vhdID
 			}
+			if imageArch, ok := data["image_architecture"].(string); ok {
+				curVHD.ImageArch = imageArch
+			}
+			curVHD.name = generateVMName(curVHD.resourceId)
+			vhdData = append(vhdData, curVHD)
 		}
 		return nil
 	})
@@ -39,5 +52,25 @@ func extractVHDIDs(jsonDir *string) ([]string, error) {
 		return nil, err
 	}
 
-	return vhdIDs, nil
+	return vhdData, nil
+}
+
+/*
+takes - /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2gen2/versions/1.1730016408.31319
+returns - testVM-AzureLinuxV2gen2-1.1730016408.31319
+*/
+func generateVMName(resourceID string) string {
+	// todo(alburgess) - also put the date in the name for readability 
+	parts := strings.Split(resourceID, "/")
+	imageName := ""
+	version := ""
+	for i, part := range parts {
+		if part == "images" && i+2 < len(parts) {
+			imageName = parts[i+1] // Image name is the element after "images"
+			version = parts[i+3]   // Version is the element after "versions"
+			break
+		}
+	}
+	vmName := fmt.Sprintf("testVM-%s-%s", imageName, version)
+	return vmName
 }

@@ -22,20 +22,22 @@ func main() {
 		fmt.Println("No JSON directory provided.")
 		return
 	}
-	vhdIDs, err := extractVHDIDs(jsonDir)
+	vhdData, err := extractVHDInformation(jsonDir)
 	if err != nil {
 		log.Fatalf("failed to extract all VHD IDs: %v", err)
 	}
-	fmt.Printf("Found %d VHD IDs: %s\n", len(vhdIDs), vhdIDs)
+	fmt.Printf("Found %d VHD IDs: %s\n", len(vhdData), vhdData)
 
-	nicID, err := setUpAzureResources(ctx)
+	subnetID, err := setUpAzureResources(ctx)
 	if err != nil {
 		log.Fatalf("failed to set up azure resources: %v", err)
 	}
 
-	err = createProductionVM(ctx, vhdIDs[0], nicID, "alison-test-production-vm")
-	if err != nil {
-		log.Fatalf("failed to create production VM: %v", err)
+	for _, vhd := range vhdData {
+		err = createProductionVM(ctx, vhd, subnetID)
+		if err != nil {
+			log.Fatalf("failed to create production VM: %v", err)
+		}
 	}
 }
 
@@ -54,11 +56,13 @@ func setUpAzureResources(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create subnet: %v", err)
 	}
-
-	nicName := "alison-test-nic"
-	nicID, err := createNetworkInterface(ctx, nicName, subNetID)
-	if err != nil {
-		return "", fmt.Errorf("failed to create network interface: %v", err)
-	}
-	return nicID, nil
+	return subNetID, nil
+	/*
+		nicName := "alison-test-nic"
+		nicID, err := createNetworkInterface(ctx, nicName, subNetID)
+		if err != nil {
+			return "", fmt.Errorf("failed to create network interface: %v", err)
+		}
+		return nicID, nil
+	*/
 }
