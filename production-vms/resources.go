@@ -100,7 +100,7 @@ func createVnet(ctx context.Context, vnetName string) error {
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
 			AddressSpace: &armnetwork.AddressSpace{
 				AddressPrefixes: []*string{
-					to.Ptr("10.0.0.0/16"), // Adjust your address space as needed
+					to.Ptr("10.0.0.0/16"),
 				},
 			},
 		},
