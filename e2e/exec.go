@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -93,34 +95,42 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
-	commandList := map[string]string{
-		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
-		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
-		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
-	}
+type ClusterParams struct {
+	CACert         []byte
+	BootstrapToken string
+	FQDN           string
+}
 
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) ClusterParams {
 	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
-	if err != nil {
-		return nil, err
+	require.NoError(t, err)
+
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+	require.NoError(t, err)
+
+	bootstrapConfig := execResult.stdout.Bytes()
+	bootstrapToken, err := extractKeyValuePair("token", string(bootstrapConfig))
+	require.NoError(t, err)
+
+	bootstrapToken, err = strconv.Unquote(bootstrapToken)
+	require.NoError(t, err)
+
+	server, err := extractKeyValuePair("server", string(bootstrapConfig))
+	require.NoError(t, err)
+	tokens := strings.Split(server, ":")
+	if len(tokens) != 3 {
+		t.Fatalf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
 	}
+	fqdn := tokens[1][2:]
 
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
+	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
+	require.NoError(t, err)
 
-		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
-		if execResult != nil {
-			execResult.dumpStderr(t)
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		result[file] = execResult.stdout.String()
+	return ClusterParams{
+		CACert:         caCert.stdout.Bytes(),
+		BootstrapToken: bootstrapToken,
+		FQDN:           fqdn,
 	}
-
-	return result, nil
 }
 
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {

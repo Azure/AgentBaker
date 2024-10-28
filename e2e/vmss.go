@@ -31,44 +31,44 @@ const (
 	vmssNamePrefix                           = "abe2e"
 )
 
-func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
-	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
+func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
+	cluster := scenario.Runtime.Cluster
+	t.Logf("creating VMSS %q in resource group %q", vmssName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
-	if opts.scenario.Tags.Scriptless {
-		agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(opts.nbc)
-		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(opts.nbc), opts.scenario.VHD.Distro, datamodel.AzurePublicCloud)
+	if scenario.AKSNodeConfigMutator != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, scenario.Runtime.AKSNodeConfig, scenario.VHD.Distro, datamodel.AzurePublicCloud)
 		require.NoError(t, err)
 	} else {
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, opts.nbc)
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, scenario.Runtime.NBC)
 		require.NoError(t, err)
 	}
 
 	cse := nodeBootstrapping.CSE
-	if opts.scenario.CSEOverride != "" {
-		cse = opts.scenario.CSEOverride
+	if scenario.CSEOverride != "" {
+		cse = scenario.CSEOverride
 	}
 	customData := nodeBootstrapping.CustomData
-	if opts.scenario.DisableCustomData {
+	if scenario.DisableCustomData {
 		customData = ""
 	}
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, cluster)
 
-	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
-	require.NoError(t, err, vmssName, opts)
+	isAzureCNI, err := cluster.IsAzureCNI()
+	require.NoError(t, err, "checking if cluster is using Azure CNI")
 
 	if isAzureCNI {
-		err = addPodIPConfigsForAzureCNI(&model, vmssName, opts)
+		err = addPodIPConfigsForAzureCNI(&model, vmssName, cluster)
 		require.NoError(t, err)
 	}
 
-	opts.scenario.PrepareVMSSModel(ctx, t, &model)
+	scenario.PrepareVMSSModel(ctx, t, &model)
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
-		*opts.clusterConfig.Model.Properties.NodeResourceGroup,
+		*cluster.Model.Properties.NodeResourceGroup,
 		vmssName,
 		model,
 		nil,
@@ -76,7 +76,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, opts.clusterConfig, privateKeyBytes)
+		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes)
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
@@ -135,8 +135,8 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Clu
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
 // as we need be able to allow AKS to allocate an additional IP config for each pod running on the given node.
 // Additional info: https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni
-func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, opts *scenarioRunOpts) error {
-	maxPodsPerNode, err := opts.clusterConfig.MaxPodsPerNode()
+func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssName string, cluster *Cluster) error {
+	maxPodsPerNode, err := cluster.MaxPodsPerNode()
 	if err != nil {
 		return fmt.Errorf("failed to read agentpool MaxPods value from chosen cluster model: %w", err)
 	}
@@ -147,7 +147,7 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 			Name: to.Ptr(fmt.Sprintf("%s%d", vmssName, i)),
 			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 				Subnet: &armcompute.APIEntityReference{
-					ID: to.Ptr(opts.clusterConfig.SubnetID),
+					ID: to.Ptr(cluster.SubnetID),
 				},
 			},
 		}

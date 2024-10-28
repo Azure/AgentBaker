@@ -95,7 +95,6 @@ steps:
       pushd /tmp
       GO111MODULE=on go install cuelang.org/go/cmd/cue@latest
       popd
-      cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
     displayName: Setup Cue
 
   - bash: |
