@@ -3,6 +3,14 @@
 
 package datamodel
 
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+)
+
 // the orchestrators supported by vlabs.
 const (
 	// Kubernetes is the string constant for the Kubernetes orchestrator type.
@@ -132,18 +140,82 @@ const (
 	EnableWinDSR          = "EnableWinDSR"
 )
 
-const (
-	Nvidia470CudaDriverVersion = "cuda-470.82.01"
-	Nvidia550CudaDriverVersion = "550.90.12"
-	Nvidia535GridDriverVersion = "535.161.08"
+const Nvidia470CudaDriverVersion = "cuda-470.82.01"
+
+// const (
+// 	Nvidia470CudaDriverVersion = "cuda-470.82.01"
+// 	Nvidia550CudaDriverVersion = "550.90.12"
+// 	Nvidia535GridDriverVersion = "535.161.08"
+// )
+
+// // These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
+// // So for now these will be kept here like this.
+// const (
+// 	AKSGPUCudaVersionSuffix = "20241021235610"
+// 	AKSGPUGridVersionSuffix = "20241021235607"
+// )
+
+var (
+	Nvidia550CudaDriverVersion string
+	Nvidia535GridDriverVersion string
+	AKSGPUCudaVersionSuffix    string
+	AKSGPUGridVersionSuffix    string
 )
 
-// These SHAs will change once we update aks-gpu images in aks-gpu repository. We do that fairly rarely at this time.
-// So for now these will be kept here like this.
-const (
-	AKSGPUCudaVersionSuffix = "20241021235610"
-	AKSGPUGridVersionSuffix = "20241021235607"
-)
+type GPUVersion struct {
+	RenovateTag   string `json:"renovateTag"`
+	LatestVersion string `json:"latestVersion"`
+}
+
+type GPUContainerImage struct {
+	DownloadURL string     `json:"downloadURL"`
+	GPUVersion  GPUVersion `json:"gpuVersion"`
+}
+
+type ComponentsConfig struct {
+	GPUContainerImages []GPUContainerImage `json:"GPUContainerImages"`
+}
+
+func LoadConfig() error {
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	fmt.Println("WORKINGDIR ", workingDir)
+
+	data, err := os.ReadFile("../../../parts/linux/cloud-init/artifacts/components.json")
+	if err != nil {
+		return err
+	}
+
+	var config ComponentsConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	for _, image := range config.GPUContainerImages {
+		parts := strings.Split(image.GPUVersion.LatestVersion, "-")
+		if len(parts) != 2 {
+			continue
+		}
+		version, suffix := parts[0], parts[1]
+
+		if strings.Contains(image.DownloadURL, "aks-gpu-cuda") {
+			Nvidia550CudaDriverVersion = version
+			AKSGPUCudaVersionSuffix = suffix
+		} else if strings.Contains(image.DownloadURL, "aks-gpu-grid") {
+			Nvidia535GridDriverVersion = version
+			AKSGPUGridVersionSuffix = suffix
+		}
+	}
+	return nil
+}
+
+func init() {
+	if err := LoadConfig(); err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+}
 
 /* convergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
 how do you figure this out? ask HPC or find out by trial and error.
