@@ -13,14 +13,29 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/go-armbalancer"
 )
 
+// modeled after e2e/config/azure.go
+
 type AzureClient struct {
-	Core                  *azcore.Client
-	ResourceGroup         *armresources.ResourceGroupsClient
-	VirtualMachinesClient *armcompute.VirtualMachinesClient
+	Core                    *azcore.Client
+	ResourceGroup           *armresources.ResourceGroupsClient
+	VirtualMachinesClient   *armcompute.VirtualMachinesClient
+	NetworkInterfacesClient *armnetwork.InterfacesClient
+	VNetClient              *armnetwork.VirtualNetworksClient
+	SubNetClient            *armnetwork.SubnetsClient
+	ResourceGroupsClient    *armresources.ResourceGroupsClient
+}
+
+func mustNewAzureClient(subscription string) *AzureClient {
+	client, err := NewAzureClient(subscription)
+	if err != nil {
+		panic(err)
+	}
+	return client
 }
 
 func NewAzureClient(subscription string) (*AzureClient, error) {
@@ -97,6 +112,26 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	cloud.VirtualMachinesClient, err = armcompute.NewVirtualMachinesClient(subscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create virtual machines client: %w", err)
+	}
+
+	cloud.NetworkInterfacesClient, err = armnetwork.NewInterfacesClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create network interfaces client: %w", err)
+	}
+
+	cloud.VNetClient, err = armnetwork.NewVirtualNetworksClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create virtual network client: %w", err)
+	}
+
+	cloud.SubNetClient, err = armnetwork.NewSubnetsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create subnet client: %w", err)
+	}
+
+	cloud.ResourceGroupsClient, err = armresources.NewResourceGroupsClient(subscription, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create resource groups client: %w", err)
 	}
 
 	return cloud, nil

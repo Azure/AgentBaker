@@ -29,7 +29,7 @@ func extract_all_vhd_ids(jsonDir *string) ([]string, error) {
 				return fmt.Errorf("failed to decode JSON: %w", err)
 			}
 
-			if vhdURL, ok := data["vhd_url"].(string); ok {
+			if vhdURL, ok := data["captured_sig_resource_id"].(string); ok {
 				vhdIDs = append(vhdIDs, vhdURL)
 			}
 		}
