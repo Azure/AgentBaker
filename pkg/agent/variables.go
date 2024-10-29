@@ -52,7 +52,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"packageUpdateScriptMariner":   getBase64EncodedGzippedCustomScript(packageUpdateScriptMariner, config),
 			"packageUpdateServiceMariner":  getBase64EncodedGzippedCustomScript(packageUpdateSystemdServiceMariner, config),
 			"packageUpdateTimerMariner":    getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
-			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
 		},
 	}
 

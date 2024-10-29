@@ -85,13 +85,6 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
-- path: /opt/azure/manifest.json
-  permissions: "0644"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
-
 - path: {{GetInitAKSCustomCloudFilepath}}
   permissions: "0744"
   encoding: gzip

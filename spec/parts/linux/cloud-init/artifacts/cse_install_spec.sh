@@ -65,4 +65,15 @@ Describe 'cse_install.sh'
             The output line 3 should equal "mock installContainerdWithManifestJson calling"
         End
     End
+    Describe 'installContainerdWithManifestJson'
+       It 'should return hard-coded version for containerd if manifest.json is not found'
+            logs_to_events() {
+                echo "mock logs to events calling with $1"
+            }
+            When call installContainerdWithManifestJson
+            The output should include "WARNING: containerd version not found in manifest, defaulting to hardcoded."
+            The output should include "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+            The output should include "in installContainerRuntime - CONTAINERD_VERSION = 1.7.1"
+        End
+    End
 End

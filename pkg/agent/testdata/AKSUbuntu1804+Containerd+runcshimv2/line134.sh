@@ -1,6 +1,9 @@
 [Unit]
-Description=Snapshot Update Service
+Description=Runs snapshot update script periodically
 
-[Service]
-Type=oneshot
-ExecStart=/opt/azure/containers/ubuntu-snapshot-update.sh
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=multi-user.target

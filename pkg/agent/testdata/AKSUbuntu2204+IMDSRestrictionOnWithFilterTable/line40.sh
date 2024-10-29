@@ -21,7 +21,6 @@ TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
@@ -89,9 +88,8 @@ installContainerdWithComponentsJson() {
 }
 
 installContainerdWithManifestJson() {
-    local containerd_version
+    local containerd_version="1.7.1-1"
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        local containerd_version
         containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
