@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Azure/agentbaker/production-vms/config"
@@ -14,9 +15,9 @@ import (
 )
 
 func createProductionVM(ctx context.Context, vhd *VHD, subnetID string) error {
-	fmt.Printf("Creating VM %s in resource group %s\n", vhd.name, config.ResourceGroupName)
+	log.Printf("Creating VM %s in resource group %s\n", vhd.name, config.ResourceGroupName)
 
-	fmt.Printf("vhd resource: %s\n", vhd)
+	log.Printf("vhd resource: %s\n", vhd)
 
 	vmSize := "Standard_D8ds_v5"
 	if vhd.ImageArch == "Arm64" {
@@ -74,7 +75,7 @@ func createProductionVM(ctx context.Context, vhd *VHD, subnetID string) error {
 		return fmt.Errorf("cannot get the VM to create or update due to: %v", err)
 	}
 
-	fmt.Printf("VM %s created successfully\n", vhd.name)
+	log.Printf("VM %s created successfully\n", vhd.name)
 	return nil
 }
 
@@ -91,14 +92,14 @@ func createResourceGroup(ctx context.Context) error {
 }
 
 func createVnet(ctx context.Context, vnetName string) error {
-	fmt.Printf("Checking if VNet %s exists in resource group %s\n", vnetName, config.ResourceGroupName)
+	log.Printf("Checking if VNet %s exists in resource group %s\n", vnetName, config.ResourceGroupName)
 	_, err := config.Azure.VNetClient.Get(ctx, config.ResourceGroupName, vnetName, nil)
 	if err == nil {
-		fmt.Printf("VNet %s already exists in resource group %s\n", vnetName, config.ResourceGroupName)
+		log.Printf("VNet %s already exists in resource group %s\n", vnetName, config.ResourceGroupName)
 		return nil
 	}
 
-	fmt.Printf("Creating VNet %s in resource group %s\n", vnetName, config.ResourceGroupName)
+	log.Printf("Creating VNet %s in resource group %s\n", vnetName, config.ResourceGroupName)
 	vnetParams := armnetwork.VirtualNetwork{
 		Location: &config.Config.Location,
 		Properties: &armnetwork.VirtualNetworkPropertiesFormat{
@@ -117,19 +118,19 @@ func createVnet(ctx context.Context, vnetName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create VNet: %v", err)
 	}
-	fmt.Printf("VNet %s created in resource group %s\n", *vnetResp.ID, config.ResourceGroupName)
+	log.Printf("VNet %s created in resource group %s\n", *vnetResp.ID, config.ResourceGroupName)
 	return nil
 }
 
 func createSubnet(ctx context.Context, vnetName, subnetName string) (string, error) {
-	fmt.Printf("Checking if subnet %s exists in VNet %s\n", subnetName, vnetName)
+	log.Printf("Checking if subnet %s exists in VNet %s\n", subnetName, vnetName)
 	subnetResp, err := config.Azure.SubNetClient.Get(ctx, config.ResourceGroupName, vnetName, subnetName, nil)
 	if err == nil {
-		fmt.Printf("Subnet %s already exists in VNet %s\n", subnetName, vnetName)
+		log.Printf("Subnet %s already exists in VNet %s\n", subnetName, vnetName)
 		return *subnetResp.ID, nil
 	}
 
-	fmt.Printf("Creating subnet %s in VNet %s\n", subnetName, vnetName)
+	log.Printf("Creating subnet %s in VNet %s\n", subnetName, vnetName)
 	subnetParams := armnetwork.Subnet{
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: to.Ptr("10.0.1.0/24"),
@@ -144,12 +145,12 @@ func createSubnet(ctx context.Context, vnetName, subnetName string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to create subnet: %v", err)
 	}
-	fmt.Printf("Subnet %s created successfully\n", subnetName)
+	log.Printf("Subnet %s created successfully\n", subnetName)
 	return *subResp.ID, nil
 }
 
 func createNetworkInterface(ctx context.Context, nicName, subnetID string) (string, error) {
-	fmt.Printf("Creating NIC %s in subnet %s\n", nicName, subnetID)
+	log.Printf("Creating NIC %s in subnet %s\n", nicName, subnetID)
 	nicParams := armnetwork.Interface{
 		Location: &config.Config.Location,
 		Properties: &armnetwork.InterfacePropertiesFormat{
@@ -171,6 +172,6 @@ func createNetworkInterface(ctx context.Context, nicName, subnetID string) (stri
 	if err != nil {
 		return "", fmt.Errorf("failed to create NIC: %v", err)
 	}
-	fmt.Printf("NIC %s created successfully\n", nicName)
+	log.Printf("NIC %s created successfully\n", nicName)
 	return *nicResp.ID, nil
 }

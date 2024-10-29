@@ -10,23 +10,35 @@ import (
 )
 
 // to run locally
-// 		production-vms % go run . --json-dir test-jsons
+// 		production-vms % go run . --json-dir testdata
+
+type Options struct {
+	JsonDir string
+}
+
+func parseFlags() Options {
+	var opts Options
+	flag.StringVar(&opts.JsonDir, "json-dir", "", "Directory containing JSON files")
+	flag.Parse()
+	return opts
+}
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), config.Config.TestTimeout)
 	defer cancel()
 
-	jsonDir := flag.String("json-dir", "", "Directory containing JSON files")
-	flag.Parse()
-	if *jsonDir == "" {
-		fmt.Println("No JSON directory provided.")
-		return
+	opts := parseFlags()
+	if opts.JsonDir == "" {
+		log.Fatalf("missing required flag: json-dir")
 	}
-	vhdData, err := extractVHDInformation(jsonDir)
+
+	vhdData, err := extractVHDInformation(&opts.JsonDir)
 	if err != nil {
 		log.Fatalf("failed to extract all VHD IDs: %v", err)
 	}
-	fmt.Printf("Found %d VHD IDs: %v\n", len(vhdData), vhdData)
+	for _, vhd := range vhdData {
+		log.Printf("VHD: %s\n", *vhd)
+	}
 
 	subnetID, err := setUpAzureResources(ctx)
 	if err != nil {
