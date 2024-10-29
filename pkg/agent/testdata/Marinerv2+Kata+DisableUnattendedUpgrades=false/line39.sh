@@ -88,9 +88,8 @@ installContainerdWithComponentsJson() {
 }
 
 installContainerdWithManifestJson() {
-    local containerd_version
+    local containerd_version = "1.7.1-1"
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        local containerd_version
         containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"

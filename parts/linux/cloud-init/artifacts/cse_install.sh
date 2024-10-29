@@ -95,9 +95,8 @@ installContainerdWithComponentsJson() {
 # containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
 # After the centralized packages changes, the containerd versions are only available in the components.json. 
 installContainerdWithManifestJson() {
-    local containerd_version
+    local containerd_version="1.7.1-1"
     if [ -f "$MANIFEST_FILEPATH" ]; then
-        local containerd_version
         containerd_version="$(jq -r .containerd.edge "$MANIFEST_FILEPATH")"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             containerd_version="$(jq -r '.containerd.pinned."1804"' "$MANIFEST_FILEPATH")"
