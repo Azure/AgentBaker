@@ -1186,13 +1186,6 @@ func (a *AgentPoolProfile) IsAvailabilitySets() bool {
 	return strings.EqualFold(a.AvailabilityProfile, AvailabilitySet)
 }
 
-func truncateString(str string, length int) string {
-	if len(str) > length {
-		return str[:length]
-	}
-	return str
-}
-
 // GetKubernetesLabels returns a k8s API-compliant labels string for nodes in this profile.
 func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	var buf bytes.Buffer
