@@ -111,6 +111,9 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	vmssName := getVmssName(t)
 	createVMSS(ctx, t, vmssName, scenario, privateKeyBytes, publicKeyBytes)
 
+	err = getCustomScriptExtensionStatus(ctx, t, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
+	require.NoError(t, err)
+
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
 	nodeName := validateNodeHealth(ctx, t, scenario.Runtime.Cluster.Kube, vmssName, scenario.Tags.Airgap)
 
@@ -126,13 +129,9 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err)
-
 	require.NoError(t, err, "get vm private IP %v", vmssName)
-	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
-	require.NoError(t, err)
 
-	err = getCustomScriptExtensionStatus(ctx, t, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
+	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
 	require.NoError(t, err)
 
 	t.Logf("node %s bootstrapping succeeded!", vmssName)
@@ -162,7 +161,6 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 }
 
 func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceGroupName, vmssName string) error {
-	// List all VM instances within the VM Scale Set
 	pager := config.Azure.VMSSVM.NewListPager(resourceGroupName, vmssName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -170,15 +168,12 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 			return fmt.Errorf("failed to get VMSS instances: %v", err)
 		}
 
-		// Iterate through each instance in the VM Scale Set
 		for _, vmInstance := range page.Value {
-			// Get the instance view for each VM instance to access extensions data
 			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, resourceGroupName, vmssName, *vmInstance.InstanceID, nil)
 			if err != nil {
 				t.Logf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
 				continue
 			}
-			// Loop through each extension in the instance view
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
 					resp, err := parseLinuxCSEMessage(t, *status)
@@ -187,13 +182,13 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 					}
 					if !strings.EqualFold(resp.ExitCode, "0") {
 						return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
+					} else {
+						t.Logf("CSE completed successfully with exit code 0")
 					}
 				}
 			}
 		}
 	}
-
-	t.Logf("CSE completed successfully with exit code 0")
 	return nil
 }
 
@@ -274,7 +269,6 @@ func parseLinuxCSEMessage(t *testing.T, status armcompute.InstanceViewStatus) (*
 		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, "No valid Status code or Message provided from cse extension")
 	}
 
-	t.Logf("CSE status.Message: %s", *status.Message)
 	start := strings.Index(*status.Message, "[stdout]") + len("[stdout]")
 	end := strings.Index(*status.Message, "[stderr]")
 
@@ -286,7 +280,6 @@ func parseLinuxCSEMessage(t *testing.T, status armcompute.InstanceViewStatus) (*
 		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, *status.Message)
 	}
 	rawInstanceViewInfo := (*status.Message)[start:end]
-	t.Logf("rawInstanceViewInfo: %s", rawInstanceViewInfo)
 	// Parse CSE message
 	var cseStatus datamodel.CSEStatus
 	err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
