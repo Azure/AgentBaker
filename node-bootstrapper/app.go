@@ -152,7 +152,10 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 			return "", fmt.Errorf("error watching file: %w", err)
 
 		case <-timeoutTimer:
-			bootstrapStatus, _ := a.cmdRunner(exec.CommandContext(ctx, "systemctl", "status", bootstrapService))
+			bootstrapStatus, err := a.cmdRunner(exec.CommandContext(ctx, "systemctl", "status", bootstrapService))
+			if err != nil {
+				return "", fmt.Errorf("failed to get status of %s: %w", bootstrapService, err)
+			}
 			return "", fmt.Errorf("provisioning timed out waiting for file %s, status of %s is: %s", provisionJSONFilePath, bootstrapService, string(bootstrapStatus))
 		}
 	}
