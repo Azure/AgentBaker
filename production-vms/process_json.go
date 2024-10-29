@@ -45,7 +45,10 @@ func extractVHDInformation(jsonDir *string) ([]*VHD, error) {
 			if imageArch, ok := data["image_architecture"].(string); ok {
 				curVHD.ImageArch = imageArch
 			}
-			curVHD.name = generateVMName(curVHD.resourceId)
+			curVHD.name, err = generateVMName(curVHD.resourceId)
+			if err != nil {
+				return fmt.Errorf("failed to generate VM name: %w", err)
+			}
 			vhdData = append(vhdData, &curVHD)
 		}
 		return nil
@@ -61,11 +64,16 @@ func extractVHDInformation(jsonDir *string) ([]*VHD, error) {
 takes - /subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/AzureLinuxV2gen2/versions/1.1730016408.31319
 returns - testVM-yyyy-mm-dd-AzureLinuxV2gen2-1.1730016408.31319
 */
-func generateVMName(resourceID string) string {
+func generateVMName(resourceID string) (string, error) {
 	currentDate := time.Now().Format("2006-01-02")
 	parts := strings.Split(resourceID, "/")
+	
+	parts_of_resource_id := 13
+	if len(parts) < parts_of_resource_id {
+		return "", fmt.Errorf("invalid resource ID: %s", resourceID)
+	}
 	imageName := parts[len(parts)-3]
 	version := parts[len(parts)-1]
 	vmName := fmt.Sprintf("testVM-%s-%s-%s", currentDate, imageName, version)
-	return vmName
+	return vmName, nil
 }
