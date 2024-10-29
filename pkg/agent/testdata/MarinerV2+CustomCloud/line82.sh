@@ -1,49 +1,46 @@
 #!/bin/bash
-set -x
-mkdir -p /root/AzureCACertificates
-certs=$(curl "http://168.63.129.16/machine?comp=acmspackage&type=cacertificates&ext=json")
-IFS_backup=$IFS
-IFS=$'\r\n'
-certNames=($(echo $certs | grep -oP '(?<=Name\": \")[^\"]*'))
-certBodies=($(echo $certs | grep -oP '(?<=CertBody\": \")[^\"]*'))
-for i in ${!certBodies[@]}; do
-    echo ${certBodies[$i]}  | sed 's/\\r\\n/\n/g' | sed 's/\\//g' > "/root/AzureCACertificates/$(echo ${certNames[$i]} | sed 's/.cer/.crt/g')"
-done
-IFS=$IFS_backup
 
-cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
-/usr/bin/update-ca-trust
+set -o nounset
+set -o pipefail
 
-cloud-init status --wait
+get-apiserver-ip-from-tags() {
+  tags=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text")
+  if [ "$?" == "0" ]; then
+    IFS=";" read -ra tagList <<< "$tags"
+    for i in "${tagList[@]}"; do
+      tagKey=$(cut -d":" -f1 <<<$i)
+      tagValue=$(cut -d":" -f2 <<<$i)
+      if echo $tagKey | grep -iq "^aksAPIServerIPAddress$"; then
+        echo -n "$tagValue"
+        return
+      fi
+    done
+  fi
+  echo -n ""
+}
 
-marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-if [[ "$marinerRepoDepotEndpoint" == "" ]]; then
-  >&2 echo "repo depot endpoint empty while running custom-cloud init script"
-else
-  for f in /etc/yum.repos.d/*.repo
-  do
-      sed -i -e "s|https://packages.microsoft.com|${marinerRepoDepotEndpoint}/mariner/packages.microsoft.com|" "$f"
-      echo "## REPO - $f - MODIFIED"
-  done
+SLEEP_SECONDS=15
+clusterFQDN="${KUBE_API_SERVER_NAME}"
+if [[ $clusterFQDN != *.privatelink.* ]]; then
+  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
+  exit 0
 fi
+echo "clusterFQDN: $clusterFQDN"
 
-cat > /etc/chrony.conf <<EOF
-keyfile /etc/chrony.keys
-
-driftfile /var/lib/chrony/drift
-
-#log tracking measurements statistics
-
-logdir /var/log/chrony
-
-maxupdateskew 100.0
-
-rtcsync
-
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
-makestep 1.0 -1
-EOF
-
-systemctl restart chronyd
+while true; do
+  clusterIP=$(get-apiserver-ip-from-tags)
+  if [ -z $clusterIP ]; then
+    sleep "${SLEEP_SECONDS}"
+    continue
+  fi
+  if grep -q "$clusterIP $clusterFQDN" /etc/hosts; then
+    echo -n ""
+  else
+    sudo sed -i "/$clusterFQDN/d" /etc/hosts
+    echo "$clusterIP $clusterFQDN" | sudo tee -a /etc/hosts > /dev/null
+    echo "Updated $clusterFQDN to $clusterIP"
+  fi
+  sleep "${SLEEP_SECONDS}"
+done
 
 #EOF
