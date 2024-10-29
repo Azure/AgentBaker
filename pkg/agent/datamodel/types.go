@@ -101,10 +101,6 @@ const (
 	Linux   OSType = "Linux"
 )
 
-// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-const MaxK8sLabelNameLength = 63
-const MaxK8sLabelValueLength = 63
-
 // KubeletDiskType describes options for placement of the primary kubelet partition.
 // docker images, emptyDir volumes, and pod logs.
 type KubeletDiskType string
@@ -1209,9 +1205,7 @@ func (a *AgentPoolProfile) GetKubernetesLabels() string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		labelName := truncateString(key, MaxK8sLabelNameLength)
-		labelValue := truncateString(a.CustomNodeLabels[key], MaxK8sLabelValueLength)
-		buf.WriteString(fmt.Sprintf(",%s=%s", labelName, labelValue))
+		buf.WriteString(fmt.Sprintf(",%s=%s", key, a.CustomNodeLabels[key]))
 	}
 	return buf.String()
 }
