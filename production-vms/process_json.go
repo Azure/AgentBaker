@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,8 +12,8 @@ import (
 
 type VHD struct {
 	name       string
-	resourceId string
-	ImageArch  string
+	ResourceID string `json:"captured_sig_resource_id"`
+	ImageArch  string `json:"image_architecture"`
 }
 
 // takes the json from vhd-publishing-info in order to get the VM information that we want
@@ -25,7 +26,7 @@ func extractVHDInformation(jsonDir *string) ([]*VHD, error) {
 		}
 
 		if filepath.Ext(path) == ".json" && strings.Contains(path, "vhd-publishing-info") {
-			fmt.Println("Found JSON file:", path)
+			log.Println("Found JSON file:", path)
 
 			file, err := os.Open(path)
 			if err != nil {
@@ -33,19 +34,12 @@ func extractVHDInformation(jsonDir *string) ([]*VHD, error) {
 			}
 			defer file.Close()
 
-			var data map[string]interface{}
-			if err := json.NewDecoder(file).Decode(&data); err != nil {
+			curVHD := VHD{}
+			if err := json.NewDecoder(file).Decode(&curVHD); err != nil {
 				return fmt.Errorf("failed to decode JSON: %w", err)
 			}
 
-			curVHD := VHD{}
-			if vhdID, ok := data["captured_sig_resource_id"].(string); ok {
-				curVHD.resourceId = vhdID
-			}
-			if imageArch, ok := data["image_architecture"].(string); ok {
-				curVHD.ImageArch = imageArch
-			}
-			curVHD.name, err = generateVMName(curVHD.resourceId)
+			curVHD.name, err = generateVMName(curVHD.ResourceID)
 			if err != nil {
 				return fmt.Errorf("failed to generate VM name: %w", err)
 			}
@@ -56,7 +50,6 @@ func extractVHDInformation(jsonDir *string) ([]*VHD, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return vhdData, nil
 }
 
@@ -67,7 +60,7 @@ returns - testVM-yyyy-mm-dd-AzureLinuxV2gen2-1.1730016408.31319
 func generateVMName(resourceID string) (string, error) {
 	currentDate := time.Now().Format("2006-01-02")
 	parts := strings.Split(resourceID, "/")
-	
+
 	parts_of_resource_id := 13
 	if len(parts) < parts_of_resource_id {
 		return "", fmt.Errorf("invalid resource ID: %s", resourceID)

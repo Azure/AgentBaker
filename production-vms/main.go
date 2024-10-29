@@ -34,7 +34,7 @@ func main() {
 
 	vhdData, err := extractVHDInformation(&opts.JsonDir)
 	if err != nil {
-		log.Fatalf("failed to extract all VHD IDs: %v", err)
+		log.Fatalf("failed to extract all VHD Data: %v", err)
 	}
 	for _, vhd := range vhdData {
 		log.Printf("VHD: %s\n", *vhd)

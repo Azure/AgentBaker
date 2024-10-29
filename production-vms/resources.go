@@ -44,7 +44,7 @@ func createProductionVM(ctx context.Context, vhd *VHD, subnetID string) error {
 			StorageProfile: &armcompute.StorageProfile{
 				// Use the managed image reference
 				ImageReference: &armcompute.ImageReference{
-					ID: to.Ptr(vhd.resourceId),
+					ID: to.Ptr(vhd.ResourceID),
 				},
 				OSDisk: &armcompute.OSDisk{
 					Name:         to.Ptr(vhd.name + "-osdisk"),
