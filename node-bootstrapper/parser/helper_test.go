@@ -17,7 +17,6 @@ limitations under the License.
 package parser
 
 import (
-	_ "embed"
 	"encoding/base64"
 	"reflect"
 	"testing"
