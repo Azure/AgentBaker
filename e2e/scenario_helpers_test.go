@@ -175,9 +175,9 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
-					resp, err := parseLinuxCSEMessage(t, *status)
+					resp, err := parseLinuxCSEMessage(*status)
 					if err != nil {
-						return fmt.Errorf("Parse CSE message with error, error code: %s, raw message: %s", err.Code, *status.Message)
+						return fmt.Errorf("Parse CSE message with error, error %w", err)
 					}
 					if resp.ExitCode != "0" {
 						return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
@@ -190,9 +190,8 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 	return nil
 }
 
-func parseLinuxCSEMessage(t *testing.T, status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
+func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
 	if status.Code == nil || status.Message == nil {
-		t.Logf("No valid Status code or Message provided from cse extension")
 		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, "No valid Status code or Message provided from cse extension")
 	}
 
@@ -203,15 +202,13 @@ func parseLinuxCSEMessage(t *testing.T, status armcompute.InstanceViewStatus) (*
 	var linuxExtensionErrorCodeRegex = regexp.MustCompile(extensionErrorCodeRegex)
 	extensionFailed := linuxExtensionErrorCodeRegex.MatchString(*status.Code)
 	if end <= start {
-		t.Logf("Parse CSE failed with error cannot find [stdout] and [stderr], raw CSE Message: %s, delete vm: %t", *status.Message, extensionFailed)
-		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, *status.Message)
+		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, fmt.Sprintf("Parse CSE failed with error cannot find [stdout] and [stderr], raw CSE Message: %s, delete vm: %t", *status.Message, extensionFailed))
 	}
 	rawInstanceViewInfo := (*status.Message)[start:end]
 	// Parse CSE message
 	var cseStatus datamodel.CSEStatus
 	err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
 	if err != nil {
-		t.Logf("Parse CSE Json failed with error: %s, raw CSE Message: %s, delete vm: %t", err, *status.Message, extensionFailed)
 		exitCodeMatch := linuxExtensionExitCodeStrRegex.FindStringSubmatch(*status.Message)
 		if len(exitCodeMatch) > 1 && extensionFailed {
 			// Failed but the format is not expected.
@@ -219,11 +216,10 @@ func parseLinuxCSEMessage(t *testing.T, status armcompute.InstanceViewStatus) (*
 			cseStatus.Error = *status.Message
 			return &cseStatus, nil
 		}
-		return nil, datamodel.NewError(datamodel.CSEMessageUnmarshalError, *status.Message)
+		return nil, datamodel.NewError(datamodel.CSEMessageUnmarshalError, fmt.Sprintf("Parse CSE Json failed with error: %s, raw CSE Message: %s, delete vm: %t", err, *status.Message, extensionFailed))
 	}
 	if cseStatus.ExitCode == "" {
-		t.Logf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
-		return nil, datamodel.NewError(datamodel.CSEMessageExitCodeEmptyError, *status.Message)
+		return nil, datamodel.NewError(datamodel.CSEMessageExitCodeEmptyError, fmt.Sprintf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message))
 	}
 	return &cseStatus, nil
 }

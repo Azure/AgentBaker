@@ -116,7 +116,14 @@ func (a *App) provisionStart(ctx context.Context, cse utils.SensitiveString) err
 // usage example:
 // node-bootstrapper provision-wait --timeout=15m
 func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string, error) {
-	// Create a new file watcher
+	if _, err := os.Stat(provisionJSONFilePath); err == nil {
+		data, err := os.ReadFile(provisionJSONFilePath)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return "", fmt.Errorf("failed to create watcher: %w", err)
@@ -124,18 +131,17 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 	defer watcher.Close()
 
 	// Watch the directory containing the file
-	dir := filepath.Dir(ProvisionJSONFilePath)
+	dir := filepath.Dir(provisionJSONFilePath)
 	if err = watcher.Add(dir); err != nil {
 		return "", fmt.Errorf("failed to watch directory: %w", err)
 	}
 
 	timeoutTimer := time.After(*timeout)
-
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == ProvisionJSONFilePath {
-				data, err := os.ReadFile(ProvisionJSONFilePath)
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionJSONFilePath {
+				data, err := os.ReadFile(provisionJSONFilePath)
 				if err != nil {
 					return "", err
 				}
@@ -146,8 +152,8 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 			return "", fmt.Errorf("error watching file: %w", err)
 
 		case <-timeoutTimer:
-			bootstrapStatus, _ := a.cmdRunner(exec.CommandContext(ctx, "systemctl", "status", BootstrapService))
-			return "", fmt.Errorf("provisioning timed out waiting for file %s, status of %s is: %s", ProvisionJSONFilePath, BootstrapService, string(bootstrapStatus))
+			bootstrapStatus, _ := a.cmdRunner(exec.CommandContext(ctx, "systemctl", "status", bootstrapService))
+			return "", fmt.Errorf("provisioning timed out waiting for file %s, status of %s is: %s", provisionJSONFilePath, bootstrapService, string(bootstrapStatus))
 		}
 	}
 }
