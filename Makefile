@@ -93,11 +93,6 @@ generate-kubelet-flags:
 compile-proto-files:
 	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
 
-.PHONY: generate-manifest
-generate-manifest:
-	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
-	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
-
 .PHONY: generate-testdata
 generate-testdata:
 	@echo $(GOFLAGS)
@@ -107,8 +102,6 @@ generate-testdata:
 generate: bootstrap
 	@echo "Generating go testdata"
 	@$(MAKE) generate-testdata
-	@echo "Generating manifest.cue"
-	@$(MAKE) generate-manifest
 	@echo "Running validate-shell to make sure generated cse scripts are correct"
 	@$(MAKE) validate-shell
 	@echo "Validating components.json conforms to the schema schemas/components.cue."
