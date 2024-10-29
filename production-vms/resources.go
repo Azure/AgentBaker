@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"production-vms/config"
 	"time"
+
+	"github.com/Azure/agentbaker/production-vms/config"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"

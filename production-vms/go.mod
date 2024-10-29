@@ -1,4 +1,4 @@
-module production-vms
+module github.com/Azure/agentbaker/production-vms
 
 go 1.22.2
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"production-vms/config"
+	"github.com/Azure/agentbaker/production-vms/config"
 )
 
 // to run locally
