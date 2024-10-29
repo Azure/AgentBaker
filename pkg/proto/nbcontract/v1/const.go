@@ -1,7 +1,7 @@
 package nbcontractv1
 
 const (
-	// Follow the semantic versioning format. <Major>.<Minor>.<Patch>
+	// Follow the semantic versioning format. <Major>.<Minor>.<Patch>.
 	contractVersion = "v0"
 )
 
