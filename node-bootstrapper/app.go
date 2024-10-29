@@ -10,21 +10,22 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	"github.com/Azure/agentbaker/node-bootstrapper/utils"
+	"gopkg.in/fsnotify.v1"
 )
 
 type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	cmdRunner func(cmd *exec.Cmd) error
+	cmdRunner func(cmd *exec.Cmd) ([]byte, error)
 }
 
-func cmdRunner(cmd *exec.Cmd) error {
-	return cmd.Run()
+func cmdRunner(cmd *exec.Cmd) ([]byte, error) {
+	return cmd.Output()
 }
 
 type ProvisionFlags struct {
@@ -58,8 +59,16 @@ func (a *App) run(ctx context.Context, args []string) error {
 			return errors.New("--provision-config is required")
 		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
-	case "monitor":
-		return a.Monitor(ctx)
+	case "provision-wait":
+		fs := flag.NewFlagSet("provision-wait", flag.ContinueOnError)
+		timeout := fs.Duration("timeout", 15*time.Minute, "provision wait timeout")
+		err := fs.Parse(args[2:])
+		if err != nil {
+			return fmt.Errorf("parse args: %w", err)
+		}
+		provisionOutput, err := a.ProvisionWait(ctx, timeout)
+		fmt.Println(provisionOutput)
+		return err
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
@@ -68,7 +77,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		return fmt.Errorf("open proision file %s: %w", flags.ProvisionConfig, err)
+		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
 
 	cseCmd, err := parser.Parse(inputJSON)
@@ -94,7 +103,7 @@ func (a *App) provisionStart(ctx context.Context, cse utils.SensitiveString) err
 	// it's also nice to have a single log file for all the important information, so write to both places
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err := a.cmdRunner(cmd)
+	_, err := a.cmdRunner(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -105,57 +114,42 @@ func (a *App) provisionStart(ctx context.Context, cse utils.SensitiveString) err
 }
 
 // usage example:
-// node-bootstrapper monitor
-func (a *App) Monitor(ctx context.Context) error {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
-	defer cancel()
+// node-bootstrapper provision-wait --timeout=15m
+func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string, error) {
+	// Create a new file watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return "", fmt.Errorf("failed to create watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	// Watch the directory containing the file
+	dir := filepath.Dir(ProvisionJSONFilePath)
+	if err = watcher.Add(dir); err != nil {
+		return "", fmt.Errorf("failed to watch directory: %w", err)
+	}
+
+	timeoutTimer := time.After(*timeout)
 
 	for {
 		select {
-		case <-timeoutCtx.Done():
-			// If the timeout or cancel occurs, exit with a timeout error
-			return fmt.Errorf("monitoring timed out: %s still active after 15 minutes", BootstrapService)
-		default:
-			_, err := os.Stat(ProvisionJSONFilePath)
-			// Check the active state of the unit
-			_, sysctlerr := a.runSystemctlCommand(ctx, "status", BootstrapService)
-
-			// if service is inactive or failed, error code will be non-zero
-			if sysctlerr == nil || os.IsNotExist(err) {
-				// Unit is still active, sleep for 3 seconds before checking again
-				time.Sleep(3 * time.Second)
-				continue
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == ProvisionJSONFilePath {
+				data, err := os.ReadFile(ProvisionJSONFilePath)
+				if err != nil {
+					return "", err
+				}
+				return string(data), nil
 			}
 
-			provisionJSON, err := a.getProvisionJSON()
-			if err != nil {
-				return fmt.Errorf("error getting provision.json output, %w", err)
-			}
-			// print to stdout so it will be returned by custom script extension
-			fmt.Println(provisionJSON)
-			return nil
+		case err := <-watcher.Errors:
+			return "", fmt.Errorf("error watching file: %w", err)
+
+		case <-timeoutTimer:
+			bootstrapStatus, _ := a.cmdRunner(exec.CommandContext(ctx, "systemctl", "status", BootstrapService))
+			return "", fmt.Errorf("provisioning timed out waiting for file %s, status of %s is: %s", ProvisionJSONFilePath, BootstrapService, string(bootstrapStatus))
 		}
 	}
-}
-
-// runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
-func (a *App) runSystemctlCommand(ctx context.Context, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "systemctl", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-// getProvisionJSON returns the contents of provision.json containing bootstrap status info
-func (a *App) getProvisionJSON() (string, error) {
-	// Read the file contents
-	data, err := os.ReadFile(ProvisionJSONFilePath)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 var _ ExitCoder = &exec.ExitError{}
