@@ -1548,13 +1548,12 @@ oom_score = 0
 					SwapFileSizeMB:             &swapFileSizeMB,
 				}
 			}, func(o *nodeBootstrappingOutput) {
-				//kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
-				//Expect(err).To(BeNil())
-				//var kubeletConfigFile datamodel.AKSKubeletConfiguration
-				//err = json.Unmarshal([]byte(kubeletConfigFileContent), &kubeletConfigFile)
-				//Expect(err).To(BeNil())
-				//seccompDefaultConfig := kubeletConfigFile.SeccompDefault
-				//Expect(seccompDefaultConfig).To(Equal(to.BoolPtr(true)))
+				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+				Expect(err).To(BeNil())
+				var kubeletConfigFile datamodel.AKSKubeletConfiguration
+				err = json.Unmarshal([]byte(kubeletConfigFileContent), &kubeletConfigFile)
+				Expect(err).To(BeNil())
+				Expect(kubeletConfigFile.SeccompDefault).To(Equal(to.BoolPtr(true)))
 
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
 				Expect(err).To(BeNil())
