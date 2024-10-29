@@ -116,11 +116,12 @@ func (a *App) Monitor(ctx context.Context) error {
 			// If the timeout or cancel occurs, exit with a timeout error
 			return fmt.Errorf("monitoring timed out: %s still active after 15 minutes", BootstrapService)
 		default:
+			_, err := os.Stat(ProvisionJSONFilePath)
 			// Check the active state of the unit
-			_, err := a.runSystemctlCommand(ctx, "status", BootstrapService)
+			_, sysctlerr := a.runSystemctlCommand(ctx, "status", BootstrapService)
 
 			// if service is inactive or failed, error code will be non-zero
-			if err == nil {
+			if sysctlerr == nil || os.IsNotExist(err) {
 				// Unit is still active, sleep for 3 seconds before checking again
 				time.Sleep(3 * time.Second)
 				continue
