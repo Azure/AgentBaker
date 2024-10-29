@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func MutateMap[T any](ts []T, f func(T) T) []T {
+func mutateMap[T any](ts []T, f func(T) T) []T {
 	for i := range ts {
 		ts[i] = f(ts[i])
 	}
@@ -38,7 +38,7 @@ func TestNoProxyIsSet(t *testing.T) {
 
 	proxyVars := getProxyVariables(config)
 	vars := strings.Split(proxyVars, ";")
-	MutateMap(vars, trim)
+	mutateMap(vars, trim)
 
 	// curl looks for both of these, and prefers the lower case one. We set both because they are both set in /etc/environment and
 	// we want to make sure both are overwritten
@@ -66,7 +66,7 @@ func TestHttpProxyIsSet(t *testing.T) {
 
 	proxyVars := getProxyVariables(config)
 	vars := strings.Split(proxyVars, ";")
-	MutateMap(vars, trim)
+	mutateMap(vars, trim)
 
 	// curl looks for both of these, and prefers the lower case one. We set both because they are both set in /etc/environment and
 	// we want to make sure both are overwritten
@@ -94,7 +94,7 @@ func TestHttpsProxyIsSet(t *testing.T) {
 
 	proxyVars := getProxyVariables(config)
 	vars := strings.Split(proxyVars, ";")
-	MutateMap(vars, trim)
+	mutateMap(vars, trim)
 
 	// curl looks for both of these, and prefers the lower case one. We set both because they are both set in /etc/environment and
 	// we want to make sure both are overwritten
