@@ -321,11 +321,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/manifest.json",
-      "destination": "/home/packer/manifest.json"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/sysctl-d-60-CIS.conf",
       "destination": "/home/packer/sysctl-d-60-CIS.conf"
     },
