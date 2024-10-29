@@ -1204,6 +1204,30 @@ func TestAgentPoolProfileGetKubernetesLabels(t *testing.T) {
 			nvidiaEnabled: false,
 			fipsEnabled:   false,
 			expected:      "agentpool=,kubernetes.azure.com/agentpool=,mycustomlabel1=foo,mycustomlabel2=bar",
+		}, {
+			name: "with a super long custom label name",
+			ap: AgentPoolProfile{
+				CustomNodeLabels: map[string]string{
+					"123456789_123456789_123456789_123456789_123456789_123456789_123456789": "foo",
+				},
+			},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			fipsEnabled:   false,
+			expected:      "agentpool=,kubernetes.azure.com/agentpool=,123456789_123456789_123456789_123456789_123456789_123456789_123=foo",
+		}, {
+			name: "with a super long custom label value",
+			ap: AgentPoolProfile{
+				CustomNodeLabels: map[string]string{
+					"foo": "123456789_123456789_123456789_123456789_123456789_123456789_123456789",
+				},
+			},
+			rg:            "my-resource-group",
+			deprecated:    true,
+			nvidiaEnabled: false,
+			fipsEnabled:   false,
+			expected:      "agentpool=,kubernetes.azure.com/agentpool=,foo=123456789_123456789_123456789_123456789_123456789_123456789_123",
 		},
 	}
 
