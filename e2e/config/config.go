@@ -12,6 +12,7 @@ var (
 	Config            = mustLoadConfig()
 	Azure             = mustNewAzureClient(Config.SubscriptionID)
 	ResourceGroupName = "abe2e-" + Config.Location
+	VMIdentityName    = "abe2e-vm-identity"
 	PrivateACRName    = "privateacre2e"
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
@@ -34,9 +35,17 @@ type Configuration struct {
 	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
-	BlobStorageAccount            string        `env:"BLOB_STORAGE_ACCOUNT" envDefault:"https://abe2e.blob.core.windows.net"`
+	BlobStorageAccountPrefix      string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
 	EnableNodeBootstrapperTest    bool          `env:"ENABLE_NODE_BOOTSTRAPPER_TEST"`
+}
+
+func (c *Configuration) BlobStorageAccount() string {
+	return c.BlobStorageAccountPrefix + c.Location
+}
+
+func (c *Configuration) BlobStorageAccountURL() string {
+	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
 }
 
 func mustLoadConfig() Configuration {
