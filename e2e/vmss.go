@@ -45,16 +45,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 		require.NoError(t, err)
 	}
 
-	cse := nodeBootstrapping.CSE
-	if scenario.CSEOverride != "" {
-		cse = scenario.CSEOverride
-	}
-	customData := nodeBootstrapping.CustomData
-	if scenario.DisableCustomData {
-		customData = ""
-	}
-
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, cluster)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, cluster)
 
 	isAzureCNI, err := cluster.IsAzureCNI()
 	require.NoError(t, err, "checking if cluster is using Azure CNI")
