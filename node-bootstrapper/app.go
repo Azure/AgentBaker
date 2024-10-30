@@ -31,10 +31,11 @@ type ProvisionFlags struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
+	slog.Info("node-bootstrapper started")
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
-		slog.Info("node-bootstrapper finished")
+		slog.Info("node-bootstrapper finished successfully")
 	} else {
 		slog.Error("node-bootstrapper failed", "error", err)
 	}
