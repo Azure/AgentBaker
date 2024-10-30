@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -31,7 +32,7 @@ func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string
 func getCSEEnv(config *nbcontractv1.Configuration) map[string]string {
 	env := make(map[string]string)
 
-	env["PROVISION_OUTPUT"] = "/var/log/azure/cluster-provision.log;"
+	env["PROVISION_OUTPUT"] = "/var/log/azure/cluster-provision.log"
 	env["MOBY_VERSION"] = ""
 	env["CLOUDPROVIDER_BACKOFF"] = "true"
 	env["CLOUDPROVIDER_BACKOFF_MODE"] = "v2"
@@ -44,7 +45,7 @@ func getCSEEnv(config *nbcontractv1.Configuration) map[string]string {
 	env["CLOUDPROVIDER_RATELIMIT_QPS_WRITE"] = "10"
 	env["CLOUDPROVIDER_RATELIMIT_BUCKET"] = "100"
 	env["CLOUDPROVIDER_RATELIMIT_BUCKET_WRITE"] = "100"
-	env["CONTAINER_RUNTIME"] = " containerd"
+	env["CONTAINER_RUNTIME"] = "containerd"
 	env["CLI_TOOL"] = "ctr"
 	env["NETWORK_MODE"] = "transparent"
 	env["NEEDS_CONTAINERD"] = "true"
@@ -185,6 +186,7 @@ func BuildCSECmd(ctx context.Context, config *nbcontractv1.Configuration) (*exec
 	for k, v := range getCSEEnv(config) {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
-	sort.Strings(cmd.Env) // produce deterministic output
+	cmd.Env = append(cmd.Env, os.Environ()...) // append existing environment variables
+	sort.Strings(cmd.Env)                      // produce deterministic output
 	return cmd, nil
 }
