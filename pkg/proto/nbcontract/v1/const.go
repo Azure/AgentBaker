@@ -1,7 +1,7 @@
 package nbcontractv1
 
 const (
-	// Follow the semantic versioning format. <Major>.<Minor>.<Patch>
+	// Follow the semantic versioning format. <Major>.<Minor>.<Patch> //nolint: godot // no period is required after patch.
 	contractVersion = "v0"
 )
 
