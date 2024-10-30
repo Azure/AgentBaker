@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,7 +15,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/node-bootstrapper/parser"
-	"github.com/Azure/agentbaker/node-bootstrapper/utils"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"gopkg.in/fsnotify.v1"
 )
 
@@ -33,10 +34,11 @@ type ProvisionFlags struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
+	slog.Info("node-bootstrapper started")
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
-		slog.Info("node-bootstrapper finished")
+		slog.Info("node-bootstrapper finished successfully")
 	} else {
 		slog.Error("node-bootstrapper failed", "error", err)
 	}
@@ -80,30 +82,23 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
 
-	cseCmd, err := parser.Parse(inputJSON)
+	config := &nbcontractv1.Configuration{}
+	err = json.Unmarshal(inputJSON, config)
 	if err != nil {
-		return fmt.Errorf("parse config: %w", err)
+		return fmt.Errorf("unmarshal provision config: %w", err)
+	}
+	if config.Version != "v0" {
+		return fmt.Errorf("unsupported version: %s", config.Version)
 	}
 
-	if err := a.provisionStart(ctx, cseCmd); err != nil {
-		return fmt.Errorf("provision start: %w", err)
+	cmd, err := parser.BuildCSECmd(ctx, config)
+	if err != nil {
+		return fmt.Errorf("build CSE command: %w", err)
 	}
-	return nil
-}
-
-func (a *App) provisionStart(ctx context.Context, cse utils.SensitiveString) error {
-	// CSEScript can't be logged because it contains sensitive information.
-	slog.Info("Running CSE script")
-	//nolint:gosec // we generate the script, so it's safe to execute
-	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", cse.UnsafeValue())
-	cmd.Dir = "/"
 	var stdoutBuf, stderrBuf bytes.Buffer
-	// We want to preserve the original stdout and stderr to avoid any issues during migration to the "scriptless" approach
-	// RP may rely on stdout and stderr for error handling
-	// it's also nice to have a single log file for all the important information, so write to both places
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err := a.cmdRunner(cmd)
+	err = a.cmdRunner(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
