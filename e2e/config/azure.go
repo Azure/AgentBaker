@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,21 +16,25 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/Azure/go-armbalancer"
+	"github.com/google/uuid"
 )
 
 type AzureClient struct {
 	AKS                       *armcontainerservice.ManagedClustersClient
 	Blob                      *azblob.Client
+	StorageContainers         *armstorage.BlobContainersClient
+	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
 	Credential                *azidentity.DefaultAzureCredential
 	GalleryImageVersion       *armcompute.GalleryImageVersionsClient
@@ -38,16 +43,18 @@ type AzureClient struct {
 	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
 	PrivateZonesClient        *armprivatedns.PrivateZonesClient
 	RecordSetClient           *armprivatedns.RecordSetsClient
+	RegistriesClient          *armcontainerregistry.RegistriesClient
 	Resource                  *armresources.Client
 	ResourceGroup             *armresources.ResourceGroupsClient
+	RoleAssignments           *armauthorization.RoleAssignmentsClient
 	SecurityGroup             *armnetwork.SecurityGroupsClient
+	StorageAccounts           *armstorage.AccountsClient
 	Subnet                    *armnetwork.SubnetsClient
+	UserAssignedIdentities    *armmsi.UserAssignedIdentitiesClient
 	VMSS                      *armcompute.VirtualMachineScaleSetsClient
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
-	RegistriesClient          *armcontainerregistry.RegistriesClient
-	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -206,9 +213,29 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 		return nil, fmt.Errorf("create a new images client: %v", err)
 	}
 
-	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccount, credential, nil)
+	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create blob container client: %w", err)
+	}
+
+	cloud.StorageContainers, err = armstorage.NewBlobContainersClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create blob container client: %w", err)
+	}
+
+	cloud.RoleAssignments, err = armauthorization.NewRoleAssignmentsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create role assignment client: %w", err)
+	}
+
+	cloud.UserAssignedIdentities, err = armmsi.NewUserAssignedIdentitiesClient(Config.SubscriptionID, credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create user assigned identities client: %w", err)
+	}
+
+	cloud.StorageAccounts, err = armstorage.NewAccountsClient(Config.SubscriptionID, credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create storage accounts client: %w", err)
 	}
 
 	cloud.Credential = credential
@@ -224,26 +251,83 @@ func (a *AzureClient) UploadAndGetLink(ctx context.Context, blobName string, fil
 		return "", fmt.Errorf("upload blob: %w", err)
 	}
 
-	udc, err := a.Blob.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
-		Expiry: to.Ptr(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
-		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
+	// is there a better way?
+	return fmt.Sprintf("%s/%s/%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName), nil
+}
+
+func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
+		Location: to.Ptr(Config.Location),
 	}, nil)
 	if err != nil {
-		return "", fmt.Errorf("get user delegation credential: %w", err)
+		return "", fmt.Errorf("create managed identity: %w", err)
 	}
-
-	sig, err := sas.BlobSignatureValues{
-		Protocol:      sas.ProtocolHTTPS,
-		ExpiryTime:    time.Now().Add(time.Hour),
-		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
-		ContainerName: Config.BlobContainer,
-		BlobName:      blobName,
-	}.SignWithUserDelegation(udc)
+	err = a.createBlobStorageAccount(ctx)
 	if err != nil {
-		return "", fmt.Errorf("sign blob: %w", err)
+		return "", err
+	}
+	err = a.createBlobStorageContainer(ctx)
+	if err != nil {
+		return "", err
 	}
 
-	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccount, Config.BlobContainer, blobName, sig.Encode()), nil
+	if err := a.assignReaderRoleToBlobStorage(ctx, identity.Properties.PrincipalID); err != nil {
+		return "", err
+	}
+	return *identity.Properties.ClientID, nil
+}
+
+func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
+	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+		Kind:     to.Ptr(armstorage.KindStorageV2),
+		Location: &Config.Location,
+		SKU: &armstorage.SKU{
+			Name: to.Ptr(armstorage.SKUNameStandardLRS),
+		},
+		Properties: &armstorage.AccountPropertiesCreateParameters{
+			AllowBlobPublicAccess: to.Ptr(false),
+			AllowSharedKeyAccess:  to.Ptr(false),
+		},
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("create storage account: %w", err)
+	}
+	_, err = poller.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("create storage account: %w", err)
+	}
+	return nil
+}
+
+func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
+	_, err := a.StorageContainers.Create(ctx, ResourceGroupName, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
+	if err != nil {
+		return fmt.Errorf("create blob container: %w", err)
+	}
+	return nil
+}
+
+func (a *AzureClient) assignReaderRoleToBlobStorage(ctx context.Context, principalID *string) error {
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
+	// Role assignment requires uid to be provided
+	uid := uuid.New().String()
+	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			PrincipalID: principalID,
+			// built-in "Storage Blob Data Reader" role
+			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/2a2b9908-6ea1-4ae2-8e65-a410df84e7d1"),
+		},
+	}, nil)
+	var respError *azcore.ResponseError
+	if err != nil {
+		// if the role assignment already exists, ignore the error
+		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
+			return nil
+		}
+		return fmt.Errorf("assign reader role: %w", err)
+	}
+	return nil
+
 }
 
 func DefaultRetryOpts() policy.RetryOptions {

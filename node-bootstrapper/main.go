@@ -23,7 +23,6 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(logFile, nil))
 	slog.SetDefault(logger)
-	slog.Info("node-bootstrapper started")
 
 	app := App{cmdRunner: cmdRunner}
 	exitCode := app.Run(context.Background(), os.Args)
