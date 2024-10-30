@@ -127,6 +127,10 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 
 	// Watch the directory containing the file
 	dir := filepath.Dir(provisionJSONFilePath)
+	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
+	if err != nil {
+		return "", err
+	}
 	if err = watcher.Add(dir); err != nil {
 		return "", fmt.Errorf("failed to watch directory: %w", err)
 	}

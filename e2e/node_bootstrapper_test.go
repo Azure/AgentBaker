@@ -85,7 +85,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
-				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished"),
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
 			},
 			AKSNodeConfigMutator: func(config *nbcontractv1.Configuration) {},
 		},
