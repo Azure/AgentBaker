@@ -21,11 +21,11 @@ import (
 type App struct {
 	// cmdRunner is a function that runs the given command.
 	// the goal of this field is to make it easier to test the app by mocking the command runner.
-	cmdRunner func(cmd *exec.Cmd) ([]byte, error)
+	cmdRunner func(cmd *exec.Cmd) error
 }
 
-func cmdRunner(cmd *exec.Cmd) ([]byte, error) {
-	return cmd.Output()
+func cmdRunner(cmd *exec.Cmd) error {
+	return cmd.Run()
 }
 
 type ProvisionFlags struct {
@@ -103,7 +103,7 @@ func (a *App) provisionStart(ctx context.Context, cse utils.SensitiveString) err
 	// it's also nice to have a single log file for all the important information, so write to both places
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	_, err := a.cmdRunner(cmd)
+	err := a.cmdRunner(cmd)
 	exitCode := -1
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
@@ -152,13 +152,22 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 			return "", fmt.Errorf("error watching file: %w", err)
 
 		case <-timeoutTimer:
-			bootstrapStatus, err := a.cmdRunner(exec.CommandContext(ctx, "systemctl", "status", bootstrapService))
+			bootstrapStatus, err := a.runSystemctlCommand("status", bootstrapService)
 			if err != nil {
 				return "", fmt.Errorf("failed to get status of %s: %w", bootstrapService, err)
 			}
 			return "", fmt.Errorf("provisioning timed out waiting for file %s, status of %s is: %s", provisionJSONFilePath, bootstrapService, string(bootstrapStatus))
 		}
 	}
+}
+
+// runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
+func (a *App) runSystemctlCommand(args ...string) (string, error) {
+	cmd := exec.Command("systemctl", args...)
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+	err := a.cmdRunner(cmd)
+	return stderrBuf.String(), err
 }
 
 var _ ExitCoder = &exec.ExitError{}
@@ -177,5 +186,4 @@ func errToExitCode(err error) int {
 		return exitErr.ExitCode()
 	}
 	return 1
-
 }

@@ -12,14 +12,14 @@ import (
 
 // MockCmdRunner is a simple mock for cmdRunner.
 type MockCmdRunner struct {
-	RunFunc func(cmd *exec.Cmd) ([]byte, error)
+	RunFunc func(cmd *exec.Cmd) error
 }
 
-func (m *MockCmdRunner) Run(cmd *exec.Cmd) ([]byte, error) {
+func (m *MockCmdRunner) Run(cmd *exec.Cmd) error {
 	if m.RunFunc != nil {
 		return m.RunFunc(cmd)
 	}
-	return nil, nil
+	return nil
 }
 
 type ExitError struct {
@@ -60,8 +60,8 @@ func TestApp_Run(t *testing.T) {
 			name: "provision command with valid flag",
 			args: []string{"node-bootstrapper", "provision", "--provision-config=parser/testdata/test_nbc.json"},
 			setupMocks: func(mc *MockCmdRunner) {
-				mc.RunFunc = func(cmd *exec.Cmd) ([]byte, error) {
-					return nil, nil
+				mc.RunFunc = func(cmd *exec.Cmd) error {
+					return nil
 				}
 			},
 			wantExit: 0,
@@ -70,8 +70,8 @@ func TestApp_Run(t *testing.T) {
 			name: "provision command with command runner error",
 			args: []string{"node-bootstrapper", "provision", "--provision-config=parser/testdata/test_nbc.json"},
 			setupMocks: func(mc *MockCmdRunner) {
-				mc.RunFunc = func(cmd *exec.Cmd) ([]byte, error) {
-					return nil, &ExitError{Code: 666}
+				mc.RunFunc = func(cmd *exec.Cmd) error {
+					return &ExitError{Code: 666}
 				}
 			},
 			wantExit: 666,
@@ -116,8 +116,8 @@ func TestApp_Provision(t *testing.T) {
 			name:  "command runner error",
 			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_nbc.json"},
 			setupMocks: func(mc *MockCmdRunner) {
-				mc.RunFunc = func(cmd *exec.Cmd) ([]byte, error) {
-					return nil, errors.New("command runner error")
+				mc.RunFunc = func(cmd *exec.Cmd) error {
+					return errors.New("command runner error")
 				}
 			},
 			wantErr: true,
