@@ -152,22 +152,22 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 			return "", fmt.Errorf("error watching file: %w", err)
 
 		case <-timeoutTimer:
-			bootstrapStatus, err := a.runSystemctlCommand("status", bootstrapService)
+			err := a.runSystemctlCommand("status", bootstrapService)
 			if err != nil {
 				return "", fmt.Errorf("failed to get status of %s: %w", bootstrapService, err)
 			}
-			return "", fmt.Errorf("provisioning timed out waiting for file %s, status of %s is: %s", provisionJSONFilePath, bootstrapService, string(bootstrapStatus))
 		}
 	}
 }
 
 // runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
-func (a *App) runSystemctlCommand(args ...string) (string, error) {
+func (a *App) runSystemctlCommand(args ...string) error {
 	cmd := exec.Command("systemctl", args...)
-	var stderrBuf bytes.Buffer
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 	err := a.cmdRunner(cmd)
-	return stderrBuf.String(), err
+	return err
 }
 
 var _ ExitCoder = &exec.ExitError{}
