@@ -1,17 +1,14 @@
 package e2e
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/base32"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -44,6 +41,12 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 		}
 		t.Logf("node-bootstrapper log: %s", string(log))
 	})
+	identity, err := config.Azure.CreateVMManagedIdentity(ctx)
+	require.NoError(t, err)
+	binary := compileNodeBootstrapper(t)
+	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().Format("2006-01-02-15-04-05")+"/node-bootstrapper", binary)
+	require.NoError(t, err)
+
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
 		Config: Config{
@@ -51,7 +54,12 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			VMConfigMutator: func(model *armcompute.VirtualMachineScaleSet) {
-				model.Properties.VirtualMachineProfile.OSProfile.CustomData = nil
+				model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+					Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+					UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+						fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName): {},
+					},
+				}
 				model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
 					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
 						{
@@ -63,11 +71,11 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 								AutoUpgradeMinorVersion: to.Ptr(true),
 								Settings:                map[string]any{},
 								ProtectedSettings: map[string]any{
-									//"fileUris":         []string{},
-									"commandToExecute": CSENodeBootstrapper(ctx, t, cluster),
-									//"managedIdentity": map[string]any{
-									//	"objectId": "",
-									//},
+									"fileUris":         []string{url},
+									"commandToExecute": CSENodeBootstrapper(t, cluster),
+									"managedIdentity": map[string]any{
+										"clientId": identity,
+									},
 								},
 							},
 						},
@@ -84,7 +92,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	})
 }
 
-func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) string {
+func CSENodeBootstrapper(t *testing.T, cluster *Cluster) string {
 	nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
 	require.NoError(t, err)
 	nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
@@ -95,10 +103,7 @@ func CSENodeBootstrapper(ctx context.Context, t *testing.T, cluster *Cluster) st
 	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)
 
-	binary := compileNodeBootstrapper(t)
-	url, err := config.Azure.UploadAndGetLink(ctx, "node-bootstrapper-"+hashFile(t, binary.Name()), binary)
-	require.NoError(t, err)
-	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && curl -L -o ./node-bootstrapper '%s' && chmod +x ./node-bootstrapper && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON), url)
+	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))
 }
 
 func compileNodeBootstrapper(t *testing.T) *os.File {
@@ -115,27 +120,4 @@ func compileNodeBootstrapper(t *testing.T) *os.File {
 	f, err := os.Open(filepath.Join("..", "node-bootstrapper", "node-bootstrapper"))
 	require.NoError(t, err)
 	return f
-}
-
-func hashFile(t *testing.T, filePath string) string {
-	// Open the file
-	file, err := os.Open(filePath)
-	require.NoError(t, err)
-	defer file.Close()
-
-	// Create a SHA-256 hasher
-	hasher := sha256.New()
-
-	// Copy the file content to the hasher
-	_, err = io.Copy(hasher, file)
-	require.NoError(t, err)
-
-	// Compute the hash
-	hashSum := hasher.Sum(nil)
-
-	// Encode the hash using base32
-	encodedHash := base32.StdEncoding.EncodeToString(hashSum)
-
-	// Return the first 5 characters of the encoded hash
-	return encodedHash[:5]
 }
