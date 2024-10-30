@@ -639,6 +639,14 @@
       "downloadLocation": "/opt/containerd/downloads",
       "downloadURIs": {
         "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
+                "latestVersion": "1.6.36-ubuntu24.04u1"
+              }
+            ]
+          },
           "r2204": {
             "versionsV2": [
               {
