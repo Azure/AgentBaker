@@ -27,6 +27,7 @@ type Tags struct {
 	WASM                   bool
 	ServerTLSBootstrapping bool
 	Scriptless             bool
+	KubeletCustomConfig    bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -75,7 +76,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 			return false, fmt.Errorf("unknown filter key: %s", key)
 		}
 
-		match := false
+		var match bool
 		switch field.Kind() {
 		case reflect.String:
 			match = strings.EqualFold(field.String(), value)
@@ -100,7 +101,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	return all, nil
 }
 
-// Scenario represents an AgentBaker E2E scenario
+// Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
 	// Description is a short description of what the scenario does and tests for
 	Description string
@@ -121,7 +122,7 @@ type ScenarioRuntime struct {
 	Cluster       *Cluster
 }
 
-// Config represents the configuration of an AgentBaker E2E scenario
+// Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)

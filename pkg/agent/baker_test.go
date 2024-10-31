@@ -54,8 +54,7 @@ type decodedValue struct {
 type cseVariableEncoding string
 
 const (
-	cseVariableEncodingBase64 cseVariableEncoding = "base64"
-	cseVariableEncodingGzip   cseVariableEncoding = "gzip"
+	cseVariableEncodingGzip cseVariableEncoding = "gzip"
 )
 
 type outputValidator func(*nodeBootstrappingOutput)
@@ -388,7 +387,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			err = os.WriteFile(fmt.Sprintf("./testdata/%s/CSECommand", folder), []byte(cseCommand), 0644)
 			Expect(err).To(BeNil())
 		}
-
 		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		Expect(err).To(BeNil())
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
@@ -1533,6 +1531,7 @@ oom_score = 0
 					ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 					ContainerLogMaxFiles:  to.Int32Ptr(99),
 					PodMaxPids:            to.Int32Ptr(12345),
+					SeccompDefault:        to.BoolPtr(true),
 				}
 				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
 					Sysctls: &datamodel.SysctlConfig{
@@ -1549,6 +1548,13 @@ oom_score = 0
 					SwapFileSizeMB:             &swapFileSizeMB,
 				}
 			}, func(o *nodeBootstrappingOutput) {
+				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
+				Expect(err).To(BeNil())
+				var kubeletConfigFile datamodel.AKSKubeletConfiguration
+				err = json.Unmarshal([]byte(kubeletConfigFileContent), &kubeletConfigFile)
+				Expect(err).To(BeNil())
+				Expect(kubeletConfigFile.SeccompDefault).To(Equal(to.BoolPtr(true)))
+
 				sysctlContent, err := getBase64DecodedValue([]byte(o.vars["SYSCTL_CONTENT"]))
 				Expect(err).To(BeNil())
 				// assert defaults for gc_thresh2 and gc_thresh3
