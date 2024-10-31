@@ -10,7 +10,7 @@ import (
 // Some options are intentionally non-configurable to avoid customization by users
 // it will help us to avoid introducing any breaking changes in the future.
 const (
-	LogFile = "/var/log/azure/node-bootstrapper.log"
+	LogFile = "/var/log/azure/aks-node-controller.log"
 )
 
 func main() {

@@ -577,7 +577,7 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
+				FileHasContentsValidator("/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully"),
 			},
 			AKSNodeConfigMutator: func(config *nbcontractv1.Configuration) {},
 		},

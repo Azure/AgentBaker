@@ -964,19 +964,19 @@ testBccTools () {
   return 0
 }
 
-testNodeBootstrapperBinary () {
-  local test="testNodeBootstrapperBinary"
-  local go_binary_path="/opt/azure/containers/node-bootstrapper"
+testAKSNodeControllerBinary () {
+  local test="testAKSNodeControllerBinary"
+  local go_binary_path="/opt/azure/containers/aks-node-controller"
 
-  echo "$test: checking existence of node-bootstrapper go binary at $go_binary_path"
+  echo "$test: checking existence of aks-node-controller go binary at $go_binary_path"
   if [ ! -f "$go_binary_path" ]; then
-    err "$test: node-bootstrapper go binary does not exist at $go_binary_path"
+    err "$test: aks-node-controller go binary does not exist at $go_binary_path"
     return 1
   fi
-  echo "$test: node-bootstrapper go binary exists at $go_binary_path"
+  echo "$test: aks-node-controller go binary exists at $go_binary_path"
 }
 
-testNodeBootstrapperService() {
+testAKSNodeControllerService() {
   local test="testNBCParserService"
   local service_name="bootstrap.service"
   echo "$test:Start"
@@ -1098,5 +1098,5 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
-testNodeBootstrapperBinary
-testNodeBootstrapperService
+testAKSNodeControllerBinary
+testAKSNodeControllerService

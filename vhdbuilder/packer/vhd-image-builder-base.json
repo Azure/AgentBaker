@@ -98,8 +98,8 @@
     },
     {
       "type": "file",
-      "source": "node-bootstrapper/bin/node-bootstrapper-linux-amd64",
-      "destination": "/home/packer/node-bootstrapper"
+      "source": "aks-node-controller/bin/aks-node-controller-linux-amd64",
+      "destination": "/home/packer/aks-node-controller"
     },
     {
       "type": "file",

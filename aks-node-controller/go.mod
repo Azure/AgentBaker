@@ -1,4 +1,4 @@
-module github.com/Azure/agentbaker/node-bootstrapper
+module github.com/Azure/agentbaker/aks-node-controller
 
 go 1.22.2
 

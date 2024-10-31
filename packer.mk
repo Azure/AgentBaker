@@ -5,7 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-node-bootstrapper build-lister-binary
+build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -112,14 +112,12 @@ ifeq (${MODE},linuxVhdMode)
 	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
 endif
 
-build-node-bootstrapper:
-	@echo "Building node bootstrapper binaries"
-	@bash -c "pushd node-bootstrapper && \
+build-aks-node-controller:
+	@echo "Building aks-node-controller binaries"
+	@bash -c "pushd aks-node-controller && \
 	go test ./... && \
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/node-bootstrapper-linux-amd64 && \
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/node-bootstrapper-linux-arm64 && \
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/node-bootstrapper-windows-amd64.exe && \
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -o bin/node-bootstrapper-windows-arm64.exe && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/aks-node-controller-linux-amd64 && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/aks-node-controller-linux-arm64 && \
 	popd"
 
 build-lister-binary:

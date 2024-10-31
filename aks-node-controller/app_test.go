@@ -43,12 +43,12 @@ func TestApp_Run(t *testing.T) {
 	}{
 		{
 			name:     "missing command argument",
-			args:     []string{"node-bootstrapper"},
+			args:     []string{"aks-node-controller"},
 			wantExit: 1,
 		},
 		{
 			name:     "unknown command",
-			args:     []string{"node-bootstrapper", "unknown"},
+			args:     []string{"aks-node-controller", "unknown"},
 			wantExit: 1,
 		},
 		{
@@ -58,7 +58,7 @@ func TestApp_Run(t *testing.T) {
 		},
 		{
 			name: "provision command with valid flag",
-			args: []string{"node-bootstrapper", "provision", "--provision-config=parser/testdata/test_nbc.json"},
+			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_nbc.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return nil
@@ -68,7 +68,7 @@ func TestApp_Run(t *testing.T) {
 		},
 		{
 			name: "provision command with command runner error",
-			args: []string{"node-bootstrapper", "provision", "--provision-config=parser/testdata/test_nbc.json"},
+			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_nbc.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return &ExitError{Code: 666}
