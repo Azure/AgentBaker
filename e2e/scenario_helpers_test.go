@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -115,7 +115,7 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	if scenario.Runtime.NBC != nil && scenario.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
 		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
 	}
-	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == nbcontractv1.WorkloadRuntime_WASM_WASI {
+	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WASM_WASI {
 		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
 	}
 

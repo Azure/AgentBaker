@@ -13,7 +13,7 @@ import (
 
 	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,14 +27,14 @@ func TestBuildCSECmd(t *testing.T) {
 		name       string
 		folder     string
 		k8sVersion string
-		nbcUpdator func(*nbcontractv1.Configuration)
+		nbcUpdator func(*aksnodeconfigv1.Configuration)
 		validator  func(cmd *exec.Cmd)
 	}{
 		{
 			name:       "AKSUbuntu2204 containerd with multi-instance GPU",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
 				nbc.GpuConfig.GpuInstanceProfile = "MIG7g"
 				// Skip GPU driver install
 				nbc.GpuConfig.EnableNvidia = to.BoolPtr(false)
@@ -76,7 +76,7 @@ oom_score = 0
 			name:       "AKSUbuntu2204 DisableSSH with enabled ssh",
 			folder:     "AKSUbuntu2204+SSHStatusOn",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
 				nbc.EnableSsh = to.BoolPtr(true)
 			},
 			validator: func(cmd *exec.Cmd) {
@@ -88,7 +88,7 @@ oom_score = 0
 			name:       "AKSUbuntu2204 in China",
 			folder:     "AKSUbuntu2204+China",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
 				nbc.ClusterConfig.Location = "chinaeast2"
 				nbc.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
 			},
@@ -103,13 +103,13 @@ oom_score = 0
 			name:       "AKSUbuntu2204 with custom cloud",
 			folder:     "AKSUbuntu2204+CustomCloud",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
-				nbc.CustomCloudConfig.CustomCloudEnvName = nbcontractv1.AksCustomCloudName
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
+				nbc.CustomCloudConfig.CustomCloudEnvName = aksnodeconfigv1.AksCustomCloudName
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, nbcontractv1.AksCustomCloudName, vars["TARGET_ENVIRONMENT"])
-				assert.Equal(t, nbcontractv1.AzureStackCloud, vars["TARGET_CLOUD"])
+				assert.Equal(t, aksnodeconfigv1.AksCustomCloudName, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, aksnodeconfigv1.AzureStackCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "true", vars["IS_CUSTOM_CLOUD"])
 			},
 		},
@@ -117,13 +117,13 @@ oom_score = 0
 			name:       "AKSUbuntu2204 with custom osConfig",
 			folder:     "AKSUbuntu2204+CustomOSConfig",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
-				nbc.CustomLinuxOsConfig = &nbcontractv1.CustomLinuxOSConfig{
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
+				nbc.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOSConfig{
 					EnableSwapConfig:           true,
 					SwapFileSize:               int32(1500),
 					TransparentHugepageSupport: "never",
 					TransparentDefrag:          "defer+madvise",
-					SysctlConfig: &nbcontractv1.SysctlConfig{
+					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
 						NetCoreSomaxconn:             to.Int32Ptr(1638499),
 						NetCoreRmemDefault:           to.Int32Ptr(456000),
 						NetCoreWmemDefault:           to.Int32Ptr(89000),
@@ -150,7 +150,7 @@ oom_score = 0
 			name:       "AzureLinux v2 with kata and DisableUnattendedUpgrades=false",
 			folder:     "AzureLinuxv2+Kata+DisableUnattendedUpgrades=false",
 			k8sVersion: "1.28.0",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
 				nbc.IsKata = true
 				nbc.EnableUnattendedUpgrade = true
 				nbc.NeedsCgroupv2 = to.BoolPtr(true)
@@ -166,8 +166,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with containerd and kubenet cni",
 			folder:     "AKSUbuntu1804+Containerd+Kubenet",
 			k8sVersion: "1.19.13",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
-				nbc.NetworkConfig.NetworkPlugin = nbcontractv1.GetNetworkPluginType(nbcontractv1.NetworkPluginKubenet)
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
+				nbc.NetworkConfig.NetworkPlugin = aksnodeconfigv1.GetNetworkPluginType(aksnodeconfigv1.NetworkPluginKubenet)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -179,8 +179,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with http proxy config",
 			folder:     "AKSUbuntu1804+HTTPProxy",
 			k8sVersion: "1.18.14",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
-				nbc.HttpProxyConfig = &nbcontractv1.HTTPProxyConfig{
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
+				nbc.HttpProxyConfig = &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:  "http://myproxy.server.com:8080/",
 					HttpsProxy: "https://myproxy.server.com:8080/",
 					NoProxyEntries: []string{
@@ -200,7 +200,7 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with custom ca trust",
 			folder:     "AKSUbuntu1804+CustomCATrust",
 			k8sVersion: "1.18.14",
-			nbcUpdator: func(nbc *nbcontractv1.Configuration) {
+			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
 				nbc.CustomCaCerts = []string{encodedTestCert, encodedTestCert, encodedTestCert}
 			},
 			validator: func(cmd *exec.Cmd) {
@@ -287,16 +287,16 @@ oom_score = 0
 				"--container-log-max-size":            "50M",
 			}
 
-			nbcontractv1.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
-			nBCB := nbcontractv1.NewNBContractBuilder()
-			nbc := &nbcontractv1.Configuration{
+			aksnodeconfigv1.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
+			nBCB := aksnodeconfigv1.NewNBContractBuilder()
+			nbc := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
-				ClusterConfig: &nbcontractv1.ClusterConfig{
+				ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 					Location:      "southcentralus",
 					ResourceGroup: "resourceGroupName",
-					VmType:        nbcontractv1.ClusterConfig_VMSS,
-					ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
+					VmType:        aksnodeconfigv1.ClusterConfig_VMSS,
+					ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 						SecurityGroupName: "aks-agentpool-36873793-nsg",
 						VnetName:          "aks-vnet-07752737",
 						VnetResourceGroup: "MC_rg",
@@ -305,30 +305,30 @@ oom_score = 0
 					},
 					PrimaryScaleSet: "aks-agent2-36873793-vmss",
 				},
-				AuthConfig: &nbcontractv1.AuthConfig{
+				AuthConfig: &aksnodeconfigv1.AuthConfig{
 					ServicePrincipalId:     "ClientID",
 					ServicePrincipalSecret: "Secret",
 					TenantId:               "tenantID",
 					SubscriptionId:         "subID",
 					AssignedIdentityId:     "userAssignedID",
 				},
-				NetworkConfig: &nbcontractv1.NetworkConfig{
+				NetworkConfig: &aksnodeconfigv1.NetworkConfig{
 					VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				},
-				GpuConfig: &nbcontractv1.GPUConfig{
+				GpuConfig: &aksnodeconfigv1.GPUConfig{
 					ConfigGpuDriver: true,
 					GpuDevicePlugin: false,
 				},
 				EnableUnattendedUpgrade: true,
 				KubernetesVersion:       tt.k8sVersion,
-				ContainerdConfig: &nbcontractv1.ContainerdConfig{
+				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 					ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
 				},
-				OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
-				KubeletConfig: &nbcontractv1.KubeletConfig{
+				OutboundCommand: aksnodeconfigv1.GetDefaultOutboundCommand(),
+				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
-					KubeletFlags:            nbcontractv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-					KubeletNodeLabels:       nbcontractv1.GetKubeletNodeLabels(agentPool),
+					KubeletFlags:            aksnodeconfigv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+					KubeletNodeLabels:       aksnodeconfigv1.GetKubeletNodeLabels(agentPool),
 				},
 			}
 			nBCB.ApplyConfiguration(nbc)
@@ -397,15 +397,15 @@ func TestNBContractCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["HTTPS_PROXY"])
 				assert.Equal(t, "", vars["NO_PROXY"])
 				assert.Equal(t, "", vars["PROXY_TRUSTED_CA"])
-				assert.Equal(t, nbcontractv1.DefaultCloudName, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, aksnodeconfigv1.DefaultCloudName, vars["TARGET_ENVIRONMENT"])
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nBCB := nbcontractv1.NewNBContractBuilder()
-			nBCB.ApplyConfiguration(&nbcontractv1.Configuration{})
+			nBCB := aksnodeconfigv1.NewNBContractBuilder()
+			nBCB.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
 
 			cseCMD, err := parser.BuildCSECmd(context.TODO(), nBCB.GetNodeBootstrapConfig())
 			require.NoError(t, err)
@@ -434,12 +434,12 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 	tests := []struct {
 		name          string
 		nbcUTFilePath string
-		validator     func(*nbcontractv1.Configuration, *nbcontractv1.Configuration)
+		validator     func(*aksnodeconfigv1.Configuration, *aksnodeconfigv1.Configuration)
 	}{
 		{
 			name:          "with unexpected new fields in json should be ignored",
 			nbcUTFilePath: "./testdata/test_nbc_fields_unexpected.json",
-			validator: func(nbcExpected *nbcontractv1.Configuration, nbcUT *nbcontractv1.Configuration) {
+			validator: func(nbcExpected *aksnodeconfigv1.Configuration, nbcUT *aksnodeconfigv1.Configuration) {
 				// The unexpected fields will natively be ignored when unmarshalling the json to the contract object.
 				// We use this test to ensure it.
 				assert.Equal(t, nbcExpected, nbcUT)
@@ -448,7 +448,7 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 		{
 			name:          "with missing fields in json should be set with default values",
 			nbcUTFilePath: "./testdata/test_nbc_fields_missing.json",
-			validator: func(_ *nbcontractv1.Configuration, nbcUT *nbcontractv1.Configuration) {
+			validator: func(_ *aksnodeconfigv1.Configuration, nbcUT *aksnodeconfigv1.Configuration) {
 				// if a string field is unset, it will be set to empty string by protobuf by default
 				assert.Equal(t, "", nbcUT.GetLinuxAdminUsername())
 
@@ -461,7 +461,7 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 				assert.Nil(t, nbcUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
 
 				// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
-				assert.Equal(t, nbcontractv1.LoadBalancerConfig_UNSPECIFIED, nbcUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
+				assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_UNSPECIFIED, nbcUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
 			},
 		},
 	}
@@ -487,15 +487,15 @@ func getBase64DecodedValue(data []byte) (string, error) {
 	return string(decoded), nil
 }
 
-func getNBCInstance(jsonFilePath string) *nbcontractv1.Configuration {
-	nBCB := nbcontractv1.NewNBContractBuilder()
-	nbc := nbcontractv1.Configuration{}
+func getNBCInstance(jsonFilePath string) *aksnodeconfigv1.Configuration {
+	nBCB := aksnodeconfigv1.NewNBContractBuilder()
+	nbc := aksnodeconfigv1.Configuration{}
 	content, err := os.ReadFile(jsonFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if err = json.Unmarshal(content, &nbc); err != nil {
-		log.Printf("Failed to unmarshal the nbcontractv1 from json: %v", err)
+		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
 	nBCB.ApplyConfiguration(&nbc)
 	return nBCB.GetNodeBootstrapConfig()

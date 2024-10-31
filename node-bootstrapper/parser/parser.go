@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 
 )
 
-func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string, error) {
+func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (string, error) {
 	var buffer bytes.Buffer
 	if err := bootstrapTriggerTemplate.Execute(&buffer, inputContract); err != nil {
 		return "", err
@@ -29,7 +29,7 @@ func executeBootstrapTemplate(inputContract *nbcontractv1.Configuration) (string
 	return buffer.String(), nil
 }
 
-func getCSEEnv(config *nbcontractv1.Configuration) map[string]string {
+func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	env := map[string]string{
 		"PROVISION_OUTPUT":                               "/var/log/azure/cluster-provision.log",
 		"MOBY_VERSION":                                   "",
@@ -181,7 +181,7 @@ func mapToEnviron(input map[string]string) []string {
 	return env
 }
 
-func BuildCSECmd(ctx context.Context, config *nbcontractv1.Configuration) (*exec.Cmd, error) {
+func BuildCSECmd(ctx context.Context, config *aksnodeconfigv1.Configuration) (*exec.Cmd, error) {
 	triggerBootstrapScript, err := executeBootstrapTemplate(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute the template: %w", err)
