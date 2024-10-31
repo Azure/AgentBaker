@@ -100,8 +100,8 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/bootstrap.service",
-      "destination": "/home/packer/bootstrap.service"
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
+      "destination": "/home/packer/aks-node-controller.service"
     },
     {
       "type": "file",

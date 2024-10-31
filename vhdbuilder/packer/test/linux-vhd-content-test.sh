@@ -978,7 +978,7 @@ testAKSNodeControllerBinary () {
 
 testAKSNodeControllerService() {
   local test="testNBCParserService"
-  local service_name="bootstrap.service"
+  local service_name="aks-node-controller.service"
   echo "$test:Start"
 
   # is-enabled returns:

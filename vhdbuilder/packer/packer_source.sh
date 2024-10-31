@@ -250,8 +250,8 @@ copyPackerFiles() {
   AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
   cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
 
-  AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/bootstrap.service
-  AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
+  AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
+  AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
   cpAndMode $AKS_NODE_CONTROLLER_SERVICE_SRC $AKS_NODE_CONTROLLER_SERVICE_DEST 0644
 
   NOTICE_SRC=/home/packer/NOTICE.txt
