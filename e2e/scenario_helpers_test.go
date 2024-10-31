@@ -171,7 +171,8 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 		for _, vmInstance := range page.Value {
 			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, resourceGroupName, vmssName, *vmInstance.InstanceID, nil)
 			if err != nil {
-				return fmt.Errorf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
+				t.Logf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
+				continue
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {

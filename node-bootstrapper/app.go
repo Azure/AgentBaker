@@ -70,6 +70,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		}
 		provisionOutput, err := a.ProvisionWait(ctx, timeout)
 		fmt.Println(provisionOutput)
+		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
 		return err
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])

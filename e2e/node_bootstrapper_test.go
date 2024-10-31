@@ -28,9 +28,9 @@ import (
 // mostly executed locally
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	ctx := newTestCtx(t)
-	if !config.Config.EnableNodeBootstrapperTest {
-		t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
-	}
+	//if !config.Config.EnableNodeBootstrapperTest {
+	//	t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
+	//}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
 	cluster, err := ClusterKubenet(ctx, t)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func CSENodeBootstrapper(t *testing.T, cluster *Cluster) string {
 	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)
 
-	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))
+	return fmt.Sprintf(`sh -c "(./node-bootstrapper provision-wait && mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))
 }
 
 func compileNodeBootstrapper(t *testing.T) *os.File {
