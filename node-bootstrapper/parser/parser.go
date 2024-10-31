@@ -169,7 +169,15 @@ func getCSEEnv(config *nbcontractv1.Configuration) map[string]string {
 	for i, cert := range config.CustomCaCerts {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = cert
 	}
+	return env
+}
 
+func mapToEnviron(input map[string]string) []string {
+	var env []string
+	for k, v := range input {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(env) // produce deterministic output
 	return env
 }
 
@@ -181,10 +189,8 @@ func BuildCSECmd(ctx context.Context, config *nbcontractv1.Configuration) (*exec
 	// Convert to one-liner
 	triggerBootstrapScript = strings.ReplaceAll(triggerBootstrapScript, "\n", " ")
 	cmd := exec.CommandContext(ctx, "/bin/bash", "-c", triggerBootstrapScript)
-	for k, v := range getCSEEnv(config) {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-	cmd.Env = append(cmd.Env, os.Environ()...) // append existing environment variables
-	sort.Strings(cmd.Env)                      // produce deterministic output
+	env := mapToEnviron(getCSEEnv(config))
+	cmd.Env = append(os.Environ(), env...) // append existing environment variables
+	sort.Strings(cmd.Env)
 	return cmd, nil
 }
