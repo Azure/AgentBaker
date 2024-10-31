@@ -293,8 +293,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/cilium/cilium",
-          "latestVersion": "1.13.13-4",
-          "previousLatestVersion": "1.13.13-3"
+          "latestVersion": "1.13.17-4",
+          "previousLatestVersion": "1.13.13-4"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/cilium/cilium",
