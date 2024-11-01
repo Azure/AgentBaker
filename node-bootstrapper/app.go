@@ -11,12 +11,17 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"time"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
-	"gopkg.in/fsnotify.v1"
 )
 
 type App struct {
@@ -120,42 +125,89 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 		return string(data), nil
 	}
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return "", fmt.Errorf("failed to create watcher: %w", err)
-	}
-	defer watcher.Close()
+	timeoutChan := time.After(*timeout)
+
+	// Set up a channel to listen for interrupts (to cleanly exit)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	// Watch the directory containing the file
 	dir := filepath.Dir(provisionJSONFilePath)
-	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
+	err := os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
 	if err != nil {
 		return "", err
 	}
-	if err = watcher.Add(dir); err != nil {
-		return "", fmt.Errorf("failed to watch directory: %w", err)
-	}
 
-	timeoutTimer := time.After(*timeout)
+	// Create inotify instance
+	fd, err := unix.InotifyInit()
+	if err != nil {
+		return "", fmt.Errorf("failed to initialize inotify: %w", err)
+	}
+	defer unix.Close(fd)
+
+	// Add watch for the file
+	wd, err := unix.InotifyAddWatch(fd, dir, unix.IN_CLOSE_WRITE)
+	if err != nil {
+		return "", fmt.Errorf("failed to add watch for %s: %w", dir, err)
+	}
+	defer unix.InotifyRmWatch(fd, uint32(wd))
+
+	// Channel to signal when an event is read
+	eventChan := make(chan string)
+	errorChan := make(chan error)
+
+	// Goroutine to handle reading events
+	go func() {
+
+		for {
+			// Create a buffer to hold events
+			var event [unix.SizeofInotifyEvent + 256]byte // +16 to read filename
+			n, err := unix.Read(fd, event[:])             // blocking call
+			if err != nil {
+				errorChan <- fmt.Errorf("error reading inotify event: %w", err)
+				return
+			}
+			// Process all events in the buffer
+			for i := 0; i < n; {
+				evt := (*unix.InotifyEvent)(unsafe.Pointer(&event[i]))
+				fileName := string(event[unix.SizeofInotifyEvent+i : unix.SizeofInotifyEvent+i+int(evt.Len)])
+				fileName = strings.Trim(fileName, "\x00") // remove null byte
+				fileName = filepath.Join(dir, fileName)
+
+				// Check for close write event
+				if evt.Mask&unix.IN_CLOSE_WRITE != 0 {
+					if fileName == provisionJSONFilePath {
+						// File has been closed after writing
+						data, err := os.ReadFile(provisionJSONFilePath)
+						if err != nil {
+							errorChan <- fmt.Errorf("error reading file %s: %v", provisionJSONFilePath, err)
+							return
+						}
+						eventChan <- string(data)
+					}
+				}
+				// Move to the next event
+				i += unix.SizeofInotifyEvent + int(evt.Len)
+			}
+		}
+	}()
+
 	for {
 		select {
-		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionJSONFilePath {
-				data, err := os.ReadFile(provisionJSONFilePath)
-				if err != nil {
-					return "", err
-				}
-				return string(data), nil
-			}
-
-		case err := <-watcher.Errors:
-			return "", fmt.Errorf("error watching file: %w", err)
-
-		case <-timeoutTimer:
+		case data := <-eventChan: // Handle data from the goroutine
+			return data, nil
+		case err := <-errorChan: // Handle errors from the goroutine
+			return "", err
+		case <-sigChan: // Check for interrupt signal
+			// Check for interrupt signal
+			return "", fmt.Errorf("terminated by interrupt signal")
+		case <-timeoutChan:
 			err := a.runSystemctlCommand("status", bootstrapService)
 			if err != nil {
 				return "", fmt.Errorf("failed to get status of %s: %w", bootstrapService, err)
 			}
+		default:
 		}
 	}
 }
