@@ -126,8 +126,8 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 	}
 	defer watcher.Close()
 
-	// Watch the directory containing the file
-	dir := filepath.Dir(provisionJSONFilePath)
+	// Watch the directory containing the provision complete file
+	dir := filepath.Dir(provisionCompleteFilePath)
 	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
 	if err != nil {
 		return "", err
@@ -140,7 +140,7 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionJSONFilePath {
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionCompleteFilePath {
 				data, err := os.ReadFile(provisionJSONFilePath)
 				if err != nil {
 					return "", err
