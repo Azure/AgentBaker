@@ -171,8 +171,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 		for _, vmInstance := range page.Value {
 			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, resourceGroupName, vmssName, *vmInstance.InstanceID, nil)
 			if err != nil {
-				t.Logf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
-				continue
+				return fmt.Errorf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
@@ -183,12 +182,13 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 					if resp.ExitCode != "0" {
 						return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
 					}
-					t.Logf("CSE completed successfully with exit code 0")
+					t.Logf("CSE completed successfully with exit code 0, cse output: %s", *status.Message)
+					return nil
 				}
 			}
 		}
 	}
-	return nil
+	return fmt.Errorf("failed to get CSE output.")
 }
 
 func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {

@@ -28,9 +28,9 @@ import (
 // mostly executed locally
 func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	ctx := newTestCtx(t)
-	//if !config.Config.EnableNodeBootstrapperTest {
-	//	t.Skip("ENABLE_NODE_BOOTSTRAPPER_TEST is not set")
-	//}
+	if config.Config.NodeBootstrapperTestMode == "" {
+		t.Skip("NODE_BOOTSTRAPPER_TEST_MODE not set")
+	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
 	cluster, err := ClusterKubenet(ctx, t)
 	require.NoError(t, err)
@@ -46,6 +46,13 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	binary := compileNodeBootstrapper(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().Format("2006-01-02-15-04-05")+"/node-bootstrapper", binary)
 	require.NoError(t, err)
+
+	var cse string
+	if config.Config.NodeBootstrapperTestMode == "provision" {
+		cse = CSENodeBootstrapper(t, cluster)
+	} else if config.Config.NodeBootstrapperTestMode == "provision-wait" {
+		cse = "./node-bootstrapper provision-wait"
+	}
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
@@ -72,7 +79,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 								Settings:                map[string]any{},
 								ProtectedSettings: map[string]any{
 									"fileUris":         []string{url},
-									"commandToExecute": CSENodeBootstrapper(t, cluster),
+									"commandToExecute": cse,
 									"managedIdentity": map[string]any{
 										"clientId": identity,
 									},
@@ -103,7 +110,7 @@ func CSENodeBootstrapper(t *testing.T, cluster *Cluster) string {
 	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)
 
-	return fmt.Sprintf(`sh -c "(./node-bootstrapper provision-wait && mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))
+	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))
 }
 
 func compileNodeBootstrapper(t *testing.T) *os.File {

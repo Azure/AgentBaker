@@ -76,6 +76,11 @@ func TestApp_Run(t *testing.T) {
 			},
 			wantExit: 666,
 		},
+		{
+			name:     "provision-wait command with invalid timeout",
+			args:     []string{"node-bootstrapper", "provision-wait", "--timeout=abc"},
+			wantExit: 1,
+		},
 	}
 
 	for _, tt := range tests {

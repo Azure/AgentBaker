@@ -114,8 +114,8 @@ const (
 )
 
 const (
-	scriptlessBootstrapStatusCSE = "/opt/azure/containers/node-bootstrapper provision-wait"
-	scriptlessCustomDataTemplate = `#cloud-config
+	ScriptlessBootstrapStatusCSE = "/opt/azure/containers/node-bootstrapper provision-wait"
+	ScriptlessCustomDataTemplate = `#cloud-config
 write_files:
 - path: /opt/azure/containers/node-bootstrapper-config.json
   permissions: "0755"

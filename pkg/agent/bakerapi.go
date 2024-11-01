@@ -101,7 +101,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	}
 
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CSE:        scriptlessBootstrapStatusCSE,
+		CSE:        ScriptlessBootstrapStatusCSE,
 		CustomData: customData,
 	}
 
@@ -127,7 +127,7 @@ func getScriptlessCustomDataContent(config any) (string, error) {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
+	customDataYAML := fmt.Sprintf(ScriptlessCustomDataTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
