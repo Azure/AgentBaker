@@ -17,6 +17,17 @@
   ],
   "packageRules": [
     {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": true,
+      "automerge": false
+    },
+    {
+      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<prerelease>\\d{14}))?$"
+    },
+    {
       "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
       "matchUpdateTypes": [
         "minor"
