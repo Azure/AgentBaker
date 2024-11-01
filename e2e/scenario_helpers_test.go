@@ -183,7 +183,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 					if resp.ExitCode != "0" {
 						return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
 					}
-					t.Logf("CSE completed successfully: output=%s", *status.Message)
+					t.Logf("CSE completed successfully with exit code 0")
 				}
 			}
 		}
