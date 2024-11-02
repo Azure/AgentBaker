@@ -70,7 +70,6 @@ func getCSEEnv(config *nbcontractv1.Configuration) map[string]string {
 		"PRIMARY_SCALE_SET":                              config.GetClusterConfig().GetPrimaryScaleSet(),
 		"SERVICE_PRINCIPAL_CLIENT_ID":                    config.GetAuthConfig().GetServicePrincipalId(),
 		"NETWORK_PLUGIN":                                 getStringFromNetworkPluginType(config.GetNetworkConfig().GetNetworkPlugin()),
-		"VNET_CNI_PLUGINS_URL":                           config.GetNetworkConfig().GetVnetCniPluginsUrl(),
 		"LOAD_BALANCER_DISABLE_OUTBOUND_SNAT":            fmt.Sprintf("%v", config.GetClusterConfig().GetLoadBalancerConfig().GetDisableOutboundSnat()),
 		"USE_MANAGED_IDENTITY_EXTENSION":                 fmt.Sprintf("%v", config.GetAuthConfig().GetUseManagedIdentityExtension()),
 		"USE_INSTANCE_METADATA":                          fmt.Sprintf("%v", config.GetClusterConfig().GetUseInstanceMetadata()),

@@ -135,10 +135,6 @@ type NetworkConfig struct {
 	// This is still needed to compute ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE.
 	// Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
 	NetworkPolicy NetworkPolicy `protobuf:"varint,2,opt,name=network_policy,json=networkPolicy,proto3,enum=nbcontract.v1.NetworkPolicy" json:"network_policy,omitempty"`
-	// URL to the vnet cni plugins tarball.
-	VnetCniPluginsUrl string `protobuf:"bytes,3,opt,name=vnet_cni_plugins_url,json=vnetCniPluginsUrl,proto3" json:"vnet_cni_plugins_url,omitempty"`
-	// URL to the cni plugins tarball.
-	CniPluginsUrl string `protobuf:"bytes,4,opt,name=cni_plugins_url,json=cniPluginsUrl,proto3" json:"cni_plugins_url,omitempty"`
 }
 
 func (x *NetworkConfig) Reset() {
