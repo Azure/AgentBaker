@@ -508,18 +508,58 @@ installCNI() {
     chown -R root:root $CNI_BIN_DIR
 }
 
+# this will never be called after 1.31 hopefully as daemonset will install windows.
+# we could execute cni-insall as part of CSE script ratehr than the tarball
 installAzureCNI() {
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    CNI_DIR_TMP=${CNI_TGZ_TMP%.tgz}         # Use bash builtin % to remove the .tgz to look for a folder rather than tgz
+
+    if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "azure-cni")' < $COMPONENTS_FILEPATH > /dev/null; then
+        echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
+        # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
+        # definitely not handling arm here.
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/azurecni.tar.gz" "https://acs-mirror.azureedge.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-linux-amd64-v1.4.56.tgz" || exit
+        tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
+        return 
+    fi
+
+    azureCniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"azure-cni\")") || exit $ERR_CNI_VERSION_INVALID
+    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
+    os=${UBUNTU_OS_NAME} 
+    if [[ -z "$UBUNTU_RELEASE" ]]; then
+        os=${OS}
+        os_version="current"
+    fi
+    os_version="${UBUNTU_RELEASE}"
+    if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
+        os=${MARINER_KATA_OS_NAME}
+    fi
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${azureCniPackage}" "${os}" "${os_version}"
+
+    #why would I care about this what does it do?
+    #updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
+
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    #take the first or oldest for now could go off k8s version but defering that to cni-insaller daemoset
+    packageVersion=${PACKAGE_VERSIONS[0]}
+
+     # Is there a ${arch} variable I can use instead of the iff
+     # forget what is untarring these alrady
+    if [[ $(isARM64) == 1 ]]; then 
+        CNI_DIR_TMP="azure-vnet-cni-linux-arm64-v${packageVersion}"
+    else 
+        CNI_DIR_TMP="azure-vnet-cni-linux-amd64-v${packageVersion}"
+    fi
+
 
     if [[ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]]; then
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR
+        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
-        if [[ ! -f "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ]]; then
-            logs_to_events "AKS.CSE.installAzureCNI.downloadAzureCNI" downloadAzureCNI
-        fi
-
-        tar -xzf "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" -C $CNI_BIN_DIR
+        echo "AZURE CNI tarball should already be unzipped by components.json"
+        exit $ERR_CNI_VERSION_INVALID
     fi
 
     chown -R root:root $CNI_BIN_DIR
