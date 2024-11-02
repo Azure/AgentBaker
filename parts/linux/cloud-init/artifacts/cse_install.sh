@@ -361,19 +361,6 @@ evalPackageDownloadURL() {
     echo ""
 }
 
-downloadAzureCNI() {
-    mkdir -p ${1-$:CNI_DOWNLOADS_DIR}
-    # At VHD build time, the VNET_CNI_PLUGINS_URL is usually not set. 
-    # So, we will get the URL passed from install-depenencies.sh which is actually from components.json
-    # At node provisioning time, if AKS-RP sets the VNET_CNI_PLUGINS_URL, then we will use that.
-    VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
-    if [[ -z "$VNET_CNI_PLUGINS_URL" ]]; then
-        echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
-        return
-    fi
-    CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
-}
 
 downloadCrictl() {
     #if $1 is empty, take ${CRICTL_DOWNLOAD_DIR} as default value. Otherwise take $1 as the value
