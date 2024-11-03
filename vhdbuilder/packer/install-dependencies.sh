@@ -189,6 +189,8 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+
+
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "${SCRIPT_NAME}_create_containerd_service_directory_and_configure_runtime_and_network"
@@ -236,7 +238,7 @@ while IFS= read -r p; do
     "azure-cni")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
+        downloadCNI "${downloadDir}" "${evaluatedURL}"
         unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
         echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
       done

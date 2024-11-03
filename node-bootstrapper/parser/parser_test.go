@@ -312,9 +312,7 @@ oom_score = 0
 					SubscriptionId:         "subID",
 					AssignedIdentityId:     "userAssignedID",
 				},
-				NetworkConfig: &nbcontractv1.NetworkConfig{
-					VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
-				},
+				NetworkConfig: &nbcontractv1.NetworkConfig{},
 				GpuConfig: &nbcontractv1.GPUConfig{
 					ConfigGpuDriver: true,
 					GpuDevicePlugin: false,
@@ -386,7 +384,6 @@ func TestNBContractCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["LOAD_BALANCER_SKU"])
 				assert.Equal(t, "", vars["NETWORK_POLICY"])
 				assert.Equal(t, "", vars["NETWORK_PLUGIN"])
-				assert.Equal(t, "", vars["VNET_CNI_PLUGINS_URL"])
 				assert.Equal(t, "false", vars["GPU_NODE"])
 				assert.Equal(t, "", vars["GPU_INSTANCE_PROFILE"])
 				assert.Equal(t, "0", vars["CUSTOM_CA_TRUST_COUNT"])

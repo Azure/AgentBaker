@@ -11,10 +11,10 @@ message NetworkConfig {
   NetworkPolicy network_policy = 2;
 
   // URL to the vnet cni plugins tarball.
-  string vnet_cni_plugins_url = 3;
+  reserved 3;
 
   // URL to the cni plugins tarball.
-  string cni_plugins_url = 4;
+  reserved 4;
 }
 
 enum NetworkPlugin {

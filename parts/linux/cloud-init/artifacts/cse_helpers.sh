@@ -107,7 +107,7 @@ ERR_SYSTEMCTL_MASK_FAIL=2 # Service could not be masked by systemctl
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 # Timeout waiting for credential provider downloads
 
-ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid version in components.json
+ERR_CNI_VERSION_INVALID=206 # reference CNI OR azure cni needs a valid version in components.json
 
 # For both Ubuntu and Mariner/AzureLinux, /etc/*-release should exist.
 # In AzureLinux 3.0, /etc/*-release are symlinks to /usr/lib/*-release, so the find command includes -type f,l.
