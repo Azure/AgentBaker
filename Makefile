@@ -180,11 +180,11 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: test-node-bootstrapper
+test: test-aks-node-controller
 	go test ./...
 
-test-node-bootstrapper:
-	pushd node-bootstrapper && go test ./... && popd
+test-aks-node-controller:
+	pushd aks-node-controller && go test ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers

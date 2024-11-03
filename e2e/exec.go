@@ -61,7 +61,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		"kubelet":                      "journalctl -u kubelet",
 		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out":                   "sysctl -a",
-		"node-bootstrapper":            "cat /var/log/azure/node-bootstrapper.log",
+		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
 	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)

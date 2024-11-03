@@ -12,7 +12,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/Azure/agentbaker/node-bootstrapper/parser"
+	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 )
 
@@ -31,13 +31,13 @@ type ProvisionFlags struct {
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
-	slog.Info("node-bootstrapper started")
+	slog.Info("aks-node-controller started")
 	err := a.run(ctx, args)
 	exitCode := errToExitCode(err)
 	if exitCode == 0 {
-		slog.Info("node-bootstrapper finished successfully")
+		slog.Info("aks-node-controller finished successfully")
 	} else {
-		slog.Error("node-bootstrapper failed", "error", err)
+		slog.Error("aks-node-controller failed", "error", err)
 	}
 	return exitCode
 }

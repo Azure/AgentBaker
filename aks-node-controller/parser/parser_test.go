@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/agentbaker/node-bootstrapper/parser"
+	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/go-autorest/autorest/to"
