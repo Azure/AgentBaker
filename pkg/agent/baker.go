@@ -985,9 +985,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
 		"IsArc": func() bool {
-			return config.KuberentesAuthMethod == datamodel.UseArcMsiDirectly || config.KuberentesAuthMethod == datamodel.UseArcMsiToMakeCSR
+			return isArc(config)
 		},
 	}
+}
+
+func isArc(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return config.KuberentesAuthMethod == datamodel.UseArcMsiDirectly || config.KuberentesAuthMethod == datamodel.UseArcMsiToMakeCSR
 }
 
 func GetDataDir(config *datamodel.NodeBootstrappingConfiguration) string {

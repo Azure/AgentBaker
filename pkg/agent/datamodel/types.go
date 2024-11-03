@@ -353,6 +353,7 @@ const (
 type KuberentesAuthMethod string
 
 const (
+	UnknownAuthMethod         KuberentesAuthMethod = ""
 	UseArcMsiToMakeCSR        KuberentesAuthMethod = "UseArcMsiToMakeCSR"
 	UseAzureMsiToMakeCSR      KuberentesAuthMethod = "UseAzureMsiToMakeCSR"
 	UseArcMsiDirectly         KuberentesAuthMethod = "UseArcMsiDirectly"
