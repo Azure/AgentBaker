@@ -129,7 +129,7 @@ func getScriptlessCustomDataContent(config any) (string, error) {
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
 	customDataYAML := fmt.Sprintf(`#cloud-config
 write_files:
-- path: /opt/azure/containers/node-bootstrapper-config.json
+- path: /opt/azure/containers/aks-node-controller-config.json
   permissions: "0755"
   owner: root
   content: !!binary |

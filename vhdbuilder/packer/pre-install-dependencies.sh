@@ -72,8 +72,8 @@ capture_benchmark "${SCRIPT_NAME}_enable_modified_log_rotate_service"
 systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "${SCRIPT_NAME}_sync_container_logs"
 
-# enable bootstrap.service
-systemctl enable bootstrap.service
+# enable aks-node-controller.service
+systemctl enable aks-node-controller.service
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
