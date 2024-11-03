@@ -408,3 +408,21 @@ func KubeletHasNotStoppedValidator() *LiveVMValidator {
 		},
 	}
 }
+
+// KubeletHasConfigFlagsValidator checks kubelet is started with the right flags and configs.
+func KubeletHasConfigFlagsValidator(filePath string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description: "assert that kubelet service is properly configured",
+		Command:     "journalctl -u kubelet",
+		Asserter: func(code, stdout, stderr string) error {
+			if code != "0" {
+				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
+			}
+			configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
+			if !strings.Contains(stdout, configFileFlags) {
+				return fmt.Errorf(fmt.Sprintf("expected to find flag %s, but not found: %s", "config", stdout))
+			}
+			return nil
+		},
+	}
+}
