@@ -350,6 +350,18 @@ const (
 	Webhook AuthenticatorType = "webhook"
 )
 
+type KuberentesAuthMethod string
+
+const (
+	UseArcMsiToMakeCSR        KuberentesAuthMethod = "UseArcMsiToMakeCSR"
+	UseAzureMsiToMakeCSR      KuberentesAuthMethod = "UseAzureMsiToMakeCSR"
+	UseArcMsiDirectly         KuberentesAuthMethod = "UseArcMsiDirectly"
+	UseAzureMsiDirectly       KuberentesAuthMethod = "UseAzureMsiDirectly"
+	UseSecureTLSBootstrapping KuberentesAuthMethod = "UseSecureTLSBootstrapping"
+	//nolint:gosec // this is a const string to use in switch statements, not hardcoded credentials
+	UseTLSBootstrapToken KuberentesAuthMethod = "UseTLSBootstrapToken"
+)
+
 // UserAssignedIdentity contains information that uniquely identifies an identity.
 type UserAssignedIdentity struct {
 	ResourceID string `json:"resourceId,omitempty"`
@@ -1687,6 +1699,9 @@ type GetLatestSigImageConfigRequest struct {
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
+	// Version is required for aks-node-controller application to determine the version of the config file.
+	Version string
+
 	ContainerService              *ContainerService
 	CloudSpecConfig               *AzureEnvironmentSpecConfig
 	K8sComponents                 *K8sComponents
@@ -1711,6 +1726,9 @@ type NodeBootstrappingConfiguration struct {
 	// Currently both configurations are for test purpose, and only deb package is supported.
 	ContainerdPackageURL string
 	RuncPackageURL       string
+	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
+	KuberentesAuthMethod           KuberentesAuthMethod
+	BootstrappingManagedIdentityID string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	/* When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap
 	kubeconfig. */
@@ -1743,9 +1761,6 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
-
-	// Version is required for aks-node-controller application to determine the version of the config file.
-	Version string
 }
 
 type SSHStatus int

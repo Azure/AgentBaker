@@ -134,6 +134,9 @@ installContainerRuntime() {
 }
 
 installNetworkPlugin() {
+    if [[ "${NETWORK_PLUGIN}" = "none" ]]; then
+         return
+    fi
     if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
         installAzureCNI
     fi

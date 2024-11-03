@@ -1692,6 +1692,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				FeatureFlags: &datamodel.FeatureFlags{
 					EnableWinDSR: false,
 				},
+				CustomCloudEnv: &datamodel.CustomCloudEnv{},
 			},
 		}
 		cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{

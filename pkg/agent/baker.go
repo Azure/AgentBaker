@@ -781,9 +781,27 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.CustomCloudEnv.ResourceManagerVMDNSSuffix
 		},
 		"AKSCustomCloudContainerRegistryDNSSuffix": func() string {
+			if cs == nil {
+				panic("no CS")
+			}
+			if cs.Properties == nil {
+				panic("no cs.Properties")
+			}
+			if cs.Properties.CustomCloudEnv == nil {
+				panic("cs.Properties.CustomCloudEnv")
+			}
 			return cs.Properties.CustomCloudEnv.ContainerRegistryDNSSuffix
 		},
 		"AKSCustomCloudCosmosDBDNSSuffix": func() string {
+			if cs == nil {
+				panic("no CS")
+			}
+			if cs.Properties == nil {
+				panic("no cs.Properties")
+			}
+			if cs.Properties.CustomCloudEnv == nil {
+				panic("cs.Properties.CustomCloudEnv")
+			}
 			return cs.Properties.CustomCloudEnv.CosmosDBDNSSuffix
 		},
 		"AKSCustomCloudTokenAudience": func() string {
@@ -983,6 +1001,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
+		},
+		"IsArc": func() bool {
+			return config.KuberentesAuthMethod == datamodel.UseArcMsiDirectly || config.KuberentesAuthMethod == datamodel.UseArcMsiToMakeCSR
 		},
 	}
 }
