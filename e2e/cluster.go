@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -40,7 +40,7 @@ type Cluster struct {
 	Kube                           *Kubeclient
 	SubnetID                       string
 	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig                  *nbcontractv1.Configuration
+	AKSNodeConfig                  *aksnodeconfigv1.Configuration
 	Maintenance                    *armcontainerservice.MaintenanceConfiguration
 }
 

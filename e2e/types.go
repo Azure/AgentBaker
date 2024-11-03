@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -118,7 +118,7 @@ type Scenario struct {
 
 type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig *nbcontractv1.Configuration
+	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
 }
 
@@ -134,7 +134,7 @@ type Config struct {
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
-	AKSNodeConfigMutator func(*nbcontractv1.Configuration)
+	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
@@ -236,7 +236,7 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 	if s.AKSNodeConfigMutator != nil {
 		configAny, err := deepcopy.Anything(cluster.AKSNodeConfig)
 		require.NoError(t, err)
-		config := configAny.(*nbcontractv1.Configuration)
+		config := configAny.(*aksnodeconfigv1.Configuration)
 		s.AKSNodeConfigMutator(config)
 		s.Runtime.AKSNodeConfig = config
 	}

@@ -13,7 +13,7 @@ import (
 	"os/exec"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 )
 
 type App struct {
@@ -69,7 +69,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 		return fmt.Errorf("open proision file %s: %w", flags.ProvisionConfig, err)
 	}
 
-	config := &nbcontractv1.Configuration{}
+	config := &aksnodeconfigv1.Configuration{}
 	err = json.Unmarshal(inputJSON, config)
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)

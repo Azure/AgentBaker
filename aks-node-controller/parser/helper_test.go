@@ -21,14 +21,14 @@ import (
 	"reflect"
 	"testing"
 
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func Test_getSysctlContent(t *testing.T) {
 	// Test_getSysctlContent tests the getSysctlContent function.
 	type args struct {
-		s *nbcontractv1.SysctlConfig
+		s *aksnodeconfigv1.SysctlConfig
 	}
 	tests := []struct {
 		name string
@@ -38,7 +38,7 @@ func Test_getSysctlContent(t *testing.T) {
 		{
 			name: "Default SysctlConfig",
 			args: args{
-				s: &nbcontractv1.SysctlConfig{},
+				s: &aksnodeconfigv1.SysctlConfig{},
 			},
 			want: base64.StdEncoding.EncodeToString(
 				[]byte(`net.core.message_burst=80
@@ -53,7 +53,7 @@ net.ipv4.tcp_retries2=8`)),
 		{
 			name: "SysctlConfig with custom values",
 			args: args{
-				s: &nbcontractv1.SysctlConfig{
+				s: &aksnodeconfigv1.SysctlConfig{
 					NetIpv4TcpMaxSynBacklog: to.Int32Ptr(int32(9999)),
 					NetCoreRmemDefault:      to.Int32Ptr(int32(9999)),
 					NetIpv4IpLocalPortRange: to.StringPtr("32768 62535"),
@@ -83,7 +83,7 @@ net.ipv4.tcp_retries2=8`)),
 
 func Test_getUlimitContent(t *testing.T) {
 	type args struct {
-		u *nbcontractv1.UlimitConfig
+		u *aksnodeconfigv1.UlimitConfig
 	}
 	str9999 := "9999"
 	tests := []struct {
@@ -94,7 +94,7 @@ func Test_getUlimitContent(t *testing.T) {
 		{
 			name: "Default UlimitConfig",
 			args: args{
-				u: &nbcontractv1.UlimitConfig{},
+				u: &aksnodeconfigv1.UlimitConfig{},
 			},
 			want: base64.StdEncoding.EncodeToString(
 				[]byte("[Service]\n")),
@@ -102,7 +102,7 @@ func Test_getUlimitContent(t *testing.T) {
 		{
 			name: "UlimitConfig with custom values",
 			args: args{
-				u: &nbcontractv1.UlimitConfig{
+				u: &aksnodeconfigv1.UlimitConfig{
 					NoFile:          &str9999,
 					MaxLockedMemory: &str9999,
 				},
@@ -250,7 +250,7 @@ func Test_createSortedKeyValueInt32Pairs(t *testing.T) {
 
 func Test_getContainerdConfig(t *testing.T) {
 	type args struct {
-		nbcontract *nbcontractv1.Configuration
+		aksnodeconfig *aksnodeconfigv1.Configuration
 	}
 	tests := []struct {
 		name string
@@ -260,7 +260,7 @@ func Test_getContainerdConfig(t *testing.T) {
 		{
 			name: "Default Configuration",
 			args: args{
-				nbcontract: &nbcontractv1.Configuration{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: to.BoolPtr(true),
 				},
 			},
@@ -288,7 +288,7 @@ oom_score = 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfig(tt.args.nbcontract); got != tt.want {
+			if got := getContainerdConfig(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -340,7 +340,7 @@ func Test_getKubenetTemplate(t *testing.T) {
 
 func Test_getAzureEnvironmentFilepath(t *testing.T) {
 	type args struct {
-		v *nbcontractv1.Configuration
+		v *aksnodeconfigv1.Configuration
 	}
 	tests := []struct {
 		name string
@@ -350,15 +350,15 @@ func Test_getAzureEnvironmentFilepath(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{
-				v: &nbcontractv1.Configuration{},
+				v: &aksnodeconfigv1.Configuration{},
 			},
 			want: "",
 		},
 		{
 			name: "Empty AzureEnvironmentFilepath",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
 			want: "",
@@ -366,9 +366,9 @@ func Test_getAzureEnvironmentFilepath(t *testing.T) {
 		{
 			name: "AzureEnvironmentFilepath when it is AKSCustomCloud",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-						CustomCloudEnvName: nbcontractv1.AksCustomCloudName,
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
 					},
 				},
 			},
@@ -386,7 +386,7 @@ func Test_getAzureEnvironmentFilepath(t *testing.T) {
 
 func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 	type args struct {
-		nc *nbcontractv1.NetworkConfig
+		nc *aksnodeconfigv1.NetworkConfig
 	}
 	tests := []struct {
 		name string
@@ -396,9 +396,9 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 		{
 			name: "NetworkConfig with no promiscuous bridge",
 			args: args{
-				nc: &nbcontractv1.NetworkConfig{
-					NetworkPlugin: nbcontractv1.NetworkPlugin_NP_AZURE,
-					NetworkPolicy: nbcontractv1.NetworkPolicy_NPO_AZURE,
+				nc: &aksnodeconfigv1.NetworkConfig{
+					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NP_AZURE,
+					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NPO_AZURE,
 				},
 			},
 			want: false,
@@ -406,9 +406,9 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 		{
 			name: "NetworkConfig with promiscuous bridge",
 			args: args{
-				nc: &nbcontractv1.NetworkConfig{
-					NetworkPlugin: nbcontractv1.NetworkPlugin_NP_KUBENET,
-					NetworkPolicy: nbcontractv1.NetworkPolicy_NPO_AZURE,
+				nc: &aksnodeconfigv1.NetworkConfig{
+					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NP_KUBENET,
+					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NPO_AZURE,
 				},
 			},
 			want: true,
@@ -425,7 +425,7 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 
 func Test_getHasSearchDomain(t *testing.T) {
 	type args struct {
-		csd *nbcontractv1.CustomSearchDomainConfig
+		csd *aksnodeconfigv1.CustomSearchDomainConfig
 	}
 	tests := []struct {
 		name string
@@ -435,14 +435,14 @@ func Test_getHasSearchDomain(t *testing.T) {
 		{
 			name: "CustomSearchDomain with empty search domain should return false",
 			args: args{
-				csd: &nbcontractv1.CustomSearchDomainConfig{},
+				csd: &aksnodeconfigv1.CustomSearchDomainConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "CustomSearchDomain with empty search domain user should return false",
 			args: args{
-				csd: &nbcontractv1.CustomSearchDomainConfig{
+				csd: &aksnodeconfigv1.CustomSearchDomainConfig{
 					DomainName:    "fakedomain.com",
 					RealmPassword: "fakepassword",
 				},
@@ -452,7 +452,7 @@ func Test_getHasSearchDomain(t *testing.T) {
 		{
 			name: "CustomSearchDomain with search domain, user and password should return true",
 			args: args{
-				csd: &nbcontractv1.CustomSearchDomainConfig{
+				csd: &aksnodeconfigv1.CustomSearchDomainConfig{
 					DomainName:    "fakedomain.com",
 					RealmUser:     "fakeuser",
 					RealmPassword: "fakepassword",
@@ -642,7 +642,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := nbcontractv1.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := aksnodeconfigv1.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -733,7 +733,7 @@ func Test_getPortRangeEndValue(t *testing.T) {
 
 func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	type args struct {
-		httpProxyConfig *nbcontractv1.HTTPProxyConfig
+		httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig
 	}
 	tests := []struct {
 		name string
@@ -748,14 +748,14 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "Empty HTTPProxyConfig",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{},
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "HTTPProxyConfig with empty HttpProxy and valid HttpsProxy",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:  "",
 					HttpsProxy: "https://fakeproxy.com:8080",
 				},
@@ -765,7 +765,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with valid HttpProxy and empty HttpsProxy",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:  "http://fakeproxy.com:8080",
 					HttpsProxy: "",
 				},
@@ -775,7 +775,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with empty HttpProxy and empty HttpsProxy",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:      "",
 					HttpsProxy:     "",
 					NoProxyEntries: []string{"fakesite1.com", "fakesite2.com"},
@@ -786,7 +786,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with valid HttpProxy",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy: "http://fakeproxy.com:8080",
 				},
 			},
@@ -804,7 +804,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
-		httpProxyConfig *nbcontractv1.HTTPProxyConfig
+		httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig
 	}
 	tests := []struct {
 		name string
@@ -819,14 +819,14 @@ func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 		{
 			name: "Empty HTTPProxyConfig",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{},
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "HTTPProxyConfig with empty CA",
 			args: args{
-				httpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:      "http://fakeproxy.com:8080",
 					ProxyTrustedCa: "",
 				},
@@ -845,7 +845,7 @@ func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 
 func Test_getTargetEnvironment(t *testing.T) {
 	type args struct {
-		v *nbcontractv1.Configuration
+		v *aksnodeconfigv1.Configuration
 	}
 	tests := []struct {
 		name string
@@ -855,36 +855,36 @@ func Test_getTargetEnvironment(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: nbcontractv1.DefaultCloudName,
+			want: aksnodeconfigv1.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: nbcontractv1.DefaultCloudName,
+			want: aksnodeconfigv1.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with empty TargetEnvironment",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: nbcontractv1.DefaultCloudName,
+			want: aksnodeconfigv1.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-						CustomCloudEnvName: nbcontractv1.AksCustomCloudName,
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
 					},
 				},
 			},
-			want: nbcontractv1.AksCustomCloudName,
+			want: aksnodeconfigv1.AksCustomCloudName,
 		},
 	}
 	for _, tt := range tests {
@@ -898,7 +898,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 
 func Test_getTargetCloud(t *testing.T) {
 	type args struct {
-		v *nbcontractv1.Configuration
+		v *aksnodeconfigv1.Configuration
 	}
 	tests := []struct {
 		name string
@@ -908,27 +908,27 @@ func Test_getTargetCloud(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: nbcontractv1.DefaultCloudName,
+			want: aksnodeconfigv1.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{},
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: nbcontractv1.DefaultCloudName,
+			want: aksnodeconfigv1.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
-				v: &nbcontractv1.Configuration{
-					CustomCloudConfig: &nbcontractv1.CustomCloudConfig{
-						CustomCloudEnvName: nbcontractv1.AksCustomCloudName,
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
+						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
 					},
 				},
 			},
-			want: nbcontractv1.AzureStackCloud,
+			want: aksnodeconfigv1.AzureStackCloud,
 		},
 	}
 	for _, tt := range tests {
@@ -954,7 +954,7 @@ func Test_getLinuxAdminUsername(t *testing.T) {
 			args: args{
 				username: "",
 			},
-			want: nbcontractv1.DefaultLinuxUser,
+			want: aksnodeconfigv1.DefaultLinuxUser,
 		},
 		{
 			name: "Non-empty username",
@@ -997,9 +997,9 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 			want: false,
 		},
 		{
-			name: nbcontractv1.VMSizeStandardDc2s,
+			name: aksnodeconfigv1.VMSizeStandardDc2s,
 			args: args{
-				vmSize: nbcontractv1.VMSizeStandardDc2s,
+				vmSize: aksnodeconfigv1.VMSizeStandardDc2s,
 			},
 			want: true,
 		},
