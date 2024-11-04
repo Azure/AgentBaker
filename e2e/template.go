@@ -1,10 +1,8 @@
 package e2e
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
-	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -13,19 +11,9 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, kube *Kubeclient) *datamodel.NodeBootstrappingConfiguration {
-	t.Log("getting the node bootstrapping configuration for cluster")
-	clusterParams := extractClusterParameters(ctx, t, kube)
-	nbc := baseTemplate(config.Config.Location)
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
-	nbc.KubeletClientTLSBootstrapToken = &clusterParams.BootstrapToken
-	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = clusterParams.FQDN
-	return nbc
-}
-
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToNbcContractV1(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
+func nbcToNodeConfig(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
 	cs := nbc.ContainerService
 	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)

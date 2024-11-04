@@ -101,7 +101,7 @@ type ClusterParams struct {
 	FQDN           string
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) ClusterParams {
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
 	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
 	require.NoError(t, err)
 
@@ -126,7 +126,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
-	return ClusterParams{
+	return &ClusterParams{
 		CACert:         caCert.stdout.Bytes(),
 		BootstrapToken: bootstrapToken,
 		FQDN:           fqdn,

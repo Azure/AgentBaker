@@ -22,6 +22,7 @@ func TestMain(m *testing.M) {
 	}
 	m.Run()
 }
+
 func Test_azurelinuxv2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -29,8 +30,6 @@ func Test_azurelinuxv2(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
@@ -50,8 +49,6 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -71,11 +68,8 @@ func Test_azurelinuxv2ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -95,11 +89,8 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -126,8 +117,6 @@ func Test_azurelinuxv2_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 		},
 	})
@@ -140,8 +129,6 @@ func Test_azurelinuxv2ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				ServiceCanRestartValidator("chronyd", 10),
@@ -183,9 +170,6 @@ func Test_azurelinuxv2CustomSysctls(t *testing.T) {
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = customLinuxConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
@@ -206,10 +190,7 @@ func Test_azurelinuxv2gpu(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -233,10 +214,7 @@ func Test_azurelinuxv2gpu_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -258,10 +236,7 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdWasmShimsValidator(),
@@ -277,8 +252,6 @@ func Test_marinerv2(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
@@ -297,8 +270,6 @@ func Test_marinerv2AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -319,11 +290,8 @@ func Test_marinerv2ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -343,11 +311,8 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -375,8 +340,6 @@ func Test_marinerv2_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 		},
 	})
@@ -389,8 +352,6 @@ func Test_marinerv2ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				ServiceCanRestartValidator("chronyd", 10),
@@ -432,9 +393,6 @@ func Test_marinerv2CustomSysctls(t *testing.T) {
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = customLinuxConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
@@ -455,10 +413,7 @@ func Test_marinerv2gpu(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -482,10 +437,7 @@ func Test_marinerv2gpu_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -507,10 +459,7 @@ func Test_marinerv2Wasm(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdWasmShimsValidator(),
@@ -558,8 +507,6 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				ServiceCanRestartValidator("chronyd", 10),
@@ -595,10 +542,7 @@ func Test_ubuntu1804gpu(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -622,10 +566,7 @@ func Test_ubuntu1804gpu_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -644,8 +585,6 @@ func Test_ubuntu2204(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				// Check that we don't leak these secrets if they're
 				// set (which they mostly aren't in these scenarios).
 				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
@@ -669,9 +608,6 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
@@ -694,8 +630,6 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -716,12 +650,9 @@ func Test_ubuntu2204ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 				// This needs to be set based on current CSE implementation...
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 				nbc.IsARM64 = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -739,8 +670,6 @@ func Test_ubuntu2204ArtifactStreaming(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				NonEmptyDirectoryValidator("/etc/overlaybd"),
@@ -756,8 +685,6 @@ func Test_ubuntu2204ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				ServiceCanRestartValidator("chronyd", 10),
@@ -776,8 +703,6 @@ func Test_ubuntu2204CustomCATrust(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
 					CustomCATrustCerts: []string{
 						encodedTestCert,
@@ -822,9 +747,6 @@ func Test_ubuntu2204CustomSysctls(t *testing.T) {
 					},
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = customLinuxConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				SysctlConfigValidator(customSysctls),
@@ -857,10 +779,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = vmSize
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.VMSize = vmSize
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
@@ -887,8 +806,6 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
@@ -916,8 +833,6 @@ func Test_ubuntu2204gpuNoDriver(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
@@ -944,9 +859,7 @@ func Test_ubuntu2204privatekubepkg(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
 			},
 		},
@@ -964,8 +877,6 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			LiveVMValidators: []*LiveVMValidator{
@@ -982,8 +893,6 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.ContainerdVersion = "1.6.9"
 			},
 			LiveVMValidators: []*LiveVMValidator{
@@ -1001,10 +910,7 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				containerdWasmShimsValidator(),
@@ -1023,8 +929,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				if nbc.KubeletConfig == nil {
 					nbc.KubeletConfig = map[string]string{}
 				}
@@ -1055,8 +959,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubel
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
 				// to force kubelet config file
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
@@ -1064,7 +966,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubel
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 
 				if nbc.KubeletConfig == nil {
 					nbc.KubeletConfig = map[string]string{}
@@ -1097,8 +998,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisa
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -1125,8 +1024,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisa
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
 				// to force kubelet config file
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
@@ -1134,7 +1031,6 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisa
 					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
 				}
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
@@ -1161,10 +1057,7 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -1188,8 +1081,6 @@ func Test_ubuntu2204imdsrestriction_filtertable(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.EnableIMDSRestriction = true
 				nbc.InsertIMDSRestrictionRuleToMangleTable = false
 			},
@@ -1226,8 +1117,6 @@ func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			LiveVMValidators: []*LiveVMValidator{
@@ -1244,8 +1133,6 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			LiveVMValidators: []*LiveVMValidator{

@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -36,12 +34,11 @@ var (
 )
 
 type Cluster struct {
-	Model                          *armcontainerservice.ManagedCluster
-	Kube                           *Kubeclient
-	SubnetID                       string
-	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig                  *nbcontractv1.Configuration
-	Maintenance                    *armcontainerservice.MaintenanceConfiguration
+	Model         *armcontainerservice.ManagedCluster
+	Kube          *Kubeclient
+	SubnetID      string
+	ClusterParams *ClusterParams
+	Maintenance   *armcontainerservice.MaintenanceConfiguration
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -129,15 +126,12 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	nbc := getBaseNodeBootstrappingConfiguration(ctx, t, kube)
-
 	return &Cluster{
-		Model:                          cluster,
-		Kube:                           kube,
-		SubnetID:                       subnetID,
-		NodeBootstrappingConfiguration: nbc,
-		Maintenance:                    maintenance,
-		AKSNodeConfig:                  nbcToNbcContractV1(nbc), // TODO: replace with base template
+		Model:         cluster,
+		Kube:          kube,
+		SubnetID:      subnetID,
+		Maintenance:   maintenance,
+		ClusterParams: extractClusterParameters(ctx, t, kube),
 	}, nil
 }
 

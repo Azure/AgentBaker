@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,7 +70,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 								Settings:                map[string]any{},
 								ProtectedSettings: map[string]any{
 									"fileUris":         []string{url},
-									"commandToExecute": CSENodeBootstrapper(t, cluster),
+									"commandToExecute": CSENodeBootstrapper(t, cluster, config.VHDUbuntu2204Gen2Containerd),
 									"managedIdentity": map[string]any{
 										"clientId": identity,
 									},
@@ -92,15 +90,11 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	})
 }
 
-func CSENodeBootstrapper(t *testing.T, cluster *Cluster) string {
-	nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
-	require.NoError(t, err)
-	nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+func CSENodeBootstrapper(t *testing.T, cluster *Cluster, vhd *config.Image) string {
+	nbc := getBaseNBC(cluster.ClusterParams, vhd)
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
-
-	configContent := nbcToNbcContractV1(nbc)
-
-	configJSON, err := json.Marshal(configContent)
+	config := nbcToNodeConfig(nbc)
+	configJSON, err := json.Marshal(config)
 	require.NoError(t, err)
 
 	return fmt.Sprintf(`sh -c "(mkdir -p /etc/node-bootstrapper && echo '%s' | base64 -d > /etc/node-bootstrapper/config.json && ./node-bootstrapper provision --provision-config=/etc/node-bootstrapper/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))

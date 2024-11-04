@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -226,31 +225,22 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 	}
 
 	if s.BootstrapConfigMutator != nil {
-		nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
-		require.NoError(t, err)
-		nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
+		s.Runtime.NBC = getBaseNBC(s.Runtime.Cluster.ClusterParams, s.VHD)
+		s.BootstrapConfigMutator(s.Runtime.NBC)
 	}
 	if s.AKSNodeConfigMutator != nil {
-		configAny, err := deepcopy.Anything(cluster.AKSNodeConfig)
-		require.NoError(t, err)
-		config := configAny.(*nbcontractv1.Configuration)
-		s.AKSNodeConfigMutator(config)
-		s.Runtime.AKSNodeConfig = config
+		nbc := getBaseNBC(s.Runtime.Cluster.ClusterParams, s.VHD)
+		s.Runtime.AKSNodeConfig = nbcToNodeConfig(nbc)
+		s.AKSNodeConfigMutator(s.Runtime.AKSNodeConfig)
 	}
 }
 
-// scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
-	// avoid mutating cluster config
-	nbcAny, err := deepcopy.Anything(nbc)
-	if err != nil {
-		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
-	}
-	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-	}
-	return nbc, nil
+func getBaseNBC(clusterParams *ClusterParams, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+	nbc := baseTemplate(config.Config.Location)
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
+	nbc.KubeletClientTLSBootstrapToken = &clusterParams.BootstrapToken
+	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = clusterParams.FQDN
+	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
+	nbc.AgentPoolProfile.Distro = vhd.Distro
+	return nbc
 }
