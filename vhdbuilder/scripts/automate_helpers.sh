@@ -56,7 +56,7 @@ create_pull_request() {
     echo "PR is for $target"
 
     set +x # to avoid logging PAT
-    git remote set-url origin https://notused:${github_pat}:@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
+    git remote set-url origin https://${github_pat}@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
     git add .
     
     if [[ "$target" == "ReleaseNotes" ]]; then
