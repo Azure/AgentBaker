@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/Azure/agentbaker/node-bootstrapper/parser"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
@@ -62,13 +61,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
 	case "provision-wait":
-		fs := flag.NewFlagSet("provision-wait", flag.ContinueOnError)
-		timeout := fs.Duration("timeout", 15*time.Minute, "provision wait timeout")
-		err := fs.Parse(args[2:])
-		if err != nil {
-			return fmt.Errorf("parse args: %w", err)
-		}
-		provisionOutput, err := a.ProvisionWait(ctx, timeout)
+		provisionOutput, err := a.ProvisionWait(ctx)
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
 		return err
@@ -110,8 +103,8 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 }
 
 // usage example:
-// node-bootstrapper provision-wait --timeout=15m
-func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string, error) {
+// node-bootstrapper provision-wait
+func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 	if _, err := os.Stat(provisionJSONFilePath); err == nil {
 		data, err := os.ReadFile(provisionJSONFilePath)
 		if err != nil {
@@ -136,7 +129,6 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 		return "", fmt.Errorf("failed to watch directory: %w", err)
 	}
 
-	timeoutTimer := time.After(*timeout)
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -150,24 +142,8 @@ func (a *App) ProvisionWait(ctx context.Context, timeout *time.Duration) (string
 
 		case err := <-watcher.Errors:
 			return "", fmt.Errorf("error watching file: %w", err)
-
-		case <-timeoutTimer:
-			err := a.runSystemctlCommand("status", bootstrapService)
-			if err != nil {
-				return "", fmt.Errorf("failed to get status of %s: %w", bootstrapService, err)
-			}
 		}
 	}
-}
-
-// runSystemctlCommand is a generic function that runs a systemctl command with specified arguments
-func (a *App) runSystemctlCommand(args ...string) error {
-	cmd := exec.Command("systemctl", args...)
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-	err := a.cmdRunner(cmd)
-	return err
 }
 
 var _ ExitCoder = &exec.ExitError{}

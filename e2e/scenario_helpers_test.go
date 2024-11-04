@@ -191,7 +191,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 	return fmt.Errorf("failed to get CSE output.")
 }
 
-func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, *datamodel.CSEStatusParsingError) {
+func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, error) {
 	if status.Code == nil || status.Message == nil {
 		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, "No valid Status code or Message provided from cse extension")
 	}
@@ -203,7 +203,7 @@ func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSES
 	var linuxExtensionErrorCodeRegex = regexp.MustCompile(extensionErrorCodeRegex)
 	extensionFailed := linuxExtensionErrorCodeRegex.MatchString(*status.Code)
 	if end <= start {
-		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, fmt.Sprintf("Parse CSE failed with error cannot find [stdout] and [stderr], raw CSE Message: %s, delete vm: %t", *status.Message, extensionFailed))
+		return nil, fmt.Errorf("Parse CSE failed with error cannot find [stdout] and [stderr], raw CSE Message: %s, delete vm: %t", *status.Message, extensionFailed)
 	}
 	rawInstanceViewInfo := (*status.Message)[start:end]
 	// Parse CSE message
@@ -217,10 +217,10 @@ func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSES
 			cseStatus.Error = *status.Message
 			return &cseStatus, nil
 		}
-		return nil, datamodel.NewError(datamodel.CSEMessageUnmarshalError, fmt.Sprintf("Parse CSE Json failed with error: %s, raw CSE Message: %s, delete vm: %t", err, *status.Message, extensionFailed))
+		return nil, fmt.Errorf("Parse CSE Json failed with error: %s, raw CSE Message: %s, delete vm: %t", err, *status.Message, extensionFailed)
 	}
 	if cseStatus.ExitCode == "" {
-		return nil, datamodel.NewError(datamodel.CSEMessageExitCodeEmptyError, fmt.Sprintf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message))
+		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
 	}
 	return &cseStatus, nil
 }
