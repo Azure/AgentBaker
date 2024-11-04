@@ -78,6 +78,19 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		})
 
+		var _ = DescribeTable("IsArc", func(authMethod datamodel.KuberentesAuthMethod, expected bool) {
+			config.KubenetesAuthMethod = authMethod
+			Expect(isArc(config)).To(Equal(expected))
+		},
+			Entry("UnknownAuthMethod", datamodel.UnknownAuthMethod, false),
+			Entry("UseArcMsiDirectly", datamodel.UseArcMsiDirectly, true),
+			Entry("UseArcMsiToMakeCSR", datamodel.UseArcMsiToMakeCSR, true),
+			Entry("UseAzureMsiToMakeCSR", datamodel.UseAzureMsiToMakeCSR, false),
+			Entry("UseAzureMsiDirectly", datamodel.UseAzureMsiDirectly, false),
+			Entry("UseTLSBootstrapToken", datamodel.UseTLSBootstrapToken, false),
+			Entry("UseSecureTLSBootstrapping", datamodel.UseSecureTLSBootstrapping, false),
+		)
+
 		Describe(".HasDataDir()", func() {
 			It("given there is no profile, it returns false", func() {
 				Expect(HasDataDir(config)).To(BeFalse())
@@ -1692,6 +1705,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				FeatureFlags: &datamodel.FeatureFlags{
 					EnableWinDSR: false,
 				},
+				CustomCloudEnv: &datamodel.CustomCloudEnv{},
 			},
 		}
 		cs.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{{

@@ -617,6 +617,9 @@ func strToInt64Ptr(str string) *int64 {
 		return nil
 	}
 	i := strToInt64(str)
+	if i > math.MaxInt32 {
+		panic("Unable to cast int parsed as 32 bits to 32 bit int. Yeah, this shouldn't happen")
+	}
 	return &i
 }
 
