@@ -66,7 +66,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		return fmt.Errorf("open proision file %s: %w", flags.ProvisionConfig, err)
+		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
 
 	config := &aksnodeconfigv1.Configuration{}
