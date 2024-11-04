@@ -107,7 +107,7 @@ chmod a+x trivy
 
 # pull vuln-to-kusto binary
 az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
-    --name ${MODULE_VERSION}/${MODULE_NAME}_linux_${GO_ARCH} \
+    --name v0.0.2-78b5d0ffbb3/${MODULE_NAME}_linux_${GO_ARCH} \
     --file ./${MODULE_NAME}
 chmod a+x ${MODULE_NAME}
 
@@ -159,6 +159,8 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
         rm ${TRIVY_REPORT_IMAGE_JSON_PATH} || true
     fi
 done
+
+./vuln-to-kusto-vhd query-report
 
 rm ./trivy 
 
