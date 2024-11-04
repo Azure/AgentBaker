@@ -22,8 +22,11 @@ installDeps() {
     # The nftables package turns on a service by default that tries to load config files,
     # but the stock config files in the package have no uncommented lines and make the service
     # fail to start. Disabling it as it's not used, and the stop action of "flush tables" can
-    # result in rules getting cleared unexpectedly.
-    systemctl disable nftables.service || exit 1
+    # result in rules getting cleared unexpectedly. Azure Linux 3 fixes this, so we only need
+    # this in 2.0.
+    if [[ $OS_VERSION == "2.0" ]]; then
+      systemctl disable nftables.service || exit 1
+    fi
 
     # install 2.0 specific packages
     # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0

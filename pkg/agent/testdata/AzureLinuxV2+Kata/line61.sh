@@ -19,7 +19,9 @@ installDeps() {
       fi
     done
 
-    systemctl disable nftables.service || exit 1
+    if [[ $OS_VERSION == "2.0" ]]; then
+      systemctl disable nftables.service || exit 1
+    fi
 
     if [[ $OS_VERSION == "2.0" ]]; then
       for dnf_package in apparmor-parser libapparmor blobfuse; do
