@@ -28,8 +28,8 @@ import (
 // mostly executed locally
 func Test_ubuntu2204AKSNodeController(t *testing.T) {
 	ctx := newTestCtx(t)
-	if config.Config.NodeBootstrapperTestMode == "" {
-		t.Skip("NODE_BOOTSTRAPPER_TEST_MODE not set")
+	if !config.Config.EnableAKSNodeControllerTest {
+		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")
 	}
 	// TODO: figure out how to properly parallelize test, maybe move t.Parallel to the top of each test?
 	cluster, err := ClusterKubenet(ctx, t)
@@ -46,13 +46,6 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 	binary := compileAKSNodeController(t)
 	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
 	require.NoError(t, err)
-
-	var cse string
-	if config.Config.NodeBootstrapperTestMode == "provision" {
-		cse = CSENodeBootstrapper(t, cluster)
-	} else if config.Config.NodeBootstrapperTestMode == "provision-wait" {
-		cse = "./node-bootstrapper provision-wait"
-	}
 
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
@@ -79,7 +72,7 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 								Settings:                map[string]any{},
 								ProtectedSettings: map[string]any{
 									"fileUris":         []string{url},
-									"commandToExecute": cse,
+									"commandToExecute": CSEAKSNodeController(t, cluster),
 									"managedIdentity": map[string]any{
 										"clientId": identity,
 									},

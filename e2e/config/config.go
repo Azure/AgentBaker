@@ -37,7 +37,7 @@ type Configuration struct {
 	KeepVMSS                      bool          `env:"KEEP_VMSS"`
 	BlobStorageAccountPrefix      string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	NodeBootstrapperTestMode      string        `env:"NODE_BOOTSTRAPPER_TEST_MODE"` // "provision" or "provision-wait"
+	EnableAKSNodeControllerTest   bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {

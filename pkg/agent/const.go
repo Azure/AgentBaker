@@ -114,10 +114,10 @@ const (
 )
 
 const (
-	scriptlessBootstrapStatusCSE = "/opt/azure/containers/node-bootstrapper provision-wait"
+	scriptlessBootstrapStatusCSE = "/opt/azure/containers/aks-node-controller provision-wait"
 	scriptlessCustomDataTemplate = `#cloud-config
 write_files:
-- path: /opt/azure/containers/node-bootstrapper-config.json
+- path: /opt/azure/containers/aks-node-controller-config.json
   permissions: "0755"
   owner: root
   content: !!binary |

@@ -11,9 +11,11 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	"gopkg.in/fsnotify.v1"
 )
 
 type App struct {
@@ -58,6 +60,11 @@ func (a *App) run(ctx context.Context, args []string) error {
 			return errors.New("--provision-config is required")
 		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+	case "provision-wait":
+		provisionOutput, err := a.ProvisionWait(ctx)
+		fmt.Println(provisionOutput)
+		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+		return err
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
@@ -66,7 +73,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		return fmt.Errorf("open proision file %s: %w", flags.ProvisionConfig, err)
+		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
 
 	config := &aksnodeconfigv1.Configuration{}
@@ -95,6 +102,48 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	return err
 }
 
+func (a *App) ProvisionWait(ctx context.Context) (string, error) {
+	if _, err := os.Stat(provisionJSONFilePath); err == nil {
+		data, err := os.ReadFile(provisionJSONFilePath)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return "", fmt.Errorf("failed to create watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	// Watch the directory containing the provision complete file
+	dir := filepath.Dir(provisionCompleteFilePath)
+	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
+	if err != nil {
+		return "", err
+	}
+	if err = watcher.Add(dir); err != nil {
+		return "", fmt.Errorf("failed to watch directory: %w", err)
+	}
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionCompleteFilePath {
+				data, err := os.ReadFile(provisionJSONFilePath)
+				if err != nil {
+					return "", err
+				}
+				return string(data), nil
+			}
+
+		case err := <-watcher.Errors:
+			return "", fmt.Errorf("error watching file: %w", err)
+		}
+	}
+}
+
 var _ ExitCoder = &exec.ExitError{}
 
 type ExitCoder interface {
@@ -111,5 +160,4 @@ func errToExitCode(err error) int {
 		return exitErr.ExitCode()
 	}
 	return 1
-
 }
