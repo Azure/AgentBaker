@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -37,7 +38,6 @@ type AzureClient struct {
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
 	Credential                *azidentity.DefaultAzureCredential
-	GalleryImageVersion       *armcompute.GalleryImageVersionsClient
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
 	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
@@ -55,6 +55,7 @@ type AzureClient struct {
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
+	ArmOptions                *arm.ClientOptions
 }
 
 func mustNewAzureClient(subscription string) *AzureClient {
@@ -208,11 +209,6 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, opts)
-	if err != nil {
-		return nil, fmt.Errorf("create a new images client: %v", err)
-	}
-
 	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create blob container client: %w", err)
@@ -239,6 +235,7 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 	}
 
 	cloud.Credential = credential
+	cloud.ArmOptions = opts
 
 	return cloud, nil
 }
@@ -327,7 +324,99 @@ func (a *AzureClient) assignReaderRoleToBlobStorage(ctx context.Context, princip
 		return fmt.Errorf("assign reader role: %w", err)
 	}
 	return nil
+}
 
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return "", fmt.Errorf("create a new images client: %v", err)
+	}
+	pager := galleryImageVersion.NewListByGalleryImagePager(image.Gallery.ResourceGroup, image.Gallery.Name, image.Name, nil)
+	var latestVersion *armcompute.GalleryImageVersion
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get next page: %w", err)
+		}
+		versions := page.Value
+		for _, version := range versions {
+			// skip images tagged with the no-selection tag, indicating they
+			// shouldn't be selected dynmically for running abe2e scenarios
+			if _, ok := version.Tags[noSelectionTagName]; ok {
+				continue
+			}
+			tag, ok := version.Tags[tagName]
+			if !ok || tag == nil || *tag != tagValue {
+				continue
+			}
+			if err := ensureProvisioningState(version); err != nil {
+				continue
+			}
+			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
+				latestVersion = version
+			}
+		}
+	}
+	if latestVersion == nil {
+		return "", ErrNotFound
+	}
+
+	if err := a.ensureReplication(ctx, image, latestVersion); err != nil {
+		return "", fmt.Errorf("ensuring image replication: %w", err)
+	}
+
+	return VHDResourceID(*latestVersion.ID), nil
+}
+
+func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	if replicatedToCurrentRegion(version) {
+		return nil
+	}
+	return a.replicateToCurrentRegion(ctx, image, version)
+}
+
+func (a *AzureClient) replicateToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create a new images client: %v", err)
+	}
+	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+		Name:                 &Config.Location,
+		RegionalReplicaCount: to.Ptr[int32](1),
+		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+	})
+
+	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroup, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+	if err != nil {
+		return fmt.Errorf("begin updating image version target regions: %w", err)
+	}
+	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("updating image version target regions: %w", err)
+	}
+
+	return nil
+}
+
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (VHDResourceID, error) {
+	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return "", fmt.Errorf("create a new images client: %v", err)
+	}
+	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroup, image.Gallery.Name, image.Name, image.Version, nil)
+	if err != nil {
+		return "", fmt.Errorf("getting live image version info: %w", err)
+	}
+
+	liveVersion := &resp.GalleryImageVersion
+	if err := ensureProvisioningState(liveVersion); err != nil {
+		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
+	}
+
+	if err := a.ensureReplication(ctx, image, liveVersion); err != nil {
+		return "", fmt.Errorf("ensuring image replication: %w", err)
+	}
+
+	return VHDResourceID(*resp.ID), nil
 }
 
 func DefaultRetryOpts() policy.RetryOptions {
@@ -344,4 +433,20 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusNotFound,            // 404
 		},
 	}
+}
+
+func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
+	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
+	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
+		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
+	}
+	return nil
 }
