@@ -19,47 +19,60 @@ retrycmd_if_failure() {
 
 set_git_config() {
     # git config needs to be set in the agent
-    git config --global user.email "amaheshwari@microsoft.com"
-    git config --global user.name "anujmaheshwari1"
+    git config --global user.email "aks-node@microsoft.com"
+    git config --global user.name "aks-node"
     git config --list
 }
 
 create_branch() {
+    local branch_name=$1
+    local base_branch=$2
+    if [ -z "$base_branch" ]; then
+        echo "create_branch: base_branch not specified, will default to master"
+        base_branch="master"
+    fi
+
     # Create PR branch
-    echo "Create branch named $1"
-    git checkout master
+    echo "Create branch named $branch_name off of $base_branch"
+    git checkout $base_branch
     git pull
-    git checkout -b $1
+    git checkout -b $branch_name
 }
 
 create_pull_request() {
-    # Commit current changes and create PR using curl
-    echo "Image Version is $1"
-    echo "Branch Name is $3"
-    echo "PR is for $4"
+    local image_version=$1
+    local github_pat=$2
+    local branch_name=$3
+    local base_branch=$4
+    local target=$5
 
-    git remote set-url origin https://anujmaheshwari1:$2@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
+    # Commit current changes and create PR using curl
+    echo "Image Version is $image_version"
+    echo "Branch Name is $branch_name"
+    echo "PR is for $target"
+
+    set +x # to avoid logging PAT
+    git remote set-url origin https://notused:${github_pat}:@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
     git add .
     
-    if [[ $4 == "ReleaseNotes" ]]; then
-        git commit -m "chore: release notes for release $1"
+    if [[ "$target" == "ReleaseNotes" ]]; then
+        git commit -m "chore: release notes for release $image_version"
     else
-        git commit -m "chore: bumping image version to $1"
+        git commit -m "chore: bumping image version to $image_version"
     fi
 
-    git push -u origin $3 -f
+    git push -u origin $branch_name -f
 
-    set +x  # To avoid logging PAT during curl
     curl \
         -X POST \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
         -d '{
-            "head" : "'$3'", 
-            "base" : "master", 
-            "title" : "chore: automated PR to update '$4' for '$1' VHD", 
-            "body" : "This is an automated PR to bump '$4' for the VHD release with image version '$1'"
+            "head" : "'$branch_name'", 
+            "base" : "'$base_branch'", 
+            "title" : "chore: automated PR to update '$target' for '$image_version' VHD", 
+            "body" : "This is an automated PR to bump '$target' for the VHD release with image version '$image_version'"
         }' \
-        -u "anujmaheshwari1:$2"
+        -u ":$github_pat"
     set -x
     
     git checkout master # Checkout to master for subsequent stages of the pipeline
