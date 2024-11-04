@@ -991,7 +991,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 }
 
 func isArc(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.KuberentesAuthMethod == datamodel.UseArcMsiDirectly || config.KuberentesAuthMethod == datamodel.UseArcMsiToMakeCSR
+	return config.KubenetesAuthMethod == datamodel.UseArcMsiDirectly || config.KubenetesAuthMethod == datamodel.UseArcMsiToMakeCSR
 }
 
 func GetDataDir(config *datamodel.NodeBootstrappingConfiguration) string {

@@ -79,7 +79,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		var _ = DescribeTable("IsArc", func(authMethod datamodel.KuberentesAuthMethod, expected bool) {
-			config.KuberentesAuthMethod = authMethod
+			config.KubenetesAuthMethod = authMethod
 			Expect(isArc(config)).To(Equal(expected))
 		},
 			Entry("UnknownAuthMethod", datamodel.UnknownAuthMethod, false),

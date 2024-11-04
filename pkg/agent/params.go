@@ -18,7 +18,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	parametersMap := paramsMap{}
 	cloudSpecConfig := config.CloudSpecConfig
 
-	addValue(parametersMap, "kuberentesAuthMethod", config.KuberentesAuthMethod)
+	addValue(parametersMap, "kuberentesAuthMethod", config.KubenetesAuthMethod)
 	addValue(parametersMap, "bootstrappingClientManagedIdentity", config.BootstrappingManagedIdentityID)
 
 	linuxProfile := properties.LinuxProfile

@@ -1728,7 +1728,7 @@ type NodeBootstrappingConfiguration struct {
 	ContainerdPackageURL string
 	RuncPackageURL       string
 	// if this value is empty/null, then AgentBaker falls back to the EnableSecureTLSBootstrapping and KubeletClientTLSBootstrapToken methods. Valid values
-	KuberentesAuthMethod           KuberentesAuthMethod
+	KubenetesAuthMethod            KuberentesAuthMethod
 	BootstrappingManagedIdentityID string
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	/* When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap

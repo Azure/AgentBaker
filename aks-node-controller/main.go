@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/agentbaker/aks-node-controller/nodeoperator_os"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,7 +18,8 @@ const (
 )
 
 func getLogFile() (*os.File, error) {
-	logFilePath := LogFilePath
+	osInfo := nodeoperator_os.GetOperatingSystemInfo()
+	logFilePath := osInfo.LogFilePath()
 
 	err := os.MkdirAll(logFilePath, ExecutableWorld)
 	if err != nil {
