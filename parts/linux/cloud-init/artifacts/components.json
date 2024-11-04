@@ -885,7 +885,7 @@
       "name": "nvidia-container-toolkit",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
-        "default": {
+        "azurelinux": {
           "current": {
             "versionsV2": [
               {
@@ -893,7 +893,7 @@
                 "latestVersion": "1.16.2"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/test/v${version}/linux/${CPU_ARCH}"
+            "downloadURL": ""
           }
         }
       }
