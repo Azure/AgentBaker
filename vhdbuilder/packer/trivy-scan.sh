@@ -129,7 +129,7 @@ chmod a+x ${MODULE_NAME}
 export PATH="$(pwd):$PATH"
 
 # we do a delayed retry here since it's possible we'll get rate-limited by ghcr.io, which hosts the vulnerability DB
-retrycmd_if_failure 10 60 600 ./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
+retrycmd_if_failure 10 30 600 ./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
 
 if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
     ./vuln-to-kusto-vhd scan-report \
