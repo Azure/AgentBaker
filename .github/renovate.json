@@ -87,6 +87,13 @@
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
       "extractVersion": "^v?(?<version>.+)$"
+    },
+    {      
+      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,      
+      "enabled": true,
+      "ignoreUnstable": false
     }
   ],
   "customManagers": [
