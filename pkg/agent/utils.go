@@ -355,7 +355,10 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	for key := range k {
 		if !kubeletConfigFileEnabled || !TranslatedKubeletConfigFlags[key] {
 			if !ommitedKubletConfigFlags[key] {
-				keys = append(keys, key)
+				// Get rid of values not supported in v1.31 and up
+				if !IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.31.0") || (key != "--keep-terminated-pod-volumes") {
+					keys = append(keys, key)
+				}
 			}
 		}
 	}
