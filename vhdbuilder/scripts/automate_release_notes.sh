@@ -9,6 +9,7 @@ set -x
 IMAGE_VERSION="${IMAGE_VERSION:-""}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 SKIP_LATEST="${SKIP_LATEST:-false}"
+PR_TARGET_BRANCH="${PR_TARGET_BRANCH:-master}"
 
 generate_release_notes() {
     included_skus=""
@@ -58,7 +59,7 @@ if [ `git branch --list $BRANCH_NAME` ]; then
     git pull origin
     git checkout master -- .
 else
-    create_branch $BRANCH_NAME
+    create_branch $BRANCH_NAME $PR_TARGET_BRANCH
 fi
 
 retrycmd_if_failure 5 10 generate_release_notes || exit $?
