@@ -45,6 +45,10 @@ create_pull_request() {
     local branch_name=$3
     local base_branch=$4
     local target=$5
+    if [ -z "$base_branch" ]; then
+        echo "create_pull_request: base_branch not specified, will default to master"
+        base_branch="master"
+    fi
 
     # Commit current changes and create PR using curl
     echo "Image Version is $image_version"
