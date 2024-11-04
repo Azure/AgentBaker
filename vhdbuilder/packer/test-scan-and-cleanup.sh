@@ -12,6 +12,7 @@ required_env_vars=(
   "UMSI_PRINCIPAL_ID"
   "UMSI_CLIENT_ID"
   "BUILD_RUN_NUMBER"
+  "VHD_ARTIFACT_NAME"
 )
 
 for v in "${required_env_vars[@]}"; do

@@ -17,7 +17,7 @@ ARCHITECTURE=${4}
 SIG_CONTAINER_NAME=${5}
 STORAGE_ACCOUNT_NAME=${6}
 ENABLE_TRUSTED_LAUNCH=${7}
-VHD_NAME=${8}
+VHD_ARTIFACT_NAME=${8}
 SKU_NAME=${9}
 KUSTO_ENDPOINT=${10}
 KUSTO_DATABASE=${11}
@@ -118,7 +118,7 @@ export PATH="$(pwd):$PATH"
 if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
     ./vuln-to-kusto-vhd scan-report \
         --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
-        --vhd-vhdname="${VHD_NAME}" \
+        --vhd-vhdname="${VHD_ARTIFACT_NAME}" \
         --vhd-ossku="${OS_SKU}" \
         --vhd-osversion="${OS_VERSION}" \
         --vhd-skuname="${SKU_NAME}" \
@@ -146,7 +146,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
     if [[ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]]; then
         ./vuln-to-kusto-vhd scan-report \
             --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
-            --vhd-vhdname="${VHD_NAME}" \
+            --vhd-vhdname="${VHD_ARTIFACT_NAME}" \
             --vhd-ossku="${OS_SKU}" \
             --vhd-osversion="${OS_VERSION}" \
             --vhd-skuname="${SKU_NAME}" \
