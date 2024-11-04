@@ -244,13 +244,13 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
-  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
-  NODE_BOOTSTRAPPER_DEST=/opt/azure/containers/node-bootstrapper
-  cpAndMode $NODE_BOOTSTRAPPER_SRC $NODE_BOOTSTRAPPER_DEST 755
+  AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
+  AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
+  cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
 
-  NODE_BOOTSTRAPPER_SERVICE_SRC=/home/packer/bootstrap.service
-  NODE_BOOTSTRAPPER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
-  cpAndMode $NODE_BOOTSTRAPPER_SERVICE_SRC $NODE_BOOTSTRAPPER_SERVICE_DEST 0644
+  AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
+  AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
+  cpAndMode $AKS_NODE_CONTROLLER_SERVICE_SRC $AKS_NODE_CONTROLLER_SERVICE_DEST 0644
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
