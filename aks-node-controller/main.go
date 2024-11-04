@@ -5,16 +5,32 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 )
 
 // Some options are intentionally non-configurable to avoid customization by users
 // it will help us to avoid introducing any breaking changes in the future.
 const (
-	LogFile = "/var/log/azure/aks-node-controller.log"
+	LogFileName                 = "aks-node-controller.log"
+	ReadOnlyWorld   os.FileMode = 0644
+	ExecutableWorld os.FileMode = 0755
 )
 
+func getLogFile() (*os.File, error) {
+	logFilePath := LogFilePath
+
+	err := os.MkdirAll(logFilePath, ExecutableWorld)
+	if err != nil {
+		return nil, err
+	}
+
+	logFile := filepath.Join(logFilePath, LogFileName)
+
+	return os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, ReadOnlyWorld)
+}
+
 func main() {
-	logFile, err := os.OpenFile(LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := getLogFile()
 	if err != nil {
 		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to open log file: %s\n", err)
