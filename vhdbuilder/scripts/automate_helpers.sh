@@ -69,7 +69,7 @@ create_pull_request() {
 
     curl \
         -X POST \
-        -H "Authorization: Bearer $github_pat"
+        -H "Authorization: Bearer $github_pat" \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
         -d '{
             "head" : "'$branch_name'", 
@@ -77,7 +77,7 @@ create_pull_request() {
             "title" : "chore: automated PR to update '$target' for '$image_version' VHD", 
             "body" : "This is an automated PR to bump '$target' for the VHD release with image version '$image_version'"
         }' \
-        
+
     set -x
     git checkout master # Checkout to master for subsequent stages of the pipeline
 }
