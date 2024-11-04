@@ -76,7 +76,7 @@ create_pull_request() {
             "base" : "'$base_branch'", 
             "title" : "chore: automated PR to update '$target' for '$image_version' VHD", 
             "body" : "This is an automated PR to bump '$target' for the VHD release with image version '$image_version'"
-        }' \
+        }'
 
     set -x
     git checkout master # Checkout to master for subsequent stages of the pipeline

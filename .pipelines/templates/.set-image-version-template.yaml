@@ -9,7 +9,7 @@ steps:
 - bash: |
     if [ -n "$IMAGE_VERSION_OVERRIDE" ]; then
       echo "IMAGE_VERSION_OVERRIDE is set to $IMAGE_VERSION_OVERRIDE"
-      "##vso[task.setvariable variable=IMAGE_VERSION]$IMAGE_VERSION_OVERRIDE"
+      echo "##vso[task.setvariable variable=IMAGE_VERSION]$IMAGE_VERSION_OVERRIDE"
       exit 0
     fi
   
