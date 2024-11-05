@@ -6,7 +6,7 @@ TRIVY_REPORT_ROOTFS_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-rootfs.json
 TRIVY_REPORT_IMAGE_TABLE_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-images-table.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-TRIVY_VERSION="0.53.0"
+TRIVY_VERSION="0.57.0"
 TRIVY_ARCH=""
 
 MODULE_NAME="vuln-to-kusto-vhd"
