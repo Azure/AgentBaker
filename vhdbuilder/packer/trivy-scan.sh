@@ -38,6 +38,20 @@ export SYSTEM_COLLECTIONURI=${25}
 export SYSTEM_TEAMPROJECT=${26}
 export BUILD_BUILDID=${27}
 
+retrycmd_if_failure() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
+
 install_azure_cli() {
     OS_SKU=${1}
     OS_VERSION=${2}
@@ -114,7 +128,9 @@ chmod a+x ${MODULE_NAME}
 # shellcheck disable=SC2155
 export PATH="$(pwd):$PATH"
 
-./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
+# we do a delayed retry here since it's possible we'll get rate-limited by ghcr.io, which hosts the vulnerability DB
+retrycmd_if_failure 10 30 600 ./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
+
 if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
     ./vuln-to-kusto-vhd scan-report \
         --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
@@ -160,7 +176,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
     fi
 done
 
-rm ./trivy 
+rm ./trivy
 
 chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
