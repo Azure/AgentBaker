@@ -67,7 +67,7 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerToolkit() {
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") | .downloadURIs.azurelinux.current.versionsV2[0].latestVersion' /opt/azure/components.json)
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") | .downloadURIs.azurelinux.current.versionsV2[0].latestVersion' $COMPONENTS_FILEPATH)
 
     if [ -z "$MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION" ]; then
       echo "nvidia-container-toolkit not found in components.json" # Expected for older VHD with new CSE
