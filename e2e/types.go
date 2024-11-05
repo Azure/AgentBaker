@@ -237,7 +237,7 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 
 func getBaseNBC(clusterParams *ClusterParams, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
 	nbc := baseTemplateLinux(config.Config.Location)
-	if vhd.Windows {
+	if vhd.Distro.IsWindowsDistro() {
 		// TODO: fix variables
 		nbc = baseTemplateWindows("", "", "", "", "", false)
 	}

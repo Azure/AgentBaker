@@ -10,8 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -69,7 +70,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes, scenario.VHD.Windows)
+		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes, scenario.VHD.Distro.IsWindowsDistro())
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
@@ -111,16 +112,41 @@ func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, cluster *Cl
 	require.NoError(t, err)
 }
 
+const uploadLogsPowershellScript = `
+param(
+    [string]$arg1,
+    [string]$arg2,
+    [string]$arg3
+)
+
+Invoke-WebRequest -UseBasicParsing https://aka.ms/downloadazcopy-v10-windows -OutFile azcopy.zip
+Expand-Archive azcopy.zip
+cd .\azcopy\*
+$env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
+$env:AZCOPY_MSI_RESOURCE_STRING=$arg3
+C:\k\debug\collect-windows-logs.ps1
+$CollectedLogs=(Get-ChildItem . -Filter "*$arg2*" -File)[0].Name
+.\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
+.\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
+.\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
+`
+
+// extractLogsFromWindowsVM runs a script on windows VM to collect logs and upload them to a blob storage
+// it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluster, vmssName string) {
+	t.Logf("extracting logs from windows VM %q", vmssName)
 	pager := config.Azure.VMSSVM.NewListPager(*cluster.Model.Properties.NodeResourceGroup, vmssName, nil)
 	page, err := pager.NextPage(ctx)
-	require.NoError(t, err, "failed to list VMSS instances")
-	require.NotEmpty(t, page.Value, "no VMSS instances found")
+	if err != nil {
+		t.Logf("failed to list VMSS instances: %s", err)
+		return
+	}
+	if len(page.Value) == 0 {
+		t.Logf("no VMSS instances found")
+		return
+	}
 	instanceID := *page.Value[0].InstanceID
-	t.Logf("first instance ID in VMSS %q: %s", vmssName, instanceID)
-
-	scriptContent, err := os.ReadFile("windows/upload-cse-logs.ps1")
-	require.NoError(t, err, "failed to read upload-cse-logs.ps1 script")
+	blobPrefix := fmt.Sprintf("%s/%s/%s", config.Config.BlobStorageAccountURL(), config.Config.BlobContainer, vmssName)
 
 	cmd := exec.Command("az", "vmss", "run-command", "invoke",
 		"--command-id", "RunPowerShellScript",
@@ -128,15 +154,42 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 		"--resource-group", *cluster.Model.Properties.NodeResourceGroup,
 		"--name", vmssName,
 		"--instance-id", instanceID,
-		"--scripts", string(scriptContent),
+		"--scripts", uploadLogsPowershellScript,
 		"--parameters",
-		"arg1="+config.Config.BlobStorageAccount(),
-		"arg2="+config.Config.BlobContainer,
-		"arg3="+vmssName,
-		"arg4="+config.Config.VMIdentityResourceID(),
+		"arg1="+blobPrefix,
+		"arg2="+vmssName,
+		"arg3="+config.Config.VMIdentityResourceID(),
 	)
 	log, err := cmd.Output()
-	t.Logf("%q output: %s, err: %s", cmd.String(), log, err)
+	if err != nil {
+		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, log)
+		return
+	}
+	t.Logf("uploaded logs to %s", blobPrefix)
+
+	blobPager := config.Azure.Blob.NewListBlobsFlatPager(config.Config.BlobContainer, &azblob.ListBlobsFlatOptions{
+		Prefix: &vmssName,
+	})
+	for blobPager.More() {
+		page, err := blobPager.NextPage(ctx)
+		if err != nil {
+			t.Logf("failed to list blobs: %s", err)
+			return
+		}
+		for _, blob := range page.Segment.BlobItems {
+			buf := make([]byte, *blob.Properties.ContentLength)
+			_, err := config.Azure.Blob.DownloadBuffer(ctx, config.Config.BlobContainer, *blob.Name, buf, nil)
+			if err != nil {
+				t.Logf("failed to download blob %q: %s", *blob.Name, err)
+				return
+			}
+			err = writeToFile(t, filepath.Base(*blob.Name), string(buf))
+			if err != nil {
+				t.Logf("failed to write blob %q to disk: %s", *blob.Name, err)
+				return
+			}
+		}
+	}
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {

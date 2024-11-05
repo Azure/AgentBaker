@@ -111,7 +111,6 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
 		Version: "17763.6414.241010", // TODO: use the latest version
-		Windows: true,
 		Gallery: windowsGallery,
 	}
 )
@@ -124,7 +123,6 @@ type Image struct {
 	Name    string
 	OS      string
 	Version string
-	Windows bool
 	Gallery *Gallery
 
 	vhd     VHDResourceID
