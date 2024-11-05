@@ -236,7 +236,11 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 }
 
 func getBaseNBC(clusterParams *ClusterParams, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	nbc := baseTemplate(config.Config.Location)
+	nbc := baseTemplateLinux(config.Config.Location)
+	if vhd.Windows {
+		// TODO: fix variables
+		nbc = baseTemplateWindows("", "", "", "", "", false)
+	}
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
 	nbc.KubeletClientTLSBootstrapToken = &clusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = clusterParams.FQDN

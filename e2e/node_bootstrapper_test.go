@@ -55,7 +55,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 				model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 					Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 					UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-						fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName): {},
+						config.Config.VMIdentityResourceID(): {},
 					},
 				}
 				model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{

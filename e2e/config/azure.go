@@ -27,6 +27,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/Azure/go-armbalancer"
 	"github.com/google/uuid"
 )
@@ -250,6 +252,36 @@ func (a *AzureClient) UploadAndGetLink(ctx context.Context, blobName string, fil
 
 	// is there a better way?
 	return fmt.Sprintf("%s/%s/%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName), nil
+}
+
+// UploadAndGetSignedLink uploads the data to the blob storage and returns the signed link to download the blob
+// If the blob already exists, it will be overwritten
+func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName string, file *os.File) (string, error) {
+	_, err := a.Blob.UploadFile(ctx, Config.BlobContainer, blobName, file, nil)
+	if err != nil {
+		return "", fmt.Errorf("upload blob: %w", err)
+	}
+
+	udc, err := a.Blob.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
+		Expiry: to.Ptr(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
+		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("get user delegation credential: %w", err)
+	}
+
+	sig, err := sas.BlobSignatureValues{
+		Protocol:      sas.ProtocolHTTPS,
+		ExpiryTime:    time.Now().Add(time.Hour),
+		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
+		ContainerName: Config.BlobContainer,
+		BlobName:      blobName,
+	}.SignWithUserDelegation(udc)
+	if err != nil {
+		return "", fmt.Errorf("sign blob: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccount(), Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {

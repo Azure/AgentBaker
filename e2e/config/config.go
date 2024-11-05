@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -46,6 +47,10 @@ func (c *Configuration) BlobStorageAccount() string {
 
 func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
+}
+
+func (c *Configuration) VMIdentityResourceID() string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName, VMIdentityName)
 }
 
 func mustLoadConfig() Configuration {
