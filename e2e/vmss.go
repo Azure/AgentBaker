@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -67,7 +69,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes)
+		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes, scenario.VHD.Windows)
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
@@ -87,22 +89,54 @@ func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, cluster *Cluster, privateKeyBytes []byte) {
+func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, cluster *Cluster, privateKeyBytes []byte, isWindows bool) {
 	// original context can be cancelled, but we still want to collect the logs
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
 	defer cancel()
 	defer deleteVMSS(t, ctx, vmssName, cluster, privateKeyBytes)
 
+	if isWindows {
+		extractLogsFromWindowsVM(ctx, t, cluster, vmssName)
+		return
+	}
+
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *cluster.Model.Properties.NodeResourceGroup, vmssName)
 	require.NoError(t, err)
 
-	require.NoError(t, err, "get vm private IP %v", vmssName)
-	logFiles, err := extractLogsFromVM(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), cluster)
-	require.NoError(t, err, "extract logs from vm %v", vmssName)
+	require.NoError(t, err)
+	logFiles, err := extractLogsFromVM(ctx, t, vmPrivateIP, string(privateKeyBytes), cluster)
+	require.NoError(t, err)
 
 	err = dumpFileMapToDir(t, logFiles)
-	require.NoError(t, err, "dump file map to dir %v", vmssName)
+	require.NoError(t, err)
+}
 
+func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluster, vmssName string) {
+	pager := config.Azure.VMSSVM.NewListPager(*cluster.Model.Properties.NodeResourceGroup, vmssName, nil)
+	page, err := pager.NextPage(ctx)
+	require.NoError(t, err, "failed to list VMSS instances")
+	require.NotEmpty(t, page.Value, "no VMSS instances found")
+	instanceID := *page.Value[0].InstanceID
+	t.Logf("first instance ID in VMSS %q: %s", vmssName, instanceID)
+
+	scriptContent, err := os.ReadFile("windows/upload-cse-logs.ps1")
+	require.NoError(t, err, "failed to read upload-cse-logs.ps1 script")
+
+	cmd := exec.Command("az", "vmss", "run-command", "invoke",
+		"--command-id", "RunPowerShellScript",
+		"--subscription", config.Config.SubscriptionID,
+		"--resource-group", *cluster.Model.Properties.NodeResourceGroup,
+		"--name", vmssName,
+		"--instance-id", instanceID,
+		"--scripts", string(scriptContent),
+		"--parameters",
+		"arg1="+config.Config.BlobStorageAccount(),
+		"arg2="+config.Config.BlobContainer,
+		"arg3="+vmssName,
+		"arg4="+config.Config.VMIdentityResourceID(),
+	)
+	log, err := cmd.Output()
+	t.Logf("%q output: %s, err: %s", cmd.String(), log, err)
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {

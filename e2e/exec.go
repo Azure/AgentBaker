@@ -55,7 +55,7 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, t *testing.T, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
 	commandList := map[string]string{
 		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
 		"kubelet":                      "journalctl -u kubelet",
@@ -71,11 +71,11 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
+		t.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
 
 		execResult, err := execOnVM(ctx, cluster.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
 		if err != nil {
-			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
+			t.Logf("error fetching logs for %s: %s", file, err)
 			return nil, err
 		}
 		if execResult.stdout != nil {

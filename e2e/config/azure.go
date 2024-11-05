@@ -300,7 +300,7 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 		return "", err
 	}
 
-	if err := a.assignReaderRoleToBlobStorage(ctx, identity.Properties.PrincipalID); err != nil {
+	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
 		return "", err
 	}
 	return *identity.Properties.ClientID, nil
@@ -336,15 +336,16 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 	return nil
 }
 
-func (a *AzureClient) assignReaderRoleToBlobStorage(ctx context.Context, principalID *string) error {
+func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
 			PrincipalID: principalID,
-			// built-in "Storage Blob Data Reader" role
-			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/2a2b9908-6ea1-4ae2-8e65-a410df84e7d1"),
+			// built-in "Storage Blob Data Contributor" role
+			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
+			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
 		},
 	}, nil)
 	var respError *azcore.ResponseError
@@ -353,7 +354,7 @@ func (a *AzureClient) assignReaderRoleToBlobStorage(ctx context.Context, princip
 		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
 			return nil
 		}
-		return fmt.Errorf("assign reader role: %w", err)
+		return fmt.Errorf("assign Storage Blob Data Contributor role: %w", err)
 	}
 	return nil
 }
