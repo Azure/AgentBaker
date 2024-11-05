@@ -112,3 +112,14 @@ const (
 	// ACIConnectorAddonName is the name of the aci-connector addon deployment.
 	ACIConnectorAddonName = "aci-connector"
 )
+
+const (
+	scriptlessBootstrapStatusCSE = "/opt/azure/containers/aks-node-controller provision-wait"
+	scriptlessCustomDataTemplate = `#cloud-config
+write_files:
+- path: /opt/azure/containers/aks-node-controller-config.json
+  permissions: "0755"
+  owner: root
+  content: !!binary |
+   %s`
+)
