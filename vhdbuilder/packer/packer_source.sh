@@ -125,8 +125,6 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
-  AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
-  AKS_NODE_CONTROLLER_DEST=/opt/azure/aks-node-controller
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py

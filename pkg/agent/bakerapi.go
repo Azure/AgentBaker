@@ -95,14 +95,14 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
 	distro datamodel.Distro,
 	cloudName string,
 ) (*datamodel.NodeBootstrapping, error) {
-	customData, err := getScriptlessCustomDataContent(config)
+	scriptlessCustomData, err := getScriptlessCustomDataContent(config)
 	if err != nil {
 		return nil, err
 	}
 
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CSE:        "",
-		CustomData: customData,
+		CSE:        scriptlessBootstrapStatusCSE,
+		CustomData: scriptlessCustomData,
 	}
 
 	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage || distro == datamodel.CustomizedImageKata {
@@ -127,13 +127,7 @@ func getScriptlessCustomDataContent(config any) (string, error) {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(`#cloud-config
-write_files:
-- path: /opt/azure/containers/aks-node-controller-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s`, encodedNBCJson)
+	customDataYAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
