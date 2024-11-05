@@ -106,7 +106,7 @@ func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 	if _, err := os.Stat(provisionJSONFilePath); err == nil {
 		data, err := os.ReadFile(provisionJSONFilePath)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to read provision.json: %w", err)
 		}
 		return string(data), nil
 	}
@@ -121,7 +121,7 @@ func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 	dir := filepath.Dir(provisionCompleteFilePath)
 	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("fialed to create directory %s: %w", dir, err)
 	}
 	if err = watcher.Add(dir); err != nil {
 		return "", fmt.Errorf("failed to watch directory: %w", err)
@@ -133,13 +133,15 @@ func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionCompleteFilePath {
 				data, err := os.ReadFile(provisionJSONFilePath)
 				if err != nil {
-					return "", err
+					return "", fmt.Errorf("failed to read provision.json: %w", err)
 				}
 				return string(data), nil
 			}
 
 		case err := <-watcher.Errors:
 			return "", fmt.Errorf("error watching file: %w", err)
+		case _ = <-ctx.Done():
+			return "", ctx.Err()
 		}
 	}
 }
