@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -140,6 +143,77 @@ func TestApp_Provision(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestApp_ProvisionWait(t *testing.T) {
+	// Setup a temporary directory
+	tempDir, err := os.MkdirTemp("", "provisiontest")
+	assert.NoError(t, err)
+	tempFile := filepath.Join(tempDir, "testfile.txt")
+	completeFile := filepath.Join(tempDir, "provision.complete")
+	defer os.RemoveAll(tempDir)
+
+	testData := "hello world"
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	tests := []struct {
+		name      string
+		wantsErr  bool
+		errString string
+		setup     func()
+	}{
+		{
+			name:     "provision already complete",
+			wantsErr: false,
+			setup: func() {
+				// Run the test in a goroutine to simulate file creation after some delay
+				go func() {
+					time.Sleep(200 * time.Millisecond) // Simulate file creation delay
+					os.WriteFile(tempFile, []byte(testData), 0644)
+					os.Create(completeFile)
+				}()
+			},
+		},
+		{
+			name:     "wait for provision completion",
+			wantsErr: false,
+			setup: func() {
+				os.WriteFile(tempFile, []byte(testData), 0644)
+				os.Create(completeFile)
+			},
+		},
+		{
+			name:      "timeout waiting for completion",
+			wantsErr:  true,
+			errString: "timeout waiting for provision complete",
+			setup: func() {
+				err := os.RemoveAll(tempDir) // clean up directory to make sure no files present
+				assert.NoError(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mc := &MockCmdRunner{}
+			app := &App{
+				cmdRunner: mc.Run,
+			}
+			if tt.setup != nil {
+				tt.setup()
+			}
+
+			data, err := app.ProvisionWait(ctx, ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile})
+			if tt.wantsErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errString)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, testData, data)
 			}
 		})
 	}

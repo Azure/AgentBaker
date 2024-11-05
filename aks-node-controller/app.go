@@ -32,6 +32,11 @@ type ProvisionFlags struct {
 	ProvisionConfig string
 }
 
+type ProvisionStatusFiles struct {
+	ProvisionJSONFile     string
+	ProvisionCompleteFile string
+}
+
 func (a *App) Run(ctx context.Context, args []string) int {
 	slog.Info("aks-node-controller started")
 	err := a.run(ctx, args)
@@ -61,7 +66,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
 	case "provision-wait":
-		provisionOutput, err := a.ProvisionWait(ctx)
+		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
+		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
 		return err
@@ -102,9 +108,9 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	return err
 }
 
-func (a *App) ProvisionWait(ctx context.Context) (string, error) {
-	if _, err := os.Stat(provisionJSONFilePath); err == nil {
-		data, err := os.ReadFile(provisionJSONFilePath)
+func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
+	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
+		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 		if err != nil {
 			return "", fmt.Errorf("failed to read provision.json: %w", err)
 		}
@@ -118,10 +124,10 @@ func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 	defer watcher.Close()
 
 	// Watch the directory containing the provision complete file
-	dir := filepath.Dir(provisionCompleteFilePath)
+	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
 	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
 	if err != nil {
-		return "", fmt.Errorf("fialed to create directory %s: %w", dir, err)
+		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 	if err = watcher.Add(dir); err != nil {
 		return "", fmt.Errorf("failed to watch directory: %w", err)
@@ -130,8 +136,8 @@ func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == provisionCompleteFilePath {
-				data, err := os.ReadFile(provisionJSONFilePath)
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
+				data, err := os.ReadFile(filepaths.ProvisionJSONFile)
 				if err != nil {
 					return "", fmt.Errorf("failed to read provision.json: %w", err)
 				}
@@ -140,8 +146,8 @@ func (a *App) ProvisionWait(ctx context.Context) (string, error) {
 
 		case err := <-watcher.Errors:
 			return "", fmt.Errorf("error watching file: %w", err)
-		case _ = <-ctx.Done():
-			return "", ctx.Err()
+		case <-ctx.Done():
+			return "", fmt.Errorf("timeout waiting for provision complete: %w", ctx.Err())
 		}
 	}
 }
