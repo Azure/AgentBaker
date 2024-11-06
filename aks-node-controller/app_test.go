@@ -149,62 +149,60 @@ func TestApp_Provision(t *testing.T) {
 }
 
 func TestApp_ProvisionWait(t *testing.T) {
-	// Setup a temporary directory
-	tempDir, err := os.MkdirTemp("", "provisiontest")
-	assert.NoError(t, err)
-	tempFile := filepath.Join(tempDir, "testfile.txt")
-	completeFile := filepath.Join(tempDir, "provision.complete")
-	defer os.RemoveAll(tempDir)
-
 	testData := "hello world"
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
 
 	tests := []struct {
 		name      string
 		wantsErr  bool
 		errString string
-		setup     func()
+		setup     func(provisionStatusFiles ProvisionStatusFiles)
 	}{
 		{
 			name:     "provision already complete",
 			wantsErr: false,
-			setup: func() {
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
 				// Run the test in a goroutine to simulate file creation after some delay
 				go func() {
 					time.Sleep(200 * time.Millisecond) // Simulate file creation delay
-					os.WriteFile(tempFile, []byte(testData), 0644)
-					os.Create(completeFile)
+					os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+					os.Create(provisionStatusFiles.ProvisionCompleteFile)
 				}()
 			},
 		},
 		{
 			name:     "wait for provision completion",
 			wantsErr: false,
-			setup: func() {
-				os.WriteFile(tempFile, []byte(testData), 0644)
-				os.Create(completeFile)
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
+				os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+				os.Create(provisionStatusFiles.ProvisionCompleteFile)
 			},
 		},
 		{
 			name:      "timeout waiting for completion",
 			wantsErr:  true,
 			errString: "timeout waiting for provision complete",
-			setup: func() {
-				err := os.RemoveAll(tempDir) // clean up directory to make sure no files present
-				assert.NoError(t, err)
-			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := &MockCmdRunner{}
+			// Setup a temporary directory
+			tempDir, err := os.MkdirTemp("", "provisiontest")
+			assert.NoError(t, err)
+			tempFile := filepath.Join(tempDir, "testfile.txt")
+			completeFile := filepath.Join(tempDir, "provision.complete")
+			defer os.RemoveAll(tempDir)
+
+			provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile}
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
+
 			app := &App{
 				cmdRunner: mc.Run,
 			}
 			if tt.setup != nil {
-				tt.setup()
+				tt.setup(provisionStatusFiles)
 			}
 
 			data, err := app.ProvisionWait(ctx, ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile})
