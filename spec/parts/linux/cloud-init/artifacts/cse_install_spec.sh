@@ -88,7 +88,7 @@ Describe 'cse_install.sh'
         It 'returns downloadURIs.azurelinux.current.versions of package runc for AZURELINUX'
             package=$(readPackage "runc")
             When call returnPackageVersions "$package" "AZURELINUX" "some_azurelinux_version"
-            The variable PACKAGE_VERSIONS[@] should equal "1.1.12-1.azl3"
+            The variable PACKAGE_VERSIONS[@] should equal "1.2.1-1.azl3"
         End
 
         It 'returns downloadURIs.azurelinux.current.versions of package containerd for AZURELINUX'
