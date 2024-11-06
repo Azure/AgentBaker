@@ -147,7 +147,7 @@ func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles)
 		case err := <-watcher.Errors:
 			return "", fmt.Errorf("error watching file: %w", err)
 		case <-ctx.Done():
-			return "", fmt.Errorf("timeout waiting for provision complete: %w", ctx.Err())
+			return "", fmt.Errorf("context deadline exceeded waiting for provision complete: %w", ctx.Err())
 		}
 	}
 }

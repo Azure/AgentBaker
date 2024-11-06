@@ -180,7 +180,7 @@ func TestApp_ProvisionWait(t *testing.T) {
 		{
 			name:      "timeout waiting for completion",
 			wantsErr:  true,
-			errString: "timeout waiting for provision complete",
+			errString: "context deadline exceeded waiting for provision complete",
 		},
 	}
 
