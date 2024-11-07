@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -19,29 +20,20 @@ import (
 )
 
 type Kubeclient struct {
-	Dynamic client.Client
-	Typed   kubernetes.Interface
-	Rest    *rest.Config
+	Dynamic    client.Client
+	Typed      kubernetes.Interface
+	Rest       *rest.Config
+	KubeConfig []byte
 }
 
-func newKubeclient(config *rest.Config) (*Kubeclient, error) {
-	dynamic, err := client.New(config, client.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
+func (k *Kubeclient) clientCertificate() string {
+	var kc map[string]any
+	if err := yaml.Unmarshal(k.KubeConfig, &kc); err != nil {
+		return ""
 	}
-
-	restClient, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, fmt.Errorf("create rest kube client: %w", err)
-	}
-
-	typed := kubernetes.New(restClient)
-
-	return &Kubeclient{
-		Dynamic: dynamic,
-		Typed:   typed,
-		Rest:    config,
-	}, nil
+	encoded := kc["users"].([]interface{})[0].(map[string]any)["user"].(map[string]any)["client-certificate-data"].(string)
+	cert, _ := base64.URLEncoding.DecodeString(encoded)
+	return string(cert)
 }
 
 func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
@@ -60,7 +52,24 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		Version: "v1",
 	}
 
-	return newKubeclient(restConfig)
+	dynamic, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
+	}
+
+	restClient, err := rest.RESTClientFor(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("create rest kube client: %w", err)
+	}
+
+	typed := kubernetes.New(restClient)
+
+	return &Kubeclient{
+		Dynamic:    dynamic,
+		Typed:      typed,
+		Rest:       restConfig,
+		KubeConfig: data,
+	}, nil
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {

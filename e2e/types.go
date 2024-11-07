@@ -225,25 +225,29 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 	}
 
 	if s.BootstrapConfigMutator != nil {
-		s.Runtime.NBC = getBaseNBC(s.Runtime.Cluster.ClusterParams, s.VHD)
+		s.Runtime.NBC = getBaseNBC(s.Runtime.Cluster, s.VHD)
 		s.BootstrapConfigMutator(s.Runtime.NBC)
 	}
 	if s.AKSNodeConfigMutator != nil {
-		nbc := getBaseNBC(s.Runtime.Cluster.ClusterParams, s.VHD)
+		nbc := getBaseNBC(s.Runtime.Cluster, s.VHD)
 		s.Runtime.AKSNodeConfig = nbcToNodeConfig(nbc)
 		s.AKSNodeConfigMutator(s.Runtime.AKSNodeConfig)
 	}
 }
 
-func getBaseNBC(clusterParams *ClusterParams, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
 	nbc := baseTemplateLinux(config.Config.Location)
 	if vhd.Distro.IsWindowsDistro() {
 		// TODO: fix variables
-		nbc = baseTemplateWindows("", "", "", "", false)
+		nbc = baseTemplateWindows()
+		cert := cluster.Kube.clientCertificate()
+
+		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
 	}
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
-	nbc.KubeletClientTLSBootstrapToken = &clusterParams.BootstrapToken
-	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = clusterParams.FQDN
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
+
+	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
+	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
 	nbc.AgentPoolProfile.Distro = vhd.Distro
 	return nbc

@@ -417,8 +417,12 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 	}
 }
 
-func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, windowsPackageURL string, configGpuDriverIfNeeded bool) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows() *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
+		TenantID:          "tenantID",
+		SubscriptionID:    config.Config.SubscriptionID,
+		ResourceGroupName: "resourcegroup",
+
 		ContainerService: &datamodel.ContainerService{
 			Properties: &datamodel.Properties{
 				HostedMasterProfile: &datamodel.HostedMasterProfile{},
@@ -440,8 +444,8 @@ func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, w
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
-						Name:                "winnp",
-						VMSize:              windowsE2EVmSize,
+						Name: "winnp",
+						//VMSize:              windowsE2EVmSize,
 						OSType:              "Windows",
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
@@ -458,12 +462,16 @@ func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, w
 						},
 					},
 				},
+				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{
+					ClientID: "msi",
+					Secret:   "msi",
+				},
 				FeatureFlags: &datamodel.FeatureFlags{
 					EnableWinDSR: true,
 				},
 				WindowsProfile: &datamodel.WindowsProfile{
-					CseScriptsPackageURL:           csePackageURL,
-					GpuDriverURL:                   windowsGpuDriverURL,
+					//CseScriptsPackageURL:           csePackageURL,
+					//GpuDriverURL:                   windowsGpuDriverURL,
 					CSIProxyURL:                    "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
 					EnableAutomaticUpdates:         to.Ptr(false),
 					EnableCSIProxy:                 to.Ptr(true),
@@ -477,6 +485,18 @@ func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, w
 					WindowsSku:                     "",
 					WindowsPauseImageURL:           "mcr.microsoft.com/oss/kubernetes/pause:3.9",
 					AlwaysPullWindowsPauseImage:    to.Ptr(false),
+				},
+				// yes, we need to set linuxprofile
+				LinuxProfile: &datamodel.LinuxProfile{
+					SSH: struct {
+						PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+					}{
+						PublicKeys: []datamodel.PublicKey{
+							{
+								KeyData: "dummyData",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -516,11 +536,11 @@ func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, w
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			WindowsPackageURL: windowsPackageURL,
+			//WindowsPackageURL: windowsPackageURL,
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
-			Name:                "winnp",
-			VMSize:              windowsE2EVmSize,
+			Name: "winnp",
+			//VMSize:              windowsE2EVmSize,
 			OSType:              "Windows",
 			AvailabilityProfile: "VirtualMachineScaleSets",
 			StorageProfile:      "ManagedDisks",
@@ -534,8 +554,8 @@ func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, w
 			},
 			NotRebootWindowsNode: to.Ptr(true),
 		},
-		PrimaryScaleSetName:     "akswin30",
-		ConfigGPUDriverIfNeeded: configGpuDriverIfNeeded,
+		PrimaryScaleSetName: "akswin30",
+		//ConfigGPUDriverIfNeeded: configGpuDriverIfNeeded,
 		KubeletConfig: map[string]string{
 			"--azure-container-registry-config": "c:\\k\\azure.json",
 			"--bootstrap-kubeconfig":            "c:\\k\\bootstrap-config",

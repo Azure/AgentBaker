@@ -91,7 +91,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 }
 
 func CSENodeBootstrapper(t *testing.T, cluster *Cluster, vhd *config.Image) string {
-	nbc := getBaseNBC(cluster.ClusterParams, vhd)
+	nbc := getBaseNBC(cluster, vhd)
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 	config := nbcToNodeConfig(nbc)
 	configJSON, err := json.Marshal(config)

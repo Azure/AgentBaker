@@ -196,6 +196,7 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
+	t.Logf("logs collect to %s", testDir(t))
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {

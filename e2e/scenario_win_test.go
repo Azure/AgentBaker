@@ -27,18 +27,6 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 			VHD:     config.VHDWindowsServer2019Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEURL(ctx, t)
-				// yes, we need keys from linux profile
-				nbc.ContainerService.Properties.LinuxProfile = &datamodel.LinuxProfile{
-					SSH: struct {
-						PublicKeys []datamodel.PublicKey `json:"publicKeys"`
-					}{
-						PublicKeys: []datamodel.PublicKey{
-							{
-								KeyData: "dummyData",
-							},
-						},
-					},
-				}
 				// TODO: should we fetch k8s version from somewhere else?
 				kubernetesVersion := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
 				nbc.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion)
