@@ -32,6 +32,9 @@ stages:
   - job: Exectue_VPack_Script_Job
     steps:
     - bash: |
+        az login --identity
+        az account set -s $(AZURE_E2E_SUBSCRIPTION_ID)
+        
         cd e2e/windows/
         az vm run-command invoke --command-id RunPowerShellScript \
           --resource-group $VPACK_VM_RESOURCE_GROUP_NAME \
