@@ -1354,5 +1354,5 @@ stages:
           cd production-vms
           mkdir -p bin
           GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
-          go run main.go --json-dir $(Pipeline.Workspace)/consolidated-artifacts
+          go run . --json-dir $(Pipeline.Workspace)/consolidated-artifacts
         displayName: Run Go program with JSON files
