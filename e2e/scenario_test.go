@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -577,9 +577,9 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
+				FileHasContentsValidator("/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully"),
 			},
-			AKSNodeConfigMutator: func(config *nbcontractv1.Configuration) {},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},
 		},
 	})
 }

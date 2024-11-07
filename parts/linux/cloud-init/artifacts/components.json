@@ -767,7 +767,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.29.0"
+                "latestVersion": "1.31.1"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
@@ -877,6 +877,23 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/spinkube/v${version}/linux/${CPU_ARCH}"
+          }
+        }
+      }
+    },
+    {
+      "name": "nvidia-container-toolkit",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "azurelinux": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.16.2"
+              }
+            ],
+            "downloadURL": ""
           }
         }
       }
