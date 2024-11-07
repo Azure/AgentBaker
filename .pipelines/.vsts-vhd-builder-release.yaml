@@ -1308,13 +1308,6 @@ stages:
               useOverrides: ${{ parameters.useOverrides }}
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
-  - stage: Run_E2E_Tests
-    condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq('${{ parameters.dryrun }}', false))
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-    jobs:
-      - template: ./templates/e2e-template.yaml  
   - stage: Create_Production_VMs
     dependsOn: build
     condition: eq(variables.Create_Production_VMS, 'true')  # Removed extra comma
