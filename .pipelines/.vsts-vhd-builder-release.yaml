@@ -1325,19 +1325,35 @@ stages:
       displayName: Create Production VMs
       steps:
       - script: |
-          mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
+        mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
+        echo "Workspace: $(Pipeline.Workspace)"
+        echo "Looking into: $(Pipeline.Workspace)/downloaded-artifacts"
+        
+        for dir in $(Pipeline.Workspace)/downloaded-artifacts/*; do
+          if [ -d "$dir" ]; then
+            echo "Processing directory: $dir"
+            
+            if [[ $(basename "$dir") != publishing-info-* ]]; then
+              echo "Directory $(basename "$dir") is not a publishing-info directory"
 
-          for dir in $(Pipeline.Workspace)/downloaded-artifacts/*; do
-            if [ -d "$dir" ]; then
-              if [[ $(basename $dir) != publishing-info-* ]]; then # we are using vhd-publishing-info.json from azurelinuxv2-gen1 not from publishing-info-azurelinuxv2-gen1
-                if [ -f "$dir/vhd-publishing-info.json" ]; then
-                  cp "$dir/vhd-publishing-info.json" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename $dir).json"
-                fi
+              if [ -f "$dir/vhd-publishing-info.json" ]; then
+                echo "Found vhd-publishing-info.json in $dir"
+                cp "$dir/vhd-publishing-info.json" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename "$dir").json"
+                echo "Copied vhd-publishing-info.json to $(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename "$dir").json"
+              else
+                echo "No vhd-publishing-info.json found in $dir"
               fi
+            else
+              echo "Skipping publishing-info directory: $(basename "$dir")"
             fi
-          done
-          ls -l $(Pipeline.Workspace)/consolidated-artifacts
-        displayName: Move VHD publishing info to a consolidated folder
+          else
+            echo "$dir is not a directory, skipping."
+          fi
+        done
+        
+        directory_contents=$(ls -l $(Pipeline.Workspace)/consolidated-artifacts)
+        echo "$directory_contents"
+      displayName: Move VHD publishing info to a consolidated folder
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup Go
       - bash: |
