@@ -1330,23 +1330,19 @@ stages:
         inputs:
           artifact: 'vhd-info'
           targetPath: '$(Pipeline.Workspace)/downloaded-artifacts'  # Download the vhd-publishing-info.json into the workspace
-
       - bash: |
           set -ex
           az login --identity
           az account set --subscription $(AZURE_SUBSCRIPTION_ID)
         displayName: Azure login
-
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup Go
-
       - bash: |
           set -ex
           LOGGING_DIR="creating-production-vms-$(date +%s)"
           echo "setting up logging in $LOGGING_DIR"
           echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
         displayName: Setup logging directory
-
       - bash: |
           set -ex
           export PATH="/usr/local/go/bin:$PATH"
