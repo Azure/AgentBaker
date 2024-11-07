@@ -1336,12 +1336,8 @@ stages:
               fi
             fi
           done
+          ls -l $(Pipeline.Workspace)/consolidated-artifacts
         displayName: Move VHD publishing info to a consolidated folder
-      - bash: |
-          set -ex
-          az login --identity
-          az account set --subscription $(AZURE_SUBSCRIPTION_ID)
-        displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup Go
       - bash: |
