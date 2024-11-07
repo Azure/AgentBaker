@@ -3,6 +3,7 @@ package e2e
 import (
 	"archive/zip"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -38,6 +39,9 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 						},
 					},
 				}
+				// TODO: should we fetch k8s version from somewhere else?
+				kubernetesVersion := nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion
+				nbc.K8sComponents.WindowsPackageURL = fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Identity = &armcompute.VirtualMachineScaleSetIdentity{

@@ -239,7 +239,7 @@ func getBaseNBC(clusterParams *ClusterParams, vhd *config.Image) *datamodel.Node
 	nbc := baseTemplateLinux(config.Config.Location)
 	if vhd.Distro.IsWindowsDistro() {
 		// TODO: fix variables
-		nbc = baseTemplateWindows("", "", "", "", "", false)
+		nbc = baseTemplateWindows("", "", "", "", false)
 	}
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
 	nbc.KubeletClientTLSBootstrapToken = &clusterParams.BootstrapToken

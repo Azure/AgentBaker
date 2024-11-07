@@ -417,7 +417,7 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 	}
 }
 
-func baseTemplateWindows(orchestratorVersion, windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, windowsPackageURL string, configGpuDriverIfNeeded bool) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(windowsE2EVmSize, csePackageURL, windowsGpuDriverURL, windowsPackageURL string, configGpuDriverIfNeeded bool) *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			Properties: &datamodel.Properties{
@@ -425,7 +425,7 @@ func baseTemplateWindows(orchestratorVersion, windowsE2EVmSize, csePackageURL, w
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: orchestratorVersion,
+					OrchestratorVersion: "1.31.2",
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						NetworkPlugin:        "azure",
 						LoadBalancerSku:      "Standard",

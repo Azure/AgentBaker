@@ -162,13 +162,13 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 		"arg2="+vmssName,
 		"arg3="+config.Config.VMIdentityResourceID(),
 	)
-	t.Log("running command on VMSS instance: ", cmd.String())
+	//t.Log("running command on VMSS instance: ", cmd.String())
 	cmdResult, err := cmd.Output()
 	if err != nil {
 		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
 		return
 	}
-	t.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
+	//t.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(t), blobSuffix)
