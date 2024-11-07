@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
@@ -50,11 +51,29 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
+func TestMain(m *testing.M) {
+	// clean up logs from previous run
+	if _, err := os.Stat("scenario-logs"); err == nil {
+		_ = os.RemoveAll("scenario-logs")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err := ensureResourceGroup(ctx)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx)
+	mustNoError(err)
+	m.Run()
+}
+
+func mustNoError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
-	cleanTestDir(t)
-	ensureResourceGroupOnce(ctx)
 	maybeSkipScenario(ctx, t, s)
 	s.PrepareRuntime(ctx, t)
 	createAndValidateVM(ctx, t, s)

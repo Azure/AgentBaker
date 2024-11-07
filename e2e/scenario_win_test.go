@@ -19,8 +19,6 @@ import (
 // params.windowsImage = "2019-containerd"
 func Test_WindowsServer2019Containerd(t *testing.T) {
 	ctx := newTestCtx(t)
-	_, err := config.Azure.CreateVMManagedIdentity(ctx)
-	require.NoError(t, err)
 	RunScenario(t, &Scenario{
 		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
@@ -28,6 +26,18 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 			VHD:     config.VHDWindowsServer2019Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEURL(ctx, t)
+				// yes, we need keys from linux profile
+				nbc.ContainerService.Properties.LinuxProfile = &datamodel.LinuxProfile{
+					SSH: struct {
+						PublicKeys []datamodel.PublicKey `json:"publicKeys"`
+					}{
+						PublicKeys: []datamodel.PublicKey{
+							{
+								KeyData: "dummyData",
+							},
+						},
+					},
+				}
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.Identity = &armcompute.VirtualMachineScaleSetIdentity{
@@ -55,7 +65,7 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 }
 
 func windowsCSEURL(ctx context.Context, t *testing.T) string {
-	blobName := time.Now().Format("2006-01-02-15-04-05") + "-windows-cse.zip"
+	blobName := time.Now().UTC().Format("2006-01-02-15-04-05") + "-windows-cse.zip"
 	zipFile, err := zipWindowsCSE()
 	require.NoError(t, err)
 	// Current shell e2e is uploading scripts to a blob account with anonymous access

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -23,7 +24,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -92,7 +92,7 @@ func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 
 func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, cluster *Cluster, privateKeyBytes []byte, isWindows bool) {
 	// original context can be cancelled, but we still want to collect the logs
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 	defer deleteVMSS(t, ctx, vmssName, cluster, privateKeyBytes)
 
@@ -146,8 +146,10 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 		return
 	}
 	instanceID := *page.Value[0].InstanceID
-	blobPrefix := fmt.Sprintf("%s/%s/%s", config.Config.BlobStorageAccountURL(), config.Config.BlobContainer, vmssName)
+	blobPrefix := vmssName
+	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
 
+	// TODO: replace it with golang SDK
 	cmd := exec.Command("az", "vmss", "run-command", "invoke",
 		"--command-id", "RunPowerShellScript",
 		"--subscription", config.Config.SubscriptionID,
@@ -156,43 +158,50 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 		"--instance-id", instanceID,
 		"--scripts", uploadLogsPowershellScript,
 		"--parameters",
-		"arg1="+blobPrefix,
+		"arg1="+blobUrl,
 		"arg2="+vmssName,
 		"arg3="+config.Config.VMIdentityResourceID(),
 	)
-	log, err := cmd.Output()
+	t.Log("running command on VMSS instance: ", cmd.String())
+	cmdResult, err := cmd.Output()
 	if err != nil {
-		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, log)
+		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
 		return
 	}
-	t.Logf("uploaded logs to %s", blobPrefix)
+	t.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
 
-	blobPager := config.Azure.Blob.NewListBlobsFlatPager(config.Config.BlobContainer, &azblob.ListBlobsFlatOptions{
-		Prefix: &vmssName,
-	})
-	for blobPager.More() {
-		page, err := blobPager.NextPage(ctx)
+	downloadBlob := func(blobSuffix string) {
+		fileName := filepath.Join(testDir(t), blobSuffix)
+		err := os.MkdirAll(testDir(t), 0755)
 		if err != nil {
-			t.Logf("failed to list blobs: %s", err)
+			t.Logf("failed to create directory %q: %s", testDir(t), err)
 			return
 		}
-		for _, blob := range page.Segment.BlobItems {
-			buf := make([]byte, *blob.Properties.ContentLength)
-			_, err := config.Azure.Blob.DownloadBuffer(ctx, config.Config.BlobContainer, *blob.Name, buf, nil)
+		file, err := os.Create(fileName)
+		if err != nil {
+			t.Logf("failed to create file %q: %s", fileName, err)
+			return
+		}
+		// NOTE, read after write is possible, list blobs is eventually consistent and may fail
+		_, err = config.Azure.Blob.DownloadFile(ctx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
+		if err != nil {
+			t.Logf("failed to download collected logs: %s", err)
+			err = os.Remove(file.Name())
 			if err != nil {
-				t.Logf("failed to download blob %q: %s", *blob.Name, err)
-				return
+				t.Logf("failed to remove file: %s", err)
 			}
-			err = writeToFile(t, filepath.Base(*blob.Name), string(buf))
-			if err != nil {
-				t.Logf("failed to write blob %q to disk: %s", *blob.Name, err)
-				return
-			}
+			return
 		}
 	}
+	downloadBlob("collected-node-logs.zip")
+	downloadBlob("cse.log")
+	downloadBlob("provision.complete")
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {
+	// original context can be cancelled, but we still want to delete the VM
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
 	if config.Config.KeepVMSS {
 		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
@@ -315,7 +324,7 @@ func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error)
 }
 
 func getVmssName(t *testing.T) string {
-	name := fmt.Sprintf("%s-%s-%s-%s", vmssNamePrefix, time.Now().Format(time.DateOnly), randomLowercaseString(4), t.Name())
+	name := fmt.Sprintf("%s-%s-%s-%s", vmssNamePrefix, time.Now().UTC().Format(time.DateOnly), randomLowercaseString(4), t.Name())
 	// delete invalid characters like _ and /
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")

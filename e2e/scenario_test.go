@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -14,14 +13,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
-
-func TestMain(m *testing.M) {
-	// delete scenario-logs folder if it exists
-	if _, err := os.Stat("scenario-logs"); err == nil {
-		_ = os.RemoveAll("scenario-logs")
-	}
-	m.Run()
-}
 
 func Test_azurelinuxv2(t *testing.T) {
 	RunScenario(t, &Scenario{

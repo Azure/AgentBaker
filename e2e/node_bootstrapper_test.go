@@ -42,7 +42,7 @@ func Test_ubuntu2204NodeBootstrapper(t *testing.T) {
 	identity, err := config.Azure.CreateVMManagedIdentity(ctx)
 	require.NoError(t, err)
 	binary := compileNodeBootstrapper(t)
-	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().Format("2006-01-02-15-04-05")+"/node-bootstrapper", binary)
+	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().UTC().Format("2006-01-02-15-04-05")+"/node-bootstrapper", binary)
 	require.NoError(t, err)
 
 	RunScenario(t, &Scenario{

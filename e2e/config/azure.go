@@ -281,9 +281,10 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 		return "", fmt.Errorf("sign blob: %w", err)
 	}
 
-	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccount(), Config.BlobContainer, blobName, sig.Encode()), nil
+	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
+// TODO: do it once
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
 	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
 		Location: to.Ptr(Config.Location),

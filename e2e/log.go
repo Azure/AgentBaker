@@ -6,17 +6,10 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbakere2e/config"
-	"github.com/stretchr/testify/require"
 )
 
 func testDir(t *testing.T) string {
 	return filepath.Join(config.Config.E2ELoggingDir, t.Name())
-}
-
-func cleanTestDir(t *testing.T) {
-	dirPath := testDir(t)
-	err := os.RemoveAll(dirPath)
-	require.NoError(t, err)
 }
 
 func writeToFile(t *testing.T, fileName, content string) error {
