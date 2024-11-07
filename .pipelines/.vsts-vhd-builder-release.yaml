@@ -1325,11 +1325,13 @@ stages:
       displayName: Create Production VMs
       steps:
       - script: |
-          mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
-          echo "Workspace: $(Pipeline.Workspace)"
-          echo "Looking into: $(Pipeline.Workspace)/downloaded-artifacts"
+          mkdir -p $(Build.ArtifactStagingDirectory)/consolidated-artifacts
+          echo "Workspace: $(Build.ArtifactStagingDirectory)"
+          echo "Looking into: $(Build.ArtifactStagingDirectory)"
+          directory_contents=$(ls -l $(Build.ArtifactStagingDirectory)/)
+          echo "$directory_contents"
           
-          for dir in $(Pipeline.Workspace)/downloaded-artifacts/*; do
+          for dir in $(Build.ArtifactStagingDirectory)/*; do
             if [ -d "$dir" ]; then
               echo "Processing directory: $dir"
               
@@ -1351,7 +1353,7 @@ stages:
             fi
           done
           
-          directory_contents=$(ls -l $(Pipeline.Workspace)/consolidated-artifacts)
+          directory_contents=$(ls -l $(Build.ArtifactStagingDirectory)/)
           echo "$directory_contents"
         displayName: Move VHD publishing info to a consolidated folder
       - bash: bash .pipelines/scripts/setup_go.sh
