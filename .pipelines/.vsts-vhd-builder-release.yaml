@@ -1326,7 +1326,7 @@ stages:
         targetPath: '$(Pipeline.Workspace)/downloaded-artifacts' # Download the vhd-publishing-info.json into to the workspace
     - Job: Create_Production_VMs
       pool:
-        name: nodesigtest-pool # todo (alburgess) check if this is correct
+        name: $(POOL_NAME) # todo (alburgess) check if this is correct
       timeotInMinutes: 90
       displayName: Create Production VMs
       steps:
