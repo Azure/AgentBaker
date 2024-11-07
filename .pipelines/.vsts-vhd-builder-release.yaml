@@ -1325,10 +1325,23 @@ stages:
       displayName: Create Production VMs
       steps:
       - task: DownloadPipelineArtifact@2
-        displayName: Download VHD info artifact
+        displayName: Download all artifacts
         inputs:
-          artifact: 'vhd-info'
+          artifact: '*'
           targetPath: '$(Pipeline.Workspace)/downloaded-artifacts'  # Download the vhd-publishing-info.json into the workspace
+      - script: |
+          mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
+
+          for dir in $(Pipeline.Workspace)/downloaded-artifacts/publishing-info-*; do
+            if [ -d "$dir" ]; then
+              if [[ $(basename $dir) != publishing-info-* ]]; then # we are using vhd-publishing-info.json from azurelinuxv2-gen1 not from publishing-info-azurelinuxv2-gen1
+                if [ -f "$dir/vhd-publishing-info.json" ]; then
+                  cp "$dir/vhd-publishing-info.json" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename $dir).json"
+                fi
+              fi
+            fi
+          done
+        displayName: Move VHD publishing info to a consolidated folder
       - bash: |
           set -ex
           az login --identity
@@ -1350,5 +1363,5 @@ stages:
           cd production-vms
           mkdir -p bin
           GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
-          go run main.go --json-dir $(Pipeline.Workspace)/downloaded-artifacts
+          go run main.go --json-dir $(Pipeline.Workspace)/consolidated-artifacts
         displayName: Run Go program with JSON files
