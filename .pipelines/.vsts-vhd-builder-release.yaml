@@ -1324,15 +1324,10 @@ stages:
       timeoutInMinutes: 90  
       displayName: Create Production VMs
       steps:
-      - task: DownloadPipelineArtifact@2
-        displayName: Download all artifacts
-        inputs:
-          artifact: '*'
-          targetPath: '$(Pipeline.Workspace)/downloaded-artifacts'  # Download the vhd-publishing-info.json into the workspace
       - script: |
           mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
 
-          for dir in $(Pipeline.Workspace)/downloaded-artifacts/publishing-info-*; do
+          for dir in $(Pipeline.Workspace)/downloaded-artifacts/*; do
             if [ -d "$dir" ]; then
               if [[ $(basename $dir) != publishing-info-* ]]; then # we are using vhd-publishing-info.json from azurelinuxv2-gen1 not from publishing-info-azurelinuxv2-gen1
                 if [ -f "$dir/vhd-publishing-info.json" ]; then
