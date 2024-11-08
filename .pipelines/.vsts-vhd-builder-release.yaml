@@ -1339,34 +1339,19 @@ stages:
           mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
           echo "Workspace: $(Pipeline.Workspace)"
           echo "Looking into: $(Pipeline.Workspace)"
-          directory_contents=$(ls -l $(Pipeline.Workspace)/)
-          echo "$directory_contents"
           
-          for dir in $(Pipeline.Workspace)/*; do
-            if [ -d "$dir" ]; then
-              echo "Processing directory: $dir"
-              
-              # Check if the directory name is not a publishing-info directory
-              if [[ $(basename "$dir") != publishing-info-* ]]; then
-                echo "Directory $(basename "$dir") is not a publishing-info directory"
-                
-                # Check if the vhd-publishing-info.json file exists in this directory
-                if [ -f "$dir/vhd-publishing-info.json" ]; then
-                  echo "Found vhd-publishing-info.json in $dir"
-                  cp "$dir/vhd-publishing-info.json" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename "$dir").json"
-                  echo "Copied vhd-publishing-info.json to $(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename "$dir").json"
-                else
-                  echo "No vhd-publishing-info.json found in $dir"
-                fi
-              else
-                echo "Skipping publishing-info directory: $(basename "$dir")"
-              fi
-            else
-              echo "$dir is not a directory, skipping."
-            fi
+          # Search for all vhd-publishing-info.json files under the workspace recursively
+          find $(Pipeline.Workspace) -type f -name "vhd-publishing-info.json" ! -path "*/publishing-info/*" | while read filepath; do
+            dir=$(dirname "$filepath")
+            base_dir=$(basename "$dir")
+            
+            echo "Found vhd-publishing-info.json in $dir"
+            cp "$filepath" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$base_dir.json"
+            echo "Copied $filepath to $(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$base_dir.json"
           done
           
-          directory_contents=$(ls -l $(Pipeline.Workspace)/)
+          # List the contents of the consolidated artifacts directory
+          directory_contents=$(ls -l $(Pipeline.Workspace)/consolidated-artifacts)
           echo "$directory_contents"
         displayName: Move VHD publishing info to a consolidated folder
       - bash: bash .pipelines/scripts/setup_go.sh
