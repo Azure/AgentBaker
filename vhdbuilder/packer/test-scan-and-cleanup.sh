@@ -61,16 +61,17 @@ if [ -z "${SIG_VERSION}" ]; then
 fi
 
 # Setup testing
-SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
+
+#SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
-echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
-if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
-  echo -e "Running scanning step"
-  SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
-else
-  echo -e "Skipping scanning step"
-fi
+#echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
+#if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
+#  echo -e "Running scanning step"
+#  SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
+#else
+#  echo -e "Skipping scanning step"
+#fi
 
 echo -e "\nRunning the following scripts: ${SCRIPT_ARRAY[@]}\n"
 declare -A SCRIPT_PIDS

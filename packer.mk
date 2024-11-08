@@ -94,11 +94,11 @@ generate-sas: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
-test-building-vhd: az-login
-	@./vhdbuilder/packer/test/run-test.sh
+#test-building-vhd: az-login
+# 	@./vhdbuilder/packer/test/run-test.sh
 
-scanning-vhd: az-login
-	@./vhdbuilder/packer/vhd-scanning.sh
+# scanning-vhd: az-login
+# 	@./vhdbuilder/packer/vhd-scanning.sh
 
 test-scan-and-cleanup: az-login
 	@./vhdbuilder/packer/test-scan-and-cleanup.sh

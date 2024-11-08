@@ -1,0 +1,13 @@
+{
+    "vhd_url": "https://vhdbuildereastustest.blob.core.windows.net/vhd/1.1730016386.10092.vhd",
+    "captured_sig_resource_id": "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204gen2arm64containerd/versions/1.1730016386.10092",
+    "os_name": "Linux",
+    "sku_name": "2204gen2arm64containerd",
+    "offer_name": "Ubuntu",
+    "hyperv_generation": "V2",
+    "image_architecture": "Arm64",
+    "image_version": "0.0.1",
+    "replication_inverse": "2",
+    "publisher_base_image_version": "22.04.202410020",
+    "publisher_base_image_sku": "22_04-lts-arm64"
+}
