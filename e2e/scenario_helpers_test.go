@@ -126,6 +126,9 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
 	}
 
+	if scenario.Tags.KubeletCustomConfig {
+		createKubeletDebugPod(ctx, t, scenario.Runtime.Cluster.Kube, nodeName, scenario.Tags.Airgap)
+	}
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)

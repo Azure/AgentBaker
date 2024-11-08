@@ -540,10 +540,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 }
 
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
-	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
-	}
+	image := getBaseImageName(isAirgap)
 
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
@@ -570,6 +567,14 @@ spec:
         path: /
         port: 80
 `, podName, image, nodeName)
+}
+
+func getBaseImageName(isAirgap bool) string {
+	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	if isAirgap {
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
+	}
+	return image
 }
 
 func getWasmSpinPodTemplate(podName, nodeName string) string {
@@ -599,4 +604,29 @@ spec:
   nodeSelector:
     kubernetes.io/hostname: %s
 `, podName, nodeName)
+}
+
+func getSecurityContextPodTemplate(isAirgap bool, nodeName string, podName string) string {
+	image := getBaseImageName(isAirgap)
+	return fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: %s
+spec:
+  containers:
+  - name: unconfined-container
+    image: %s
+    imagePullPolicy: IfNotPresent
+    securityContext:
+        seccompProfile:
+          type: Unconfined
+  - name: runtime-default-container
+    image: %s
+    imagePullPolicy: IfNotPresent
+    securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  nodeSelector:
+    kubernetes.io/hostname: %s
+`, podName, image, image, nodeName)
 }

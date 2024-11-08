@@ -185,3 +185,34 @@ func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
 	}
 	return validators
 }
+
+func createKubeletDebugPod(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string, isAirgap bool) {
+	t.Logf("Custom kubelet config scenario: running debug pod on node %s...", nodeName)
+	testPodName := "security-context-profile-test-pod"
+	testPodManifest := getSecurityContextPodTemplate(isAirgap, nodeName, testPodName)
+	err := ensurePod(ctx, t, defaultNamespace, kube, testPodName, testPodManifest)
+	require.NoError(t, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
+}
+
+func isProperSubset(subset []string, superset []string) bool {
+	setMap := make(map[string]bool)
+	for _, item := range superset {
+		setMap[item] = true
+	}
+	for _, item := range subset {
+		if !setMap[item] {
+			return false
+		}
+	}
+	return true
+}
+
+// define type according to fit the json file base.json
+type SimpleSeccompProfile struct {
+	Syscalls []Syscall `json:"syscalls"`
+}
+
+type Syscall struct {
+	Names  []string `json:"names"`
+	Action string   `json:"action"`
+}

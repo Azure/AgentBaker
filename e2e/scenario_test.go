@@ -1257,6 +1257,8 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+	// as in template.go
+	defaultProfileContainerName := "runtime-default-container"
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1277,6 +1279,7 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
 				FileHasContentsValidator(kubeletConfigFilePath, "\"seccompDefault\": true"),
+				SeccompProfileValidator("base", defaultProfileContainerName),
 			},
 		},
 	})
@@ -1301,6 +1304,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
+
 			LiveVMValidators: []*LiveVMValidator{
 				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
 				FileHasContentsValidator(kubeletConfigFilePath, "\"seccompDefault\": true"),
