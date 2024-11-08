@@ -617,15 +617,17 @@ spec:
   - name: unconfined-container
     image: %s
     imagePullPolicy: IfNotPresent
+    command: ['sh', '-c', 'echo "start unconfined pod!" && sleep 3600']
     securityContext:
-        seccompProfile:
-          type: Unconfined
+      seccompProfile:
+        type: Unconfined
   - name: runtime-default-container
     image: %s
     imagePullPolicy: IfNotPresent
+    command: ['sh', '-c', 'echo "start runtime default pod!" && sleep 3600']
     securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+      seccompProfile:
+        type: RuntimeDefault
   nodeSelector:
     kubernetes.io/hostname: %s
 `, podName, image, image, nodeName)

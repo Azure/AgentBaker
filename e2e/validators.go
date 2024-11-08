@@ -135,7 +135,7 @@ func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator
 	command := makeExecutableCommand(steps)
 
 	return &LiveVMValidator{
-		Description: fmt.Sprintf("Assert that %s has defined contents", fileName),
+		Description: fmt.Sprintf("assert that %s has defined contents", fileName),
 		// on mariner and ubuntu, the chronyd drop-in file is not readable by the default user, so we run as root.
 		Command: command,
 		Asserter: func(code, stdout, stderr string) error {
@@ -431,8 +431,10 @@ func KubeletHasConfigFlagsValidator(filePath string) *LiveVMValidator {
 
 func SeccompProfileValidator(profileFilePath string, defaultProfileContainerName string) *LiveVMValidator {
 	return &LiveVMValidator{
-		Description: fmt.Sprintf("assert default seccomp profile for type %s does not change", profileFilePath),
-		Command:     fmt.Sprintf("crictl inspect $(crictl sp -q --name=%s) | jq '.info.runtimeSpec.linux.seccomp'", defaultProfileContainerName),
+		Description:  fmt.Sprintf("assert default seccomp profile for type %s does not change", profileFilePath),
+		Command:      fmt.Sprintf("'crictl inspect $(crictl ps -q --name=%s) | jq \".info.runtimeSpec.linux.seccomp\"'", defaultProfileContainerName),
+		IsPodNetwork: true,
+		IsPrivileged: true,
 		Asserter: func(code, stdout, stderr string) error {
 			baseProfileFile, err := os.ReadFile("containerd/seccomp_default_profile/" + profileFilePath + ".json")
 			if err != nil {
