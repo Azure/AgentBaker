@@ -1318,6 +1318,17 @@ stages:
   - stage: Create_Production_VMs
     dependsOn: build # add a condition for a variable to determine if this stage should run
     jobs: 
+    - job: Download_Artifacts
+      steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          artifact: '*'  # This downloads all artifacts from previous jobs
+          targetPath: '$(Pipeline.Workspace)'  # Where all artifacts will be downloaded
+      - script: |
+          echo "Here are the downloaded artifacts:"
+          directory_contents=$(ls -R $(Pipeline.Workspace))
+          echo "$directory_contents"
+
     - job: Create_Production_VMs  
       pool:
         name: $(POOL_NAME)  # Check if this is the correct pool
@@ -1325,13 +1336,13 @@ stages:
       displayName: Create Production VMs
       steps:
       - script: |
-          mkdir -p $(Build.ArtifactStagingDirectory)/consolidated-artifacts
-          echo "Workspace: $(Build.ArtifactStagingDirectory)"
-          echo "Looking into: $(Build.ArtifactStagingDirectory)"
-          directory_contents=$(ls -l $(Build.ArtifactStagingDirectory)/)
+          mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
+          echo "Workspace: $(Pipeline.Workspace)"
+          echo "Looking into: $(Pipeline.Workspace)"
+          directory_contents=$(ls -l $(Pipeline.Workspace)/)
           echo "$directory_contents"
           
-          for dir in $(Build.ArtifactStagingDirectory)/*; do
+          for dir in "$(Pipeline.Workspace)"/*; do
             if [ -d "$dir" ]; then
               echo "Processing directory: $dir"
               
@@ -1353,7 +1364,7 @@ stages:
             fi
           done
           
-          directory_contents=$(ls -l $(Build.ArtifactStagingDirectory)/)
+          directory_contents=$(ls -l $(Pipeline.Workspace)/)
           echo "$directory_contents"
         displayName: Move VHD publishing info to a consolidated folder
       - bash: bash .pipelines/scripts/setup_go.sh
