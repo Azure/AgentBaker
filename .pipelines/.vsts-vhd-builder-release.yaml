@@ -1329,7 +1329,7 @@ stages:
           directory_contents=$(ls -R $(Pipeline.Workspace))
           echo "$directory_contents"
 
-    - job: Create_Production_VMs  
+    - job: Create_Vulnerability_Reporting_VMs
       pool:
         name: $(POOL_NAME)  # Check if this is the correct pool
       timeoutInMinutes: 90  
