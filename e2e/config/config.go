@@ -25,7 +25,8 @@ type Configuration struct {
 	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
 	Location                      string        `env:"LOCATION" envDefault:"westus3"`
-	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SubscriptionID                string        `env:"SUBSCRIPTION_ID,required"`
+	SIGResourceID                 string        `env:"SIG_RESOURCE_ID,required"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	TagsToRun                     string        `env:"TAGS_TO_RUN"`

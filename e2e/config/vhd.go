@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
 )
 
@@ -102,7 +101,7 @@ func (i *Image) String() string {
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
-		imageDefinitionResourceID := imageGallery + i.Name
+		imageDefinitionResourceID := fmt.Sprintf("%s/images/%s", Config.SIGResourceID, i.Name)
 		if i.Version != "" {
 			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {
