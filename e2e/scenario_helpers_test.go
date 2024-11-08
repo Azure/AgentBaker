@@ -127,7 +127,7 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	}
 
 	if scenario.Tags.KubeletCustomConfig {
-		createKubeletDebugPod(ctx, t, scenario.Runtime.Cluster.Kube, nodeName, scenario.Tags.Airgap)
+		createCustomKubeletConfigDebugPod(ctx, t, scenario.Runtime.Cluster.Kube, nodeName, scenario.Tags.Airgap)
 	}
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 

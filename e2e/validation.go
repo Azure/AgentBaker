@@ -190,7 +190,7 @@ func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
 	return validators
 }
 
-func createKubeletDebugPod(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string, isAirgap bool) {
+func createCustomKubeletConfigDebugPod(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string, isAirgap bool) {
 	testPodName := "security-context-profile-test-pod"
 	testPodManifest := getSecurityContextPodTemplate(isAirgap, nodeName, testPodName)
 	t.Logf("Custom kubelet config scenario: running debug pod on node %s ...", nodeName)

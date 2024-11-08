@@ -614,13 +614,10 @@ metadata:
   name: %s
 spec:
   containers:
-  - name: unconfined-container
+  - name: default-container
     image: %s
     imagePullPolicy: IfNotPresent
-    command: ['sh', '-c', 'echo "start unconfined pod!" && sleep 3600']
-    securityContext:
-      seccompProfile:
-        type: Unconfined
+    command: ['sh', '-c', 'echo "start pod without securityContext!" && sleep 3600']
   - name: runtime-default-container
     image: %s
     imagePullPolicy: IfNotPresent
