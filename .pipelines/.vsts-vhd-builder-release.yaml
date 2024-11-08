@@ -1342,13 +1342,15 @@ stages:
           directory_contents=$(ls -l $(Pipeline.Workspace)/)
           echo "$directory_contents"
           
-          for dir in "$(Pipeline.Workspace)"/*; do
+          for dir in $(Pipeline.Workspace)/*; do
             if [ -d "$dir" ]; then
               echo "Processing directory: $dir"
               
+              # Check if the directory name is not a publishing-info directory
               if [[ $(basename "$dir") != publishing-info-* ]]; then
                 echo "Directory $(basename "$dir") is not a publishing-info directory"
-
+                
+                # Check if the vhd-publishing-info.json file exists in this directory
                 if [ -f "$dir/vhd-publishing-info.json" ]; then
                   echo "Found vhd-publishing-info.json in $dir"
                   cp "$dir/vhd-publishing-info.json" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$(basename "$dir").json"
