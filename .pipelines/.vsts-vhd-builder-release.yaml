@@ -1322,8 +1322,8 @@ stages:
       steps:
       - task: DownloadPipelineArtifact@2
         inputs:
-          artifact: '*'  # This downloads all artifacts from previous jobs
-          targetPath: '$(Pipeline.Workspace)'  # Where all artifacts will be downloaded
+          buildType: 'current'
+          targetPath: '$(Pipeline.Workspace)'
       - script: |
           echo "Here are the downloaded artifacts:"
           directory_contents=$(ls -R $(Pipeline.Workspace))
