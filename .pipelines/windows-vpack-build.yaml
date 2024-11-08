@@ -18,8 +18,8 @@ stages:
         IMAGE_REFERENCE="MicrosoftWindowsServer:WindowsServer:2022-datacenter-azure-edition-core:latest"
         # IMAGE_REFERENCE="/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_OS_VERSION/versions/latest"
 
-        # az group create -g $VPACK_VM_RESOURCE_GROUP_NAME -l westus
-        # az vm create -n vpack-build-vm -g $VPACK_VM_RESOURCE_GROUP_NAME --image $IMAGE_REFERENCE --assign-identity $(AZURE_MSI_RESOURCE_STRING) --admin-password $(ADMIN_PASSWORD)
+        az group create -g $VPACK_VM_RESOURCE_GROUP_NAME -l westus
+        az vm create -n vpack-build-vm -g $VPACK_VM_RESOURCE_GROUP_NAME --image $IMAGE_REFERENCE --assign-identity $(AZURE_MSI_RESOURCE_STRING) --admin-password $(ADMIN_PASSWORD)
       name: Create_Windows_VM_Step
       displayName: Create Windows VM
 
