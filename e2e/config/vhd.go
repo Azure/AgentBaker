@@ -72,7 +72,7 @@ var (
 
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgapped = &Image{
-		Name:    "2204gen2containerd",
+		Name:    "2204Gen2",
 		OS:      "ubuntu",
 		Arch:    "amd64",
 		Version: "1.1725612526.29638",
