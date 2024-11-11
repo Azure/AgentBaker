@@ -99,6 +99,8 @@ type ClusterParams struct {
 	CACert         []byte
 	BootstrapToken string
 	FQDN           string
+	APIServerCert  []byte
+	ClientKey      []byte
 }
 
 func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
@@ -126,10 +128,17 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
+	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/apiserver.crt")
+	require.NoError(t, err)
+
+	clientKey, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/client.key")
+
 	return &ClusterParams{
 		CACert:         caCert.stdout.Bytes(),
 		BootstrapToken: bootstrapToken,
 		FQDN:           fqdn,
+		APIServerCert:  cmdAPIServer.stdout.Bytes(),
+		ClientKey:      clientKey.stdout.Bytes(),
 	}
 }
 

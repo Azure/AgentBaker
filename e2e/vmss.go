@@ -125,16 +125,24 @@ cd .\azcopy\*
 $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
 $env:AZCOPY_MSI_RESOURCE_STRING=$arg3
 C:\k\debug\collect-windows-logs.ps1
-$CollectedLogs=(Get-ChildItem . -Filter "*$arg2*" -File)[0].Name
+$CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
 .\azcopy.exe copy $CollectedLogs "$arg1/collected-node-logs.zip"
 .\azcopy.exe copy "C:\azuredata\CustomDataSetupScript.log" "$arg1/cse.log"
 .\azcopy.exe copy "C:\AzureData\provision.complete" "$arg1/provision.complete"
+.\azcopy.exe copy "C:\k\kubelet.err.log" "$arg1/kubelet.err.log"
+.\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
 `
 
 // extractLogsFromWindowsVM runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
 func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluster, vmssName string) {
-	t.Logf("extracting logs from windows VM %q", vmssName)
+	if !t.Failed() {
+		t.Logf("skipping logs extraction from windows VM, as the test didn't fail")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+	defer cancel()
 	pager := config.Azure.VMSSVM.NewListPager(*cluster.Model.Properties.NodeResourceGroup, vmssName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
@@ -162,13 +170,14 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 		"arg2="+vmssName,
 		"arg3="+config.Config.VMIdentityResourceID(),
 	)
-	//t.Log("running command on VMSS instance: ", cmd.String())
+	t.Log("uploading windows logs to blob storage")
 	cmdResult, err := cmd.Output()
 	if err != nil {
 		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
 		return
 	}
-	//t.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
+
+	t.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(t), blobSuffix)
@@ -196,7 +205,7 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
-	t.Logf("logs collect to %s", testDir(t))
+	t.Logf("logs collected to %s", testDir(t))
 }
 
 func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {

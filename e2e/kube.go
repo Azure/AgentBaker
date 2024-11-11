@@ -176,3 +176,65 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 	}
 	return "", fmt.Errorf("failed to find aks vnet")
 }
+
+func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
+	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	if isAirgap {
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
+	}
+
+	return fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: %s
+spec:
+  containers:
+  - name: mariner
+    image: %s
+    imagePullPolicy: IfNotPresent
+    command: ["sh", "-c"]
+    args:
+    - |
+      mkdir -p /www &&
+      echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html &&
+      httpd -f -p 80 -h /www
+    ports:
+    - containerPort: 80
+  nodeSelector:
+    kubernetes.io/hostname: %s
+  readinessProbe:
+      periodSeconds: 1
+      httpGet:
+        path: /
+        port: 80
+`, podName, image, nodeName)
+}
+
+func getWasmSpinPodTemplate(podName, nodeName string) string {
+	return fmt.Sprintf(`apiVersion: v1
+kind: Pod
+metadata:
+  name: %s
+spec:
+  runtimeClassName: wasmtime-spin
+  containers:
+  - name: spin-hello
+    image: ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1
+    imagePullPolicy: IfNotPresent
+    command: ["/"]
+    resources: # limit the resources to 128Mi of memory and 100m of CPU
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    readinessProbe:
+      periodSeconds: 1
+      httpGet:
+        path: /hello
+        port: 80
+  nodeSelector:
+    kubernetes.io/hostname: %s
+`, podName, nodeName)
+}

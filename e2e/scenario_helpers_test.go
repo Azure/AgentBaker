@@ -28,15 +28,19 @@ func setupSignalHandler() context.Context {
 	ch := make(chan os.Signal, 2)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 
+	red := func(text string) string {
+		return "\033[31m" + text + "\033[0m"
+	}
+
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit.")
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit."))
 		cancel()
 
 		// block until second signal is received
 		<-ch
-		fmt.Println("Received second cancellation signal, forcing exit.")
+		fmt.Println(red("Received second cancellation signal, forcing exit."))
 		os.Exit(1)
 	}()
 	return ctx

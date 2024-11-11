@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"encoding/base64"
-	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -10,6 +9,30 @@ import (
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
+
+func getBaseNBC(cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+	nbc := baseTemplateLinux(config.Config.Location)
+	if vhd.Distro.IsWindowsDistro() {
+		// TODO: fix variables
+		nbc = baseTemplateWindows(config.Config.Location)
+		cert := cluster.Kube.clientCertificate()
+
+		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
+		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
+		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = string(cluster.ClusterParams.ClientKey)
+		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
+		nbc.SubscriptionID = config.Config.SubscriptionID
+		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
+		nbc.TenantID = *cluster.Model.Identity.TenantID
+	}
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
+
+	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
+	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
+	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
+	nbc.AgentPoolProfile.Distro = vhd.Distro
+	return nbc
+}
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
@@ -417,7 +440,7 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 	}
 }
 
-func baseTemplateWindows() *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -429,7 +452,7 @@ func baseTemplateWindows() *datamodel.NodeBootstrappingConfiguration {
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.31.2",
+					OrchestratorVersion: "1.29.9",
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						NetworkPlugin:        "azure",
 						LoadBalancerSku:      "Standard",
@@ -493,7 +516,9 @@ func baseTemplateWindows() *datamodel.NodeBootstrappingConfiguration {
 					}{
 						PublicKeys: []datamodel.PublicKey{
 							{
-								KeyData: "dummyData",
+								KeyData: `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDIs9weXqhc498AY/775zoJAO+bsmgBx2/V2KTaQgbU1I9ePbquox6r1idf1hcyR+wo9bqlMErLlSGdDCZqTfRmZS9gBbicxPuaIDnIvzfNBH/4Eqq6YVcwjkFeHWqL4ABPq/VNzbLr7JkkCVw9Widh3K/HTsfaDx13qOUwzcm2F7FN/+zvrRyz9RDwkzdeOVhG6JwHdQAjLM40z49BP4yPyHl4r
+xvDmGUcOYRy+zCf4Sz75Nw+7wOph3X8KUY8EcHqptXMtk+6f17tasZNaiK0sGY+Hq/Craz2ryO3cDtDn+8Kw2Mpwox8qmdKTCVHPkHgh9OwiFPPWcnld4kNg/+V9ONlsJLUTAwOVezqsCWWU/+NpTWhKqLp682FOZ1fhI+jRlMp0Sa6uEXdw9U56J4IbgzXa1RXYmmq8xceMRIRWC9dxVjcv8F1KrpJoCORtrZDQDaF3Kw789dX09MawfdCZscKSV
+DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 							},
 						},
 					},
@@ -603,66 +628,4 @@ func baseTemplateWindows() *datamodel.NodeBootstrappingConfiguration {
 			},
 		},
 	}
-}
-
-func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
-	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
-	}
-
-	return fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %s
-spec:
-  containers:
-  - name: mariner
-    image: %s
-    imagePullPolicy: IfNotPresent
-    command: ["sh", "-c"]
-    args:
-    - |
-      mkdir -p /www &&
-      echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html &&
-      httpd -f -p 80 -h /www
-    ports:
-    - containerPort: 80
-  nodeSelector:
-    kubernetes.io/hostname: %s
-  readinessProbe:
-      periodSeconds: 1
-      httpGet:
-        path: /
-        port: 80
-`, podName, image, nodeName)
-}
-
-func getWasmSpinPodTemplate(podName, nodeName string) string {
-	return fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %s
-spec:
-  runtimeClassName: wasmtime-spin
-  containers:
-  - name: spin-hello
-    image: ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1
-    imagePullPolicy: IfNotPresent
-    command: ["/"]
-    resources: # limit the resources to 128Mi of memory and 100m of CPU
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    readinessProbe:
-      periodSeconds: 1
-      httpGet:
-        path: /hello
-        port: 80
-  nodeSelector:
-    kubernetes.io/hostname: %s
-`, podName, nodeName)
 }

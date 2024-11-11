@@ -234,21 +234,3 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 		s.AKSNodeConfigMutator(s.Runtime.AKSNodeConfig)
 	}
 }
-
-func getBaseNBC(cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	nbc := baseTemplateLinux(config.Config.Location)
-	if vhd.Distro.IsWindowsDistro() {
-		// TODO: fix variables
-		nbc = baseTemplateWindows()
-		cert := cluster.Kube.clientCertificate()
-
-		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
-	}
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
-
-	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
-	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
-	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
-	nbc.AgentPoolProfile.Distro = vhd.Distro
-	return nbc
-}
