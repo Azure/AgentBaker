@@ -99,7 +99,7 @@ steps:
     displayName: Setup Cue
 
   - bash: |
-      echo "Job Attempt: $(System.JobAttempt)" \
+      echo "Job Attempt: $(System.JobAttempt)" && \
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
@@ -123,6 +123,7 @@ steps:
       BUILD_NUMBER: $(Build.BuildNumber)
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      JOB_ATTEMPT: $(System.JobAttempt)
 
   - bash: |
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
