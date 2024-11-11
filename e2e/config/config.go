@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -25,8 +26,9 @@ type Configuration struct {
 	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
 	Location                      string        `env:"LOCATION" envDefault:"westus3"`
-	SubscriptionID                string        `env:"SUBSCRIPTION_ID,required"`
-	SIGResourceID                 string        `env:"SIG_RESOURCE_ID,required"`
+	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	GalleryResourceGroupName      string        `env:"GALLERY_RESOURCE_GROUP_NAME" envDefault:"aksvhdtestbuildrg"`
+	GalleryName                   string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	TagsToRun                     string        `env:"TAGS_TO_RUN"`
@@ -47,6 +49,10 @@ func (c *Configuration) BlobStorageAccount() string {
 
 func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
+}
+
+func (c *Configuration) E2EGalleryResourceID() string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.SubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
 }
 
 func mustLoadConfig() Configuration {
