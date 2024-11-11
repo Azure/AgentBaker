@@ -1,7 +1,7 @@
 jobs:
   - job: E2E_Tests
     pool:
-      name: nodesigtest-pool
+      name: $(POOL_NAME)
     timeoutInMinutes: 90
     displayName: Run AgentBaker E2E
     variables:
