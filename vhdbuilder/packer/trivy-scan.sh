@@ -31,13 +31,14 @@ SEVERITY=${17}
 MODULE_VERSION=${18}
 UMSI_PRINCIPAL_ID=${19}
 UMSI_CLIENT_ID=${20}
-BUILD_RUN_NUMBER=${21}
-export BUILD_REPOSITORY_NAME=${22}
-export BUILD_SOURCEBRANCH=${23}
-export BUILD_SOURCEVERSION=${24}
-export SYSTEM_COLLECTIONURI=${25}
-export SYSTEM_TEAMPROJECT=${26}
-export BUILD_BUILDID=${27}
+AZURE_MSI_RESOURCE_STRING=${21}
+BUILD_RUN_NUMBER=${22}
+export BUILD_REPOSITORY_NAME=${23}
+export BUILD_SOURCEBRANCH=${24}
+export BUILD_SOURCEVERSION=${25}
+export SYSTEM_COLLECTIONURI=${26}
+export SYSTEM_TEAMPROJECT=${27}
+export BUILD_BUILDID=${28}
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -93,13 +94,21 @@ install_azure_cli() {
     fi
 }
 
+login_with_user_assigned_managed_identity() {
+    local USERNAME=$1
+
+    LOGIN_FLAGS="--identity --username $USERNAME"
+    if [ "${ENABLE_TRUSTED_LAUNCH,,}" == "true" ]; then
+        LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
+    fi
+
+   echo "logging into azure with flags: $LOGIN_FLAGS"
+   az login $LOGIN_FLAGS
+}
+
 install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 
-if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-    az login --identity --allow-no-subscriptions --username ${UMSI_PRINCIPAL_ID}
-else
-    az login --identity
-fi
+login_with_user_assigned_managed_identity ${UMSI_PRINCIPAL_ID}
 
 arch="$(uname -m)"
 if [ "${arch,,}" == "arm64" ] || [ "${arch,,}" == "aarch64" ]; then
@@ -181,6 +190,8 @@ rm ./trivy
 
 chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
+
+login_with_user_assigned_managed_identity ${AZURE_MSI_RESOURCE_STRING}
 
 az storage blob upload --file ${TRIVY_REPORT_ROOTFS_JSON_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \

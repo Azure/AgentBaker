@@ -74,6 +74,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
+# for scanning storage account/container upload access
+az vm identity assign -g $RESOURCE_GROUP_NAME --name $SCAN_VM_NAME --identities $AZURE_MSI_RESOURCE_STRING
+
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
 TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
@@ -109,6 +112,7 @@ az vm run-command invoke \
         "MODULE_VERSION"=${MODULE_VERSION} \
         "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
         "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID} \
+        "AZURE_MSI_RESOURCE_STRING"=${AZURE_MSI_RESOURCE_STRING} \
         "BUILD_RUN_NUMBER"=${BUILD_RUN_NUMBER} \
         "BUILD_REPOSITORY_NAME"=${BUILD_REPOSITORY_NAME} \
         "BUILD_SOURCEBRANCH"=${GIT_BRANCH} \
