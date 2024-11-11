@@ -1,5 +1,5 @@
 jobs:
-  - job: E2E_Tests
+  - job: e2e
     pool:
       name: $(POOL_NAME)
     timeoutInMinutes: 90
@@ -32,7 +32,7 @@ jobs:
             export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
             export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
           else
-            echo "Build.BuildId is not specified. Running default e2e tests."
+            echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
           fi
           
           cd e2e
