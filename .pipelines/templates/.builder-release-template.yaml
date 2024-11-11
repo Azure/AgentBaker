@@ -99,6 +99,7 @@ steps:
     displayName: Setup Cue
 
   - bash: |
+      echo "Job Attempt: $(System.JobAttempt)" \
       SKU_NAME=${OS_VERSION} && \
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
@@ -164,7 +165,7 @@ steps:
     condition: always()
     displayName: Publish BCC Tools Installation Log
     inputs:
-      artifactName: 'bcc-tools-installation-log-${{ parameters.artifactName }}'
+      artifactName: 'bcc-tools-installation-log-$(System.JobAttempt)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
 
   - task: CopyFiles@2
