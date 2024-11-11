@@ -26,7 +26,8 @@ type Configuration struct {
 	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
 	Location                      string        `env:"LOCATION" envDefault:"westus3"`
-	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	GallerySubscriptionID         string        `env:"SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	GalleryResourceGroupName      string        `env:"GALLERY_RESOURCE_GROUP_NAME" envDefault:"aksvhdtestbuildrg"`
 	GalleryName                   string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
@@ -52,7 +53,7 @@ func (c *Configuration) BlobStorageAccountURL() string {
 }
 
 func (c *Configuration) E2EGalleryResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.SubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
 }
 
 func mustLoadConfig() Configuration {
