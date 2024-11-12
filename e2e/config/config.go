@@ -42,7 +42,7 @@ type Configuration struct {
 	KeepVMSS                      bool          `env:"KEEP_VMSS" json:"keepVMSS"`
 	BlobStorageAccountPrefix      string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e" json:"blobStorageAccountPrefix"`
 	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e" json:"blobContainer"`
-	EnableAKSNodeControllerTest   bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST" json:"enableAKSNodeControllerTest"`
+	EnableNodeBootstrapperTest    bool          `env:"ENABLE_NODE_BOOTSTRAPPER_TEST" json:"enableNodeBootstrapperTest"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
