@@ -57,8 +57,8 @@ type AzureClient struct {
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 }
 
-func mustNewAzureClient(subscription string) *AzureClient {
-	client, err := NewAzureClient(subscription)
+func mustNewAzureClient(subscription, gallerySubscription string) *AzureClient {
+	client, err := NewAzureClient(subscription, gallerySubscription)
 	if err != nil {
 		panic(err)
 	}
@@ -66,7 +66,7 @@ func mustNewAzureClient(subscription string) *AzureClient {
 
 }
 
-func NewAzureClient(subscription string) (*AzureClient, error) {
+func NewAzureClient(subscription, gallerySubscription string) (*AzureClient, error) {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
@@ -208,7 +208,7 @@ func NewAzureClient(subscription string) (*AzureClient, error) {
 		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(subscription, credential, opts)
+	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(gallerySubscription, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create a new images client: %v", err)
 	}

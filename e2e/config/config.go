@@ -11,7 +11,7 @@ import (
 
 var (
 	Config            = mustLoadConfig()
-	Azure             = mustNewAzureClient(Config.SubscriptionID)
+	Azure             = mustNewAzureClient(Config.SubscriptionID, Config.GallerySubscriptionID)
 	ResourceGroupName = "abe2e-" + Config.Location
 	VMIdentityName    = "abe2e-vm-identity"
 	PrivateACRName    = "privateacre2e"
