@@ -23,6 +23,7 @@ func TestMain(m *testing.M) {
 	}
 	m.Run()
 }
+
 func Test_azurelinuxv2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",

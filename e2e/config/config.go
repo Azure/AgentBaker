@@ -28,7 +28,7 @@ type Configuration struct {
 	BuildID                       string        `env:"BUILD_ID" envDefault:"local" json:"buildID"`
 	Location                      string        `env:"LOCATION" envDefault:"westus3" json:"location"`
 	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" json:"subscriptionID"`
-	GallerySubscriptionID         string        `env:"SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1" json:"gallerySubscriptionID"`
+	GallerySubscriptionID         string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1" json:"gallerySubscriptionID"`
 	GalleryResourceGroupName      string        `env:"GALLERY_RESOURCE_GROUP_NAME" envDefault:"aksvhdtestbuildrg" json:"galleryResourceGroupName"`
 	GalleryName                   string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS" json:"galleryName"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch" json:"sigVersionTagName"`
