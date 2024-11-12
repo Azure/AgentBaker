@@ -111,6 +111,10 @@ func TestE2EWindows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("couldnt GetNodeBootstrapping: %s", err)
 	}
+
+	nbcJSON, _ := json.Marshal(nodeBootstrapping)
+	t.Log(string(nbcJSON))
+
 	fmt.Println("start get customData")
 	// customData
 	err = ioutil.WriteFile("scenarios/"+scenario+"/"+image+"-"+scenario+"-cloud-init.txt", []byte(nodeBootstrapping.CustomData), 0644)
