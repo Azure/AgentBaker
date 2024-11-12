@@ -32,6 +32,7 @@ type Configuration struct {
 	DefaultSubnetName               string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	E2ELoggingDir                   string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableAKSNodeControllerTest     bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
+	EnableNodeBootstrapperTest    	bool          `env:"ENABLE_NODE_BOOTSTRAPPER_TEST" json:"enableNodeBootstrapperTest"`
 	GalleryNameLinux                string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
 	GalleryNameWindows              string        `env:"GALLERY_NAME_WINDOWS" envDefault:"AKSWindows"`
 	GalleryResourceGroupNameLinux   string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
