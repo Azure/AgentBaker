@@ -112,12 +112,14 @@ type Scenario struct {
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
+	T       *testing.T
 }
 
 type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig *nbcontractv1.Configuration
 	Cluster       *Cluster
+	VMSSName      string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario
@@ -217,7 +219,8 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 	require.NoError(t, err)
 
 	s.Runtime = &ScenarioRuntime{
-		Cluster: cluster,
+		Cluster:  cluster,
+		VMSSName: generateVMSSName(t),
 	}
 
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {

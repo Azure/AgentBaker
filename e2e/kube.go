@@ -210,6 +210,29 @@ spec:
 `, podName, image, nodeName)
 }
 
+func getHTTPServerTemplateWindows(podName, nodeName string) string {
+	return fmt.Sprintf(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: %s
+spec:
+  containers:
+  - name: iis-container
+    image: mcr.microsoft.com/windows/servercore/iis
+    ports:
+    - containerPort: 80
+  nodeSelector:
+    kubernetes.io/hostname: %s
+  readinessProbe:
+      periodSeconds: 1
+      httpGet:
+        path: /
+        port: 80
+`, podName, nodeName)
+
+}
+
 func getWasmSpinPodTemplate(podName, nodeName string) string {
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod

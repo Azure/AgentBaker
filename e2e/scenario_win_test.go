@@ -40,9 +40,8 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 				}
 				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.OSType = to.Ptr(armcompute.OperatingSystemTypesWindows)
 				// windows prefix is shorter than linux, abput 9 characters
-				vmss.Properties.VirtualMachineProfile.OSProfile.ComputerNamePrefix = to.Ptr("win")
+				//vmss.Properties.VirtualMachineProfile.OSProfile.ComputerNamePrefix = to.Ptr("win")
 				vmss.Properties.VirtualMachineProfile.OSProfile.LinuxConfiguration = nil
-				vmss.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr("pwnedPassword123!")
 
 				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = to.Ptr("Microsoft.Compute")
 				vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")

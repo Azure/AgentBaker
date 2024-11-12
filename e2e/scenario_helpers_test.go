@@ -76,11 +76,12 @@ func mustNoError(err error) {
 }
 
 func RunScenario(t *testing.T, s *Scenario) {
+	s.T = t
 	t.Parallel()
 	ctx := newTestCtx(t)
 	maybeSkipScenario(ctx, t, s)
 	s.PrepareRuntime(ctx, t)
-	createAndValidateVM(ctx, t, s)
+	createAndValidateVM(ctx, s)
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -119,39 +120,38 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
 }
 
-func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) {
-	rid, _ := scenario.VHD.VHDResourceID(ctx, t)
+func createAndValidateVM(ctx context.Context, s *Scenario) {
+	rid, _ := s.VHD.VHDResourceID(ctx, s.T)
 
-	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *scenario.Runtime.Cluster.Model.ID)
+	s.T.Logf("running scenario %q with image %q in aks cluster %q", s.T.Name(), rid, *s.Runtime.Cluster.Model.ID)
 
 	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
-	assert.NoError(t, err)
+	assert.NoError(s.T, err)
 
-	vmssName := getVmssName(t)
-	createVMSS(ctx, t, vmssName, scenario, privateKeyBytes, publicKeyBytes)
+	createVMSS(ctx, s.T, s.Runtime.VMSSName, s, privateKeyBytes, publicKeyBytes)
 
-	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-	nodeName := validateNodeHealth(ctx, t, scenario.Runtime.Cluster.Kube, vmssName, scenario.Tags.Airgap)
+	s.T.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", s.Runtime.VMSSName)
+	nodeName := s.validateNodeHealth(ctx)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
-	if scenario.Runtime.NBC != nil && scenario.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
+		validateWasm(ctx, s.T, s.Runtime.Cluster.Kube, nodeName)
 	}
-	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == nbcontractv1.WorkloadRuntime_WASM_WASI {
-		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == nbcontractv1.WorkloadRuntime_WASM_WASI {
+		validateWasm(ctx, s.T, s.Runtime.Cluster.Kube, nodeName)
 	}
 
-	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
+	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName)
+	require.NoError(s.T, err)
 
-	require.NoError(t, err, "get vm private IP %v", vmssName)
-	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
-	require.NoError(t, err)
+	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
+	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(privateKeyBytes), s)
+	require.NoError(s.T, err)
 
-	t.Logf("node %s bootstrapping succeeded!", vmssName)
+	s.T.Logf("node %s bootstrapping succeeded!", s.Runtime.VMSSName)
 }
 
 func getExpectedPackageVersions(packageName, distro, release string) []string {

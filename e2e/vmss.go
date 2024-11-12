@@ -31,7 +31,6 @@ import (
 const (
 	listVMSSNetworkInterfaceURLTemplate      = "https://management.azure.com/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/%d/networkInterfaces?api-version=2018-10-01"
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
-	vmssNamePrefix                           = "abe2e"
 )
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
@@ -333,16 +332,17 @@ func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error)
 	return
 }
 
-func getVmssName(t *testing.T) string {
-	name := fmt.Sprintf("%s-%s-%s-%s", vmssNamePrefix, time.Now().UTC().Format(time.DateOnly), randomLowercaseString(4), t.Name())
+func generateVMSSName(t *testing.T) string {
+	name := fmt.Sprintf("%s%s", randomLowercaseString(4), t.Name())
 	// delete invalid characters like _ and /
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
 	// truncate to 57 characters, as AKS has a limit of 64 characters for VM names
 	// an additional prefix is generated for VM name
-	if len(name) > 57 { // a limit for VMSS name
-		name = name[:57]
+	// windows limits prefix names
+	if len(name) > 9 { // a limit for VMSS name
+		name = name[:9]
 	}
 	// AKS converts VM names to lowercase at some stage, avoid potential matching issues
 	name = strings.ToLower(name)
@@ -365,6 +365,7 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
+					AdminPassword:      to.Ptr("pwnedPassword123!"),
 					CustomData:         &customData,
 					LinuxConfiguration: &armcompute.LinuxConfiguration{
 						SSH: &armcompute.SSHConfiguration{

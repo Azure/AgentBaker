@@ -150,6 +150,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 	return i.vhd, i.vhdErr
 }
 
+func (i *Image) Windows() bool {
+	return i.OS == "windows"
+}
+
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
 // be the resource ID of a managed image or SIG image version, though for now this will always be a SIG image version.
 type VHDResourceID string
