@@ -785,8 +785,8 @@
               {
                 "k8sVersion": "1.27",
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.27.100-akslts",
-                "previousLatestVersion": "1.27.16"
+                "latestVersion": "1.27.101-akslts",
+                "previousLatestVersion": "1.27.100-akslts"
               },
               {
                 "k8sVersion": "1.28",
