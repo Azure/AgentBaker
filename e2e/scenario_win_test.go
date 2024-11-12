@@ -23,7 +23,7 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDWindowsServer2019Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEURL(ctx, t)

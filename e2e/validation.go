@@ -22,6 +22,7 @@ func (s *Scenario) validateNodeHealth(ctx context.Context) string {
 	}
 	err := ensurePod(ctx, s.T, defaultNamespace, s.Runtime.Cluster.Kube, testPodName, testPodManifest)
 	require.NoError(s.T, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
+	s.T.Logf("node health validation: test pod %q is running on node %q", testPodName, nodeName)
 	return nodeName
 }
 
