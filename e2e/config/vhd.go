@@ -63,7 +63,7 @@ var (
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
-		// 2204Gen2 is a special image version that holds historical VHDs used by agentbaker e2e's.
+		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
 		Name:    "2204Gen2",
 		OS:      "ubuntu",
 		Arch:    "amd64",
