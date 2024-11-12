@@ -4,7 +4,7 @@ This directory contains files related to AKS Node Controller go binary.
 
 ## Overview
 
-AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller The controller has two primary functions: 1. Parseickstart bootstrapping and 2. Monitor the completion status. The binary is triggered by a systemd unit which runs on the node. This systemd unit waits for the bootstrapping config to be placed on the node through customdata and then runs the go binary to start the bootstrapping process.
+AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller has two primary functions: 1. Parse the bootstrap config and kickstart bootstrapping and 2. Monitor the completion status. 
 
 ## Usage
 
@@ -53,5 +53,12 @@ model := armcompute.VirtualMachineScaleSet{
 
 The provision status can be extracted from the CSE response. CSE takes the stdout from the bootstrap scripts which contains information in the form `datamodel.CSEStatus`. You can find an example of how to parse the output [here](https://github.com/Azure/AgentBaker/blob/dev/e2e/scenario_helpers_test.go#L163).
 
-## Workflow
 
+### Provisioning Flow
+
+The binary is triggered by a systemd unit, `aks-node-controller.service` which runs on the node. This systemd unit waits for the bootstrapping config to be placed on the node through customdata and then runs the go binary to start the bootstrapping process.
+
+1. aks-node-controller.service: systemd unit that is triggered once cloud-init is complete (guaranteeing that config is present on disk) and then kickstarts bootstrapping.
+2. aks-node-controller binary: two modes
+        - provision: parses the node config and triggers bootstrap process
+        - provision-wait: waits for provision.complete to be present and reads provision.json which is returned by CSE through capturing stdout
