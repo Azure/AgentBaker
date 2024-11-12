@@ -16,6 +16,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	fmt.Printf("using E2E environment configuration:\n%s\n", config.Config)
 	// delete scenario-logs folder if it exists
 	if _, err := os.Stat("scenario-logs"); err == nil {
 		_ = os.RemoveAll("scenario-logs")
