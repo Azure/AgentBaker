@@ -4,8 +4,9 @@ set -euxo pipefail
 TRIVY_REPORT_DIRNAME=/opt/azure/containers
 TRIVY_REPORT_ROOTFS_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-rootfs.json
 TRIVY_REPORT_IMAGE_TABLE_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-images-table.txt
+TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
-TRIVY_VERSION="0.53.0"
+TRIVY_VERSION="0.57.0"
 TRIVY_ARCH=""
 
 MODULE_NAME="vuln-to-kusto-vhd"
@@ -37,6 +38,20 @@ export BUILD_SOURCEVERSION=${24}
 export SYSTEM_COLLECTIONURI=${25}
 export SYSTEM_TEAMPROJECT=${26}
 export BUILD_BUILDID=${27}
+
+retrycmd_if_failure() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+    echo Executed \"$@\" $i times;
+}
 
 install_azure_cli() {
     OS_SKU=${1}
@@ -114,7 +129,9 @@ chmod a+x ${MODULE_NAME}
 # shellcheck disable=SC2155
 export PATH="$(pwd):$PATH"
 
-./trivy --scanners vuln rootfs -f json --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
+# we do a delayed retry here since it's possible we'll get rate-limited by ghcr.io, which hosts the vulnerability DB
+retrycmd_if_failure 10 30 600 ./trivy --scanners vuln rootfs -f json --db-repository ${TRIVY_DB_REPOSITORIES} --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
+
 if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
     ./vuln-to-kusto-vhd scan-report \
         --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
@@ -136,12 +153,12 @@ Note: images without CVEs are also listed" >> "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
 
 for CONTAINER_IMAGE in $IMAGE_LIST; do
     # append to table
-    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} --skip-db-update -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
+    ./trivy --scanners vuln image --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -f table ${CONTAINER_IMAGE} >> ${TRIVY_REPORT_IMAGE_TABLE_PATH} || true
 
     # export to Kusto, one by one
     BASE_CONTAINER_IMAGE=$(basename ${CONTAINER_IMAGE})
     TRIVY_REPORT_IMAGE_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-image-${BASE_CONTAINER_IMAGE}.json
-    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
+    ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
 
     if [[ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]]; then
         ./vuln-to-kusto-vhd scan-report \
@@ -160,7 +177,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
     fi
 done
 
-rm ./trivy 
+rm ./trivy
 
 chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
