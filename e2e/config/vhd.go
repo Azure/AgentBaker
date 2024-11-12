@@ -102,7 +102,7 @@ func (i *Image) String() string {
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
-		imageDefinitionResourceID := fmt.Sprintf("%s/images/%s", Config.E2EGalleryResourceID(), i.Name)
+		imageDefinitionResourceID := fmt.Sprintf("%s/images/%s", Config.GalleryResourceID(), i.Name)
 		if i.Version != "" {
 			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {

@@ -12,7 +12,7 @@ import (
 
 var (
 	Config            = mustLoadConfig()
-	Azure             = mustNewAzureClient(Config.SubscriptionID, Config.GallerySubscriptionID)
+	Azure             = mustNewAzureClient()
 	ResourceGroupName = "abe2e-" + Config.Location
 	VMIdentityName    = "abe2e-vm-identity"
 	PrivateACRName    = "privateacre2e"
@@ -53,7 +53,7 @@ func (c *Configuration) BlobStorageAccountURL() string {
 	return "https://" + c.BlobStorageAccount() + ".blob.core.windows.net"
 }
 
-func (c *Configuration) E2EGalleryResourceID() string {
+func (c *Configuration) GalleryResourceID() string {
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
 }
 

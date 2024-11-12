@@ -57,8 +57,8 @@ type AzureClient struct {
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 }
 
-func mustNewAzureClient(subscription, gallerySubscription string) *AzureClient {
-	client, err := NewAzureClient(subscription, gallerySubscription)
+func mustNewAzureClient() *AzureClient {
+	client, err := NewAzureClient()
 	if err != nil {
 		panic(err)
 	}
@@ -66,7 +66,7 @@ func mustNewAzureClient(subscription, gallerySubscription string) *AzureClient {
 
 }
 
-func NewAzureClient(subscription, gallerySubscription string) (*AzureClient, error) {
+func NewAzureClient() (*AzureClient, error) {
 	httpClient := &http.Client{
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
@@ -128,87 +128,87 @@ func NewAzureClient(subscription, gallerySubscription string) (*AzureClient, err
 		return nil, fmt.Errorf("create core client: %w", err)
 	}
 
-	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(subscription, credential, opts)
+	cloud.RegistriesClient, err = armcontainerregistry.NewRegistriesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registry client: %w", err)
 	}
 
-	cloud.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient(subscription, credential, opts)
+	cloud.CacheRulesClient, err = armcontainerregistry.NewCacheRulesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cache rules client: %w", err)
 	}
 
-	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(subscription, credential, opts)
+	cloud.PrivateEndpointClient, err = armnetwork.NewPrivateEndpointsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private endpoint client: %w", err)
 	}
 
-	cloud.PrivateZonesClient, err = armprivatedns.NewPrivateZonesClient(subscription, credential, opts)
+	cloud.PrivateZonesClient, err = armprivatedns.NewPrivateZonesClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private dns zones client: %w", err)
 	}
 
-	cloud.VirutalNetworkLinksClient, err = armprivatedns.NewVirtualNetworkLinksClient(subscription, credential, opts)
+	cloud.VirutalNetworkLinksClient, err = armprivatedns.NewVirtualNetworkLinksClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create virtual network links client: %w", err)
 	}
 
-	cloud.RecordSetClient, err = armprivatedns.NewRecordSetsClient(subscription, credential, opts)
+	cloud.RecordSetClient, err = armprivatedns.NewRecordSetsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create record set client: %w", err)
 	}
 
-	cloud.PrivateDNSZoneGroup, err = armnetwork.NewPrivateDNSZoneGroupsClient(subscription, credential, opts)
+	cloud.PrivateDNSZoneGroup, err = armnetwork.NewPrivateDNSZoneGroupsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private dns zone group client: %w", err)
 	}
 
-	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(subscription, credential, opts)
+	cloud.SecurityGroup, err = armnetwork.NewSecurityGroupsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create security group client: %w", err)
 	}
 
-	cloud.Subnet, err = armnetwork.NewSubnetsClient(subscription, credential, opts)
+	cloud.Subnet, err = armnetwork.NewSubnetsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create subnet client: %w", err)
 	}
 
-	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(subscription, credential, opts)
+	cloud.AKS, err = armcontainerservice.NewManagedClustersClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create aks client: %w", err)
 	}
 
-	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(subscription, credential, opts)
+	cloud.Maintenance, err = armcontainerservice.NewMaintenanceConfigurationsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create maintenance client: %w", err)
 	}
 
-	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(subscription, credential, opts)
+	cloud.VMSS, err = armcompute.NewVirtualMachineScaleSetsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss client: %w", err)
 	}
 
-	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(subscription, credential, opts)
+	cloud.VMSSVM, err = armcompute.NewVirtualMachineScaleSetVMsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vmss vm client: %w", err)
 	}
 
-	cloud.Resource, err = armresources.NewClient(subscription, credential, opts)
+	cloud.Resource, err = armresources.NewClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource client: %w", err)
 	}
 
-	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(subscription, credential, opts)
+	cloud.ResourceGroup, err = armresources.NewResourceGroupsClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create resource group client: %w", err)
 	}
 
-	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(subscription, credential, opts)
+	cloud.VNet, err = armnetwork.NewVirtualNetworksClient(Config.SubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(gallerySubscription, credential, opts)
+	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(Config.GallerySubscriptionID, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create a new images client: %v", err)
 	}
