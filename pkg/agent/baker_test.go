@@ -54,7 +54,7 @@ type decodedValue struct {
 type cseVariableEncoding string
 
 const (
-	cseVariableEncodingGzip   cseVariableEncoding = "gzip"
+	cseVariableEncodingGzip cseVariableEncoding = "gzip"
 )
 
 type outputValidator func(*nodeBootstrappingOutput)
@@ -214,6 +214,56 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						Distro:              datamodel.AKSUbuntu1604,
+						LocalDnsProfileWithSortedDomains: &datamodel.LocalDnsProfileWithSortedDomains{
+							LocalDnsProfile: datamodel.LocalDnsProfile{
+								ServiceState:    "Enabled",
+								CPULimit:        2,
+								MemoryLimitInMB: 128,
+								CoreDnsImageUrl: "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240704",
+								VnetDnsOverrides: map[string]datamodel.DnsOverride{
+									".": {
+										LogLevel:               "errors",
+										ForceTCP:               false,
+										ForwardPolicy:          "sequential",
+										MaxConcurrent:          1000,
+										CacheDurationInSeconds: 3600,
+										ServeStale:             "verify",
+									},
+									"sub.domain1.com": {
+										LogLevel:               "log",
+										ForceTCP:               false,
+										ForwardPolicy:          "sequential",
+										MaxConcurrent:          1000,
+										CacheDurationInSeconds: 3600,
+										ServeStale:             "verify",
+									},
+								},
+								KubeDnsOverrides: map[string]datamodel.DnsOverride{
+									".": {
+										LogLevel:               "errors",
+										ForceTCP:               true,
+										ForwardPolicy:          "sequential",
+										MaxConcurrent:          1000,
+										CacheDurationInSeconds: 3600,
+										ServeStale:             "verify",
+									},
+									"sub.domain1.com": {
+										LogLevel:               "errors",
+										ForceTCP:               false,
+										ForwardPolicy:          "sequential",
+										MaxConcurrent:          1000,
+										CacheDurationInSeconds: 3600,
+										ServeStale:             "verify",
+									},
+								},
+								NodeListenerIP:      "169.254.10.10",
+								ClusterListenerIP:   "169.254.10.11",
+								CoreDnsServiceIP:    "10.0.0.10",
+								UpstreamDnsServerIP: "169.63.129.16",
+							},
+							SortedVnetDnsOverrideDomains: []string{"sub.domain1.com", "."},
+							SortedKubeDnsOverrideDomains: []string{"sub.domain1.com", "."},
+						},
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{

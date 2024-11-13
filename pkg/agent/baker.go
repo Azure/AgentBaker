@@ -984,6 +984,28 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
+		"IsAKSLocalDNSEnabled": func() bool {
+			return profile.IsAKSLocalDNSEnabled()
+		},
+		"GetAKSLocalDNSGeneratedCoreFile": func() string {
+			output, err := AKSLocalDNSGenerateCoreFile(config, profile, akslocalDNSCoreFileTemplateString)
+			if err != nil {
+				panic(err)
+			}
+			return output
+		},
+		"GetAKSLocalDNSImageUrl": func() string {
+			return profile.GetAKSLocalDNSImageUrl()
+		},
+		"GetAKSLocalDNSNodeListenerIP": func() string {
+			return profile.GetAKSLocalDNSNodeListenerIP()
+		},
+		"GetAKSLocalDNSClusterListenerIP": func() string {
+			return profile.GetAKSLocalDNSClusterListenerIP()
+		},
+		"GetDefaultUpstreamDNSServerIP": func() string {
+			return profile.GetDefaultUpstreamDNSServerIP()
+		},
 	}
 }
 
@@ -1488,3 +1510,104 @@ func containerdConfigFromTemplate(
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
+
+// Parse and generate aks-local-dns Corefile from template and LocalDnsProfile.
+func AKSLocalDNSGenerateCoreFile(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Parse(tmpl))
+
+	var b bytes.Buffer
+	if err := localDNSCorefileTemplate.Execute(&b, profile.LocalDnsProfileWithSortedDomains); err != nil {
+		return "", fmt.Errorf("failed to execute local dns corefile template: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}
+
+// Template to create corefile that will be used by aks-local-dns service.
+const akslocalDNSCoreFileTemplateString = `
+# whoami (used for health check of DNS)
+health-check.aks-local-dns.local:53 {
+    bind {{$.LocalDnsProfile.NodeListenerIP}} {{$.LocalDnsProfile.ClusterListenerIP}}
+    whoami
+}
+# VNET DNS traffic (Traffic from pods with dnsPolicy:default or kubelet)
+{{- range $index, $domain := .SortedVnetDnsOverrideDomains}}
+{{- $override := index $.LocalDnsProfile.VnetDnsOverrides $domain}}
+{{$domain}}:53 {
+    {{$override.LogLevel}}
+    bind {{$.LocalDnsProfile.NodeListenerIP}}
+    forward cluster.local {{$.CoreDnsServiceIP}} {
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    forward . {{$.UpstreamDnsServerIP}} {
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.LocalDnsProfile.NodeListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disabled"}}
+        serve_stale {{$override.CacheDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid aks-local-dns
+    prometheus {{$.LocalDnsProfile.NodeListenerIP}}:9253
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}{{end}}
+# Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
+{{- range $index, $domain := .SortedKubeDnsOverrideDomains}}
+{{- $override := index $.LocalDnsProfile.KubeDnsOverrides $domain}}
+{{$domain}}:53 {
+    {{$override.LogLevel}}
+    bind {{$.LocalDnsProfile.ClusterListenerIP}}
+    forward . {{$.CoreDnsServiceIP}} {
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disabled"}}
+        serve_stale {{$override.CacheDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid aks-local-dns-pod
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+}{{end}}
+`

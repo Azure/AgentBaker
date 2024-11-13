@@ -777,27 +777,99 @@ type ComponentConfiguration struct {
 	DownloadURL *string
 }
 
+// Structure to hold Local DNS profile with sorted domains in array.
+type LocalDnsProfileWithSortedDomains struct {
+	LocalDnsProfile
+	SortedVnetDnsOverrideDomains []string
+	SortedKubeDnsOverrideDomains []string
+}
+
+// Local DNS profile with VNET DNS and Kube DNS overrides.
+type LocalDnsProfile struct {
+	ServiceState        string                 `json:"serviceState,omitempty"`
+	CPULimit            int                    `json:"cpuLimit,omitempty"`
+	MemoryLimitInMB     int                    `json:"memoryLimitInMB,omitempty"`
+	CoreDnsImageUrl     string                 `json:"coreDnsImageUrl,omitempty"`
+	VnetDnsOverrides    map[string]DnsOverride `json:"vnetDnsOverrides,omitempty"`
+	KubeDnsOverrides    map[string]DnsOverride `json:"kubeDnsOverrides,omitempty"`
+	NodeListenerIP      string                 `json:"nodeListenerIP,omitempty"`
+	ClusterListenerIP   string                 `json:"clusterListenerIP,omitempty"`
+	CoreDnsServiceIP    string                 `json:"coreDnsServiceIP,omitempty"`
+	UpstreamDnsServerIP string                 `json:"UpstreamDnsServerIP,omitempty"`
+}
+
+// Overrides for VNET DNS and Kube DNS traffic.
+// Traffic from pods with dnsPolicy:default or kubelet is defined as VNET DNS traffic.
+// Traffic from pods with dnsPolicy:ClusterFirst is defined as Kube DNS traffic.
+type DnsOverride struct {
+	LogLevel               string `json:"logLevel,omitempty"`
+	ForceTCP               bool   `json:"forceTCP,omitempty"`
+	ForwardPolicy          string `json:"forwardPolicy,omitempty"`
+	MaxConcurrent          int    `json:"maxConcurrent,omitempty"`
+	CacheDurationInSeconds int    `json:"cacheDurationInSeconds,omitempty"`
+	ServeStale             string `json:"serveStale,omitempty"`
+}
+
+// IsAKSLocalDNSEnabled returns true if the customer specified localDnsProfile and serviceState property is enable.
+func (a *AgentPoolProfile) IsAKSLocalDNSEnabled() bool {
+	return a.LocalDnsProfileWithSortedDomains != nil &&
+		strings.EqualFold(a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.ServiceState, AKSLocalDNSEnabled)
+}
+
+// GetAKSLocalDNSImageUrl returns CoreDNS image version used in aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSImageUrl() string {
+	if a != nil && a.LocalDnsProfileWithSortedDomains != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.CoreDnsImageUrl
+	}
+	return ""
+}
+
+// GetAKSLocalDNSNodeListenerIP returns 169.254.10.10 used in aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSNodeListenerIP() string {
+	if a != nil && a.LocalDnsProfileWithSortedDomains != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.NodeListenerIP
+	}
+	return ""
+}
+
+// GetAKSLocalDNSClusterListenerIP returns 169.254.10.11 used in aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSClusterListenerIP() string {
+	if a != nil && a.LocalDnsProfileWithSortedDomains != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.ClusterListenerIP
+	}
+	return ""
+}
+
+// GetDefaultUpstreamDNSServerIP returns 169.63.129.16 used in aks-local-dns service.
+func (a *AgentPoolProfile) GetDefaultUpstreamDNSServerIP() string {
+	if a != nil && a.LocalDnsProfileWithSortedDomains != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.UpstreamDnsServerIP
+	}
+	return ""
+}
+
 // AgentPoolProfile represents an agent pool definition.
 type AgentPoolProfile struct {
-	Name                  string               `json:"name"`
-	VMSize                string               `json:"vmSize"`
-	KubeletDiskType       KubeletDiskType      `json:"kubeletDiskType,omitempty"`
-	WorkloadRuntime       WorkloadRuntime      `json:"workloadRuntime,omitempty"`
-	DNSPrefix             string               `json:"dnsPrefix,omitempty"`
-	OSType                OSType               `json:"osType,omitempty"`
-	Ports                 []int                `json:"ports,omitempty"`
-	AvailabilityProfile   string               `json:"availabilityProfile"`
-	StorageProfile        string               `json:"storageProfile,omitempty"`
-	VnetSubnetID          string               `json:"vnetSubnetID,omitempty"`
-	Distro                Distro               `json:"distro,omitempty"`
-	CustomNodeLabels      map[string]string    `json:"customNodeLabels,omitempty"`
-	PreprovisionExtension *Extension           `json:"preProvisionExtension"`
-	KubernetesConfig      *KubernetesConfig    `json:"kubernetesConfig,omitempty"`
-	VnetCidrs             []string             `json:"vnetCidrs,omitempty"`
-	WindowsNameVersion    string               `json:"windowsNameVersion,omitempty"`
-	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
-	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
-	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	Name                             string                            `json:"name"`
+	VMSize                           string                            `json:"vmSize"`
+	KubeletDiskType                  KubeletDiskType                   `json:"kubeletDiskType,omitempty"`
+	WorkloadRuntime                  WorkloadRuntime                   `json:"workloadRuntime,omitempty"`
+	DNSPrefix                        string                            `json:"dnsPrefix,omitempty"`
+	OSType                           OSType                            `json:"osType,omitempty"`
+	Ports                            []int                             `json:"ports,omitempty"`
+	AvailabilityProfile              string                            `json:"availabilityProfile"`
+	StorageProfile                   string                            `json:"storageProfile,omitempty"`
+	VnetSubnetID                     string                            `json:"vnetSubnetID,omitempty"`
+	Distro                           Distro                            `json:"distro,omitempty"`
+	CustomNodeLabels                 map[string]string                 `json:"customNodeLabels,omitempty"`
+	PreprovisionExtension            *Extension                        `json:"preProvisionExtension"`
+	KubernetesConfig                 *KubernetesConfig                 `json:"kubernetesConfig,omitempty"`
+	VnetCidrs                        []string                          `json:"vnetCidrs,omitempty"`
+	WindowsNameVersion               string                            `json:"windowsNameVersion,omitempty"`
+	CustomKubeletConfig              *CustomKubeletConfig              `json:"customKubeletConfig,omitempty"`
+	CustomLinuxOSConfig              *CustomLinuxOSConfig              `json:"customLinuxOSConfig,omitempty"`
+	MessageOfTheDay                  string                            `json:"messageOfTheDay,omitempty"`
+	LocalDnsProfileWithSortedDomains *LocalDnsProfileWithSortedDomains `json:"localDnsProfileWithSortedDomains,omitempty"`
 	/* This is a new property and all old agent pools do no have this field. We need to keep the default
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`

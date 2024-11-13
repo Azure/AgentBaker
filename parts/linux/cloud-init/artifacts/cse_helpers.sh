@@ -122,6 +122,8 @@ ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registr
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
+ERR_LOCAL_DNS_START_FAIL=214 # Unable to start aks-local-dns service
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
