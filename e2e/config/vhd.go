@@ -16,9 +16,9 @@ const (
 
 var (
 	linuxGallery = &Gallery{
-		SubscriptionID: "c4c3550e-a965-4993-a50c-628fd38cd3e1",
-		ResourceGroup:  "aksvhdtestbuildrg",
-		Name:           "PackerSigGalleryEastUS",
+		SubscriptionID: Config.GallerySubscriptionID,
+		ResourceGroup:  Config.GalleryResourceGroup,
+		Name:           Config.GalleryName,
 	}
 
 	windowsGallery = &Gallery{

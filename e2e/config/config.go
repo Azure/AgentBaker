@@ -1,8 +1,10 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -23,26 +25,26 @@ var (
 )
 
 type Configuration struct {
-	AirgapNSGName                 string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup" json:"airgapNSGName"`
-	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e" json:"blobContainer"`
-	BlobStorageAccountPrefix      string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e" json:"blobStorageAccountPrefix"`
-	BuildID                       string        `env:"BUILD_ID" envDefault:"local" json:"buildID"`
-	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet" json:"defaultSubnetName"`
-	E2ELoggingDir                 string        `env:"LOGGING_DIR" envDefault:"scenario-logs" json:"e2eLoggingDir"`
-	EnableAKSNodeControllerTest   bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST" json:"enableAKSNodeControllerTest"`
-	GalleryName                   string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS" json:"galleryName"`
-	GalleryResourceGroupName      string        `env:"GALLERY_RESOURCE_GROUP_NAME" envDefault:"aksvhdtestbuildrg" json:"galleryResourceGroupName"`
-	GallerySubscriptionID         string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1" json:"gallerySubscriptionID"`
-	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD" json:"ignoreScenariosWithMissingVHD"`
-	KeepVMSS                      bool          `env:"KEEP_VMSS" json:"keepVMSS"`
-	Location                      string        `env:"LOCATION" envDefault:"westus3" json:"location"`
-	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch" json:"sigVersionTagName"`
-	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/dev" json:"sigVersionTagValue"`
-	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE" json:"skipTestsWithSKUCapacityIssue"`
-	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" json:"subscriptionID"`
-	TagsToRun                     string        `env:"TAGS_TO_RUN" json:"tagsToRun"`
-	TagsToSkip                    string        `env:"TAGS_TO_SKIP" json:"tagsToSkip"`
-	TestTimeout                   time.Duration `env:"TEST_TIMEOUT" envDefault:"35m" json:"testTimeout"`
+	AirgapNSGName                 string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
+	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
+	BlobStorageAccountPrefix      string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
+	BuildID                       string        `env:"BUILD_ID" envDefault:"local"`
+	DefaultSubnetName             string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
+	E2ELoggingDir                 string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
+	EnableAKSNodeControllerTest   bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
+	GalleryName                   string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
+	GalleryResourceGroup          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
+	GallerySubscriptionID         string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	IgnoreScenariosWithMissingVHD bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
+	KeepVMSS                      bool          `env:"KEEP_VMSS"`
+	Location                      string        `env:"LOCATION" envDefault:"westus3"`
+	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
+	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/dev"`
+	SkipTestsWithSKUCapacityIssue bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
+	SubscriptionID                string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	TagsToRun                     string        `env:"TAGS_TO_RUN"`
+	TagsToSkip                    string        `env:"TAGS_TO_SKIP"`
+	TestTimeout                   time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
@@ -54,25 +56,36 @@ func (c *Configuration) BlobStorageAccountURL() string {
 }
 
 func (c *Configuration) GalleryResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroup, c.GalleryName)
 }
 
-func (c Configuration) String() string {
-	content, err := json.MarshalIndent(c, "", "	")
-	if err != nil {
-		panic(err)
+func (c *Configuration) String() string {
+	data := make([]string, 0)
+	v := reflect.ValueOf(c)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
 	}
-	return string(content)
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		envTag := field.Tag.Get("env")
+		if envTag != "" {
+			data = append(data, fmt.Sprintf("%s=%v", envTag, v.Field(i)))
+		}
+	}
+	sort.Strings(data)
+	return strings.Join(data, "\n")
 }
 
 func (c *Configuration) VMIdentityResourceID() string {
 	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName, VMIdentityName)
 }
 
-func mustLoadConfig() Configuration {
+func mustLoadConfig() *Configuration {
 	_ = godotenv.Load(".env")
-	cfg := Configuration{}
-	if err := env.Parse(&cfg); err != nil {
+	cfg := &Configuration{}
+	if err := env.Parse(cfg); err != nil {
 		panic(err)
 	}
 	return cfg
