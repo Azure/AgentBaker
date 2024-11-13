@@ -66,6 +66,7 @@ switch -Regex ($windowsSku) {
           "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/11/windows10.0-kb5046615-x64_d88444ff882129230297936cb0a221157099d074.msu",
           "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/09/windows10.0-kb5044016-x64_64b2bcbd9edcc7fc1dd860751fdb537c947cf037.msu"
         )
+
         $global:patchIDs = @(
           "KB5046615",
           "KB5044016"
