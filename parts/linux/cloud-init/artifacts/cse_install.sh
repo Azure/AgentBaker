@@ -170,7 +170,9 @@ downloadCredentialProvider() {
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
         # if the URL is a registry URL, then download the credential provider using oras
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
-        retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+        echo "devintest: CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_TGZ_TMP}"
+        echo "devintest: CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}"
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return
     fi
 
