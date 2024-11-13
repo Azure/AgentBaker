@@ -186,7 +186,7 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 		"arg2="+vmssName,
 		"arg3="+config.Config.VMIdentityResourceID(),
 	)
-	t.Log("uploading windows logs to blob storage")
+	t.Log("uploading windows logs to blob storage, may take a few minutes")
 	cmdResult, err := cmd.Output()
 	if err != nil {
 		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
