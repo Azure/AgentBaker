@@ -33,17 +33,17 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
-	cluster := scenario.Runtime.Cluster
+func createVMSS(ctx context.Context, t *testing.T, vmssName string, s *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
+	cluster := s.Runtime.Cluster
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
-	if scenario.AKSNodeConfigMutator != nil {
-		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, scenario.Runtime.AKSNodeConfig, scenario.VHD.Distro, datamodel.AzurePublicCloud)
+	if s.AKSNodeConfigMutator != nil {
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, s.Runtime.AKSNodeConfig, s.VHD.Distro, datamodel.AzurePublicCloud)
 		require.NoError(t, err)
 	} else {
-		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, scenario.Runtime.NBC)
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
 		require.NoError(t, err)
 	}
 
@@ -57,7 +57,21 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 		require.NoError(t, err)
 	}
 
-	scenario.PrepareVMSSModel(ctx, t, &model)
+	if s.VHD.Windows() {
+		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+				config.Config.VMIdentityResourceID(): {},
+			},
+		}
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.OSType = to.Ptr(armcompute.OperatingSystemTypesWindows)
+		model.Properties.VirtualMachineProfile.OSProfile.LinuxConfiguration = nil
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = to.Ptr("Microsoft.Compute")
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
+	}
+
+	s.PrepareVMSSModel(ctx, t, &model)
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
@@ -69,7 +83,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes, scenario.VHD.Distro.IsWindowsDistro())
+		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes, s.VHD.Distro.IsWindowsDistro())
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)

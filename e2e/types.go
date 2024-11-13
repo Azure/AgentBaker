@@ -227,13 +227,18 @@ func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
 		t.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
 
+	nbc := getBaseNBC(cluster, s.VHD)
+	if s.VHD.Windows() {
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, t)
+	}
+
 	if s.BootstrapConfigMutator != nil {
-		s.Runtime.NBC = getBaseNBC(s.Runtime.Cluster, s.VHD)
-		s.BootstrapConfigMutator(s.Runtime.NBC)
+		s.BootstrapConfigMutator(nbc)
+		s.Runtime.NBC = nbc
 	}
 	if s.AKSNodeConfigMutator != nil {
-		nbc := getBaseNBC(s.Runtime.Cluster, s.VHD)
-		s.Runtime.AKSNodeConfig = nbcToNodeConfig(nbc)
-		s.AKSNodeConfigMutator(s.Runtime.AKSNodeConfig)
+		nodeconfig := nbcToNodeConfig(nbc)
+		s.AKSNodeConfigMutator(nodeconfig)
+		s.Runtime.AKSNodeConfig = nodeconfig
 	}
 }

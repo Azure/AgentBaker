@@ -379,10 +379,13 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 			if _, ok := version.Tags[noSelectionTagName]; ok {
 				continue
 			}
-			tag, ok := version.Tags[tagName]
-			if !ok || tag == nil || *tag != tagValue {
-				continue
+			if tagName != "" {
+				tag, ok := version.Tags[tagName]
+				if !ok || tag == nil || *tag != tagValue {
+					continue
+				}
 			}
+
 			if err := ensureProvisioningState(version); err != nil {
 				continue
 			}

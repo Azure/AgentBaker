@@ -105,12 +105,48 @@ var (
 		Gallery: linuxGallery,
 	}
 
-	VHDWindowsServer2019Containerd = &Image{
+	VHDWindows2019Containerd = &Image{
 		Name:    "windows-2019-containerd",
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
-		Version: "17763.6414.241010", // TODO: use the latest version
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
+
+	VHDWindows2022Containerd = &Image{
+		Name:    "windows-2022-containerd",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2022Containerd,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
+
+	VHDWindows2022ContainerdGen2 = &Image{
+		Name:    "windows-2022-containerd-gen2",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2022ContainerdGen2,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
+
+	VHDWindows23H2 = &Image{
+		Name:    "windows-23H2",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows23H2,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
+
+	VHDWindows23H2Gen2 = &Image{
+		Name:    "windows-23H2-gen2",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows23H2Gen2,
+		Latest:  true,
 		Gallery: windowsGallery,
 	}
 )
@@ -124,6 +160,7 @@ type Image struct {
 	OS      string
 	Version string
 	Gallery *Gallery
+	Latest  bool // a hack to get the latest version of the image for windows, currently windows images are not tagged
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once
@@ -137,9 +174,12 @@ func (i *Image) String() string {
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
-		if i.Version != "" {
+		switch {
+		case i.Latest:
+			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, "", "")
+		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, i)
-		} else {
+		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
 		}
 		if i.vhdErr != nil {

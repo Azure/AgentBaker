@@ -1,14 +1,26 @@
 package e2e
 
 import (
+	"archive/zip"
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/stretchr/testify/require"
 )
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfiguration {
+	kubernetesVersion := "1.29.9"
 	return &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -20,7 +32,7 @@ func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfigurat
 				CertificateProfile:  &datamodel.CertificateProfile{},
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.29.9",
+					OrchestratorVersion: kubernetesVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						AzureCNIURLWindows:   "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
 						ClusterSubnet:        "10.224.0.0/16",
@@ -130,7 +142,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			OSImageConfig: map[datamodel.Distro]datamodel.AzureOSImageConfig(nil),
 		},
 		K8sComponents: &datamodel.K8sComponents{
-			//WindowsPackageURL: windowsPackageURL,
+			WindowsPackageURL: fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name: "winnp",
@@ -201,4 +213,118 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			},
 		},
 	}
+}
+
+var uploadWindowsCSEOnce sync.Once
+var windowsCSEURL string
+var windowsCSEErr error
+
+func windowsCSE(ctx context.Context, t *testing.T) string {
+	uploadWindowsCSEOnce.Do(func() {
+		windowsCSEURL, windowsCSEErr = uploadWindowsCSE(ctx, t)
+	})
+	require.NoError(t, windowsCSEErr)
+	return windowsCSEURL
+}
+
+func uploadWindowsCSE(ctx context.Context, t *testing.T) (string, error) {
+	blobName := time.Now().UTC().Format("2006-01-02-15-04-05") + "-windows-cse.zip"
+	zipFile, err := zipWindowsCSE()
+	if err != nil {
+		return "", err
+	}
+	url, err := config.Azure.UploadAndGetSignedLink(ctx, blobName, zipFile)
+	if err != nil {
+		return "", err
+	}
+	return url, nil
+}
+
+// zipWindowsCSE creates a zip archive of the sourceFolder in a temporary directory, excluding specified patterns.
+// It returns an open *os.File pointing to the created archive.
+func zipWindowsCSE() (*os.File, error) {
+	sourceFolder := "../staging/cse/windows"
+	excludePatterns := []string{
+		"*.tests.ps1",
+		"*azurecnifunc.tests.suites*",
+		"README",
+		"provisioningscripts/*.md",
+		"debug/update-scripts.ps1",
+	}
+
+	shouldExclude := func(path string) bool {
+		for _, pattern := range excludePatterns {
+			if matched, _ := filepath.Match(pattern, path); matched {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Create a temporary file in the system's temporary directory
+	zipFile, err := os.CreateTemp("", "archive-*.zip")
+	if err != nil {
+		return nil, err
+	}
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer func() {
+		zipWriter.Close() // Ensure resources are cleaned up if the function exits early
+		if err != nil {
+			zipFile.Close()
+			os.Remove(zipFile.Name()) // Clean up the file if there’s an error
+		}
+	}()
+
+	err = filepath.WalkDir(sourceFolder, func(path string, d os.DirEntry, err error) error {
+		if err != nil || shouldExclude(path) {
+			return err
+		}
+
+		relPath, _ := filepath.Rel(sourceFolder, path) // Relative path within zip
+		if d.IsDir() {
+			relPath += "/"
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+		header.Method = zip.Deflate
+
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		return err
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Close the zip writer before returning the file
+	zipWriter.Close()
+
+	// Seek to the start of the file so it can be read if needed
+	if _, err = zipFile.Seek(0, io.SeekStart); err != nil {
+		zipFile.Close()
+		return nil, err
+	}
+
+	return zipFile, nil
 }
