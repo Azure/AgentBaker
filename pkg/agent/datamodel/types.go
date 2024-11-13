@@ -795,7 +795,7 @@ type LocalDnsProfile struct {
 	NodeListenerIP      string                 `json:"nodeListenerIP,omitempty"`
 	ClusterListenerIP   string                 `json:"clusterListenerIP,omitempty"`
 	CoreDnsServiceIP    string                 `json:"coreDnsServiceIP,omitempty"`
-	UpstreamDnsServerIP string                 `json:"UpstreamDnsServerIP,omitempty"`
+	UpstreamDnsServerIP string                 `json:"upstreamDnsServerIP,omitempty"`
 }
 
 // Overrides for VNET DNS and Kube DNS traffic.

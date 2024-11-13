@@ -6,8 +6,6 @@ set -euo pipefail
 # This service runs coredns to act as a caching proxy with serve-stale functionality for both
 # pod DNS and local node DNS queries. It also upgrades to TCP for better reliability of upstream connections.
 
-. /etc/default/aks-local-dns
-
 COREDNS_IMAGE="$1"                         # CoreDNS image reference to use to obtain the binary if not present.
 NODE_LISTENER_IP="$2"                      # This is the IP that the local DNS service should bind to for node traffic; usually an APIPA address.
 CLUSTER_LISTENER_IP="$3"                   # This is the IP that the local DNS service should bind to for pod traffic; usually an APIPA address.
