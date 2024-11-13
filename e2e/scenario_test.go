@@ -2,15 +2,27 @@ package e2e
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
+
+func TestMain(m *testing.M) {
+	fmt.Printf("using E2E environment configuration:\n%s\n", config.Config)
+	// delete scenario-logs folder if it exists
+	if _, err := os.Stat("scenario-logs"); err == nil {
+		_ = os.RemoveAll("scenario-logs")
+	}
+	m.Run()
+}
 
 func Test_azurelinuxv2(t *testing.T) {
 	RunScenario(t, &Scenario{
@@ -23,9 +35,8 @@ func Test_azurelinuxv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.26"),
-				runcVersionValidator("1.1.9"),
-				kubeletNodeIPValidator(),
+				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -43,13 +54,11 @@ func Test_azurelinuxv2AirGap(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -95,12 +104,11 @@ func Test_azurelinuxv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -122,9 +130,6 @@ func Test_azurelinuxv2_azurecni(t *testing.T) {
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -260,6 +265,9 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
@@ -275,8 +283,7 @@ func Test_marinerv2(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.26"),
-				runcVersionValidator("1.1.9"),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
 			},
 		},
 	})
@@ -295,12 +302,11 @@ func Test_marinerv2AirGap(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -346,12 +352,11 @@ func Test_marinerv2ARM64AirGap(t *testing.T) {
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-arm64-gen2"
 				nbc.IsARM64 = true
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 
@@ -374,9 +379,6 @@ func Test_marinerv2_azurecni(t *testing.T) {
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -512,22 +514,27 @@ func Test_marinerv2Wasm(t *testing.T) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
 		},
 	})
 }
 
 // Returns config for the 'base' E2E scenario
 func Test_ubuntu1804(t *testing.T) {
+	// for ubuntu1804 containerd version is frozen and its using outdated versioning style, hence this modification
+	expected1804ContainredVersion := strings.Replace(getExpectedPackageVersions("containerd", "ubuntu", "r1804")[0], "-", "+azure-ubuntu18.04u", 1)
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using an Ubuntu 1804 VHD can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.1+azure-1"),
-				runcVersionValidator("1.1.12-1"),
-				kubeletNodeIPValidator(),
+				mobyComponentVersionValidator("containerd", expected1804ContainredVersion, "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0], "apt"),
 			},
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 		},
 	})
 }
@@ -541,9 +548,6 @@ func Test_ubuntu1804_azurecni(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				kubeletNodeIPValidator(),
 			},
 		},
 	})
@@ -564,6 +568,20 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
 				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
 			},
+		},
+	})
+}
+
+func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
+			},
+			AKSNodeConfigMutator: func(config *nbcontractv1.Configuration) {},
 		},
 	})
 }
@@ -636,9 +654,8 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.7.20-1"),
-				runcVersionValidator("1.1.12-1"),
-				kubeletNodeIPValidator(),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -652,17 +669,41 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
 
-				// TODO(xinhl): define below in the cluster config instead of mutate bootstrapConfig
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
-						ContainerRegistryServer: "mcr.microsoft.com",
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
+					},
+				}
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
 					},
 				}
 			},
@@ -829,6 +870,11 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
+			LiveVMValidators: []*LiveVMValidator{
+				NvidiaModProbeInstalledValidator(),
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				KubeletHasNotStoppedValidator(),
+			},
 		},
 	})
 }
@@ -855,6 +901,8 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				NvidiaSMIInstalledValidator(),
+				NvidiaModProbeInstalledValidator(),
+				KubeletHasNotStoppedValidator(),
 			},
 		},
 	})
@@ -923,7 +971,7 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				containerdVersionValidator("1.6.9"),
+				mobyComponentVersionValidator("containerd", "1.6.9", "apt"),
 			},
 		},
 	})
@@ -942,7 +990,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for containerd we only support one version at a time for each distro/release
-				containerdVersionValidator(getExpectedPackageVersions("containerd", "default", "current")[0]),
+				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 			},
 		},
 	})
@@ -959,6 +1007,251 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				if nbc.KubeletConfig == nil {
+					nbc.KubeletConfig = map[string]string{}
+				}
+				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
+				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
+				FileHasContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=false"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				// to force kubelet config file
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					FailSwapOn:           to.Ptr(true),
+					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+
+				if nbc.KubeletConfig == nil {
+					nbc.KubeletConfig = map[string]string{}
+				}
+				nbc.KubeletConfig["--rotate-server-certificates"] = "true"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
+				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
+				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
+				FileHasContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled will disable certificate rotation regardless of nodepool tags",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
+				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
+				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled_CustomKubeletConfig(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet serving certificate rotation disabled and custom kubelet config will disable certificate rotation regardless of nodepool tags",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				// to force kubelet config file
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					FailSwapOn:           to.Ptr(true),
+					AllowedUnsafeSysctls: &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
+				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
+				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
+			},
+		},
+	})
+}
+
+func Test_ubuntu2204WasmAirGap(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using krustlet can be properly bootstrapepd when it is network isolated cluster",
+		Tags: Tags{
+			Airgap: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgap,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io/aks", config.PrivateACRName),
+					},
+				}
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				containerdWasmShimsValidator(),
+			},
+		},
+	})
+}
+
+func Test_ubuntu2204imdsrestriction_filtertable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction filter table is properly set",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = false
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("filter"),
+			},
+		},
+	})
+}
+
+func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction mangle table is properly set",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu1804Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = true
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				imdsRestrictionRuleValidator("mangle"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/motd", "foobar"),
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				FileHasContentsValidator("/etc/motd", "foobar"),
 			},
 		},
 	})

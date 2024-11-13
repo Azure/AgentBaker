@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -53,15 +55,16 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision": "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                          "journalctl -u kubelet",
-		"/var/log/azure/cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out": "sysctl -a",
+		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet":                      "journalctl -u kubelet",
+		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out":                   "sysctl -a",
+		"node-bootstrapper":            "cat /var/log/azure/node-bootstrapper.log",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
+	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -70,12 +73,11 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 	for file, sourceCmd := range commandList {
 		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
+		execResult, err := execOnVM(ctx, cluster.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
 		if err != nil {
 			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
 			return nil, err
 		}
-
 		if execResult.stdout != nil {
 			out := execResult.stdout.String()
 			if out != "" {
@@ -93,34 +95,42 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 	return result, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) (map[string]string, error) {
-	commandList := map[string]string{
-		"/etc/kubernetes/azure.json":            "cat /etc/kubernetes/azure.json",
-		"/etc/kubernetes/certs/ca.crt":          "cat /etc/kubernetes/certs/ca.crt",
-		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
+type ClusterParams struct {
+	CACert         []byte
+	BootstrapToken string
+	FQDN           string
+}
+
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) ClusterParams {
+	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
+	require.NoError(t, err)
+
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+	require.NoError(t, err)
+
+	bootstrapConfig := execResult.stdout.Bytes()
+	bootstrapToken, err := extractKeyValuePair("token", string(bootstrapConfig))
+	require.NoError(t, err)
+
+	bootstrapToken, err = strconv.Unquote(bootstrapToken)
+	require.NoError(t, err)
+
+	server, err := extractKeyValuePair("server", string(bootstrapConfig))
+	require.NoError(t, err)
+	tokens := strings.Split(server, ":")
+	if len(tokens) != 3 {
+		t.Fatalf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
 	}
+	fqdn := tokens[1][2:]
 
-	podName, err := getHostNetworkDebugPodName(ctx, kube)
-	if err != nil {
-		return nil, err
+	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
+	require.NoError(t, err)
+
+	return ClusterParams{
+		CACert:         caCert.stdout.Bytes(),
+		BootstrapToken: bootstrapToken,
+		FQDN:           fqdn,
 	}
-
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		t.Logf("executing privileged command on pod %s/%s: %q", defaultNamespace, podName, sourceCmd)
-
-		execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, sourceCmd)
-		if execResult != nil {
-			execResult.dumpStderr(t)
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		result[file] = execResult.stdout.String()
-	}
-
-	return result, nil
 }
 
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {

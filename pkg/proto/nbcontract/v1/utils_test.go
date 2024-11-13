@@ -205,24 +205,6 @@ func TestGetOutBoundCmd(t *testing.T) {
 			want: "curl -v --insecure --proxy-insecure https://gcr.azk8s.cn/v2/",
 		},
 		{
-			name: "Test with cloudName as AzureChinaCloud and orchestratorVersion as 1.17.0",
-			args: args{
-				nbconfig: &datamodel.NodeBootstrappingConfiguration{
-					ContainerService: &datamodel.ContainerService{
-						Properties: &datamodel.Properties{
-							OrchestratorProfile: &datamodel.OrchestratorProfile{
-								OrchestratorVersion: "1.17.0",
-							},
-						},
-					},
-					CloudSpecConfig: &datamodel.AzureEnvironmentSpecConfig{
-						CloudName: datamodel.AzureChinaCloud,
-					},
-				},
-			},
-			want: "nc -vz gcr.azk8s.cn 443",
-		},
-		{
 			name: "Test with cloudName as AzurePublicCloud and orchestratorVersion as 1.19.0",
 			args: args{
 				nbconfig: &datamodel.NodeBootstrappingConfiguration{
@@ -267,6 +249,51 @@ func TestGetOutBoundCmd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetOutBoundCmd(tt.args.nbconfig); got != tt.want {
 				t.Errorf("GetOutBoundCmd() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsKubeletServingCertificateRotationEnabled(t *testing.T) {
+	tests := []struct {
+		name         string
+		kubeletFlags map[string]string
+		expected     bool
+	}{
+		{
+			name:         "should return false with nil kubelet flags",
+			kubeletFlags: nil,
+			expected:     false,
+		},
+		{
+			name: "should return false if kubelet flags does not set --rotate-server-certificates to true",
+			kubeletFlags: map[string]string{
+				"--rotate-certificates": "true",
+			},
+			expected: false,
+		},
+		{
+			name: "should return false if kubelet flags explicitly sets --rotate-server-certificates to false",
+			kubeletFlags: map[string]string{
+				"--rotate-certificates":        "true",
+				"--rotate-server-certificates": "false",
+			},
+			expected: false,
+		},
+		{
+			name: "should return true if kubelet flags set --rotate-server-certificates to true",
+			kubeletFlags: map[string]string{
+				"--rotate-certificates":        "true",
+				"--rotate-server-certificates": "true",
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := isKubeletServingCertificateRotationEnabled(tt.kubeletFlags); actual != tt.expected {
+				t.Errorf("expected isKubeletServingCertificateRotationEnabled to be %t, but was %t", tt.expected, actual)
 			}
 		})
 	}

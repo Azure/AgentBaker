@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -40,15 +41,14 @@ func TestHasAadProfile(t *testing.T) {
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
-	properities := getMockProperitesWithCustomClouEnv()
+	properties := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
-	actual, err := properities.GetCustomEnvironmentJSON(false)
+	actual, err := properties.GetCustomEnvironmentJSON(false)
 	if err != nil {
 		t.Error(err)
 	}
-	if expectedRet != actual {
-		t.Errorf("Expected GetCustomEnvironmentJSON() to return %s, but got %s . ", expectedRet, actual)
-	}
+
+	assert.JSONEq(t, expectedRet, actual)
 }
 
 func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
@@ -2128,7 +2128,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon := c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2164,7 +2164,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon = c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2321,7 +2321,7 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2350,7 +2350,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--image-gc-high-threshold":      "80",
 					"--image-gc-low-threshold":       "60",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{
@@ -2377,7 +2376,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--node-status-report-frequency": "1m0s",
 					"--cgroups-per-qos":              "true",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{

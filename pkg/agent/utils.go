@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -243,10 +244,18 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
+func newGzipWriter(buf *bytes.Buffer) *gzip.Writer {
+	writer, err := gzip.NewWriterLevel(buf, gzip.BestCompression)
+	if err == nil {
+		return writer
+	}
+	return gzip.NewWriter(buf)
+}
+
 // getBase64EncodedGzippedCustomScriptFromStr will return a base64-encoded string of the gzip'd source data.
 func getBase64EncodedGzippedCustomScriptFromStr(str string) string {
 	var gzipB bytes.Buffer
-	w := gzip.NewWriter(&gzipB)
+	w := newGzipWriter(&gzipB)
 	_, err := w.Write([]byte(str))
 	if err != nil {
 		// this should never happen and this is a bug.
@@ -323,8 +332,11 @@ func getCustomDataFromJSON(jsonStr string) string {
 
 // GetOrderedKubeletConfigFlagString returns an ordered string of key/val pairs.
 // copied from AKS-Engine and filter out flags that already translated to config file.
-func GetOrderedKubeletConfigFlagString(k map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile,
-	kubeletConfigFileToggleEnabled bool) string {
+func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfiguration) string {
+	k := config.KubeletConfig
+	cs := config.ContainerService
+	profile := config.AgentPoolProfile
+	kubeletConfigFileToggleEnabled := config.EnableKubeletConfigFile
 	/* NOTE(mainred): kubeConfigFile now relies on CustomKubeletConfig, while custom configuration is not
 	compatible with CustomKubeletConfig. When custom configuration is set we want to override every
 	configuration with the customized one. */
@@ -432,37 +444,6 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
-func getAgentKubernetesLabels(profile *datamodel.AgentPoolProfile, config *datamodel.NodeBootstrappingConfiguration) string {
-	var labels string
-	if profile != nil {
-		labels = profile.GetKubernetesLabels()
-	}
-	kubeletServingSignerLabel := getKubeletServingCALabel(config)
-
-	if labels == "" {
-		return kubeletServingSignerLabel
-	}
-	if kubeletServingSignerLabel == "" {
-		return labels
-	}
-	return fmt.Sprintf("%s,%s", labels, kubeletServingSignerLabel)
-}
-
-// getKubeletServingCALabel determines the value of the special kubelet serving CA label,
-// based on the specified NodeBootstrappingConfiguration. This label is used to denote, out-of-band from RP-set
-// CustomNodeLabels, whether or not the given kubelet is started with the --rotate-server-certificates flag.
-// When the flag is set, this label will in the form of "kubernetes.azure.com/kubelet-serving-ca=cluster",
-// indicating the CA that signed the kubelet's serving certificate is the cluster CA.
-// Otherwise, this will return an empty string, and no extra labels will be added to the node.
-// TODO(cameissner): revisit whether to add a negative label for the disabled case,
-// e.g. "kubernetes.azure.com/kubelet-serving-ca=self", before this feature is rolled out.
-func getKubeletServingCALabel(config *datamodel.NodeBootstrappingConfiguration) string {
-	if IsKubeletServingCertificateRotationEnabled(config) {
-		return "kubernetes.azure.com/kubelet-serving-ca=cluster"
-	}
-	return ""
-}
-
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",
@@ -543,6 +524,9 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 		if customKc.PodMaxPids != nil {
 			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
 		}
+		if customKc.SeccompDefault != nil {
+			kubeletConfig.SeccompDefault = customKc.SeccompDefault
+		}
 	}
 }
 
@@ -609,6 +593,9 @@ func strToBoolPtr(str string) *bool {
 
 func strToInt32(str string) int32 {
 	i, _ := strconv.ParseInt(str, 10, 32)
+	if i > math.MaxInt32 {
+		panic("Unable to cast int parsed as 32 bits to 32 bit int. Yeah, this shouldn't happen")
+	}
 	return int32(i)
 }
 

@@ -108,17 +108,7 @@ func GetOutBoundCmd(nbc *datamodel.NodeBootstrappingConfiguration) string {
 		return ""
 	}
 
-	// curl on Ubuntu 16.04 (shipped prior to AKS 1.18) doesn't support proxy TLS.
-	// so we need to use nc for the connectivity check.
-	clusterVersion, _ := semver.Make(cs.Properties.OrchestratorProfile.OrchestratorVersion)
-	minVersion, _ := semver.Make("1.18.0")
-
-	var connectivityCheckCommand string
-	if clusterVersion.GTE(minVersion) {
-		connectivityCheckCommand = `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
-	} else {
-		connectivityCheckCommand = `nc -vz ` + registry + ` 443`
-	}
+	connectivityCheckCommand := `curl -v --insecure --proxy-insecure https://` + registry + `/v2/`
 
 	return connectivityCheckCommand
 }
@@ -189,46 +179,59 @@ func getKubeletCustomConfiguration(properties *datamodel.Properties) map[string]
 	return kubeletConfigurations.Config
 }
 
+func isKubeletServingCertificateRotationEnabled(kubeletFlags map[string]string) bool {
+	if kubeletFlags == nil {
+		return false
+	}
+	return kubeletFlags["--rotate-server-certificates"] == "true"
+}
+
 func ValidateAndSetLinuxKubeletFlags(kubeletFlags map[string]string, cs *datamodel.ContainerService, profile *datamodel.AgentPoolProfile) {
 	// If using kubelet config file, disable DynamicKubeletConfig feature gate and remove dynamic-config-dir
 	// we should only allow users to configure from API (20201101 and later)
-	dockerShimFlags := []string{
-		"--cni-bin-dir",
-		"--cni-cache-dir",
-		"--cni-conf-dir",
-		"--docker-endpoint",
-		"--image-pull-progress-deadline",
-		"--network-plugin",
-		"--network-plugin-mtu",
+	delete(kubeletFlags, "--dynamic-config-dir")
+	delete(kubeletFlags, "--non-masquerade-cidr")
+
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime == "containerd" {
+		dockerShimFlags := []string{
+			"--cni-bin-dir",
+			"--cni-cache-dir",
+			"--cni-conf-dir",
+			"--docker-endpoint",
+			"--image-pull-progress-deadline",
+			"--network-plugin",
+			"--network-plugin-mtu",
+		}
+		for _, flag := range dockerShimFlags {
+			delete(kubeletFlags, flag)
+		}
 	}
 
-	if kubeletFlags != nil {
-		delete(kubeletFlags, "--dynamic-config-dir")
-		delete(kubeletFlags, "--non-masquerade-cidr")
-		if profile != nil && profile.KubernetesConfig != nil &&
-			profile.KubernetesConfig.ContainerRuntime != "" &&
-			profile.KubernetesConfig.ContainerRuntime == "containerd" {
-			for _, flag := range dockerShimFlags {
-				delete(kubeletFlags, flag)
-			}
-		}
-		if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
-			kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
-		} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
-		}
+	if isKubeletServingCertificateRotationEnabled(kubeletFlags) {
+		// ensure the required feature gate is set
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
+		// backfill deletion of --tls-cert-file and --tls-private-key-file, which are incompatible with --rotate-server-certificates
+		// these are set as defaults on the RP-side for Linux
+		delete(kubeletFlags, "--tls-cert-file")
+		delete(kubeletFlags, "--tls-private-key-file")
+	}
 
-		/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
-		deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
-		 version 1.20 or higher */
-		/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
-		continue to work */
-		/* Reference -
-		https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
-		if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
-			!IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
-			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
-		}
+	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
+		kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
+	} else if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig", false)
+	}
+
+	/* ContainerInsights depends on GPU accelerator Usage metrics from Kubelet cAdvisor endpoint but
+	deprecation of this feature moved to beta which breaks the ContainerInsights customers with K8s
+		version 1.20 or higher */
+	/* Until Container Insights move to new API adding this feature gate to get the GPU metrics
+	continue to work */
+	/* Reference -
+	https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1867-disable-accelerator-usage-metrics */
+	if IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.20.0") &&
+		!IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
 }
 

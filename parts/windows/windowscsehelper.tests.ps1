@@ -133,6 +133,9 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
 
 Describe 'Validate Exit Codes' {
   It 'should succeed' {
+    Write-Host "Validating whether new error code name is added with the new error code"
+    $global:ErrorCodeNames.Length | Should -Be $global:WINDOWS_CSE_ERROR_MAX_CODE
+
     for($i=0; $i -lt $global:ErrorCodeNames.Length; $i++) {
       $name=$global:ErrorCodeNames[$i]
       $name | Should -Match '[A-Z_]+'
@@ -141,6 +144,24 @@ Describe 'Validate Exit Codes' {
       $ErrorCode = Get-Variable "$name" -ValueOnly
       $ErrorCode | Should -Be $i
       Write-Host "Validated $name"
+    }
+  }
+}
+
+# When using return to return values in a function with using Write-Log, the logs will be returned as well.
+Describe "Mock Write-Log" {
+  It 'should never exist in ut' {
+    # Path to the PowerShell script you want to test
+    $scriptPaths = @()
+    $cseScripts = Get-ChildItem -Path "$PSScriptRoot\..\..\staging\cse\windows\" -Filter "*tests.ps1"
+    foreach($script in $cseScripts) {
+      $scriptPaths += $script.FullName
+    }
+    
+    foreach($scriptPath in $scriptPaths) {
+      Write-Host "Validating $scriptPath"
+      $scriptContent = Get-Content -Path $scriptPath
+      $scriptContent -join "`n" | Should -Not -Match "Mock Write-Log"
     }
   }
 }

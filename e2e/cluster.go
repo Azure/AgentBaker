@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -39,6 +40,7 @@ type Cluster struct {
 	Kube                           *Kubeclient
 	SubnetID                       string
 	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
+	AKSNodeConfig                  *nbcontractv1.Configuration
 	Maintenance                    *armcontainerservice.MaintenanceConfiguration
 }
 
@@ -62,16 +64,16 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"))
+		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"), false)
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"))
+		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true)
 		if err == nil {
-			err = addAirgapNetworkSettings(ctx, t, cluster)
+			err = addAirgapNetworkSettings(ctx, t, cluster.Model)
 		}
 		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
 	})
@@ -80,27 +82,20 @@ func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"))
+		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"), false)
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
-func nodeBootsrappingConfig(ctx context.Context, t *testing.T, kube *Kubeclient) (*datamodel.NodeBootstrappingConfiguration, error) {
-	clusterParams, err := extractClusterParameters(ctx, t, kube)
-	if err != nil {
-		return nil, fmt.Errorf("extract cluster parameters: %w", err)
-	}
-
-	baseNodeBootstrappingConfig, err := getBaseNodeBootstrappingConfiguration(clusterParams)
-	if err != nil {
-		return nil, fmt.Errorf("get base node bootstrapping configuration: %w", err)
-	}
-
-	return baseNodeBootstrappingConfig, nil
-}
-
-func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*Cluster, error) {
+func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
+
+	// private acr must be created before we add the debug daemonsets
+	if isAirgap {
+		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+	}
 
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
@@ -123,21 +118,27 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	if err := ensureDebugDaemonsets(ctx, kube); err != nil {
-		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
-	}
-
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup)
+	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
 	if err != nil {
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
-	nbc, err := nodeBootsrappingConfig(ctx, t, kube)
-	if err != nil {
-		return nil, fmt.Errorf("get node bootstrapping configuration: %w", err)
+	t.Logf("ensuring debug daemonsets")
+	if err := ensureDebugDaemonsets(ctx, t, kube, isAirgap); err != nil {
+		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	return &Cluster{Model: cluster, Kube: kube, SubnetID: subnetID, NodeBootstrappingConfiguration: nbc, Maintenance: maintenance}, nil
+	nbc := getBaseNodeBootstrappingConfiguration(ctx, t, kube)
+
+	return &Cluster{
+		Model:                          cluster,
+		Kube:                           kube,
+		SubnetID:                       subnetID,
+		NodeBootstrappingConfiguration: nbc,
+		Maintenance:                    maintenance,
+		AKSNodeConfig:                  nbcToNbcContractV1(nbc), // TODO: replace with base template
+	}, nil
 }
 
 func hash(cluster *armcontainerservice.ManagedCluster) string {
@@ -158,11 +159,12 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	existingCluster, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		return createNewAKSClusterWithRetry(ctx, t, cluster)
+		return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
+	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
 		return &existingCluster.ManagedCluster, nil
@@ -170,7 +172,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		return waitUntilClusterReady(ctx, config.ResourceGroupName, *cluster.Name)
 	default:
 		// this operation will try to update the cluster if it's in a failed state
-		return createNewAKSClusterWithRetry(ctx, t, cluster)
+		return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
 	}
 }
 
@@ -200,12 +202,12 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 // that retries creating a cluster if it fails with a 409 Conflict error
 // clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
 // simple retry should be sufficient to avoid such conflicts
-func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
+func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup string) (*armcontainerservice.ManagedCluster, error) {
 	maxRetries := 10
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		t.Logf("Attempt %d: creating or updating cluster %s in rg %s\n", attempt+1, *cluster.Name, *cluster.Location)
+		t.Logf("Attempt %d: creating or updating cluster %s in region %s and rg %s\n", attempt+1, *cluster.Name, *cluster.Location, resourceGroup)
 
 		createdCluster, err := createNewAKSCluster(ctx, t, cluster)
 		if err == nil {
@@ -345,6 +347,16 @@ func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (boo
 	return rgExistence.Success, nil
 }
 
+var rgOnce sync.Once
+
+func ensureResourceGroupOnce(ctx context.Context) {
+	rgOnce.Do(func() {
+		err := ensureResourceGroup(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
+}
 func ensureResourceGroup(ctx context.Context) error {
 	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
 	if err != nil {

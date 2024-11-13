@@ -132,7 +132,15 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+    local versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    local downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
+    local downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
+
+    local versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
+    local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
@@ -200,13 +208,6 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
-# Before setting up kubelet, ensure IMDS restriction iptables rules so that all Pods can get desired IMDS access
-if [ "${ENABLE_IMDS_RESTRICTION}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureIMDSRestrictionRule" ensureIMDSRestrictionRule "${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-else
-    logs_to_events "AKS.CSE.disableIMDSRestriction" disableIMDSRestriction
-fi
-
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
@@ -218,6 +219,10 @@ fi
 
 # for drop ins, so they don't all have to check/create the dir
 mkdir -p "/etc/systemd/system/kubelet.service.d"
+
+# IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
+# which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
+logs_to_events "AKS.CSE.configureKubeletServingCertificateRotation" configureKubeletServingCertificateRotation
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
@@ -329,6 +334,8 @@ fi
 
 VALIDATION_ERR=0
 
+# TODO(djsly): Look at leveraging the `aks-check-network.sh` script for this validation instead of duplicating the logic here
+
 # Edge case scenarios:
 # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
 # high timeout to address high latency for private dns server to forward request to Azure DNS
@@ -356,9 +363,19 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            #TODO (djsly): remove this once 18.04 isn't supported anymore
+            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        else
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        fi
     fi
 else
+    # an IP address is provided for the API server, skip the DNS lookup
+    # this is the scenario for APIServerVnetIntegration. Currently we need more time to wait for the API server to be ready when feature is in preview.
+    # switching back from curl to netcat for VNETIntegration scenario in combination with HTTP Proxy due to curl 7.81.0 not supporting CIDRs(no_proxy)
+    # Once curl is available at 7.86.0 or higher, move this check from netcat to curl
+    API_SERVER_CONN_RETRIES=300
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 

@@ -5,7 +5,7 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-nbcparser-all build-lister-binary
+build-packer: generate-prefetch-scripts build-node-bootstrapper build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -76,7 +76,7 @@ init-packer:
 	@./vhdbuilder/packer/init-variables.sh
 
 run-packer: az-login
-	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
@@ -109,16 +109,18 @@ evaluate-build-performance: az-login
 generate-prefetch-scripts:
 ifeq (${MODE},linuxVhdMode)
 	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/linux/cloud-init/artifacts/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
 endif
 
-build-nbcparser-all:
-	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=amd64
-	@$(MAKE) -f packer.mk build-nbcparser-binary ARCH=arm64
-
-build-nbcparser-binary:
-	@echo "Building nbcparser binary"
-	@bash -c "pushd nbcparser && CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -o bin/nbcparser-$(ARCH) main.go && popd"
+build-node-bootstrapper:
+	@echo "Building node bootstrapper binaries"
+	@bash -c "pushd node-bootstrapper && \
+	go test ./... && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/node-bootstrapper-linux-amd64 && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/node-bootstrapper-linux-arm64 && \
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/node-bootstrapper-windows-amd64.exe && \
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -o bin/node-bootstrapper-windows-arm64.exe && \
+	popd"
 
 build-lister-binary:
 	@echo "Building lister binary for $(GOARCH)"

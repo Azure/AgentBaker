@@ -712,6 +712,7 @@ type CustomKubeletConfig struct {
 	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
 	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
 	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
+	SeccompDefault        *bool     `json:"seccompDefault,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
@@ -1744,6 +1745,9 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+
+	// Version is required for node-bootstrapper application to determine the version of the config file.
+	Version string
 }
 
 type SSHStatus int
@@ -2115,6 +2119,10 @@ type AKSKubeletConfiguration struct {
 	// Default: true
 	// +optional
 	SerializeImagePulls *bool `json:"serializeImagePulls,omitempty"`
+	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
+	// Default: false
+	// +optional
+	SeccompDefault *bool `json:"seccompDefault,omitempty"`
 }
 
 type Duration string

@@ -12,16 +12,15 @@ CONTAINERD_DOWNLOADS_DIR="/opt/containerd/downloads"
 RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
-K8S_REGISTRY_REPO="oss/binaries/kubernetes/kubernetes-node"
+K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s)
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
-CONTAINERD_WASM_VERSIONS="v0.3.0 v0.5.1 v0.8.0"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
@@ -29,6 +28,8 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 CPU_ARCH=""
+declare -a WASMSHIMPIDS=()
+declare -a SPINKUBEPIDS=()
 
 setCPUArch() {
     CPU_ARCH=$(getCPUArch)
@@ -57,10 +58,10 @@ installContainerdWithComponentsJson() {
     
     containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
-    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+    if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
     fi
-    returnPackageVersions "${containerdPackage}" "${os}" "${os_version}"
+    updatePackageVersions "${containerdPackage}" "${os}" "${os_version}"
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
@@ -130,15 +131,35 @@ installNetworkPlugin() {
     rm -rf $CNI_DOWNLOADS_DIR & 
 }
 
+downloadCredentialProvider() {
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL="${CREDENTIAL_PROVIDER_DOWNLOAD_URL:=}"
+    if [[ -n "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" ]]; then
+        cred_version_for_oras=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+    fi
 
-downloadCredentalProvider() {
+    local cred_provider_url=$2
+    if [[ -n $cred_provider_url ]]; then
+        CREDENTIAL_PROVIDER_DOWNLOAD_URL=$cred_provider_url
+    fi
+
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
-    CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+
+    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
+    if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+        local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
+        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
+        return 
+    fi
+
+    CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
+    echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
+    retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
+    echo "Credential Provider downloaded successfully"
 }
 
-installCredentalProvider() {
-    logs_to_events "AKS.CSE.installCredentalProvider.downloadCredentalProvider" downloadCredentalProvider
+installCredentialProvider() {
+    logs_to_events "AKS.CSE.installCredentialProvider.downloadCredentialProvider" downloadCredentialProvider
     tar -xzf "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/${CREDENTIAL_PROVIDER_TGZ_TMP}" -C $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
     mkdir -p "${CREDENTIAL_PROVIDER_BIN_DIR}"
     chown -R root:root "${CREDENTIAL_PROVIDER_BIN_DIR}"
@@ -163,36 +184,125 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     fi
 }
 
-downloadContainerdWasmShims() {
-    declare -a wasmShimPids=()
-    for shim_version in $CONTAINERD_WASM_VERSIONS; do
-        binary_version="$(echo "${shim_version}" | tr . -)"
-        local containerd_wasm_filepath="/usr/local/bin"
-        local containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/amd64"
-        if [[ $(isARM64) == 1 ]]; then
-            containerd_wasm_url="https://acs-mirror.azureedge.net/containerd-wasm-shims/${shim_version}/linux/arm64"
-        fi
+wasmFilesExist() {
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local version_suffix=${3}
+    local shims_to_download=("${@:4}") 
 
-        if [ ! -f "$containerd_wasm_filepath/containerd-shim-spin-${shim_version}" ] || [ ! -f "$containerd_wasm_filepath/containerd-shim-slight-${shim_version}" ]; then
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-spin-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-            wasmShimPids+=($!)
-            retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-slight-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-            wasmShimPids+=($!)
-            if [ "$shim_version" == "v0.8.0" ]; then
-                retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-wws-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-                wasmShimPids+=($!)
-            fi
+    local binary_version="$(echo "${shim_version}" | tr . -)"
+    for shim in "${shims_to_download[@]}"; do
+        if [ ! -f "${containerd_wasm_filepath}/containerd-shim-${shim}-${binary_version}-${version_suffix}" ]; then
+            return 1 
         fi
     done
-    wait ${wasmShimPids[@]}
-    for shim_version in $CONTAINERD_WASM_VERSIONS; do
-        binary_version="$(echo "${shim_version}" | tr . -)"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-spin-${binary_version}-v1"
-        chmod 755 "$containerd_wasm_filepath/containerd-shim-slight-${binary_version}-v1"
-        if [ "$shim_version" == "v0.8.0" ]; then
-            chmod 755 "$containerd_wasm_filepath/containerd-shim-wws-${binary_version}-v1"
+    echo "all wasm files exist for ${containerd_wasm_filepath}/containerd-shim-*-${binary_version}-${version_suffix}"
+    return 0 
+}
+
+installContainerdWasmShims(){
+    local download_location=${1}
+    PACKAGE_DOWNLOAD_URL=${2} 
+    local package_versions=("${@:3}") 
+    
+    for version in "${package_versions[@]}"; do
+        local shims_to_download=("spin" "slight")
+        if [[ "$version" == "0.8.0" ]]; then
+            shims_to_download+=("wws")
         fi
+        containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}" 
     done
+    wait ${WASMSHIMPIDS[@]}
+    for version in "${package_versions[@]}"; do
+        local shims_to_download=("spin" "slight")
+        if [[ "$version" == "0.8.0" ]]; then
+            shims_to_download+=("wws")
+        fi
+        updateContainerdWasmShimsPermissions $download_location "v$version" "${shims_to_download[@]}"
+    done
+}
+
+downloadContainerdWasmShims() {
+    local containerd_wasm_filepath=${1}
+    local containerd_wasm_url=${2}
+    local shim_version=${3}
+    local shims_to_download=("${@:4}") 
+
+    local binary_version="$(echo "${shim_version}" | tr . -)" 
+
+    if wasmFilesExist "$containerd_wasm_filepath" "$shim_version" "-v1" "${shims_to_download[@]}"; then
+        echo "containerd-wasm-shims already exists in $containerd_wasm_filepath, will not be downloading."
+        return
+    fi
+
+    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
+    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
+        local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
+
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
+        mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
+        rm -f "$wasm_shims_tgz_tmp"
+        return
+    fi
+
+    for shim in "${shims_to_download[@]}"; do
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        WASMSHIMPIDS+=($!)
+    done
+}
+
+updateContainerdWasmShimsPermissions() {
+    local containerd_wasm_filepath=${1}
+    local shim_version=${2}
+    local shims_to_download=("${@:3}") 
+
+    local binary_version="$(echo "${shim_version}" | tr . -)"
+
+    for shim in "${shims_to_download[@]}"; do
+        chmod 755 "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
+    done
+}
+
+installSpinKube(){
+    local download_location=${1}
+    PACKAGE_DOWNLOAD_URL=${2}
+    local package_versions=("${@:3}") 
+
+    for version in "${package_versions[@]}"; do
+        containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        downloadSpinKube $download_location $containerd_spinkube_url "v$version" 
+    done
+    wait ${SPINKUBEPIDS[@]}
+    for version in "${package_versions[@]}"; do
+        chmod 755 "$download_location/containerd-shim-spin-v2"
+    done
+}
+
+downloadSpinKube(){
+    local containerd_spinkube_filepath=${1}
+    local containerd_spinkube_url=${2}
+    local shim_version=${3}
+    local shims_to_download=("${@:4}") 
+
+    if [ -f "$containerd_spinkube_filepath/containerd-shim-spin-v2" ]; then
+        echo "containerd-shim-spin-v2 already exists in $containerd_spinkube_filepath, will not be downloading."
+        return
+    fi
+
+    BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
+    if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:${shim_version}-linux-${CPU_ARCH}"
+        local wasm_shims_tgz_tmp="${containerd_spinkube_filepath}/containerd-shim-spin-v2"
+        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        rm -f "$wasm_shims_tgz_tmp"
+        return 
+    fi
+    
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    SPINKUBEPIDS+=($!)
 }
 
 installOras() {
@@ -216,7 +326,6 @@ installOras() {
     sudo tar -zxf "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" -C $ORAS_EXTRACTED_DIR/
     rm -r "$ORAS_DOWNLOAD_DIR"
     echo "Oras version $ORAS_VERSION installed successfully."
-
 }
 
 evalPackageDownloadURL() {
@@ -326,18 +435,18 @@ installCNI() {
     #always just use what is listed in components.json so we don't have to sync.
     cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
     
-    #CNI doesn't really care about this but wanted to reuse returnPackageVersions which requires it.
+    #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
     if [[ -z "$UBUNTU_RELEASE" ]]; then
         os=${OS}
         os_version="current"
     fi
     os_version="${UBUNTU_RELEASE}"
-    if [[ "${os}" == "${MARINER_OS_NAME}" && "${IS_KATA}" == "true" ]]; then
+    if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
     fi
     PACKAGE_VERSIONS=()
-    returnPackageVersions "${cniPackage}" "${os}" "${os_version}"
+    updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
     
     #should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
@@ -401,17 +510,16 @@ extractKubeBinaries() {
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
-        registry_regex='^.+\/.+\/.+:.+$'
-        if [[ ${kube_binary_url} =~ $registry_regex ]]; then
+        if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
-            if [[ ! -f ${k8s_tgz_tmp} ]]; then
+            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-            if [[ ! -f ${k8s_tgz_tmp} ]]; then
+            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
@@ -447,7 +555,7 @@ installKubeletKubectlAndKubeProxy() {
         if [[ "$install_default_if_missing" == true ]]; then
             if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
-                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
+                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" 
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} $registry_url false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
 
