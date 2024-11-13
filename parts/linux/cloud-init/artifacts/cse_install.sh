@@ -170,7 +170,7 @@ downloadCredentialProvider() {
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
         # if the URL is a registry URL, then download the credential provider using oras
         # extract version v1.30.0 from format like mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64
-        local cred_version=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | sed 's/^v//' | head -n 1)
+        local cred_version=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | head -n 1)
         CREDENTIAL_PROVIDER_TGZ_TMP="azure-acr-credential-provider-linux-${CPU_ARCH}-${cred_version}.tar.gz"
         echo "devintest: CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_TGZ_TMP}"
         echo "devintest: CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}"
