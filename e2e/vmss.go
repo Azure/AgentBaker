@@ -19,6 +19,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -40,7 +41,9 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, s *Scenario,
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
 	if s.AKSNodeConfigMutator != nil {
-		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, s.Runtime.AKSNodeConfig, s.VHD.Distro, datamodel.AzurePublicCloud)
+		builder := aksnodeconfigv1.NewNBContractBuilder()
+		builder.ApplyConfiguration(s.Runtime.AKSNodeConfig)
+		nodeBootstrapping, err = builder.GetNodeBootstrapping()
 		require.NoError(t, err)
 	} else {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)

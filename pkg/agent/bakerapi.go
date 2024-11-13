@@ -5,8 +5,6 @@ package agent
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -85,56 +83,6 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	}
 
 	return nodeBootstrapping, nil
-}
-
-// TODO: config supposed to be type *nbcontractv1.Configuration, but can't import it here
-// because of circular dependency.
-func (agentBaker *agentBakerImpl) GetNodeBootstrappingForScriptless(
-	ctx context.Context,
-	config any,
-	distro datamodel.Distro,
-	cloudName string,
-) (*datamodel.NodeBootstrapping, error) {
-	customData, err := getScriptlessCustomDataContent(config)
-	if err != nil {
-		return nil, err
-	}
-
-	nodeBootstrapping := &datamodel.NodeBootstrapping{
-		CSE:        "",
-		CustomData: customData,
-	}
-
-	if distro == datamodel.CustomizedWindowsOSImage || distro == datamodel.CustomizedImage || distro == datamodel.CustomizedImageKata {
-		return nodeBootstrapping, nil
-	}
-
-	osImageConfigMap, hasCloud := datamodel.AzureCloudToOSImageMap[cloudName]
-	if !hasCloud {
-		return nil, fmt.Errorf("don't have settings for cloud %s", cloudName)
-	}
-
-	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage {
-		nodeBootstrapping.OSImageConfig = &osImageConfig
-	}
-
-	return nodeBootstrapping, nil
-}
-
-func getScriptlessCustomDataContent(config any) (string, error) {
-	nbcJSON, err := json.Marshal(config)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
-	}
-	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(`#cloud-config
-write_files:
-- path: /opt/azure/containers/node-bootstrapper-config.json
-  permissions: "0755"
-  owner: root
-  content: !!binary |
-   %s`, encodedNBCJson)
-	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SIGConfig,

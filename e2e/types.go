@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -26,6 +26,7 @@ type Tags struct {
 	WASM                   bool
 	ServerTLSBootstrapping bool
 	Scriptless             bool
+	KubeletCustomConfig    bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -74,7 +75,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 			return false, fmt.Errorf("unknown filter key: %s", key)
 		}
 
-		match := false
+		var match bool
 		switch field.Kind() {
 		case reflect.String:
 			match = strings.EqualFold(field.String(), value)
@@ -99,7 +100,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	return all, nil
 }
 
-// Scenario represents an AgentBaker E2E scenario
+// Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
 	// Description is a short description of what the scenario does and tests for
 	Description string
@@ -117,12 +118,12 @@ type Scenario struct {
 
 type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig *nbcontractv1.Configuration
+	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
 	VMSSName      string
 }
 
-// Config represents the configuration of an AgentBaker E2E scenario
+// Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
@@ -134,7 +135,7 @@ type Config struct {
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
-	AKSNodeConfigMutator func(*nbcontractv1.Configuration)
+	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)

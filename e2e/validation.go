@@ -188,7 +188,7 @@ func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
 	}
 
 	validators := make([]*LiveVMValidator, 0)
-	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/node-bootstrapper.log"} {
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
 		for secretName, secretValue := range secrets {
 			validators = append(validators, FileExcludesContentsValidator(logFile, secretValue, secretName))
 		}

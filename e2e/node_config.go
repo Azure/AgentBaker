@@ -5,7 +5,7 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 )
@@ -36,21 +36,21 @@ func getBaseNBC(cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappin
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToNodeConfig(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
+func nbcToNodeConfig(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
 	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
-	config := &nbcontractv1.Configuration{
+	config := &aksnodeconfigv1.Configuration{
 		Version:            "v0",
 		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
 		VmSize:             "Standard_D2ds_v5",
-		ClusterConfig: &nbcontractv1.ClusterConfig{
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
-			VmType:        nbcontractv1.ClusterConfig_VMSS,
-			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
+			VmType:        aksnodeconfigv1.ClusterConfig_VMSS,
+			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 				SecurityGroupName: cs.Properties.GetNSGName(),
 				VnetName:          cs.Properties.GetVirtualNetworkName(),
 				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
@@ -59,48 +59,48 @@ func nbcToNodeConfig(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv
 			},
 			PrimaryScaleSet: nbc.PrimaryScaleSetName,
 		},
-		ApiServerConfig: &nbcontractv1.ApiServerConfig{
+		ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
 			ApiServerName: cs.Properties.HostedMasterProfile.FQDN,
 		},
-		AuthConfig: &nbcontractv1.AuthConfig{
+		AuthConfig: &aksnodeconfigv1.AuthConfig{
 			ServicePrincipalId:     cs.Properties.ServicePrincipalProfile.ClientID,
 			ServicePrincipalSecret: cs.Properties.ServicePrincipalProfile.Secret,
 			TenantId:               nbc.TenantID,
 			SubscriptionId:         nbc.SubscriptionID,
 			AssignedIdentityId:     nbc.UserAssignedIdentityClientID,
 		},
-		NetworkConfig: &nbcontractv1.NetworkConfig{
-			NetworkPlugin:     nbcontractv1.NetworkPlugin_NP_KUBENET,
+		NetworkConfig: &aksnodeconfigv1.NetworkConfig{
+			NetworkPlugin:     aksnodeconfigv1.NetworkPlugin_NP_KUBENET,
 			CniPluginsUrl:     nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
 			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
 		},
-		GpuConfig: &nbcontractv1.GPUConfig{
+		GpuConfig: &aksnodeconfigv1.GPUConfig{
 			ConfigGpuDriver: true,
 			GpuDevicePlugin: false,
 		},
 		EnableUnattendedUpgrade: true,
 		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
-		ContainerdConfig: &nbcontractv1.ContainerdConfig{
+		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
-		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
-		KubeletConfig: &nbcontractv1.KubeletConfig{
+		OutboundCommand: aksnodeconfigv1.GetDefaultOutboundCommand(),
+		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
 			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
 			EnableKubeletConfigFile:  false,
-			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:        nbcontractv1.GetKubeletNodeLabels(agentPool),
+			KubeletFlags:             aksnodeconfigv1.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
+			KubeletNodeLabels:        aksnodeconfigv1.GetKubeletNodeLabels(agentPool),
 		},
-		TlsBootstrappingConfig: &nbcontractv1.TLSBootstrappingConfig{
+		TlsBootstrappingConfig: &aksnodeconfigv1.TLSBootstrappingConfig{
 			TlsBootstrappingToken: *nbc.KubeletClientTLSBootstrapToken,
 		},
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
-		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
+		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{
 			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
 			PodInfraContainerImageUrl: nbc.K8sComponents.PodInfraContainerImageURL,
 		},
 		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
-		HttpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+		HttpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		NeedsCgroupv2: to.Ptr(true),
