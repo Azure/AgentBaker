@@ -349,21 +349,28 @@ func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error)
 	return
 }
 
-func generateVMSSName(t *testing.T) string {
-	name := fmt.Sprintf("%s%s", randomLowercaseString(4), t.Name())
-	// delete invalid characters like _ and /
+func generateVMSSNameLinux(t *testing.T) string {
+	name := fmt.Sprintf("%s-%s-%s", time.Now().Format(time.DateOnly), randomLowercaseString(4), t.Name())
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
-	// truncate to 57 characters, as AKS has a limit of 64 characters for VM names
-	// an additional prefix is generated for VM name
-	// windows limits prefix names
-	if len(name) > 9 { // a limit for VMSS name
-		name = name[:9]
+	if len(name) > 57 { // a limit for VMSS name
+		name = name[:57]
 	}
-	// AKS converts VM names to lowercase at some stage, avoid potential matching issues
-	name = strings.ToLower(name)
 	return name
+}
+
+func generateVMSSNameWindows(t *testing.T) string {
+	// windows has a limit of 9 characters for VMSS name
+	// and doesn't allow "-"
+	return fmt.Sprintf("win%s", randomLowercaseString(4))
+}
+
+func generateVMSSName(s *Scenario) string {
+	if s.VHD.Windows() {
+		return generateVMSSNameWindows(s.T)
+	}
+	return generateVMSSNameLinux(s.T)
 }
 
 func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cluster) armcompute.VirtualMachineScaleSet {

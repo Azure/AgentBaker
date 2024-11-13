@@ -215,22 +215,22 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	}
 }
 
-func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
-	cluster, err := s.Config.Cluster(ctx, t)
-	require.NoError(t, err)
+func (s *Scenario) PrepareRuntime(ctx context.Context) {
+	cluster, err := s.Config.Cluster(ctx, s.T)
+	require.NoError(s.T, err)
 
 	s.Runtime = &ScenarioRuntime{
 		Cluster:  cluster,
-		VMSSName: generateVMSSName(t),
+		VMSSName: generateVMSSName(s),
 	}
 
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		t.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
 
 	nbc := getBaseNBC(cluster, s.VHD)
 	if s.VHD.Windows() {
-		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, t)
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
 	}
 
 	if s.BootstrapConfigMutator != nil {
