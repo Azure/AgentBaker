@@ -786,16 +786,16 @@ type LocalDnsProfileWithSortedDomains struct {
 
 // Local DNS profile with VNET DNS and Kube DNS overrides.
 type LocalDnsProfile struct {
-	ServiceState        string                 `json:"serviceState,omitempty"`
-	CPULimit            int                    `json:"cpuLimit,omitempty"`
-	MemoryLimitInMB     int                    `json:"memoryLimitInMB,omitempty"`
-	CoreDnsImageUrl     string                 `json:"coreDnsImageUrl,omitempty"`
-	VnetDnsOverrides    map[string]DnsOverride `json:"vnetDnsOverrides,omitempty"`
-	KubeDnsOverrides    map[string]DnsOverride `json:"kubeDnsOverrides,omitempty"`
-	NodeListenerIP      string                 `json:"nodeListenerIP,omitempty"`
-	ClusterListenerIP   string                 `json:"clusterListenerIP,omitempty"`
-	CoreDnsServiceIP    string                 `json:"coreDnsServiceIP,omitempty"`
-	UpstreamDnsServerIP string                 `json:"upstreamDnsServerIP,omitempty"`
+	CurrentServiceStatus string                 `json:"currentServiceStatus,omitempty"`
+	CPULimit             int                    `json:"cpuLimit,omitempty"`
+	MemoryLimitInMB      int                    `json:"memoryLimitInMB,omitempty"`
+	CoreDnsImageUrl      string                 `json:"coreDnsImageUrl,omitempty"`
+	VnetDnsOverrides     map[string]DnsOverride `json:"vnetDnsOverrides,omitempty"`
+	KubeDnsOverrides     map[string]DnsOverride `json:"kubeDnsOverrides,omitempty"`
+	NodeListenerIP       string                 `json:"nodeListenerIP,omitempty"`
+	ClusterListenerIP    string                 `json:"clusterListenerIP,omitempty"`
+	CoreDnsServiceIP     string                 `json:"coreDnsServiceIP,omitempty"`
+	UpstreamDnsServerIP  string                 `json:"upstreamDnsServerIP,omitempty"`
 }
 
 // Overrides for VNET DNS and Kube DNS traffic.
@@ -810,10 +810,10 @@ type DnsOverride struct {
 	ServeStale             string `json:"serveStale,omitempty"`
 }
 
-// IsAKSLocalDNSEnabled returns true if the customer specified localDnsProfile and serviceState property is enable.
+// IsAKSLocalDNSEnabled returns true if the customer specified localDnsProfile and currentServiceStatus property is enable.
 func (a *AgentPoolProfile) IsAKSLocalDNSEnabled() bool {
 	return a.LocalDnsProfileWithSortedDomains != nil &&
-		strings.EqualFold(a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.ServiceState, AKSLocalDNSEnabled)
+		strings.EqualFold(a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.CurrentServiceStatus, AKSLocalDNSEnabled)
 }
 
 // GetAKSLocalDNSImageUrl returns CoreDNS image version used in aks-local-dns service.
