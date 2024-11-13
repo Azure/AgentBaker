@@ -802,7 +802,7 @@ type LocalDnsProfile struct {
 // Traffic from pods with dnsPolicy:default or kubelet is defined as VNET DNS traffic.
 // Traffic from pods with dnsPolicy:ClusterFirst is defined as Kube DNS traffic.
 type DnsOverride struct {
-	LogLevel               string `json:"logLevel,omitempty"`
+	QueryLogging           string `json:"queryLogging,omitempty"`
 	ForceTCP               bool   `json:"forceTCP,omitempty"`
 	ForwardPolicy          string `json:"forwardPolicy,omitempty"`
 	MaxConcurrent          int    `json:"maxConcurrent,omitempty"`

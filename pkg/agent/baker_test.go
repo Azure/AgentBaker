@@ -222,7 +222,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 								CoreDnsImageUrl: "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240704",
 								VnetDnsOverrides: map[string]datamodel.DnsOverride{
 									".": {
-										LogLevel:               "errors",
+										QueryLogging:           "errors",
 										ForceTCP:               false,
 										ForwardPolicy:          "sequential",
 										MaxConcurrent:          1000,
@@ -230,7 +230,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 										ServeStale:             "verify",
 									},
 									"sub.domain1.com": {
-										LogLevel:               "log",
+										QueryLogging:           "log",
 										ForceTCP:               false,
 										ForwardPolicy:          "sequential",
 										MaxConcurrent:          1000,
@@ -240,7 +240,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 								},
 								KubeDnsOverrides: map[string]datamodel.DnsOverride{
 									".": {
-										LogLevel:               "errors",
+										QueryLogging:           "errors",
 										ForceTCP:               true,
 										ForwardPolicy:          "sequential",
 										MaxConcurrent:          1000,
@@ -248,7 +248,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 										ServeStale:             "verify",
 									},
 									"sub.domain1.com": {
-										LogLevel:               "errors",
+										QueryLogging:           "errors",
 										ForceTCP:               false,
 										ForwardPolicy:          "sequential",
 										MaxConcurrent:          1000,

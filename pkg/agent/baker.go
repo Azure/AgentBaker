@@ -1541,7 +1541,7 @@ health-check.aks-local-dns.local:53 {
 {{- range $index, $domain := .SortedVnetDnsOverrideDomains}}
 {{- $override := index $.LocalDnsProfile.VnetDnsOverrides $domain}}
 {{$domain}}:53 {
-    {{$override.LogLevel}}
+    {{$override.QueryLogging}}
     bind {{$.LocalDnsProfile.NodeListenerIP}}
     forward cluster.local {{$.CoreDnsServiceIP}} {
         {{- if $override.ForceTCP}}
@@ -1582,7 +1582,7 @@ health-check.aks-local-dns.local:53 {
 {{- range $index, $domain := .SortedKubeDnsOverrideDomains}}
 {{- $override := index $.LocalDnsProfile.KubeDnsOverrides $domain}}
 {{$domain}}:53 {
-    {{$override.LogLevel}}
+    {{$override.QueryLogging}}
     bind {{$.LocalDnsProfile.ClusterListenerIP}}
     forward . {{$.CoreDnsServiceIP}} {
         {{- if $override.ForceTCP}}
