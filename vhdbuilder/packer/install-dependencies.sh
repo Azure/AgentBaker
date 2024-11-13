@@ -9,8 +9,7 @@ AZURELINUX_OS_NAME="AZURELINUX"
 # For Azure Linux V2: ID=mariner VERSION_ID="2.0"
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
-# check if 'kata' or 'Kata' present in FEATURE_FLAGS
-if grep -Eiq "(^|[^-])\bkata\b($|[^-])" <<< "$FEATURE_FLAGS"; then
+if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
 fi
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -159,18 +158,9 @@ if isMarinerOrAzureLinux "$OS"; then
     fixCBLMarinerPermissions
     addMarinerNvidiaRepo
     overrideNetworkConfig || exit 1
-    # 2.0 flow
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
-      installM2KataDeps
-      enableMarinerKata
-    fi
-    # 3.0 GA flow
-    if grep -q "Kata" <<< "$FEATURE_FLAGS"; then
       installKataDeps
-    fi
-    # 3.0 CC flow
-    if grep -q "KataCC" <<< "$FEATURE_FLAGS"; then
-      installKataCCDeps
+      enableMarinerKata
     fi
     disableTimesyncd
     disableDNFAutomatic

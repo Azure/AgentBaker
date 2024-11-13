@@ -30,28 +30,9 @@ installDeps() {
     fi
 }
 
-installM2KataDeps() {
-    if [[ $OS_VERSION != "1.0" ]]; then
-      echo "<mitchzhu> this is when I install kata-packages-host and disable cgroup telemtry.service"
-      if ! dnf_install 30 1 600 kata-packages-host; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    fi
-}
-
 installKataDeps() {
     if [[ $OS_VERSION != "1.0" ]]; then
-      # TODO: name subject to change based on CBL-Mariner-Proprietary work
       if ! dnf_install 30 1 600 kata-packages-host; then
-        exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-    fi
-}
-
-installKataCCDeps() {
-    if [[ $OS_VERSION != "1.0" ]]; then
-      # TODO: name subject to change based on CBL-Mariner-Proprietary work
-      if ! dnf_install 30 1 600 kata-packages-host-cc; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi

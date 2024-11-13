@@ -175,18 +175,6 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Arm64.Definition).To(Equal("V3gen2arm64"))
 		Expect(azurelinuxV3Arm64.Version).To(Equal(LinuxSIGImageVersion))
 
-		azurelinuxV3Kata := sigConfig.SigCBLMarinerImageConfig[AKSAzureLinuxV3Gen2Kata]
-		Expect(azurelinuxV3Kata.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(azurelinuxV3Kata.Gallery).To(Equal("akscblmariner"))
-		Expect(azurelinuxV3Kata.Definition).To(Equal("V3katagen2"))
-		Expect(azurelinuxV3Kata.Version).To(Equal(LinuxSIGImageVersion))
-
-		azurelinuxV3Kata := sigConfig.SigCBLMarinerImageConfig[AKSAzureLinuxV3Gen2KataCC]
-		Expect(azurelinuxV3Kata.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(azurelinuxV3Kata.Gallery).To(Equal("akscblmariner"))
-		Expect(azurelinuxV3Kata.Definition).To(Equal("V3katagen2"))
-		Expect(azurelinuxV3Kata.Version).To(Equal(LinuxSIGImageVersion))
-
 		aksUbuntu2204TLGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2204TLGen2]
 		Expect(aksUbuntu2204TLGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntu2204TLGen2Containerd.Gallery).To(Equal("aksubuntu"))
@@ -273,11 +261,11 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Gen2FIPS.Definition).To(Equal("V3gen2fips"))
 		Expect(azurelinuxV3Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 
-		azurelinuxV2Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2Gen2Kata]
-		Expect(azurelinuxV2Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
-		Expect(azurelinuxV2Gen2Kata.Gallery).To(Equal("aksazurelinux"))
-		Expect(azurelinuxV2Gen2Kata.Definition).To(Equal("V2katagen2"))
-		Expect(azurelinuxV2Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
+		azurelinuxV3Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Gen2Kata]
+		Expect(azurelinuxV3Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Gen2Kata.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Gen2Kata.Definition).To(Equal("V3katagen2"))
+		Expect(azurelinuxV3Gen2Kata.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntuMinimalContainerd2204 := sigConfig.SigUbuntuImageConfig[AKSUbuntuMinimalContainerd2204]
 		Expect(aksUbuntuMinimalContainerd2204.ResourceGroup).To(Equal("resourcegroup"))
