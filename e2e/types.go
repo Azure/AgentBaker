@@ -121,6 +121,8 @@ type ScenarioRuntime struct {
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
 	VMSSName      string
+	SSHKeyPublic  []byte
+	SSHKeyPrivate []byte
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -242,4 +244,7 @@ func (s *Scenario) PrepareRuntime(ctx context.Context) {
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
+
+	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
+	require.NoError(s.T, err)
 }

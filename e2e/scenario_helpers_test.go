@@ -17,7 +17,6 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -85,7 +84,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
 	maybeSkipScenario(ctx, t, s)
-	s.PrepareRuntime(ctx, t)
+	s.PrepareRuntime(ctx)
 	createAndValidateVM(ctx, s)
 }
 
@@ -130,12 +129,9 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("running scenario %q with image %q in aks cluster %q", s.T.Name(), rid, *s.Runtime.Cluster.Model.ID)
 
-	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
-	assert.NoError(s.T, err)
+	createVMSS(ctx, s)
 
-	createVMSS(ctx, s.T, s.Runtime.VMSSName, s, privateKeyBytes, publicKeyBytes)
-
-	err = getCustomScriptExtensionStatus(ctx, s)
+	err := getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 
 	s.T.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", s.Runtime.VMSSName)
@@ -152,10 +148,10 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
 
 	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
-	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(privateKeyBytes), s)
+	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(s.Runtime.SSHKeyPrivate), s)
 	require.NoError(s.T, err)
 
 	s.T.Logf("node %s bootstrapping succeeded!", s.Runtime.VMSSName)

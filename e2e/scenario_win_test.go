@@ -9,7 +9,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
-func Test_WindowsServer2019Containerd(t *testing.T) {
+func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 with Containerd",
 		Config: Config{
@@ -25,7 +25,7 @@ func Test_WindowsServer2019Containerd(t *testing.T) {
 	})
 }
 
-func Test_WindowsServer2022Containerd(t *testing.T) {
+func Test_Windows2022Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd",
 		Config: Config{

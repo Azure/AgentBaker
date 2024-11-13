@@ -55,7 +55,10 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, s *Scenario) (map[string]string, error) {
+	privateIP, err := getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err)
+
 	commandList := map[string]string{
 		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
 		"kubelet":                      "journalctl -u kubelet",
@@ -64,18 +67,18 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, privateIP, sshPrivateK
 		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
+	podName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
 
 	var result = map[string]string{}
 	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
+		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
 
-		execResult, err := execOnVM(ctx, cluster.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd, false)
 		if err != nil {
-			t.Logf("error fetching logs for %s: %s", file, err)
+			s.T.Logf("error fetching logs for %s: %s", file, err)
 			return nil, err
 		}
 		if execResult.stdout != nil {

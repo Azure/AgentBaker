@@ -34,30 +34,30 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-func createVMSS(ctx context.Context, t *testing.T, vmssName string, s *Scenario, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
+func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
-	t.Logf("creating VMSS %q in resource group %q", vmssName, *cluster.Model.Properties.NodeResourceGroup)
+	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
-	require.NoError(t, err)
+	require.NoError(s.T, err)
 	if s.AKSNodeConfigMutator != nil {
 		builder := aksnodeconfigv1.NewNBContractBuilder()
 		builder.ApplyConfiguration(s.Runtime.AKSNodeConfig)
 		nodeBootstrapping, err = builder.GetNodeBootstrapping()
-		require.NoError(t, err)
+		require.NoError(s.T, err)
 	} else {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, s.Runtime.NBC)
-		require.NoError(t, err)
+		require.NoError(s.T, err)
 	}
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, cluster)
+	model := getBaseVMSSModel(s.Runtime.VMSSName, string(s.Runtime.SSHKeyPublic), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, cluster)
 
 	isAzureCNI, err := cluster.IsAzureCNI()
-	require.NoError(t, err, "checking if cluster is using Azure CNI")
+	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
 
 	if isAzureCNI {
-		err = addPodIPConfigsForAzureCNI(&model, vmssName, cluster)
-		require.NoError(t, err)
+		err = addPodIPConfigsForAzureCNI(&model, s.Runtime.VMSSName, cluster)
+		require.NoError(s.T, err)
 	}
 
 	if s.VHD.Windows() {
@@ -74,24 +74,24 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, s *Scenario,
 		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
 	}
 
-	s.PrepareVMSSModel(ctx, t, &model)
+	s.PrepareVMSSModel(ctx, s.T, &model)
 
 	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
 		ctx,
 		*cluster.Model.Properties.NodeResourceGroup,
-		vmssName,
+		s.Runtime.VMSSName,
 		model,
 		nil,
 	)
-	skipTestIfSKUNotAvailableErr(t, err)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, cluster, privateKeyBytes, s.VHD.Distro.IsWindowsDistro())
+	skipTestIfSKUNotAvailableErr(s.T, err)
+	require.NoError(s.T, err)
+	s.T.Cleanup(func() {
+		cleanupVMSS(ctx, s)
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	// fail test, but continue to extract debug information
-	require.NoError(t, err, "create vmss %q, check %s for vm logs", vmssName, testDir(t))
+	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	return &vmssResp.VirtualMachineScaleSet
 }
 
@@ -106,26 +106,22 @@ func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, cluster *Cluster, privateKeyBytes []byte, isWindows bool) {
+func cleanupVMSS(ctx context.Context, s *Scenario) {
 	// original context can be cancelled, but we still want to collect the logs
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
-	defer deleteVMSS(t, ctx, vmssName, cluster, privateKeyBytes)
+	defer deleteVMSS(ctx, s)
 
-	if isWindows {
-		extractLogsFromWindowsVM(ctx, t, cluster, vmssName)
+	if s.VHD.Windows() {
+		extractLogsFromWindowsVM(ctx, s)
 		return
 	}
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err)
+	logFiles, err := extractLogsFromVM(ctx, s)
+	require.NoError(s.T, err)
 
-	require.NoError(t, err)
-	logFiles, err := extractLogsFromVM(ctx, t, vmPrivateIP, string(privateKeyBytes), cluster)
-	require.NoError(t, err)
-
-	err = dumpFileMapToDir(t, logFiles)
-	require.NoError(t, err)
+	err = dumpFileMapToDir(s.T, logFiles)
+	require.NoError(s.T, err)
 }
 
 const uploadLogsPowershellScript = `
@@ -151,69 +147,69 @@ $CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
 
 // extractLogsFromWindowsVM runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
-func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluster, vmssName string) {
-	if !t.Failed() {
-		t.Logf("skipping logs extraction from windows VM, as the test didn't fail")
+func extractLogsFromWindowsVM(ctx context.Context, s *Scenario) {
+	if !s.T.Failed() {
+		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
 	defer cancel()
-	pager := config.Azure.VMSSVM.NewListPager(*cluster.Model.Properties.NodeResourceGroup, vmssName, nil)
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	page, err := pager.NextPage(ctx)
 	if err != nil {
-		t.Logf("failed to list VMSS instances: %s", err)
+		s.T.Logf("failed to list VMSS instances: %s", err)
 		return
 	}
 	if len(page.Value) == 0 {
-		t.Logf("no VMSS instances found")
+		s.T.Logf("no VMSS instances found")
 		return
 	}
 	instanceID := *page.Value[0].InstanceID
-	blobPrefix := vmssName
+	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
 
 	// TODO: replace it with golang SDK
 	cmd := exec.Command("az", "vmss", "run-command", "invoke",
 		"--command-id", "RunPowerShellScript",
 		"--subscription", config.Config.SubscriptionID,
-		"--resource-group", *cluster.Model.Properties.NodeResourceGroup,
-		"--name", vmssName,
+		"--resource-group", *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		"--name", s.Runtime.VMSSName,
 		"--instance-id", instanceID,
 		"--scripts", uploadLogsPowershellScript,
 		"--parameters",
 		"arg1="+blobUrl,
-		"arg2="+vmssName,
+		"arg2="+s.Runtime.VMSSName,
 		"arg3="+config.Config.VMIdentityResourceID(),
 	)
-	t.Log("uploading windows logs to blob storage, may take a few minutes")
+	s.T.Log("uploading windows logs to blob storage, may take a few minutes")
 	cmdResult, err := cmd.Output()
 	if err != nil {
-		t.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
+		s.T.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
 		return
 	}
 
-	t.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
+	s.T.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
 
 	downloadBlob := func(blobSuffix string) {
-		fileName := filepath.Join(testDir(t), blobSuffix)
-		err := os.MkdirAll(testDir(t), 0755)
+		fileName := filepath.Join(testDir(s.T), blobSuffix)
+		err := os.MkdirAll(testDir(s.T), 0755)
 		if err != nil {
-			t.Logf("failed to create directory %q: %s", testDir(t), err)
+			s.T.Logf("failed to create directory %q: %s", testDir(s.T), err)
 			return
 		}
 		file, err := os.Create(fileName)
 		if err != nil {
-			t.Logf("failed to create file %q: %s", fileName, err)
+			s.T.Logf("failed to create file %q: %s", fileName, err)
 			return
 		}
 		// NOTE, read after write is possible, list blobs is eventually consistent and may fail
 		_, err = config.Azure.Blob.DownloadFile(ctx, config.Config.BlobContainer, blobPrefix+"/"+blobSuffix, file, nil)
 		if err != nil {
-			t.Logf("failed to download collected logs: %s", err)
+			s.T.Logf("failed to download collected logs: %s", err)
 			err = os.Remove(file.Name())
 			if err != nil {
-				t.Logf("failed to remove file: %s", err)
+				s.T.Logf("failed to remove file: %s", err)
 			}
 			return
 		}
@@ -221,28 +217,28 @@ func extractLogsFromWindowsVM(ctx context.Context, t *testing.T, cluster *Cluste
 	downloadBlob("collected-node-logs.zip")
 	downloadBlob("cse.log")
 	downloadBlob("provision.complete")
-	t.Logf("logs collected to %s", testDir(t))
+	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
-func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {
+func deleteVMSS(ctx context.Context, s *Scenario) {
 	// original context can be cancelled, but we still want to delete the VM
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 	defer cancel()
 	if config.Config.KeepVMSS {
-		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
-		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
-			t.Logf("failed to write retained vmss %s private ssh key to disk: %s", vmssName, err)
+		s.T.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", s.Runtime.VMSSName)
+		if err := writeToFile(s.T, "sshkey", string(s.Runtime.SSHKeyPrivate)); err != nil {
+			s.T.Logf("failed to write retained vmss %s private ssh key to disk: %s", s.Runtime.VMSSName, err)
 		}
 		return
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *cluster.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
-		t.Logf("failed to delete vmss %q: %s", vmssName, err)
+		s.T.Logf("failed to delete vmss %q: %s", s.Runtime.VMSSName, err)
 		return
 	}
-	t.Logf("vmss %q deleted successfully", vmssName)
+	s.T.Logf("vmss %q deleted successfully", s.Runtime.VMSSName)
 }
 
 // Adds additional IP configs to the passed in vmss model based on the chosen cluster's setting of "maxPodsPerNode",
@@ -275,12 +271,12 @@ func addPodIPConfigsForAzureCNI(vmss *armcompute.VirtualMachineScaleSet, vmssNam
 	return nil
 }
 
-func getVMPrivateIPAddress(ctx context.Context, mcResourceGroupName, vmssName string) (string, error) {
+func getVMPrivateIPAddress(ctx context.Context, s *Scenario) (string, error) {
 	pl := config.Azure.Core.Pipeline()
 	url := fmt.Sprintf(listVMSSNetworkInterfaceURLTemplate,
 		config.Config.SubscriptionID,
-		mcResourceGroupName,
-		vmssName,
+		*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		s.Runtime.VMSSName,
 		0,
 	)
 	req, err := runtime.NewRequest(ctx, "GET", url)
