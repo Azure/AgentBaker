@@ -169,7 +169,7 @@ downloadCredentialProvider() {
         return 
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
         # if the URL is a registry URL, then download the credential provider using oras
-        CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin ## to remove all chars ("*") up to the final "/"
+        CREDENTIAL_PROVIDER_TGZ_TMP="azure-acr-credential-provider-linux-${CPU_ARCH}.tar.gz"
         echo "devintest: CREDENTIAL_PROVIDER_TGZ_TMP=${CREDENTIAL_PROVIDER_TGZ_TMP}"
         echo "devintest: CREDENTIAL_PROVIDER_DOWNLOAD_DIR=${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}"
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
