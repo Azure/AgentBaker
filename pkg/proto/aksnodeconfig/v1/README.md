@@ -113,7 +113,7 @@ Nevertheless, it’s not a big harm to use `optional` even though it’s not nee
 1. Set default values for your variables, if the existing defaulting provided by `proto3` doesn't fit your purpose. For example, if a bool variable is not set, `proto` will default it to `false`. However, if you want to default it to `true`, then you can set your own default function. `getDisableSSH` in `cse_cmd.sh.gtpl` is 1 example.
 
 ## Detailed steps with example
-Example: IMDSRescrtionConfig
+Example: IMDSRestrictionConfig [Example PR](https://github.com/Azure/AgentBaker/pull/5154)
 1. Create a proto file with name `imdsrestrictionconfig.proto` with the following contents.
 ```
 syntax = "proto3";
@@ -133,7 +133,12 @@ message IMDSRestrictionConfig {
   IMDSRestrictionConfig imds_restriction_config = 39;
 ```
 
-3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `aks-node-controller/parser/parser.go`, which is a Go file that will be used to generate the bootstrap command, you can add the following lines: [parser.go](https://github.com/Azure/AgentBaker/blob/dev/aks-node-controller/parser/parser.go#L165-L166)
+3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `aks-node-controller/parser/parser.go`, which is a Go func that will be used to generate the bootstrap command, you can add the following lines: [parser.go](https://github.com/Azure/AgentBaker/blob/dev/aks-node-controller/parser/parser.go#L165-L166)
+
+```
+"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
+		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+```
 
 If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
 
