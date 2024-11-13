@@ -152,7 +152,7 @@ downloadCredentialProvider() {
         return 
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
-        retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return
     fi
 
