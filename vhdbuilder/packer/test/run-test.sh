@@ -36,13 +36,11 @@ az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION}
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
-  echo "In cleanup, VHD_DEBUG: $VHD_DEBUG"
   if [[ "$VHD_DEBUG" == "True" ]]; then
     echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
   else
-    echo "devintest: temporary remove deleting resource group"
-    #echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
-    #az group delete --name $TEST_VM_RESOURCE_GROUP_NAME --yes --no-wait
+    echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
+    az group delete --name $TEST_VM_RESOURCE_GROUP_NAME --yes --no-wait
   fi
 }
 trap cleanup EXIT

@@ -145,13 +145,12 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    echo "devintest: component name: $name"
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
-    if [ ${name} == "azure-acr-credential-provider"]; then
+    if [ ${name} == "azure-acr-credential-provider" ]; then
       # azure-acr-credential-provider is installed in a different way so we test it separately
       testAcrCredentialProviderInstalled downloadURL "${PACKAGE_VERSIONS[@]}" 
       continue
@@ -175,8 +174,6 @@ testPackagesInstalled() {
       downloadedPackage="$downloadLocation/${fileNameWithExt}"
       local extractedPackageDir
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
-      echo "devintest: ${name} downloadedPackage: $downloadedPackage"
-      echo "devintest: ${name} extractedPackageDir: $extractedPackageDir"
 
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
       # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
@@ -447,7 +444,6 @@ testCloudInit() {
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  echo "devintest: testKubeBinariesPresent: Checking kubelet and kubectl binaries..."
   local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
   for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
