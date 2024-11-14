@@ -108,11 +108,11 @@ testAcrCredentialProviderInstalled() {
   local acrCredProviderVersions=("${@:2}")
   for version in "${acrCredProviderVersions[@]}"; do
     echo "checking acrCredProviderVersions: $version ..."
-    eval "downloadURL=${currentDownloadURL}"
+    eval "currentDownloadURL=${downloadURL}"
 
     # if currentDownloadURL is mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64,
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
-    downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-v${version}.tar.gz"
+    downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
     if [[ $? -ne 0 ]]; then
       err $test "File size of ${downloadLocation} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
@@ -153,7 +153,7 @@ testPackagesInstalled() {
     fi
     if [ ${name} == "azure-acr-credential-provider" ]; then
       # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled downloadURL "${PACKAGE_VERSIONS[@]}" 
+      testAcrCredentialProviderInstalled $PACKAGE_DOWNLOAD_URL "${PACKAGE_VERSIONS[@]}" 
       continue
     fi
 
