@@ -3,8 +3,15 @@ set -eux
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
+# This variable is used to determine where we need to deploy the VM on which we'll run trivy.
+# We must be sure this location matches the location used by packer when delivering the output image
+# version to the staging gallery, as the particular image version will only have a single replica in this region.
+if [ -z "$PACKER_BUILD_LOCATION" ]; then
+    echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
+    exit 1
+fi
+
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
-EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
 SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
@@ -15,14 +22,6 @@ SCAN_VM_ADMIN_USERNAME="azureuser"
 # we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
 VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 SUBNET_NAME="scanning"
-
-# This variable is used to determine where we need to deploy the VM on which we'll run trivy.
-# We must be sure this location matches the location used by packer when delivering the output image
-# version to the staging gallery, as the particular image version will only have a single replica in this region.
-if [ -z "$PACKER_BUILD_LOCATION" ]; then
-    echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
-    exit 1
-fi
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
@@ -73,6 +72,10 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --assign-identity "${UMSI_RESOURCE_ID}"
     
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
+set +x
+
+# for scanning storage account/container upload access
+az vm identity assign -g $RESOURCE_GROUP_NAME --name $SCAN_VM_NAME --identities $AZURE_MSI_RESOURCE_STRING
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -109,6 +112,7 @@ az vm run-command invoke \
         "MODULE_VERSION"=${MODULE_VERSION} \
         "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
         "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID} \
+        "AZURE_MSI_RESOURCE_STRING"=${AZURE_MSI_RESOURCE_STRING} \
         "BUILD_RUN_NUMBER"=${BUILD_RUN_NUMBER} \
         "BUILD_REPOSITORY_NAME"=${BUILD_REPOSITORY_NAME} \
         "BUILD_SOURCEBRANCH"=${GIT_BRANCH} \
