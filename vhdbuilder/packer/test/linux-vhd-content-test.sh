@@ -83,6 +83,7 @@ validateDownloadPackage() {
 validateOrasOCIArtifact() {
   local downloadURL=$1
   local downloadedPackage=$2
+  echo "Validating package $downloadURL from registry and downloaded package $downloadedPackage"
 
   # Fetch the manifest and extract the size using jq
   fileSizeInRegistry=$(oras manifest fetch "$downloadURL" | jq '.layers[0].size')
