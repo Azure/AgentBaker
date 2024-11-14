@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -169,27 +168,55 @@ func extractLogsFromWindowsVM(ctx context.Context, s *Scenario) {
 	blobPrefix := s.Runtime.VMSSName
 	blobUrl := config.Config.BlobStorageAccountURL() + "/" + config.Config.BlobContainer + "/" + blobPrefix
 
-	// TODO: replace it with golang SDK
-	cmd := exec.Command("az", "vmss", "run-command", "invoke",
-		"--command-id", "RunPowerShellScript",
-		"--subscription", config.Config.SubscriptionID,
-		"--resource-group", *s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
-		"--name", s.Runtime.VMSSName,
-		"--instance-id", instanceID,
-		"--scripts", uploadLogsPowershellScript,
-		"--parameters",
-		"arg1="+blobUrl,
-		"arg2="+s.Runtime.VMSSName,
-		"arg3="+config.Config.VMIdentityResourceID(),
-	)
+	client := config.Azure.VMSSVMRunCommands
+
+	// Invoke the RunCommand on the VMSS instance
 	s.T.Log("uploading windows logs to blob storage, may take a few minutes")
-	cmdResult, err := cmd.Output()
+
+	pollerResp, err := client.BeginCreateOrUpdate(
+		ctx,
+		*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
+		s.Runtime.VMSSName,
+		instanceID,
+		"RunPowerShellScript",
+		armcompute.VirtualMachineRunCommand{
+			Properties: &armcompute.VirtualMachineRunCommandProperties{
+				Source: &armcompute.VirtualMachineRunCommandScriptSource{
+					//CommandID: to.Ptr("RunPowerShellScript"),
+					Script: to.Ptr(uploadLogsPowershellScript),
+				},
+				Parameters: []*armcompute.RunCommandInputParameter{
+					{
+						Name:  to.Ptr("arg1"),
+						Value: to.Ptr(blobUrl),
+					},
+					{
+						Name:  to.Ptr("arg2"),
+						Value: to.Ptr(s.Runtime.VMSSName),
+					},
+					{
+						Name:  to.Ptr("arg3"),
+						Value: to.Ptr(config.Config.VMIdentityResourceID()),
+					},
+				},
+			},
+		},
+		nil,
+	)
 	if err != nil {
-		s.T.Logf("failed to run command %q on VMSS instance: %s, logs: %s", cmd.String(), err, string(cmdResult))
+		s.T.Logf("failed to initiate run command on VMSS instance: %s", err)
 		return
 	}
 
-	s.T.Logf("uploaded logs to %s: %s", blobUrl, string(cmdResult))
+	// Poll the result until the operation is completed
+	runCommandResp, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		s.T.Logf("failed to execute run command on VMSS instance: %s", err)
+		return
+	}
+	s.T.Logf("run command executed successfully: %v", runCommandResp)
+
+	s.T.Logf("uploaded logs to %s", blobUrl)
 
 	downloadBlob := func(blobSuffix string) {
 		fileName := filepath.Join(testDir(s.T), blobSuffix)

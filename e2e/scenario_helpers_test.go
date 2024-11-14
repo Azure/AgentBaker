@@ -196,9 +196,11 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
 					if s.VHD.Windows() {
-						if status.Code == nil || *status.Code != "ProvisioningState/succeeded" {
-							return fmt.Errorf("failed to get CSE output, status: %v", status)
+						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
+							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
 						}
+						return nil
+
 					} else {
 						resp, err := parseLinuxCSEMessage(*status)
 						if err != nil {

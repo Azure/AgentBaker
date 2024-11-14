@@ -58,6 +58,7 @@ type AzureClient struct {
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
 	ArmOptions                *arm.ClientOptions
+	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -234,6 +235,11 @@ func NewAzureClient() (*AzureClient, error) {
 	cloud.StorageAccounts, err = armstorage.NewAccountsClient(Config.SubscriptionID, credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create storage accounts client: %w", err)
+	}
+
+	cloud.VMSSVMRunCommands, err = armcompute.NewVirtualMachineScaleSetVMRunCommandsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vmss vm run command client: %w", err)
 	}
 
 	cloud.Credential = credential
