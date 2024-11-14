@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	Config            = mustLoadConfig()
-	Azure             = mustNewAzureClient()
-	ResourceGroupName = "abe2e-" + Config.Location
-	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2e" + Config.Location
+	Config         = mustLoadConfig()
+	Azure          = mustNewAzureClient()
+	ResourceGroup  = "abe2e-" + Config.Location
+	VMIdentityName = "abe2e-vm-identity"
+	PrivateACRName = "privateacre2e" + Config.Location
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -79,7 +79,7 @@ func (c *Configuration) String() string {
 }
 
 func (c *Configuration) VMIdentityResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroupName, VMIdentityName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", c.SubscriptionID, ResourceGroup, VMIdentityName)
 }
 
 func mustLoadConfig() *Configuration {

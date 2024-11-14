@@ -115,11 +115,11 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 	})
 }
 
-func waitUntilClusterReady(ctx context.Context, rg, name string) (*armcontainerservice.ManagedCluster, error) {
+func waitUntilClusterReady(ctx context.Context, name string) (*armcontainerservice.ManagedCluster, error) {
 	var cluster armcontainerservice.ManagedClustersClientGetResponse
 	err := wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		var err error
-		cluster, err = config.Azure.AKS.Get(ctx, rg, name, nil)
+		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroup, name, nil)
 		if err != nil {
 			return false, err
 		}

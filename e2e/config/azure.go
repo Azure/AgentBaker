@@ -290,7 +290,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 }
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
-	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroup, VMIdentityName, armmsi.Identity{
 		Location: to.Ptr(Config.Location),
 	}, nil)
 	if err != nil {
@@ -312,7 +312,7 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 }
 
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
-	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroup, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
 		Location: &Config.Location,
 		SKU: &armstorage.SKU{
@@ -334,7 +334,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 }
 
 func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
-	_, err := a.StorageContainers.Create(ctx, ResourceGroupName, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
+	_, err := a.StorageContainers.Create(ctx, ResourceGroup, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
 	if err != nil {
 		return fmt.Errorf("create blob container: %w", err)
 	}
@@ -342,7 +342,7 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 }
 
 func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroup, Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
