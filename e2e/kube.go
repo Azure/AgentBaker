@@ -51,6 +51,9 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	restConfig.GroupVersion = &schema.GroupVersion{
 		Version: "v1",
 	}
+	// it's test cluster avoid unnecessary rate limiting
+	restConfig.QPS = 100
+	restConfig.Burst = 200
 
 	dynamic, err := client.New(restConfig, client.Options{})
 	if err != nil {
