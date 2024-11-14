@@ -1003,9 +1003,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetAKSLocalDNSClusterListenerIP": func() string {
 			return profile.GetAKSLocalDNSClusterListenerIP()
 		},
-		"GetDefaultUpstreamDNSServerIP": func() string {
-			return profile.GetDefaultUpstreamDNSServerIP()
-		},
 	}
 }
 
@@ -1550,7 +1547,7 @@ health-check.aks-local-dns.local:53 {
         policy {{$override.ForwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
-    forward . {{$.UpstreamDnsServerIP}} {
+    forward . /etc/resolv.conf {
         {{- if $override.ForceTCP}}
         force_tcp
         {{- end}}
@@ -1569,6 +1566,7 @@ health-check.aks-local-dns.local:53 {
     loop
     nsid aks-local-dns
     prometheus {{$.LocalDnsProfile.NodeListenerIP}}:9253
+	{{- if eq $domain "."}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
@@ -1577,6 +1575,7 @@ health-check.aks-local-dns.local:53 {
     template ANY ANY reddog.microsoft.com {
         rcode NXDOMAIN
     }
+	{{- end}}
 }{{end}}
 # Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
 {{- range $index, $domain := .SortedKubeDnsOverrideDomains}}
@@ -1601,6 +1600,7 @@ health-check.aks-local-dns.local:53 {
     }
     loop
     nsid aks-local-dns-pod
+	{{- if eq $domain "."}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
@@ -1609,5 +1609,6 @@ health-check.aks-local-dns.local:53 {
     template ANY ANY reddog.microsoft.com {
         rcode NXDOMAIN
     }
+	{{- end}}
 }{{end}}
 `

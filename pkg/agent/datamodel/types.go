@@ -795,7 +795,6 @@ type LocalDnsProfile struct {
 	NodeListenerIP       string                 `json:"nodeListenerIP,omitempty"`
 	ClusterListenerIP    string                 `json:"clusterListenerIP,omitempty"`
 	CoreDnsServiceIP     string                 `json:"coreDnsServiceIP,omitempty"`
-	UpstreamDnsServerIP  string                 `json:"upstreamDnsServerIP,omitempty"`
 }
 
 // Overrides for VNET DNS and Kube DNS traffic.
@@ -836,14 +835,6 @@ func (a *AgentPoolProfile) GetAKSLocalDNSNodeListenerIP() string {
 func (a *AgentPoolProfile) GetAKSLocalDNSClusterListenerIP() string {
 	if a != nil && a.LocalDnsProfileWithSortedDomains != nil && a.IsAKSLocalDNSEnabled() {
 		return a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.ClusterListenerIP
-	}
-	return ""
-}
-
-// GetDefaultUpstreamDNSServerIP returns 169.63.129.16 used in aks-local-dns service.
-func (a *AgentPoolProfile) GetDefaultUpstreamDNSServerIP() string {
-	if a != nil && a.LocalDnsProfileWithSortedDomains != nil && a.IsAKSLocalDNSEnabled() {
-		return a.LocalDnsProfileWithSortedDomains.LocalDnsProfile.UpstreamDnsServerIP
 	}
 	return ""
 }

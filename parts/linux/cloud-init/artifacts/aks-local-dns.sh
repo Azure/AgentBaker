@@ -9,7 +9,7 @@ set -euo pipefail
 COREDNS_IMAGE="$1"                         # CoreDNS image reference to use to obtain the binary if not present.
 NODE_LISTENER_IP="$2"                      # This is the IP that the local DNS service should bind to for node traffic; usually an APIPA address.
 CLUSTER_LISTENER_IP="$3"                   # This is the IP that the local DNS service should bind to for pod traffic; usually an APIPA address.
-DEFAULT_UPSTREAM_DNS_SERVER_IP="$4"        # This is default UpstreamDNS serverIP 169.63.129.16.
+
 COREDNS_SHUTDOWN_DELAY="3"                 # Delay coredns shutdown to allow connections to finish.
 PID_FILE="/run/aks-local-dns.pid"          # PID file.
 
@@ -21,25 +21,6 @@ DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-aks-local-dns.conf"
-UPSTREAM_DNS_SERVERS_FROM_VNET="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
-LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
-
-if [ ! -f "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
-  echo "Error: Corefile does not exist."
-  exit 1
-fi
-
-if [ ! -s "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
-  echo "Error: Corefile is empty."
-  exit 1
-fi
-
-if [ "${UPSTREAM_DNS_SERVERS_FROM_VNET}" != "${DEFAULT_UPSTREAM_DNS_SERVER_IP}" ]; then
-    sed -ie "s/${DEFAULT_UPSTREAM_DNS_SERVER_IP}/${UPSTREAM_DNS_SERVERS_FROM_VNET}/g" "${LOCAL_DNS_CORE_FILE_PATH}"
-    echo "Updated DNSIP from '%s' to '%s' in '%s'\n" "${DEFAULT_UPSTREAM_DNS_SERVER_IP}" "${UPSTREAM_DNS_SERVERS_FROM_VNET}" "${LOCAL_DNS_CORE_FILE_PATH}"
-fi
-
-cat "${LOCAL_DNS_CORE_FILE_PATH}"
 
 
 # Iptables: build rules
@@ -147,7 +128,7 @@ trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on
 trap "printf 'executing cleanup function\n'; cleanup" EXIT # Always cleanup when you're exiting
 
 
-# generate the corefile
+# Corefile
 # -------------------------------------------------------------------------------------------
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP
 printf "setting up aks-local-dns dummy interface with IPs ${NODE_LISTENER_IP} and ${CLUSTER_LISTENER_IP}\n"
@@ -161,6 +142,17 @@ printf "adding iptables rules to skip conntrack for queries to aks-local-dns\n"
 for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
+
+LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
+if [ ! -f "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
+  echo "Error: Corefile does not exist."
+  exit 1
+fi
+if [ ! -s "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
+  echo "Error: Corefile is empty."
+  exit 1
+fi
+cat "${LOCAL_DNS_CORE_FILE_PATH}"
 
 # Build the coredns command
 COREDNS_COMMAND="/opt/azure/aks-local-dns/coredns -conf ${LOCAL_DNS_CORE_FILE_PATH} -pidfile ${PID_FILE}"
