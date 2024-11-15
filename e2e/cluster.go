@@ -137,7 +137,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		SubnetID:                       subnetID,
 		NodeBootstrappingConfiguration: nbc,
 		Maintenance:                    maintenance,
-		AKSNodeConfig:                  nbcToNbcContractV1(nbc), // TODO: replace with base template
+		AKSNodeConfig:                  nbcToAKSNodeConfigV1(nbc), // TODO: replace with base template
 	}, nil
 }
 
