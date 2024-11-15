@@ -1,4 +1,4 @@
-Starting build on  Sun Nov 10 09:11:47 UTC 2024
+Starting build on  Sun Nov 3 08:11:17 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.0
   - CNI plugin version 1.4.1
@@ -148,15 +148,15 @@ lrwxrwxrwx 1 root root          32 Sep 12 19:44 /usr/local/bin/containerd-shim-k
 -rwxr-xr-x 1 root root    49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
 -rwxr-xr-x 1 root root   112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
 -rwxr-xr-x 1 root root    50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
--rwxr-xr-x 1 root root         705 Nov 10 09:12 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Nov 10 09:20 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root    39369104 Nov 10 09:20 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root    52232184 Nov 10 09:20 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root    45334640 Nov 10 09:20 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root    53775024 Nov 10 09:20 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root    60175432 Nov 10 09:20 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root    47622592 Nov 10 09:20 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root    63515504 Nov 10 09:20 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root         705 Nov  3 08:11 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    39369104 Nov  3 08:18 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root    36014944 Nov  3 08:18 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root    47622592 Nov  3 08:18 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root    53775024 Nov  3 08:18 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root    45334640 Nov  3 08:18 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root    52232184 Nov  3 08:18 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root    60175432 Nov  3 08:18 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root    63515504 Nov  3 08:18 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 pcre-libs-8.45-2.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
@@ -286,14 +286,14 @@ krb5-1.19.4-3.cm2.x86_64
 elfutils-libelf-0.186-2.cm2.x86_64
 rpm-libs-4.18.0-4.cm2.x86_64
 ncurses-6.4-2.cm2.x86_64
-expat-libs-2.6.3-2.cm2.x86_64
+expat-libs-2.6.3-1.cm2.x86_64
 gpgme-1.16.0-2.cm2.x86_64
 shadow-utils-4.9-13.cm2.x86_64
 kmod-29-2.cm2.x86_64
 libffi-3.4.2-3.cm2.x86_64
 glib-2.71.0-2.cm2.x86_64
 mariner-repos-shared-2.0-9.cm2.noarch
-expat-2.6.3-2.cm2.x86_64
+expat-2.6.3-1.cm2.x86_64
 python3-3.9.19-6.cm2.x86_64
 python3-libs-3.9.19-6.cm2.x86_64
 libsolv-0.7.24-1.cm2.x86_64
@@ -720,8 +720,8 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
-tmpfs            13G  672K   13G   1% /run
-/dev/sda3        29G   24G  3.5G  88% /
+tmpfs            13G  668K   13G   1% /run
+/dev/sda3        29G   25G  2.8G  91% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       474M  103M  343M  24% /boot
 /dev/sda1        64M   37M   28M  58% /boot/efi
@@ -740,10 +740,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.126.mshv9-3.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Wed Apr 3 16:46:56 UTC 2024
-Install completed successfully on  Sun Nov 10 09:29:47 UTC 2024
-VSTS Build NUMBER: 20241110.1_master_107821906
-VSTS Build ID: 107821906
-Commit: 4dd29eb2778302e9fd5af35310240576b92aec7a
+Install completed successfully on  Sun Nov 3 08:31:23 UTC 2024
+VSTS Build NUMBER: 20241103.1_master_107292267
+VSTS Build ID: 107292267
+Commit: 10746473b99cb5ff926964dba528844ba3ecb6ea
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata

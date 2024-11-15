@@ -1,4 +1,4 @@
-Starting build on  Sun Nov 10 09:06:41 UTC 2024
+Starting build on  Sun Nov 3 08:11:54 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.0
   - runc version 1.1.15-ubuntu20.04u1
@@ -147,16 +147,16 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
 -rwxr-xr-x 1 root root 112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
 -rwxr-xr-x 1 root root  50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
--rwxr-xr-x 1 root root       705 Nov 10 09:07 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Nov 10 09:18 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  39369104 Nov 10 09:18 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  45334640 Nov 10 09:18 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  47622592 Nov 10 09:18 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  60175432 Nov 10 09:18 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  53775024 Nov 10 09:18 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  52232184 Nov 10 09:18 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  63515504 Nov 10 09:18 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Nov 10 09:19 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root       705 Nov  3 08:12 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Nov  3 08:24 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Nov  3 08:24 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  47622592 Nov  3 08:24 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  52232184 Nov  3 08:24 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  39369104 Nov  3 08:24 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  53775024 Nov  3 08:24 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  60175432 Nov  3 08:24 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Nov  3 08:24 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Nov  3 08:25 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/focal-updates,focal-security,now 0.6.55-0ubuntu12~20.04.7 amd64 [installed,automatic]
@@ -898,14 +898,14 @@ zlib1g/focal-updates,focal-security,now 1:1.2.11.dfsg-2ubuntu1.5 amd64 [installe
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   26G  3.7G  88% /
+/dev/root        29G   26G  3.8G  88% /
 devtmpfs         32G     0   32G   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           6.3G  1.2M  6.3G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            32G     0   32G   0% /sys/fs/cgroup
-/dev/sdb15      105M  6.1M   99M   6% /boot/efi
-/dev/sda1       590G   32K  560G   1% /mnt
+/dev/sda15      105M  6.1M   99M   6% /boot/efi
+/dev/sdb1       590G   32K  560G   1% /mnt
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 NAME="Ubuntu"
@@ -923,10 +923,10 @@ UBUNTU_CODENAME=focal
 === os-release End
 Using kernel:
 Linux version 5.4.0-1140-azure-fips (buildd@lcy02-amd64-090) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.2)) #147+fips1-Ubuntu SMP Tue Oct 22 06:43:12 UTC 2024
-Install completed successfully on  Sun Nov 10 09:31:34 UTC 2024
-VSTS Build NUMBER: 20241110.1_master_107821906
-VSTS Build ID: 107821906
-Commit: 4dd29eb2778302e9fd5af35310240576b92aec7a
+Install completed successfully on  Sun Nov 3 08:37:58 UTC 2024
+VSTS Build NUMBER: 20241103.1_master_107292267
+VSTS Build ID: 107292267
+Commit: 10746473b99cb5ff926964dba528844ba3ecb6ea
 Ubuntu version: 20.04
 Hyperv generation: V1
 Feature flags: None
