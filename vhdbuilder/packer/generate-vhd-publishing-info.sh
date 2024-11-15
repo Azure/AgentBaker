@@ -118,5 +118,5 @@ else
 EOF
 fi
 
-# Do not log sas token
+# We don't create SAS URLs anymore, though just keep this here to be safe
 sed 's/?.*\",/?***\",/g' < vhd-publishing-info.json
