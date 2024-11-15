@@ -413,10 +413,10 @@ func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, versi
 	if replicatedToCurrentRegion(version) {
 		return nil
 	}
-	return a.replicateToCurrentRegion(ctx, image, version)
+	return a.replicateImageVersionToCurrentRegion(ctx, image, version)
 }
 
-func (a *AzureClient) replicateToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return fmt.Errorf("create a new images client: %v", err)

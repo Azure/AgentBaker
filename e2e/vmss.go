@@ -49,7 +49,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		require.NoError(s.T, err)
 	}
 
-	model := getBaseVMSSModel(s.Runtime.VMSSName, string(s.Runtime.SSHKeyPublic), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, cluster)
+	model := getBaseVMSSModel(s, nodeBootstrapping.CustomData, nodeBootstrapping.CSE)
 
 	isAzureCNI, err := cluster.IsAzureCNI()
 	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
@@ -57,20 +57,6 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	if isAzureCNI {
 		err = addPodIPConfigsForAzureCNI(&model, s.Runtime.VMSSName, cluster)
 		require.NoError(s.T, err)
-	}
-
-	if s.VHD.Windows() {
-		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
-			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
-			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-				config.Config.VMIdentityResourceID(): {},
-			},
-		}
-		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.OSType = to.Ptr(armcompute.OperatingSystemTypesWindows)
-		model.Properties.VirtualMachineProfile.OSProfile.LinuxConfiguration = nil
-		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = to.Ptr("Microsoft.Compute")
-		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")
-		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
@@ -110,15 +96,57 @@ func cleanupVMSS(ctx context.Context, s *Scenario) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 	defer cancel()
 	defer deleteVMSS(ctx, s)
+	extractLogsFromVM(ctx, s)
+}
 
+func extractLogsFromVM(ctx context.Context, s *Scenario) {
 	if s.VHD.Windows() {
-		extractLogsFromWindowsVM(ctx, s)
-		return
+		extractLogsFromVMWindows(ctx, s)
+	} else {
+		extractLogsFromVMLinux(ctx, s)
 	}
+}
 
-	logFiles, err := extractLogsFromVM(ctx, s)
+func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
+	privateIP, err := getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err)
 
+	commandList := map[string]string{
+		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet":                      "journalctl -u kubelet",
+		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out":                   "sysctl -a",
+		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
+	}
+
+	podName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	if err != nil {
+		require.NoError(s.T, err)
+	}
+
+	var logFiles = map[string]string{}
+	for file, sourceCmd := range commandList {
+		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
+
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd, false)
+		if err != nil {
+			s.T.Logf("error fetching logs for %s: %s", file, err)
+			continue
+		}
+		if execResult.stdout != nil {
+			out := execResult.stdout.String()
+			if out != "" {
+				logFiles[file+".stdout.txt"] = out
+			}
+
+		}
+		if execResult.stderr != nil {
+			out := execResult.stderr.String()
+			if out != "" {
+				logFiles[file+".stderr.txt"] = out
+			}
+		}
+	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
 }
@@ -144,9 +172,9 @@ $CollectedLogs=(Get-ChildItem . -Filter "*_logs.zip" -File)[0].Name
 .\azcopy.exe copy "C:\k\containerd.err.log" "$arg1/containerd.err.log"
 `
 
-// extractLogsFromWindowsVM runs a script on windows VM to collect logs and upload them to a blob storage
+// extractLogsFromVMWindows runs a script on windows VM to collect logs and upload them to a blob storage
 // it then lists the blobs in the container and prints the content of each blob
-func extractLogsFromWindowsVM(ctx context.Context, s *Scenario) {
+func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	if !s.T.Failed() {
 		s.T.Logf("skipping logs extraction from windows VM, as the test didn't fail")
 		return
@@ -397,7 +425,7 @@ func generateVMSSName(s *Scenario) string {
 	return generateVMSSNameLinux(s.T)
 }
 
-func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cluster) armcompute.VirtualMachineScaleSet {
+func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.VirtualMachineScaleSet {
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
@@ -411,15 +439,14 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
-					ComputerNamePrefix: to.Ptr(name),
+					ComputerNamePrefix: to.Ptr(s.Runtime.VMSSName),
 					AdminUsername:      to.Ptr("azureuser"),
-					AdminPassword:      to.Ptr("pwnedPassword123!"),
 					CustomData:         &customData,
 					LinuxConfiguration: &armcompute.LinuxConfiguration{
 						SSH: &armcompute.SSHConfiguration{
 							PublicKeys: []*armcompute.SSHPublicKey{
 								{
-									KeyData: to.Ptr(sshPublicKey),
+									KeyData: to.Ptr(string(s.Runtime.SSHKeyPublic)),
 									Path:    to.Ptr("/home/azureuser/.ssh/authorized_keys"),
 								},
 							},
@@ -436,13 +463,13 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
 					NetworkInterfaceConfigurations: []*armcompute.VirtualMachineScaleSetNetworkConfiguration{
 						{
-							Name: to.Ptr(name),
+							Name: to.Ptr(s.Runtime.VMSSName),
 							Properties: &armcompute.VirtualMachineScaleSetNetworkConfigurationProperties{
 								Primary:            to.Ptr(true),
 								EnableIPForwarding: to.Ptr(true),
 								IPConfigurations: []*armcompute.VirtualMachineScaleSetIPConfiguration{
 									{
-										Name: to.Ptr(fmt.Sprintf("%s0", name)),
+										Name: to.Ptr(fmt.Sprintf("%s0", s.Runtime.VMSSName)),
 										Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{
 											Primary: to.Ptr(true),
 											LoadBalancerBackendAddressPools: []*armcompute.SubResource{
@@ -451,13 +478,13 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
 															config.Config.SubscriptionID,
-															*cluster.Model.Properties.NodeResourceGroup,
+															*s.Runtime.Cluster.Model.Properties.NodeResourceGroup,
 														),
 													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(cluster.SubnetID),
+												ID: to.Ptr(s.Runtime.Cluster.SubnetID),
 											},
 										},
 									},
@@ -487,6 +514,19 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cl
 				},
 			},
 		}
+	}
+	if s.VHD.Windows() {
+		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+				config.Config.VMIdentityResourceID(): {},
+			},
+		}
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.OSType = to.Ptr(armcompute.OperatingSystemTypesWindows)
+		model.Properties.VirtualMachineProfile.OSProfile.LinuxConfiguration = nil
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = to.Ptr("Microsoft.Compute")
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")
+		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
 	}
 	return model
 }

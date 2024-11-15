@@ -16,15 +16,15 @@ const (
 
 var (
 	linuxGallery = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionID,
-		ResourceGroupName: Config.GalleryResourceGroup,
-		Name:              Config.GalleryName,
+		SubscriptionID:    Config.GallerySubscriptionIDLinux,
+		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
+		Name:              Config.GalleryNameLinux,
 	}
 
 	windowsGallery = &Gallery{
-		SubscriptionID:    "4be8920b-2978-43d7-ab14-04d8549c1d05",
-		ResourceGroupName: "AKS-Windows",
-		Name:              "AKSWindows",
+		SubscriptionID:    Config.GallerySubscriptionIDWindows,
+		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
+		Name:              Config.GalleryNameWindows,
 	}
 )
 

@@ -55,49 +55,6 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, s *Scenario) (map[string]string, error) {
-	privateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err)
-
-	commandList := map[string]string{
-		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                      "journalctl -u kubelet",
-		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out":                   "sysctl -a",
-		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
-	}
-
-	podName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
-	}
-
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
-
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd, false)
-		if err != nil {
-			s.T.Logf("error fetching logs for %s: %s", file, err)
-			return nil, err
-		}
-		if execResult.stdout != nil {
-			out := execResult.stdout.String()
-			if out != "" {
-				result[file+".stdout.txt"] = out
-			}
-
-		}
-		if execResult.stderr != nil {
-			out := execResult.stderr.String()
-			if out != "" {
-				result[file+".stderr.txt"] = out
-			}
-		}
-	}
-	return result, nil
-}
-
 type ClusterParams struct {
 	CACert         []byte
 	BootstrapToken string
