@@ -16,22 +16,22 @@ const (
 
 var (
 	linuxGallery = &Gallery{
-		SubscriptionID: Config.GallerySubscriptionID,
-		ResourceGroup:  Config.GalleryResourceGroup,
-		Name:           Config.GalleryName,
+		SubscriptionID:    Config.GallerySubscriptionID,
+		ResourceGroupName: Config.GalleryResourceGroup,
+		Name:              Config.GalleryName,
 	}
 
 	windowsGallery = &Gallery{
-		SubscriptionID: "4be8920b-2978-43d7-ab14-04d8549c1d05",
-		ResourceGroup:  "AKS-Windows",
-		Name:           "AKSWindows",
+		SubscriptionID:    "4be8920b-2978-43d7-ab14-04d8549c1d05",
+		ResourceGroupName: "AKS-Windows",
+		Name:              "AKSWindows",
 	}
 )
 
 type Gallery struct {
-	SubscriptionID string
-	ResourceGroup  string
-	Name           string
+	SubscriptionID    string
+	ResourceGroupName string
+	Name              string
 }
 
 var (

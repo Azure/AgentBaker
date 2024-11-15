@@ -290,7 +290,7 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 }
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
-	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroup, VMIdentityName, armmsi.Identity{
+	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
 		Location: to.Ptr(Config.Location),
 	}, nil)
 	if err != nil {
@@ -312,7 +312,7 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 }
 
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
-	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroup, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
+	poller, err := a.StorageAccounts.BeginCreate(ctx, ResourceGroupName, Config.BlobStorageAccount(), armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
 		Location: &Config.Location,
 		SKU: &armstorage.SKU{
@@ -334,7 +334,7 @@ func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {
 }
 
 func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
-	_, err := a.StorageContainers.Create(ctx, ResourceGroup, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
+	_, err := a.StorageContainers.Create(ctx, ResourceGroupName, Config.BlobStorageAccount(), Config.BlobContainer, armstorage.BlobContainer{}, nil)
 	if err != nil {
 		return fmt.Errorf("create blob container: %w", err)
 	}
@@ -342,7 +342,7 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 }
 
 func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroup, Config.BlobStorageAccount())
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
@@ -369,7 +369,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
-	pager := galleryImageVersion.NewListByGalleryImagePager(image.Gallery.ResourceGroup, image.Gallery.Name, image.Name, nil)
+	pager := galleryImageVersion.NewListByGalleryImagePager(image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -427,7 +427,7 @@ func (a *AzureClient) replicateToCurrentRegion(ctx context.Context, image *Image
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
 
-	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroup, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}
@@ -443,7 +443,7 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
-	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroup, image.Gallery.Name, image.Name, image.Version, nil)
+	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
