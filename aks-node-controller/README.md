@@ -13,7 +13,7 @@ AKS Node Controller relies on two Azure mechanisms to inject the necessary data 
 Here is an example on how to retrieve node bootstrapping params and pass in the returned `CSE` and `CustomData` to CRP API for creating a VMSS instance.
 
 ```go
-builder := aksnodeconfigv1.NewNBContractBuilder()
+builder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
 builder.ApplyConfiguration(aksNodeConfig)
 nodeBootstrapping, err = builder.GetNodeBootstrapping()
 

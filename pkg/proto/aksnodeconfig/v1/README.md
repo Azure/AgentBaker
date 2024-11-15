@@ -9,7 +9,7 @@ This table is describing the all the AKSNodeConfig Fields converted to .go files
 
 | AKSNodeConfig Fields | Types | Descriptions | OLD CSE env variables mapping |
 |------------|------------|--------------|-------------------------------|
-| `Version` | `string` | Semantic version of this node bootstrap contract | N/A, new |
+| `Version` | `string` | Semantic version of this AKSNodeConfig | N/A, new |
 | `KubeBinaryConfig` | `KubeBinaryConfig` | Kubernetes binary URL configuration | `KUBE_BINARY_URL`, `CUSTOM_KUBE_BINARY_URL`, `PRIVATE_KUBE_BINARY_URL` , `CREDENTIAL_PROVIDER_DOWNLOAD_URL` |
 | `CustomCloudConfig` | `CustomCloudConfig` | Custom cloud configuration | `IS_CUSTOM_CLOUD`, `AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX`, `REPO_DEPOT_ENDPOINT`, `CUSTOM_ENV_JSON` |
 | `ApiServerConfig` | `ApiServerConfig` | Kubernetes API server configuration | `APISERVER_PUBLIC_KEY`, `API_SERVER_NAME` |
