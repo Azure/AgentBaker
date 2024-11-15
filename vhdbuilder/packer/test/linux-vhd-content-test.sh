@@ -86,7 +86,7 @@ validateOrasOCIArtifact() {
   echo "Validating package $downloadURL from registry and downloaded package $downloadedPackage"
 
   # Fetch the manifest and extract the size using jq
-  fileSizeInRegistry=$(oras manifest fetch "$downloadURL" | jq '.layers[0].size')
+  fileSizeInRegistry=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$downloadURL" | jq '.layers[0].size')
   
   # Get the size of the downloaded package
   fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
@@ -115,7 +115,7 @@ testAcrCredentialProviderInstalled() {
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
     if [[ $? -ne 0 ]]; then
-      err $test "File size of ${downloadLocation} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+      err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
   done
@@ -206,7 +206,7 @@ testPackagesInstalled() {
       # -L since some urls are redirects (i.e github)
       validateDownloadPackage $downloadURL $downloadedPackage
       if [[ $? -ne 0 ]]; then
-        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
@@ -222,7 +222,7 @@ testPackagesInstalled() {
 
         fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
         if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
+          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
           continue
         fi
       fi
