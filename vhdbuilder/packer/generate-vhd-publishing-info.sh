@@ -117,6 +117,3 @@ else
 }
 EOF
 fi
-
-# Do not log sas token
-sed 's/?.*\",/?***\",/g' < vhd-publishing-info.json
