@@ -34,11 +34,11 @@ func TestBuildCSECmd(t *testing.T) {
 			name:       "AKSUbuntu2204 containerd with multi-instance GPU",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
 				// Skip GPU driver install
-				aKSNodeConfig.GpuConfig.EnableNvidia = to.BoolPtr(false)
-				aKSNodeConfig.VmSize = "Standard_ND96asr_v4"
+				aksNodeConfig.GpuConfig.EnableNvidia = to.BoolPtr(false)
+				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -76,8 +76,8 @@ oom_score = 0
 			name:       "AKSUbuntu2204 DisableSSH with enabled ssh",
 			folder:     "AKSUbuntu2204+SSHStatusOn",
 			k8sVersion: "1.24.2",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.EnableSsh = to.BoolPtr(true)
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.EnableSsh = to.BoolPtr(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -88,9 +88,9 @@ oom_score = 0
 			name:       "AKSUbuntu2204 in China",
 			folder:     "AKSUbuntu2204+China",
 			k8sVersion: "1.24.2",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.ClusterConfig.Location = "chinaeast2"
-				aKSNodeConfig.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.ClusterConfig.Location = "chinaeast2"
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -103,8 +103,8 @@ oom_score = 0
 			name:       "AKSUbuntu2204 with custom cloud",
 			folder:     "AKSUbuntu2204+CustomCloud",
 			k8sVersion: "1.24.2",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.CustomCloudConfig.CustomCloudEnvName = aksnodeconfigv1.AksCustomCloudName
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = aksnodeconfigv1.AksCustomCloudName
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -117,8 +117,8 @@ oom_score = 0
 			name:       "AKSUbuntu2204 with custom osConfig",
 			folder:     "AKSUbuntu2204+CustomOSConfig",
 			k8sVersion: "1.24.2",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOSConfig{
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOSConfig{
 					EnableSwapConfig:           true,
 					SwapFileSize:               int32(1500),
 					TransparentHugepageSupport: "never",
@@ -150,10 +150,10 @@ oom_score = 0
 			name:       "AzureLinux v2 with kata and DisableUnattendedUpgrades=false",
 			folder:     "AzureLinuxv2+Kata+DisableUnattendedUpgrades=false",
 			k8sVersion: "1.28.0",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.IsKata = true
-				aKSNodeConfig.EnableUnattendedUpgrade = true
-				aKSNodeConfig.NeedsCgroupv2 = to.BoolPtr(true)
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.IsKata = true
+				aksNodeConfig.EnableUnattendedUpgrade = true
+				aksNodeConfig.NeedsCgroupv2 = to.BoolPtr(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -166,8 +166,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with containerd and kubenet cni",
 			folder:     "AKSUbuntu1804+Containerd+Kubenet",
 			k8sVersion: "1.19.13",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.NetworkConfig.NetworkPlugin = aksnodeconfigv1.GetNetworkPluginType(aksnodeconfigv1.NetworkPluginKubenet)
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.NetworkConfig.NetworkPlugin = aksnodeconfigv1.GetNetworkPluginType(aksnodeconfigv1.NetworkPluginKubenet)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -179,8 +179,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with http proxy config",
 			folder:     "AKSUbuntu1804+HTTPProxy",
 			k8sVersion: "1.18.14",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.HttpProxyConfig = &aksnodeconfigv1.HTTPProxyConfig{
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.HttpProxyConfig = &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:  "http://myproxy.server.com:8080/",
 					HttpsProxy: "https://myproxy.server.com:8080/",
 					NoProxyEntries: []string{
@@ -200,8 +200,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with custom ca trust",
 			folder:     "AKSUbuntu1804+CustomCATrust",
 			k8sVersion: "1.18.14",
-			aKSNodeConfigUpdator: func(aKSNodeConfig *aksnodeconfigv1.Configuration) {
-				aKSNodeConfig.CustomCaCerts = []string{encodedTestCert, encodedTestCert, encodedTestCert}
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomCaCerts = []string{encodedTestCert, encodedTestCert, encodedTestCert}
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -289,7 +289,7 @@ oom_score = 0
 
 			aksnodeconfigv1.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
 			aKSNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
-			aKSNodeConfig := &aksnodeconfigv1.Configuration{
+			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
 				ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -331,11 +331,11 @@ oom_score = 0
 					KubeletNodeLabels:       aksnodeconfigv1.GetKubeletNodeLabels(agentPool),
 				},
 			}
-			aKSNodeConfigBuilder.ApplyConfiguration(aKSNodeConfig)
-			aKSNodeConfig = aKSNodeConfigBuilder.GetAKSNodeConfig()
+			aKSNodeConfigBuilder.ApplyConfiguration(aksNodeConfig)
+			aksNodeConfig = aKSNodeConfigBuilder.GetAKSNodeConfig()
 
 			if tt.aKSNodeConfigUpdator != nil {
-				tt.aKSNodeConfigUpdator(aKSNodeConfig)
+				tt.aKSNodeConfigUpdator(aksNodeConfig)
 			}
 
 			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfigBuilder.GetAKSNodeConfig())
@@ -489,15 +489,15 @@ func getBase64DecodedValue(data []byte) (string, error) {
 
 func getaKSNodeConfigInstance(jsonFilePath string) *aksnodeconfigv1.Configuration {
 	aKSNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
-	aKSNodeConfig := aksnodeconfigv1.Configuration{}
+	aksNodeConfig := aksnodeconfigv1.Configuration{}
 	content, err := os.ReadFile(jsonFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = json.Unmarshal(content, &aKSNodeConfig); err != nil {
+	if err = json.Unmarshal(content, &aksNodeConfig); err != nil {
 		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
-	aKSNodeConfigBuilder.ApplyConfiguration(&aKSNodeConfig)
+	aKSNodeConfigBuilder.ApplyConfiguration(&aksNodeConfig)
 	return aKSNodeConfigBuilder.GetAKSNodeConfig()
 }
 

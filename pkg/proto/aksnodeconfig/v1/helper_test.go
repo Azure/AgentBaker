@@ -44,7 +44,7 @@ func TestNewAKSNodeConfigBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewAKSNodeConfigBuilder().aKSNodeConfig; !reflect.DeepEqual(got, tt.want) {
+			if got := NewAKSNodeConfigBuilder().aksNodeConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewAKSNodeConfigConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
@@ -111,7 +111,7 @@ func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 				},
 			},
 			want: func() *Configuration {
-				tmpResult := NewAKSNodeConfigBuilder().aKSNodeConfig
+				tmpResult := NewAKSNodeConfigBuilder().aksNodeConfig
 				tmpResult.CustomCloudConfig.CustomCloudEnvName = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
 				return tmpResult
@@ -122,7 +122,7 @@ func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewAKSNodeConfigBuilder()
 			builder.ApplyConfiguration(tt.fields.AKSNodeConfigConfiguration)
-			if got := builder.aKSNodeConfig; !reflect.DeepEqual(got, tt.want) {
+			if got := builder.aksNodeConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ApplyConfiguration() = %v, want %v", got, tt.want)
 			}
 		})

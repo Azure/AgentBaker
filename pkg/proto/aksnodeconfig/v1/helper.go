@@ -14,8 +14,8 @@ import (
 // AKSNodeConfigBuilder is a helper struct to build the AKSNodeConfig.
 // It provides methods to apply configuration, get the AKSNodeConfig object, and validate the contract, etc.
 type AKSNodeConfigBuilder struct {
-	// aKSNodeConfig is the configuration object for the AKSNodeConfig.
-	aKSNodeConfig *Configuration
+	// aksNodeConfig is the configuration object for the AKSNodeConfig.
+	aksNodeConfig *Configuration
 }
 
 // Check and initialize each field if it is nil.
@@ -48,32 +48,32 @@ func ensureConfigsNonNil(nBC *Configuration) {
 	initializeIfNil(&nBC.CustomSearchDomainConfig)
 }
 
-// NewAKSNodeConfigBuilder creates a new instance of AKSNodeConfigBuilder and ensures all objects in aKSNodeConfig are non-nil.
+// NewAKSNodeConfigBuilder creates a new instance of AKSNodeConfigBuilder and ensures all objects in aksNodeConfig are non-nil.
 func NewAKSNodeConfigBuilder() *AKSNodeConfigBuilder {
 	config := Configuration{
 		Version: contractVersion,
 	}
 	ensureConfigsNonNil(&config)
-	aKSNodeConfig := &AKSNodeConfigBuilder{aKSNodeConfig: &config}
-	return aKSNodeConfig
+	aksNodeConfig := &AKSNodeConfigBuilder{aksNodeConfig: &config}
+	return aksNodeConfig
 }
 
-// ApplyConfiguration Applies the configuration to the aKSNodeConfig object.
-func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) ApplyConfiguration(config *Configuration) {
+// ApplyConfiguration Applies the configuration to the aksNodeConfig object.
+func (b *AKSNodeConfigBuilder) ApplyConfiguration(config *Configuration) {
 	if config == nil {
 		return
 	}
 
 	// Use deep copy to avoid modifying the original object 'config'.
-	if err := deepCopy(config, aKSNodeConfigBuilder.aKSNodeConfig); err != nil {
+	if err := deepCopy(config, b.aksNodeConfig); err != nil {
 		log.Printf("Failed to deep copy the configuration: %v", err)
-		ensureConfigsNonNil(aKSNodeConfigBuilder.aKSNodeConfig)
+		ensureConfigsNonNil(b.aksNodeConfig)
 	}
 }
 
-// GetAKSNodeConfig gets the aKSNodeConfig object.
-func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) GetAKSNodeConfig() *Configuration {
-	return aKSNodeConfigBuilder.aKSNodeConfig
+// GetAKSNodeConfig gets the aksNodeConfig object.
+func (b *AKSNodeConfigBuilder) GetAKSNodeConfig() *Configuration {
+	return b.aksNodeConfig
 }
 
 // Deep copy the source object to the destination object.
@@ -94,8 +94,8 @@ func deepCopy(src, dst interface{}) error {
 // ValidateAKSNodeConfig validates the AKSNodeConfig.
 // It returns an error if the contract is invalid.
 // This function should be called after applying all configuration and before sending to downstream component.
-func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) ValidateAKSNodeConfig() error {
-	if err := aKSNodeConfigBuilder.validateRequiredFields(); err != nil {
+func (b *AKSNodeConfigBuilder) ValidateAKSNodeConfig() error {
+	if err := b.validateRequiredFields(); err != nil {
 		return err
 	}
 	// Add more validations here if needed.
@@ -104,8 +104,8 @@ func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) ValidateAKSNodeConfig() error 
 }
 
 // GetNodeBootstrapping gets the NodeBootstrapping object.
-func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) GetNodeBootstrapping() (*datamodel.NodeBootstrapping, error) {
-	scriptlessCustomData, err := getScriptlessCustomDataContent(aKSNodeConfigBuilder.aKSNodeConfig)
+func (b *AKSNodeConfigBuilder) GetNodeBootstrapping() (*datamodel.NodeBootstrapping, error) {
+	scriptlessCustomData, err := getScriptlessCustomDataContent(b.aksNodeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +128,8 @@ func getScriptlessCustomDataContent(config any) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
-func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) validateRequiredFields() error {
-	if err := aKSNodeConfigBuilder.validateRequiredStringsNotEmpty(); err != nil {
+func (b *AKSNodeConfigBuilder) validateRequiredFields() error {
+	if err := b.validateRequiredStringsNotEmpty(); err != nil {
 		return err
 	}
 	// Add more required fields validations here if needed.
@@ -137,14 +137,14 @@ func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) validateRequiredFields() error
 	return nil
 }
 
-func (aKSNodeConfigBuilder *AKSNodeConfigBuilder) validateRequiredStringsNotEmpty() error {
+func (b *AKSNodeConfigBuilder) validateRequiredStringsNotEmpty() error {
 	requiredStrings := map[string]string{
-		"AuthConfig.SubscriptionId":                     aKSNodeConfigBuilder.aKSNodeConfig.GetAuthConfig().GetSubscriptionId(),
-		"ClusterConfig.ResourceGroup":                   aKSNodeConfigBuilder.aKSNodeConfig.GetClusterConfig().GetResourceGroup(),
-		"ClusterConfig.Location":                        aKSNodeConfigBuilder.aKSNodeConfig.GetClusterConfig().GetLocation(),
-		"ClusterConfig.ClusterNetworkConfig.VnetName":   aKSNodeConfigBuilder.aKSNodeConfig.GetClusterConfig().GetClusterNetworkConfig().GetVnetName(),
-		"ClusterConfig.ClusterNetworkConfig.RouteTable": aKSNodeConfigBuilder.aKSNodeConfig.GetClusterConfig().GetClusterNetworkConfig().GetRouteTable(),
-		"ApiServerConfig.ApiServerName":                 aKSNodeConfigBuilder.aKSNodeConfig.ApiServerConfig.GetApiServerName(),
+		"AuthConfig.SubscriptionId":                     b.aksNodeConfig.GetAuthConfig().GetSubscriptionId(),
+		"ClusterConfig.ResourceGroup":                   b.aksNodeConfig.GetClusterConfig().GetResourceGroup(),
+		"ClusterConfig.Location":                        b.aksNodeConfig.GetClusterConfig().GetLocation(),
+		"ClusterConfig.ClusterNetworkConfig.VnetName":   b.aksNodeConfig.GetClusterConfig().GetClusterNetworkConfig().GetVnetName(),
+		"ClusterConfig.ClusterNetworkConfig.RouteTable": b.aksNodeConfig.GetClusterConfig().GetClusterNetworkConfig().GetRouteTable(),
+		"ApiServerConfig.ApiServerName":                 b.aksNodeConfig.ApiServerConfig.GetApiServerName(),
 	}
 
 	for field, value := range requiredStrings {
