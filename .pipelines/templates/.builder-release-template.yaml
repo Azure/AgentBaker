@@ -160,6 +160,7 @@ steps:
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
       VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+      DRY_RUN: $(DRY_RUN)
 
   - task: PublishPipelineArtifact@0
     condition: always()
