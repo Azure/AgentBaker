@@ -904,8 +904,8 @@ tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           6.3G  1.2M  6.3G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            32G     0   32G   0% /sys/fs/cgroup
-/dev/sdb15      105M  6.1M   99M   6% /boot/efi
-/dev/sda1       590G   32K  560G   1% /mnt
+/dev/sda15      105M  6.1M   99M   6% /boot/efi
+/dev/sdb1       590G   32K  560G   1% /mnt
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 NAME="Ubuntu"

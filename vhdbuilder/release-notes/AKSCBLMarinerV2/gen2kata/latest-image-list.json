@@ -785,14 +785,14 @@
       ]
     },
     {
-      "id": "sha256:45f6106f35a03a05b0bed5faf648479e71a3fcec922654fdc1d33025edcdc88d",
-      "bytes": 25710791,
-      "size": "24.5 MiB",
+      "id": "sha256:cb244a5e6b006c0413ebe8add95d06636f7974b1114ff16b8d78d7f1de706d08",
+      "bytes": 21021112,
+      "size": "20.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.7.1"
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11"
       ],
       "repoDigests": [
-        "sha256:3252b6a039d26e078dbba32bfffaf9c365c735af547ae56125cc3bb5a6a32807"
+        "sha256:17888b0ebaec6735214b85d20bdcc8062f051bc27e835454e9ef89734d34aa4b"
       ]
     },
     {

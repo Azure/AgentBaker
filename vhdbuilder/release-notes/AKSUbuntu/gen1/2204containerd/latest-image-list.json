@@ -498,14 +498,14 @@
       ]
     },
     {
-      "id": "sha256:cd294fbcd88f7de105bffc6a1602317a5634420777c3c765bd49ea29e7ce7988",
-      "bytes": 63666240,
-      "size": "60.7 MiB",
+      "id": "sha256:c86106db53841ca61618704ec3761f2e70202df74e7bd01db95c03843f3bf775",
+      "bytes": 99426403,
+      "size": "94.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5"
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6"
       ],
       "repoDigests": [
-        "sha256:232246480a1eed41ba7f0d65d038412af7da9c6dc3fe6ebc613593c4df96c939"
+        "sha256:0a8027ba74b355f09ba62d9cfe61258d31695be35dd165a9779e0046f63d1fa2"
       ]
     },
     {

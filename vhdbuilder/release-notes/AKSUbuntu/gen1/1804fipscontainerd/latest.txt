@@ -828,7 +828,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev             32G     0   32G   0% /dev
 tmpfs           6.3G  796K  6.3G   1% /run
-/dev/sda1        29G   26G  3.3G  89% /
+/dev/sda1        29G   25G  3.9G  87% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            32G     0   32G   0% /sys/fs/cgroup

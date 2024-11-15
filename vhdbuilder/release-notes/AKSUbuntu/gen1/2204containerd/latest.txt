@@ -877,7 +877,7 @@ zstd/jammy,now 1.4.8+dfsg-3build1 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   26G  3.0G  90% /
+/dev/root        29G   26G  3.3G  89% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  892K   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock

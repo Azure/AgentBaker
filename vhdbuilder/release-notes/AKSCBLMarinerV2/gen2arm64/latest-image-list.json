@@ -168,14 +168,14 @@
       ]
     },
     {
-      "id": "sha256:3950a4feea1db558e35193f1b380b73c050d57c3e18a0cd65a407ccded3ad3e5",
-      "bytes": 197467292,
-      "size": "188.3 MiB",
+      "id": "sha256:8d5a30ca47daa587aba040849029baa6c96fbabe32f5f199fb3f20e89ba5fceb",
+      "bytes": 84482908,
+      "size": "80.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/cilium/cilium:1.14.10-1"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.100-akslts"
       ],
       "repoDigests": [
-        "sha256:54cf5b778baf88059fd468468eb0235af4feec9beb68627d0c8282c53745ec76"
+        "sha256:d95147676d7630df8460f64d3fff6127ab9e191772631011262572291975a27a"
       ]
     },
     {

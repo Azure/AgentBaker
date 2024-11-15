@@ -1,0 +1,41 @@
+pool:
+  name: nodesig-test-pool-westus2 # TODO: change
+
+parameters:
+- name: TARGET_BRANCH
+  displayName: Target Branch
+  type: string
+  default: master
+
+stages:
+  - stage: cut_daily_branch
+    dependsOn: []
+    condition: eq('${{ parameters.ImageBump }}', true)
+    jobs:
+    - job: cut_daily_branch
+      displayName: Cut Daily Branch
+      timeoutInMinutes: 60
+      steps:
+      - template: ./templates/.configure-azdevops-template.yaml
+        parameters:
+          ADO_PAT: $(PAT-aksdevassistant)
+      - bash: |
+          set -euo pipefail
+
+          set +x
+          export ADO_PAT=$ADO_PAT
+          export GITHUB_PAT=$GITHUB_PAT
+          set -x
+          
+          pushd vhdbuilder/automation
+            make build
+            mv bin/automation-amd64 automation
+            chmod +x automation
+
+            ./automation cut-daily --target-branch $TARGET_BRANCH
+          popd
+        env:
+          ADO_PAT: $(PAT-aksdevassistant)
+          GITHUB_PAT: $(GITHUB_PAT)
+          TARGET_BRANCH: ${{ parameters.TARGET_BRANCH }}
+        displayName: Cut Daily Branch

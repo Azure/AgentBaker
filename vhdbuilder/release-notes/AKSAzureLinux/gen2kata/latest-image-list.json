@@ -520,14 +520,14 @@
       ]
     },
     {
-      "id": "sha256:cb244a5e6b006c0413ebe8add95d06636f7974b1114ff16b8d78d7f1de706d08",
-      "bytes": 21021112,
-      "size": "20.0 MiB",
+      "id": "sha256:5a35adb36da915f659ebc2bed9dc0a3e79fcf1750a61adfe40efde03e4a73f11",
+      "bytes": 10932551,
+      "size": "10.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11"
+        "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.20"
       ],
       "repoDigests": [
-        "sha256:17888b0ebaec6735214b85d20bdcc8062f051bc27e835454e9ef89734d34aa4b"
+        "sha256:5f6148e852e1cce336ca7776c6b93bbf3bd12a4169f8a5d32afc9a118c0bd9d8"
       ]
     },
     {

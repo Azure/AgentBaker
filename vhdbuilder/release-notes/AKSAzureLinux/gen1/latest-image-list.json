@@ -69,14 +69,14 @@
       ]
     },
     {
-      "id": "sha256:405ec2725358017740cd40a34b0f6d98fc9d1b04a524cbf98ec834bf42f2c85f",
-      "bytes": 83928135,
-      "size": "80.0 MiB",
+      "id": "sha256:bb66f4dbb1fb95ea519e4cf45150e7860130c7d3c6c77b6e4d1c4f51da2a2c85",
+      "bytes": 40801154,
+      "size": "38.9 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.10.0-main-09-16-2024-85a71678-targetallocator"
       ],
       "repoDigests": [
-        "sha256:b93f37c77f4df0c2ba8f8d208d4e482d27308627a81fe6fc152f7cdeb2750fdd"
+        "sha256:98f3f2eb8ebfdcabcb9fe22bda0d1198edac4ef620d2fe98682aeaee55305f0a"
       ]
     },
     {
@@ -1005,14 +1005,14 @@
       ]
     },
     {
-      "id": "sha256:f6f4bac2c31fd7a4824211574cab8045b12f49fab93633529a73226f4b478338",
-      "bytes": 82295317,
-      "size": "78.5 MiB",
+      "id": "sha256:0deae3175d2254600b284e926dfd7a08b5341db240f73b8bd829ac29dbaedff1",
+      "bytes": 17145652,
+      "size": "16.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38"
+        "mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.14"
       ],
       "repoDigests": [
-        "sha256:71ec4ef3ff95487b3f956034d464f1b5ece556022af6b5b351b0f7d2cad95316"
+        "sha256:fda7f69a4914fe76479737c169f2aa6d7ec93546f8535838c7b9c6623a648aff"
       ]
     },
     {
