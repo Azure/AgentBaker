@@ -332,13 +332,13 @@ oom_score = 0
 				},
 			}
 			aKSNodeConfigBuilder.ApplyConfiguration(aKSNodeConfig)
-			aKSNodeConfig = aKSNodeConfigBuilder.GetNodeBootstrapConfig()
+			aKSNodeConfig = aKSNodeConfigBuilder.GetAKSNodeConfig()
 
 			if tt.aKSNodeConfigUpdator != nil {
 				tt.aKSNodeConfigUpdator(aKSNodeConfig)
 			}
 
-			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfigBuilder.GetNodeBootstrapConfig())
+			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfigBuilder.GetAKSNodeConfig())
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -404,10 +404,10 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aKSNodeConfig := aksnodeconfigv1.NewAKSNodeConfigBuilder()
-			aKSNodeConfig.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
+			aKSNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+			aKSNodeConfigBuilder.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
 
-			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfig.GetNodeBootstrapConfig())
+			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfigBuilder.GetAKSNodeConfig())
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -498,7 +498,7 @@ func getaKSNodeConfigInstance(jsonFilePath string) *aksnodeconfigv1.Configuratio
 		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
 	aKSNodeConfigBuilder.ApplyConfiguration(&aKSNodeConfig)
-	return aKSNodeConfigBuilder.GetNodeBootstrapConfig()
+	return aKSNodeConfigBuilder.GetAKSNodeConfig()
 }
 
 func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {

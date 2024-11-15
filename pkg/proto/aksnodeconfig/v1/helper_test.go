@@ -44,7 +44,7 @@ func TestNewAKSNodeConfigBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewAKSNodeConfigBuilder().nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
+			if got := NewAKSNodeConfigBuilder().aKSNodeConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewAKSNodeConfigConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
@@ -111,7 +111,7 @@ func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 				},
 			},
 			want: func() *Configuration {
-				tmpResult := NewAKSNodeConfigBuilder().nodeBootstrapConfig
+				tmpResult := NewAKSNodeConfigBuilder().aKSNodeConfig
 				tmpResult.CustomCloudConfig.CustomCloudEnvName = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
 				return tmpResult
@@ -122,14 +122,14 @@ func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewAKSNodeConfigBuilder()
 			builder.ApplyConfiguration(tt.fields.AKSNodeConfigConfiguration)
-			if got := builder.nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
+			if got := builder.aKSNodeConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ApplyConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestAKSNodeConfigBuilder_deepCopy(t *testing.T) {
+func TestDeepCopy(t *testing.T) {
 	type Teststruct struct {
 		A string
 		B *int
@@ -209,10 +209,7 @@ func TestAKSNodeConfigBuilder_deepCopy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aKSNodeConfigBuilder := &AKSNodeConfigBuilder{
-				nodeBootstrapConfig: &Configuration{},
-			}
-			if err := aKSNodeConfigBuilder.deepCopy(tt.args.src, tt.args.dst); err != nil {
+			if err := deepCopy(tt.args.src, tt.args.dst); err != nil {
 				log.Printf("Failed to deep copy the configuration: %v", err)
 			}
 			log.Printf("dst = %v, src %v", tt.args.dst, tt.args.src)
