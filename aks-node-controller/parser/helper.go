@@ -143,7 +143,7 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromNodeBootstrapContract(aksnodeconfig)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -151,14 +151,14 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromNodeBootstrapContract(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
 	if aksnodeconfig == nil {
-		return "", fmt.Errorf("node bootstrap contract is nil")
+		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
 	var buffer bytes.Buffer
 	if err := containerdConfigTemplate.Execute(&buffer, aksnodeconfig); err != nil {
-		return "", fmt.Errorf("error executing containerd config template for NBContract: %w", err)
+		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
 	return buffer.String(), nil

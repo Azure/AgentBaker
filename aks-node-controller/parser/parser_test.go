@@ -24,21 +24,21 @@ const encodedTestCert = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUgvVENDQmVXZ0F
 
 func TestBuildCSECmd(t *testing.T) {
 	tests := []struct {
-		name       string
-		folder     string
-		k8sVersion string
-		nbcUpdator func(*aksnodeconfigv1.Configuration)
-		validator  func(cmd *exec.Cmd)
+		name                 string
+		folder               string
+		k8sVersion           string
+		aKSNodeConfigUpdator func(*aksnodeconfigv1.Configuration)
+		validator            func(cmd *exec.Cmd)
 	}{
 		{
 			name:       "AKSUbuntu2204 containerd with multi-instance GPU",
 			folder:     "AKSUbuntu2204+Containerd+MIG",
 			k8sVersion: "1.19.13",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.GpuConfig.GpuInstanceProfile = "MIG7g"
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
 				// Skip GPU driver install
-				nbc.GpuConfig.EnableNvidia = to.BoolPtr(false)
-				nbc.VmSize = "Standard_ND96asr_v4"
+				aksNodeConfig.GpuConfig.EnableNvidia = to.BoolPtr(false)
+				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -76,8 +76,8 @@ oom_score = 0
 			name:       "AKSUbuntu2204 DisableSSH with enabled ssh",
 			folder:     "AKSUbuntu2204+SSHStatusOn",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.EnableSsh = to.BoolPtr(true)
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.EnableSsh = to.BoolPtr(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -88,9 +88,9 @@ oom_score = 0
 			name:       "AKSUbuntu2204 in China",
 			folder:     "AKSUbuntu2204+China",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.ClusterConfig.Location = "chinaeast2"
-				nbc.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.ClusterConfig.Location = "chinaeast2"
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = "AzureChinaCloud"
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -103,8 +103,8 @@ oom_score = 0
 			name:       "AKSUbuntu2204 with custom cloud",
 			folder:     "AKSUbuntu2204+CustomCloud",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.CustomCloudConfig.CustomCloudEnvName = aksnodeconfigv1.AksCustomCloudName
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = aksnodeconfigv1.AksCustomCloudName
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -117,8 +117,8 @@ oom_score = 0
 			name:       "AKSUbuntu2204 with custom osConfig",
 			folder:     "AKSUbuntu2204+CustomOSConfig",
 			k8sVersion: "1.24.2",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOSConfig{
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOSConfig{
 					EnableSwapConfig:           true,
 					SwapFileSize:               int32(1500),
 					TransparentHugepageSupport: "never",
@@ -150,10 +150,10 @@ oom_score = 0
 			name:       "AzureLinux v2 with kata and DisableUnattendedUpgrades=false",
 			folder:     "AzureLinuxv2+Kata+DisableUnattendedUpgrades=false",
 			k8sVersion: "1.28.0",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.IsKata = true
-				nbc.EnableUnattendedUpgrade = true
-				nbc.NeedsCgroupv2 = to.BoolPtr(true)
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.IsKata = true
+				aksNodeConfig.EnableUnattendedUpgrade = true
+				aksNodeConfig.NeedsCgroupv2 = to.BoolPtr(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -166,8 +166,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with containerd and kubenet cni",
 			folder:     "AKSUbuntu1804+Containerd+Kubenet",
 			k8sVersion: "1.19.13",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.NetworkConfig.NetworkPlugin = aksnodeconfigv1.GetNetworkPluginType(aksnodeconfigv1.NetworkPluginKubenet)
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.NetworkConfig.NetworkPlugin = aksnodeconfigv1.GetNetworkPluginType(aksnodeconfigv1.NetworkPluginKubenet)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -179,8 +179,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with http proxy config",
 			folder:     "AKSUbuntu1804+HTTPProxy",
 			k8sVersion: "1.18.14",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.HttpProxyConfig = &aksnodeconfigv1.HTTPProxyConfig{
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.HttpProxyConfig = &aksnodeconfigv1.HTTPProxyConfig{
 					HttpProxy:  "http://myproxy.server.com:8080/",
 					HttpsProxy: "https://myproxy.server.com:8080/",
 					NoProxyEntries: []string{
@@ -200,8 +200,8 @@ oom_score = 0
 			name:       "AKSUbuntu1804 with custom ca trust",
 			folder:     "AKSUbuntu1804+CustomCATrust",
 			k8sVersion: "1.18.14",
-			nbcUpdator: func(nbc *aksnodeconfigv1.Configuration) {
-				nbc.CustomCaCerts = []string{encodedTestCert, encodedTestCert, encodedTestCert}
+			aKSNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
+				aksNodeConfig.CustomCaCerts = []string{encodedTestCert, encodedTestCert, encodedTestCert}
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -288,8 +288,8 @@ oom_score = 0
 			}
 
 			aksnodeconfigv1.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
-			nBCB := aksnodeconfigv1.NewNBContractBuilder()
-			nbc := &aksnodeconfigv1.Configuration{
+			aKSNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
 				ClusterConfig: &aksnodeconfigv1.ClusterConfig{
@@ -331,14 +331,14 @@ oom_score = 0
 					KubeletNodeLabels:       aksnodeconfigv1.GetKubeletNodeLabels(agentPool),
 				},
 			}
-			nBCB.ApplyConfiguration(nbc)
-			nbc = nBCB.GetNodeBootstrapConfig()
+			aKSNodeConfigBuilder.ApplyConfiguration(aksNodeConfig)
+			aksNodeConfig = aKSNodeConfigBuilder.GetAKSNodeConfig()
 
-			if tt.nbcUpdator != nil {
-				tt.nbcUpdator(nbc)
+			if tt.aKSNodeConfigUpdator != nil {
+				tt.aKSNodeConfigUpdator(aksNodeConfig)
 			}
 
-			cseCMD, err := parser.BuildCSECmd(context.TODO(), nBCB.GetNodeBootstrapConfig())
+			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfigBuilder.GetAKSNodeConfig())
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -350,7 +350,7 @@ oom_score = 0
 	}
 }
 
-func TestNBContractCompatibilityFromJsonToCSECommand(t *testing.T) {
+func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 	tests := []struct {
 		name      string
 		folder    string
@@ -404,10 +404,10 @@ func TestNBContractCompatibilityFromJsonToCSECommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nBCB := aksnodeconfigv1.NewNBContractBuilder()
-			nBCB.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
+			aKSNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+			aKSNodeConfigBuilder.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
 
-			cseCMD, err := parser.BuildCSECmd(context.TODO(), nBCB.GetNodeBootstrapConfig())
+			cseCMD, err := parser.BuildCSECmd(context.TODO(), aKSNodeConfigBuilder.GetAKSNodeConfig())
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -432,47 +432,47 @@ func environToMap(env []string) map[string]string {
 
 func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 	tests := []struct {
-		name          string
-		nbcUTFilePath string
-		validator     func(*aksnodeconfigv1.Configuration, *aksnodeconfigv1.Configuration)
+		name                    string
+		aKSNodeConfigUTFilePath string
+		validator               func(*aksnodeconfigv1.Configuration, *aksnodeconfigv1.Configuration)
 	}{
 		{
-			name:          "with unexpected new fields in json should be ignored",
-			nbcUTFilePath: "./testdata/test_nbc_fields_unexpected.json",
-			validator: func(nbcExpected *aksnodeconfigv1.Configuration, nbcUT *aksnodeconfigv1.Configuration) {
+			name:                    "with unexpected new fields in json should be ignored",
+			aKSNodeConfigUTFilePath: "./testdata/test_aksnodeconfig_fields_unexpected.json",
+			validator: func(aKSNodeConfigExpected *aksnodeconfigv1.Configuration, aKSNodeConfigUT *aksnodeconfigv1.Configuration) {
 				// The unexpected fields will natively be ignored when unmarshalling the json to the contract object.
 				// We use this test to ensure it.
-				assert.Equal(t, nbcExpected, nbcUT)
+				assert.Equal(t, aKSNodeConfigExpected, aKSNodeConfigUT)
 			},
 		},
 		{
-			name:          "with missing fields in json should be set with default values",
-			nbcUTFilePath: "./testdata/test_nbc_fields_missing.json",
-			validator: func(_ *aksnodeconfigv1.Configuration, nbcUT *aksnodeconfigv1.Configuration) {
+			name:                    "with missing fields in json should be set with default values",
+			aKSNodeConfigUTFilePath: "./testdata/test_aksnodeconfig_fields_missing.json",
+			validator: func(_ *aksnodeconfigv1.Configuration, aKSNodeConfigUT *aksnodeconfigv1.Configuration) {
 				// if a string field is unset, it will be set to empty string by protobuf by default
-				assert.Equal(t, "", nbcUT.GetLinuxAdminUsername())
+				assert.Equal(t, "", aKSNodeConfigUT.GetLinuxAdminUsername())
 
 				// if an optional (explicit presence) bool field is unset, it will be set to nil by protobuf by default.
 				// Here we don't use the getter because getter is nil safe and will default to false.
-				assert.Nil(t, nbcUT.IsVhd)
+				assert.Nil(t, aKSNodeConfigUT.IsVhd)
 
 				// if an optional (explicit presence) field is unset, it will be set to nil by protobuf by default.
 				// Here we don't use the getter because getter is nil safe and will default to false.
-				assert.Nil(t, nbcUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
+				assert.Nil(t, aKSNodeConfigUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
 
 				// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
-				assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_UNSPECIFIED, nbcUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
+				assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_UNSPECIFIED, aKSNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nbcExpected := getNBCInstance("./testdata/test_nbc.json")
-			nbcUT := getNBCInstance(tt.nbcUTFilePath)
+			aKSNodeConfigExpected := getaKSNodeConfigInstance("./testdata/test_aksnodeconfig.json")
+			aKSNodeConfigUT := getaKSNodeConfigInstance(tt.aKSNodeConfigUTFilePath)
 
 			if tt.validator != nil {
-				tt.validator(nbcExpected, nbcUT)
+				tt.validator(aKSNodeConfigExpected, aKSNodeConfigUT)
 			}
 		})
 	}
@@ -487,18 +487,18 @@ func getBase64DecodedValue(data []byte) (string, error) {
 	return string(decoded), nil
 }
 
-func getNBCInstance(jsonFilePath string) *aksnodeconfigv1.Configuration {
-	nBCB := aksnodeconfigv1.NewNBContractBuilder()
-	nbc := aksnodeconfigv1.Configuration{}
+func getaKSNodeConfigInstance(jsonFilePath string) *aksnodeconfigv1.Configuration {
+	aKSNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+	aksNodeConfig := aksnodeconfigv1.Configuration{}
 	content, err := os.ReadFile(jsonFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = json.Unmarshal(content, &nbc); err != nil {
+	if err = json.Unmarshal(content, &aksNodeConfig); err != nil {
 		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
-	nBCB.ApplyConfiguration(&nbc)
-	return nBCB.GetNodeBootstrapConfig()
+	aKSNodeConfigBuilder.ApplyConfiguration(&aksNodeConfig)
+	return aKSNodeConfigBuilder.GetAKSNodeConfig()
 }
 
 func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {

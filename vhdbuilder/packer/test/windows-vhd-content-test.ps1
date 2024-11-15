@@ -339,6 +339,7 @@ function Test-RegistryAdded {
 
         Validate-WindowsFixInFeatureManagement -Name 1605443213
     }
+
     if ($env:WindowsSKU -Like '2022*') {
         Validate-WindowsFixInFeatureManagement -Name 2629306509
         Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
@@ -398,11 +399,22 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 260097166
 
         Validate-WindowsFixInFeatureManagement -Name 4288867982
+
+        # 2024-11B
+        Validate-WindowsFixInFeatureManagement -Name 1825620622
+        Validate-WindowsFixInFeatureManagement -Name 684111502
+        Validate-WindowsFixInFeatureManagement -Name 1455863438
     }
+
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0
 
         Validate-WindowsFixInFeatureManagement -Name 1800977551
+
+        # 2024-11B
+        Validate-WindowsFixInFeatureManagement -Name 3197800078
+        Validate-WindowsFixInFeatureManagement -Name 340036751
+        Validate-WindowsFixInFeatureManagement -Name 2020509326
     }
 }
 
