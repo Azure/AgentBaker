@@ -377,6 +377,7 @@ func generateVMSSNameLinux(t *testing.T) string {
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
+	name = strings.ToLower(name)
 	if len(name) > 57 { // a limit for VMSS name
 		name = name[:57]
 	}
