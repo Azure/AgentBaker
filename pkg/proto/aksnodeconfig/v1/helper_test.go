@@ -8,7 +8,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
-func TestNewNBContractBuilder(t *testing.T) {
+func TestNewAKSNodeConfigBuilder(t *testing.T) {
 	wantedResult := Configuration{
 		Version:          contractVersion,
 		KubeBinaryConfig: &KubeBinaryConfig{},
@@ -44,16 +44,16 @@ func TestNewNBContractBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewNBContractBuilder().nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewNBContractConfiguration() = %v, want %v", got, tt.want)
+			if got := NewAKSNodeConfigBuilder().nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewAKSNodeConfigConfiguration() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
+func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 	type fields struct {
-		nBContractConfiguration *Configuration
+		AKSNodeConfigConfiguration *Configuration
 	}
 	wantedResult := &Configuration{
 		Version:          contractVersion,
@@ -87,14 +87,14 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 		{
 			name: "Test with nil configuration",
 			fields: fields{
-				nBContractConfiguration: &Configuration{},
+				AKSNodeConfigConfiguration: &Configuration{},
 			},
 			want: wantedResult,
 		},
 		{
-			name: "Apply nil AuthConfig configuration and expect AuthConfig in nBContractConfiguration to be non-nil",
+			name: "Apply nil AuthConfig configuration and expect AuthConfig in AKSNodeConfigConfiguration to be non-nil",
 			fields: fields{
-				nBContractConfiguration: &Configuration{
+				AKSNodeConfigConfiguration: &Configuration{
 					AuthConfig: nil,
 				},
 			},
@@ -103,7 +103,7 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 		{
 			name: "Apply some configurations and expect them to be applied",
 			fields: fields{
-				nBContractConfiguration: &Configuration{
+				AKSNodeConfigConfiguration: &Configuration{
 					CustomCloudConfig: &CustomCloudConfig{
 						CustomCloudEnvName: "some-cloud",
 					},
@@ -111,7 +111,7 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 				},
 			},
 			want: func() *Configuration {
-				tmpResult := NewNBContractBuilder().nodeBootstrapConfig
+				tmpResult := NewAKSNodeConfigBuilder().nodeBootstrapConfig
 				tmpResult.CustomCloudConfig.CustomCloudEnvName = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
 				return tmpResult
@@ -120,8 +120,8 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewNBContractBuilder()
-			builder.ApplyConfiguration(tt.fields.nBContractConfiguration)
+			builder := NewAKSNodeConfigBuilder()
+			builder.ApplyConfiguration(tt.fields.AKSNodeConfigConfiguration)
 			if got := builder.nodeBootstrapConfig; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ApplyConfiguration() = %v, want %v", got, tt.want)
 			}
@@ -129,7 +129,7 @@ func TestNBContractBuilder_ApplyConfiguration(t *testing.T) {
 	}
 }
 
-func TestNBContractBuilder_deepCopy(t *testing.T) {
+func TestAKSNodeConfigBuilder_deepCopy(t *testing.T) {
 	type Teststruct struct {
 		A string
 		B *int
@@ -209,10 +209,10 @@ func TestNBContractBuilder_deepCopy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nBCB := &NBContractBuilder{
+			aKSNodeConfigBuilder := &AKSNodeConfigBuilder{
 				nodeBootstrapConfig: &Configuration{},
 			}
-			if err := nBCB.deepCopy(tt.args.src, tt.args.dst); err != nil {
+			if err := aKSNodeConfigBuilder.deepCopy(tt.args.src, tt.args.dst); err != nil {
 				log.Printf("Failed to deep copy the configuration: %v", err)
 			}
 			log.Printf("dst = %v, src %v", tt.args.dst, tt.args.src)
@@ -230,7 +230,7 @@ func TestNBContractBuilder_deepCopy(t *testing.T) {
 	}
 }
 
-func TestNBContractBuilder_validateRequiredFields(t *testing.T) {
+func TestAKSNodeConfigBuilder_validateRequiredFields(t *testing.T) {
 	type fields struct {
 		nodeBootstrapConfig *Configuration
 	}
@@ -288,11 +288,11 @@ func TestNBContractBuilder_validateRequiredFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			nBCB := NewNBContractBuilder()
-			nBCB.ApplyConfiguration(tt.fields.nodeBootstrapConfig)
-			err := nBCB.validateRequiredFields()
+			aKSNodeConfigBuilder := NewAKSNodeConfigBuilder()
+			aKSNodeConfigBuilder.ApplyConfiguration(tt.fields.nodeBootstrapConfig)
+			err := aKSNodeConfigBuilder.validateRequiredFields()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NBContractBuilder.validateRequiredFields() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("aKSNodeConfigBuilder.validateRequiredFields() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

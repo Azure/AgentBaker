@@ -158,7 +158,7 @@ func containerdConfigFromNodeBootstrapContract(aksnodeconfig *aksnodeconfigv1.Co
 
 	var buffer bytes.Buffer
 	if err := containerdConfigTemplate.Execute(&buffer, aksnodeconfig); err != nil {
-		return "", fmt.Errorf("error executing containerd config template for NBContract: %w", err)
+		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
 	return buffer.String(), nil

@@ -61,7 +61,7 @@ func TestApp_Run(t *testing.T) {
 		},
 		{
 			name: "provision command with valid flag",
-			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_nbc.json"},
+			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return nil
@@ -71,7 +71,7 @@ func TestApp_Run(t *testing.T) {
 		},
 		{
 			name: "provision command with command runner error",
-			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_nbc.json"},
+			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return &ExitError{Code: 666}
@@ -107,7 +107,7 @@ func TestApp_Provision(t *testing.T) {
 	}{
 		{
 			name:    "valid provision config",
-			flags:   ProvisionFlags{ProvisionConfig: "parser/testdata/test_nbc.json"},
+			flags:   ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"},
 			wantErr: false,
 		},
 		{
@@ -117,7 +117,7 @@ func TestApp_Provision(t *testing.T) {
 		},
 		{
 			name:  "command runner error",
-			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_nbc.json"},
+			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return errors.New("command runner error")
