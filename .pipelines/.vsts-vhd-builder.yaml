@@ -25,8 +25,6 @@ pool:
 
 variables:
   - group: aks-vuln-to-kusto
-  - name: DRY_RUN
-    value: False
 
 stages:
   - stage: build

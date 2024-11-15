@@ -180,8 +180,6 @@ parameters:
 
 variables:
   - group: aks-vuln-to-kusto
-  - name: DRY_RUN
-    value: False
 
 stages:
   - stage: build
@@ -1266,7 +1264,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
   - stage: e2e
-    condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq(variables.DRY_RUN, 'False'))
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)

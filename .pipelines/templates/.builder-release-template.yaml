@@ -220,7 +220,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -231,21 +231,21 @@ steps:
 
   - bash: make -f packer.mk generate-publishing-info
     displayName: Generate Publishing Info
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
 
   - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Publish Publishing Info
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
 
   - task: CopyFiles@2
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Copy Publishing Info
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
