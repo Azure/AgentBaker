@@ -133,11 +133,8 @@ message IMDSRestrictionConfig {
   IMDSRestrictionConfig imds_restriction_config = 39;
 ```
 
-3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `nbcparser/pkg/parser/templates/cse_cmd.sh.gtpl`, which is a Go template file that will be converted to a .sh script file in the end, you can add the following lines,
-```
-ENABLE_IMDS_RESTRICTION={{.GetEnableImdsRestriction}}
-INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE={{.GetInsertImdsRestrictionRuleToMangleTable}}
-```
-This is to tell Go when it executes/resolves this template file, call those functions to get the actual values. In this case, it's a bool. If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
+3. Once you finished step 2, `proto3` actually created some getters that we can use. For example, in the `imdsrestrictionconfig.pb.go` that was automatically created, you can find `GetEnableImdsRestriction` and `GetInsertImdsRestrictionRuleToMangleTable`. Therefore, in `aks-node-controller/parser/parser.go`, which is a Go file that will be used to generate the bootstrap command, you can add the following lines: [parser.go](https://github.com/Azure/AgentBaker/blob/dev/aks-node-controller/parser/parser.go#L165-L166)
+
+If the client (such as AKS-RP) which provides this AKSNodeConfig, doesn't specify a value to `EnableImdsRestriction`, it will be defaulted to `false`. You can also see this logic in the `GetEnableImdsRestriction` in `imdsrestrictionconfig.pb.go`. 
 
 This should fit most of the use cases. However, for some reasons if you want to explicitly know if the client really sets `false` (because you can't tell this variable is really set to `false` or client doesn't set it and it was set by defaulting), then you will need to set it with a label `optional` explicity presence. Now you will need to read through an earlier section _When to use the label `optional` specifically in `proto3`?_

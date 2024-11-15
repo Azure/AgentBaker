@@ -2,9 +2,13 @@ package aksnodeconfigv1
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
+
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
 // NBContractBuilder is a helper struct to build the NBContract (Node Bootstrap Contract).
@@ -97,6 +101,30 @@ func (nBCB *NBContractBuilder) ValidateNBContract() error {
 	// Add more validations here if needed.
 
 	return nil
+}
+
+func (nBCB *NBContractBuilder) GetNodeBootstrapping() (*datamodel.NodeBootstrapping, error) {
+	scriptlessCustomData, err := getScriptlessCustomDataContent(nBCB.nodeBootstrapConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeBootstrapping := &datamodel.NodeBootstrapping{
+		CSE:        scriptlessBootstrapStatusCSE,
+		CustomData: scriptlessCustomData,
+	}
+
+	return nodeBootstrapping, nil
+}
+
+func getScriptlessCustomDataContent(config any) (string, error) {
+	nbcJSON, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
+	}
+	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
+	customDataYAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
+	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 func (nBCB *NBContractBuilder) validateRequiredFields() error {

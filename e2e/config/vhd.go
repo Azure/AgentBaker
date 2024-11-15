@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	imageGallery       = "/subscriptions/8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/"
 	noSelectionTagName = "abe2e-ignore"
 )
 
@@ -64,6 +63,7 @@ var (
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
+		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
 		Name:    "2204Gen2",
 		OS:      "ubuntu",
 		Arch:    "amd64",
@@ -73,7 +73,7 @@ var (
 
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgapped = &Image{
-		Name:    "2204gen2containerd",
+		Name:    "2204Gen2",
 		OS:      "ubuntu",
 		Arch:    "amd64",
 		Version: "1.1725612526.29638",
@@ -102,7 +102,7 @@ func (i *Image) String() string {
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
-		imageDefinitionResourceID := imageGallery + i.Name
+		imageDefinitionResourceID := fmt.Sprintf("%s/images/%s", Config.GalleryResourceID(), i.Name)
 		if i.Version != "" {
 			i.vhd, i.vhdErr = ensureStaticSIGImageVersion(ctx, t, imageDefinitionResourceID+"/versions/"+i.Version)
 		} else {
