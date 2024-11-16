@@ -136,7 +136,6 @@ steps:
       echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$(cat vhdbuilder/packer/settings.json | grep "sig_gallery_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       echo "##vso[task.setvariable variable=PERFORMANCE_DATA_FILE]vhd-build-performance-data.json" && \
       echo "##vso[task.setvariable variable=PKR_RG_NAME]$(cat packer-output | grep "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
-      echo "##vso[task.setvariable variable=IS_NOT_1804]$( [[ "${OS_VERSION}" != "18.04" ]] && echo true || echo false )" && \
       echo "##vso[task.setvariable variable=OS_NAME]Linux" && \
       echo "##vso[task.setvariable variable=OS_TYPE]Linux" && \
       echo "##vso[task.setvariable variable=GIT_VERSION]$(Build.SourceVersion)" && \
@@ -162,74 +161,16 @@ steps:
       VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
       DRY_RUN: $(DRY_RUN)
 
-  - task: PublishPipelineArtifact@0
-    condition: always()
-    displayName: Publish BCC Tools Installation Log
-    inputs:
-      artifactName: 'bcc-tools-installation-log-${{ parameters.artifactName }}'
-      targetPath: 'bcc-tools-installation.log'
-
-  - task: CopyFiles@2
-    condition: always()
-    displayName: Copy BCC Tools Installation Log
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'bcc-tools-installation.log'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: CopyFiles@2
-    condition: eq(variables['IS_NOT_1804'], 'true')
-    displayName: Copy Trivy Report
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'trivy-report.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: CopyFiles@2
-    condition: eq(variables['IS_NOT_1804'], 'true')
-    displayName: Copy Trivy Table
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'trivy-images-table.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Release Notes
-    inputs:
-      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
-      targetPath: 'release-notes.txt'
-
-  - task: CopyFiles@2
-    displayName: Copy Release Notes
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'release-notes.txt'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - task: PublishPipelineArtifact@0
-    displayName: Publish Container Image List
-    inputs:
-      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
-      targetPath: 'image-bom.json'
-
-  - task: CopyFiles@2
-    condition: succeeded()
-    displayName: Copy Image Bom
-    inputs:
-      SourceFolder: '$(System.DefaultWorkingDirectory)'
-      Contents: 'image-bom.json'
-      TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
-
+  
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()
     displayName: Check Build Performance
-
+  
   - bash: make -f packer.mk generate-publishing-info
     displayName: Generate Publishing Info
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
@@ -238,6 +179,39 @@ steps:
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
 
+  - task: PublishPipelineArtifact@0
+    condition: always()
+    displayName: Publish BCC Tools Installation Log
+    inputs:
+      artifactName: 'bcc-tools-installation-log-${{ parameters.artifactName }}'
+      targetPath: 'bcc-tools-installation.log'
+      
+  - task: PublishPipelineArtifact@0
+    condition: ne(variables['OS_VERSION'], '18.04')
+    displayName: Publish Trivy Images Table
+    inputs:
+      artifactName: 'trivy-images-table-${{ parameters.artifactName }}'
+      targetPath: 'trivy-images-table.txt'
+
+  - task: PublishPipelineArtifact@0
+    condition: ne(variables['OS_VERSION'], '18.04')
+    displayName: Publish Trivy Report
+    inputs:
+      artifactName: 'trivy-report-${{ parameters.artifactName }}'
+      targetPath: 'trivy-report.txt'
+
+  - task: PublishPipelineArtifact@0
+    displayName: Publish Release Notes
+    inputs:
+      artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'
+      targetPath: 'release-notes.txt'
+
+  - task: PublishPipelineArtifact@0
+    displayName: Publish Container Image List
+    inputs:
+      artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
+      targetPath: 'image-bom.json'
+
   - task: PublishPipelineArtifact@1
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Publish Publishing Info
@@ -245,16 +219,58 @@ steps:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
 
+  # TODO: move towards this model where we have a single bundle per SKU after refactoring dependencies towards the new model
+  # see for reference: https://github.com/Azure/AgentBaker/pull/4862
   - task: CopyFiles@2
-    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: False
     displayName: Copy Publishing Info
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
+  - task: CopyFiles@2
+    condition: False
+    displayName: Copy BCC Tools Installation Log
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'bcc-tools-installation.log'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: CopyFiles@2
+    condition: False
+    displayName: Copy Trivy Report
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-report.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: CopyFiles@2
+    condition: False
+    displayName: Copy Trivy Table
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'trivy-images-table.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: CopyFiles@2
+    condition: False
+    displayName: Copy Release Notes
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'release-notes.txt'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  - task: CopyFiles@2
+    condition: False
+    displayName: Copy Image Bom
+    inputs:
+      SourceFolder: '$(System.DefaultWorkingDirectory)'
+      Contents: 'image-bom.json'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
   - task: PublishPipelineArtifact@0
-    condition: succeeded()
+    condition: False
     displayName: Publish Artifacts
     inputs:
       artifactName: '${{ parameters.artifactName }}'
