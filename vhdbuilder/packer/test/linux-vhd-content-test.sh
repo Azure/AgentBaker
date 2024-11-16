@@ -69,6 +69,59 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
+validateDownloadPackage() {
+  local downloadURL=$1
+  local downloadedPackage=$2
+  fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+  fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
+  if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+validateOrasOCIArtifact() {
+  local downloadURL=$1
+  local downloadedPackage=$2
+  echo "Validating package $downloadURL from registry and downloaded package $downloadedPackage"
+
+  # Fetch the manifest and extract the size using jq
+  fileSizeInRegistry=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$downloadURL" | jq '.layers[0].size')
+  
+  # Get the size of the downloaded package
+  fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
+  
+  # Compare the sizes
+  if [[ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]]; then
+    echo "Error: File size mismatch. Expected $fileSizeInRegistry, but got $fileSizeDownloaded."
+    return 1
+  fi
+
+  echo "Package validated successfully."
+  return 0
+}
+
+testAcrCredentialProviderInstalled() {
+  test="testAcrCredentialProviderInstalled"
+  echo "$test:Start"
+  local downloadURL=$1
+  local acrCredProviderVersions=("${@:2}")
+  for version in "${acrCredProviderVersions[@]}"; do
+    echo "checking acrCredProviderVersions: $version ..."
+    eval "currentDownloadURL=${downloadURL}"
+
+    # if currentDownloadURL is mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64,
+    # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
+    downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
+    validateOrasOCIArtifact $currentDownloadURL $downloadLocation
+    if [[ $? -ne 0 ]]; then
+      err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
+      continue
+    fi
+  done
+  echo "$test:Finish"
+}
+
 testPackagesInstalled() {
   test="testPackagesInstalled"
   containerRuntime=$1
@@ -96,6 +149,11 @@ testPackagesInstalled() {
     if [ ${name} == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
+    if [ ${name} == "azure-acr-credential-provider" ]; then
+      # azure-acr-credential-provider is installed in a different way so we test it separately
+      testAcrCredentialProviderInstalled $PACKAGE_DOWNLOAD_URL "${PACKAGE_VERSIONS[@]}" 
       continue
     fi
 
@@ -146,10 +204,9 @@ testPackagesInstalled() {
       
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
-      fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-      fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
-      if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+      validateDownloadPackage $downloadURL $downloadedPackage
+      if [[ $? -ne 0 ]]; then
+        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
@@ -165,7 +222,7 @@ testPackagesInstalled() {
 
         fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
         if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
+          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
           continue
         fi
       fi
