@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/gen/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 

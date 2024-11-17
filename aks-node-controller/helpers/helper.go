@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/gen/aksnodeconfig/v1"
 )
 
 // AKSNodeConfigBuilder is a helper struct to build the AKSNodeConfig.

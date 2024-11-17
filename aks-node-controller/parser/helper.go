@@ -35,8 +35,8 @@ import (
 	"text/template"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/gen/aksnodeconfig/v1"
 )
 
 var (

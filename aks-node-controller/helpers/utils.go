@@ -24,9 +24,9 @@ import (
 	"strconv"
 	"strings"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/gen/aksnodeconfig/v1"
 	"github.com/blang/semver"
 )
 

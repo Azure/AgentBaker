@@ -4,7 +4,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/Azure/AgentBaker/pkg
+      value: github.com/azure/agentBaker/aks-node-controller/pkg/gen
 plugins:
   - remote: buf.build/protocolbuffers/go:v1.35.2
     out: pkg/gen
