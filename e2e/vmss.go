@@ -40,7 +40,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
 	if s.AKSNodeConfigMutator != nil {
-		builder := aksnodeconfigv1.NewNBContractBuilder()
+		builder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
 		builder.ApplyConfiguration(s.Runtime.AKSNodeConfig)
 		nodeBootstrapping, err = builder.GetNodeBootstrapping()
 		require.NoError(s.T, err)

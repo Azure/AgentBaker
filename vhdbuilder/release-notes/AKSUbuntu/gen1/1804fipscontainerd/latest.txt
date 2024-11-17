@@ -1,4 +1,4 @@
-Starting build on  Sun Nov 10 09:11:21 UTC 2024
+Starting build on  Tue Nov 12 21:30:17 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.0
   - runc version 1.1.14-ubuntu18.04u1
@@ -9,13 +9,13 @@ Components downloaded in this VHD build (some of the below components might get 
   - Azure CNI version 1.6.13
   - Azure CNI version 1.5.35
   - Azure CNI version 1.6.7
-  - crictl version 1.29.0
-  - kubernetes-binaries version 1.27.100-akslts
+  - crictl version 1.31.1
+  - kubernetes-binaries version 1.27.101-akslts
   - kubernetes-binaries version 1.28.15
   - kubernetes-binaries version 1.29.10
   - kubernetes-binaries version 1.30.6
   - kubernetes-binaries version 1.31.2
-  - kubernetes-binaries version 1.27.16
+  - kubernetes-binaries version 1.27.100-akslts
   - kubernetes-binaries version 1.28.14
   - kubernetes-binaries version 1.29.9
   - kubernetes-binaries version 1.30.5
@@ -111,12 +111,12 @@ containerd images pre-pulled:
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.7.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:v0.7.1
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.100-akslts
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.101-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.15
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.10
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.6
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.2
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.16
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.14
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.9
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.5
@@ -124,11 +124,9 @@ containerd images pre-pulled:
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root  55331649 Dec 12  2023 /usr/local/bin/crictl
 -rwxr-xr-x 1 1001  127   9863303 May 28 07:33 /usr/local/bin/oras
 -rw-r--r-- 1 1001  127     11343 May 30 07:11 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root 108712196 Jul 17 14:22 /usr/local/bin/kubelet-1.27.16
--rwxr-xr-x 1 root root  49066136 Jul 17 14:22 /usr/local/bin/kubectl-1.27.16
+-rwxr-xr-x 1 root root  38693345 Aug 13 10:41 /usr/local/bin/crictl
 -rwxr-xr-x 1 root root 100129176 Sep 12 23:04 /usr/local/bin/kubelet-1.30.5
 -rwxr-xr-x 1 root root  51454104 Sep 12 23:04 /usr/local/bin/kubectl-1.30.5
 -rwxr-xr-x 1 root root  76869944 Sep 12 23:05 /usr/local/bin/kubelet-1.31.1
@@ -147,17 +145,19 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
 -rwxr-xr-x 1 root root 112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
 -rwxr-xr-x 1 root root  50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
--r-xr--r-- 1 root root       593 Nov 10 09:11 /usr/local/bin/logrotate.sh
--rwxr-xr-x 1 root root       705 Nov 10 09:11 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  47622592 Nov 10 09:23 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  36014944 Nov 10 09:23 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  39369104 Nov 10 09:23 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  52232184 Nov 10 09:23 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  45334640 Nov 10 09:23 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  53775024 Nov 10 09:23 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  60175432 Nov 10 09:23 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  63515504 Nov 10 09:23 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Nov 10 09:24 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root 108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
+-rwxr-xr-x 1 root root  49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
+-r-xr--r-- 1 root root       593 Nov 12 21:30 /usr/local/bin/logrotate.sh
+-rwxr-xr-x 1 root root       705 Nov 12 21:30 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  39369104 Nov 12 21:42 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  45334640 Nov 12 21:42 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  47622592 Nov 12 21:42 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  53775024 Nov 12 21:42 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  36014944 Nov 12 21:42 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  60175432 Nov 12 21:42 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  52232184 Nov 12 21:42 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  63515504 Nov 12 21:42 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Nov 12 21:43 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/now 0.6.45-1ubuntu1.3+esm1 amd64 [installed,local]
@@ -828,7 +828,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev             32G     0   32G   0% /dev
 tmpfs           6.3G  796K  6.3G   1% /run
-/dev/sda1        29G   26G  3.3G  89% /
+/dev/sda1        29G   25G  3.9G  87% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            32G     0   32G   0% /sys/fs/cgroup
@@ -851,10 +851,10 @@ UBUNTU_CODENAME=bionic
 === os-release End
 Using kernel:
 Linux version 4.15.0-2091-azure-fips (buildd@lcy02-amd64-061) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #97-Ubuntu SMP Thu Oct 3 08:01:41 UTC 2024
-Install completed successfully on  Sun Nov 10 09:33:36 UTC 2024
-VSTS Build NUMBER: 20241110.1_master_107821906
-VSTS Build ID: 107821906
-Commit: 4dd29eb2778302e9fd5af35310240576b92aec7a
+Install completed successfully on  Tue Nov 12 21:51:28 UTC 2024
+VSTS Build NUMBER: 20241112.1_master_108007764
+VSTS Build ID: 108007764
+Commit: 2e71a96fd5b4a73fe54ad0a218b5fd5e0c375eb6
 Ubuntu version: 18.04
 Hyperv generation: V1
 Feature flags: None

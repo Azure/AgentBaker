@@ -45,7 +45,7 @@ func getBaseNBC(cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappin
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToNodeConfig(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
+func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
 	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)

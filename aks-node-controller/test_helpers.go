@@ -4,22 +4,11 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-//func getFile(t *testing.T, nbc *datamodel.NodeBootstrappingConfiguration, path string, expectedMode fs.FileMode) string {
-//	t.Helper()
-//	files, err := customData(nbc)
-//	require.NoError(t, err)
-//	require.Contains(t, files, path)
-//	actual := files[path]
-//	assert.Equal(t, expectedMode, actual.Mode)
-//
-//	return actual.Content
-//}
-
 func Ptr[T any](input T) *T {
 	return &input
 }
 
-func validNBC() *datamodel.NodeBootstrappingConfiguration {
+func validAKSNodeConfig() *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		ContainerService: &datamodel.ContainerService{
 			Properties: &datamodel.Properties{

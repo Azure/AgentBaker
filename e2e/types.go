@@ -240,7 +240,7 @@ func (s *Scenario) PrepareRuntime(ctx context.Context) {
 		s.Runtime.NBC = nbc
 	}
 	if s.AKSNodeConfigMutator != nil {
-		nodeconfig := nbcToNodeConfig(nbc)
+		nodeconfig := nbcToAKSNodeConfigV1(nbc)
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}

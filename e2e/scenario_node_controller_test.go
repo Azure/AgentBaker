@@ -93,8 +93,8 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 func CSEAKSNodeController(t *testing.T, cluster *Cluster, vhd *config.Image) string {
 	nbc := getBaseNBC(cluster, vhd)
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
-	config := nbcToNodeConfig(nbc)
-	configJSON, err := json.Marshal(config)
+	configContent := nbcToAKSNodeConfigV1(nbc)
+	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)
 
 	return fmt.Sprintf(`sh -c "(mkdir -p /etc/aks-node-controller && echo '%s' | base64 -d > /etc/aks-node-controller/config.json && ./aks-node-controller provision --provision-config=/etc/aks-node-controller/config.json)"`, base64.StdEncoding.EncodeToString(configJSON))
