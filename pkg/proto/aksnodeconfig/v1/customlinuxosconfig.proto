@@ -26,38 +26,38 @@ message CustomLinuxOSConfig {
 
 message SysctlConfig {
   // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
-  optional int32 NetCoreSomaxconn = 1;
-  optional int32 NetCoreNetdevMaxBacklog = 2;
-  optional int32 NetCoreRmemDefault = 3;
-  optional int32 NetCoreRmemMax = 4;
-  optional int32 NetCoreWmemDefault = 5;
-  optional int32 NetCoreWmemMax = 6;
-  optional int32 NetCoreOptmemMax = 7;
-  optional int32 NetIpv4TcpMaxSynBacklog = 8;
-  optional int32 NetIpv4TcpMaxTwBuckets = 9;
-  optional int32 NetIpv4TcpFinTimeout = 10;
-  optional int32 NetIpv4TcpKeepaliveTime = 11;
-  optional int32 NetIpv4TcpKeepaliveProbes = 12;
-  optional int32 NetIpv4TcpkeepaliveIntvl = 13;
-  optional bool NetIpv4TcpTwReuse = 14;
-  optional string NetIpv4IpLocalPortRange = 15;
-  optional int32 NetIpv4NeighDefaultGcThresh1 = 16;
-  optional int32 NetIpv4NeighDefaultGcThresh2 = 17;
-  optional int32 NetIpv4NeighDefaultGcThresh3 = 18;
-  optional int32 NetNetfilterNfConntrackMax = 19;
-  optional int32 NetNetfilterNfConntrackBuckets = 20;
-  optional int32 FsInotifyMaxUserWatches = 21;
-  optional int32 FsFileMax = 22;
-  optional int32 FsAioMaxNr = 23;
-  optional int32 FsNrOpen = 24;
-  optional int32 KernelThreadsMax = 25;
-  optional int32 VMMaxMapCount = 26;
-  optional int32 VMSwappiness = 27;
-  optional int32 VMVfsCachePressure = 28;
+  optional int32 net_core_somaxconn = 1;
+  optional int32 net_core_netdev_max_backlog = 2;
+  optional int32 net_core_rmem_default = 3;
+  optional int32 net_core_rmem_max = 4;
+  optional int32 net_core_wmem_default = 5;
+  optional int32 net_core_wmem_max = 6;
+  optional int32 net_core_optmem_max = 7;
+  optional int32 net_ipv4_tcp_max_syn_backlog = 8;
+  optional int32 net_ipv4_tcp_max_tw_buckets = 9;
+  optional int32 net_ipv4_tcp_fin_timeout = 10;
+  optional int32 net_ipv4_tcp_keepalive_time = 11;
+  optional int32 net_ipv4_tcp_keepalive_probes = 12;
+  optional int32 net_ipv4_tcpkeepalive_intvl = 13;
+  optional bool net_ipv4_tcp_tw_reuse = 14;
+  optional string net_ipv4_ip_local_port_range = 15;
+  optional int32 net_ipv4_neigh_default_gc_thresh1 = 16;
+  optional int32 net_ipv4_neigh_default_gc_thresh2 = 17;
+  optional int32 net_ipv4_neigh_default_gc_thresh3 = 18;
+  optional int32 net_netfilter_nf_conntrack_max = 19;
+  optional int32 net_netfilter_nf_conntrack_buckets = 20;
+  optional int32 fs_inotify_max_user_watches = 21;
+  optional int32 fs_file_max = 22;
+  optional int32 fs_aio_max_nr = 23;
+  optional int32 fs_nr_open = 24;
+  optional int32 kernel_threads_max = 25;
+  optional int32 vm_max_map_count = 26;
+  optional int32 vm_swappiness = 27;
+  optional int32 vm_vfs_cache_pressure = 28;
 }
 
 message UlimitConfig {
   // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
-  optional string NoFile = 1;
-  optional string MaxLockedMemory = 2; 
+  optional string no_file = 1;
+  optional string max_locked_memory = 2;
 }

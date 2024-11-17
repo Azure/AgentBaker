@@ -69,35 +69,35 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 
 func getStringFromVMType(enum aksnodeconfigv1.ClusterConfig_VM) string {
 	switch enum {
-	case aksnodeconfigv1.ClusterConfig_STANDARD:
+	case aksnodeconfigv1.ClusterConfig_VM_STANDARD:
 		return aksnodeconfigv1.VMTypeStandard
-	case aksnodeconfigv1.ClusterConfig_VMSS:
+	case aksnodeconfigv1.ClusterConfig_VM_VMSS:
 		return aksnodeconfigv1.VMTypeVmss
-	case aksnodeconfigv1.ClusterConfig_UNSPECIFIED:
+	case aksnodeconfigv1.ClusterConfig_VM_UNSPECIFIED:
 		return ""
 	default:
 		return ""
 	}
 }
 
-//nolint:exhaustive // NetworkPlugin_NP_NONE and NetworkPlugin_NP_UNSPECIFIED should both return ""
+//nolint:exhaustive // NetworkPlugin_NETWORK_PLUGIN_NONE and NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED should both return ""
 func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 	switch enum {
-	case aksnodeconfigv1.NetworkPlugin_NP_AZURE:
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE:
 		return aksnodeconfigv1.NetworkPluginAzure
-	case aksnodeconfigv1.NetworkPlugin_NP_KUBENET:
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET:
 		return aksnodeconfigv1.NetworkPluginKubenet
 	default:
 		return ""
 	}
 }
 
-//nolint:exhaustive // NetworkPolicy_NPO_NONE and NetworkPolicy_NPO_UNSPECIFIED should both return ""
+//nolint:exhaustive // NetworkPolicy_NETWORK_POLICY_NONE and NetworkPolicy_NETWORK_POLICY_UNSPECIFIED should both return ""
 func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	switch enum {
-	case aksnodeconfigv1.NetworkPolicy_NPO_AZURE:
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE:
 		return aksnodeconfigv1.NetworkPolicyAzure
-	case aksnodeconfigv1.NetworkPolicy_NPO_CALICO:
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
 		return aksnodeconfigv1.NetworkPolicyCalico
 	default:
 		return ""
@@ -107,9 +107,9 @@ func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 //nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""
 func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku) string {
 	switch enum {
-	case aksnodeconfigv1.LoadBalancerConfig_BASIC:
+	case aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC:
 		return aksnodeconfigv1.LoadBalancerBasic
-	case aksnodeconfigv1.LoadBalancerConfig_STANDARD:
+	case aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD:
 		return aksnodeconfigv1.LoadBalancerStandard
 	default:
 		return ""
@@ -190,11 +190,11 @@ func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.
 }
 
 func getIsKrustlet(wr aksnodeconfigv1.WorkloadRuntime) bool {
-	return wr == aksnodeconfigv1.WorkloadRuntime_WASM_WASI
+	return wr == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI
 }
 
 func getEnsureNoDupePromiscuousBridge(nc *aksnodeconfigv1.NetworkConfig) bool {
-	return nc.GetNetworkPlugin() == aksnodeconfigv1.NetworkPlugin_NP_KUBENET && nc.GetNetworkPolicy() != aksnodeconfigv1.NetworkPolicy_NPO_CALICO
+	return nc.GetNetworkPlugin() == aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET && nc.GetNetworkPolicy() != aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO
 }
 
 func getHasSearchDomain(csd *aksnodeconfigv1.CustomSearchDomainConfig) bool {
@@ -375,16 +375,16 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["kernel.threads-max"] = s.GetKernelThreadsMax()
 	}
 
-	if s.VMMaxMapCount != nil {
-		m["vm.max_map_count"] = s.GetVMMaxMapCount()
+	if s.VmMaxMapCount != nil {
+		m["vm.max_map_count"] = s.GetVmMaxMapCount()
 	}
 
-	if s.VMSwappiness != nil {
-		m["vm.swappiness"] = s.GetVMSwappiness()
+	if s.VmSwappiness != nil {
+		m["vm.swappiness"] = s.GetVmSwappiness()
 	}
 
-	if s.VMVfsCachePressure != nil {
-		m["vm.vfs_cache_pressure"] = s.GetVMVfsCachePressure()
+	if s.VmVfsCachePressure != nil {
+		m["vm.vfs_cache_pressure"] = s.GetVmVfsCachePressure()
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
@@ -614,7 +614,7 @@ func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 }
 
 func getHasKubeletDiskType(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
-	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_TEMP_DISK
+	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 }
 
 func getInitAKSCustomCloudFilepath() string {

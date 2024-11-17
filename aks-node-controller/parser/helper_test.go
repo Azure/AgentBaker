@@ -397,8 +397,8 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 			name: "NetworkConfig with no promiscuous bridge",
 			args: args{
 				nc: &aksnodeconfigv1.NetworkConfig{
-					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NP_AZURE,
-					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NPO_AZURE,
+					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE,
+					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE,
 				},
 			},
 			want: false,
@@ -407,8 +407,8 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 			name: "NetworkConfig with promiscuous bridge",
 			args: args{
 				nc: &aksnodeconfigv1.NetworkConfig{
-					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NP_KUBENET,
-					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NPO_AZURE,
+					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET,
+					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE,
 				},
 			},
 			want: true,

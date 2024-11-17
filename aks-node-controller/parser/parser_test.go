@@ -295,7 +295,7 @@ oom_score = 0
 				ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 					Location:      "southcentralus",
 					ResourceGroup: "resourceGroupName",
-					VmType:        aksnodeconfigv1.ClusterConfig_VMSS,
+					VmType:        aksnodeconfigv1.ClusterConfig_VM_VMSS,
 					ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 						SecurityGroupName: "aks-agentpool-36873793-nsg",
 						VnetName:          "aks-vnet-07752737",
@@ -461,7 +461,7 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 				assert.Nil(t, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
 
 				// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
-				assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_UNSPECIFIED, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
+				assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
 			},
 		},
 	}

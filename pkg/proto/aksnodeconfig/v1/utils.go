@@ -34,34 +34,34 @@ const numInPair = 2
 // GetLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
 func GetLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
 	if strings.EqualFold(sku, "Standard") {
-		return LoadBalancerConfig_STANDARD
+		return LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD
 	} else if strings.EqualFold(sku, "Basic") {
-		return LoadBalancerConfig_BASIC
+		return LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC
 	}
 
-	return LoadBalancerConfig_UNSPECIFIED
+	return LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED
 }
 
 // GetNetworkPluginType returns the NetworkPluginType enum based on the input string.
 func GetNetworkPluginType(networkPlugin string) NetworkPlugin {
 	if strings.EqualFold(networkPlugin, "azure") {
-		return NetworkPlugin_NP_AZURE
+		return NetworkPlugin_NETWORK_PLUGIN_AZURE
 	} else if strings.EqualFold(networkPlugin, "kubenet") {
-		return NetworkPlugin_NP_KUBENET
+		return NetworkPlugin_NETWORK_PLUGIN_KUBENET
 	}
 
-	return NetworkPlugin_NP_NONE
+	return NetworkPlugin_NETWORK_PLUGIN_NONE
 }
 
 // GetNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
 func GetNetworkPolicyType(networkPolicy string) NetworkPolicy {
 	if strings.EqualFold(networkPolicy, "azure") {
-		return NetworkPolicy_NPO_AZURE
+		return NetworkPolicy_NETWORK_POLICY_AZURE
 	} else if strings.EqualFold(networkPolicy, "calico") {
-		return NetworkPolicy_NPO_CALICO
+		return NetworkPolicy_NETWORK_POLICY_CALICO
 	}
 
-	return NetworkPolicy_NPO_NONE
+	return NetworkPolicy_NETWORK_POLICY_NONE
 }
 
 // GetDefaultOutboundCommand returns a default outbound traffic command.

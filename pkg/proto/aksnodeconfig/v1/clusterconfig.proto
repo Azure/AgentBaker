@@ -29,9 +29,9 @@ message ClusterConfig {
   bool use_instance_metadata = 8; // default to false
 
   enum VM {
-    UNSPECIFIED = 0;
-    STANDARD = 1;
-    VMSS = 2;
+    VM_UNSPECIFIED = 0;
+    VM_STANDARD = 1;
+    VM_VMSS = 2;
   }
 }
 
@@ -66,9 +66,9 @@ message LoadBalancerConfig {
   bool disable_outbound_snat = 4;
 
   enum LoadBalancerSku {
-    UNSPECIFIED = 0;
-    BASIC = 1;
-    STANDARD = 2;
+    LOAD_BALANCER_SKU_UNSPECIFIED = 0;
+    LOAD_BALANCER_SKU_BASIC = 1;
+    LOAD_BALANCER_SKU_STANDARD = 2;
   }
 }
 

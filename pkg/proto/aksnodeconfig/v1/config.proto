@@ -20,9 +20,9 @@ import "pkg/proto/aksnodeconfig/v1/networkconfig.proto";
 import "pkg/proto/aksnodeconfig/v1/imdsrestrictionconfig.proto";
 
 enum WorkloadRuntime {
-  WR_UNSPECIFIED = 0;
-  OCI_CONTAINER= 1;
-  WASM_WASI = 2;
+  WORKLOAD_RUNTIME_UNSPECIFIED = 0;
+  WORKLOAD_RUNTIME_OCI_CONTAINER= 1;
+  WORKLOAD_RUNTIME_WASM_WASI = 2;
 }
 
 message Configuration {
