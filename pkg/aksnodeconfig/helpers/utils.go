@@ -26,42 +26,43 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 	"github.com/blang/semver"
 )
 
 const numInPair = 2
 
 // GetLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
-func GetLoadBalancerSKU(sku string) LoadBalancerConfig_LoadBalancerSku {
+func GetLoadBalancerSKU(sku string) aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku {
 	if strings.EqualFold(sku, "Standard") {
-		return LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD
+		return aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD
 	} else if strings.EqualFold(sku, "Basic") {
-		return LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC
+		return aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC
 	}
 
-	return LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED
+	return aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED
 }
 
 // GetNetworkPluginType returns the NetworkPluginType enum based on the input string.
-func GetNetworkPluginType(networkPlugin string) NetworkPlugin {
+func GetNetworkPluginType(networkPlugin string) aksnodeconfigv1.NetworkPlugin {
 	if strings.EqualFold(networkPlugin, "azure") {
-		return NetworkPlugin_NETWORK_PLUGIN_AZURE
+		return aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 	} else if strings.EqualFold(networkPlugin, "kubenet") {
-		return NetworkPlugin_NETWORK_PLUGIN_KUBENET
+		return aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET
 	}
 
-	return NetworkPlugin_NETWORK_PLUGIN_NONE
+	return aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE
 }
 
 // GetNetworkPolicyType returns the NetworkPolicyType enum based on the input string.
-func GetNetworkPolicyType(networkPolicy string) NetworkPolicy {
+func GetNetworkPolicyType(networkPolicy string) aksnodeconfigv1.NetworkPolicy {
 	if strings.EqualFold(networkPolicy, "azure") {
-		return NetworkPolicy_NETWORK_POLICY_AZURE
+		return aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE
 	} else if strings.EqualFold(networkPolicy, "calico") {
-		return NetworkPolicy_NETWORK_POLICY_CALICO
+		return aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO
 	}
 
-	return NetworkPolicy_NETWORK_POLICY_NONE
+	return aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE
 }
 
 // GetDefaultOutboundCommand returns a default outbound traffic command.

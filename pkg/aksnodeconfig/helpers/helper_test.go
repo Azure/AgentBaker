@@ -5,37 +5,38 @@ import (
 	"reflect"
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func TestNewAKSNodeConfigBuilder(t *testing.T) {
-	wantedResult := Configuration{
+	wantedResult := aksnodeconfigv1.Configuration{
 		Version:          contractVersion,
-		KubeBinaryConfig: &KubeBinaryConfig{},
-		ApiServerConfig:  &ApiServerConfig{},
-		AuthConfig:       &AuthConfig{},
-		ClusterConfig: &ClusterConfig{
-			LoadBalancerConfig:   &LoadBalancerConfig{},
-			ClusterNetworkConfig: &ClusterNetworkConfig{},
+		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{},
+		ApiServerConfig:  &aksnodeconfigv1.ApiServerConfig{},
+		AuthConfig:       &aksnodeconfigv1.AuthConfig{},
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+			LoadBalancerConfig:   &aksnodeconfigv1.LoadBalancerConfig{},
+			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{},
 		},
-		GpuConfig:              &GPUConfig{},
-		NetworkConfig:          &NetworkConfig{},
-		TlsBootstrappingConfig: &TLSBootstrappingConfig{},
-		KubeletConfig:          &KubeletConfig{},
-		RuncConfig:             &RuncConfig{},
-		ContainerdConfig:       &ContainerdConfig{},
-		TeleportConfig:         &TeleportConfig{},
-		CustomLinuxOsConfig: &CustomLinuxOSConfig{
-			SysctlConfig: &SysctlConfig{},
-			UlimitConfig: &UlimitConfig{},
+		GpuConfig:              &aksnodeconfigv1.GPUConfig{},
+		NetworkConfig:          &aksnodeconfigv1.NetworkConfig{},
+		TlsBootstrappingConfig: &aksnodeconfigv1.TLSBootstrappingConfig{},
+		KubeletConfig:          &aksnodeconfigv1.KubeletConfig{},
+		RuncConfig:             &aksnodeconfigv1.RuncConfig{},
+		ContainerdConfig:       &aksnodeconfigv1.ContainerdConfig{},
+		TeleportConfig:         &aksnodeconfigv1.TeleportConfig{},
+		CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOSConfig{
+			SysctlConfig: &aksnodeconfigv1.SysctlConfig{},
+			UlimitConfig: &aksnodeconfigv1.UlimitConfig{},
 		},
-		HttpProxyConfig:          &HTTPProxyConfig{},
-		CustomCloudConfig:        &CustomCloudConfig{},
-		CustomSearchDomainConfig: &CustomSearchDomainConfig{},
+		HttpProxyConfig:          &aksnodeconfigv1.HTTPProxyConfig{},
+		CustomCloudConfig:        &aksnodeconfigv1.CustomCloudConfig{},
+		CustomSearchDomainConfig: &aksnodeconfigv1.CustomSearchDomainConfig{},
 	}
 	tests := []struct {
 		name string
-		want *Configuration
+		want *aksnodeconfigv1.Configuration
 	}{
 		{
 			name: "Test with nil configuration",
@@ -53,48 +54,48 @@ func TestNewAKSNodeConfigBuilder(t *testing.T) {
 
 func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 	type fields struct {
-		AKSNodeConfigConfiguration *Configuration
+		AKSNodeConfigConfiguration *aksnodeconfigv1.Configuration
 	}
-	wantedResult := &Configuration{
+	wantedResult := &aksnodeconfigv1.Configuration{
 		Version:          contractVersion,
-		KubeBinaryConfig: &KubeBinaryConfig{},
-		ApiServerConfig:  &ApiServerConfig{},
-		AuthConfig:       &AuthConfig{},
-		ClusterConfig: &ClusterConfig{
-			LoadBalancerConfig:   &LoadBalancerConfig{},
-			ClusterNetworkConfig: &ClusterNetworkConfig{},
+		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{},
+		ApiServerConfig:  &aksnodeconfigv1.ApiServerConfig{},
+		AuthConfig:       &aksnodeconfigv1.AuthConfig{},
+		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+			LoadBalancerConfig:   &aksnodeconfigv1.LoadBalancerConfig{},
+			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{},
 		},
-		GpuConfig:              &GPUConfig{},
-		NetworkConfig:          &NetworkConfig{},
-		TlsBootstrappingConfig: &TLSBootstrappingConfig{},
-		KubeletConfig:          &KubeletConfig{},
-		RuncConfig:             &RuncConfig{},
-		ContainerdConfig:       &ContainerdConfig{},
-		TeleportConfig:         &TeleportConfig{},
-		CustomLinuxOsConfig: &CustomLinuxOSConfig{
-			SysctlConfig: &SysctlConfig{},
-			UlimitConfig: &UlimitConfig{},
+		GpuConfig:              &aksnodeconfigv1.GPUConfig{},
+		NetworkConfig:          &aksnodeconfigv1.NetworkConfig{},
+		TlsBootstrappingConfig: &aksnodeconfigv1.TLSBootstrappingConfig{},
+		KubeletConfig:          &aksnodeconfigv1.KubeletConfig{},
+		RuncConfig:             &aksnodeconfigv1.RuncConfig{},
+		ContainerdConfig:       &aksnodeconfigv1.ContainerdConfig{},
+		TeleportConfig:         &aksnodeconfigv1.TeleportConfig{},
+		CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOSConfig{
+			SysctlConfig: &aksnodeconfigv1.SysctlConfig{},
+			UlimitConfig: &aksnodeconfigv1.UlimitConfig{},
 		},
-		HttpProxyConfig:          &HTTPProxyConfig{},
-		CustomCloudConfig:        &CustomCloudConfig{},
-		CustomSearchDomainConfig: &CustomSearchDomainConfig{},
+		HttpProxyConfig:          &aksnodeconfigv1.HTTPProxyConfig{},
+		CustomCloudConfig:        &aksnodeconfigv1.CustomCloudConfig{},
+		CustomSearchDomainConfig: &aksnodeconfigv1.CustomSearchDomainConfig{},
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   *Configuration
+		want   *aksnodeconfigv1.Configuration
 	}{
 		{
 			name: "Test with nil configuration",
 			fields: fields{
-				AKSNodeConfigConfiguration: &Configuration{},
+				AKSNodeConfigConfiguration: &aksnodeconfigv1.Configuration{},
 			},
 			want: wantedResult,
 		},
 		{
 			name: "Apply nil AuthConfig configuration and expect AuthConfig in AKSNodeConfigConfiguration to be non-nil",
 			fields: fields{
-				AKSNodeConfigConfiguration: &Configuration{
+				AKSNodeConfigConfiguration: &aksnodeconfigv1.Configuration{
 					AuthConfig: nil,
 				},
 			},
@@ -103,14 +104,14 @@ func TestAKSNodeConfigBuilder_ApplyConfiguration(t *testing.T) {
 		{
 			name: "Apply some configurations and expect them to be applied",
 			fields: fields{
-				AKSNodeConfigConfiguration: &Configuration{
-					CustomCloudConfig: &CustomCloudConfig{
+				AKSNodeConfigConfiguration: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
 						CustomCloudEnvName: "some-cloud",
 					},
 					LinuxAdminUsername: "testuser",
 				},
 			},
-			want: func() *Configuration {
+			want: func() *aksnodeconfigv1.Configuration {
 				tmpResult := NewAKSNodeConfigBuilder().aksNodeConfig
 				tmpResult.CustomCloudConfig.CustomCloudEnvName = "some-cloud"
 				tmpResult.LinuxAdminUsername = "testuser"
@@ -229,7 +230,7 @@ func TestDeepCopy(t *testing.T) {
 
 func TestAKSNodeConfigBuilder_validateRequiredFields(t *testing.T) {
 	type fields struct {
-		nodeBootstrapConfig *Configuration
+		nodeBootstrapConfig *aksnodeconfigv1.Configuration
 	}
 	tests := []struct {
 		name    string
@@ -239,7 +240,7 @@ func TestAKSNodeConfigBuilder_validateRequiredFields(t *testing.T) {
 		{
 			name: "Test with nil AuthConfig and expect error",
 			fields: fields{
-				nodeBootstrapConfig: &Configuration{
+				nodeBootstrapConfig: &aksnodeconfigv1.Configuration{
 					AuthConfig: nil,
 				},
 			},
@@ -248,8 +249,8 @@ func TestAKSNodeConfigBuilder_validateRequiredFields(t *testing.T) {
 		{
 			name: "Test with empty SubscriptionId and expect error",
 			fields: fields{
-				nodeBootstrapConfig: &Configuration{
-					AuthConfig: &AuthConfig{
+				nodeBootstrapConfig: &aksnodeconfigv1.Configuration{
+					AuthConfig: &aksnodeconfigv1.AuthConfig{
 						SubscriptionId: "",
 					},
 				},
@@ -259,23 +260,23 @@ func TestAKSNodeConfigBuilder_validateRequiredFields(t *testing.T) {
 		{
 			name: "Test with required fields and expect no error",
 			fields: fields{
-				nodeBootstrapConfig: &Configuration{
-					AuthConfig: &AuthConfig{
+				nodeBootstrapConfig: &aksnodeconfigv1.Configuration{
+					AuthConfig: &aksnodeconfigv1.AuthConfig{
 						SubscriptionId: "some-subscription-id",
 						TenantId:       "some-tenant-id",
 					},
-					ClusterConfig: &ClusterConfig{
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 						ResourceGroup: "some-resource-group",
 						Location:      "some-location",
-						ClusterNetworkConfig: &ClusterNetworkConfig{
+						ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 							RouteTable: "some-route-table",
 							VnetName:   "some-vnet-name",
 						},
 					},
-					CustomLinuxOsConfig: &CustomLinuxOSConfig{
+					CustomLinuxOsConfig: &aksnodeconfigv1.CustomLinuxOSConfig{
 						SwapFileSize: 2048,
 					},
-					ApiServerConfig: &ApiServerConfig{
+					ApiServerConfig: &aksnodeconfigv1.ApiServerConfig{
 						ApiServerName: "some-api-server-name",
 					},
 				},

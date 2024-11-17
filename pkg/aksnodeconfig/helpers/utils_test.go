@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 )
 
 func Test_getLoadBalancerSKU(t *testing.T) {
@@ -17,28 +18,28 @@ func Test_getLoadBalancerSKU(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want LoadBalancerConfig_LoadBalancerSku
+		want aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku
 	}{
 		{
 			name: "LoadBalancerSKU Standard",
 			args: args{
 				sku: "Standard",
 			},
-			want: LoadBalancerConfig_STANDARD,
+			want: aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD,
 		},
 		{
 			name: "LoadBalancerSKU Basic",
 			args: args{
 				sku: "Basic",
 			},
-			want: LoadBalancerConfig_BASIC,
+			want: aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC,
 		},
 		{
 			name: "LoadBalancerSKU Unspecified",
 			args: args{
 				sku: "",
 			},
-			want: LoadBalancerConfig_UNSPECIFIED,
+			want: aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED,
 		},
 	}
 	for _, tt := range tests {
@@ -57,28 +58,28 @@ func Test_getNetworkPluginType(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want NetworkPlugin
+		want aksnodeconfigv1.NetworkPlugin
 	}{
 		{
 			name: "NetworkPlugin azure",
 			args: args{
 				np: "azure",
 			},
-			want: NetworkPlugin_NP_AZURE,
+			want: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE,
 		},
 		{
 			name: "NetworkPlugin kubenet",
 			args: args{
 				np: "kubenet",
 			},
-			want: NetworkPlugin_NP_KUBENET,
+			want: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET,
 		},
 		{
 			name: "NetworkPlugin Unspecified",
 			args: args{
 				np: "",
 			},
-			want: NetworkPlugin_NP_NONE,
+			want: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_NONE,
 		},
 	}
 	for _, tt := range tests {
@@ -97,28 +98,28 @@ func Test_getNetworkPolicyType(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want NetworkPolicy
+		want aksnodeconfigv1.NetworkPolicy
 	}{
 		{
 			name: "NetworkPolicy azure",
 			args: args{
 				np: "azure",
 			},
-			want: NetworkPolicy_NPO_AZURE,
+			want: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE,
 		},
 		{
 			name: "NetworkPolicy calico",
 			args: args{
 				np: "calico",
 			},
-			want: NetworkPolicy_NPO_CALICO,
+			want: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO,
 		},
 		{
 			name: "NetworkPolicy Unspecified",
 			args: args{
 				np: "",
 			},
-			want: NetworkPolicy_NPO_NONE,
+			want: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_NONE,
 		},
 	}
 	for _, tt := range tests {

@@ -9,7 +9,7 @@ import (
 	"log"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/gen/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 )
 
 // AKSNodeConfigBuilder is a helper struct to build the AKSNodeConfig.
