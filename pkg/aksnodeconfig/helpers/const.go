@@ -1,4 +1,4 @@
-package aksnodeconfigv1
+package helpers
 
 const (
 	contractVersion = "v0"

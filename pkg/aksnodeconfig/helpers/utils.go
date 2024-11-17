@@ -16,7 +16,7 @@ limitations under the License.
 
 // All the helper functions should be hosted by another public repo later. (e.g. agentbaker)
 // Helper functions in this file will be called by bootstrappers to populate nb contract payload.
-package aksnodeconfigv1
+package helpers
 
 import (
 	"fmt"

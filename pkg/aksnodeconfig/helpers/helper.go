@@ -1,4 +1,4 @@
-package aksnodeconfigv1
+package helpers
 
 import (
 	"bytes"
@@ -9,13 +9,14 @@ import (
 	"log"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/gen/aksnodeconfig/v1"
 )
 
 // AKSNodeConfigBuilder is a helper struct to build the AKSNodeConfig.
 // It provides methods to apply configuration, get the AKSNodeConfig object, and validate the contract, etc.
 type AKSNodeConfigBuilder struct {
 	// aksNodeConfig is the configuration object for the AKSNodeConfig.
-	aksNodeConfig *Configuration
+	aksNodeConfig *aksnodeconfigv1.Configuration
 }
 
 // Check and initialize each field if it is nil.
@@ -26,7 +27,7 @@ func initializeIfNil[T any](field **T) {
 }
 
 // Ensure all objects are non-nil. Please add new objects here.
-func ensureConfigsNonNil(nBC *Configuration) {
+func ensureConfigsNonNil(nBC *aksnodeconfigv1.Configuration) {
 	initializeIfNil(&nBC.KubeBinaryConfig)
 	initializeIfNil(&nBC.ApiServerConfig)
 	initializeIfNil(&nBC.AuthConfig)
@@ -50,7 +51,7 @@ func ensureConfigsNonNil(nBC *Configuration) {
 
 // NewAKSNodeConfigBuilder creates a new instance of AKSNodeConfigBuilder and ensures all objects in aksNodeConfig are non-nil.
 func NewAKSNodeConfigBuilder() *AKSNodeConfigBuilder {
-	config := Configuration{
+	config := aksnodeconfigv1.Configuration{
 		Version: contractVersion,
 	}
 	ensureConfigsNonNil(&config)
@@ -59,7 +60,7 @@ func NewAKSNodeConfigBuilder() *AKSNodeConfigBuilder {
 }
 
 // ApplyConfiguration Applies the configuration to the aksNodeConfig object.
-func (b *AKSNodeConfigBuilder) ApplyConfiguration(config *Configuration) {
+func (b *AKSNodeConfigBuilder) ApplyConfiguration(config *aksnodeconfigv1.Configuration) {
 	if config == nil {
 		return
 	}
@@ -72,7 +73,7 @@ func (b *AKSNodeConfigBuilder) ApplyConfiguration(config *Configuration) {
 }
 
 // GetAKSNodeConfig gets the aksNodeConfig object.
-func (b *AKSNodeConfigBuilder) GetAKSNodeConfig() *Configuration {
+func (b *AKSNodeConfigBuilder) GetAKSNodeConfig() *aksnodeconfigv1.Configuration {
 	return b.aksNodeConfig
 }
 

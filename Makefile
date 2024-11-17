@@ -91,11 +91,11 @@ generate-kubelet-flags:
 
 .PHONY: lint-proto-files
 lint-proto-files:
-	@./hack/tools/bin/buf lint --path ./pkg/proto/
+	@./hack/tools/bin/buf lint
 
 .PHONY: compile-proto-files
-compile-proto-files:
-	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
+compile-proto-files: lint-proto-files
+	@./hack/tools/bin/buf generate
 
 .PHONY: generate-manifest
 generate-manifest:
