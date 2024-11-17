@@ -35,7 +35,8 @@ import (
 	"text/template"
 
 	"github.com/Azure/agentbaker/pkg/agent"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/pkg/aksnodeconfig/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 )
 
 var (
@@ -61,7 +62,7 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"derefBool":                        deref[bool],
 		"getIsKrustlet":                    getIsKrustlet,
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
-		"isKubernetesVersionGe":            aksnodeconfigv1.IsKubernetesVersionGe,
+		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
 	}
@@ -70,9 +71,9 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 func getStringFromVMType(enum aksnodeconfigv1.ClusterConfig_VM) string {
 	switch enum {
 	case aksnodeconfigv1.ClusterConfig_VM_STANDARD:
-		return aksnodeconfigv1.VMTypeStandard
+		return helpers.VMTypeStandard
 	case aksnodeconfigv1.ClusterConfig_VM_VMSS:
-		return aksnodeconfigv1.VMTypeVmss
+		return helpers.VMTypeVmss
 	case aksnodeconfigv1.ClusterConfig_VM_UNSPECIFIED:
 		return ""
 	default:
@@ -84,9 +85,9 @@ func getStringFromVMType(enum aksnodeconfigv1.ClusterConfig_VM) string {
 func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE:
-		return aksnodeconfigv1.NetworkPluginAzure
+		return helpers.NetworkPluginAzure
 	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET:
-		return aksnodeconfigv1.NetworkPluginKubenet
+		return helpers.NetworkPluginKubenet
 	default:
 		return ""
 	}
@@ -96,9 +97,9 @@ func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	switch enum {
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE:
-		return aksnodeconfigv1.NetworkPolicyAzure
+		return helpers.NetworkPolicyAzure
 	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
-		return aksnodeconfigv1.NetworkPolicyCalico
+		return helpers.NetworkPolicyCalico
 	default:
 		return ""
 	}
@@ -108,9 +109,9 @@ func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku) string {
 	switch enum {
 	case aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC:
-		return aksnodeconfigv1.LoadBalancerBasic
+		return helpers.LoadBalancerBasic
 	case aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD:
-		return aksnodeconfigv1.LoadBalancerStandard
+		return helpers.LoadBalancerStandard
 	default:
 		return ""
 	}
@@ -501,7 +502,7 @@ func getGpuDriverVersion(vmSize string) string {
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func getIsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
-	case aksnodeconfigv1.VMSizeStandardDc2s, aksnodeconfigv1.VMSizeStandardDc4s:
+	case helpers.VMSizeStandardDc2s, helpers.VMSizeStandardDc4s:
 		return true
 	}
 	return false
@@ -516,7 +517,7 @@ func getShouldConfigureHTTPProxyCA(httpProxyConfig *aksnodeconfigv1.HTTPProxyCon
 }
 
 func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) bool {
-	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), aksnodeconfigv1.AksCustomCloudName)
+	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
 }
 
 /* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
@@ -532,20 +533,20 @@ func getCloudTargetEnv(v *aksnodeconfigv1.Configuration) string {
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
 	default:
-		return aksnodeconfigv1.DefaultCloudName
+		return helpers.DefaultCloudName
 	}
 }
 
 func getTargetEnvironment(v *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		return aksnodeconfigv1.AksCustomCloudName
+		return helpers.AksCustomCloudName
 	}
 	return getCloudTargetEnv(v)
 }
 
 func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		return aksnodeconfigv1.AzureStackCloud
+		return helpers.AzureStackCloud
 	}
 	return getTargetEnvironment(v)
 }
@@ -559,7 +560,7 @@ func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
 
 func getLinuxAdminUsername(username string) string {
 	if username == "" {
-		return aksnodeconfigv1.DefaultLinuxUser
+		return helpers.DefaultLinuxUser
 	}
 	return username
 }

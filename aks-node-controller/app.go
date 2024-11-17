@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 	"gopkg.in/fsnotify.v1"
 )
 

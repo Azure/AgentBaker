@@ -21,7 +21,8 @@ import (
 	"reflect"
 	"testing"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/pkg/aksnodeconfig/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 )
 
@@ -368,7 +369,7 @@ func Test_getAzureEnvironmentFilepath(t *testing.T) {
 			args: args{
 				v: &aksnodeconfigv1.Configuration{
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
+						CustomCloudEnvName: helpers.AksCustomCloudName,
 					},
 				},
 			},
@@ -642,7 +643,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := aksnodeconfigv1.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := helpers.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -855,7 +856,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
@@ -864,7 +865,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with empty TargetEnvironment",
@@ -873,18 +874,18 @@ func Test_getTargetEnvironment(t *testing.T) {
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
 				v: &aksnodeconfigv1.Configuration{
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
+						CustomCloudEnvName: helpers.AksCustomCloudName,
 					},
 				},
 			},
-			want: aksnodeconfigv1.AksCustomCloudName,
+			want: helpers.AksCustomCloudName,
 		},
 	}
 	for _, tt := range tests {
@@ -908,7 +909,7 @@ func Test_getTargetCloud(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
@@ -917,18 +918,18 @@ func Test_getTargetCloud(t *testing.T) {
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
 				v: &aksnodeconfigv1.Configuration{
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
+						CustomCloudEnvName: helpers.AksCustomCloudName,
 					},
 				},
 			},
-			want: aksnodeconfigv1.AzureStackCloud,
+			want: helpers.AzureStackCloud,
 		},
 	}
 	for _, tt := range tests {
@@ -954,7 +955,7 @@ func Test_getLinuxAdminUsername(t *testing.T) {
 			args: args{
 				username: "",
 			},
-			want: aksnodeconfigv1.DefaultLinuxUser,
+			want: helpers.DefaultLinuxUser,
 		},
 		{
 			name: "Non-empty username",
@@ -997,9 +998,9 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 			want: false,
 		},
 		{
-			name: aksnodeconfigv1.VMSizeStandardDc2s,
+			name: helpers.VMSizeStandardDc2s,
 			args: args{
-				vmSize: aksnodeconfigv1.VMSizeStandardDc2s,
+				vmSize: helpers.VMSizeStandardDc2s,
 			},
 			want: true,
 		},

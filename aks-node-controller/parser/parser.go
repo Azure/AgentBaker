@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 )
 
 var (

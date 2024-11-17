@@ -13,7 +13,8 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/pkg/aksnodeconfig/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -104,12 +105,12 @@ oom_score = 0
 			folder:     "AKSUbuntu2204+CustomCloud",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = aksnodeconfigv1.AksCustomCloudName
+				aksNodeConfig.CustomCloudConfig.CustomCloudEnvName = helpers.AksCustomCloudName
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
-				assert.Equal(t, aksnodeconfigv1.AksCustomCloudName, vars["TARGET_ENVIRONMENT"])
-				assert.Equal(t, aksnodeconfigv1.AzureStackCloud, vars["TARGET_CLOUD"])
+				assert.Equal(t, helpers.AksCustomCloudName, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, helpers.AzureStackCloud, vars["TARGET_CLOUD"])
 				assert.Equal(t, "true", vars["IS_CUSTOM_CLOUD"])
 			},
 		},
@@ -167,7 +168,7 @@ oom_score = 0
 			folder:     "AKSUbuntu1804+Containerd+Kubenet",
 			k8sVersion: "1.19.13",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.NetworkConfig.NetworkPlugin = aksnodeconfigv1.GetNetworkPluginType(aksnodeconfigv1.NetworkPluginKubenet)
+				aksNodeConfig.NetworkConfig.NetworkPlugin = helpers.GetNetworkPluginType(helpers.NetworkPluginKubenet)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -287,8 +288,8 @@ oom_score = 0
 				"--container-log-max-size":            "50M",
 			}
 
-			aksnodeconfigv1.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
-			aksNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
+			aksNodeConfigBuilder := helpers.NewAKSNodeConfigBuilder()
 			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
@@ -324,11 +325,11 @@ oom_score = 0
 				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 					ContainerdDownloadUrlBase: "https://storage.googleapis.com/cri-containerd-release/",
 				},
-				OutboundCommand: aksnodeconfigv1.GetDefaultOutboundCommand(),
+				OutboundCommand: helpers.GetDefaultOutboundCommand(),
 				KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					EnableKubeletConfigFile: false,
-					KubeletFlags:            aksnodeconfigv1.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
-					KubeletNodeLabels:       aksnodeconfigv1.GetKubeletNodeLabels(agentPool),
+					KubeletFlags:            helpers.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
+					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
 				},
 			}
 			aksNodeConfigBuilder.ApplyConfiguration(aksNodeConfig)
@@ -397,14 +398,14 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 				assert.Equal(t, "", vars["HTTPS_PROXY"])
 				assert.Equal(t, "", vars["NO_PROXY"])
 				assert.Equal(t, "", vars["PROXY_TRUSTED_CA"])
-				assert.Equal(t, aksnodeconfigv1.DefaultCloudName, vars["TARGET_ENVIRONMENT"])
+				assert.Equal(t, helpers.DefaultCloudName, vars["TARGET_ENVIRONMENT"])
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aksNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+			aksNodeConfigBuilder := helpers.NewAKSNodeConfigBuilder()
 			aksNodeConfigBuilder.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
 
 			cseCMD, err := parser.BuildCSECmd(context.TODO(), aksNodeConfigBuilder.GetAKSNodeConfig())
@@ -488,7 +489,7 @@ func getBase64DecodedValue(data []byte) (string, error) {
 }
 
 func getAKSNodeConfigInstance(jsonFilePath string) *aksnodeconfigv1.Configuration {
-	aksNodeConfigBuilder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
+	aksNodeConfigBuilder := helpers.NewAKSNodeConfigBuilder()
 	aksNodeConfig := aksnodeconfigv1.Configuration{}
 	content, err := os.ReadFile(jsonFilePath)
 	if err != nil {
