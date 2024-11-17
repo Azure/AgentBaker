@@ -13,8 +13,8 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/agentbaker/pkg/aksnodeconfig/helpers"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/pkg/helpers"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

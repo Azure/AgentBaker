@@ -1,10 +1,11 @@
 version: v2
+clean: true
 managed:
   enabled: true
   override:
     - file_option: go_package_prefix
       value: github.com/Azure/AgentBaker/pkg
 plugins:
-  - remote: buf.build/protocolbuffers/go
-    out: pkg
+  - remote: buf.build/protocolbuffers/go:v1.35.2
+    out: pkg/gen
     opt: paths=source_relative

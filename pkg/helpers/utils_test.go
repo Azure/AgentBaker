@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/gen/aksnodeconfig/v1"
 )
 
 func Test_getLoadBalancerSKU(t *testing.T) {

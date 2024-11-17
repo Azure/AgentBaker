@@ -2,22 +2,22 @@ syntax = "proto3";
 
 package aksnodeconfig.v1;
 
-import "aksnodeconfig/v1/apiserverconfig.proto";
-import "aksnodeconfig/v1/authconfig.proto";
-import "aksnodeconfig/v1/clusterconfig.proto";
-import "aksnodeconfig/v1/containerdconfig.proto";
-import "aksnodeconfig/v1/customcloudconfig.proto";
-import "aksnodeconfig/v1/customlinuxosconfig.proto";
-import "aksnodeconfig/v1/customsearchdomainconfig.proto";
-import "aksnodeconfig/v1/gpuconfig.proto";
-import "aksnodeconfig/v1/httpproxyconfig.proto";
-import "aksnodeconfig/v1/imdsrestrictionconfig.proto";
-import "aksnodeconfig/v1/kubebinaryconfig.proto";
-import "aksnodeconfig/v1/kubeletconfig.proto";
-import "aksnodeconfig/v1/networkconfig.proto";
-import "aksnodeconfig/v1/runcconfig.proto";
-import "aksnodeconfig/v1/teleportconfig.proto";
-import "aksnodeconfig/v1/tlsbootstrappingconfig.proto";
+import "aksnodeconfig/v1/api_server_config.proto";
+import "aksnodeconfig/v1/auth_config.proto";
+import "aksnodeconfig/v1/cluster_config.proto";
+import "aksnodeconfig/v1/containerd_config.proto";
+import "aksnodeconfig/v1/custom_cloud_config.proto";
+import "aksnodeconfig/v1/custom_linux_os_config.proto";
+import "aksnodeconfig/v1/custom_search_domain_config.proto";
+import "aksnodeconfig/v1/gpu_config.proto";
+import "aksnodeconfig/v1/http_proxy_config.proto";
+import "aksnodeconfig/v1/imds_restriction_config.proto";
+import "aksnodeconfig/v1/kube_binary_config.proto";
+import "aksnodeconfig/v1/kubelet_config.proto";
+import "aksnodeconfig/v1/network_config.proto";
+import "aksnodeconfig/v1/runc_config.proto";
+import "aksnodeconfig/v1/teleport_config.proto";
+import "aksnodeconfig/v1/tls_bootstrapping_config.proto";
 
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
