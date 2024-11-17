@@ -5,20 +5,20 @@ package aksnodeconfig.v1;
 message CustomLinuxOSConfig {
   // Sysctl settings for Linux agent nodes
   SysctlConfig sysctl_config = 1;
-  
+
   // Ulimit settings for Linux agent nodes
   UlimitConfig ulimit_config = 2;
 
   // Enable or disable swap configuration
   bool enable_swap_config = 3;
-  
+
   // The size in MB of a swap file that will be created on each node
   int32 swap_file_size = 4;
-  
+
   // Valid values are "always", "defer", "defer+madvise", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "always"
   string transparent_hugepage_support = 5;
-  
+
   // Valid values are "always", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
   string transparent_defrag = 6;

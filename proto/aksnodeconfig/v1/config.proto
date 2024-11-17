@@ -2,26 +2,26 @@ syntax = "proto3";
 
 package aksnodeconfig.v1;
 
-import "aksnodeconfig/v1/httpproxyconfig.proto";
-import "aksnodeconfig/v1/gpuconfig.proto";
-import "aksnodeconfig/v1/customlinuxosconfig.proto";
-import "aksnodeconfig/v1/kubebinaryconfig.proto";
-import "aksnodeconfig/v1/customsearchdomainconfig.proto";
-import "aksnodeconfig/v1/containerdconfig.proto";
-import "aksnodeconfig/v1/authconfig.proto";
-import "aksnodeconfig/v1/kubeletconfig.proto";
-import "aksnodeconfig/v1/teleportconfig.proto";
-import "aksnodeconfig/v1/runcconfig.proto";
-import "aksnodeconfig/v1/customcloudconfig.proto";
 import "aksnodeconfig/v1/apiserverconfig.proto";
-import "aksnodeconfig/v1/tlsbootstrappingconfig.proto";
+import "aksnodeconfig/v1/authconfig.proto";
 import "aksnodeconfig/v1/clusterconfig.proto";
-import "aksnodeconfig/v1/networkconfig.proto";
+import "aksnodeconfig/v1/containerdconfig.proto";
+import "aksnodeconfig/v1/customcloudconfig.proto";
+import "aksnodeconfig/v1/customlinuxosconfig.proto";
+import "aksnodeconfig/v1/customsearchdomainconfig.proto";
+import "aksnodeconfig/v1/gpuconfig.proto";
+import "aksnodeconfig/v1/httpproxyconfig.proto";
 import "aksnodeconfig/v1/imdsrestrictionconfig.proto";
+import "aksnodeconfig/v1/kubebinaryconfig.proto";
+import "aksnodeconfig/v1/kubeletconfig.proto";
+import "aksnodeconfig/v1/networkconfig.proto";
+import "aksnodeconfig/v1/runcconfig.proto";
+import "aksnodeconfig/v1/teleportconfig.proto";
+import "aksnodeconfig/v1/tlsbootstrappingconfig.proto";
 
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
-  WORKLOAD_RUNTIME_OCI_CONTAINER= 1;
+  WORKLOAD_RUNTIME_OCI_CONTAINER = 1;
   WORKLOAD_RUNTIME_WASM_WASI = 2;
 }
 
@@ -37,11 +37,11 @@ message Configuration {
 
   // Kubernetes API server configuration
   ApiServerConfig api_server_config = 4;
-  
+
   // Various Kubernetes cluster level configuration
   ClusterConfig cluster_config = 5;
 
-  // TLS bootstrap config 
+  // TLS bootstrap config
   TLSBootstrappingConfig tls_bootstrapping_config = 6;
 
   // Authentication configuration
@@ -51,7 +51,7 @@ message Configuration {
   RuncConfig runc_config = 8;
 
   // Containerd configuration
-  ContainerdConfig containerd_config = 9;  
+  ContainerdConfig containerd_config = 9;
 
   // Teleport configuration
   TeleportConfig teleport_config = 10;
@@ -96,7 +96,7 @@ message Configuration {
 
   // Specifies whether SSH is enabled or disabled on the VM node
   // This is labeled as optional (explicit presence) so that we know whether it's set or not.
-  // If it's not set, the default value will be nil, but will be set to true on the VHD. 
+  // If it's not set, the default value will be nil, but will be set to true on the VHD.
   optional bool enable_ssh = 23;
 
   // Specifies whether unattended upgrade is enabled or disabled on the VM node
@@ -109,7 +109,7 @@ message Configuration {
   bool enable_hosts_config_agent = 26;
 
   // Custom CA certificates to be added to the system trust store
-  repeated string custom_ca_certs = 27;  
+  repeated string custom_ca_certs = 27;
 
   // A local file path where cluster provision cse output should be stored
   string provision_output = 28;
@@ -121,7 +121,7 @@ message Configuration {
   bool ipv6_dual_stack_enabled = 30;
 
   // Command to use for outbound traffic
-  string outbound_command = 31; 
+  string outbound_command = 31;
 
   // Azure private registry server URI
   string azure_private_registry_server = 32;
@@ -133,7 +133,7 @@ message Configuration {
   bool enable_artifact_streaming = 34;
 
   // Specifies if it is a Kata node
-  bool is_kata = 35; 
+  bool is_kata = 35;
 
   // Specifies whether the node needs cgroupv2.
   // Labeled as optional (explicit presence) so that we know whether it's set or not.

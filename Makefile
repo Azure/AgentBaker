@@ -96,6 +96,7 @@ lint-proto-files:
 
 .PHONY: compile-proto-files
 compile-proto-files:
+	@./hack/tools/bin/buf buf format -w
 	@./hack/tools/bin/buf generate
 	$(MAKE) lint-proto-files
 

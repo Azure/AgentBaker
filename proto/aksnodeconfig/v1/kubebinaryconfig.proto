@@ -8,9 +8,9 @@ message KubeBinaryConfig {
 
   //user's custom kube binary url
   string custom_kube_binary_url = 2;
-   
+
   //privately cached kube binary url
-  string private_kube_binary_url = 3;  
+  string private_kube_binary_url = 3;
 
   //full path to the "pause" image. Used for --pod-infra-container-image.
   string pod_infra_container_image_url = 4;

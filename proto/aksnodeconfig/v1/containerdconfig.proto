@@ -7,7 +7,7 @@ message ContainerdConfig {
 
   // The version of containerd to download.
   string containerd_version = 2;
-  
+
   // The URL for downloading the containerd package.
   string containerd_package_url = 3;
 }
