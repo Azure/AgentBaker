@@ -35,9 +35,16 @@ jq --arg sig_name "${SIG_IMAGE_NAME}" \
   --arg status "${JOB_STATUS}" \
   --arg branch "${GIT_BRANCH}" \
   --arg commit "${GIT_VERSION}" \
-  '{sig_image_name: $sig_name, architecture: $arch, captured_sig_version: $captured_sig_version, build_id: $build_id, build_datetime: $date,
-  build_status: $status, branch: $branch, commit: $commit .}' \
-  ${PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
+  'to_entries | ([
+  {key: "sig_image_name", value: $sig_name},
+  {key: "architecture", value: $arch},
+  {key: "captured_sig_version", value: $captured_sig_version},
+  {key: "build_id", value: $build_id},
+  {key: "build_datetime", value: $date},
+  {key: "outcome", value: $status},
+  {key: "branch", value: $branch},
+  {key: "commit", value: $commit}
+] + .) | from_entries' ${PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
 rm ${PERFORMANCE_DATA_FILE}
 
