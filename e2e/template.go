@@ -1,10 +1,86 @@
 package e2e
 
 import (
+	"encoding/base64"
 	"fmt"
 
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
+	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/go-autorest/autorest/to"
 )
+
+func nbcToNbcContractV1(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontractv1.Configuration {
+	cs := nbc.ContainerService
+	agentPool := nbc.AgentPoolProfile
+
+	config := &nbcontractv1.Configuration{
+		Version:            "v0",
+		DisableCustomData:  false,
+		LinuxAdminUsername: "azureuser",
+		VmSize:             "Standard_D2ds_v5",
+		ClusterConfig: &nbcontractv1.ClusterConfig{
+			Location:      nbc.ContainerService.Location,
+			ResourceGroup: nbc.ResourceGroupName,
+			VmType:        nbcontractv1.ClusterConfig_VMSS,
+			ClusterNetworkConfig: &nbcontractv1.ClusterNetworkConfig{
+				SecurityGroupName: cs.Properties.GetNSGName(),
+				VnetName:          cs.Properties.GetVirtualNetworkName(),
+				VnetResourceGroup: cs.Properties.GetVNetResourceGroupName(),
+				Subnet:            cs.Properties.GetSubnetName(),
+				RouteTable:        cs.Properties.GetRouteTableName(),
+			},
+			PrimaryScaleSet: nbc.PrimaryScaleSetName,
+		},
+		ApiServerConfig: &nbcontractv1.ApiServerConfig{
+			ApiServerName: cs.Properties.HostedMasterProfile.FQDN,
+		},
+		AuthConfig: &nbcontractv1.AuthConfig{
+			ServicePrincipalId:     cs.Properties.ServicePrincipalProfile.ClientID,
+			ServicePrincipalSecret: cs.Properties.ServicePrincipalProfile.Secret,
+			TenantId:               nbc.TenantID,
+			SubscriptionId:         nbc.SubscriptionID,
+			AssignedIdentityId:     nbc.UserAssignedIdentityClientID,
+		},
+		NetworkConfig: &nbcontractv1.NetworkConfig{
+			NetworkPlugin:     nbcontractv1.NetworkPlugin_NP_KUBENET,
+			CniPluginsUrl:     nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
+			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
+		},
+		GpuConfig: &nbcontractv1.GPUConfig{
+			ConfigGpuDriver: true,
+			GpuDevicePlugin: false,
+		},
+		EnableUnattendedUpgrade: true,
+		KubernetesVersion:       cs.Properties.OrchestratorProfile.OrchestratorVersion,
+		ContainerdConfig: &nbcontractv1.ContainerdConfig{
+			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
+		},
+		OutboundCommand: nbcontractv1.GetDefaultOutboundCommand(),
+		KubeletConfig: &nbcontractv1.KubeletConfig{
+			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
+			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
+			EnableKubeletConfigFile:  false,
+			KubeletFlags:             nbcontractv1.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
+			KubeletNodeLabels:        nbcontractv1.GetKubeletNodeLabels(agentPool),
+		},
+		TlsBootstrappingConfig: &nbcontractv1.TLSBootstrappingConfig{
+			TlsBootstrappingToken: *nbc.KubeletClientTLSBootstrapToken,
+		},
+		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
+		KubeBinaryConfig: &nbcontractv1.KubeBinaryConfig{
+			KubeBinaryUrl:             cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL,
+			PodInfraContainerImageUrl: nbc.K8sComponents.PodInfraContainerImageURL,
+		},
+		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
+		HttpProxyConfig: &nbcontractv1.HTTPProxyConfig{
+			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
+		},
+		NeedsCgroupv2: to.BoolPtr(true),
+	}
+	return config
+}
 
 // this is huge, but accurate, so leave it here.
 // TODO(ace): minimize the actual required defaults.
@@ -16,6 +92,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		falseConst = false
 	)
 	return &datamodel.NodeBootstrappingConfiguration{
+		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
 			Location: location,
@@ -392,7 +469,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 			"--feature-gates":                     "RotateKubeletServerCertificate=true",
 			"--image-gc-high-threshold":           "85",
 			"--image-gc-low-threshold":            "80",
-			"--keep-terminated-pod-volumes":       "false",
 			"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 			"--kubeconfig":                        "/var/lib/kubelet/kubeconfig",
 			"--max-pods":                          "110",
@@ -448,7 +524,12 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 	}
 }
 
-func getHTTPServerTemplate(podName, nodeName string) string {
+func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
+	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	if isAirgap {
+		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
+	}
+
 	return fmt.Sprintf(`apiVersion: v1
 kind: Pod
 metadata:
@@ -456,7 +537,7 @@ metadata:
 spec:
   containers:
   - name: mariner
-    image: mcr.microsoft.com/cbl-mariner/busybox:2.0
+    image: %s
     imagePullPolicy: IfNotPresent
     command: ["sh", "-c"]
     args:
@@ -473,7 +554,7 @@ spec:
       httpGet:
         path: /
         port: 80
-`, podName, nodeName)
+`, podName, image, nodeName)
 }
 
 func getWasmSpinPodTemplate(podName, nodeName string) string {
@@ -485,7 +566,7 @@ spec:
   runtimeClassName: wasmtime-spin
   containers:
   - name: spin-hello
-    image: ghcr.io/deislabs/containerd-wasm-shims/examples/spin-rust-hello:v0.5.1
+    image: ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1
     imagePullPolicy: IfNotPresent
     command: ["/"]
     resources: # limit the resources to 128Mi of memory and 100m of CPU

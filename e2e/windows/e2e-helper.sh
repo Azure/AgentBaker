@@ -85,6 +85,40 @@ upload_linux_file_to_storage_account() {
     fi
 }
 
+check_linux_file_outdated() {
+    declare -l E2E_RESOURCE_GROUP_NAME="$AZURE_E2E_RESOURCE_GROUP_NAME-$WINDOWS_E2E_IMAGE$WINDOWS_GPU_DRIVER_SUFFIX-$K8S_VERSION"
+    E2E_MC_RESOURCE_GROUP_NAME="MC_${E2E_RESOURCE_GROUP_NAME}_${AZURE_E2E_CLUSTER_NAME}_$AZURE_BUILD_LOCATION"
+    MC_VMSS_NAME=$(az vmss list -g $E2E_MC_RESOURCE_GROUP_NAME --query "[?contains(name, 'nodepool')]" -ojson | jq -r '.[0].name')
+    VMSS_INSTANCE_ID="$(az vmss list-instances --name $MC_VMSS_NAME -g $E2E_MC_RESOURCE_GROUP_NAME | jq -r '.[0].instanceId')"
+    
+    linuxFileURL="https://${AZURE_E2E_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${WINDOWS_E2E_STORAGE_CONTAINER}/${MC_VMSS_NAME}-linux-file.zip"
+
+    # download uploaded linux files to old.zip
+    # compress current linux files to new.zip
+    az vmss run-command invoke --command-id RunShellScript \
+        --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
+        --name $MC_VMSS_NAME \
+        --instance-id $VMSS_INSTANCE_ID \
+        --scripts "cat /etc/kubernetes/azure.json > /home/fields.json; cat /etc/kubernetes/certs/apiserver.crt | base64 -w 0 > /home/apiserver.crt; cat /etc/kubernetes/certs/ca.crt | base64 -w 0 > /home/ca.crt; cat /etc/kubernetes/certs/client.key | base64 -w 0 > /home/client.key; cat /var/lib/kubelet/bootstrap-kubeconfig > /home/bootstrap-kubeconfig; cd /home; zip new.zip fields.json apiserver.crt ca.crt client.key bootstrap-kubeconfig; wget https://aka.ms/downloadazcopy-v10-linux; tar -xvf downloadazcopy-v10-linux; cd ./azcopy_*; export AZCOPY_AUTO_LOGIN_TYPE=\"MSI\"; export AZCOPY_MSI_RESOURCE_STRING=\"${AZURE_MSI_RESOURCE_STRING}\"; ./azcopy copy $linuxFileURL /home/old.zip"
+
+    # Use "unzip -d new new.zip" to unzip the compreesed file to a folder
+    # Use "diff -r -q new old" to compare two folder
+    # If files are different in these two folders, the output message will contain "Files xxx and xxx differ"
+    # Example: "Files /home/new/apiserver.crt and /home/old/apiserver.crt differ"
+    compare_message=$(az vmss run-command invoke --command-id RunShellScript \
+        --resource-group $E2E_MC_RESOURCE_GROUP_NAME \
+        --name $MC_VMSS_NAME \
+        --instance-id $VMSS_INSTANCE_ID \
+        --scripts "apt install unzip --yes; unzip -d /home/new /home/new.zip; unzip -d /home/old /home/old.zip; diff -r -q /home/new /home/old")
+
+    if [[ "$compare_message" == *"differ"* ]]; then
+        err "Linux files are outdated."
+        return
+    fi
+
+    log "Linux files are still the latest."
+}
+
 download_linux_file_from_storage_account() {
     local retval
     retval=0

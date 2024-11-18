@@ -126,7 +126,15 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+    local versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    local downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
+    local downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
+
+    local versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
+    local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
@@ -186,7 +194,7 @@ fi
 
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
-logs_to_events "AKS.CSE.disableKubeletServingCertificateRotationForTags" disableKubeletServingCertificateRotationForTags
+logs_to_events "AKS.CSE.configureKubeletServingCertificateRotation" configureKubeletServingCertificateRotation
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
@@ -314,12 +322,8 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         fi
     fi
 else
-    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
-        #TODO (djsly): remove this once 18.04 isn't supported anymore
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-    else
-        logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
-    fi
+    API_SERVER_CONN_RETRIES=300
+    logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then

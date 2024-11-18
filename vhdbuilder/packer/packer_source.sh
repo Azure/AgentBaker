@@ -125,6 +125,8 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
+  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
+  NODE_BOOTSTRAPPER_DEST=/opt/azure/node-bootstrapper
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -261,9 +263,13 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
-  NBC_PARSER_SRC=/home/packer/nbcparser
-  NBC_PARSER_DEST=/opt/azure/containers/nbcparser
-  cpAndMode $NBC_PARSER_SRC $NBC_PARSER_DEST 0755
+  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
+  NODE_BOOTSTRAPPER_DEST=/opt/azure/containers/node-bootstrapper
+  cpAndMode $NODE_BOOTSTRAPPER_SRC $NODE_BOOTSTRAPPER_DEST 755
+
+  NODE_BOOTSTRAPPER_SERVICE_SRC=/home/packer/bootstrap.service
+  NODE_BOOTSTRAPPER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
+  cpAndMode $NODE_BOOTSTRAPPER_SERVICE_SRC $NODE_BOOTSTRAPPER_SERVICE_DEST 0644
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt

@@ -1,25 +1,17 @@
 #!/bin/bash
-
-script_start_stopwatch=$(date +%s)
-section_start_stopwatch=$(date +%s)
-SCRIPT_NAME=$(basename $0 .sh)
-SCRIPT_NAME="${SCRIPT_NAME//-/_}"
-declare -A benchmarks=()
-declare -a benchmarks_order=()
-
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
 AZURELINUX_OS_NAME="AZURELINUX"
 
+# Real world examples from the command outputs
+# For Azure Linux V3: ID=azurelinux VERSION_ID="3.0"
+# For Azure Linux V2: ID=mariner VERSION_ID="2.0"
+OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 IS_KATA="false"
 if grep -q "kata" <<< "$FEATURE_FLAGS"; then
   IS_KATA="true"
-  # TODO temporarily modify os-release to be mariner for Kata on 3.0 images to unblock AKS deployment
-  sudo sed -i 's/azurelinux/mariner/g' /etc/os-release
 fi
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
@@ -27,6 +19,7 @@ THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
+source /home/packer/provision_source_benchmarks.sh
 source /home/packer/provision_source_distro.sh
 source /home/packer/tool_installs.sh
 source /home/packer/tool_installs_distro.sh
@@ -34,11 +27,11 @@ source /home/packer/tool_installs_distro.sh
 CPU_ARCH=$(getCPUArch)  #amd64 or arm64
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 COMPONENTS_FILEPATH=/opt/azure/components.json
-VHD_BUILD_PERF_DATA=/opt/azure/vhd-build-performance-data.json
+PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "declare_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -63,7 +56,7 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmark "purge_and_reinstall_ubuntu"
+capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -106,7 +99,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmark "install_dependencies"
+capture_benchmark "${SCRIPT_NAME}_install_dependencies"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -135,7 +128,7 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-capture_benchmark "check_container_runtime_and_network_configurations"
+capture_benchmark "${SCRIPT_NAME}_check_container_runtime_and_network_configurations"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -196,16 +189,19 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
-
-downloadContainerdWasmShims
-echo "  - containerd-wasm-shims ${CONTAINERD_WASM_VERSIONS}" >> ${VHD_LOGS_FILEPATH}
-
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-capture_benchmark "create_containerd_service_directory_download_shims_configure_runtime_and_network"
+capture_benchmark "${SCRIPT_NAME}_create_containerd_service_directory_and_configure_runtime_and_network"
+
+# check if COMPONENTS_FILEPATH exists
+if [ ! -f $COMPONENTS_FILEPATH ]; then
+  echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
+  exit 1
+fi
 
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for p in ${packages[*]}; do
+# Iterate over each element in the packages array
+while IFS= read -r p; do
   #getting metadata for each package
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
@@ -213,17 +209,17 @@ for p in ${packages[*]}; do
   if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
     os=${MARINER_KATA_OS_NAME}
   fi
-  returnPackageVersions ${p} ${os} ${OS_VERSION}
+  updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
   PACKAGE_DOWNLOAD_URL=""
-  returnPackageDownloadURL ${p} ${os} ${OS_VERSION}
+  updatePackageDownloadURL "${p}" "${os}" "${OS_VERSION}"
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
-  
+
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
   if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
-  downloadDir=$(echo ${p} | jq .downloadLocation -r)
+  downloadDir=$(echo "${p}" | jq .downloadLocation -r)
   #download the package
   case $name in
     "cri-tools")
@@ -286,6 +282,14 @@ for p in ${packages[*]}; do
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
+    "containerd-wasm-shims")
+      installContainerdWasmShims "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
+      echo "  - containerd-wasm-shims version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
+      ;;
+    "spinkube")
+      installSpinKube "${downloadDir}" "${PACKAGE_DOWNLOAD_URL}" "${PACKAGE_VERSIONS[@]}"
+      echo "  - spinkube version ${PACKAGE_VERSIONS[@]}" >> ${VHD_LOGS_FILEPATH}
+      ;;
     "kubernetes-binaries")
       # kubelet and kubectl
       # need to cover previously supported version for VMAS scale up scenario
@@ -305,14 +309,14 @@ for p in ${packages[*]}; do
       # However, installation could be different for different packages.
       ;;
   esac
-  capture_benchmark "download_${name}"
-done
+  capture_benchmark "${SCRIPT_NAME}_download_${name}"
+done <<< "$packages"
 
 installAndConfigureArtifactStreaming() {
   # arguments: package name, package extension
   PACKAGE_NAME=$1
   PACKAGE_EXTENSION=$2
-  MIRROR_PROXY_VERSION='0.2.9'
+  MIRROR_PROXY_VERSION='0.2.10'
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
@@ -342,20 +346,42 @@ KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_T
 ctr namespace create k8s.io
 cliTool="ctr"
 
-# also pre-download Teleportd plugin for containerd
-downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} "0.8.0"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "artifact_streaming_and_download_teleportd"
+capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
+GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
+
+NVIDIA_DRIVER_IMAGE=""
+NVIDIA_DRIVER_IMAGE_TAG=""
+
+if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
-  NVIDIA_DRIVER_IMAGE_SHA="sha-b40b85"
-  export NVIDIA_DRIVER_IMAGE_TAG="cuda-550.90.07-${NVIDIA_DRIVER_IMAGE_SHA}"
+
+  while IFS= read -r imageToBePulled; do
+    downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+    imageName=$(echo "$downloadURL" | sed 's/:.*$//')
+
+    if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
+      latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
+      NVIDIA_DRIVER_IMAGE="$imageName"
+      NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
+      break  # Exit the loop once we find the image
+    fi
+  done <<< "$GPUContainerImages"
+
+  # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
+  if [[ -z "$NVIDIA_DRIVER_IMAGE" || -z "$NVIDIA_DRIVER_IMAGE_TAG" ]]; then
+    echo "Error: Unable to find aks-gpu-cuda image in components.json"
+    exit 1
+  fi
 
   mkdir -p /opt/{actions,gpu}
-  ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+
+  ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
+
+  # Check for the "fullgpu" feature flag
   if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
     bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
     ret=$?
@@ -365,10 +391,12 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GP
     fi
   fi
 
-  cat << EOF >> ${VHD_LOGS_FILEPATH}
+    cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
+
 fi
+
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
@@ -386,7 +414,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "pull_nvidia_driver_image_and_run_installBcc_in_subshell"
+capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_image_and_run_installBcc_in_subshell"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -405,41 +433,37 @@ echo "Limit for parallel container image pulls set to $parallel_container_image_
 declare -a image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
-for imageToBePulled in ${ContainerImages[*]}; do
+while IFS= read -r imageToBePulled; do
   downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
   amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-  multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
-
+  MULTI_ARCH_VERSIONS=()
+  updateMultiArchVersions "${imageToBePulled}"
   amd64OnlyVersions=""
   if [[ ${amd64OnlyVersionsStr} != null ]]; then
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
-  multiArchVersions=""
-  if [[ ${multiArchVersionsStr} != null ]]; then
-    multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-  fi
 
   if [[ $(isARM64) == 1 ]]; then
-    versions="${multiArchVersions}"
+    versions="${MULTI_ARCH_VERSIONS[*]}"
   else
-    versions="${amd64OnlyVersions} ${multiArchVersions}"
+    versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
   fi
 
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
-    pullContainerImage ${cliTool} ${CONTAINER_IMAGE} &
+    pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
     done
   done
-done
+done <<< "$ContainerImages"
 wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
-watcherVersion=$(echo $watcher | jq -r .multiArchVersions[0])
+watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)
 watcherFullImg=${watcherBaseImg//\*/$watcherVersion}
 
 # this image will never get pulled, the tag must be the same across different SHAs.
@@ -450,20 +474,19 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmark "pull_and_retag_container_images"
+capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-capture_benchmark "configure_networking_and_interface"
+capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
 
 DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
 pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-echo "  - ${DEVICE_PLUGIN_CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
 
 # GPU device plugin
 if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
@@ -482,13 +505,17 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
   ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
 fi
 fi
+
 capture_benchmark "download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
-systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
-systemctl enable cgroup-memory-telemetry.service || exit 1
-systemctl restart cgroup-memory-telemetry.service
+# Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
+if [ ! isMarinerOrAzureLinux "$OS" ]; then
+  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctl enable cgroup-memory-telemetry.service || exit 1
+  systemctl restart cgroup-memory-telemetry.service
+fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
@@ -500,7 +527,7 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-capture_benchmark "configure_telemetry_create_logging_directory"
+capture_benchmark "${SCRIPT_NAME}_configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -542,6 +569,7 @@ fi
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
+chmod 755 /var/log/bcc_installation.log
 
 if [ $BCC_EXIT_CODE -eq 0 ]; then
   echo "Bcc tools successfully installed."
@@ -551,8 +579,9 @@ if [ $BCC_EXIT_CODE -eq 0 ]; then
 EOF
 else
   echo "Error: installBcc subshell failed with exit code $BCC_EXIT_CODE" >&2
+  exit $BCC_EXIT_CODE
 fi
-capture_benchmark "finish_installing_bcc_tools"
+capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
 if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then

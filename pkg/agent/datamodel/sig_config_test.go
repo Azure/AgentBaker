@@ -12,23 +12,23 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 
 	BeforeEach(func() {
 		galleries := map[string]SIGGalleryConfig{
-			"AKSUbuntu": SIGGalleryConfig{
+			"AKSUbuntu": {
 				GalleryName:   "aksubuntu",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSCBLMariner": SIGGalleryConfig{
+			"AKSCBLMariner": {
 				GalleryName:   "akscblmariner",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSAzureLinux": SIGGalleryConfig{
+			"AKSAzureLinux": {
 				GalleryName:   "aksazurelinux",
 				ResourceGroup: "resourcegroup",
 			},
-			"AKSWindows": SIGGalleryConfig{
+			"AKSWindows": {
 				GalleryName:   "AKSWindows",
 				ResourceGroup: "AKS-Windows",
 			},
-			"AKSUbuntuEdgeZone": SIGGalleryConfig{
+			"AKSUbuntuEdgeZone": {
 				GalleryName:   "AKSUbuntuEdgeZone",
 				ResourceGroup: "AKS-Ubuntu-EdgeZone",
 			},

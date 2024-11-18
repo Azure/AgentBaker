@@ -1,21 +1,38 @@
 package components
 
 #ContainerImagePrefetchOptimization: {
-	version: string
 	binaries: [...string]
+}
+
+#ContainerImagePrefetchOptimizations: {
+	latestVersion:          #ContainerImagePrefetchOptimization
+	previousLatestVersion?: #ContainerImagePrefetchOptimization
 }
 
 #ContainerImage: {
 	downloadURL: string
-	amd64OnlyVersions: [...string]
-	multiArchVersions: [...]
-	prefetchOptimizations: [...#ContainerImagePrefetchOptimization]
+	amd64OnlyVersions:     [...string]
+	multiArchVersionsV2:   [...#VersionV2]
+}
+
+#GPUContainerImage: {
+	downloadURL: string
+	gpuVersion:   #VersionV2
 }
 
 #Images: [...#ContainerImage]
+#GPUImages: [...#GPUContainerImage]
 #Packages: [...#Package]
+#VersionV2: {
+	k8sVersion?:             string
+	renovateTag?:            string
+	latestVersion:           string
+	previousLatestVersion?:  string
+	containerImagePrefetch?: #ContainerImagePrefetchOptimizations
+}
+
 #ReleaseDownloadURI: {
-	versions:     [...string]
+	versionsV2:   [...#VersionV2]
 	downloadURL?:  string
 }
 
@@ -36,6 +53,7 @@ package components
 }
 
 #AzureLinuxOSDistro: {
+	"v3.0"?:  #ReleaseDownloadURI
 	current?: #ReleaseDownloadURI
 }
 
@@ -55,7 +73,8 @@ package components
 
 #Components: {
 	ContainerImages: #Images
-	Packages:        #Packages    
+	Packages:        #Packages
+	GPUContainerImages?: #GPUImages
 }
 
 #Components

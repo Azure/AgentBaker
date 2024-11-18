@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/pkg/agent"
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -31,10 +33,28 @@ const (
 
 func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte, publicKeyBytes []byte) *armcompute.VirtualMachineScaleSet {
 	t.Logf("creating VMSS %q in resource group %q", vmssName, *opts.clusterConfig.Model.Properties.NodeResourceGroup)
-	nodeBootstrapping, err := getNodeBootstrapping(ctx, opts.nbc)
+	var nodeBootstrapping *datamodel.NodeBootstrapping
+	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
+	if opts.scenario.Tags.Scriptless {
+		agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(opts.nbc)
+		nodeBootstrapping, err = ab.GetNodeBootstrappingForScriptless(ctx, nbcToNbcContractV1(opts.nbc), opts.scenario.VHD.Distro, datamodel.AzurePublicCloud)
+		require.NoError(t, err)
+	} else {
+		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, opts.nbc)
+		require.NoError(t, err)
+	}
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, opts)
+	cse := nodeBootstrapping.CSE
+	if opts.scenario.CSEOverride != "" {
+		cse = opts.scenario.CSEOverride
+	}
+	customData := nodeBootstrapping.CustomData
+	if opts.scenario.DisableCustomData {
+		customData = ""
+	}
+
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, opts.clusterConfig)
 
 	isAzureCNI, err := opts.clusterConfig.IsAzureCNI()
 	require.NoError(t, err, vmssName, opts)
@@ -56,7 +76,7 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenar
 	skipTestIfSKUNotAvailableErr(t, err)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupVMSS(ctx, t, vmssName, opts, privateKeyBytes)
+		cleanupVMSS(ctx, t, vmssName, opts.clusterConfig, privateKeyBytes)
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
@@ -76,17 +96,17 @@ func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
 	}
 }
 
-func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
+func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, cluster *Cluster, privateKeyBytes []byte) {
 	// original context can be cancelled, but we still want to collect the logs
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Minute)
 	defer cancel()
-	defer deleteVMSS(t, ctx, vmssName, opts, privateKeyBytes)
+	defer deleteVMSS(t, ctx, vmssName, cluster, privateKeyBytes)
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *cluster.Model.Properties.NodeResourceGroup, vmssName)
 	require.NoError(t, err)
 
 	require.NoError(t, err, "get vm private IP %v", vmssName)
-	logFiles, err := extractLogsFromVM(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), opts)
+	logFiles, err := extractLogsFromVM(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), cluster)
 	require.NoError(t, err, "extract logs from vm %v", vmssName)
 
 	err = dumpFileMapToDir(t, logFiles)
@@ -94,7 +114,7 @@ func cleanupVMSS(ctx context.Context, t *testing.T, vmssName string, opts *scena
 
 }
 
-func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenarioRunOpts, privateKeyBytes []byte) {
+func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, cluster *Cluster, privateKeyBytes []byte) {
 	if config.Config.KeepVMSS {
 		t.Logf("vmss %q will be retained for debugging purposes, please make sure to manually delete it later", vmssName)
 		if err := writeToFile(t, "sshkey", string(privateKeyBytes)); err != nil {
@@ -102,7 +122,7 @@ func deleteVMSS(t *testing.T, ctx context.Context, vmssName string, opts *scenar
 		}
 		return
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *opts.clusterConfig.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	_, err := config.Azure.VMSS.BeginDelete(ctx, *cluster.Model.Properties.NodeResourceGroup, vmssName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
@@ -232,8 +252,8 @@ func getVmssName(t *testing.T) string {
 	return name
 }
 
-func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scenarioRunOpts) armcompute.VirtualMachineScaleSet {
-	return armcompute.VirtualMachineScaleSet{
+func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, cluster *Cluster) armcompute.VirtualMachineScaleSet {
+	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
 			Name:     to.Ptr("Standard_D2ds_v5"),
@@ -245,23 +265,6 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 				Mode: to.Ptr(armcompute.UpgradeModeAutomatic),
 			},
 			VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-				ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
-					Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-						{
-							Name: to.Ptr("vmssCSE"),
-							Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-								Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-								Type:                    to.Ptr("CustomScript"),
-								TypeHandlerVersion:      to.Ptr("2.0"),
-								AutoUpgradeMinorVersion: to.Ptr(true),
-								Settings:                map[string]interface{}{},
-								ProtectedSettings: map[string]interface{}{
-									"commandToExecute": cseCmd,
-								},
-							},
-						},
-					},
-				},
 				OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
 					ComputerNamePrefix: to.Ptr(name),
 					AdminUsername:      to.Ptr("azureuser"),
@@ -302,13 +305,13 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 														fmt.Sprintf(
 															loadBalancerBackendAddressPoolIDTemplate,
 															config.Config.SubscriptionID,
-															*opts.clusterConfig.Model.Properties.NodeResourceGroup,
+															*cluster.Model.Properties.NodeResourceGroup,
 														),
 													),
 												},
 											},
 											Subnet: &armcompute.APIEntityReference{
-												ID: to.Ptr(opts.clusterConfig.SubnetID),
+												ID: to.Ptr(cluster.SubnetID),
 											},
 										},
 									},
@@ -320,6 +323,26 @@ func getBaseVMSSModel(name, sshPublicKey, customData, cseCmd string, opts *scena
 			},
 		},
 	}
+	if cseCmd != "" {
+		model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
+			Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+				{
+					Name: to.Ptr("vmssCSE"),
+					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+						Type:                    to.Ptr("CustomScript"),
+						TypeHandlerVersion:      to.Ptr("2.0"),
+						AutoUpgradeMinorVersion: to.Ptr(true),
+						Settings:                map[string]interface{}{},
+						ProtectedSettings: map[string]interface{}{
+							"commandToExecute": cseCmd,
+						},
+					},
+				},
+			},
+		}
+	}
+	return model
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

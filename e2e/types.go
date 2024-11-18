@@ -25,6 +25,7 @@ type Tags struct {
 	GPU                    bool
 	WASM                   bool
 	ServerTLSBootstrapping bool
+	Scriptless             bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -126,7 +127,9 @@ type Config struct {
 
 	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
 	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators []*LiveVMValidator
+	LiveVMValidators  []*LiveVMValidator
+	CSEOverride       string
+	DisableCustomData bool
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content

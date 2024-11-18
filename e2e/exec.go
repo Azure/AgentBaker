@@ -53,15 +53,16 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) (map[string]string, error) {
+func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
 	commandList := map[string]string{
-		"/var/log/azure/cluster-provision": "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                          "journalctl -u kubelet",
-		"/var/log/azure/cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out": "sysctl -a",
+		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet":                      "journalctl -u kubelet",
+		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out":                   "sysctl -a",
+		"node-bootstrapper":            "cat /var/log/azure/node-bootstrapper.log",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, opts.clusterConfig.Kube)
+	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
 	}
@@ -70,12 +71,11 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 	for file, sourceCmd := range commandList {
 		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
 
-		execResult, err := execOnVM(ctx, opts.clusterConfig.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
+		execResult, err := execOnVM(ctx, cluster.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
 		if err != nil {
 			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
 			return nil, err
 		}
-
 		if execResult.stdout != nil {
 			out := execResult.stdout.String()
 			if out != "" {
@@ -100,7 +100,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 		"/var/lib/kubelet/bootstrap-kubeconfig": "cat /var/lib/kubelet/bootstrap-kubeconfig",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, kube)
+	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
 	if err != nil {
 		return nil, err
 	}

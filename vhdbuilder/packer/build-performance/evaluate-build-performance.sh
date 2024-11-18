@@ -12,17 +12,17 @@ log_and_exit () {
   exit 0
 }
 
-if [[ ! -f ${BUILD_PERF_DATA_FILE} ]]; then
-  log_and_exit ${BUILD_PERF_DATA_FILE} "not found"
+if [[ ! -f ${PERFORMANCE_DATA_FILE} ]]; then
+  log_and_exit ${PERFORMANCE_DATA_FILE} "not found"
 fi
 
-SCRIPT_COUNT=$(jq -e 'keys | length' ${BUILD_PERF_DATA_FILE})
+SCRIPT_COUNT=$(jq -e 'keys | length' ${PERFORMANCE_DATA_FILE})
 if [[ $? -ne 0 ]]; then
-  log_and_exit ${BUILD_PERF_DATA_FILE} "contains invalid json" true
+  log_and_exit ${PERFORMANCE_DATA_FILE} "contains invalid json" true
 fi
 
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
-  log_and_exit ${BUILD_PERF_DATA_FILE} "contains no scripts"
+  log_and_exit ${PERFORMANCE_DATA_FILE} "contains no scripts"
 fi
 
 echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
@@ -37,9 +37,9 @@ jq --arg sig_name "${SIG_IMAGE_NAME}" \
   --arg commit "${GIT_VERSION}" \
   '{sig_image_name: $sig_name, architecture: $arch, captured_sig_version: $captured_sig_version, build_id: $build_id, build_datetime: $date,
   build_status: $status, branch: $branch, commit: $commit, scripts: .}' \
-  ${BUILD_PERF_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
+  ${PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
-rm ${BUILD_PERF_DATA_FILE}
+rm ${PERFORMANCE_DATA_FILE}
 
 echo "##[group]Build Information"
 jq -C '. | {sig_image_name, architecture, captured_sig_version, build_id, build_datetime, build_status, branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json

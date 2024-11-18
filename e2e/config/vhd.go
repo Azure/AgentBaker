@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -19,39 +20,46 @@ const (
 
 var (
 	VHDUbuntu1804Gen2Containerd = &Image{
-		Name: "1804gen2containerd",
-		OS:   "ubuntu",
-		Arch: "amd64",
+		Name:   "1804gen2containerd",
+		OS:     "ubuntu",
+		Arch:   "amd64",
+		Distro: datamodel.AKSUbuntuContainerd1804Gen2,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
-		Name: "2204gen2arm64containerd",
-		OS:   "ubuntu",
-		Arch: "arm64",
+		Name:   "2204gen2arm64containerd",
+		OS:     "ubuntu",
+		Arch:   "arm64",
+		Distro: datamodel.AKSUbuntuArm64Containerd2204Gen2,
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
-		Name: "2204gen2containerd",
-		OS:   "ubuntu",
-		Arch: "amd64",
+		Name:   "2204gen2containerd",
+		OS:     "ubuntu",
+		Arch:   "amd64",
+		Distro: datamodel.AKSUbuntuContainerd2404Gen2,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
-		Name: "AzureLinuxV2gen2arm64",
-		OS:   "azurelinux",
-		Arch: "arm64",
+		Name:   "AzureLinuxV2gen2arm64",
+		OS:     "azurelinux",
+		Arch:   "arm64",
+		Distro: datamodel.AKSAzureLinuxV2Arm64Gen2,
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
-		Name: "AzureLinuxV2gen2",
-		OS:   "azurelinux",
-		Arch: "amd64",
+		Name:   "AzureLinuxV2gen2",
+		OS:     "azurelinux",
+		Arch:   "amd64",
+		Distro: datamodel.AKSAzureLinuxV2Gen2,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
-		Name: "CBLMarinerV2gen2arm64",
-		OS:   "mariner",
-		Arch: "arm64",
+		Name:   "CBLMarinerV2gen2arm64",
+		OS:     "mariner",
+		Arch:   "arm64",
+		Distro: datamodel.AKSCBLMarinerV2Arm64Gen2,
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
-		Name: "CBLMarinerV2gen2",
-		OS:   "mariner",
-		Arch: "amd64",
+		Name:   "CBLMarinerV2gen2",
+		OS:     "mariner",
+		Arch:   "amd64",
+		Distro: datamodel.AKSCBLMarinerV2Gen2,
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
@@ -60,6 +68,7 @@ var (
 		OS:      "ubuntu",
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
+		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -68,6 +77,7 @@ var (
 		OS:      "ubuntu",
 		Arch:    "amd64",
 		Version: "1.1725612526.29638",
+		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 	}
 )
 
@@ -75,6 +85,7 @@ var ErrNotFound = fmt.Errorf("not found")
 
 type Image struct {
 	Arch    string
+	Distro  datamodel.Distro
 	Name    string
 	OS      string
 	Version string
@@ -99,7 +110,7 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", imageDefinitionResourceID, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image %s", i.vhdErr)
+			t.Logf("failed to find the latest image version for %s", i.vhdErr)
 		}
 	})
 	return i.vhd, i.vhdErr
@@ -153,7 +164,7 @@ func ensureStaticSIGImageVersion(ctx context.Context, t *testing.T, imageVersion
 	}
 	version := newSIGImageVersionFromResourceID(rid)
 
-	resp, err := Azure.GalleryImageVersionClient.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
+	resp, err := Azure.GalleryImageVersion.Get(ctx, version.resourceGroup, version.gallery, version.definition, version.version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
@@ -176,8 +187,7 @@ func findLatestSIGImageVersionWithTag(ctx context.Context, t *testing.T, imageDe
 		return "", fmt.Errorf("parsing image definition resource ID: %w", err)
 	}
 	definition := newSIGImageDefinitionFromResourceID(rid)
-
-	pager := Azure.GalleryImageVersionClient.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
+	pager := Azure.GalleryImageVersion.NewListByGalleryImagePager(definition.resourceGroup, definition.gallery, definition.definition, nil)
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
@@ -241,7 +251,7 @@ func replicateToCurrentRegion(ctx context.Context, t *testing.T, definition sigI
 		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
 	})
 
-	resp, err := Azure.GalleryImageVersionClient.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
+	resp, err := Azure.GalleryImageVersion.BeginCreateOrUpdate(ctx, definition.resourceGroup, definition.gallery, definition.definition, *version.Name, *version, nil)
 	if err != nil {
 		return fmt.Errorf("begin updating image version target regions: %w", err)
 	}

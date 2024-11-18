@@ -2,8 +2,6 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 variables:
-  - name: CONTAINER_IMAGE
-    value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
   - group: aks-vuln-to-kusto
 
 pool:
@@ -45,7 +43,7 @@ parameters:
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
-    default: false
+    default: true
   - name: buildMarinerV2gen2
     displayName: Build MarinerV2 Gen2
     type: boolean
@@ -57,7 +55,7 @@ parameters:
   - name: buildAzureLinuxV3gen2
     displayName: Build AzureLinuxV3 Gen2
     type: boolean
-    default: false
+    default: true
   - name: buildMarinerV2gen1fips
     displayName: Build MarinerV2 Gen1 FIPS
     type: boolean
@@ -69,7 +67,7 @@ parameters:
   - name: buildAzureLinuxV3gen1fips
     displayName: Build AzureLinuxV3 Gen1 FIPS
     type: boolean
-    default: false
+    default: true
   - name: buildMarinerV2gen2fips
     displayName: Build MarinerV2 Gen2 FIPS
     type: boolean
@@ -81,7 +79,7 @@ parameters:
   - name: buildAzureLinuxV3gen2fips
     displayName: Build AzureLinuxV3 Gen2 FIPS
     type: boolean
-    default: false
+    default: true
   - name: buildMarinerV2gen2kata
     displayName: Build MarinerV2 Gen2 Kata
     type: boolean
@@ -101,7 +99,7 @@ parameters:
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
-    default: false
+    default: true
   - name: buildMarinerV2gen2TrustedLaunch
     displayName: Build MarinerV2 Gen2 - Trusted Launch
     type: boolean
@@ -208,6 +206,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
@@ -234,6 +233,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
@@ -256,10 +256,11 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]18.04-LTS'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC4as_T4_v3'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
@@ -282,10 +283,11 @@ stages:
               echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC4as_T4_v3'
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
@@ -1108,6 +1110,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
@@ -1134,6 +1137,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
@@ -1160,6 +1164,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
@@ -1186,6 +1191,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
@@ -1212,6 +1218,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
@@ -1238,6 +1245,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]True'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
             displayName: Setup Build Variables
@@ -1264,6 +1272,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables
@@ -1290,6 +1299,7 @@ stages:
               echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]False'
             displayName: Setup Build Variables

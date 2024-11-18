@@ -164,6 +164,8 @@ configureKubeletServerCert() {
 }
 
 configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+    
     APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
     touch "${APISERVER_PUBLIC_KEY_PATH}"
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
@@ -173,8 +175,6 @@ configureK8s() {
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
-
-    mkdir -p "/etc/kubernetes/certs"
 
     set +x
     if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
@@ -350,6 +350,7 @@ ensureArtifactStreaming() {
   systemctl enable acr-mirror.service
   systemctl start acr-mirror.service
   sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
   sudo /opt/acr/tools/overlaybd/config.sh download.enable false
   sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
@@ -396,7 +397,7 @@ getPrimaryNicIP() {
     local ip=""
 
     while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
         if [[ -n "$ip" && $? -eq 0 ]]; then
             break
         fi
@@ -406,20 +407,9 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
-clearKubeletNodeLabel() {
-    local LABEL_STRING=$1
-    if echo "$KUBELET_NODE_LABELS" | grep -e ",${LABEL_STRING}"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING},"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
-    elif echo "$KUBELET_NODE_LABELS" | grep -e "${LABEL_STRING}"; then
-        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
-    fi
-}
-
-disableKubeletServingCertificateRotationForTags() {
-    if [[ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true"  ]]; then
-        echo "kubelet serving certificate rotation is already disabled"
+configureKubeletServingCertificateRotation() {
+    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
+        echo "kubelet serving certificate rotation is disabled, nothing to configure"
         return 0
     fi
 
@@ -430,22 +420,25 @@ disableKubeletServingCertificateRotationForTags() {
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
-    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" != "true" ]; then
-        echo "nodepool tag \"aks-disable-kubelet-serving-certificate-rotation\" is not true, nothing to disable"
+    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" == "true" ]; then
+        echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels"
+
+        KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
+
+        if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+            set +x
+            KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
+            set -x
+        fi
+
+        removeKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
         return 0
     fi
-
-    echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels..."
-
-    KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-
-    if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
-        set +x
-        KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
-        set -x
-    fi
     
-    clearKubeletNodeLabel "kubernetes.azure.com/kubelet-serving-ca=cluster"
+    echo "kubelet serving certificate rotation is enabled, will add node label if needed"
+    addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
 }
 
 ensureKubelet() {
@@ -701,14 +694,14 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
-            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?

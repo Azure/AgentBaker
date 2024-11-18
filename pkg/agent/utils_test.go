@@ -442,114 +442,6 @@ func TestIsKubeletServingCertificateRotationEnabled(t *testing.T) {
 	}
 }
 
-func TestGetAgentKubernetesLabels(t *testing.T) {
-	cases := []struct {
-		name     string
-		profile  *datamodel.AgentPoolProfile
-		config   *datamodel.NodeBootstrappingConfiguration
-		expected string
-	}{
-		{
-			name:     "profile and config are nil",
-			profile:  nil,
-			config:   nil,
-			expected: "",
-		},
-		{
-			name:    "profile is nil",
-			profile: nil,
-			config: &datamodel.NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{
-					"--tls-cert-file":              "cert.crt",
-					"--tls-private-key-file":       "cert.key",
-					"--rotate-server-certificates": "true",
-				},
-			},
-			expected: "kubernetes.azure.com/kubelet-serving-ca=cluster",
-		},
-		{
-			name: "config is nil",
-			profile: &datamodel.AgentPoolProfile{
-				Name: "nodepool1",
-				CustomNodeLabels: map[string]string{
-					"label": "value",
-				},
-			},
-			config:   nil,
-			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
-		},
-		{
-			name: "config disables serving certificate rotation",
-			profile: &datamodel.AgentPoolProfile{
-				Name: "nodepool1",
-				CustomNodeLabels: map[string]string{
-					"label": "value",
-				},
-			},
-			config: &datamodel.NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{
-					"--tls-cert-file":              "cert.crt",
-					"--tls-private-key-file":       "cert.key",
-					"--rotate-server-certificates": "false",
-				},
-			},
-			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
-		},
-		{
-			name:    "config disables serving certificate rotation and profile is nil",
-			profile: nil,
-			config: &datamodel.NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{
-					"--tls-cert-file":              "cert.crt",
-					"--tls-private-key-file":       "cert.key",
-					"--rotate-server-certificates": "false",
-				},
-			},
-			expected: "",
-		},
-		{
-			name: "config implicitly disables serving certificate rotation",
-			profile: &datamodel.AgentPoolProfile{
-				Name: "nodepool1",
-				CustomNodeLabels: map[string]string{
-					"label": "value",
-				},
-			},
-			config: &datamodel.NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{
-					"--tls-cert-file":        "cert.crt",
-					"--tls-private-key-file": "cert.key",
-				},
-			},
-			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value",
-		},
-		{
-			name: "config enables serving certificate rotation",
-			profile: &datamodel.AgentPoolProfile{
-				Name: "nodepool1",
-				CustomNodeLabels: map[string]string{
-					"label": "value",
-				},
-			},
-			config: &datamodel.NodeBootstrappingConfiguration{
-				KubeletConfig: map[string]string{
-					"--tls-cert-file":              "cert.crt",
-					"--tls-private-key-file":       "cert.key",
-					"--rotate-server-certificates": "true",
-				},
-			},
-			expected: "agentpool=nodepool1,kubernetes.azure.com/agentpool=nodepool1,label=value,kubernetes.azure.com/kubelet-serving-ca=cluster",
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			actual := getAgentKubernetesLabels(c.profile, c.config)
-			assert.Equal(t, c.expected, actual)
-		})
-	}
-}
-
 func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
@@ -665,74 +557,120 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 
 var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 	It("should return expected kubelet config when custom configuration is not set", func() {
-		cs := &datamodel.ContainerService{
-			Location:   "southcentralus",
-			Type:       "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{},
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location:   "southcentralus",
+				Type:       "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{},
+			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
-		k := map[string]string{
-			"--node-status-update-frequency": "10s",
-			"--node-status-report-frequency": "5m0s",
-			"--image-gc-high-threshold":      "85",
-			"--event-qps":                    "0",
-		}
-		ap := &datamodel.AgentPoolProfile{}
-
+		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
-		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
+
 	It("should return expected kubelet config when custom configuration is set", func() {
-		cs := &datamodel.ContainerService{
-			Location: "southcentralus",
-			Type:     "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{
-				CustomConfiguration: &datamodel.CustomConfiguration{
-					KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
-						"kubelet": {
-							Config: map[string]string{
-								"--node-status-update-frequency":      "20s",
-								"--streaming-connection-idle-timeout": "4h0m0s",
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "10s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--node-status-update-frequency":      "20s",
+									"--streaming-connection-idle-timeout": "4h0m0s",
+									"--seccomp-default":                   "true",
+								},
 							},
 						},
 					},
 				},
 			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
 		}
-		k := map[string]string{
-			"--node-status-update-frequency": "10s",
-			"--node-status-report-frequency": "10s",
-			"--image-gc-high-threshold":      "85",
-			"--event-qps":                    "0",
-		}
-		ap := &datamodel.AgentPoolProfile{}
 
-		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --streaming-connection-idle-timeout=4h0m0s "
-		actucalStr := GetOrderedKubeletConfigFlagString(k, cs, ap, false)
+		expectStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=20s --seccomp-default=true --streaming-connection-idle-timeout=4h0m0s "
+		actucalStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectStr).To(Equal(actucalStr))
 	})
+
 	It("should return expected kubelet command line flags when a config file is being used", func() {
-		cs := &datamodel.ContainerService{
-			Location: "southcentralus",
-			Type:     "Microsoft.ContainerService/ManagedClusters",
-			Properties: &datamodel.Properties{
-				OrchestratorProfile: &datamodel.OrchestratorProfile{
-					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.22.11",
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-labels":                  "topology.kubernetes.io/region=southcentralus",
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorType:    "Kubernetes",
+						OrchestratorVersion: "1.22.11",
+					},
+				},
+			},
+			EnableKubeletConfigFile: true,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
+		}
+
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
+		actualStr := GetOrderedKubeletConfigFlagString(config)
+		Expect(expectedStr).To(Equal(actualStr))
+	})
+
+	//https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-configuration-merging-order
+	// [we are producing this -> command line flags] > drop in config file > kubelet config
+	It("should return expected kubelet command line flags when a config file is being used, following overriding rules", func() {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-labels": "topology.kubernetes.io/region=southcentralus",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					CustomConfiguration: &datamodel.CustomConfiguration{
+						KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+							"kubelet": {
+								Config: map[string]string{
+									"--seccomp-default": "true",
+								},
+							},
+						},
+					},
+				},
+			},
+			EnableKubeletConfigFile: true,
+			AgentPoolProfile: &datamodel.AgentPoolProfile{
+				CustomKubeletConfig: &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.BoolPtr(false),
 				},
 			},
 		}
-		k := map[string]string{
-			"--node-labels":                  "topology.kubernetes.io/region=southcentralus",
-			"--node-status-update-frequency": "10s",
-			"--node-status-report-frequency": "5m0s",
-			"--image-gc-high-threshold":      "85",
-			"--event-qps":                    "0",
-		}
 
-		ap := &datamodel.AgentPoolProfile{}
-		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus "
-		actualStr := GetOrderedKubeletConfigFlagString(k, cs, ap, true)
+		expectedStr := "--node-labels=topology.kubernetes.io/region=southcentralus --seccomp-default=true "
+		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
 })
