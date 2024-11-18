@@ -38,18 +38,16 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
-	var customData, cse string
+	var cse, customData string
 	if scenario.AKSNodeConfigMutator != nil {
-		scenario.AKSNodeConfigMutator(scenario.Runtime.AKSNodeConfig)
-		require.NoError(t, err)
 		cse = nodeconfigutils.CSE
 		customData, err = nodeconfigutils.CustomData(scenario.Runtime.AKSNodeConfig)
 		require.NoError(t, err)
 	} else {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, scenario.Runtime.NBC)
+		require.NoError(t, err)
 		cse = nodeBootstrapping.CSE
 		customData = nodeBootstrapping.CustomData
-		require.NoError(t, err)
 	}
 
 	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, cluster)

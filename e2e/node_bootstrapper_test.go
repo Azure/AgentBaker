@@ -27,7 +27,6 @@ import (
 // it's intended to be used for quick testing without rebuilding VHD images
 // mostly executed locally
 func Test_ubuntu2204AKSNodeController(t *testing.T) {
-	t.Parallel()
 	ctx := newTestCtx(t)
 	if !config.Config.EnableAKSNodeControllerTest {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")
