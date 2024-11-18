@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/barkimedes/go-deepcopy"
@@ -27,6 +27,7 @@ import (
 // it's intended to be used for quick testing without rebuilding VHD images
 // mostly executed locally
 func Test_ubuntu2204AKSNodeController(t *testing.T) {
+	t.Parallel()
 	ctx := newTestCtx(t)
 	if !config.Config.EnableAKSNodeControllerTest {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")

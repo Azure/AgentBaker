@@ -17,7 +17,7 @@ write_files:
   owner: root
   content: !!binary |
    %s`
-	cse = "/opt/azure/containers/aks-node-controller provision-wait"
+	CSE = "/opt/azure/containers/aks-node-controller provision-wait"
 )
 
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
@@ -28,10 +28,6 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
 	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
-}
-
-func CSE(cfg *aksnodeconfigv1.Configuration) (string, error) {
-	return cse, nil
 }
 
 func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
