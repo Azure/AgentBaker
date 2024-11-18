@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	scriptlessCustomDataTemplate = `#cloud-config
+	cloudConfigTemplate = `#cloud-config
 write_files:
 - path: /opt/azure/containers/aks-node-controller-config.json
   permissions: "0755"
   owner: root
   content: !!binary |
    %s`
-	scriptlessBootstrapStatusCSE = "/opt/azure/containers/aks-node-controller provision-wait"
+	cse = "/opt/azure/containers/aks-node-controller provision-wait"
 )
 
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
@@ -26,15 +26,15 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
 	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(scriptlessCustomDataTemplate, encodedNBCJson)
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedNBCJson)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
 func CSE(cfg *aksnodeconfigv1.Configuration) (string, error) {
-	return scriptlessBootstrapStatusCSE, nil
+	return cse, nil
 }
 
-func Marshal(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
+func MarshalConfigurationV1(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
 	options := protojson.MarshalOptions{
 		UseEnumNumbers: false,
 		UseProtoNames:  true,
@@ -43,7 +43,7 @@ func Marshal(cfg *aksnodeconfigv1.Configuration) ([]byte, error) {
 	return options.Marshal(cfg)
 }
 
-func Unmarshal(data []byte) (*aksnodeconfigv1.Configuration, error) {
+func UnmarshalConfigurationV1(data []byte) (*aksnodeconfigv1.Configuration, error) {
 	cfg := &aksnodeconfigv1.Configuration{}
 	options := protojson.UnmarshalOptions{}
 	err := options.Unmarshal(data, cfg)
@@ -52,6 +52,7 @@ func Unmarshal(data []byte) (*aksnodeconfigv1.Configuration, error) {
 
 func Validate(cfg *aksnodeconfigv1.Configuration) error {
 	requiredStrings := map[string]string{
+		"version":                                           cfg.GetVersion(),
 		"auth_config.subscription_id":                       cfg.GetAuthConfig().GetSubscriptionId(),
 		"cluster_config.resource_group":                     cfg.GetClusterConfig().GetResourceGroup(),
 		"cluster_config.location":                           cfg.GetClusterConfig().GetLocation(),

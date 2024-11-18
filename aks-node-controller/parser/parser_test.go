@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
-	"github.com/Azure/agentbaker/aks-node-controller/pkg"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -458,9 +458,9 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 	t.Run("marshal/unmarshal", func(t *testing.T) {
 		content, err := os.ReadFile("./testdata/test_aksnodeconfig.json")
 		require.NoError(t, err)
-		cfg, err := pkg.Unmarshal(content)
+		cfg, err := nodeconfigutils.UnmarshalConfigurationV1(content)
 		require.NoError(t, err)
-		marshalled, err := pkg.Marshal(cfg)
+		marshalled, err := nodeconfigutils.MarshalConfigurationV1(cfg)
 		require.NoError(t, err)
 		assert.JSONEq(t, string(content), string(marshalled))
 	})
@@ -480,7 +480,7 @@ func loadAKSNodeConfig(jsonFilePath string) *aksnodeconfigv1.Configuration {
 	if err != nil {
 		log.Fatal(err)
 	}
-	cfg, err := pkg.Unmarshal(content)
+	cfg, err := nodeconfigutils.UnmarshalConfigurationV1(content)
 	if err != nil {
 		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
