@@ -40,7 +40,7 @@ stages:
           echo "PR for Image Bumping, Official Branch Cutting"
           /bin/bash vhdbuilder/scripts/automate_version_bump.sh
         env:
-          GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_PAT: $(PAT-aks-node-assistant)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
         displayName: 'Bump image version and create official branch'
@@ -62,7 +62,7 @@ stages:
           echo "PR for Release Notes"
           /bin/bash vhdbuilder/scripts/automate_release_notes.sh
         env:
-          GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_PAT: $(PAT-aks-node-assistant)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
           SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
