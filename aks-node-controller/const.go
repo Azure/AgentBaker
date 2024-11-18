@@ -4,7 +4,6 @@ package main
 // it will help us to avoid introducing any breaking changes in the future.
 const (
 	logFile                   = "/var/log/azure/aks-node-controller.log"
-	bootstrapService          = "bootstrap.service"
 	provisionJSONFilePath     = "/var/log/azure/aks/provision.json"
 	provisionCompleteFilePath = "/opt/azure/containers/provision.complete"
 )

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,7 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg"
 	"gopkg.in/fsnotify.v1"
 )
 
@@ -82,8 +81,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
 
-	config := &aksnodeconfigv1.Configuration{}
-	err = json.Unmarshal(inputJSON, config)
+	config, err := pkg.Unmarshal(inputJSON)
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}

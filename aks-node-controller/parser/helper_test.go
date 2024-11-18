@@ -23,7 +23,6 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
-	"github.com/Azure/go-autorest/autorest/to"
 )
 
 func Test_getSysctlContent(t *testing.T) {
@@ -55,9 +54,9 @@ net.ipv4.tcp_retries2=8`)),
 			name: "SysctlConfig with custom values",
 			args: args{
 				s: &aksnodeconfigv1.SysctlConfig{
-					NetIpv4TcpMaxSynBacklog: to.Int32Ptr(int32(9999)),
-					NetCoreRmemDefault:      to.Int32Ptr(int32(9999)),
-					NetIpv4IpLocalPortRange: to.StringPtr("32768 62535"),
+					NetIpv4TcpMaxSynBacklog: ToPtr(int32(9999)),
+					NetCoreRmemDefault:      ToPtr(int32(9999)),
+					NetIpv4IpLocalPortRange: ToPtr("32768 62535"),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
@@ -262,7 +261,7 @@ func Test_getContainerdConfig(t *testing.T) {
 			name: "Default Configuration",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.BoolPtr(true),
+					NeedsCgroupv2: ToPtr(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
