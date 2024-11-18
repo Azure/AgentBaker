@@ -289,7 +289,6 @@ oom_score = 0
 			}
 
 			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
-			aksNodeConfigBuilder := helpers.NewAKSNodeConfigBuilder()
 			aksNodeConfig := &aksnodeconfigv1.Configuration{
 				LinuxAdminUsername: "azureuser",
 				VmSize:             "Standard_DS1_v2",
@@ -331,15 +330,14 @@ oom_score = 0
 					KubeletFlags:            helpers.GetKubeletConfigFlag(kubeletConfig, cs, agentPool, false),
 					KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
 				},
+				CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 			}
-			aksNodeConfigBuilder.ApplyConfiguration(aksNodeConfig)
-			aksNodeConfig = aksNodeConfigBuilder.GetAKSNodeConfig()
 
 			if tt.aksNodeConfigUpdator != nil {
 				tt.aksNodeConfigUpdator(aksNodeConfig)
 			}
 
-			cseCMD, err := parser.BuildCSECmd(context.TODO(), aksNodeConfigBuilder.GetAKSNodeConfig())
+			cseCMD, err := parser.BuildCSECmd(context.TODO(), aksNodeConfig)
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -405,10 +403,7 @@ func TestAKSNodeConfigCompatibilityFromJsonToCSECommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			aksNodeConfigBuilder := helpers.NewAKSNodeConfigBuilder()
-			aksNodeConfigBuilder.ApplyConfiguration(&aksnodeconfigv1.Configuration{})
-
-			cseCMD, err := parser.BuildCSECmd(context.TODO(), aksNodeConfigBuilder.GetAKSNodeConfig())
+			cseCMD, err := parser.BuildCSECmd(context.TODO(), &aksnodeconfigv1.Configuration{})
 			require.NoError(t, err)
 
 			generateTestDataIfRequested(t, tt.folder, cseCMD)
@@ -432,51 +427,30 @@ func environToMap(env []string) map[string]string {
 }
 
 func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
-	tests := []struct {
-		name                    string
-		aksNodeConfigUTFilePath string
-		validator               func(*aksnodeconfigv1.Configuration, *aksnodeconfigv1.Configuration)
-	}{
-		{
-			name:                    "with unexpected new fields in json should be ignored",
-			aksNodeConfigUTFilePath: "./testdata/test_aksnodeconfig_fields_unexpected.json",
-			validator: func(aksNodeConfigExpected *aksnodeconfigv1.Configuration, aksNodeConfigUT *aksnodeconfigv1.Configuration) {
-				// The unexpected fields will natively be ignored when unmarshalling the json to the contract object.
-				// We use this test to ensure it.
-				assert.Equal(t, aksNodeConfigExpected, aksNodeConfigUT)
-			},
-		},
-		{
-			name:                    "with missing fields in json should be set with default values",
-			aksNodeConfigUTFilePath: "./testdata/test_aksnodeconfig_fields_missing.json",
-			validator: func(_ *aksnodeconfigv1.Configuration, aksNodeConfigUT *aksnodeconfigv1.Configuration) {
-				// if a string field is unset, it will be set to empty string by protobuf by default
-				assert.Equal(t, "", aksNodeConfigUT.GetLinuxAdminUsername())
+	t.Run("with unexpected new fields in json should be ignored", func(t *testing.T) {
+		// The unexpected fields will natively be ignored when unmarshalling the json to the contract object.
+		// We use this test to ensure it.
+		assert.Equal(t,
+			loadAKSNodeConfig("./testdata/test_aksnodeconfig.json"),
+			loadAKSNodeConfig("./testdata/test_aksnodeconfig_fields_unexpected.json"),
+		)
+	})
 
-				// if an optional (explicit presence) bool field is unset, it will be set to nil by protobuf by default.
-				// Here we don't use the getter because getter is nil safe and will default to false.
-				assert.Nil(t, aksNodeConfigUT.IsVhd)
+	t.Run("with missing fields in json should be set with default values", func(t *testing.T) {
+		aksNodeConfigUT := loadAKSNodeConfig("./testdata/test_aksnodeconfig_fields_missing.json")
+		assert.Equal(t, "", aksNodeConfigUT.GetLinuxAdminUsername())
 
-				// if an optional (explicit presence) field is unset, it will be set to nil by protobuf by default.
-				// Here we don't use the getter because getter is nil safe and will default to false.
-				assert.Nil(t, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
+		// if an optional (explicit presence) bool field is unset, it will be set to nil by protobuf by default.
+		// Here we don't use the getter because getter is nil safe and will default to false.
+		assert.Nil(t, aksNodeConfigUT.IsVhd)
 
-				// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
-				assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
-			},
-		},
-	}
+		// if an optional (explicit presence) field is unset, it will be set to nil by protobuf by default.
+		// Here we don't use the getter because getter is nil safe and will default to false.
+		assert.Nil(t, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			aksNodeConfigExpected := getAKSNodeConfigInstance("./testdata/test_aksnodeconfig.json")
-			aksNodeConfigUT := getAKSNodeConfigInstance(tt.aksNodeConfigUTFilePath)
-
-			if tt.validator != nil {
-				tt.validator(aksNodeConfigExpected, aksNodeConfigUT)
-			}
-		})
-	}
+		// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
+		assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
+	})
 }
 
 func getBase64DecodedValue(data []byte) (string, error) {
@@ -488,18 +462,16 @@ func getBase64DecodedValue(data []byte) (string, error) {
 	return string(decoded), nil
 }
 
-func getAKSNodeConfigInstance(jsonFilePath string) *aksnodeconfigv1.Configuration {
-	aksNodeConfigBuilder := helpers.NewAKSNodeConfigBuilder()
-	aksNodeConfig := aksnodeconfigv1.Configuration{}
+func loadAKSNodeConfig(jsonFilePath string) *aksnodeconfigv1.Configuration {
+	aksNodeConfig := &aksnodeconfigv1.Configuration{}
 	content, err := os.ReadFile(jsonFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err = json.Unmarshal(content, &aksNodeConfig); err != nil {
+	if err = json.Unmarshal(content, aksNodeConfig); err != nil {
 		log.Printf("Failed to unmarshal the aksnodeconfigv1 from json: %v", err)
 	}
-	aksNodeConfigBuilder.ApplyConfiguration(&aksNodeConfig)
-	return aksNodeConfigBuilder.GetAKSNodeConfig()
+	return aksNodeConfig
 }
 
 func generateTestDataIfRequested(t *testing.T, folder string, cmd *exec.Cmd) {
