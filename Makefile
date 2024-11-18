@@ -91,13 +91,13 @@ generate-kubelet-flags:
 
 .PHONY: lint-proto-files
 lint-proto-files:
-	@./hack/tools/bin/buf lint
-	@./hack/tools/bin/buf breaking --against '.git#branch=dev' # TODO: change to master
+	@(cd aks-node-controller && ../hack/tools/bin/buf lint)
+	@(cd aks-node-controller && ../hack/tools/bin/buf breaking --against '../.git#branch=dev') # TODO: change to master
 
 .PHONY: compile-proto-files
 compile-proto-files:
-	@./hack/tools/bin/buf format -w
-	@./hack/tools/bin/buf generate
+	@(cd aks-node-controller && ../hack/tools/bin/buf format -w)
+	@(cd aks-node-controller && ../hack/tools/bin/buf generate)
 	$(MAKE) lint-proto-files
 
 .PHONY: generate-manifest
