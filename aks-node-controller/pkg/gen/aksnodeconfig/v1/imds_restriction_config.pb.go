@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type IMDSRestrictionConfig struct {
+type ImdsRestrictionConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -31,20 +31,20 @@ type IMDSRestrictionConfig struct {
 	InsertImdsRestrictionRuleToMangleTable bool `protobuf:"varint,2,opt,name=insert_imds_restriction_rule_to_mangle_table,json=insertImdsRestrictionRuleToMangleTable,proto3" json:"insert_imds_restriction_rule_to_mangle_table,omitempty"`
 }
 
-func (x *IMDSRestrictionConfig) Reset() {
-	*x = IMDSRestrictionConfig{}
+func (x *ImdsRestrictionConfig) Reset() {
+	*x = ImdsRestrictionConfig{}
 	mi := &file_aksnodeconfig_v1_imds_restriction_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *IMDSRestrictionConfig) String() string {
+func (x *ImdsRestrictionConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*IMDSRestrictionConfig) ProtoMessage() {}
+func (*ImdsRestrictionConfig) ProtoMessage() {}
 
-func (x *IMDSRestrictionConfig) ProtoReflect() protoreflect.Message {
+func (x *ImdsRestrictionConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_imds_restriction_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -56,19 +56,19 @@ func (x *IMDSRestrictionConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use IMDSRestrictionConfig.ProtoReflect.Descriptor instead.
-func (*IMDSRestrictionConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use ImdsRestrictionConfig.ProtoReflect.Descriptor instead.
+func (*ImdsRestrictionConfig) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_imds_restriction_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *IMDSRestrictionConfig) GetEnableImdsRestriction() bool {
+func (x *ImdsRestrictionConfig) GetEnableImdsRestriction() bool {
 	if x != nil {
 		return x.EnableImdsRestriction
 	}
 	return false
 }
 
-func (x *IMDSRestrictionConfig) GetInsertImdsRestrictionRuleToMangleTable() bool {
+func (x *ImdsRestrictionConfig) GetInsertImdsRestrictionRuleToMangleTable() bool {
 	if x != nil {
 		return x.InsertImdsRestrictionRuleToMangleTable
 	}
@@ -82,7 +82,7 @@ var file_aksnodeconfig_v1_imds_restriction_config_proto_rawDesc = []byte{
 	0x76, 0x31, 0x2f, 0x69, 0x6d, 0x64, 0x73, 0x5f, 0x72, 0x65, 0x73, 0x74, 0x72, 0x69, 0x63, 0x74,
 	0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x12, 0x10, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e,
-	0x76, 0x31, 0x22, 0xad, 0x01, 0x0a, 0x15, 0x49, 0x4d, 0x44, 0x53, 0x52, 0x65, 0x73, 0x74, 0x72,
+	0x76, 0x31, 0x22, 0xad, 0x01, 0x0a, 0x15, 0x49, 0x6d, 0x64, 0x73, 0x52, 0x65, 0x73, 0x74, 0x72,
 	0x69, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x36, 0x0a, 0x17,
 	0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x69, 0x6d, 0x64, 0x73, 0x5f, 0x72, 0x65, 0x73, 0x74,
 	0x72, 0x69, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x15, 0x65,
@@ -125,7 +125,7 @@ func file_aksnodeconfig_v1_imds_restriction_config_proto_rawDescGZIP() []byte {
 
 var file_aksnodeconfig_v1_imds_restriction_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_aksnodeconfig_v1_imds_restriction_config_proto_goTypes = []any{
-	(*IMDSRestrictionConfig)(nil), // 0: aksnodeconfig.v1.IMDSRestrictionConfig
+	(*ImdsRestrictionConfig)(nil), // 0: aksnodeconfig.v1.ImdsRestrictionConfig
 }
 var file_aksnodeconfig_v1_imds_restriction_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

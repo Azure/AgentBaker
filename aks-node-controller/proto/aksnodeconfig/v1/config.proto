@@ -42,7 +42,7 @@ message Configuration {
   ClusterConfig cluster_config = 5;
 
   // TLS bootstrap config
-  TLSBootstrappingConfig tls_bootstrapping_config = 6;
+  TlsBootstrappingConfig tls_bootstrapping_config = 6;
 
   // Authentication configuration
   AuthConfig auth_config = 7;
@@ -63,13 +63,13 @@ message Configuration {
   CustomSearchDomainConfig custom_search_domain_config = 12;
 
   // Custom Linux OS configurations including SwapFile, SysCtl configs, etc.
-  CustomLinuxOSConfig custom_linux_os_config = 13;
+  CustomLinuxOsConfig custom_linux_os_config = 13;
 
   // HTTP/HTTPS proxy configuration for the node
-  HTTPProxyConfig http_proxy_config = 14;
+  HttpProxyConfig http_proxy_config = 14;
 
   // GPU configuration for the node
-  GPUConfig gpu_config = 15;
+  GpuConfig gpu_config = 15;
 
   // Network configuration for the node
   NetworkConfig network_config = 16;
@@ -147,5 +147,5 @@ message Configuration {
   string bootstrap_profile_container_registry_server = 38;
 
   // IMDS restriction configuration
-  IMDSRestrictionConfig imds_restriction_config = 39;
+  ImdsRestrictionConfig imds_restriction_config = 39;
 }

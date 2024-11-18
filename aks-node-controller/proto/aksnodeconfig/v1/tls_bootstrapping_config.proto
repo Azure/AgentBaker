@@ -1,7 +1,7 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
-message TLSBootstrappingConfig {
+message TlsBootstrappingConfig {
   // Enable secure TLS bootstrapping for the node.
   optional bool enable_secure_tls_bootstrapping = 1;
 

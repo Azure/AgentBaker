@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type GPUConfig struct {
+type GpuConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -36,20 +36,20 @@ type GPUConfig struct {
 	GpuInstanceProfile string `protobuf:"bytes,4,opt,name=gpu_instance_profile,json=gpuInstanceProfile,proto3" json:"gpu_instance_profile,omitempty"`
 }
 
-func (x *GPUConfig) Reset() {
-	*x = GPUConfig{}
+func (x *GpuConfig) Reset() {
+	*x = GpuConfig{}
 	mi := &file_aksnodeconfig_v1_gpu_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GPUConfig) String() string {
+func (x *GpuConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GPUConfig) ProtoMessage() {}
+func (*GpuConfig) ProtoMessage() {}
 
-func (x *GPUConfig) ProtoReflect() protoreflect.Message {
+func (x *GpuConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_gpu_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -61,33 +61,33 @@ func (x *GPUConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GPUConfig.ProtoReflect.Descriptor instead.
-func (*GPUConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use GpuConfig.ProtoReflect.Descriptor instead.
+func (*GpuConfig) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_gpu_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *GPUConfig) GetEnableNvidia() bool {
+func (x *GpuConfig) GetEnableNvidia() bool {
 	if x != nil && x.EnableNvidia != nil {
 		return *x.EnableNvidia
 	}
 	return false
 }
 
-func (x *GPUConfig) GetConfigGpuDriver() bool {
+func (x *GpuConfig) GetConfigGpuDriver() bool {
 	if x != nil {
 		return x.ConfigGpuDriver
 	}
 	return false
 }
 
-func (x *GPUConfig) GetGpuDevicePlugin() bool {
+func (x *GpuConfig) GetGpuDevicePlugin() bool {
 	if x != nil {
 		return x.GpuDevicePlugin
 	}
 	return false
 }
 
-func (x *GPUConfig) GetGpuInstanceProfile() string {
+func (x *GpuConfig) GetGpuInstanceProfile() string {
 	if x != nil {
 		return x.GpuInstanceProfile
 	}
@@ -100,7 +100,7 @@ var file_aksnodeconfig_v1_gpu_config_proto_rawDesc = []byte{
 	0x0a, 0x21, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2f,
 	0x76, 0x31, 0x2f, 0x67, 0x70, 0x75, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x12, 0x10, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66,
-	0x69, 0x67, 0x2e, 0x76, 0x31, 0x22, 0xd1, 0x01, 0x0a, 0x09, 0x47, 0x50, 0x55, 0x43, 0x6f, 0x6e,
+	0x69, 0x67, 0x2e, 0x76, 0x31, 0x22, 0xd1, 0x01, 0x0a, 0x09, 0x47, 0x70, 0x75, 0x43, 0x6f, 0x6e,
 	0x66, 0x69, 0x67, 0x12, 0x28, 0x0a, 0x0d, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x6e, 0x76,
 	0x69, 0x64, 0x69, 0x61, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x48, 0x00, 0x52, 0x0c, 0x65, 0x6e,
 	0x61, 0x62, 0x6c, 0x65, 0x4e, 0x76, 0x69, 0x64, 0x69, 0x61, 0x88, 0x01, 0x01, 0x12, 0x2a, 0x0a,
@@ -145,7 +145,7 @@ func file_aksnodeconfig_v1_gpu_config_proto_rawDescGZIP() []byte {
 
 var file_aksnodeconfig_v1_gpu_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_aksnodeconfig_v1_gpu_config_proto_goTypes = []any{
-	(*GPUConfig)(nil), // 0: aksnodeconfig.v1.GPUConfig
+	(*GpuConfig)(nil), // 0: aksnodeconfig.v1.GpuConfig
 }
 var file_aksnodeconfig_v1_gpu_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

@@ -18,28 +18,28 @@ func Test_getLoadBalancerSKU(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku
+		want aksnodeconfigv1.LoadBalancerSku
 	}{
 		{
 			name: "LoadBalancerSKU Standard",
 			args: args{
 				sku: "Standard",
 			},
-			want: aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD,
+			want: aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD,
 		},
 		{
 			name: "LoadBalancerSKU Basic",
 			args: args{
 				sku: "Basic",
 			},
-			want: aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC,
+			want: aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_BASIC,
 		},
 		{
 			name: "LoadBalancerSKU Unspecified",
 			args: args{
 				sku: "",
 			},
-			want: aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED,
+			want: aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_UNSPECIFIED,
 		},
 	}
 	for _, tt := range tests {

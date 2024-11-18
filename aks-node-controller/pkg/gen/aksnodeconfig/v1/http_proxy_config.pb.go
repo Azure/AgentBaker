@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type HTTPProxyConfig struct {
+type HttpProxyConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -35,20 +35,20 @@ type HTTPProxyConfig struct {
 	ProxyTrustedCa string `protobuf:"bytes,4,opt,name=proxy_trusted_ca,json=proxyTrustedCa,proto3" json:"proxy_trusted_ca,omitempty"`
 }
 
-func (x *HTTPProxyConfig) Reset() {
-	*x = HTTPProxyConfig{}
+func (x *HttpProxyConfig) Reset() {
+	*x = HttpProxyConfig{}
 	mi := &file_aksnodeconfig_v1_http_proxy_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *HTTPProxyConfig) String() string {
+func (x *HttpProxyConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*HTTPProxyConfig) ProtoMessage() {}
+func (*HttpProxyConfig) ProtoMessage() {}
 
-func (x *HTTPProxyConfig) ProtoReflect() protoreflect.Message {
+func (x *HttpProxyConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_http_proxy_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -60,33 +60,33 @@ func (x *HTTPProxyConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use HTTPProxyConfig.ProtoReflect.Descriptor instead.
-func (*HTTPProxyConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use HttpProxyConfig.ProtoReflect.Descriptor instead.
+func (*HttpProxyConfig) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_http_proxy_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *HTTPProxyConfig) GetHttpProxy() string {
+func (x *HttpProxyConfig) GetHttpProxy() string {
 	if x != nil {
 		return x.HttpProxy
 	}
 	return ""
 }
 
-func (x *HTTPProxyConfig) GetHttpsProxy() string {
+func (x *HttpProxyConfig) GetHttpsProxy() string {
 	if x != nil {
 		return x.HttpsProxy
 	}
 	return ""
 }
 
-func (x *HTTPProxyConfig) GetNoProxyEntries() []string {
+func (x *HttpProxyConfig) GetNoProxyEntries() []string {
 	if x != nil {
 		return x.NoProxyEntries
 	}
 	return nil
 }
 
-func (x *HTTPProxyConfig) GetProxyTrustedCa() string {
+func (x *HttpProxyConfig) GetProxyTrustedCa() string {
 	if x != nil {
 		return x.ProxyTrustedCa
 	}
@@ -100,7 +100,7 @@ var file_aksnodeconfig_v1_http_proxy_config_proto_rawDesc = []byte{
 	0x76, 0x31, 0x2f, 0x68, 0x74, 0x74, 0x70, 0x5f, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x5f, 0x63, 0x6f,
 	0x6e, 0x66, 0x69, 0x67, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x10, 0x61, 0x6b, 0x73, 0x6e,
 	0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x22, 0xa5, 0x01, 0x0a,
-	0x0f, 0x48, 0x54, 0x54, 0x50, 0x50, 0x72, 0x6f, 0x78, 0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x0f, 0x48, 0x74, 0x74, 0x70, 0x50, 0x72, 0x6f, 0x78, 0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x12, 0x1d, 0x0a, 0x0a, 0x68, 0x74, 0x74, 0x70, 0x5f, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x68, 0x74, 0x74, 0x70, 0x50, 0x72, 0x6f, 0x78, 0x79, 0x12,
 	0x1f, 0x0a, 0x0b, 0x68, 0x74, 0x74, 0x70, 0x73, 0x5f, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x18, 0x02,
@@ -142,7 +142,7 @@ func file_aksnodeconfig_v1_http_proxy_config_proto_rawDescGZIP() []byte {
 
 var file_aksnodeconfig_v1_http_proxy_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_aksnodeconfig_v1_http_proxy_config_proto_goTypes = []any{
-	(*HTTPProxyConfig)(nil), // 0: aksnodeconfig.v1.HTTPProxyConfig
+	(*HttpProxyConfig)(nil), // 0: aksnodeconfig.v1.HttpProxyConfig
 }
 var file_aksnodeconfig_v1_http_proxy_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

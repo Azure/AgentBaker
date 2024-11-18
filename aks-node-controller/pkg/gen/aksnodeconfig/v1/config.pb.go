@@ -85,7 +85,7 @@ type Configuration struct {
 	// Various Kubernetes cluster level configuration
 	ClusterConfig *ClusterConfig `protobuf:"bytes,5,opt,name=cluster_config,json=clusterConfig,proto3" json:"cluster_config,omitempty"`
 	// TLS bootstrap config
-	TlsBootstrappingConfig *TLSBootstrappingConfig `protobuf:"bytes,6,opt,name=tls_bootstrapping_config,json=tlsBootstrappingConfig,proto3" json:"tls_bootstrapping_config,omitempty"`
+	TlsBootstrappingConfig *TlsBootstrappingConfig `protobuf:"bytes,6,opt,name=tls_bootstrapping_config,json=tlsBootstrappingConfig,proto3" json:"tls_bootstrapping_config,omitempty"`
 	// Authentication configuration
 	AuthConfig *AuthConfig `protobuf:"bytes,7,opt,name=auth_config,json=authConfig,proto3" json:"auth_config,omitempty"`
 	// The CLI tool runc configuration
@@ -99,11 +99,11 @@ type Configuration struct {
 	// Custom search domain configurations
 	CustomSearchDomainConfig *CustomSearchDomainConfig `protobuf:"bytes,12,opt,name=custom_search_domain_config,json=customSearchDomainConfig,proto3" json:"custom_search_domain_config,omitempty"`
 	// Custom Linux OS configurations including SwapFile, SysCtl configs, etc.
-	CustomLinuxOsConfig *CustomLinuxOSConfig `protobuf:"bytes,13,opt,name=custom_linux_os_config,json=customLinuxOsConfig,proto3" json:"custom_linux_os_config,omitempty"`
+	CustomLinuxOsConfig *CustomLinuxOsConfig `protobuf:"bytes,13,opt,name=custom_linux_os_config,json=customLinuxOsConfig,proto3" json:"custom_linux_os_config,omitempty"`
 	// HTTP/HTTPS proxy configuration for the node
-	HttpProxyConfig *HTTPProxyConfig `protobuf:"bytes,14,opt,name=http_proxy_config,json=httpProxyConfig,proto3" json:"http_proxy_config,omitempty"`
+	HttpProxyConfig *HttpProxyConfig `protobuf:"bytes,14,opt,name=http_proxy_config,json=httpProxyConfig,proto3" json:"http_proxy_config,omitempty"`
 	// GPU configuration for the node
-	GpuConfig *GPUConfig `protobuf:"bytes,15,opt,name=gpu_config,json=gpuConfig,proto3" json:"gpu_config,omitempty"`
+	GpuConfig *GpuConfig `protobuf:"bytes,15,opt,name=gpu_config,json=gpuConfig,proto3" json:"gpu_config,omitempty"`
 	// Network configuration for the node
 	NetworkConfig *NetworkConfig `protobuf:"bytes,16,opt,name=network_config,json=networkConfig,proto3" json:"network_config,omitempty"`
 	// Kubernetes certificate authority (CA) certificate, required by the node to establish TLS with the API server
@@ -157,7 +157,7 @@ type Configuration struct {
 	// Bootstrap profile container registry server URI
 	BootstrapProfileContainerRegistryServer string `protobuf:"bytes,38,opt,name=bootstrap_profile_container_registry_server,json=bootstrapProfileContainerRegistryServer,proto3" json:"bootstrap_profile_container_registry_server,omitempty"`
 	// IMDS restriction configuration
-	ImdsRestrictionConfig *IMDSRestrictionConfig `protobuf:"bytes,39,opt,name=imds_restriction_config,json=imdsRestrictionConfig,proto3" json:"imds_restriction_config,omitempty"`
+	ImdsRestrictionConfig *ImdsRestrictionConfig `protobuf:"bytes,39,opt,name=imds_restriction_config,json=imdsRestrictionConfig,proto3" json:"imds_restriction_config,omitempty"`
 }
 
 func (x *Configuration) Reset() {
@@ -225,7 +225,7 @@ func (x *Configuration) GetClusterConfig() *ClusterConfig {
 	return nil
 }
 
-func (x *Configuration) GetTlsBootstrappingConfig() *TLSBootstrappingConfig {
+func (x *Configuration) GetTlsBootstrappingConfig() *TlsBootstrappingConfig {
 	if x != nil {
 		return x.TlsBootstrappingConfig
 	}
@@ -274,21 +274,21 @@ func (x *Configuration) GetCustomSearchDomainConfig() *CustomSearchDomainConfig 
 	return nil
 }
 
-func (x *Configuration) GetCustomLinuxOsConfig() *CustomLinuxOSConfig {
+func (x *Configuration) GetCustomLinuxOsConfig() *CustomLinuxOsConfig {
 	if x != nil {
 		return x.CustomLinuxOsConfig
 	}
 	return nil
 }
 
-func (x *Configuration) GetHttpProxyConfig() *HTTPProxyConfig {
+func (x *Configuration) GetHttpProxyConfig() *HttpProxyConfig {
 	if x != nil {
 		return x.HttpProxyConfig
 	}
 	return nil
 }
 
-func (x *Configuration) GetGpuConfig() *GPUConfig {
+func (x *Configuration) GetGpuConfig() *GpuConfig {
 	if x != nil {
 		return x.GpuConfig
 	}
@@ -456,7 +456,7 @@ func (x *Configuration) GetBootstrapProfileContainerRegistryServer() string {
 	return ""
 }
 
-func (x *Configuration) GetImdsRestrictionConfig() *IMDSRestrictionConfig {
+func (x *Configuration) GetImdsRestrictionConfig() *ImdsRestrictionConfig {
 	if x != nil {
 		return x.ImdsRestrictionConfig
 	}
@@ -537,7 +537,7 @@ var file_aksnodeconfig_v1_config_proto_rawDesc = []byte{
 	0x74, 0x6c, 0x73, 0x5f, 0x62, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70, 0x70, 0x69, 0x6e,
 	0x67, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x28,
 	0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76,
-	0x31, 0x2e, 0x54, 0x4c, 0x53, 0x42, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70, 0x70, 0x69,
+	0x31, 0x2e, 0x54, 0x6c, 0x73, 0x42, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70, 0x70, 0x69,
 	0x6e, 0x67, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x16, 0x74, 0x6c, 0x73, 0x42, 0x6f, 0x6f,
 	0x74, 0x73, 0x74, 0x72, 0x61, 0x70, 0x70, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x12, 0x3d, 0x0a, 0x0b, 0x61, 0x75, 0x74, 0x68, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18,
@@ -572,17 +572,17 @@ var file_aksnodeconfig_v1_config_proto_rawDesc = []byte{
 	0x16, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x5f, 0x6c, 0x69, 0x6e, 0x75, 0x78, 0x5f, 0x6f, 0x73,
 	0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x0d, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x25, 0x2e,
 	0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31,
-	0x2e, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x4c, 0x69, 0x6e, 0x75, 0x78, 0x4f, 0x53, 0x43, 0x6f,
+	0x2e, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x4c, 0x69, 0x6e, 0x75, 0x78, 0x4f, 0x73, 0x43, 0x6f,
 	0x6e, 0x66, 0x69, 0x67, 0x52, 0x13, 0x63, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x4c, 0x69, 0x6e, 0x75,
 	0x78, 0x4f, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x4d, 0x0a, 0x11, 0x68, 0x74, 0x74,
 	0x70, 0x5f, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x0e,
 	0x20, 0x01, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x48, 0x54, 0x54, 0x50, 0x50, 0x72, 0x6f, 0x78,
+	0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x48, 0x74, 0x74, 0x70, 0x50, 0x72, 0x6f, 0x78,
 	0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x0f, 0x68, 0x74, 0x74, 0x70, 0x50, 0x72, 0x6f,
 	0x78, 0x79, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x3a, 0x0a, 0x0a, 0x67, 0x70, 0x75, 0x5f,
 	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x0f, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x61,
 	0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e,
-	0x47, 0x50, 0x55, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x09, 0x67, 0x70, 0x75, 0x43, 0x6f,
+	0x47, 0x70, 0x75, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x09, 0x67, 0x70, 0x75, 0x43, 0x6f,
 	0x6e, 0x66, 0x69, 0x67, 0x12, 0x46, 0x0a, 0x0e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x5f,
 	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x10, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x61,
 	0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e,
@@ -659,7 +659,7 @@ var file_aksnodeconfig_v1_config_proto_rawDesc = []byte{
 	0x72, 0x76, 0x65, 0x72, 0x12, 0x5f, 0x0a, 0x17, 0x69, 0x6d, 0x64, 0x73, 0x5f, 0x72, 0x65, 0x73,
 	0x74, 0x72, 0x69, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18,
 	0x27, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63,
-	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x4d, 0x44, 0x53, 0x52, 0x65, 0x73,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76, 0x31, 0x2e, 0x49, 0x6d, 0x64, 0x73, 0x52, 0x65, 0x73,
 	0x74, 0x72, 0x69, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x15,
 	0x69, 0x6d, 0x64, 0x73, 0x52, 0x65, 0x73, 0x74, 0x72, 0x69, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x43,
 	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x69, 0x73, 0x5f, 0x76, 0x68, 0x64,
@@ -711,37 +711,37 @@ var file_aksnodeconfig_v1_config_proto_goTypes = []any{
 	(*CustomCloudConfig)(nil),        // 3: aksnodeconfig.v1.CustomCloudConfig
 	(*ApiServerConfig)(nil),          // 4: aksnodeconfig.v1.ApiServerConfig
 	(*ClusterConfig)(nil),            // 5: aksnodeconfig.v1.ClusterConfig
-	(*TLSBootstrappingConfig)(nil),   // 6: aksnodeconfig.v1.TLSBootstrappingConfig
+	(*TlsBootstrappingConfig)(nil),   // 6: aksnodeconfig.v1.TlsBootstrappingConfig
 	(*AuthConfig)(nil),               // 7: aksnodeconfig.v1.AuthConfig
 	(*RuncConfig)(nil),               // 8: aksnodeconfig.v1.RuncConfig
 	(*ContainerdConfig)(nil),         // 9: aksnodeconfig.v1.ContainerdConfig
 	(*TeleportConfig)(nil),           // 10: aksnodeconfig.v1.TeleportConfig
 	(*KubeletConfig)(nil),            // 11: aksnodeconfig.v1.KubeletConfig
 	(*CustomSearchDomainConfig)(nil), // 12: aksnodeconfig.v1.CustomSearchDomainConfig
-	(*CustomLinuxOSConfig)(nil),      // 13: aksnodeconfig.v1.CustomLinuxOSConfig
-	(*HTTPProxyConfig)(nil),          // 14: aksnodeconfig.v1.HTTPProxyConfig
-	(*GPUConfig)(nil),                // 15: aksnodeconfig.v1.GPUConfig
+	(*CustomLinuxOsConfig)(nil),      // 13: aksnodeconfig.v1.CustomLinuxOsConfig
+	(*HttpProxyConfig)(nil),          // 14: aksnodeconfig.v1.HttpProxyConfig
+	(*GpuConfig)(nil),                // 15: aksnodeconfig.v1.GpuConfig
 	(*NetworkConfig)(nil),            // 16: aksnodeconfig.v1.NetworkConfig
-	(*IMDSRestrictionConfig)(nil),    // 17: aksnodeconfig.v1.IMDSRestrictionConfig
+	(*ImdsRestrictionConfig)(nil),    // 17: aksnodeconfig.v1.ImdsRestrictionConfig
 }
 var file_aksnodeconfig_v1_config_proto_depIdxs = []int32{
 	2,  // 0: aksnodeconfig.v1.Configuration.kube_binary_config:type_name -> aksnodeconfig.v1.KubeBinaryConfig
 	3,  // 1: aksnodeconfig.v1.Configuration.custom_cloud_config:type_name -> aksnodeconfig.v1.CustomCloudConfig
 	4,  // 2: aksnodeconfig.v1.Configuration.api_server_config:type_name -> aksnodeconfig.v1.ApiServerConfig
 	5,  // 3: aksnodeconfig.v1.Configuration.cluster_config:type_name -> aksnodeconfig.v1.ClusterConfig
-	6,  // 4: aksnodeconfig.v1.Configuration.tls_bootstrapping_config:type_name -> aksnodeconfig.v1.TLSBootstrappingConfig
+	6,  // 4: aksnodeconfig.v1.Configuration.tls_bootstrapping_config:type_name -> aksnodeconfig.v1.TlsBootstrappingConfig
 	7,  // 5: aksnodeconfig.v1.Configuration.auth_config:type_name -> aksnodeconfig.v1.AuthConfig
 	8,  // 6: aksnodeconfig.v1.Configuration.runc_config:type_name -> aksnodeconfig.v1.RuncConfig
 	9,  // 7: aksnodeconfig.v1.Configuration.containerd_config:type_name -> aksnodeconfig.v1.ContainerdConfig
 	10, // 8: aksnodeconfig.v1.Configuration.teleport_config:type_name -> aksnodeconfig.v1.TeleportConfig
 	11, // 9: aksnodeconfig.v1.Configuration.kubelet_config:type_name -> aksnodeconfig.v1.KubeletConfig
 	12, // 10: aksnodeconfig.v1.Configuration.custom_search_domain_config:type_name -> aksnodeconfig.v1.CustomSearchDomainConfig
-	13, // 11: aksnodeconfig.v1.Configuration.custom_linux_os_config:type_name -> aksnodeconfig.v1.CustomLinuxOSConfig
-	14, // 12: aksnodeconfig.v1.Configuration.http_proxy_config:type_name -> aksnodeconfig.v1.HTTPProxyConfig
-	15, // 13: aksnodeconfig.v1.Configuration.gpu_config:type_name -> aksnodeconfig.v1.GPUConfig
+	13, // 11: aksnodeconfig.v1.Configuration.custom_linux_os_config:type_name -> aksnodeconfig.v1.CustomLinuxOsConfig
+	14, // 12: aksnodeconfig.v1.Configuration.http_proxy_config:type_name -> aksnodeconfig.v1.HttpProxyConfig
+	15, // 13: aksnodeconfig.v1.Configuration.gpu_config:type_name -> aksnodeconfig.v1.GpuConfig
 	16, // 14: aksnodeconfig.v1.Configuration.network_config:type_name -> aksnodeconfig.v1.NetworkConfig
 	0,  // 15: aksnodeconfig.v1.Configuration.workload_runtime:type_name -> aksnodeconfig.v1.WorkloadRuntime
-	17, // 16: aksnodeconfig.v1.Configuration.imds_restriction_config:type_name -> aksnodeconfig.v1.IMDSRestrictionConfig
+	17, // 16: aksnodeconfig.v1.Configuration.imds_restriction_config:type_name -> aksnodeconfig.v1.ImdsRestrictionConfig
 	17, // [17:17] is the sub-list for method output_type
 	17, // [17:17] is the sub-list for method input_type
 	17, // [17:17] is the sub-list for extension type_name

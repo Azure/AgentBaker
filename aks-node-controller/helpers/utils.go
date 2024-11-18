@@ -33,14 +33,14 @@ import (
 const numInPair = 2
 
 // GetLoadBalancerSKI returns the LoadBalancerSku enum based on the input string.
-func GetLoadBalancerSKU(sku string) aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku {
+func GetLoadBalancerSKU(sku string) aksnodeconfigv1.LoadBalancerSku {
 	if strings.EqualFold(sku, "Standard") {
-		return aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD
+		return aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD
 	} else if strings.EqualFold(sku, "Basic") {
-		return aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC
+		return aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_BASIC
 	}
 
-	return aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED
+	return aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_UNSPECIFIED
 }
 
 // GetNetworkPluginType returns the NetworkPluginType enum based on the input string.

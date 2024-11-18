@@ -733,7 +733,7 @@ func Test_getPortRangeEndValue(t *testing.T) {
 
 func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	type args struct {
-		httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig
+		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
 	}
 	tests := []struct {
 		name string
@@ -748,14 +748,14 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "Empty HTTPProxyConfig",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{},
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "HTTPProxyConfig with empty HttpProxy and valid HttpsProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:  "",
 					HttpsProxy: "https://fakeproxy.com:8080",
 				},
@@ -765,7 +765,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with valid HttpProxy and empty HttpsProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:  "http://fakeproxy.com:8080",
 					HttpsProxy: "",
 				},
@@ -775,7 +775,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with empty HttpProxy and empty HttpsProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:      "",
 					HttpsProxy:     "",
 					NoProxyEntries: []string{"fakesite1.com", "fakesite2.com"},
@@ -786,7 +786,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with valid HttpProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy: "http://fakeproxy.com:8080",
 				},
 			},
@@ -804,7 +804,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
-		httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig
+		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
 	}
 	tests := []struct {
 		name string
@@ -819,14 +819,14 @@ func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 		{
 			name: "Empty HTTPProxyConfig",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{},
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "HTTPProxyConfig with empty CA",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:      "http://fakeproxy.com:8080",
 					ProxyTrustedCa: "",
 				},

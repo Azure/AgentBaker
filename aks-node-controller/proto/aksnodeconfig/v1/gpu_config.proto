@@ -1,7 +1,7 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
-message GPUConfig {
+message GpuConfig {
   // Specifies whether any nvidia configurations should be applied for GPU nodes. False when vm size is not a GPU node or driver install is skipped and no GPU configuration is needed.
   // Making optional so that default will be set to IsNvidiaEnabledSku(vmSize) instead of false
   optional bool enable_nvidia = 1;

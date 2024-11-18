@@ -17,7 +17,7 @@ message ClusterConfig {
   string location = 4;
 
   // VM type
-  VM vm_type = 5; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
+  VmType vm_type = 5; // default to standard for v1.27 and below versions and vmss for v1.28+ versions
 
   // Primary availability set name
   string primary_availability_set = 6;
@@ -27,12 +27,12 @@ message ClusterConfig {
 
   // Specifiy if it uses instance metadata
   bool use_instance_metadata = 8; // default to false
+}
 
-  enum VM {
-    VM_UNSPECIFIED = 0;
-    VM_STANDARD = 1;
-    VM_VMSS = 2;
-  }
+enum VmType {
+  VM_TYPE_UNSPECIFIED = 0;
+  VM_TYPE_STANDARD = 1;
+  VM_TYPE_VMSS = 2;
 }
 
 message ClusterNetworkConfig {
@@ -64,10 +64,10 @@ message LoadBalancerConfig {
 
   // Disable outbound SNAT (Source Network Address Translation) for load balancer, default to false
   bool disable_outbound_snat = 4;
+}
 
-  enum LoadBalancerSku {
-    LOAD_BALANCER_SKU_UNSPECIFIED = 0;
-    LOAD_BALANCER_SKU_BASIC = 1;
-    LOAD_BALANCER_SKU_STANDARD = 2;
-  }
+enum LoadBalancerSku {
+  LOAD_BALANCER_SKU_UNSPECIFIED = 0;
+  LOAD_BALANCER_SKU_BASIC = 1;
+  LOAD_BALANCER_SKU_STANDARD = 2;
 }

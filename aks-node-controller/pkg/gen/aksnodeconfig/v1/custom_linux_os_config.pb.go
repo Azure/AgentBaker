@@ -21,7 +21,7 @@ const (
 )
 
 // Custom Linux Node OS Config
-type CustomLinuxOSConfig struct {
+type CustomLinuxOsConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -42,20 +42,20 @@ type CustomLinuxOSConfig struct {
 	TransparentDefrag string `protobuf:"bytes,6,opt,name=transparent_defrag,json=transparentDefrag,proto3" json:"transparent_defrag,omitempty"`
 }
 
-func (x *CustomLinuxOSConfig) Reset() {
-	*x = CustomLinuxOSConfig{}
+func (x *CustomLinuxOsConfig) Reset() {
+	*x = CustomLinuxOsConfig{}
 	mi := &file_aksnodeconfig_v1_custom_linux_os_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CustomLinuxOSConfig) String() string {
+func (x *CustomLinuxOsConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CustomLinuxOSConfig) ProtoMessage() {}
+func (*CustomLinuxOsConfig) ProtoMessage() {}
 
-func (x *CustomLinuxOSConfig) ProtoReflect() protoreflect.Message {
+func (x *CustomLinuxOsConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_custom_linux_os_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -67,47 +67,47 @@ func (x *CustomLinuxOSConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CustomLinuxOSConfig.ProtoReflect.Descriptor instead.
-func (*CustomLinuxOSConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use CustomLinuxOsConfig.ProtoReflect.Descriptor instead.
+func (*CustomLinuxOsConfig) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_custom_linux_os_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CustomLinuxOSConfig) GetSysctlConfig() *SysctlConfig {
+func (x *CustomLinuxOsConfig) GetSysctlConfig() *SysctlConfig {
 	if x != nil {
 		return x.SysctlConfig
 	}
 	return nil
 }
 
-func (x *CustomLinuxOSConfig) GetUlimitConfig() *UlimitConfig {
+func (x *CustomLinuxOsConfig) GetUlimitConfig() *UlimitConfig {
 	if x != nil {
 		return x.UlimitConfig
 	}
 	return nil
 }
 
-func (x *CustomLinuxOSConfig) GetEnableSwapConfig() bool {
+func (x *CustomLinuxOsConfig) GetEnableSwapConfig() bool {
 	if x != nil {
 		return x.EnableSwapConfig
 	}
 	return false
 }
 
-func (x *CustomLinuxOSConfig) GetSwapFileSize() int32 {
+func (x *CustomLinuxOsConfig) GetSwapFileSize() int32 {
 	if x != nil {
 		return x.SwapFileSize
 	}
 	return 0
 }
 
-func (x *CustomLinuxOSConfig) GetTransparentHugepageSupport() string {
+func (x *CustomLinuxOsConfig) GetTransparentHugepageSupport() string {
 	if x != nil {
 		return x.TransparentHugepageSupport
 	}
 	return ""
 }
 
-func (x *CustomLinuxOSConfig) GetTransparentDefrag() string {
+func (x *CustomLinuxOsConfig) GetTransparentDefrag() string {
 	if x != nil {
 		return x.TransparentDefrag
 	}
@@ -438,7 +438,7 @@ var file_aksnodeconfig_v1_custom_linux_os_config_proto_rawDesc = []byte{
 	0x6f, 0x73, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12,
 	0x10, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x76,
 	0x31, 0x22, 0xe4, 0x02, 0x0a, 0x13, 0x43, 0x75, 0x73, 0x74, 0x6f, 0x6d, 0x4c, 0x69, 0x6e, 0x75,
-	0x78, 0x4f, 0x53, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x43, 0x0a, 0x0d, 0x73, 0x79, 0x73,
+	0x78, 0x4f, 0x73, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x43, 0x0a, 0x0d, 0x73, 0x79, 0x73,
 	0x63, 0x74, 0x6c, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
 	0x32, 0x1e, 0x2e, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
 	0x2e, 0x76, 0x31, 0x2e, 0x53, 0x79, 0x73, 0x63, 0x74, 0x6c, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
@@ -653,13 +653,13 @@ func file_aksnodeconfig_v1_custom_linux_os_config_proto_rawDescGZIP() []byte {
 
 var file_aksnodeconfig_v1_custom_linux_os_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_aksnodeconfig_v1_custom_linux_os_config_proto_goTypes = []any{
-	(*CustomLinuxOSConfig)(nil), // 0: aksnodeconfig.v1.CustomLinuxOSConfig
+	(*CustomLinuxOsConfig)(nil), // 0: aksnodeconfig.v1.CustomLinuxOsConfig
 	(*SysctlConfig)(nil),        // 1: aksnodeconfig.v1.SysctlConfig
 	(*UlimitConfig)(nil),        // 2: aksnodeconfig.v1.UlimitConfig
 }
 var file_aksnodeconfig_v1_custom_linux_os_config_proto_depIdxs = []int32{
-	1, // 0: aksnodeconfig.v1.CustomLinuxOSConfig.sysctl_config:type_name -> aksnodeconfig.v1.SysctlConfig
-	2, // 1: aksnodeconfig.v1.CustomLinuxOSConfig.ulimit_config:type_name -> aksnodeconfig.v1.UlimitConfig
+	1, // 0: aksnodeconfig.v1.CustomLinuxOsConfig.sysctl_config:type_name -> aksnodeconfig.v1.SysctlConfig
+	2, // 1: aksnodeconfig.v1.CustomLinuxOsConfig.ulimit_config:type_name -> aksnodeconfig.v1.UlimitConfig
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

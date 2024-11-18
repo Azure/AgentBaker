@@ -2,7 +2,7 @@ syntax = "proto3";
 package aksnodeconfig.v1;
 
 // Custom Linux Node OS Config
-message CustomLinuxOSConfig {
+message CustomLinuxOsConfig {
   // Sysctl settings for Linux agent nodes
   SysctlConfig sysctl_config = 1;
 

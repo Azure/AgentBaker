@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type TLSBootstrappingConfig struct {
+type TlsBootstrappingConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -33,20 +33,20 @@ type TLSBootstrappingConfig struct {
 	CustomSecureTlsBootstrappingAppserverAppid string `protobuf:"bytes,3,opt,name=custom_secure_tls_bootstrapping_appserver_appid,json=customSecureTlsBootstrappingAppserverAppid,proto3" json:"custom_secure_tls_bootstrapping_appserver_appid,omitempty"`
 }
 
-func (x *TLSBootstrappingConfig) Reset() {
-	*x = TLSBootstrappingConfig{}
+func (x *TlsBootstrappingConfig) Reset() {
+	*x = TlsBootstrappingConfig{}
 	mi := &file_aksnodeconfig_v1_tls_bootstrapping_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TLSBootstrappingConfig) String() string {
+func (x *TlsBootstrappingConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TLSBootstrappingConfig) ProtoMessage() {}
+func (*TlsBootstrappingConfig) ProtoMessage() {}
 
-func (x *TLSBootstrappingConfig) ProtoReflect() protoreflect.Message {
+func (x *TlsBootstrappingConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_aksnodeconfig_v1_tls_bootstrapping_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -58,26 +58,26 @@ func (x *TLSBootstrappingConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TLSBootstrappingConfig.ProtoReflect.Descriptor instead.
-func (*TLSBootstrappingConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use TlsBootstrappingConfig.ProtoReflect.Descriptor instead.
+func (*TlsBootstrappingConfig) Descriptor() ([]byte, []int) {
 	return file_aksnodeconfig_v1_tls_bootstrapping_config_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *TLSBootstrappingConfig) GetEnableSecureTlsBootstrapping() bool {
+func (x *TlsBootstrappingConfig) GetEnableSecureTlsBootstrapping() bool {
 	if x != nil && x.EnableSecureTlsBootstrapping != nil {
 		return *x.EnableSecureTlsBootstrapping
 	}
 	return false
 }
 
-func (x *TLSBootstrappingConfig) GetTlsBootstrappingToken() string {
+func (x *TlsBootstrappingConfig) GetTlsBootstrappingToken() string {
 	if x != nil {
 		return x.TlsBootstrappingToken
 	}
 	return ""
 }
 
-func (x *TLSBootstrappingConfig) GetCustomSecureTlsBootstrappingAppserverAppid() string {
+func (x *TlsBootstrappingConfig) GetCustomSecureTlsBootstrappingAppserverAppid() string {
 	if x != nil {
 		return x.CustomSecureTlsBootstrappingAppserverAppid
 	}
@@ -91,7 +91,7 @@ var file_aksnodeconfig_v1_tls_bootstrapping_config_proto_rawDesc = []byte{
 	0x76, 0x31, 0x2f, 0x74, 0x6c, 0x73, 0x5f, 0x62, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70,
 	0x70, 0x69, 0x6e, 0x67, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x12, 0x10, 0x61, 0x6b, 0x73, 0x6e, 0x6f, 0x64, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
-	0x2e, 0x76, 0x31, 0x22, 0xa5, 0x02, 0x0a, 0x16, 0x54, 0x4c, 0x53, 0x42, 0x6f, 0x6f, 0x74, 0x73,
+	0x2e, 0x76, 0x31, 0x22, 0xa5, 0x02, 0x0a, 0x16, 0x54, 0x6c, 0x73, 0x42, 0x6f, 0x6f, 0x74, 0x73,
 	0x74, 0x72, 0x61, 0x70, 0x70, 0x69, 0x6e, 0x67, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x4a,
 	0x0a, 0x1f, 0x65, 0x6e, 0x61, 0x62, 0x6c, 0x65, 0x5f, 0x73, 0x65, 0x63, 0x75, 0x72, 0x65, 0x5f,
 	0x74, 0x6c, 0x73, 0x5f, 0x62, 0x6f, 0x6f, 0x74, 0x73, 0x74, 0x72, 0x61, 0x70, 0x70, 0x69, 0x6e,
@@ -142,7 +142,7 @@ func file_aksnodeconfig_v1_tls_bootstrapping_config_proto_rawDescGZIP() []byte {
 
 var file_aksnodeconfig_v1_tls_bootstrapping_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_aksnodeconfig_v1_tls_bootstrapping_config_proto_goTypes = []any{
-	(*TLSBootstrappingConfig)(nil), // 0: aksnodeconfig.v1.TLSBootstrappingConfig
+	(*TlsBootstrappingConfig)(nil), // 0: aksnodeconfig.v1.TlsBootstrappingConfig
 }
 var file_aksnodeconfig_v1_tls_bootstrapping_config_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

@@ -1,7 +1,7 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
-message HTTPProxyConfig {
+message HttpProxyConfig {
   // Proxy endpoint/URL using HTTP through which the traffic should be routed for making HTTP connections outside the cluster
   string http_proxy = 1;
 

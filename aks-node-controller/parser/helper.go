@@ -68,13 +68,13 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 	}
 }
 
-func getStringFromVMType(enum aksnodeconfigv1.ClusterConfig_VM) string {
+func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
 	switch enum {
-	case aksnodeconfigv1.ClusterConfig_VM_STANDARD:
+	case aksnodeconfigv1.VmType_VM_TYPE_STANDARD:
 		return helpers.VMTypeStandard
-	case aksnodeconfigv1.ClusterConfig_VM_VMSS:
+	case aksnodeconfigv1.VmType_VM_TYPE_VMSS:
 		return helpers.VMTypeVmss
-	case aksnodeconfigv1.ClusterConfig_VM_UNSPECIFIED:
+	case aksnodeconfigv1.VmType_VM_TYPE_UNSPECIFIED:
 		return ""
 	default:
 		return ""
@@ -106,11 +106,11 @@ func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 }
 
 //nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""
-func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku) string {
+func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerSku) string {
 	switch enum {
-	case aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_BASIC:
+	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_BASIC:
 		return helpers.LoadBalancerBasic
-	case aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_STANDARD:
+	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD:
 		return helpers.LoadBalancerStandard
 	default:
 		return ""
@@ -173,20 +173,20 @@ func getCustomCACertsStatus(customCACerts []string) bool {
 	return len(customCACerts) > 0
 }
 
-func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) bool {
+func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) bool {
 	return bootstrapConfig.GetTlsBootstrappingToken() != ""
 }
 
-func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) bool {
+func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) bool {
 	// TODO: Change logic to default to false once Secure TLS Bootstrapping is complete
 	return bootstrapConfig.GetEnableSecureTlsBootstrapping()
 }
 
-func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) string {
+func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) string {
 	return bootstrapConfig.GetTlsBootstrappingToken()
 }
 
-func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) string {
+func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) string {
 	return bootstrapConfig.GetCustomSecureTlsBootstrappingAppserverAppid()
 }
 
@@ -508,11 +508,11 @@ func getIsSgxEnabledSKU(vmSize string) bool {
 	return false
 }
 
-func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig) bool {
+func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetHttpProxy() != "" || httpProxyConfig.GetHttpsProxy() != ""
 }
 
-func getShouldConfigureHTTPProxyCA(httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig) bool {
+func getShouldConfigureHTTPProxyCA(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetProxyTrustedCa() != ""
 }
 
@@ -586,15 +586,15 @@ func getServicePrincipalFileContent(authConfig *aksnodeconfigv1.AuthConfig) stri
 	return base64.StdEncoding.EncodeToString([]byte(authConfig.GetServicePrincipalSecret()))
 }
 
-func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOSConfig) bool {
+func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {
 	return v.GetEnableSwapConfig() && v.GetSwapFileSize() > 0
 }
 
-func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOSConfig) bool {
+func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {
 	return v.GetTransparentDefrag() != "" || v.GetTransparentHugepageSupport() != ""
 }
 
-func getProxyVariables(proxyConfig *aksnodeconfigv1.HTTPProxyConfig) string {
+func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
 	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
 	proxyVars := ""
 	if proxyConfig.GetHttpProxy() != "" {

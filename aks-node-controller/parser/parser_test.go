@@ -122,7 +122,7 @@ oom_score = 0
 			folder:     "AKSUbuntu2204+CustomOSConfig",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOSConfig{
+				aksNodeConfig.CustomLinuxOsConfig = &aksnodeconfigv1.CustomLinuxOsConfig{
 					EnableSwapConfig:           true,
 					SwapFileSize:               int32(1500),
 					TransparentHugepageSupport: "never",
@@ -184,7 +184,7 @@ oom_score = 0
 			folder:     "AKSUbuntu1804+HTTPProxy",
 			k8sVersion: "1.18.14",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.HttpProxyConfig = &aksnodeconfigv1.HTTPProxyConfig{
+				aksNodeConfig.HttpProxyConfig = &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:  "http://myproxy.server.com:8080/",
 					HttpsProxy: "https://myproxy.server.com:8080/",
 					NoProxyEntries: []string{
@@ -298,7 +298,7 @@ oom_score = 0
 				ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 					Location:      "southcentralus",
 					ResourceGroup: "resourceGroupName",
-					VmType:        aksnodeconfigv1.ClusterConfig_VM_VMSS,
+					VmType:        aksnodeconfigv1.VmType_VM_TYPE_VMSS,
 					ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 						SecurityGroupName: "aks-agentpool-36873793-nsg",
 						VnetName:          "aks-vnet-07752737",
@@ -318,7 +318,7 @@ oom_score = 0
 				NetworkConfig: &aksnodeconfigv1.NetworkConfig{
 					VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				},
-				GpuConfig: &aksnodeconfigv1.GPUConfig{
+				GpuConfig: &aksnodeconfigv1.GpuConfig{
 					ConfigGpuDriver: true,
 					GpuDevicePlugin: false,
 				},
@@ -452,7 +452,7 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 		assert.Nil(t, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.ExcludeMasterFromStandardLoadBalancer)
 
 		// if an optional enum field is unset, it will be set to 0 (in this case LoadBalancerConfig_UNSPECIFIED) by protobuf by default.
-		assert.Equal(t, aksnodeconfigv1.LoadBalancerConfig_LOAD_BALANCER_SKU_UNSPECIFIED, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
+		assert.Equal(t, aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_UNSPECIFIED, aksNodeConfigUT.ClusterConfig.LoadBalancerConfig.GetLoadBalancerSku())
 	})
 
 	t.Run("marshal/unmarshal", func(t *testing.T) {
