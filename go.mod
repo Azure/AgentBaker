@@ -9,7 +9,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/handlers v1.5.1
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo v1.12.2
 	github.com/onsi/gomega v1.29.0
 	github.com/pkg/errors v0.9.1
