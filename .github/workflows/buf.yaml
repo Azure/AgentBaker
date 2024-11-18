@@ -12,5 +12,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: bufbuild/buf-action@v1
         with:
-          breaking_against: .git#branch=dev
           input: aks-node-controller
