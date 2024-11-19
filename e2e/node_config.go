@@ -12,10 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +60,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
-			VmType:        aksnodeconfigv1.ClusterConfig_VMSS,
+			VmType:        aksnodeconfigv1.VmType_VM_TYPE_VMSS,
 			ClusterNetworkConfig: &aksnodeconfigv1.ClusterNetworkConfig{
 				SecurityGroupName: cs.Properties.GetNSGName(),
 				VnetName:          cs.Properties.GetVirtualNetworkName(),
@@ -79,11 +81,11 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			AssignedIdentityId:     nbc.UserAssignedIdentityClientID,
 		},
 		NetworkConfig: &aksnodeconfigv1.NetworkConfig{
-			NetworkPlugin:     aksnodeconfigv1.NetworkPlugin_NP_KUBENET,
+			NetworkPlugin:     aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET,
 			CniPluginsUrl:     nbc.CloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL,
 			VnetCniPluginsUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.AzureCNIURLLinux,
 		},
-		GpuConfig: &aksnodeconfigv1.GPUConfig{
+		GpuConfig: &aksnodeconfigv1.GpuConfig{
 			ConfigGpuDriver: true,
 			GpuDevicePlugin: false,
 		},
@@ -92,15 +94,15 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
-		OutboundCommand: aksnodeconfigv1.GetDefaultOutboundCommand(),
+		OutboundCommand: helpers.GetDefaultOutboundCommand(),
 		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
 			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
 			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
 			EnableKubeletConfigFile:  false,
-			KubeletFlags:             aksnodeconfigv1.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:        aksnodeconfigv1.GetKubeletNodeLabels(agentPool),
+			KubeletFlags:             helpers.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
+			KubeletNodeLabels:        helpers.GetKubeletNodeLabels(agentPool),
 		},
-		TlsBootstrappingConfig: &aksnodeconfigv1.TLSBootstrappingConfig{
+		TlsBootstrappingConfig: &aksnodeconfigv1.TlsBootstrappingConfig{
 			TlsBootstrappingToken: *nbc.KubeletClientTLSBootstrapToken,
 		},
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
@@ -109,7 +111,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			PodInfraContainerImageUrl: nbc.K8sComponents.PodInfraContainerImageURL,
 		},
 		KubeProxyUrl: cs.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage,
-		HttpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+		HttpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		NeedsCgroupv2: to.Ptr(true),

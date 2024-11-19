@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 )
 
 func testDir(t *testing.T) string {

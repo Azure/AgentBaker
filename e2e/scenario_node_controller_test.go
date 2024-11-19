@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"

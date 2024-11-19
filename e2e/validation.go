@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 )
 

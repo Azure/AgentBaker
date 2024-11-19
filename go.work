@@ -1,0 +1,7 @@
+go 1.23.0
+
+use (
+	.
+	./aks-node-controller
+	./e2e
+)

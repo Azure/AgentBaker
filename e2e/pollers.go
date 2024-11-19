@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
