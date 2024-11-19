@@ -409,33 +409,33 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
   
-- path: /opt/azure/aks-local-dns/aks-local-dns.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aksLocalDnsScript"}}
+# - path: /opt/azure/aks-local-dns/aks-local-dns.sh
+#   permissions: "0744"
+#   encoding: gzip
+#   owner: root
+#   content: !!binary |
+#     {{GetVariableProperty "cloudInitData" "aksLocalDnsScript"}}
 
-- path: /etc/systemd/system/aks-local-dns.service
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aksLocalDnsSystemdService"}}
+# - path: /etc/systemd/system/aks-local-dns.service
+#   permissions: "0744"
+#   encoding: gzip
+#   owner: root
+#   content: !!binary |
+#     {{GetVariableProperty "cloudInitData" "aksLocalDnsSystemdService"}}
 
-- path: /etc/systemd/system/aks-local-dns.slice
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aksLocalDnsSlice"}}
+# - path: /etc/systemd/system/aks-local-dns.slice
+#   permissions: "0744"
+#   encoding: gzip
+#   owner: root
+#   content: !!binary |
+#     {{GetVariableProperty "cloudInitData" "aksLocalDnsSlice"}}
 
-- path: /etc/systemd/resolved.conf.d/70-aks-dns.conf
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    {{GetVariableProperty "cloudInitData" "aksLocalDnsResolvedConf"}}
+# - path: /etc/systemd/resolved.conf.d/70-aks-dns.conf
+#   permissions: "0744"
+#   encoding: gzip
+#   owner: root
+#   content: !!binary |
+#     {{GetVariableProperty "cloudInitData" "aksLocalDnsResolvedConf"}}
 
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
