@@ -98,7 +98,7 @@ func CSEAKSNodeController(t *testing.T, cluster *Cluster) string {
 	nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
-	configContent := nbcToNbcContractV1(nbc)
+	configContent := nbcToAKSNodeConfigV1(nbc)
 
 	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)

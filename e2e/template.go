@@ -25,7 +25,7 @@ func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, ku
 
 // is a temporary workaround
 // eventually we want to phase out usage of nbc
-func nbcToNbcContractV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
+func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
 	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
