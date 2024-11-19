@@ -1340,14 +1340,11 @@ stages:
           echo "Workspace: $(Pipeline.Workspace)"
           echo "Looking into: $(Pipeline.Workspace)"
           
-          # Search for all vhd-publishing-info.json files under the workspace recursively
-          find $(Pipeline.Workspace) -type f -name "vhd-publishing-info.json" ! -path "*/publishing-info/*" | while read filepath; do
-            dir=$(dirname "$filepath")
-            base_dir=$(basename "$dir")
-            
-            echo "Found vhd-publishing-info.json in $dir"
-            cp "$filepath" "$(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$base_dir.json"
-            echo "Copied $filepath to $(Pipeline.Workspace)/consolidated-artifacts/vhd-publishing-info-$base_dir.json"
+          # Search for all vhd-publishing-info.json files that are not in directories containing 'publishing-info'
+          find $(Pipeline.Workspace) -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
+            # Copy the vhd-publishing-info.json to the consolidated artifacts folder without the prefix
+            cp "$filepath" "$(Pipeline.Workspace)/consolidated-artifacts/$(basename $filepath)"
+            echo "Copied $filepath to $(Pipeline.Workspace)/consolidated-artifacts/$(basename $filepath)"
           done
           
           # List the contents of the consolidated artifacts directory
