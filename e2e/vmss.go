@@ -527,6 +527,8 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Publisher = to.Ptr("Microsoft.Compute")
 		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")
 		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
+		model.Properties.VirtualMachineProfile.OSProfile.AdminUsername = to.Ptr("azureuser")
+		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr("pwnedPassword123!")
 	}
 	return model
 }
