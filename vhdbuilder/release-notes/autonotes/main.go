@@ -203,7 +203,7 @@ func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done
 
 	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
 
-	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", releaseNotesName)
+	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--debug", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", releaseNotesName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		if err != nil {
 			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
@@ -213,7 +213,7 @@ func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done
 
 	fmt.Printf("downloading imageList '%s' from build '%s'\n", imageListName, fl.build)
 
-	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", imageListName)
+	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--debug", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", imageListName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		if err != nil {
 			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
