@@ -173,21 +173,21 @@ func getCustomCACertsStatus(customCACerts []string) bool {
 	return len(customCACerts) > 0
 }
 
-func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) bool {
+func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
 	return bootstrapConfig.GetTlsBootstrappingToken() != ""
 }
 
-func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) bool {
+func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
 	// TODO: Change logic to default to false once Secure TLS Bootstrapping is complete
-	return bootstrapConfig.GetEnableSecureTlsBootstrapping()
+	return bootstrapConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 }
 
-func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) string {
+func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
 	return bootstrapConfig.GetTlsBootstrappingToken()
 }
 
-func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.TlsBootstrappingConfig) string {
-	return bootstrapConfig.GetCustomSecureTlsBootstrappingAppserverAppid()
+func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
+	return bootstrapConfig.GetCustomAadResource()
 }
 
 func getIsKrustlet(wr aksnodeconfigv1.WorkloadRuntime) bool {
