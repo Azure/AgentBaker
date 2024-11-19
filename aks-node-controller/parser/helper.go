@@ -179,7 +179,7 @@ func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig)
 
 func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
 	// TODO: Change logic to default to false once Secure TLS Bootstrapping is complete
-	return bootstrapConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingConfig_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
+	return bootstrapConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 }
 
 func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
