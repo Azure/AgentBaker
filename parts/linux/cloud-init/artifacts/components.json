@@ -62,8 +62,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
+          "latestVersion": "v1.5.40",
+          "previousLatestVersion": "v1.5.38",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -80,14 +80,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.13",
-          "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -113,8 +107,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
+          "latestVersion": "v1.5.40",
+          "previousLatestVersion": "v1.5.38",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -131,14 +125,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.6.13",
-          "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
@@ -153,9 +141,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.0.7",
+          "latestVersion": "v0.0.8",
+          "previousLatestVersion": "v0.0.7",
           "containerImagePrefetch": {
             "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -164,9 +158,15 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.2.0",
+          "latestVersion": "v0.2.1",
+          "previousLatestVersion": "v0.2.0",
           "containerImagePrefetch": {
             "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
