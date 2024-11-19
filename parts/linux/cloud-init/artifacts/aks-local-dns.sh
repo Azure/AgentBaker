@@ -205,7 +205,7 @@ if [[ ! -z "${NOTIFY_SOCKET:-}" && ! -z "${WATCHDOG_USEC:-}" ]]; then
     # five times in every watchdog interval, and thus need to fail five checks to
     # get restarted.
     HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
-    HEALTH_CHECK_DNS_REQUEST="health-check.aks-local-dns.local @${NODE_LISTENER_IP}$'\n'health-check.aks-local-dns.local @${CLUSTER_LISTENER_IP}"
+    HEALTH_CHECK_DNS_REQUEST=$'health-check.aks-local-dns.local @'"${NODE_LISTENER_IP}"$'\nhealth-check.aks-local-dns.local @'"${CLUSTER_LISTENER_IP}"
     printf "starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals\n"
     while [ true ]; do
         if [[ "$(curl -s "http://${NODE_LISTENER_IP}:8181/ready")" == "OK" ]]; then
