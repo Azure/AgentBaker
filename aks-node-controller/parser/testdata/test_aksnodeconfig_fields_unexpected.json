@@ -1,4 +1,5 @@
 {
+    "version": "v0",
     "tls_bootstrapping_config": {
         "enable_secure_tls_bootstrapping": false
     },

@@ -4,7 +4,7 @@
         "enable_secure_tls_bootstrapping": false
     },
     "cluster_config": {
-        "vm_type": 2,
+        "vm_type": "VM_TYPE_VMSS",
         "cluster_network_config": {
             "subnet": "aks-subnet"
         },

@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -38,17 +38,19 @@ func createVMSS(ctx context.Context, t *testing.T, vmssName string, scenario *Sc
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(t, err)
+	var cse, customData string
 	if scenario.AKSNodeConfigMutator != nil {
-		builder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
-		builder.ApplyConfiguration(scenario.Runtime.AKSNodeConfig)
-		nodeBootstrapping, err = builder.GetNodeBootstrapping()
+		cse = nodeconfigutils.CSE
+		customData, err = nodeconfigutils.CustomData(scenario.Runtime.AKSNodeConfig)
 		require.NoError(t, err)
 	} else {
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(ctx, scenario.Runtime.NBC)
 		require.NoError(t, err)
+		cse = nodeBootstrapping.CSE
+		customData = nodeBootstrapping.CustomData
 	}
 
-	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), nodeBootstrapping.CustomData, nodeBootstrapping.CSE, cluster)
+	model := getBaseVMSSModel(vmssName, string(publicKeyBytes), customData, cse, cluster)
 
 	isAzureCNI, err := cluster.IsAzureCNI()
 	require.NoError(t, err, "checking if cluster is using Azure CNI")
