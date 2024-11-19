@@ -2,6 +2,9 @@ go 1.23.0
 
 use (
 	.
+	./vhdbuilder/lister
+	./vhdbuilder/automation
+	./vhdbuilder/prefetch
 	./aks-node-controller
 	./e2e
 )
