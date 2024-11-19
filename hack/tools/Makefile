@@ -20,7 +20,7 @@ $(LOCALBIN)/cue:
 	GOBIN=$(LOCALBIN) $(GO) install cuelang.org/go/cmd/cue@v0.4.2
 
 $(LOCALBIN)/buf:
-	curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.26.1/buf-$(shell uname -s)-$(shell uname -m)" -o $(LOCALBIN)/buf && \
+	curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.47.2/buf-$(shell uname -s)-$(shell uname -m)" -o $(LOCALBIN)/buf && \
 	chmod +x $(LOCALBIN)/buf
 
 $(LOCALBIN)/shellspec:

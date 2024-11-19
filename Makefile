@@ -89,9 +89,16 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
+.PHONY: lint-proto-files
+lint-proto-files:
+	@(cd aks-node-controller && ../hack/tools/bin/buf lint)
+	@(cd aks-node-controller && ../hack/tools/bin/buf breaking --against '../.git#branch=dev') # TODO: change to master
+
 .PHONY: compile-proto-files
 compile-proto-files:
-	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
+	@(cd aks-node-controller && ../hack/tools/bin/buf format -w)
+	@(cd aks-node-controller && ../hack/tools/bin/buf generate)
+	$(MAKE) lint-proto-files
 
 .PHONY: generate-manifest
 generate-manifest:

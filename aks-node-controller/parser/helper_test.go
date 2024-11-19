@@ -21,8 +21,8 @@ import (
 	"reflect"
 	"testing"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 )
 
 func Test_getSysctlContent(t *testing.T) {
@@ -54,9 +54,9 @@ net.ipv4.tcp_retries2=8`)),
 			name: "SysctlConfig with custom values",
 			args: args{
 				s: &aksnodeconfigv1.SysctlConfig{
-					NetIpv4TcpMaxSynBacklog: to.Int32Ptr(int32(9999)),
-					NetCoreRmemDefault:      to.Int32Ptr(int32(9999)),
-					NetIpv4IpLocalPortRange: to.StringPtr("32768 62535"),
+					NetIpv4TcpMaxSynBacklog: ToPtr(int32(9999)),
+					NetCoreRmemDefault:      ToPtr(int32(9999)),
+					NetIpv4IpLocalPortRange: ToPtr("32768 62535"),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
@@ -261,7 +261,7 @@ func Test_getContainerdConfig(t *testing.T) {
 			name: "Default Configuration",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.BoolPtr(true),
+					NeedsCgroupv2: ToPtr(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
@@ -368,7 +368,7 @@ func Test_getAzureEnvironmentFilepath(t *testing.T) {
 			args: args{
 				v: &aksnodeconfigv1.Configuration{
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
+						CustomCloudEnvName: helpers.AksCustomCloudName,
 					},
 				},
 			},
@@ -397,8 +397,8 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 			name: "NetworkConfig with no promiscuous bridge",
 			args: args{
 				nc: &aksnodeconfigv1.NetworkConfig{
-					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NP_AZURE,
-					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NPO_AZURE,
+					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE,
+					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE,
 				},
 			},
 			want: false,
@@ -407,8 +407,8 @@ func Test_getEnsureNoDupePromiscuousBridge(t *testing.T) {
 			name: "NetworkConfig with promiscuous bridge",
 			args: args{
 				nc: &aksnodeconfigv1.NetworkConfig{
-					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NP_KUBENET,
-					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NPO_AZURE,
+					NetworkPlugin: aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET,
+					NetworkPolicy: aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE,
 				},
 			},
 			want: true,
@@ -642,7 +642,7 @@ func TestIsKubernetesVersionGe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := aksnodeconfigv1.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
+			if got := helpers.IsKubernetesVersionGe(tt.args.actualVersion, tt.args.version); got != tt.want {
 				t.Errorf("IsKubernetesVersionGe() = %v, want %v", got, tt.want)
 			}
 		})
@@ -733,7 +733,7 @@ func Test_getPortRangeEndValue(t *testing.T) {
 
 func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 	type args struct {
-		httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig
+		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
 	}
 	tests := []struct {
 		name string
@@ -748,14 +748,14 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "Empty HTTPProxyConfig",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{},
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "HTTPProxyConfig with empty HttpProxy and valid HttpsProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:  "",
 					HttpsProxy: "https://fakeproxy.com:8080",
 				},
@@ -765,7 +765,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with valid HttpProxy and empty HttpsProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:  "http://fakeproxy.com:8080",
 					HttpsProxy: "",
 				},
@@ -775,7 +775,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with empty HttpProxy and empty HttpsProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:      "",
 					HttpsProxy:     "",
 					NoProxyEntries: []string{"fakesite1.com", "fakesite2.com"},
@@ -786,7 +786,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 		{
 			name: "HTTPProxyConfig with valid HttpProxy",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy: "http://fakeproxy.com:8080",
 				},
 			},
@@ -804,7 +804,7 @@ func Test_getShouldConfigureHTTPProxy(t *testing.T) {
 
 func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 	type args struct {
-		httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig
+		httpProxyConfig *aksnodeconfigv1.HttpProxyConfig
 	}
 	tests := []struct {
 		name string
@@ -819,14 +819,14 @@ func Test_getShouldConfigureHTTPProxyCA(t *testing.T) {
 		{
 			name: "Empty HTTPProxyConfig",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{},
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "HTTPProxyConfig with empty CA",
 			args: args{
-				httpProxyConfig: &aksnodeconfigv1.HTTPProxyConfig{
+				httpProxyConfig: &aksnodeconfigv1.HttpProxyConfig{
 					HttpProxy:      "http://fakeproxy.com:8080",
 					ProxyTrustedCa: "",
 				},
@@ -855,7 +855,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
@@ -864,7 +864,7 @@ func Test_getTargetEnvironment(t *testing.T) {
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with empty TargetEnvironment",
@@ -873,18 +873,18 @@ func Test_getTargetEnvironment(t *testing.T) {
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
 				v: &aksnodeconfigv1.Configuration{
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
+						CustomCloudEnvName: helpers.AksCustomCloudName,
 					},
 				},
 			},
-			want: aksnodeconfigv1.AksCustomCloudName,
+			want: helpers.AksCustomCloudName,
 		},
 	}
 	for _, tt := range tests {
@@ -908,7 +908,7 @@ func Test_getTargetCloud(t *testing.T) {
 		{
 			name: "Nil CustomCloudConfig",
 			args: args{},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "Empty CustomCloudConfig",
@@ -917,18 +917,18 @@ func Test_getTargetCloud(t *testing.T) {
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
 				},
 			},
-			want: aksnodeconfigv1.DefaultCloudName,
+			want: helpers.DefaultCloudName,
 		},
 		{
 			name: "CustomCloudConfig with TargetEnvironment",
 			args: args{
 				v: &aksnodeconfigv1.Configuration{
 					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{
-						CustomCloudEnvName: aksnodeconfigv1.AksCustomCloudName,
+						CustomCloudEnvName: helpers.AksCustomCloudName,
 					},
 				},
 			},
-			want: aksnodeconfigv1.AzureStackCloud,
+			want: helpers.AzureStackCloud,
 		},
 	}
 	for _, tt := range tests {
@@ -954,7 +954,7 @@ func Test_getLinuxAdminUsername(t *testing.T) {
 			args: args{
 				username: "",
 			},
-			want: aksnodeconfigv1.DefaultLinuxUser,
+			want: helpers.DefaultLinuxUser,
 		},
 		{
 			name: "Non-empty username",
@@ -997,9 +997,9 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 			want: false,
 		},
 		{
-			name: aksnodeconfigv1.VMSizeStandardDc2s,
+			name: helpers.VMSizeStandardDc2s,
 			args: args{
-				vmSize: aksnodeconfigv1.VMSizeStandardDc2s,
+				vmSize: helpers.VMSizeStandardDc2s,
 			},
 			want: true,
 		},
