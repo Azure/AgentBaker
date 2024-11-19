@@ -7,4 +7,6 @@ message ApiServerConfig {
 
   // The name or endpoint URI of the API server.
   string api_server_name = 2;
+
+  string test_field = 3;
 }
