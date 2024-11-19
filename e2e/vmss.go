@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -530,9 +531,42 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.Type = to.Ptr("CustomScriptExtension")
 		model.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.TypeHandlerVersion = to.Ptr("1.10")
 		model.Properties.VirtualMachineProfile.OSProfile.AdminUsername = to.Ptr("azureuser")
-		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr("pwnedPassword123!")
+		model.Properties.VirtualMachineProfile.OSProfile.AdminPassword = to.Ptr(generateWindowsPassword())
 	}
 	return model
+}
+
+func generateWindowsPassword() string {
+	if config.Config.WindowsAdminPassword != "" {
+		return config.Config.WindowsAdminPassword
+	}
+	return randomStringWithDigitsAndSymbols(16)
+}
+
+func randomStringWithDigitsAndSymbols(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	const digits = "0123456789"
+	const symbols = "!@#$%^&*()-_+="
+	b := make([]byte, length)
+
+	for i := range b {
+		if i < (length - 2) { // Ensure at least 2 characters are symbols
+			b[i] = charset[randomInt(len(charset))]
+		} else if i == (length - 2) {
+			b[i] = digits[randomInt(len(digits))]
+		} else {
+			b[i] = symbols[randomInt(len(symbols))]
+		}
+	}
+	return string(b)
+}
+
+func randomInt(bound int) int {
+	n, err := crand.Int(crand.Reader, big.NewInt(int64(bound)))
+	if err != nil {
+		panic(err) // Intentionally panic for simplicity; handle errors as needed
+	}
+	return int(n.Int64())
 }
 
 func getPrivateIP(res listVMSSVMNetworkInterfaceResult) (string, error) {

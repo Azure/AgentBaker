@@ -48,6 +48,7 @@ type Configuration struct {
 	TagsToRun                       string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                      string        `env:"TAGS_TO_SKIP"`
 	TestTimeout                     time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
+	WindowsAdminPassword            string        `env:"WINDOWS_ADMIN_PASSWORD"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {
