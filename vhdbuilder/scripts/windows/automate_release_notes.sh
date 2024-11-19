@@ -22,7 +22,7 @@ set_git_config $github_user_name
 if [ `git branch --list $branch_name` ]; then
     git checkout $branch_name
     git pull origin
-    git checkout master -- .
+    git checkout dev -- .
 else
     create_branch $branch_name
 fi

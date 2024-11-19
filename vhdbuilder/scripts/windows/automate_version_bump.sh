@@ -59,7 +59,7 @@ cherry_pick() {
 
 create_image_bump_pr() {
     if [ `git branch --list $branch_name` ]; then
-        git checkout master
+        git checkout dev
         git pull -p
         git checkout $branch_name
     else

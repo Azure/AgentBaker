@@ -12,8 +12,8 @@ set_git_config() {
 create_branch() {
     # Create PR branch
     echo "Creating branch named $1"
-    git fetch origin master
-    git checkout master
+    git fetch origin dev
+    git checkout dev
     git pull
     git checkout -b $1
 }
@@ -61,7 +61,7 @@ curl_post_request() {
                 \"title\": \"$title\",
                 \"body\": \"$body_content\",
                 \"head\": \"$branch_name\",
-                \"base\": \"master\"
+                \"base\": \"dev\"
             }" \
             https://api.github.com/repos/Azure/AgentBaker/pulls)
 
@@ -127,5 +127,5 @@ create_pull_request() {
 
     curl_post_request "$post_purpose" "$branch_name" "$image_version" "$title" "$body_content" "$labels"
 
-    git checkout master # Checkout to master for subsequent stages of the pipeline
+    git checkout dev # Checkout to dev for subsequent stages of the pipeline
 }

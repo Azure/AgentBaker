@@ -35,6 +35,7 @@ steps:
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
+        az login --identity
         echo "PR for Release Notes"
         az extension add -n azure-devops
         echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
