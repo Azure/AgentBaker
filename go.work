@@ -6,5 +6,6 @@ use (
 	./vhdbuilder/automation
 	./vhdbuilder/prefetch
 	./aks-node-controller
+	./vulnerability-reporting-vms
 	./e2e
 )
