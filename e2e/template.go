@@ -82,8 +82,8 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			KubeletFlags:             helpers.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
 			KubeletNodeLabels:        helpers.GetKubeletNodeLabels(agentPool),
 		},
-		TlsBootstrappingConfig: &aksnodeconfigv1.TlsBootstrappingConfig{
-			TlsBootstrappingToken: *nbc.KubeletClientTLSBootstrapToken,
+		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
+			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
 		},
 		KubernetesCaCert: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.CaCertificate)),
 		KubeBinaryConfig: &aksnodeconfigv1.KubeBinaryConfig{
