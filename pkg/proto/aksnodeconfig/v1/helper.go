@@ -11,11 +11,11 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
 
-// NBContractBuilder is a helper struct to build the NBContract (Node Bootstrap Contract).
-// It provides methods to apply configuration, get the NBContract object, and validate the contract, etc.
-type NBContractBuilder struct {
-	// nodeBootstrapConfig is the configuration object for the NBContract (Node Bootstrap Contract).
-	nodeBootstrapConfig *Configuration
+// AKSNodeConfigBuilder is a helper struct to build the AKSNodeConfig.
+// It provides methods to apply configuration, get the AKSNodeConfig object, and validate the contract, etc.
+type AKSNodeConfigBuilder struct {
+	// aksNodeConfig is the configuration object for the AKSNodeConfig.
+	aksNodeConfig *Configuration
 }
 
 // Check and initialize each field if it is nil.
@@ -48,38 +48,38 @@ func ensureConfigsNonNil(nBC *Configuration) {
 	initializeIfNil(&nBC.CustomSearchDomainConfig)
 }
 
-// NewNBContractBuilder creates a new instance of NBContractBuilder and ensures all objects in nodeBootstrapConfig are non-nil.
-func NewNBContractBuilder() *NBContractBuilder {
-	nbc := Configuration{
+// NewAKSNodeConfigBuilder creates a new instance of AKSNodeConfigBuilder and ensures all objects in aksNodeConfig are non-nil.
+func NewAKSNodeConfigBuilder() *AKSNodeConfigBuilder {
+	config := Configuration{
 		Version: contractVersion,
 	}
-	ensureConfigsNonNil(&nbc)
-	nBCB := &NBContractBuilder{nodeBootstrapConfig: &nbc}
-	return nBCB
+	ensureConfigsNonNil(&config)
+	aksNodeConfig := &AKSNodeConfigBuilder{aksNodeConfig: &config}
+	return aksNodeConfig
 }
 
-// ApplyConfiguration Applies the configuration to the nodeBootstrapConfig object.
-func (nBCB *NBContractBuilder) ApplyConfiguration(config *Configuration) {
+// ApplyConfiguration Applies the configuration to the aksNodeConfig object.
+func (b *AKSNodeConfigBuilder) ApplyConfiguration(config *Configuration) {
 	if config == nil {
 		return
 	}
 
 	// Use deep copy to avoid modifying the original object 'config'.
-	if err := nBCB.deepCopy(config, nBCB.nodeBootstrapConfig); err != nil {
+	if err := deepCopy(config, b.aksNodeConfig); err != nil {
 		log.Printf("Failed to deep copy the configuration: %v", err)
-		ensureConfigsNonNil(nBCB.nodeBootstrapConfig)
+		ensureConfigsNonNil(b.aksNodeConfig)
 	}
 }
 
-// GetNodeBootstrapConfig gets the nodeBootstrapConfig object.
-func (nBCB *NBContractBuilder) GetNodeBootstrapConfig() *Configuration {
-	return nBCB.nodeBootstrapConfig
+// GetAKSNodeConfig gets the aksNodeConfig object.
+func (b *AKSNodeConfigBuilder) GetAKSNodeConfig() *Configuration {
+	return b.aksNodeConfig
 }
 
 // Deep copy the source object to the destination object.
 // Note that the existing value in the destination object will not be cleared
 // if the source object doesn't have that field.
-func (nBCB *NBContractBuilder) deepCopy(src, dst interface{}) error {
+func deepCopy(src, dst interface{}) error {
 	if src == nil {
 		return nil
 	}
@@ -91,11 +91,11 @@ func (nBCB *NBContractBuilder) deepCopy(src, dst interface{}) error {
 	return gob.NewDecoder(&buf).Decode(dst)
 }
 
-// ValidateNBContract validates the NBContract.
+// ValidateAKSNodeConfig validates the AKSNodeConfig.
 // It returns an error if the contract is invalid.
 // This function should be called after applying all configuration and before sending to downstream component.
-func (nBCB *NBContractBuilder) ValidateNBContract() error {
-	if err := nBCB.validateRequiredFields(); err != nil {
+func (b *AKSNodeConfigBuilder) ValidateAKSNodeConfig() error {
+	if err := b.validateRequiredFields(); err != nil {
 		return err
 	}
 	// Add more validations here if needed.
@@ -103,8 +103,9 @@ func (nBCB *NBContractBuilder) ValidateNBContract() error {
 	return nil
 }
 
-func (nBCB *NBContractBuilder) GetNodeBootstrapping() (*datamodel.NodeBootstrapping, error) {
-	scriptlessCustomData, err := getScriptlessCustomDataContent(nBCB.nodeBootstrapConfig)
+// GetNodeBootstrapping gets the NodeBootstrapping object.
+func (b *AKSNodeConfigBuilder) GetNodeBootstrapping() (*datamodel.NodeBootstrapping, error) {
+	scriptlessCustomData, err := getScriptlessCustomDataContent(b.aksNodeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +128,8 @@ func getScriptlessCustomDataContent(config any) (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
-func (nBCB *NBContractBuilder) validateRequiredFields() error {
-	if err := nBCB.validateRequiredStringsNotEmpty(); err != nil {
+func (b *AKSNodeConfigBuilder) validateRequiredFields() error {
+	if err := b.validateRequiredStringsNotEmpty(); err != nil {
 		return err
 	}
 	// Add more required fields validations here if needed.
@@ -136,14 +137,14 @@ func (nBCB *NBContractBuilder) validateRequiredFields() error {
 	return nil
 }
 
-func (nBCB *NBContractBuilder) validateRequiredStringsNotEmpty() error {
+func (b *AKSNodeConfigBuilder) validateRequiredStringsNotEmpty() error {
 	requiredStrings := map[string]string{
-		"AuthConfig.SubscriptionId":                     nBCB.nodeBootstrapConfig.GetAuthConfig().GetSubscriptionId(),
-		"ClusterConfig.ResourceGroup":                   nBCB.nodeBootstrapConfig.GetClusterConfig().GetResourceGroup(),
-		"ClusterConfig.Location":                        nBCB.nodeBootstrapConfig.GetClusterConfig().GetLocation(),
-		"ClusterConfig.ClusterNetworkConfig.VnetName":   nBCB.nodeBootstrapConfig.GetClusterConfig().GetClusterNetworkConfig().GetVnetName(),
-		"ClusterConfig.ClusterNetworkConfig.RouteTable": nBCB.nodeBootstrapConfig.GetClusterConfig().GetClusterNetworkConfig().GetRouteTable(),
-		"ApiServerConfig.ApiServerName":                 nBCB.nodeBootstrapConfig.ApiServerConfig.GetApiServerName(),
+		"AuthConfig.SubscriptionId":                     b.aksNodeConfig.GetAuthConfig().GetSubscriptionId(),
+		"ClusterConfig.ResourceGroup":                   b.aksNodeConfig.GetClusterConfig().GetResourceGroup(),
+		"ClusterConfig.Location":                        b.aksNodeConfig.GetClusterConfig().GetLocation(),
+		"ClusterConfig.ClusterNetworkConfig.VnetName":   b.aksNodeConfig.GetClusterConfig().GetClusterNetworkConfig().GetVnetName(),
+		"ClusterConfig.ClusterNetworkConfig.RouteTable": b.aksNodeConfig.GetClusterConfig().GetClusterNetworkConfig().GetRouteTable(),
+		"ApiServerConfig.ApiServerName":                 b.aksNodeConfig.ApiServerConfig.GetApiServerName(),
 	}
 
 	for field, value := range requiredStrings {
