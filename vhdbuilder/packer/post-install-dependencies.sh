@@ -96,6 +96,12 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     relinkResolvConf
   fi
 fi
+
+if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+    echo "Unholding nullboot after upgrade"
+    #wait_for_apt_locks
+    apt-mark unhold nullboot
+fi
 capture_benchmark "${SCRIPT_NAME}_resolve_conf"
 echo "post-install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
