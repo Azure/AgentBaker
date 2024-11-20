@@ -4,7 +4,7 @@ This directory contains files related to AKS Node Controller go binary.
 
 ## Overview
 
-AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller expects a predefined contract from the client of type [`AKSNodeConfig`](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1) containing the bootstrap configuration. The controller has two primary functions: 1. Parse the bootstrap config and kickstart bootstrapping and 2. Monitor the completion status. 
+AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller expects a predefined contract from the client of type [`AKSNodeConfig`](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1) containing the bootstrap configuration. The controller has two primary functions: 1. Parse the bootstrap config and kickstart bootstrapping and 2. Monitor the completion status.
 
 AKS Node Controller relies on two Azure mechanisms to inject the necessary data at provisioning time for bootstrapping: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1).
 
@@ -13,37 +13,42 @@ AKS Node Controller relies on two Azure mechanisms to inject the necessary data 
 Here is an example on how to retrieve node bootstrapping params and pass in the returned `CSE` and `CustomData` to CRP API for creating a VMSS instance.
 
 ```go
-builder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
-builder.ApplyConfiguration(aksNodeConfig)
-nodeBootstrapping, err = builder.GetNodeBootstrapping()
+config := &aksnodeconfigv1.Configuration{
+    Version: "v0",
+    // fill in the rest of the fields
+}
+customData, err := nodeconfigutils.CustomData(config)
+if err != nil {
+    return err
+}
+
+cse := nodeconfigutils.CSE
 
 model := armcompute.VirtualMachineScaleSet{
     Properties: &armcompute.VirtualMachineScaleSetProperties{
         VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
             OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
-                CustomData:         &nodeBootstrapping.CustomData,
-                ...
-            }
-        },
-        VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-            Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-                {
-                    Name: to.Ptr("vmssCSE"),
-                    Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-                        Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-                        Type:                    to.Ptr("CustomScript"),
-                        TypeHandlerVersion:      to.Ptr("2.0"),
-                        AutoUpgradeMinorVersion: to.Ptr(true),
-                        Settings:                map[string]interface{}{},
-                        ProtectedSettings: map[string]interface{}{
-                            "commandToExecute": nodeBootstrapping.CSE,
+                CustomData: &customData,
+            },
+            ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
+                Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+                    {
+                        Name: to.Ptr("vmssCSE"),
+                        Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+                            Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+                            Type:                    to.Ptr("CustomScript"),
+                            TypeHandlerVersion:      to.Ptr("2.0"),
+                            AutoUpgradeMinorVersion: to.Ptr(true),
+                            Settings:                map[string]interface{}{},
+                            ProtectedSettings: map[string]interface{}{
+                                "commandToExecute": cse,
+                            },
                         },
                     },
                 },
-            }
+            },
         },
-        ...
-    }
+    },
 }
 ```
 
@@ -96,14 +101,35 @@ write_files:
    {{ encodedAKSNodeConfig }}`
 ```
 
-2. CSE: Script used to poll bootstrap status and return exit status once complete. 
+2. CSE: Script used to poll bootstrap status and return exit status once complete.
 
 CSE script: `/opt/azure/containers/aks-node-controller provision-wait`
 
 
 #### Provisioning flow diagram:
 
-![provisionFlowDiagram](../.github/images/scriptlessBootstrapFlow.png)
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant ARM as Azure Resource Manager (ARM)
+    participant VM as Virtual Machine (VM)
+
+    Client->>ARM: Request to create VM<br/>with CustomData & CSE
+    ARM->>VM: Deploy config.json<br/>(CustomData)
+    note over VM: cloud-init handles<br/>config.json deployment
+
+    note over VM: cloud-init completes processing
+    note over VM: Start aks-node-controller.service (systemd service)<br/> afer cloud-init
+    VM->>VM: Run aks-node-controller<br/>(Go binary) in provision mode<br/>using config.json
+
+    ARM->>VM: Initiate aks-node-controller (Go binary)<br/>in provision-wait mode via CSE
+
+    loop Monitor provisioning status
+        VM->>VM: Check /opt/azure/containers/provision.complete
+    end
+
+    VM->>Client: Return CSE status with<br/>/var/log/azure/aks/provision.json content
+```
 
 Key components:
 
