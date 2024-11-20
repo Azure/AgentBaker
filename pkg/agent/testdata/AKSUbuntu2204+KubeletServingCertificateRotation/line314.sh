@@ -70,14 +70,6 @@ if [[ $* == *--cleanup* ]]; then
 fi
 
 
-
-
-
-
-
-
-
-
 if [ ! -x ${SCRIPT_PATH}/coredns ]; then
     printf "extracting coredns from docker image: ${COREDNS_IMAGE}\n"
     CTR_TEMP="$(mktemp -d)"
@@ -90,28 +82,9 @@ if [ ! -x ${SCRIPT_PATH}/coredns ]; then
     }
     trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
-    if ! ctr -n k8s.io images ls | grep -q "${COREDNS_IMAGE}"; then
-        printf "Image not found locally, pulling: ${COREDNS_IMAGE}\n"
-        if ! ctr -n k8s.io images pull "${COREDNS_IMAGE}"; then
-            printf "Error: Failed to pull the image: ${COREDNS_IMAGE}\n"
-            exit 1
-        fi
-    fi
+    ctr -n k8s.io images mount ${COREDNS_IMAGE} ${CTR_TEMP} >/dev/null
 
-    if ! ctr -n k8s.io images mount "${COREDNS_IMAGE}" "${CTR_TEMP}" >/dev/null; then
-        printf "Error: Failed to mount the image: ${COREDNS_IMAGE}\n"
-        exit 1
-    fi
-
-    if [ ! -f "${CTR_TEMP}/coredns" ]; then
-        printf "Error: coredns binary not found in the image\n"
-        exit 1
-    fi
-
-    cp "${CTR_TEMP}/coredns" "${SCRIPT_PATH}/coredns" || {
-        printf "Error: Failed to copy coredns binary to ${SCRIPT_PATH}\n"
-        exit 1
-    }
+    cp ${CTR_TEMP}/coredns ${SCRIPT_PATH}/coredns
 
     ctr -n k8s.io images unmount ${CTR_TEMP} >/dev/null
     rm -rf "${CTR_TEMP}"
