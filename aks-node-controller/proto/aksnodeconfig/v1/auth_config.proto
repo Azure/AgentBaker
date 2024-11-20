@@ -1,5 +1,6 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
+
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 // Auth Config fields stored in azure.json used by cloud-provider-azure

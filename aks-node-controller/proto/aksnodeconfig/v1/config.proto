@@ -1,8 +1,6 @@
 syntax = "proto3";
 
 package aksnodeconfig.v1;
-option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
-
 
 import "aksnodeconfig/v1/api_server_config.proto";
 import "aksnodeconfig/v1/auth_config.proto";
@@ -20,6 +18,8 @@ import "aksnodeconfig/v1/kubelet_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/teleport_config.proto";
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
