@@ -99,7 +99,7 @@ else
   # we could make upstream changes but that takes time, and we are broken now.
   # so we just hold the kernel image packages for now on CVM.
   # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
 #    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
 #    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
 #    # Therefore keeping this to 22.04 only for now
@@ -123,7 +123,7 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
      echo "Unholding nullboot after upgrade"
      apt-mark unhold nullboot
   fi
