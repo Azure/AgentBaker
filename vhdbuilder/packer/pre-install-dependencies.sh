@@ -126,7 +126,7 @@ else
 
   if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
      echo "Unholding nullboot after upgrade"
-     wait_for_apt_locks
+     #wait_for_apt_locks
      apt-mark unhold nullboot
   fi
 
