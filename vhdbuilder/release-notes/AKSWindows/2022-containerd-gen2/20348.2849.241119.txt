@@ -1,14 +1,14 @@
-﻿Build Number: 20241114.7_v20241115_108194107
-Build Id:     108194107
+﻿Build Number: 20241119.2_v20241119_108514807
+Build Id:     108514807
 Build Repo:   https://github.com/Azure/AgentBaker
-Build Branch: windows/v20241115
-Commit:       3e62fdcece37ca779b87d72bd63bee363392e045
+Build Branch: windows/v20241119
+Commit:       1f49ea44a536d267768c070a2fa761205286d087
 
-VHD ID:      7715ac23-bdf6-4cee-a5bc-0faaaa4e396f
+VHD ID:      7b92e303-2748-47b1-b48c-d2527849f5cf
 
 System Info
 	OS Name        : Windows Server 2022 Datacenter
-	OS Version     : 20348.2762
+	OS Version     : 20348.2849
 	OS InstallType : Server Core
 
 Allowed security protocols: SystemDefault
@@ -53,14 +53,14 @@ Installed Packages
 
 Installed QFEs
 	KB5044025 : Update          : https://support.microsoft.com/kb/5044025
-	KB5044281 : Security Update : https://support.microsoft.com/kb/5044281
+	KB5046616 : Security Update : https://support.microsoft.com/kb/5046616
 	KB5044414 : Security Update : https://support.microsoft.com/kb/5044414
 
 Installed Updates
 	Update for Windows Defender Antivirus antimalware platform - KB4052623 (Version 4.18.2001.10)
 	2024-10 Cumulative Update for .NET Framework 3.5, 4.8 and 4.8.1 for Microsoft server operating system version 21H2 for x64 (KB5044099)
 	Update for Microsoft Defender Antivirus antimalware platform - KB4052623 (Version 4.18.24090.11) - Current Channel (Broad)
-	Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.421.296.0) - Current Channel (Broad)
+	Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.421.365.0) - Current Channel (Broad)
 
 Windows Update Registry Settings
 	https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
