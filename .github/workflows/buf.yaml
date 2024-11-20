@@ -3,15 +3,15 @@ on:
   push:
     paths:
       - "aks-node-controller/proto/**"
-      - "buf.yaml"
-      - "buf.gen.yaml"
+      - "aks-node-controller/buf.yaml"
+      - "aks-node-controller/buf.gen.yaml"
       - ".github/workflows/buf.yaml"
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - "aks-node-controller/proto/**"
-      - "buf.yaml"
-      - "buf.gen.yaml"
+      - "aks-node-controller/buf.yaml"
+      - "aks-node-controller/buf.gen.yaml"
       - ".github/workflows/buf.yaml"
 permissions:
   contents: read

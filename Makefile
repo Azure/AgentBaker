@@ -89,25 +89,6 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
-BUF = docker run --volume "$(CURDIR):$(CURDIR)" --workdir $(CURDIR) bufbuild/buf:1.47.2
-
-.PHONY: lint-proto-files
-lint-proto-files:
-	@($(BUF) lint)
-	@($(BUF) breaking --against '.git#branch=dev') # TODO: change to master
-
-.PHONY: compile-proto-files
-compile-proto-files:
-	@($(BUF) format -w)
-	protoc -I
-	$(MAKE) lint-proto-files
-
-.PHONY: proto-generate
-proto-generate:
-	protoc --go_opt=module=github.com/Azure/agentbaker/aks-node-controller --go_out=./  --proto_path=proto  $(find proto/aksnodeconfig/v1 -name '*.proto')
-
-
-
 .PHONY: generate-manifest
 generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json

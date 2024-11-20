@@ -1,6 +1,6 @@
 version: v2
 modules:
-  - path: aks-node-controller/proto
+  - path: proto
 lint:
   use:
     - STANDARD
