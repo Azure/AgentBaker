@@ -6,6 +6,6 @@ managed:
     - file_option: go_package_prefix
       value: github.com/azure/agentBaker/aks-node-controller/pkg/gen
 plugins:
-  - remote: buf.build/protocolbuffers/go:v1.35.2
-    out: pkg/gen
+  - local: go
+    out: aks-node-controller/pkg/gen
     opt: paths=source_relative
