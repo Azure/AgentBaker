@@ -180,10 +180,15 @@ func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
 			"bootstrap token":          *scenario.Runtime.NBC.KubeletClientTLSBootstrapToken,
 		}
 	} else {
+		token := scenario.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
+		strToken := ""
+		if token != nil {
+			strToken = *token
+		}
 		secrets = map[string]string{
 			"client private key":       b64Encoded(scenario.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
 			"service principal secret": b64Encoded(scenario.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
-			"bootstrap token":          scenario.Runtime.AKSNodeConfig.TlsBootstrappingConfig.TlsBootstrappingToken,
+			"bootstrap token":          strToken,
 		}
 	}
 
