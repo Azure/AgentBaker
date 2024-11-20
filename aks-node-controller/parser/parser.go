@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 )
 
 var (
@@ -127,9 +127,9 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HTTPS_PROXY_URLS":                               config.GetHttpProxyConfig().GetHttpsProxy(),
 		"NO_PROXY_URLS":                                  getStringifiedStringArray(config.GetHttpProxyConfig().GetNoProxyEntries(), ","),
 		"PROXY_VARS":                                     getProxyVariables(config.GetHttpProxyConfig()),
-		"ENABLE_TLS_BOOTSTRAPPING":                       fmt.Sprintf("%v", getEnableTLSBootstrap(config.GetTlsBootstrappingConfig())),
-		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                fmt.Sprintf("%v", getEnableSecureTLSBootstrap(config.GetTlsBootstrappingConfig())),
-		"CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID":  getCustomSecureTLSBootstrapAADServerAppID(config.GetTlsBootstrappingConfig()),
+		"ENABLE_TLS_BOOTSTRAPPING":                       fmt.Sprintf("%v", getEnableTLSBootstrap(config.GetBootstrappingConfig())),
+		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                fmt.Sprintf("%v", getEnableSecureTLSBootstrap(config.GetBootstrappingConfig())),
+		"CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID":  getCustomSecureTLSBootstrapAADServerAppID(config.GetBootstrappingConfig()),
 		"DHCPV6_SERVICE_FILEPATH":                        getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                         getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                    config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
@@ -149,7 +149,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"MESSAGE_OF_THE_DAY":                             config.GetMessageOfTheDay(),
 		"HAS_KUBELET_DISK_TYPE":                          fmt.Sprintf("%v", getHasKubeletDiskType(config.GetKubeletConfig())),
 		"NEEDS_CGROUPV2":                                 fmt.Sprintf("%v", config.GetNeedsCgroupv2()),
-		"TLS_BOOTSTRAP_TOKEN":                            getTLSBootstrapToken(config.GetTlsBootstrappingConfig()),
+		"TLS_BOOTSTRAP_TOKEN":                            getTLSBootstrapToken(config.GetBootstrappingConfig()),
 		"KUBELET_FLAGS":                                  createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletFlags(), " "),
 		"NETWORK_POLICY":                                 getStringFromNetworkPolicyType(config.GetNetworkConfig().GetNetworkPolicy()),
 		"KUBELET_NODE_LABELS":                            createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletNodeLabels(), ","),

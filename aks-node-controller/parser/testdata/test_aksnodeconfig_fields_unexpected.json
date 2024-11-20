@@ -1,6 +1,7 @@
 {
-    "tls_bootstrapping_config": {
-        "enable_secure_tls_bootstrapping": false
+    "version": "v0",
+    "bootstrapping_config": {
+        "bootstrapping_auth_method": "BOOTSTRAPPING_AUTH_METHOD_BOOTSTRAP_TOKEN"
     },
     "cluster_config": {
         "vm_type": 2,
