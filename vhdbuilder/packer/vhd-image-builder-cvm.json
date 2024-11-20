@@ -59,8 +59,6 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
-      "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
-      "managed_image_resource_group_name": "{{user `resource_group_name`}}",
       "managed_image_storage_account_type": "Premium_LRS",
       "secure_boot_enabled": true,
       "vtpm_enabled": true,
