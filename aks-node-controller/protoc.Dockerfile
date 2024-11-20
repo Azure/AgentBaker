@@ -1,6 +1,6 @@
 FROM golang:1.23.3-alpine3.20
 
-# Define build-time arguments for the protobuf and gRPC versions
+# Define build-time arguments for the protobuf versions
 ARG PROTOC_VERSION=28.3
 ARG PROTOC_GEN_GO_VERSION=1.35.2
 
