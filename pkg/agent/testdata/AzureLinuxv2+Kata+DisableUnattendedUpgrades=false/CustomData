@@ -150,7 +150,7 @@ write_files:
   encoding: gzip
   owner: root
   content: !!binary |
-    H4sIAAAAAAAC/xzNMU7DQBBG4X5O4Qs4e4ItiEhBm4AoLBdj+w8esZ61ZmZRzOkRqZ+evuFDJUZ6hc8me0jVfBZduq02je67TSiIbuFgGm6wH5kx0hUebJGr9neW0gx0xcaiL/eAXR4S+YDT+7EjV4WvNejywHx7XmkSTRP72qW6R+LfZkhz1WBRmP/npX/6J1+Jhjf14FJG+mQNLOcjb62E9M1hp2D7QtBfAAAA//8tGsoCxwAAAA==
+    H4sIAAAAAAAC/0zNsU6EUBCF4X6eghcAnuAWbtzCltVYEIoBzspEmIszc83i0xupLE/+fDn9m0oM9AyfTPaQrOkiOldbLhrVZxmxIqqZg6nDVxGDp02jOTs93QP2b1N/g33LhIE6eLBFylrfWdZioA4bi57m+pBIB5xejx0pK3zJQdcHptup2lG0HdmXqs17tPxTDO2UNVgU5n95rs/Pxhei/kU9eF0HemcNzJcjbWUNqYvDmmD7QNBvAAAA///RbR0T6wAAAA==
 
 - path: /etc/systemd/system/dhcpv6.service
   permissions: "0644"
