@@ -121,7 +121,7 @@ else
     sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
   fi
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-  apt_get_dist_upgrade --exclude=nullboot || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
   if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
      echo "Unholding nullboot after upgrade"
