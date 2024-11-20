@@ -4,7 +4,7 @@ LOCALBIN		= $(shell pwd)/bin
 all: install
 
 .PHONY: install
-install: $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue $(LOCALBIN)/buf $(LOCALBIN)/shellspec
+install: $(LOCALBIN)/gox $(LOCALBIN)/ginkgo $(LOCALBIN)/golangci-lint $(LOCALBIN)/cue $(LOCALBIN)/shellspec
 	@echo > /dev/null
 
 $(LOCALBIN)/gox:
