@@ -15,7 +15,7 @@ var (
 	Azure             = mustNewAzureClient()
 	ResourceGroupName = "abe2e-" + Config.Location
 	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2e" + Config.Location
+	PrivateACRName    = "xinhlprivateacre2e" + Config.Location
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
