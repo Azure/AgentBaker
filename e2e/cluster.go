@@ -208,21 +208,6 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 	return &clusterResp.ManagedCluster, nil
 }
 
-func beginAKSClusterDeletion(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
-	t.Logf("deleting cluster %s in %s\n", *cluster.Name, *cluster.Location)
-
-	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, config.ResourceGroupName, *cluster.Name, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin aks cluster deletion: %w", err)
-	}
-
-	if _, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
-		return fmt.Errorf("failed to wait for aks cluster deletion: %w", err)
-	}
-
-	return nil
-}
-
 // createNewAKSClusterWithRetry is a wrapper around createNewAKSCluster
 // that retries creating a cluster if it fails with a 409 Conflict error
 // clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
@@ -328,16 +313,6 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 
 func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
 	rg := *cluster.Properties.NodeResourceGroup
-
-	rgExists, err := isExistingResourceGroup(ctx, rg)
-	if err != nil {
-		return fmt.Errorf("checking MC resource group existence of cluster %s: %w", *cluster.Name, err)
-	}
-	if !rgExists {
-		t.Logf("MC resource group of cluster %s does not exist, will skip vmss garbage collection", *cluster.Name)
-		return nil
-	}
-
 	pager := config.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
