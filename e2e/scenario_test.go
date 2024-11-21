@@ -694,7 +694,7 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedPinnedVersion,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"

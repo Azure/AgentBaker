@@ -72,7 +72,7 @@ var (
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
-	VHDUbuntu2204Gen2ContainerdAirgappedPinnedVersion = &Image{
+	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
 		Name:    "2204Gen2",
 		OS:      "ubuntu",
 		Arch:    "amd64",
