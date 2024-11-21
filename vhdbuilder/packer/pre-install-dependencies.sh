@@ -116,7 +116,7 @@ else
     installFIPS
   fi
 
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt-get -y dist-upgrade libpython2.7-stdlib python2.7 python2.7-minimal libpython2.7-minimal nano libarchive13 linux-azure-5.15-cloud-tools-5.15.0-1074 linux-azure-5.15-headers-5.15.0-1074 linux-azure-5.15-tools-5.15.0-1074 linux-cloud-tools-5.15.0-1074-azure linux-headers-5.15.0-1074-azure linux-image-5.15.0-1074-azure-fde linux-modules-5.15.0-1074-azure linux-tools-5.15.0-1074-azure python3-packaging python3-pyparsing
   fi
