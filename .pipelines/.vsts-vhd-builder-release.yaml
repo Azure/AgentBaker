@@ -5,7 +5,7 @@ variables:
   - group: aks-vuln-to-kusto
 
 pool:
-  name: $(POOL_NAME)
+  name: $(POOL_NAME_TEST)
 
 parameters:
   - name: useOverrides
