@@ -21,6 +21,13 @@ wait_for_apt_locks() {
         sleep 3
     done
 }
+
+dpkgConfigure() {
+    if [[ ${IMG_SKU} != "cvm whatever" ]]; then
+        dpkg --configure -a --force-confdef
+    fi
+}
+
 apt_get_update() {
     retries=10
     apt_update_output=/tmp/apt-get-update.out

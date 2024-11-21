@@ -106,8 +106,8 @@ else
   if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
     sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
   fi
-  apt-get update || exit $ERR_APT_UPDATE_TIMEOUT
-  apt-get dist-upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+  apt-get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  apt-get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
