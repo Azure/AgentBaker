@@ -125,14 +125,9 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
-  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-     echo "Unholding nullboot after upgrade"
-     apt-mark unhold nullboot
-  fi
-
   echo "Show holds after upgrade"
   apt-mark showhold
-  
+
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
     echo "Install FIPS for Ubuntu SKU"
