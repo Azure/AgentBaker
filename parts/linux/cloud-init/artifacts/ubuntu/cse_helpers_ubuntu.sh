@@ -23,9 +23,12 @@ wait_for_apt_locks() {
 }
 
 dpkgConfigure() {
-    if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+    if [[ ${IMG_SKU} != "20_04-lts-cvm" ]]; then
         dpkg --configure -a --force-confdef
+    else
+        echo "Not configuring dpkg due to SKU being 20_04-lts-cvm"
     fi
+    
 }
 
 apt_get_update() {
