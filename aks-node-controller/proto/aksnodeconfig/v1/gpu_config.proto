@@ -1,6 +1,8 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
 message GpuConfig {
   // Specifies whether any nvidia configurations should be applied for GPU nodes. False when vm size is not a GPU node or driver install is skipped and no GPU configuration is needed.
   // Making optional so that default will be set to IsNvidiaEnabledSku(vmSize) instead of false

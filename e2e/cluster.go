@@ -161,6 +161,16 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
+		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
+		if err != nil {
+			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", *cluster.Name, err)
+		}
+		if !nodeRGExists {
+			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
+			// though it's corresponding node resource group has been garbage collected
+			t.Logf("node resource group of cluster %s does not exist, will attempt to recreate", *cluster.Name)
+			return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
 		return waitUntilClusterReady(ctx, *cluster.Name)
