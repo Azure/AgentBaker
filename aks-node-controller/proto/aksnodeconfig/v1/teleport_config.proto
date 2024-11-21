@@ -1,6 +1,8 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
 message TeleportConfig {
   // The status of the teleportd plugin. If true, the plugin is enabled.
   bool status = 1;
