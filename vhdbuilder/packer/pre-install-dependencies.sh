@@ -2,11 +2,13 @@
 OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
 OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 #the following sed removes all comments of the format {{/* */}}
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/provision_source.sh
 sed -i 's/{{\/\*[^*]*\*\/}}//g' /home/packer/tool_installs_distro.sh
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 source /home/packer/provision_installs.sh
 source /home/packer/provision_installs_distro.sh
 source /home/packer/provision_source.sh
@@ -25,7 +27,8 @@ MANIFEST_FILEPATH=/opt/azure/manifest.json
 cat components.json > ${COMPONENTS_FILEPATH}
 cat manifest.json > ${MANIFEST_FILEPATH}
 echo "Starting build on " $(date) > ${VHD_LOGS_FILEPATH}
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt
   chmod 755 /opt/azure
@@ -36,7 +39,8 @@ installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will no
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_declare_variables_and_set_mariner_permissions"
 
 copyPackerFiles
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
 if isMarinerOrAzureLinux "$OS"; then
@@ -50,7 +54,8 @@ systemctlEnableAndStart rsyslog || exit 1
 
 systemctlEnableAndStart disk_queue || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files"
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
@@ -68,26 +73,36 @@ capture_benchmark "${SCRIPT_NAME}_start_system_logs_and_aks_log_collector"
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
 capture_benchmark "${SCRIPT_NAME}_enable_modified_log_rotate_service"
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "${SCRIPT_NAME}_sync_container_logs"
 
 # enable aks-node-controller.service
 systemctl enable aks-node-controller.service
-
+echo "THIS IS SYS FILE"
+ls /sys/kernel/security/tpm0
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
+  echo "THIS IS SYS FILE"
+  ls /sys/kernel/security/tpm0
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
+    echo "THIS IS SYS FILE"
+    ls /sys/kernel/security/tpm0
   fi
 else
+  echo "THIS IS SYS FILE"
+  ls /sys/kernel/security/tpm0
   # Enable ESM for 18.04 and FIPS only
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     autoAttachUA
+    echo "THIS IS SYS FILE"
+    ls /sys/kernel/security/tpm0
   fi
 
   # Run apt get update to refresh repo list
@@ -99,15 +114,23 @@ else
   # we could make upstream changes but that takes time, and we are broken now.
   # so we just hold the kernel image packages for now on CVM.
   # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+  echo "THIS IS SYS FILE"
+  ls /sys/kernel/security/tpm0
+  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
     # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
     # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
     # Therefore keeping this to 22.04 only for now
     if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
       sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
     fi
+    echo "THIS IS SYS FILE"
+    ls /sys/kernel/security/tpm0
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    echo "THIS IS SYS FILE"
+    ls /sys/kernel/security/tpm0
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+    echo "THIS IS SYS FILE"
+    ls /sys/kernel/security/tpm0
   fi
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
