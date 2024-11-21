@@ -167,7 +167,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
-		nodeRGExists, err := isExistingResourceGroup(ctx, *cluster.Properties.NodeResourceGroup)
+		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
 		if err != nil {
 			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", *cluster.Name, err)
 		}
