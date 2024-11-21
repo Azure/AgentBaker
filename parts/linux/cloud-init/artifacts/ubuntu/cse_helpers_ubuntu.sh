@@ -27,7 +27,7 @@ apt_get_update() {
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
-        dpkg --configure -a --force-confdef
+        #dpkg --configure -a --force-confdef
         apt-get -f -y install
         ! (apt-get update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
@@ -62,7 +62,7 @@ apt_get_purge() {
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
-        dpkg --configure -a --force-confdef
+        #dpkg --configure -a --force-confdef
         timeout $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
