@@ -569,7 +569,7 @@ function Enable-WindowsFixInPath {
     $regPath=(Get-Item -Path $Path -ErrorAction Ignore)
     if (!$regPath) {
         Write-Log "Creating $Path"
-        New-Item -Path $Path
+        New-Item -Force -Path $Path
     }
     $currentValue=(Get-ItemProperty -Path $Path -Name $Name -ErrorAction Ignore)
     if (![string]::IsNullOrEmpty($currentValue)) {
