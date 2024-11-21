@@ -527,7 +527,7 @@ fi
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
 
-#capture_benchmark "${SCRIPT_NAME}_configure_telemetry_create_logging_directory"
+capture_benchmark "${SCRIPT_NAME}_configure_telemetry_create_logging_directory"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -592,7 +592,7 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
-capture_benchmark "${SCRIPT_NAME}_test_section"
+
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
