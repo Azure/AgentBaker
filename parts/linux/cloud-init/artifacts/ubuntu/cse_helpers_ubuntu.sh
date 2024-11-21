@@ -23,7 +23,7 @@ wait_for_apt_locks() {
 }
 
 dpkgConfigure() {
-    if [[ ${IMG_SKU} != "cvm whatever" ]]; then
+    if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
         dpkg --configure -a --force-confdef
     fi
 }
@@ -34,7 +34,7 @@ apt_get_update() {
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
-        #dpkg --configure -a --force-confdef
+        dpkgConfigure
         apt-get -f -y install
         ! (apt-get update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
@@ -52,7 +52,7 @@ apt_get_install() {
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
-        #dpkg --configure -a --force-confdef
+        dpkgConfigure
         apt-get install -o Dpkg::Options::="--force-confold" --no-install-recommends -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
@@ -69,7 +69,7 @@ apt_get_purge() {
     for i in $(seq 1 $retries); do
         wait_for_apt_locks
         export DEBIAN_FRONTEND=noninteractive
-        #dpkg --configure -a --force-confdef
+        dpkgConfigure
         timeout $timeout apt-get purge -o Dpkg::Options::="--force-confold" -y ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
@@ -86,7 +86,7 @@ apt_get_dist_upgrade() {
   for i in $(seq 1 $retries); do
     wait_for_apt_locks
     export DEBIAN_FRONTEND=noninteractive
-    #dpkg --configure -a --force-confdef
+    dpkgConfigure
     apt-get -f -y install
     apt-mark showhold
     ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([Ee][Rr][Rr][Oo][Rr].*)$") && \
@@ -100,6 +100,7 @@ apt_get_dist_upgrade() {
   echo Executed apt-get dist-upgrade $i times
   wait_for_apt_locks
 }
+
 installDebPackageFromFile() {
     DEB_FILE=$1
     wait_for_apt_locks
