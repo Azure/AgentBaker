@@ -167,6 +167,16 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
+		nodeRGExists, err := isExistingResourceGroup(ctx, *cluster.Properties.NodeResourceGroup)
+		if err != nil {
+			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", *cluster.Name, err)
+		}
+		if !nodeRGExists {
+			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
+			// though it's corresponding node resource group has been garbage collected
+			t.Logf("node resource group of cluster %s does not exist, will attempt to recreate", *cluster.Name)
+			return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
 		return waitUntilClusterReady(ctx, config.ResourceGroupName, *cluster.Name)
@@ -196,6 +206,21 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 	}
 
 	return &clusterResp.ManagedCluster, nil
+}
+
+func beginAKSClusterDeletion(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
+	t.Logf("deleting cluster %s in %s\n", *cluster.Name, *cluster.Location)
+
+	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin aks cluster deletion: %w", err)
+	}
+
+	if _, err := pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("failed to wait for aks cluster deletion: %w", err)
+	}
+
+	return nil
 }
 
 // createNewAKSClusterWithRetry is a wrapper around createNewAKSCluster
@@ -303,6 +328,16 @@ func getClusterVNet(ctx context.Context, mcResourceGroupName string) (VNet, erro
 
 func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
 	rg := *cluster.Properties.NodeResourceGroup
+
+	rgExists, err := isExistingResourceGroup(ctx, rg)
+	if err != nil {
+		return fmt.Errorf("checking MC resource group existence of cluster %s: %w", *cluster.Name, err)
+	}
+	if !rgExists {
+		t.Logf("MC resource group of cluster %s does not exist, will skip vmss garbage collection", *cluster.Name)
+		return nil
+	}
+
 	pager := config.Azure.VMSS.NewListPager(rg, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
