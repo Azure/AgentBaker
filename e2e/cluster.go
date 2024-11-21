@@ -169,7 +169,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
 			// though it's corresponding node resource group has been garbage collected
 			t.Logf("node resource group of cluster %s does not exist, will attempt to recreate", *cluster.Name)
-			return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+			return createNewAKSClusterWithRetry(ctx, t, cluster)
 		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
@@ -178,6 +178,15 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		// this operation will try to update the cluster if it's in a failed state
 		return createNewAKSClusterWithRetry(ctx, t, cluster)
 	}
+}
+
+func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
+	rgExistence, err := config.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
+	}
+
+	return rgExistence.Success, nil
 }
 
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
