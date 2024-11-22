@@ -11,6 +11,10 @@ jobs:
 - job: gc
   displayName: Garbage Collection
   steps:
+    - checkout: self
+      fetchTags: false
+      fetchDepth: 1
+      
     - bash: |
         chmod +x ./vhdbuilder/scripts/gc.sh
         ./vhdbuilder/scripts/gc.sh
