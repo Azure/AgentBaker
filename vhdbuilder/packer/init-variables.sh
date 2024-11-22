@@ -253,8 +253,6 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		  TARGET_COMMAND_STRING=""
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
-      elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        #TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
       fi
 
       az sig image-definition create \
