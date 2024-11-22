@@ -96,6 +96,18 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
     relinkResolvConf
   fi
 fi
+
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  wait_for_apt_locks
+  apt_get_install 30 1 600 grub-efi || exit 1
+
+  # Unhold nullboot so that it may be upgraded in the future
+  echo "Holding nullboot before upgrade"
+  wait_for_apt_locks
+  apt-mark hold nullboot
+fi
+
 capture_benchmark "${SCRIPT_NAME}_resolve_conf"
 echo "post-install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true

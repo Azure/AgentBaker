@@ -36,11 +36,11 @@ capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-  wait_for_apt_locks
-  apt_get_install 30 1 600 grub-efi || exit 1
-fi
+#if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+  #apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  #wait_for_apt_locks
+  #apt_get_install 30 1 600 grub-efi || exit 1
+#fi
 
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   # disable and mask all UU timers/services
