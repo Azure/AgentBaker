@@ -61,7 +61,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
 	lastLogTime := time.Now()
-	logInterval := 1 * time.Minute // log every 5 minutes
+	logInterval := 5 * time.Minute // log every 5 minutes
 
 	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		currentLogTime := time.Now()
