@@ -120,8 +120,8 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *
 	t.Logf("-- pod metadata --\n")
 	t.Logf("   Name: %s\n               Namespace: %s\n               Node: %s\n               Status: %s\n               Start Time: %s\n", pod.Name, pod.Namespace, pod.Spec.NodeName, pod.Status.Phase, pod.Status.StartTime)
 	for _, condition := range pod.Status.Conditions {
-		t.Logf("    Reason: %s\n", condition.Reason)
-		t.Logf("    Message: %s\n", condition.Message)
+		t.Logf("   Reason: %s\n", condition.Reason)
+		t.Logf("   Message: %s\n", condition.Message)
 	}
 	t.Logf("-- container(s) info --\n")
 	for _, container := range pod.Spec.Containers {
