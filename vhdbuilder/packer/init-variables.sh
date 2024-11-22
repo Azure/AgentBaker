@@ -163,6 +163,9 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		fi
+		if [[ "${IMG_SKU,,}" == "20_04-lts-cvm" ]]; then
+			SIG_IMAGE_NAME+="tl"
+		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
 		echo "Using provided SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}"
