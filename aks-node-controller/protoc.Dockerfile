@@ -1,4 +1,4 @@
-FROM golang:1.23.3-alpine3.20
+FROM mcr.microsoft.com/azurelinux/base/core:3.0
 
 # Define build-time arguments for the protobuf versions
 ARG PROTOC_VERSION=28.3
@@ -7,7 +7,7 @@ ARG PROTOC_GEN_GO_VERSION=1.35.2
 # Determine architecture and set appropriate URLs
 RUN set -e; \
     ARCH=`uname -m`; \
-    apk add --no-cache wget unzip; \
+    tdnf install -y wget unzip tar ca-certificates; \
     if [ "$ARCH" = "x86_64" ]; then \
     PROTOC_URL="https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"; \
     PROTOC_GEN_GO_URL="https://github.com/protocolbuffers/protobuf-go/releases/download/v${PROTOC_GEN_GO_VERSION}/protoc-gen-go.v${PROTOC_GEN_GO_VERSION}.linux.amd64.tar.gz"; \
