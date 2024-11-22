@@ -1,5 +1,5 @@
 #!/bin/bash
-set -uxo pipefail
+set -euxo pipefail
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set" && exit 1
 DRY_RUN="${DRY_RUN:-}"

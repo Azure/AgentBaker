@@ -3,7 +3,7 @@ pool:
 
 parameters:
 - name: DRY_RUN
-  displayName: Dry RUn
+  displayName: Dry Run
   type: boolean
   default: false
 
