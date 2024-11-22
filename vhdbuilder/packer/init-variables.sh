@@ -249,7 +249,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
-		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
+		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 		  TARGET_COMMAND_STRING=""
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
