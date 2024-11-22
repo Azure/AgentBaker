@@ -1,0 +1,20 @@
+pool:
+  name: $(POOL_NAME)
+
+parameters:
+- name: DRY_RUN
+  displayName: Dry RUn
+  type: boolean
+  default: false
+
+jobs:
+- job: gc
+  displayName: Garbage Collection
+  steps:
+    - bash: |
+        chmod +x ./vhdbuilder/rg-cleanup.sh
+        ./vhdbuilder/rg-cleanup.sh
+      env:
+        SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+        DRY_RUN: ${{ parameters.DRY_RUN }}
+      displayName: Garbage collect resource groups
