@@ -593,6 +593,10 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
+if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+  update-grub
+fi
+
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
