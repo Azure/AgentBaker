@@ -46,9 +46,10 @@ function delete_group() {
 
     if [ "${DRY_RUN,,}" == "true" ]; then
         echo "DRY_RUN: az group delete -g $group --yes --no-wait"
-    else
-        az group delete -g $group --yes --no-wait || return $?
+        return 0
     fi
+
+    az group delete -g $group --yes --no-wait || return $?
 }
 
 main "$@"
