@@ -61,7 +61,7 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
 	lastLogTime := time.Now()
-	logInterval := 5 * time.Minute // log every 5 minutes
+	logInterval := 1 * time.Minute // log every 5 minutes
 
 	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
 		currentLogTime := time.Now()
@@ -73,7 +73,19 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 			remaining := time.Until(deadline)
 			if currentLogTime.Sub(lastLogTime) > logInterval {
 				// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
-				t.Logf("pod %s status: %s time before timeout: %v", podName, pod.Status.Phase, remaining)
+				t.Logf("-- pod metadata --\n")
+				t.Logf("   Name: %s\n              Namespace: %s\n              Node: %s\n              Status: %s\n              Start Time: %s\n", pod.Name, pod.Namespace, pod.Spec.NodeName, pod.Status.Phase, pod.Status.StartTime)
+				t.Logf("-- container(s) info --\n")
+				for _, container := range pod.Spec.Containers {
+					t.Logf("   Container: %s\n              Image: %s\n              Ports: %v\n", container.Name, container.Image, container.Ports)
+				}
+				t.Logf("-- pod events --")
+				events, _ := kube.Typed.CoreV1().Events(defaultNamespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + podName})
+				for _, event := range events.Items {
+					t.Logf("  Reason: %s, Message: %s, Count: %d, Last Timestamp: %s\n", event.Reason, event.Message, event.Count, event.LastTimestamp)
+				}
+				t.Logf("time before timeout: %v\n\n", remaining)
+
 				lastLogTime = currentLogTime
 				printLog = true
 			}
