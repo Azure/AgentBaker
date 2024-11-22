@@ -12,8 +12,8 @@ jobs:
   displayName: Garbage Collection
   steps:
     - bash: |
-        chmod +x ./vhdbuilder/rg-cleanup.sh
-        ./vhdbuilder/rg-cleanup.sh
+        chmod +x ./vhdbuilder/scripts/gc.sh
+        ./vhdbuilder/scripts/gc.sh
       env:
         SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
         DRY_RUN: ${{ parameters.DRY_RUN }}
