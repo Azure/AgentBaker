@@ -110,7 +110,7 @@ else
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   fi
 
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
+  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
     # Can not currently update kernel in CVM builds due to nullboot post-installation failure when no TPM is present on the VM
     # But we can at least update/install the below packages
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
