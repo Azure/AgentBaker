@@ -114,7 +114,7 @@ else
     # Can not currently update kernel in CVM builds due to nullboot post-installation failure when no TPM is present on the VM
     # But we can at least update/install the below packages
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt-get install libpython2.7-stdlib libpython2.7-stdlib python2.7-minimal libpython2.7-minimal nano libarchive13
+    apt-get -y install libpython2.7-stdlib libpython2.7-stdlib python2.7-minimal libpython2.7-minimal nano libarchive13
   fi
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
