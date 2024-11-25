@@ -61,6 +61,5 @@ process_benchmarks() {
     jq ". += $section_object" "${PERFORMANCE_DATA_FILE}" > temp-perf-file.json && mv temp-perf-file.json "${PERFORMANCE_DATA_FILE}"
   done
  
-  jq ". += $script_object" "${PERFORMANCE_DATA_FILE}" > temp-perf-file.json && mv temp-perf-file.json "${PERFORMANCE_DATA_FILE}"
   chmod 755 "${PERFORMANCE_DATA_FILE}"
 }
