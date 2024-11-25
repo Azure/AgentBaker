@@ -83,7 +83,6 @@ elif [[ ${OS_TYPE} == "Linux" && ${IMG_SKU} == "20_04-lts-cvm" ]]; then
     } \
   }"
 else
-else
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
