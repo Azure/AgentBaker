@@ -86,7 +86,7 @@ if isMarinerOrAzureLinux "$OS"; then
   fi
 else
   # Enable ESM for 18.04 and FIPS only
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     autoAttachUA
   fi
 
