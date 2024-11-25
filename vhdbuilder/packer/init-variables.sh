@@ -103,10 +103,14 @@ fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "test" ]; then
-			VNET_NAME="nodesig-pool-vnet-${CVM_PACKER_BUILD_LOCATION}"
-		else
+		if [ "${ENVIRONMENT,,}" == "prod" ]; then
 			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+		else
+			if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+				VNET_NAME="nodesig-pool-vnet-${CVM_PACKER_BUILD_LOCATION}"
+			else
+				VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+			fi
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
