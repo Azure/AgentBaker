@@ -87,6 +87,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	require.NoError(t, err)
 
 	clientKey, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/client.key")
+	require.NoError(t, err)
 
 	return &ClusterParams{
 		CACert:         caCert.stdout.Bytes(),
