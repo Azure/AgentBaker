@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
-	"github.com/Azure/agentbakere2e/config"
-	"github.com/Azure/agentbakere2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
@@ -579,9 +579,9 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/var/log/azure/node-bootstrapper.log", "node-bootstrapper finished successfully"),
+				FileHasContentsValidator("/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully"),
 			},
-			AKSNodeConfigMutator: func(config *nbcontractv1.Configuration) {},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},
 		},
 	})
 }
@@ -669,7 +669,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -694,7 +694,7 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -1161,7 +1161,7 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].WorkloadRuntime = datamodel.WasmWasi
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
@@ -1252,6 +1252,60 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				FileHasContentsValidator("/etc/motd", "foobar"),
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
+	kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with kubelet custom config for seccomp set to non default values",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
+				FileHasContentsValidator(kubeletConfigFilePath, "\"seccompDefault\": true"),
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
+	kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			KubeletCustomConfig: true,
+		},
+		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				customKubeletConfig := &datamodel.CustomKubeletConfig{
+					SeccompDefault: to.Ptr(true),
+				}
+				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
+			},
+			LiveVMValidators: []*LiveVMValidator{
+				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
+				FileHasContentsValidator(kubeletConfigFilePath, "\"seccompDefault\": true"),
 			},
 		},
 	})

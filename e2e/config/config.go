@@ -32,7 +32,7 @@ type Configuration struct {
 	GalleryResourceGroupName      string        `env:"GALLERY_RESOURCE_GROUP_NAME" envDefault:"aksvhdtestbuildrg" json:"galleryResourceGroupName"`
 	GalleryName                   string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS" json:"galleryName"`
 	SIGVersionTagName             string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch" json:"sigVersionTagName"`
-	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master" json:"sigVersionTagValue"`
+	SIGVersionTagValue            string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/dev" json:"sigVersionTagValue"`
 	TagsToRun                     string        `env:"TAGS_TO_RUN" json:"tagsToRun"`
 	TagsToSkip                    string        `env:"TAGS_TO_SKIP" json:"tagsToSkip"`
 	TestTimeout                   time.Duration `env:"TEST_TIMEOUT" envDefault:"35m" json:"testTimeout"`
@@ -42,7 +42,7 @@ type Configuration struct {
 	KeepVMSS                      bool          `env:"KEEP_VMSS" json:"keepVMSS"`
 	BlobStorageAccountPrefix      string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e" json:"blobStorageAccountPrefix"`
 	BlobContainer                 string        `env:"BLOB_CONTAINER" envDefault:"abe2e" json:"blobContainer"`
-	EnableNodeBootstrapperTest    bool          `env:"ENABLE_NODE_BOOTSTRAPPER_TEST" json:"enableNodeBootstrapperTest"`
+	EnableAKSNodeControllerTest   bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST" json:"enableAKSNodeControllerTest"`
 }
 
 func (c *Configuration) BlobStorageAccount() string {

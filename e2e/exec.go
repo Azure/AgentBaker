@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 )
@@ -61,7 +61,7 @@ func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, s
 		"kubelet":                      "journalctl -u kubelet",
 		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out":                   "sysctl -a",
-		"node-bootstrapper":            "cat /var/log/azure/node-bootstrapper.log",
+		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
 	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
@@ -109,11 +109,6 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	require.NoError(t, err)
 
 	bootstrapConfig := execResult.stdout.Bytes()
-	bootstrapToken, err := extractKeyValuePair("token", string(bootstrapConfig))
-	require.NoError(t, err)
-
-	bootstrapToken, err = strconv.Unquote(bootstrapToken)
-	require.NoError(t, err)
 
 	server, err := extractKeyValuePair("server", string(bootstrapConfig))
 	require.NoError(t, err)
@@ -128,9 +123,26 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 
 	return ClusterParams{
 		CACert:         caCert.stdout.Bytes(),
-		BootstrapToken: bootstrapToken,
+		BootstrapToken: getBootstrapToken(ctx, t, kube),
 		FQDN:           fqdn,
 	}
+}
+
+func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {
+	secrets, err := kube.Typed.CoreV1().Secrets("kube-system").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	secret := func() *corev1.Secret {
+		for _, secret := range secrets.Items {
+			if strings.HasPrefix(secret.Name, "bootstrap-token-") {
+				return &secret
+			}
+		}
+		t.Fatal("could not find secret with bootstrap-token- prefix")
+		return nil
+	}()
+	id := secret.Data["token-id"]
+	token := secret.Data["token-secret"]
+	return fmt.Sprintf("%s.%s", id, token)
 }
 
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {

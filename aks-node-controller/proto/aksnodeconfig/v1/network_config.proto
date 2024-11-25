@@ -1,0 +1,34 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message NetworkConfig {
+  // Network plugin to be used by the cluster. Options are NONE, AZURE, KUBENET.
+  NetworkPlugin network_plugin = 1;
+
+  // Network policy to be used by the cluster.
+  // This is still needed to compute ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE.
+  // Other than that, it is not used by others. See the discussions here https://github.com/Azure/AgentBaker/pull/4241#discussion_r1554283228
+  NetworkPolicy network_policy = 2;
+
+  // URL to the vnet cni plugins tarball.
+  string vnet_cni_plugins_url = 3;
+
+  // URL to the cni plugins tarball.
+  string cni_plugins_url = 4;
+}
+
+enum NetworkPlugin {
+  NETWORK_PLUGIN_UNSPECIFIED = 0;
+  NETWORK_PLUGIN_NONE = 1;
+  NETWORK_PLUGIN_AZURE = 2;
+  NETWORK_PLUGIN_KUBENET = 3;
+}
+
+enum NetworkPolicy {
+  NETWORK_POLICY_UNSPECIFIED = 0;
+  NETWORK_POLICY_NONE = 1;
+  NETWORK_POLICY_AZURE = 2;
+  NETWORK_POLICY_CALICO = 3;
+}

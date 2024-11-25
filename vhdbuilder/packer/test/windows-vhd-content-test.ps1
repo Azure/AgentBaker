@@ -338,6 +338,10 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 3152880268
 
         Validate-WindowsFixInFeatureManagement -Name 1605443213
+
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -404,6 +408,10 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 1825620622
         Validate-WindowsFixInFeatureManagement -Name 684111502
         Validate-WindowsFixInFeatureManagement -Name 1455863438
+
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '23H2*') {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -170,15 +170,20 @@ func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
 			"bootstrap token":          *scenario.Runtime.NBC.KubeletClientTLSBootstrapToken,
 		}
 	} else {
+		token := scenario.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
+		strToken := ""
+		if token != nil {
+			strToken = *token
+		}
 		secrets = map[string]string{
 			"client private key":       b64Encoded(scenario.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
 			"service principal secret": b64Encoded(scenario.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
-			"bootstrap token":          scenario.Runtime.AKSNodeConfig.TlsBootstrappingConfig.TlsBootstrappingToken,
+			"bootstrap token":          strToken,
 		}
 	}
 
 	validators := make([]*LiveVMValidator, 0)
-	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/node-bootstrapper.log"} {
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
 		for secretName, secretValue := range secrets {
 			validators = append(validators, FileExcludesContentsValidator(logFile, secretValue, secretName))
 		}

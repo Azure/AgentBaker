@@ -4,6 +4,7 @@ pr:
   branches:
     include:
     - master
+    - dev
   paths:
     include:
     - .pipelines/.vsts-vhd-builder-release-windows.yaml
