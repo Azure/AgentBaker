@@ -1,0 +1,9 @@
+{
+  "syscalls": [{
+    "names": [
+      "arch_prctl",
+      "modify_ldt"
+    ],
+    "action": "SCMP_ACT_ALLOW"
+  }]
+}

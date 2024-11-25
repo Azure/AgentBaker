@@ -169,6 +169,9 @@ type LiveVMValidator struct {
 	// IsPodNetwork is a boolean flags which indicates whether or not the validator should run on a pod that is NOT using
 	// host's network interface. For example when testing connectivity from user pods to certain endpoints, we will set it to true
 	IsPodNetwork bool
+
+	// IsPrivileged is a boolean flag which indicates whether or not the command should be run as a privileged user
+	IsPrivileged bool
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {

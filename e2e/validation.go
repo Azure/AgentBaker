@@ -56,7 +56,11 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		var err error
 		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
 		if validator.IsPodNetwork {
-			execResult, err = execOnUnprivilegedPod(ctx, scenario.Runtime.Cluster.Kube, "default", nonHostPodName, validator.Command)
+			if validator.IsPrivileged {
+				execResult, err = execOnPrivilegedPod(ctx, scenario.Runtime.Cluster.Kube, "default", nonHostPodName, validator.Command)
+			} else {
+				execResult, err = execOnUnprivilegedPod(ctx, scenario.Runtime.Cluster.Kube, "default", nonHostPodName, validator.Command)
+			}
 		} else {
 			execResult, err = execOnVM(ctx, scenario.Runtime.Cluster.Kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
 		}
@@ -189,4 +193,35 @@ func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
 		}
 	}
 	return validators
+}
+
+func createCustomKubeletConfigDebugPod(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string, isAirgap bool) {
+	testPodName := "security-context-profile-test-pod"
+	testPodManifest := getSecurityContextPodTemplate(isAirgap, nodeName, testPodName)
+	t.Logf("Custom kubelet config scenario: running debug pod on node %s ...", nodeName)
+	err := ensurePod(ctx, t, defaultNamespace, kube, testPodName, testPodManifest)
+	require.NoError(t, err, "failed to create kubelet debug pod, unable to ensure test pod on node %q", nodeName)
+}
+
+func isProperSubset(subset []string, superset []string) bool {
+	setMap := make(map[string]bool)
+	for _, item := range superset {
+		setMap[item] = true
+	}
+	for _, item := range subset {
+		if !setMap[item] {
+			return false
+		}
+	}
+	return true
+}
+
+// define type according to fit the json file base.json
+type SimpleSeccompProfile struct {
+	Syscalls []Syscall `json:"syscalls"`
+}
+
+type Syscall struct {
+	Names  []string `json:"names"`
+	Action string   `json:"action"`
 }

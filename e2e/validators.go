@@ -1,8 +1,10 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -133,7 +135,7 @@ func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator
 	command := makeExecutableCommand(steps)
 
 	return &LiveVMValidator{
-		Description: fmt.Sprintf("Assert that %s has defined contents", fileName),
+		Description: fmt.Sprintf("assert that %s has defined contents", fileName),
 		// on mariner and ubuntu, the chronyd drop-in file is not readable by the default user, so we run as root.
 		Command: command,
 		Asserter: func(code, stdout, stderr string) error {
@@ -421,6 +423,43 @@ func KubeletHasConfigFlagsValidator(filePath string) *LiveVMValidator {
 			configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 			if !strings.Contains(stdout, configFileFlags) {
 				return fmt.Errorf(fmt.Sprintf("expected to find flag %s, but not found: %s", "config", stdout))
+			}
+			return nil
+		},
+	}
+}
+
+func SeccompProfileValidator(profileFilePath string, defaultProfileContainerName string) *LiveVMValidator {
+	return &LiveVMValidator{
+		Description:  fmt.Sprintf("assert default seccomp profile for type %s does not change", profileFilePath),
+		Command:      fmt.Sprintf("'crictl inspect $(crictl ps -q --name=%s) | jq \".info.runtimeSpec.linux.seccomp\"'", defaultProfileContainerName),
+		IsPodNetwork: true,
+		IsPrivileged: true,
+		Asserter: func(code, stdout, stderr string) error {
+			baseProfileFile, err := os.ReadFile("containerd/seccomp_default_profile/" + profileFilePath + ".json")
+			if err != nil {
+				return fmt.Errorf("could not read base seccomp file json: %w", err)
+			}
+			expected := SimpleSeccompProfile{}
+			if err = json.Unmarshal(baseProfileFile, &expected); err != nil {
+				return fmt.Errorf(fmt.Sprintf("expected to find flag %s, but not found: %s", "config", stdout))
+			}
+			// loop through the syscalls and add them to the map[action]=names
+			expectedSyscallsConsolidated := make(map[string][]string)
+			for _, syscall := range expected.Syscalls {
+				expectedSyscallsConsolidated[syscall.Action] = append(syscall.Names, expectedSyscallsConsolidated[syscall.Action]...)
+			}
+			actual := SimpleSeccompProfile{}
+			json.Unmarshal([]byte(stdout), &actual)
+			actualSyscallsConsolidated := make(map[string][]string)
+			for _, syscall := range actual.Syscalls {
+				actualSyscallsConsolidated[syscall.Action] = append(syscall.Names, actualSyscallsConsolidated[syscall.Action]...)
+			}
+			// assert current values are still there
+			for action, expectedNames := range expectedSyscallsConsolidated {
+				if !isProperSubset(actualSyscallsConsolidated[action], expectedNames) {
+					return fmt.Errorf("expected syscall %s with action %s not found in actual profile", expectedNames, action)
+				}
 			}
 			return nil
 		},
