@@ -597,7 +597,7 @@ func Test_ubuntu2204AirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.OutboundType = datamodel.OutboundTypeBlock
 				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
@@ -619,7 +619,7 @@ func Test_Ubuntu2204Gen2ContainerdAirgapped_K8sNotCached(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 
 				nbc.OutboundType = datamodel.OutboundTypeBlock
@@ -1046,7 +1046,7 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
-			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgapped,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 

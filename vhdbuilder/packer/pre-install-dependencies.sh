@@ -86,7 +86,7 @@ if isMarinerOrAzureLinux "$OS"; then
   fi
 else
   # Enable ESM for 18.04 and FIPS only
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     autoAttachUA
   fi
 
@@ -108,6 +108,13 @@ else
     fi
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
+  fi
+
+  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+    # Can not currently update kernel in CVM builds due to nullboot post-installation failure when no TPM is present on the VM
+    # But we can at least update/install the below packages
+    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt-get -y install libpython2.7-stdlib libpython2.7-stdlib python2.7-minimal libpython2.7-minimal nano libarchive13
   fi
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
