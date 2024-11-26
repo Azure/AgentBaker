@@ -255,7 +255,7 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 	cacheParams := armcontainerregistry.CacheRule{
 		Properties: &armcontainerregistry.CacheRuleProperties{
 			SourceRepository: to.Ptr("mcr.microsoft.com/*"),
-			TargetRepository: to.Ptr("aks/*"),
+			TargetRepository: to.Ptr("*"),
 		},
 	}
 	cacheCreateResp, err := config.Azure.CacheRulesClient.BeginCreate(
