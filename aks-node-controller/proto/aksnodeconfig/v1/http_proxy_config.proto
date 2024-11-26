@@ -1,6 +1,8 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
 message HttpProxyConfig {
   // Proxy endpoint/URL using HTTP through which the traffic should be routed for making HTTP connections outside the cluster
   string http_proxy = 1;

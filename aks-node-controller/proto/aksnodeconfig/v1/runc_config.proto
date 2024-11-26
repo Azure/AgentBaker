@@ -1,6 +1,8 @@
 syntax = "proto3";
 package aksnodeconfig.v1;
 
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
 message RuncConfig {
   // The version of runc to use.
   string runc_version = 1;
