@@ -105,7 +105,7 @@ func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, 
 func getDebugDaemonsetTemplate(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/base/core:2.0", config.PrivateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", config.PrivateACRName)
 	}
 	t.Logf("using image %s for debug daemonset", image)
 
@@ -183,7 +183,7 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/busybox:2.0", config.PrivateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.PrivateACRName)
 	}
 
 	return fmt.Sprintf(`apiVersion: v1
