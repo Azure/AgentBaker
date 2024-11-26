@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,9 +10,11 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
+	"gopkg.in/fsnotify.v1"
 )
 
 type App struct {
@@ -28,6 +29,11 @@ func cmdRunner(cmd *exec.Cmd) error {
 
 type ProvisionFlags struct {
 	ProvisionConfig string
+}
+
+type ProvisionStatusFiles struct {
+	ProvisionJSONFile     string
+	ProvisionCompleteFile string
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
@@ -58,6 +64,12 @@ func (a *App) run(ctx context.Context, args []string) error {
 			return errors.New("--provision-config is required")
 		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
+	case "provision-wait":
+		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
+		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+		fmt.Println(provisionOutput)
+		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
+		return err
 	default:
 		return fmt.Errorf("unknown command: %s", args[1])
 	}
@@ -66,11 +78,10 @@ func (a *App) run(ctx context.Context, args []string) error {
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
 	if err != nil {
-		return fmt.Errorf("open proision file %s: %w", flags.ProvisionConfig, err)
+		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
 
-	config := &aksnodeconfigv1.Configuration{}
-	err = json.Unmarshal(inputJSON, config)
+	config, err := nodeconfigutils.UnmarshalConfigurationV1(inputJSON)
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
@@ -95,6 +106,50 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	return err
 }
 
+func (a *App) ProvisionWait(ctx context.Context, filepaths ProvisionStatusFiles) (string, error) {
+	if _, err := os.Stat(filepaths.ProvisionCompleteFile); err == nil {
+		data, err := os.ReadFile(filepaths.ProvisionJSONFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read provision.json: %w", err)
+		}
+		return string(data), nil
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return "", fmt.Errorf("failed to create watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	// Watch the directory containing the provision complete file
+	dir := filepath.Dir(filepaths.ProvisionCompleteFile)
+	err = os.MkdirAll(dir, 0755) // create the directory if it doesn't exist
+	if err != nil {
+		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+	if err = watcher.Add(dir); err != nil {
+		return "", fmt.Errorf("failed to watch directory: %w", err)
+	}
+
+	for {
+		select {
+		case event := <-watcher.Events:
+			if event.Op&fsnotify.Create == fsnotify.Create && event.Name == filepaths.ProvisionCompleteFile {
+				data, err := os.ReadFile(filepaths.ProvisionJSONFile)
+				if err != nil {
+					return "", fmt.Errorf("failed to read provision.json: %w", err)
+				}
+				return string(data), nil
+			}
+
+		case err := <-watcher.Errors:
+			return "", fmt.Errorf("error watching file: %w", err)
+		case <-ctx.Done():
+			return "", fmt.Errorf("context deadline exceeded waiting for provision complete: %w", ctx.Err())
+		}
+	}
+}
+
 var _ ExitCoder = &exec.ExitError{}
 
 type ExitCoder interface {
@@ -111,5 +166,4 @@ func errToExitCode(err error) int {
 		return exitErr.ExitCode()
 	}
 	return 1
-
 }

@@ -10,8 +10,11 @@ required_env_vars=(
   "SIG_IMAGE_NAME"
   "UMSI_RESOURCE_ID"
   "UMSI_PRINCIPAL_ID"
+  "AZURE_MSI_RESOURCE_STRING"
   "UMSI_CLIENT_ID"
   "BUILD_RUN_NUMBER"
+  "VHD_ARTIFACT_NAME"
+  "DRY_RUN"
 )
 
 for v in "${required_env_vars[@]}"; do

@@ -8,7 +8,7 @@ parameters:
 - name: PRTargetBranch
   displayName: PR Target Branch
   type: string
-  default: master
+  default: dev
 - name: ImageBump
   displayName: Image Bump + Create Official Branch
   type: boolean
@@ -44,7 +44,7 @@ stages:
           echo "PR for Image Bumping, Official Branch Cutting"
           /bin/bash vhdbuilder/scripts/automate_version_bump.sh
         env:
-          GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_PAT: $(PAT-aks-node-assistant)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
           PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
@@ -67,7 +67,7 @@ stages:
           echo "PR for Release Notes"
           /bin/bash vhdbuilder/scripts/automate_release_notes.sh
         env:
-          GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_PAT: $(PAT-aks-node-assistant)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
           SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)

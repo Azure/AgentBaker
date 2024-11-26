@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -73,7 +73,8 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 			remaining := time.Until(deadline)
 			if currentLogTime.Sub(lastLogTime) > logInterval {
 				// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
-				t.Logf("pod %s status: %s time before timeout: %v", podName, pod.Status.Phase, remaining)
+				logPodDebugInfo(ctx, kube, pod, t)
+				t.Logf("time before timeout: %v\n\n", remaining)
 				lastLogTime = currentLogTime
 				printLog = true
 			}
@@ -113,6 +114,24 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 		}
 		return false, nil
 	})
+}
+
+func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
+	t.Logf("-- pod metadata --\n")
+	t.Logf("   Name: %s\n               Namespace: %s\n               Node: %s\n               Status: %s\n               Start Time: %s\n", pod.Name, pod.Namespace, pod.Spec.NodeName, pod.Status.Phase, pod.Status.StartTime)
+	for _, condition := range pod.Status.Conditions {
+		t.Logf("   Reason: %s\n", condition.Reason)
+		t.Logf("   Message: %s\n", condition.Message)
+	}
+	t.Logf("-- container(s) info --\n")
+	for _, container := range pod.Spec.Containers {
+		t.Logf("   Container: %s\n               Image: %s\n               Ports: %v\n", container.Name, container.Image, container.Ports)
+	}
+	t.Logf("-- pod events --")
+	events, _ := kube.Typed.CoreV1().Events(defaultNamespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+	for _, event := range events.Items {
+		t.Logf("   Reason: %s, Message: %s, Count: %d, Last Timestamp: %s\n", event.Reason, event.Message, event.Count, event.LastTimestamp)
+	}
 }
 
 func waitUntilClusterReady(ctx context.Context, rg, name string) (*armcontainerservice.ManagedCluster, error) {

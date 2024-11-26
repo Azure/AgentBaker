@@ -2,16 +2,20 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -107,6 +111,9 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	vmssName := getVmssName(t)
 	createVMSS(ctx, t, vmssName, scenario, privateKeyBytes, publicKeyBytes)
 
+	err = getCustomScriptExtensionStatus(ctx, t, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
+	require.NoError(t, err)
+
 	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
 	nodeName := validateNodeHealth(ctx, t, scenario.Runtime.Cluster.Kube, vmssName, scenario.Tags.Airgap)
 
@@ -115,16 +122,15 @@ func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) 
 	if scenario.Runtime.NBC != nil && scenario.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
 		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
 	}
-	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WASM_WASI {
+	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
 		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
 	}
 
 	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
 
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err)
-
 	require.NoError(t, err, "get vm private IP %v", vmssName)
+
 	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
 	require.NoError(t, err)
 
@@ -152,4 +158,69 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 		}
 	}
 	return expectedVersions
+}
+
+func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceGroupName, vmssName string) error {
+	pager := config.Azure.VMSSVM.NewListPager(resourceGroupName, vmssName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get VMSS instances: %v", err)
+		}
+
+		for _, vmInstance := range page.Value {
+			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, resourceGroupName, vmssName, *vmInstance.InstanceID, nil)
+			if err != nil {
+				return fmt.Errorf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
+			}
+			for _, extension := range instanceViewResp.Extensions {
+				for _, status := range extension.Statuses {
+					resp, err := parseLinuxCSEMessage(*status)
+					if err != nil {
+						return fmt.Errorf("Parse CSE message with error, error %w", err)
+					}
+					if resp.ExitCode != "0" {
+						return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
+					}
+					t.Logf("CSE completed successfully with exit code 0, cse output: %s", *status.Message)
+					return nil
+				}
+			}
+		}
+	}
+	return fmt.Errorf("failed to get CSE output.")
+}
+
+func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, error) {
+	if status.Code == nil || status.Message == nil {
+		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, "No valid Status code or Message provided from cse extension")
+	}
+
+	start := strings.Index(*status.Message, "[stdout]") + len("[stdout]")
+	end := strings.Index(*status.Message, "[stderr]")
+
+	var linuxExtensionExitCodeStrRegex = regexp.MustCompile(linuxExtensionExitCodeStr)
+	var linuxExtensionErrorCodeRegex = regexp.MustCompile(extensionErrorCodeRegex)
+	extensionFailed := linuxExtensionErrorCodeRegex.MatchString(*status.Code)
+	if end <= start {
+		return nil, fmt.Errorf("Parse CSE failed with error cannot find [stdout] and [stderr], raw CSE Message: %s, delete vm: %t", *status.Message, extensionFailed)
+	}
+	rawInstanceViewInfo := (*status.Message)[start:end]
+	// Parse CSE message
+	var cseStatus datamodel.CSEStatus
+	err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
+	if err != nil {
+		exitCodeMatch := linuxExtensionExitCodeStrRegex.FindStringSubmatch(*status.Message)
+		if len(exitCodeMatch) > 1 && extensionFailed {
+			// Failed but the format is not expected.
+			cseStatus.ExitCode = exitCodeMatch[1]
+			cseStatus.Error = *status.Message
+			return &cseStatus, nil
+		}
+		return nil, fmt.Errorf("Parse CSE Json failed with error: %s, raw CSE Message: %s, delete vm: %t", err, *status.Message, extensionFailed)
+	}
+	if cseStatus.ExitCode == "" {
+		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
+	}
+	return &cseStatus, nil
 }

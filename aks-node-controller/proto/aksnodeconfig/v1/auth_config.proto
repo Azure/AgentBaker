@@ -1,0 +1,25 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+// Auth Config fields stored in azure.json used by cloud-provider-azure
+message AuthConfig {
+  // Tenant ID
+  string tenant_id = 1;
+
+  // Subscription ID
+  string subscription_id = 2;
+
+  // Service Principal ID. set to aadClientId
+  string service_principal_id = 3;
+
+  // Service Principal Secret. set to aadClientSecret
+  string service_principal_secret = 4;
+
+  // Assigned identity id, could be user or system assigned, depending on the type.
+  string assigned_identity_id = 5;
+
+  // Specify if use managed identity extension, default to false
+  bool use_managed_identity_extension = 6;
+}

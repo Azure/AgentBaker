@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -58,7 +61,7 @@ func TestApp_Run(t *testing.T) {
 		},
 		{
 			name: "provision command with valid flag",
-			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_nbc.json"},
+			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return nil
@@ -68,7 +71,7 @@ func TestApp_Run(t *testing.T) {
 		},
 		{
 			name: "provision command with command runner error",
-			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_nbc.json"},
+			args: []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return &ExitError{Code: 666}
@@ -104,7 +107,7 @@ func TestApp_Provision(t *testing.T) {
 	}{
 		{
 			name:    "valid provision config",
-			flags:   ProvisionFlags{ProvisionConfig: "parser/testdata/test_nbc.json"},
+			flags:   ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"},
 			wantErr: false,
 		},
 		{
@@ -114,7 +117,7 @@ func TestApp_Provision(t *testing.T) {
 		},
 		{
 			name:  "command runner error",
-			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_nbc.json"},
+			flags: ProvisionFlags{ProvisionConfig: "parser/testdata/test_aksnodeconfig.json"},
 			setupMocks: func(mc *MockCmdRunner) {
 				mc.RunFunc = func(cmd *exec.Cmd) error {
 					return errors.New("command runner error")
@@ -140,6 +143,75 @@ func TestApp_Provision(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestApp_ProvisionWait(t *testing.T) {
+	testData := "hello world"
+
+	tests := []struct {
+		name      string
+		wantsErr  bool
+		errString string
+		setup     func(provisionStatusFiles ProvisionStatusFiles)
+	}{
+		{
+			name:     "provision already complete",
+			wantsErr: false,
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
+				// Run the test in a goroutine to simulate file creation after some delay
+				go func() {
+					time.Sleep(200 * time.Millisecond) // Simulate file creation delay
+					os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+					os.Create(provisionStatusFiles.ProvisionCompleteFile)
+				}()
+			},
+		},
+		{
+			name:     "wait for provision completion",
+			wantsErr: false,
+			setup: func(provisionStatusFiles ProvisionStatusFiles) {
+				os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+				os.Create(provisionStatusFiles.ProvisionCompleteFile)
+			},
+		},
+		{
+			name:      "timeout waiting for completion",
+			wantsErr:  true,
+			errString: "context deadline exceeded waiting for provision complete",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mc := &MockCmdRunner{}
+			// Setup a temporary directory
+			tempDir, err := os.MkdirTemp("", "provisiontest")
+			assert.NoError(t, err)
+			tempFile := filepath.Join(tempDir, "testfile.txt")
+			completeFile := filepath.Join(tempDir, "provision.complete")
+			defer os.RemoveAll(tempDir)
+
+			provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile}
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
+
+			app := &App{
+				cmdRunner: mc.Run,
+			}
+			if tt.setup != nil {
+				tt.setup(provisionStatusFiles)
+			}
+
+			data, err := app.ProvisionWait(ctx, ProvisionStatusFiles{ProvisionJSONFile: tempFile, ProvisionCompleteFile: completeFile})
+			if tt.wantsErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errString)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, testData, data)
 			}
 		})
 	}

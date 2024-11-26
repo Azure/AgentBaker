@@ -89,10 +89,6 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
-.PHONY: compile-proto-files
-compile-proto-files:
-	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
-
 .PHONY: generate-manifest
 generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json

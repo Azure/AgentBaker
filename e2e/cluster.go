@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -137,7 +137,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		SubnetID:                       subnetID,
 		NodeBootstrappingConfiguration: nbc,
 		Maintenance:                    maintenance,
-		AKSNodeConfig:                  nbcToNbcContractV1(nbc), // TODO: replace with base template
+		AKSNodeConfig:                  nbcToAKSNodeConfigV1(nbc), // TODO: replace with base template
 	}, nil
 }
 
@@ -167,6 +167,16 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	t.Logf("cluster %s already exists in rg %s\n", *cluster.Name, config.ResourceGroupName)
 	switch *existingCluster.Properties.ProvisioningState {
 	case "Succeeded":
+		nodeRGExists, err := isExistingResourceGroup(ctx, *existingCluster.Properties.NodeResourceGroup)
+		if err != nil {
+			return nil, fmt.Errorf("checking node resource group existence of cluster %s: %w", *cluster.Name, err)
+		}
+		if !nodeRGExists {
+			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
+			// though it's corresponding node resource group has been garbage collected
+			t.Logf("node resource group of cluster %s does not exist, will attempt to recreate", *cluster.Name)
+			return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
 		return waitUntilClusterReady(ctx, config.ResourceGroupName, *cluster.Name)

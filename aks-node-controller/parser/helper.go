@@ -34,8 +34,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Azure/agentbaker/aks-node-controller/helpers"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
-	aksnodeconfigv1 "github.com/Azure/agentbaker/pkg/proto/aksnodeconfig/v1"
 )
 
 var (
@@ -61,56 +62,56 @@ func getFuncMapForContainerdConfigTemplate() template.FuncMap {
 		"derefBool":                        deref[bool],
 		"getIsKrustlet":                    getIsKrustlet,
 		"getEnsureNoDupePromiscuousBridge": getEnsureNoDupePromiscuousBridge,
-		"isKubernetesVersionGe":            aksnodeconfigv1.IsKubernetesVersionGe,
+		"isKubernetesVersionGe":            helpers.IsKubernetesVersionGe,
 		"getHasDataDir":                    getHasDataDir,
 		"getEnableNvidia":                  getEnableNvidia,
 	}
 }
 
-func getStringFromVMType(enum aksnodeconfigv1.ClusterConfig_VM) string {
+func getStringFromVMType(enum aksnodeconfigv1.VmType) string {
 	switch enum {
-	case aksnodeconfigv1.ClusterConfig_STANDARD:
-		return aksnodeconfigv1.VMTypeStandard
-	case aksnodeconfigv1.ClusterConfig_VMSS:
-		return aksnodeconfigv1.VMTypeVmss
-	case aksnodeconfigv1.ClusterConfig_UNSPECIFIED:
+	case aksnodeconfigv1.VmType_VM_TYPE_STANDARD:
+		return helpers.VMTypeStandard
+	case aksnodeconfigv1.VmType_VM_TYPE_VMSS:
+		return helpers.VMTypeVmss
+	case aksnodeconfigv1.VmType_VM_TYPE_UNSPECIFIED:
 		return ""
 	default:
 		return ""
 	}
 }
 
-//nolint:exhaustive // NetworkPlugin_NP_NONE and NetworkPlugin_NP_UNSPECIFIED should both return ""
+//nolint:exhaustive // NetworkPlugin_NETWORK_PLUGIN_NONE and NetworkPlugin_NETWORK_PLUGIN_UNSPECIFIED should both return ""
 func getStringFromNetworkPluginType(enum aksnodeconfigv1.NetworkPlugin) string {
 	switch enum {
-	case aksnodeconfigv1.NetworkPlugin_NP_AZURE:
-		return aksnodeconfigv1.NetworkPluginAzure
-	case aksnodeconfigv1.NetworkPlugin_NP_KUBENET:
-		return aksnodeconfigv1.NetworkPluginKubenet
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE:
+		return helpers.NetworkPluginAzure
+	case aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET:
+		return helpers.NetworkPluginKubenet
 	default:
 		return ""
 	}
 }
 
-//nolint:exhaustive // NetworkPolicy_NPO_NONE and NetworkPolicy_NPO_UNSPECIFIED should both return ""
+//nolint:exhaustive // NetworkPolicy_NETWORK_POLICY_NONE and NetworkPolicy_NETWORK_POLICY_UNSPECIFIED should both return ""
 func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	switch enum {
-	case aksnodeconfigv1.NetworkPolicy_NPO_AZURE:
-		return aksnodeconfigv1.NetworkPolicyAzure
-	case aksnodeconfigv1.NetworkPolicy_NPO_CALICO:
-		return aksnodeconfigv1.NetworkPolicyCalico
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_AZURE:
+		return helpers.NetworkPolicyAzure
+	case aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO:
+		return helpers.NetworkPolicyCalico
 	default:
 		return ""
 	}
 }
 
 //nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""
-func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerConfig_LoadBalancerSku) string {
+func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerSku) string {
 	switch enum {
-	case aksnodeconfigv1.LoadBalancerConfig_BASIC:
-		return aksnodeconfigv1.LoadBalancerBasic
-	case aksnodeconfigv1.LoadBalancerConfig_STANDARD:
-		return aksnodeconfigv1.LoadBalancerStandard
+	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_BASIC:
+		return helpers.LoadBalancerBasic
+	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD:
+		return helpers.LoadBalancerStandard
 	default:
 		return ""
 	}
@@ -143,7 +144,7 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromNodeBootstrapContract(aksnodeconfig)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -151,14 +152,14 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromNodeBootstrapContract(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
 	if aksnodeconfig == nil {
-		return "", fmt.Errorf("node bootstrap contract is nil")
+		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
 	var buffer bytes.Buffer
 	if err := containerdConfigTemplate.Execute(&buffer, aksnodeconfig); err != nil {
-		return "", fmt.Errorf("error executing containerd config template for NBContract: %w", err)
+		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
 	return buffer.String(), nil
@@ -172,29 +173,29 @@ func getCustomCACertsStatus(customCACerts []string) bool {
 	return len(customCACerts) > 0
 }
 
-func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) bool {
+func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
 	return bootstrapConfig.GetTlsBootstrappingToken() != ""
 }
 
-func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) bool {
+func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
 	// TODO: Change logic to default to false once Secure TLS Bootstrapping is complete
-	return bootstrapConfig.GetEnableSecureTlsBootstrapping()
+	return bootstrapConfig.GetBootstrappingAuthMethod() == aksnodeconfigv1.BootstrappingAuthMethod_BOOTSTRAPPING_AUTH_METHOD_SECURE_TLS_BOOTSTRAPPING
 }
 
-func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) string {
+func getTLSBootstrapToken(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
 	return bootstrapConfig.GetTlsBootstrappingToken()
 }
 
-func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.TLSBootstrappingConfig) string {
-	return bootstrapConfig.GetCustomSecureTlsBootstrappingAppserverAppid()
+func getCustomSecureTLSBootstrapAADServerAppID(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) string {
+	return bootstrapConfig.GetCustomAadResource()
 }
 
 func getIsKrustlet(wr aksnodeconfigv1.WorkloadRuntime) bool {
-	return wr == aksnodeconfigv1.WorkloadRuntime_WASM_WASI
+	return wr == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI
 }
 
 func getEnsureNoDupePromiscuousBridge(nc *aksnodeconfigv1.NetworkConfig) bool {
-	return nc.GetNetworkPlugin() == aksnodeconfigv1.NetworkPlugin_NP_KUBENET && nc.GetNetworkPolicy() != aksnodeconfigv1.NetworkPolicy_NPO_CALICO
+	return nc.GetNetworkPlugin() == aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_KUBENET && nc.GetNetworkPolicy() != aksnodeconfigv1.NetworkPolicy_NETWORK_POLICY_CALICO
 }
 
 func getHasSearchDomain(csd *aksnodeconfigv1.CustomSearchDomainConfig) bool {
@@ -375,16 +376,16 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		m["kernel.threads-max"] = s.GetKernelThreadsMax()
 	}
 
-	if s.VMMaxMapCount != nil {
-		m["vm.max_map_count"] = s.GetVMMaxMapCount()
+	if s.VmMaxMapCount != nil {
+		m["vm.max_map_count"] = s.GetVmMaxMapCount()
 	}
 
-	if s.VMSwappiness != nil {
-		m["vm.swappiness"] = s.GetVMSwappiness()
+	if s.VmSwappiness != nil {
+		m["vm.swappiness"] = s.GetVmSwappiness()
 	}
 
-	if s.VMVfsCachePressure != nil {
-		m["vm.vfs_cache_pressure"] = s.GetVMVfsCachePressure()
+	if s.VmVfsCachePressure != nil {
+		m["vm.vfs_cache_pressure"] = s.GetVmVfsCachePressure()
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(createSortedKeyValuePairs(m, "\n")))
@@ -501,22 +502,22 @@ func getGpuDriverVersion(vmSize string) string {
 // IsSgxEnabledSKU determines if an VM SKU has SGX driver support.
 func getIsSgxEnabledSKU(vmSize string) bool {
 	switch vmSize {
-	case aksnodeconfigv1.VMSizeStandardDc2s, aksnodeconfigv1.VMSizeStandardDc4s:
+	case helpers.VMSizeStandardDc2s, helpers.VMSizeStandardDc4s:
 		return true
 	}
 	return false
 }
 
-func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig) bool {
+func getShouldConfigureHTTPProxy(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetHttpProxy() != "" || httpProxyConfig.GetHttpsProxy() != ""
 }
 
-func getShouldConfigureHTTPProxyCA(httpProxyConfig *aksnodeconfigv1.HTTPProxyConfig) bool {
+func getShouldConfigureHTTPProxyCA(httpProxyConfig *aksnodeconfigv1.HttpProxyConfig) bool {
 	return httpProxyConfig.GetProxyTrustedCa() != ""
 }
 
 func getIsAksCustomCloud(customCloudConfig *aksnodeconfigv1.CustomCloudConfig) bool {
-	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), aksnodeconfigv1.AksCustomCloudName)
+	return strings.EqualFold(customCloudConfig.GetCustomCloudEnvName(), helpers.AksCustomCloudName)
 }
 
 /* GetCloudTargetEnv determines and returns whether the region is a sovereign cloud which
@@ -532,20 +533,20 @@ func getCloudTargetEnv(v *aksnodeconfigv1.Configuration) string {
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return "AzureUSGovernmentCloud"
 	default:
-		return aksnodeconfigv1.DefaultCloudName
+		return helpers.DefaultCloudName
 	}
 }
 
 func getTargetEnvironment(v *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		return aksnodeconfigv1.AksCustomCloudName
+		return helpers.AksCustomCloudName
 	}
 	return getCloudTargetEnv(v)
 }
 
 func getTargetCloud(v *aksnodeconfigv1.Configuration) string {
 	if getIsAksCustomCloud(v.GetCustomCloudConfig()) {
-		return aksnodeconfigv1.AzureStackCloud
+		return helpers.AzureStackCloud
 	}
 	return getTargetEnvironment(v)
 }
@@ -559,7 +560,7 @@ func getAzureEnvironmentFilepath(v *aksnodeconfigv1.Configuration) string {
 
 func getLinuxAdminUsername(username string) string {
 	if username == "" {
-		return aksnodeconfigv1.DefaultLinuxUser
+		return helpers.DefaultLinuxUser
 	}
 	return username
 }
@@ -585,15 +586,15 @@ func getServicePrincipalFileContent(authConfig *aksnodeconfigv1.AuthConfig) stri
 	return base64.StdEncoding.EncodeToString([]byte(authConfig.GetServicePrincipalSecret()))
 }
 
-func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOSConfig) bool {
+func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {
 	return v.GetEnableSwapConfig() && v.GetSwapFileSize() > 0
 }
 
-func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOSConfig) bool {
+func getShouldConfigTransparentHugePage(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {
 	return v.GetTransparentDefrag() != "" || v.GetTransparentHugepageSupport() != ""
 }
 
-func getProxyVariables(proxyConfig *aksnodeconfigv1.HTTPProxyConfig) string {
+func getProxyVariables(proxyConfig *aksnodeconfigv1.HttpProxyConfig) string {
 	// only use https proxy, if user doesn't specify httpsProxy we autofill it with value from httpProxy.
 	proxyVars := ""
 	if proxyConfig.GetHttpProxy() != "" {
@@ -614,7 +615,7 @@ func getHasDataDir(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
 }
 
 func getHasKubeletDiskType(kubeletConfig *aksnodeconfigv1.KubeletConfig) bool {
-	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_TEMP_DISK
+	return kubeletConfig.GetKubeletDiskType() == aksnodeconfigv1.KubeletDisk_KUBELET_DISK_TEMP_DISK
 }
 
 func getInitAKSCustomCloudFilepath() string {

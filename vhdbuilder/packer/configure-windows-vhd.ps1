@@ -569,7 +569,7 @@ function Enable-WindowsFixInPath {
     $regPath=(Get-Item -Path $Path -ErrorAction Ignore)
     if (!$regPath) {
         Write-Log "Creating $Path"
-        New-Item -Path $Path
+        New-Item -Force -Path $Path
     }
     $currentValue=(Get-ItemProperty -Path $Path -Name $Name -ErrorAction Ignore)
     if (![string]::IsNullOrEmpty($currentValue)) {
@@ -628,6 +628,11 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-06B"
         Enable-WindowsFixInFeatureManagement -Name 1605443213
+
+        Write-Log "CVE-2013-3900 Fixs"
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -720,6 +725,16 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-09B"
         Enable-WindowsFixInFeatureManagement -Name 4288867982
+
+        Write-Log "Enable 3 fixes in 2024-11B"
+        Enable-WindowsFixInFeatureManagement -Name 1825620622
+        Enable-WindowsFixInFeatureManagement -Name 684111502
+        Enable-WindowsFixInFeatureManagement -Name 1455863438
+
+        Write-Log "CVE-2013-3900 Fixs"
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '23H2*') {
@@ -728,6 +743,11 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-08B"
         Enable-WindowsFixInFeatureManagement -Name 1800977551
+
+        Write-Log "Enable 3 fixes in 2024-11B"
+        Enable-WindowsFixInFeatureManagement -Name 3197800078
+        Enable-WindowsFixInFeatureManagement -Name 340036751
+        Enable-WindowsFixInFeatureManagement -Name 2020509326
     }
 }
 

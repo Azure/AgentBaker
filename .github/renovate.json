@@ -85,8 +85,17 @@
       "assignees": ["SriHarsha001"]
     },
     {
+      "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
+      "assignees": ["mainred"]
+    },
+    {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
       "extractVersion": "^v?(?<version>.+)$"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
+      "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
     {      
       "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
@@ -109,6 +118,19 @@
       ],
       "datasourceTemplate": "docker",
       "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update OCI artifacts in components.json",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"OCI_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "docker",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"OCI_registry={{{registryUrl}}}, name={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
