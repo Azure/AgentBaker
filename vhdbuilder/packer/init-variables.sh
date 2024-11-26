@@ -119,7 +119,11 @@ if [ -z "${VNET_NAME}" ]; then
 fi
 
 if [ -z "${SUBNET_NAME}" ]; then
-	SUBNET_NAME="packer"
+	if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+		SUBNET_NAME="packer1"
+	else
+		SUBNET_NAME="packer"
+	fi
 fi
 
 echo "VNET_RG_NAME set to: ${VNET_RG_NAME}"
