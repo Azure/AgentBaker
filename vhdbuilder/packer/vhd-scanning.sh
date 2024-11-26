@@ -20,8 +20,13 @@ SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
 
 # we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
-VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
-SUBNET_NAME="scanning"
+if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+    VNET_NAME="nodesig-pool-vnet-${CVM_PACKER_BUILD_LOCATION}"
+    SUBNET_NAME="scanning1"
+else
+    VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+    SUBNET_NAME="scanning"
+fi
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
