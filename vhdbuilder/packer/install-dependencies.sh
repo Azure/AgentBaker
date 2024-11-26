@@ -506,7 +506,7 @@ if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_F
 fi
 fi
 
-capture_benchmark "download_gpu_device_plugin"
+capture_benchmark "${SCRIPT_NAME}_download_gpu_device_plugin"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
