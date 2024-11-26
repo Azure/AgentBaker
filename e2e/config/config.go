@@ -13,9 +13,9 @@ import (
 var (
 	Config            = mustLoadConfig()
 	Azure             = mustNewAzureClient()
-	ResourceGroupName = "xinhl2-abe2e-" + Config.Location
+	ResourceGroupName = "xinhl4-abe2e-" + Config.Location
 	VMIdentityName    = "xinhl-abe2e-vm-identity"
-	PrivateACRName    = "xinhl3privateacre2e" + Config.Location
+	PrivateACRName    = "xinhl4privateacre2e" + Config.Location
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
