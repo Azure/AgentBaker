@@ -71,7 +71,7 @@ func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-airgap"), true)
+		cluster, err := prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azurecni-airgap"), true)
 		if err == nil {
 			err = addAirgapNetworkSettings(ctx, t, cluster.Model)
 		}
