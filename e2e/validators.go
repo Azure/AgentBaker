@@ -102,17 +102,10 @@ func NvidiaModProbeInstalledValidator() *LiveVMValidator {
 	}
 }
 
-func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("assert that there are files in %s", dirName),
-		Command:     fmt.Sprintf("ls -1q %s | grep -q '^.*$' && true || false", dirName),
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("expected to find a file in directory %s, but did not", dirName)
-			}
-			return nil
-		},
-	}
+func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
+	command := fmt.Sprintf("ls -1q %s | grep -q '^.*$' && true || false", dirName)
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "expected to find a file in directory %s, but did not", dirName)
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {

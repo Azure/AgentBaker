@@ -663,8 +663,8 @@ func Test_ubuntu2204ArtifactStreaming(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.EnableArtifactStreaming = true
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				NonEmptyDirectoryValidator("/etc/overlaybd"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
 			},
 		},
 	})
@@ -701,8 +701,8 @@ func Test_ubuntu2204CustomCATrust(t *testing.T) {
 					},
 				}
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				NonEmptyDirectoryValidator("/usr/local/share/ca-certificates/certs"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
 			},
 		},
 	})
