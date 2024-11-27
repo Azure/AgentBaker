@@ -229,8 +229,8 @@ func Test_azurelinuxv2Wasm(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				containerdWasmShimsValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateContainerdWASMShims(ctx, s)
 			},
 		},
 	})
@@ -452,8 +452,8 @@ func Test_marinerv2Wasm(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				containerdWasmShimsValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateContainerdWASMShims(ctx, s)
 			},
 		},
 	})
@@ -903,8 +903,8 @@ func Test_ubuntu2204Wasm(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.WorkloadRuntime = datamodel.WasmWasi
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				containerdWasmShimsValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateContainerdWASMShims(ctx, s)
 			},
 		},
 	})
@@ -1062,8 +1062,8 @@ func Test_ubuntu2204WasmAirGap(t *testing.T) {
 					},
 				}
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				containerdWasmShimsValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateContainerdWASMShims(ctx, s)
 			},
 		},
 	})
