@@ -374,7 +374,8 @@ function Install-ContainerD {
     $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
     # enabling discard_unpacked_layers allows GC to remove layers from the content store after
     # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
-    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | %{$_ -replace "default = \['windows', 'windows-lcow'\]", "default = ['cimfs', 'windows-lcow']"} | %{$_ -replace "snapshotter = 'windows'", "snapshotter = 'cimfs'"} | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+    #(containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"} | %{$_ -replace "default = \['windows', 'windows-lcow'\]", "default = ['cimfs', 'windows-lcow']"} | %{$_ -replace "snapshotter = 'windows'", "snapshotter = 'cimfs'"} | Out-File  -FilePath $containerdConfigPath -Encoding ascii
     #(Get-Content "c:\program files\containerd\containerd.toml") | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
 
     Get-Content $containerdConfigPath
