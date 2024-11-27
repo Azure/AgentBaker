@@ -195,26 +195,18 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 	require.Equal(s.T, "0", execResult.exitCode, "service kill and check terminated with exit code %q (expected 0)", execResult.exitCode)
 }
 
-func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
+func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
 	ulimitKeys := make([]string, 0, len(ulimits))
 	for k := range ulimits {
 		ulimitKeys = append(ulimitKeys, k)
 	}
 
-	return &LiveVMValidator{
-		Description: "assert ulimit settings",
-		Command:     fmt.Sprintf("systemctl cat containerd.service | grep -E -i '%s'", strings.Join(ulimitKeys, "|")),
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-			for name, value := range ulimits {
-				if !strings.Contains(stdout, fmt.Sprintf("%s=%v", name, value)) {
-					return fmt.Errorf(fmt.Sprintf("expected to find %s set to %v, but was not", name, value))
-				}
-			}
-			return nil
-		},
+	command := fmt.Sprintf("systemctl cat containerd.service | grep -E -i '%s'", strings.Join(ulimitKeys, "|"))
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
+
+	for name, value := range ulimits {
+		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
 }
 

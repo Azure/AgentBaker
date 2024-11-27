@@ -162,10 +162,8 @@ func Test_azurelinuxv2CustomSysctls(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				UlimitValidator(customContainerdUlimits),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
@@ -387,10 +385,8 @@ func Test_marinerv2CustomSysctls(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				UlimitValidator(customContainerdUlimits),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
@@ -744,10 +740,8 @@ func Test_ubuntu2204CustomSysctls(t *testing.T) {
 				}
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				UlimitValidator(customContainerdUlimits),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
