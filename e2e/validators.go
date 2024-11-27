@@ -127,7 +127,7 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	}
 }
 
-func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator {
+func FileHasContentsValidator(ctx context.Context, s *Scenario, fileName string, contents string) {
 	steps := []string{
 		fmt.Sprintf("ls -la %[1]s", fileName),
 		fmt.Sprintf("sudo cat %[1]s", fileName),
@@ -135,18 +135,8 @@ func FileHasContentsValidator(fileName string, contents string) *LiveVMValidator
 	}
 
 	command := makeExecutableCommand(steps)
-
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("Assert that %s has defined contents", fileName),
-		// on mariner and ubuntu, the chronyd drop-in file is not readable by the default user, so we run as root.
-		Command: command,
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("expected to find a file '%s' with contents '%s' but did not", fileName, contents)
-			}
-			return nil
-		},
-	}
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "expected to find a file '%s' with contents '%s' but did not", fileName, contents)
 }
 
 func FileExcludesContentsValidator(fileName string, contents string, contentsName string) *LiveVMValidator {

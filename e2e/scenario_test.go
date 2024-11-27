@@ -121,11 +121,9 @@ func Test_azurelinuxv2ChronyRestarts(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
-				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 			},
 		},
@@ -346,12 +344,10 @@ func Test_marinerv2ChronyRestarts(t *testing.T) {
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
-				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
 		},
 	})
@@ -504,12 +500,10 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always"),
-				FileHasContentsValidator("/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5"),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always")
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
 		},
 	})
@@ -521,8 +515,8 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},
 		},
@@ -684,11 +678,9 @@ func Test_ubuntu2204ChronyRestarts(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always"),
-				FileHasContentsValidator("/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5"),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 			},
 		},
@@ -942,7 +934,9 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.
 			LiveVMValidators: []*LiveVMValidator{
 				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
 				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
-				FileHasContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=false"),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=false")
 			},
 		},
 	})
@@ -981,7 +975,9 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubel
 				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
 				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
 				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
-				FileHasContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false"),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false")
 			},
 		},
 	})
@@ -1118,8 +1114,8 @@ func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/motd", "foobar"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/etc/motd", "foobar")
 			},
 		},
 	})
@@ -1134,8 +1130,8 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/motd", "foobar"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, "/etc/motd", "foobar")
 			},
 		},
 	})
@@ -1162,7 +1158,9 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
-				FileHasContentsValidator(kubeletConfigFilePath, "\"seccompDefault\": true"),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 			},
 		},
 	})
@@ -1189,7 +1187,9 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
-				FileHasContentsValidator(kubeletConfigFilePath, "\"seccompDefault\": true"),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				FileHasContentsValidator(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 			},
 		},
 	})
