@@ -94,7 +94,9 @@ else
     sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
   fi
 
+  echo "Updating package list..."
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  echo "Upgrading distro..."
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
