@@ -116,8 +116,6 @@ else
       --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
       --name $VM_NAME \
       --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
       
