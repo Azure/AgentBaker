@@ -34,52 +34,61 @@ type Gallery struct {
 	Name              string
 }
 
+type OS string
+
+var (
+	OSWindows    OS = "windows"
+	OSUbuntu     OS = "ubuntu"
+	OSMariner    OS = "mariner"
+	OSAzureLinux OS = "azurelinux"
+)
+
 var (
 	VHDUbuntu1804Gen2Containerd = &Image{
 		Name:    "1804gen2containerd",
-		OS:      "ubuntu",
+		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd1804Gen2,
 		Gallery: linuxGallery,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
-		OS:      "ubuntu",
+		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
 		Gallery: linuxGallery,
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
 		Name:    "2204gen2containerd",
-		OS:      "ubuntu",
+		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
 		Gallery: linuxGallery,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
 		Name:    "AzureLinuxV2gen2arm64",
-		OS:      "azurelinux",
+		OS:      OSAzureLinux,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSAzureLinuxV2Arm64Gen2,
 		Gallery: linuxGallery,
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
 		Name:    "AzureLinuxV2gen2",
-		OS:      "azurelinux",
+		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV2Gen2,
 		Gallery: linuxGallery,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
-		OS:      "mariner",
+		OS:      OSMariner,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSCBLMarinerV2Arm64Gen2,
 		Gallery: linuxGallery,
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
 		Name:    "CBLMarinerV2gen2",
-		OS:      "mariner",
+		OS:      OSMariner,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSCBLMarinerV2Gen2,
 		Gallery: linuxGallery,
@@ -89,7 +98,7 @@ var (
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
 		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
 		Name:    "2204Gen2",
-		OS:      "ubuntu",
+		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
@@ -99,7 +108,7 @@ var (
 	// without kubelet, kubectl, credential-provider and wasm
 	VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached = &Image{
 		Name:    "2204Gen2",
-		OS:      "ubuntu",
+		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Version: "1.1725612526.29638",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
@@ -126,7 +135,7 @@ var (
 
 	VHDWindows2022ContainerdGen2 = &Image{
 		Name:    "windows-2022-containerd-gen2",
-		OS:      "windows",
+		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
 		Latest:  true,
@@ -135,7 +144,7 @@ var (
 
 	VHDWindows23H2 = &Image{
 		Name:    "windows-23H2",
-		OS:      "windows",
+		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2,
 		Latest:  true,
@@ -144,7 +153,7 @@ var (
 
 	VHDWindows23H2Gen2 = &Image{
 		Name:    "windows-23H2-gen2",
-		OS:      "windows",
+		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
 		Latest:  true,
@@ -158,7 +167,7 @@ type Image struct {
 	Arch    string
 	Distro  datamodel.Distro
 	Name    string
-	OS      string
+	OS      OS
 	Version string
 	Gallery *Gallery
 	Latest  bool // a hack to get the latest version of the image for windows, currently windows images are not tagged
@@ -193,6 +202,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 
 func (i *Image) Windows() bool {
 	return i.OS == "windows"
+}
+
+func (i *Image) Ubuntu() bool {
+	return i.OS == "ubuntu"
 }
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically

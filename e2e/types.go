@@ -142,9 +142,11 @@ type Config struct {
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
-	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
-	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
+	//// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
+	//// specific to the scenario that isn't covered in the set of common validators run with all scenarios
 	LiveVMValidators []*LiveVMValidator
+
+	Validator func(ctx context.Context, s *Scenario)
 }
 
 // VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
@@ -182,6 +184,7 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
 	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+	t.Logf("using %q for VHD", resourceID)
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
@@ -231,7 +234,7 @@ func (s *Scenario) PrepareRuntime(ctx context.Context) {
 	}
 
 	nbc := getBaseNBC(cluster, s.VHD)
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
 	}
 

@@ -103,7 +103,7 @@ func cleanupVMSS(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario) {
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
 		extractLogsFromVMLinux(ctx, s)
@@ -422,7 +422,7 @@ func generateVMSSNameWindows(t *testing.T) string {
 }
 
 func generateVMSSName(s *Scenario) string {
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		return generateVMSSNameWindows(s.T)
 	}
 	return generateVMSSNameLinux(s.T)
@@ -518,7 +518,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 			},
 		}
 	}
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{

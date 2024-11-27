@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -22,9 +23,8 @@ func Test_azurelinuxv2(t *testing.T) {
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
 	})
@@ -244,8 +244,8 @@ func Test_marinerv2(t *testing.T) {
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
 	})
@@ -468,10 +468,11 @@ func Test_ubuntu1804(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", expected1804ContainredVersion, "apt"),
-				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0], "apt"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				installedPackagedValidator(ctx, s, "moby-containerd", expected1804ContainredVersion)
+				installedPackagedValidator(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0])
 			},
+
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 		},
 	})
@@ -581,9 +582,9 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
-				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				installedPackagedValidator(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 			},
 		},
 	})
@@ -870,8 +871,8 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				mobyComponentVersionValidator("containerd", "1.6.9", "apt"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				installedPackagedValidator(ctx, s, "containerd", "1.6.9")
 			},
 		},
 	})
@@ -886,9 +887,8 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerdVersion = "1.6.9"
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				// for containerd we only support one version at a time for each distro/release
-				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 			},
 		},
 	})

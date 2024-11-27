@@ -1,10 +1,14 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"regexp"
 	"strings"
+
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/stretchr/testify/require"
 )
 
 func DirectoryValidator(path string, files []string) *LiveVMValidator {
@@ -292,6 +296,40 @@ func mobyComponentVersionValidator(component, version, packageManager string) *L
 			}
 			return nil
 		},
+	}
+}
+
+func installedPackagedValidator(ctx context.Context, s *Scenario, component, version string) {
+	s.T.Logf("assert %s %s is installed on the VM", component, version)
+	installedCommand := func() string {
+		switch s.VHD.OS {
+		case config.OSUbuntu:
+			return "apt list --installed"
+		case config.OSMariner, config.OSAzureLinux:
+			return "dnf list installed"
+		default:
+			s.T.Fatalf("validator isn't implemented for OS %s", s.VHD.OS)
+			return ""
+		}
+	}()
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err, "failed to get VM private IP address")
+	hostPodName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	require.NoError(s.T, err, "failed to get host network debug pod name")
+	execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, vmPrivateIP, hostPodName, string(s.Runtime.SSHKeyPrivate), installedCommand, false)
+	require.NoError(s.T, err)
+	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
+	containsComponent := func() bool {
+		for _, line := range strings.Split(execResult.stdout.String(), "\n") {
+			if strings.Contains(line, component) && strings.Contains(line, version) {
+				return true
+			}
+		}
+		return false
+	}()
+	if !containsComponent {
+		s.T.Logf("expected to find %s %s in the installed packages, but did not", component, version)
+		s.T.Fail()
 	}
 }
 

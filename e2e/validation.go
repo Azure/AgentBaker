@@ -15,7 +15,7 @@ func (s *Scenario) validateNodeHealth(ctx context.Context) string {
 	nodeName := waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
 	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
 	testPodManifest := ""
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		testPodManifest = getHTTPServerTemplateWindows(testPodName, nodeName)
 	} else {
 		testPodManifest = getHTTPServerTemplate(testPodName, nodeName, s.Tags.Airgap)
@@ -41,7 +41,7 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, scenario *Scenario) error {
 	// TODO: test something
-	if scenario.VHD.Windows() {
+	if scenario.VHD.OS == config.OSWindows {
 		return nil
 	}
 	hostPodName, err := getHostNetworkDebugPodName(ctx, scenario.Runtime.Cluster.Kube, t)

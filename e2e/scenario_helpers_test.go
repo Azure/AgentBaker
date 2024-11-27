@@ -90,7 +90,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.Name = t.Name()
-	s.Tags.OS = s.VHD.OS
+	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	if config.Config.TagsToRun != "" {
@@ -121,15 +121,12 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
+	t.Logf("running scenario vhd: %q, tags %+v", vhd, s.Tags)
 }
 
 func createAndValidateVM(ctx context.Context, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
-	rid, _ := s.VHD.VHDResourceID(ctx, s.T)
-
-	s.T.Logf("running scenario %q with image %q in aks cluster %q", s.T.Name(), rid, *s.Runtime.Cluster.Model.ID)
 
 	createVMSS(ctx, s)
 
@@ -151,6 +148,10 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
 
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
+
+	if s.Config.Validator != nil {
+		s.Config.Validator(ctx, s)
+	}
 
 	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
 	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(s.Runtime.SSHKeyPrivate), s)
@@ -197,7 +198,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
-					if s.VHD.Windows() {
+					if s.VHD.OS == config.OSWindows {
 						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
 							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
 						}
@@ -209,9 +210,8 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 							return fmt.Errorf("Parse CSE message with error, error %w", err)
 						}
 						if resp.ExitCode != "0" {
-							return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
+							return fmt.Errorf("vmssCSE %s, output=%s, error=%s, cse output: %s", resp.ExitCode, resp.Output, resp.Error, *status.Message)
 						}
-						s.T.Logf("CSE completed successfully with exit code 0, cse output: %s", *status.Message)
 						return nil
 					}
 				}
