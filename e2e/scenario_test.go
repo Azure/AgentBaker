@@ -1138,7 +1138,6 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 }
 
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
-	kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1156,18 +1155,16 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 			},
 		},
 	})
 }
 
 func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
-	kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			KubeletCustomConfig: true,
@@ -1185,11 +1182,10 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				nbc.AgentPoolProfile.CustomKubeletConfig = customKubeletConfig
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].CustomKubeletConfig = customKubeletConfig
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 			},
 		},
 	})
