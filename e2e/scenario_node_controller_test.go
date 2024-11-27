@@ -83,7 +83,7 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 			LiveVMValidators: []*LiveVMValidator{
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
-				FileHasContentsValidator("/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully"),
+				ValidateFileHasContent("/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully"),
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},
 		},

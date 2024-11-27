@@ -122,8 +122,8 @@ func Test_azurelinuxv2ChronyRestarts(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 			},
 		},
@@ -346,8 +346,8 @@ func Test_marinerv2ChronyRestarts(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
 		},
 	})
@@ -502,8 +502,8 @@ func Test_ubuntu1804ChronyRestarts(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always")
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chrony.service.d/10-chrony-restarts.conf", "RestartSec=5")
 			},
 		},
 	})
@@ -516,7 +516,7 @@ func Test_ubuntu2204ScriptlessInstaller(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
+				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {},
 		},
@@ -679,8 +679,8 @@ func Test_ubuntu2204ChronyRestarts(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
-				FileHasContentsValidator(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 			},
 		},
@@ -936,7 +936,7 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.
 				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=false")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=false")
 			},
 		},
 	})
@@ -977,7 +977,7 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubel
 				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false")
 			},
 		},
 	})
@@ -1115,7 +1115,7 @@ func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 			},
 		},
 	})
@@ -1131,7 +1131,7 @@ func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
 				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 			},
 		},
 	})
@@ -1160,7 +1160,7 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 			},
 		},
 	})
@@ -1189,7 +1189,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				KubeletHasConfigFlagsValidator(kubeletConfigFilePath),
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				FileHasContentsValidator(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 			},
 		},
 	})

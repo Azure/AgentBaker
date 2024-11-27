@@ -127,7 +127,7 @@ func NonEmptyDirectoryValidator(dirName string) *LiveVMValidator {
 	}
 }
 
-func FileHasContentsValidator(ctx context.Context, s *Scenario, fileName string, contents string) {
+func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	steps := []string{
 		fmt.Sprintf("ls -la %[1]s", fileName),
 		fmt.Sprintf("sudo cat %[1]s", fileName),
