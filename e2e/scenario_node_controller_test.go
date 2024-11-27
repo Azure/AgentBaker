@@ -13,10 +13,8 @@ import (
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +42,7 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 	identity, err := config.Azure.CreateVMManagedIdentity(ctx)
 	require.NoError(t, err)
 	binary := compileAKSNodeController(t)
-	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
+	url, err := config.Azure.UploadAndGetLink(ctx, time.Now().UTC().Format("2006-01-02-15-04-05")+"/aks-node-controller", binary)
 	require.NoError(t, err)
 
 	RunScenario(t, &Scenario{
@@ -57,7 +55,7 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 				model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 					Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 					UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-						fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName): {},
+						config.Config.VMIdentityResourceID(): {},
 					},
 				}
 				model.Properties.VirtualMachineProfile.ExtensionProfile = &armcompute.VirtualMachineScaleSetExtensionProfile{
@@ -72,7 +70,7 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 								Settings:                map[string]any{},
 								ProtectedSettings: map[string]any{
 									"fileUris":         []string{url},
-									"commandToExecute": CSEAKSNodeController(t, cluster),
+									"commandToExecute": CSEAKSNodeController(t, cluster, config.VHDUbuntu2204Gen2Containerd),
 									"managedIdentity": map[string]any{
 										"clientId": identity,
 									},
@@ -92,14 +90,10 @@ func Test_ubuntu2204AKSNodeController(t *testing.T) {
 	})
 }
 
-func CSEAKSNodeController(t *testing.T, cluster *Cluster) string {
-	nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
-	require.NoError(t, err)
-	nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+func CSEAKSNodeController(t *testing.T, cluster *Cluster, vhd *config.Image) string {
+	nbc := getBaseNBC(cluster, vhd)
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
-
 	configContent := nbcToAKSNodeConfigV1(nbc)
-
 	configJSON, err := json.Marshal(configContent)
 	require.NoError(t, err)
 

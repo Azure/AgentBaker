@@ -11,9 +11,7 @@ import (
 	"testing"
 	"time"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -36,12 +34,11 @@ var (
 )
 
 type Cluster struct {
-	Model                          *armcontainerservice.ManagedCluster
-	Kube                           *Kubeclient
-	SubnetID                       string
-	NodeBootstrappingConfiguration *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig                  *aksnodeconfigv1.Configuration
-	Maintenance                    *armcontainerservice.MaintenanceConfiguration
+	Model         *armcontainerservice.ManagedCluster
+	Kube          *Kubeclient
+	SubnetID      string
+	ClusterParams *ClusterParams
+	Maintenance   *armcontainerservice.MaintenanceConfiguration
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -129,15 +126,12 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	nbc := getBaseNodeBootstrappingConfiguration(ctx, t, kube)
-
 	return &Cluster{
-		Model:                          cluster,
-		Kube:                           kube,
-		SubnetID:                       subnetID,
-		NodeBootstrappingConfiguration: nbc,
-		Maintenance:                    maintenance,
-		AKSNodeConfig:                  nbcToAKSNodeConfigV1(nbc), // TODO: replace with base template
+		Model:         cluster,
+		Kube:          kube,
+		SubnetID:      subnetID,
+		Maintenance:   maintenance,
+		ClusterParams: extractClusterParameters(ctx, t, kube),
 	}, nil
 }
 
@@ -159,7 +153,7 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 	existingCluster, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
 	var azErr *azcore.ResponseError
 	if errors.As(err, &azErr) && azErr.StatusCode == 404 {
-		return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+		return createNewAKSClusterWithRetry(ctx, t, cluster)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
@@ -175,15 +169,24 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 			// we need to recreate in the case where the cluster is in the "Succeeded" provisioning state,
 			// though it's corresponding node resource group has been garbage collected
 			t.Logf("node resource group of cluster %s does not exist, will attempt to recreate", *cluster.Name)
-			return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+			return createNewAKSClusterWithRetry(ctx, t, cluster)
 		}
 		return &existingCluster.ManagedCluster, nil
 	case "Creating", "Updating":
-		return waitUntilClusterReady(ctx, config.ResourceGroupName, *cluster.Name)
+		return waitUntilClusterReady(ctx, *cluster.Name)
 	default:
 		// this operation will try to update the cluster if it's in a failed state
-		return createNewAKSClusterWithRetry(ctx, t, cluster, config.ResourceGroupName)
+		return createNewAKSClusterWithRetry(ctx, t, cluster)
 	}
+}
+
+func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
+	rgExistence, err := config.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
+	}
+
+	return rgExistence.Success, nil
 }
 
 func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
@@ -212,12 +215,12 @@ func createNewAKSCluster(ctx context.Context, t *testing.T, cluster *armcontaine
 // that retries creating a cluster if it fails with a 409 Conflict error
 // clusters are reused, and sometimes a cluster can be in UPDATING or DELETING state
 // simple retry should be sufficient to avoid such conflicts
-func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup string) (*armcontainerservice.ManagedCluster, error) {
+func createNewAKSClusterWithRetry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) (*armcontainerservice.ManagedCluster, error) {
 	maxRetries := 10
 	retryInterval := 30 * time.Second
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
-		t.Logf("Attempt %d: creating or updating cluster %s in region %s and rg %s\n", attempt+1, *cluster.Name, *cluster.Location, resourceGroup)
+		t.Logf("Attempt %d: creating or updating cluster %s in region %s and rg %s\n", attempt+1, *cluster.Name, *cluster.Location, config.ResourceGroupName)
 
 		createdCluster, err := createNewAKSCluster(ctx, t, cluster)
 		if err == nil {
@@ -348,45 +351,18 @@ func collectGarbageVMSS(ctx context.Context, t *testing.T, cluster *armcontainer
 	return nil
 }
 
-func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {
-	rgExistence, err := config.Azure.ResourceGroup.CheckExistence(ctx, resourceGroupName, nil)
-	if err != nil {
-		return false, fmt.Errorf("failed to get RG %q: %w", resourceGroupName, err)
-	}
-
-	return rgExistence.Success, nil
-}
-
-var rgOnce sync.Once
-
-func ensureResourceGroupOnce(ctx context.Context) {
-	rgOnce.Do(func() {
-		err := ensureResourceGroup(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
-}
 func ensureResourceGroup(ctx context.Context) error {
-	rgExists, err := isExistingResourceGroup(ctx, config.ResourceGroupName)
+	_, err := config.Azure.ResourceGroup.CreateOrUpdate(
+		ctx,
+		config.ResourceGroupName,
+		armresources.ResourceGroup{
+			Location: to.Ptr(config.Config.Location),
+			Name:     to.Ptr(config.ResourceGroupName),
+		},
+		nil)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create RG %q: %w", config.ResourceGroupName, err)
 	}
-
-	if !rgExists {
-		_, err = config.Azure.ResourceGroup.CreateOrUpdate(
-			ctx,
-			config.ResourceGroupName,
-			armresources.ResourceGroup{
-				Location: to.Ptr(config.Config.Location),
-				Name:     to.Ptr(config.ResourceGroupName),
-			},
-			nil)
-
-		if err != nil {
-			return fmt.Errorf("failed to create RG %q: %w", config.ResourceGroupName, err)
-		}
-	}
-
 	return nil
 }

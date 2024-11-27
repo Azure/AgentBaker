@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -114,12 +113,16 @@ type Scenario struct {
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
+	T       *testing.T
 }
 
 type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
+	VMSSName      string
+	SSHKeyPublic  []byte
+	SSHKeyPrivate []byte
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -214,44 +217,34 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	}
 }
 
-func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
-	cluster, err := s.Config.Cluster(ctx, t)
-	require.NoError(t, err)
+func (s *Scenario) PrepareRuntime(ctx context.Context) {
+	cluster, err := s.Config.Cluster(ctx, s.T)
+	require.NoError(s.T, err)
 
 	s.Runtime = &ScenarioRuntime{
-		Cluster: cluster,
+		Cluster:  cluster,
+		VMSSName: generateVMSSName(s),
 	}
 
 	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		t.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+	}
+
+	nbc := getBaseNBC(cluster, s.VHD)
+	if s.VHD.Windows() {
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
 	}
 
 	if s.BootstrapConfigMutator != nil {
-		nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
-		require.NoError(t, err)
-		nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
 		s.BootstrapConfigMutator(nbc)
 		s.Runtime.NBC = nbc
 	}
 	if s.AKSNodeConfigMutator != nil {
-		configAny, err := deepcopy.Anything(cluster.AKSNodeConfig)
-		require.NoError(t, err)
-		config := configAny.(*aksnodeconfigv1.Configuration)
-		s.AKSNodeConfigMutator(config)
-		s.Runtime.AKSNodeConfig = config
+		nodeconfig := nbcToAKSNodeConfigV1(nbc)
+		s.AKSNodeConfigMutator(nodeconfig)
+		s.Runtime.AKSNodeConfig = nodeconfig
 	}
-}
 
-// scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
-	// avoid mutating cluster config
-	nbcAny, err := deepcopy.Anything(nbc)
-	if err != nil {
-		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
-	}
-	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-	}
-	return nbc, nil
+	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
+	require.NoError(s.T, err)
 }

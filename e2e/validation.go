@@ -11,12 +11,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func validateNodeHealth(ctx context.Context, t *testing.T, kube *Kubeclient, vmssName string, isAirgap bool) string {
-	nodeName := waitUntilNodeReady(ctx, t, kube, vmssName)
+func (s *Scenario) validateNodeHealth(ctx context.Context) string {
+	nodeName := waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
 	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
-	testPodManifest := getHTTPServerTemplate(testPodName, nodeName, isAirgap)
-	err := ensurePod(ctx, t, defaultNamespace, kube, testPodName, testPodManifest)
-	require.NoError(t, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
+	testPodManifest := ""
+	if s.VHD.Windows() {
+		testPodManifest = getHTTPServerTemplateWindows(testPodName, nodeName)
+	} else {
+		testPodManifest = getHTTPServerTemplate(testPodName, nodeName, s.Tags.Airgap)
+	}
+	err := ensurePod(ctx, s.T, defaultNamespace, s.Runtime.Cluster.Kube, testPodName, testPodManifest)
+	require.NoError(s.T, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
+	s.T.Logf("node health validation: test pod %q is running on node %q", testPodName, nodeName)
 	return nodeName
 }
 
@@ -34,6 +40,10 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 }
 
 func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, scenario *Scenario) error {
+	// TODO: test something
+	if scenario.VHD.Windows() {
+		return nil
+	}
 	hostPodName, err := getHostNetworkDebugPodName(ctx, scenario.Runtime.Cluster.Kube, t)
 	if err != nil {
 		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
@@ -126,7 +136,7 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 		},
 		// CURL goes to port 443 by default for HTTPS
 		{
-			Description: "check that curl to wireserver fails",
+			Description: "curl to wireserver shouldn't succeed",
 			Command:     "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {
@@ -137,7 +147,7 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 			IsPodNetwork: true,
 		},
 		{
-			Description: "check that curl to wireserver port 32526 fails",
+			Description: "curl to wireserver port 32526 shouldn't succeed",
 			Command:     "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {

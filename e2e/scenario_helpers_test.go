@@ -11,12 +11,12 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -31,15 +31,19 @@ func setupSignalHandler() context.Context {
 	ch := make(chan os.Signal, 2)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 
+	red := func(text string) string {
+		return "\033[31m" + text + "\033[0m"
+	}
+
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit.")
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit."))
 		cancel()
 
 		// block until second signal is received
 		<-ch
-		fmt.Println("Received second cancellation signal, forcing exit.")
+		fmt.Println(red("Received second cancellation signal, forcing exit."))
 		os.Exit(1)
 	}()
 	return ctx
@@ -54,14 +58,34 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
+func TestMain(m *testing.M) {
+	fmt.Printf("using E2E environment configuration:\n%s\n", config.Config)
+	// clean up logs from previous run
+	if _, err := os.Stat("scenario-logs"); err == nil {
+		_ = os.RemoveAll("scenario-logs")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err := ensureResourceGroup(ctx)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx)
+	mustNoError(err)
+	m.Run()
+}
+
+func mustNoError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
+	s.T = t
 	t.Parallel()
 	ctx := newTestCtx(t)
-	cleanTestDir(t)
-	ensureResourceGroupOnce(ctx)
 	maybeSkipScenario(ctx, t, s)
-	s.PrepareRuntime(ctx, t)
-	createAndValidateVM(ctx, t, s)
+	s.PrepareRuntime(ctx)
+	createAndValidateVM(ctx, s)
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -100,41 +124,39 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
 }
 
-func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) {
-	rid, _ := scenario.VHD.VHDResourceID(ctx, t)
+func createAndValidateVM(ctx context.Context, s *Scenario) {
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
+	defer cancel()
+	rid, _ := s.VHD.VHDResourceID(ctx, s.T)
 
-	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *scenario.Runtime.Cluster.Model.ID)
+	s.T.Logf("running scenario %q with image %q in aks cluster %q", s.T.Name(), rid, *s.Runtime.Cluster.Model.ID)
 
-	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
-	assert.NoError(t, err)
+	createVMSS(ctx, s)
 
-	vmssName := getVmssName(t)
-	createVMSS(ctx, t, vmssName, scenario, privateKeyBytes, publicKeyBytes)
+	err := getCustomScriptExtensionStatus(ctx, s)
+	require.NoError(s.T, err)
 
-	err = getCustomScriptExtensionStatus(ctx, t, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err)
-
-	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-	nodeName := validateNodeHealth(ctx, t, scenario.Runtime.Cluster.Kube, vmssName, scenario.Tags.Airgap)
+	s.T.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", s.Runtime.VMSSName)
+	nodeName := s.validateNodeHealth(ctx)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
-	if scenario.Runtime.NBC != nil && scenario.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
+		validateWasm(ctx, s.T, s.Runtime.Cluster.Kube, nodeName)
 	}
-	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
-		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
+		validateWasm(ctx, s.T, s.Runtime.Cluster.Kube, nodeName)
 	}
 
-	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
+	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err, "get vm private IP %v", vmssName)
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
 
-	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
-	require.NoError(t, err)
+	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
+	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(s.Runtime.SSHKeyPrivate), s)
+	require.NoError(s.T, err)
 
-	t.Logf("node %s bootstrapping succeeded!", vmssName)
+	s.T.Logf("node %s bootstrapping succeeded!", s.Runtime.VMSSName)
 }
 
 func getExpectedPackageVersions(packageName, distro, release string) []string {
@@ -160,8 +182,8 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 	return expectedVersions
 }
 
-func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceGroupName, vmssName string) error {
-	pager := config.Azure.VMSSVM.NewListPager(resourceGroupName, vmssName, nil)
+func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -169,21 +191,29 @@ func getCustomScriptExtensionStatus(ctx context.Context, t *testing.T, resourceG
 		}
 
 		for _, vmInstance := range page.Value {
-			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, resourceGroupName, vmssName, *vmInstance.InstanceID, nil)
+			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
 			if err != nil {
 				return fmt.Errorf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
-					resp, err := parseLinuxCSEMessage(*status)
-					if err != nil {
-						return fmt.Errorf("Parse CSE message with error, error %w", err)
+					if s.VHD.Windows() {
+						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
+							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
+						}
+						return nil
+
+					} else {
+						resp, err := parseLinuxCSEMessage(*status)
+						if err != nil {
+							return fmt.Errorf("Parse CSE message with error, error %w", err)
+						}
+						if resp.ExitCode != "0" {
+							return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
+						}
+						s.T.Logf("CSE completed successfully with exit code 0, cse output: %s", *status.Message)
+						return nil
 					}
-					if resp.ExitCode != "0" {
-						return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
-					}
-					t.Logf("CSE completed successfully with exit code 0, cse output: %s", *status.Message)
-					return nil
 				}
 			}
 		}
