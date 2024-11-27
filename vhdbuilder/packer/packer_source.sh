@@ -91,6 +91,16 @@ copyPackerFiles() {
   AKS_LOG_COLLECTOR_SLICE_DEST=/etc/systemd/system/aks-log-collector.slice
   AKS_LOG_COLLECTOR_TIMER_SRC=/home/packer/aks-log-collector.timer
   AKS_LOG_COLLECTOR_TIMER_DEST=/etc/systemd/system/aks-log-collector.timer
+  AKS_LOCAL_DNS_SRC=/home/packer/aks-local-dns.sh
+  AKS_LOCAL_DNS_DEST=/opt/azure/aks-local-dns/aks-local-dns.sh
+  AKS_LOCAL_DNS_RESOLVED_SRC=/home/packer/aks-local-dns-resolved.conf
+  AKS_LOCAL_DNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf
+  AKS_LOCAL_DNS_SERVICE_SRC=/home/packer/aks-local-dns.service
+  AKS_LOCAL_DNS_SERVICE_DEST=/etc/systemd/system/aks-local-dns.service
+  AKS_LOCAL_DNS_SLICE_SRC=/home/packer/aks-local-dns.slice
+  AKS_LOCAL_DNS_SLICE_DEST=/etc/systemd/system/aks-local-dns.slice
+  AKS_NETWORKD_KEEPCONFIG_SRC=/home/packer/05-aks-keepconfig.conf
+  AKS_NETWORKD_KEEPCONFIG_DEST=/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf  
   AKS_LOGROTATE_SCRIPT_SRC=/home/packer/logrotate.sh
   AKS_LOGROTATE_SCRIPT_DEST=/usr/local/bin/logrotate.sh
   AKS_LOGROTATE_SERVICE_SRC=/home/packer/logrotate.service
@@ -269,6 +279,16 @@ copyPackerFiles() {
   cpAndMode $AKS_LOG_COLLECTOR_SERVICE_SRC $AKS_LOG_COLLECTOR_SERVICE_DEST 644
   cpAndMode $AKS_LOG_COLLECTOR_SLICE_SRC $AKS_LOG_COLLECTOR_SLICE_DEST 644
   cpAndMode $AKS_LOG_COLLECTOR_TIMER_SRC $AKS_LOG_COLLECTOR_TIMER_DEST 644
+
+  # Install AKS Local DNS
+  cpAndMode $AKS_LOCAL_DNS_SRC $AKS_LOCAL_DNS_DEST 0755
+  cpAndMode $AKS_LOCAL_DNS_RESOLVED_SRC $AKS_LOCAL_DNS_RESOLVED_DEST 0644
+  cpAndMode $AKS_LOCAL_DNS_SERVICE_SRC $AKS_LOCAL_DNS_SERVICE_DEST 0644
+  cpAndMode $AKS_LOCAL_DNS_SLICE_SRC $AKS_LOCAL_DNS_SLICE_DEST 0755
+  chmod -R ugo+rX /opt/azure/aks-local-dns /etc/systemd/resolved.conf.d
+
+  cpAndMode $AKS_NETWORKD_KEEPCONFIG_SRC $AKS_NETWORKD_KEEPCONFIG_DEST 0644
+  chmod -R ugo+rX /etc/systemd/network
 
   cpAndMode $AKS_LOGROTATE_CONF_SRC $AKS_LOGROTATE_CONF_DEST 644
   # If a logrotation timer does not exist on the base image

@@ -777,6 +777,61 @@ type ComponentConfiguration struct {
 	DownloadURL *string
 }
 
+// Local DNS profile with VNET DNS and Kube DNS overrides.
+type LocalDnsProfile struct {
+	CurrentServiceStatus string                 `json:"currentServiceStatus,omitempty"`
+	CPULimit             int                    `json:"cpuLimit,omitempty"`
+	MemoryLimitInMB      int                    `json:"memoryLimitInMB,omitempty"`
+	CoreDnsImageUrl      string                 `json:"coreDnsImageUrl,omitempty"`
+	VnetDnsOverrides     map[string]DnsOverride `json:"vnetDnsOverrides,omitempty"`
+	KubeDnsOverrides     map[string]DnsOverride `json:"kubeDnsOverrides,omitempty"`
+	NodeListenerIP       string                 `json:"nodeListenerIP,omitempty"`
+	ClusterListenerIP    string                 `json:"clusterListenerIP,omitempty"`
+	CoreDnsServiceIP     string                 `json:"coreDnsServiceIP,omitempty"`
+}
+
+// Overrides for VNET DNS and Kube DNS traffic.
+// Traffic from pods with dnsPolicy:default or kubelet is defined as VNET DNS traffic.
+// Traffic from pods with dnsPolicy:ClusterFirst is defined as Kube DNS traffic.
+type DnsOverride struct {
+	QueryLogging           string `json:"queryLogging,omitempty"`
+	ForceTCP               bool   `json:"forceTCP,omitempty"`
+	ForwardPolicy          string `json:"forwardPolicy,omitempty"`
+	MaxConcurrent          int    `json:"maxConcurrent,omitempty"`
+	CacheDurationInSeconds int    `json:"cacheDurationInSeconds,omitempty"`
+	ServeStale             string `json:"serveStale,omitempty"`
+}
+
+// IsAKSLocalDNSEnabled returns true if the customer specified localDnsProfile and currentServiceStatus property is enable.
+func (a *AgentPoolProfile) IsAKSLocalDNSEnabled() bool {
+	return a.LocalDnsProfile != nil &&
+		strings.EqualFold(a.LocalDnsProfile.CurrentServiceStatus, AKSLocalDNSEnabled)
+}
+
+// GetAKSLocalDNSImageUrl returns CoreDNS image version used in aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSImageUrl() string {
+	if a != nil && a.LocalDnsProfile != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfile.CoreDnsImageUrl
+	}
+	return ""
+}
+
+// GetAKSLocalDNSNodeListenerIP returns 169.254.10.10 used in aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSNodeListenerIP() string {
+	if a != nil && a.LocalDnsProfile != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfile.NodeListenerIP
+	}
+	return ""
+}
+
+// GetAKSLocalDNSClusterListenerIP returns 169.254.10.11 used in aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSClusterListenerIP() string {
+	if a != nil && a.LocalDnsProfile != nil && a.IsAKSLocalDNSEnabled() {
+		return a.LocalDnsProfile.ClusterListenerIP
+	}
+	return ""
+}
+
 // AgentPoolProfile represents an agent pool definition.
 type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
@@ -798,6 +853,7 @@ type AgentPoolProfile struct {
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	LocalDnsProfile       *LocalDnsProfile     `json:"localDnsProfile,omitempty"`
 	/* This is a new property and all old agent pools do no have this field. We need to keep the default
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
