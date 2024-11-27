@@ -1520,7 +1520,7 @@ func AKSLocalDNSGenerateCoreFile(
 	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Parse(tmpl))
 
 	var b bytes.Buffer
-	if err := localDNSCorefileTemplate.Execute(&b, profile.LocalDnsProfileWithSortedDomains); err != nil {
+	if err := localDNSCorefileTemplate.Execute(&b, profile.LocalDnsProfile); err != nil {
 		return "", fmt.Errorf("failed to execute local dns corefile template: %w", err)
 	}
 
@@ -1531,15 +1531,14 @@ func AKSLocalDNSGenerateCoreFile(
 const akslocalDNSCoreFileTemplateString = `
 # whoami (used for health check of DNS)
 health-check.aks-local-dns.local:53 {
-    bind {{$.LocalDnsProfile.NodeListenerIP}} {{$.LocalDnsProfile.ClusterListenerIP}}
+    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
     whoami
 }
 # VNET DNS traffic (Traffic from pods with dnsPolicy:default or kubelet)
-{{- range $index, $domain := .SortedVnetDnsOverrideDomains}}
-{{- $override := index $.LocalDnsProfile.VnetDnsOverrides $domain}}
+{{- range $domain, $override := $.VnetDnsOverrides}}
 {{$domain}}:53 {
     {{$override.QueryLogging}}
-    bind {{$.LocalDnsProfile.NodeListenerIP}}
+    bind {{$.NodeListenerIP}}
     forward cluster.local {{$.CoreDnsServiceIP}} {
         {{- if $override.ForceTCP}}
         force_tcp
@@ -1554,7 +1553,7 @@ health-check.aks-local-dns.local:53 {
         policy {{$override.ForwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
-    ready {{$.LocalDnsProfile.NodeListenerIP}}:8181
+    ready {{$.NodeListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}}s {
         success 9984
         denial 9984
@@ -1565,7 +1564,7 @@ health-check.aks-local-dns.local:53 {
     }
     loop
     nsid aks-local-dns
-    prometheus {{$.LocalDnsProfile.NodeListenerIP}}:9253
+    prometheus {{$.NodeListenerIP}}:9253
 	{{- if eq $domain "."}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
@@ -1575,14 +1574,14 @@ health-check.aks-local-dns.local:53 {
     template ANY ANY reddog.microsoft.com {
         rcode NXDOMAIN
     }
-	{{- end}}
-}{{end}}
+    {{- end}}
+}
+{{- end}}
 # Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
-{{- range $index, $domain := .SortedKubeDnsOverrideDomains}}
-{{- $override := index $.LocalDnsProfile.KubeDnsOverrides $domain}}
+{{- range $domain, $override := $.KubeDnsOverrides}}
 {{$domain}}:53 {
     {{$override.QueryLogging}}
-    bind {{$.LocalDnsProfile.ClusterListenerIP}}
+    bind {{$.ClusterListenerIP}}
     forward . {{$.CoreDnsServiceIP}} {
         {{- if $override.ForceTCP}}
         force_tcp
@@ -1609,6 +1608,7 @@ health-check.aks-local-dns.local:53 {
     template ANY ANY reddog.microsoft.com {
         rcode NXDOMAIN
     }
-	{{- end}}
-}{{end}}
+    {{- end}}
+}
+{{- end}}
 `
