@@ -1079,8 +1079,8 @@ func Test_ubuntu2204imdsrestriction_filtertable(t *testing.T) {
 				nbc.EnableIMDSRestriction = true
 				nbc.InsertIMDSRestrictionRuleToMangleTable = false
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				imdsRestrictionRuleValidator("filter"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateIMDSRestrictionRule(ctx, s, "filter")
 			},
 		},
 	})
@@ -1098,8 +1098,8 @@ func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
 				nbc.EnableIMDSRestriction = true
 				nbc.InsertIMDSRestrictionRuleToMangleTable = true
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				imdsRestrictionRuleValidator("mangle"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateIMDSRestrictionRule(ctx, s, "mangle")
 			},
 		},
 	})
