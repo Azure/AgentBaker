@@ -29,27 +29,15 @@ func DirectoryValidator(path string, files []string) *LiveVMValidator {
 	}
 }
 
-func SysctlConfigValidator(customSysctls map[string]string) *LiveVMValidator {
+func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[string]string) {
 	keysToCheck := make([]string, len(customSysctls))
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
-	// regex used in sed command to remove extra spaces between two numerical values, used to verify correct values for
-	// sysctls that have string values, e.g. net.ipv4.ip_local_port_range, which would be printed with extra spaces
-	return &LiveVMValidator{
-		Description: "assert sysctl settings",
-		Command:     fmt.Sprintf("sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-			for name, value := range customSysctls {
-				if !strings.Contains(stdout, fmt.Sprintf("%s = %v", name, value)) {
-					return fmt.Errorf("expected to find %s set to %v, but was not", name, value)
-				}
-			}
-			return nil
-		},
+	execResult := execOnVMForScenario(ctx, s, fmt.Sprintf("sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")))
+	require.Equal(s.T, "0", execResult.exitCode, "sysctl command terminated with exit code %q but expected code 0", execResult.exitCode)
+	for name, value := range customSysctls {
+		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
 }
 
@@ -230,34 +218,6 @@ func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
 	}
 }
 
-// can be used to validate version of moby components like moby-containerd or moby-runc
-func mobyComponentVersionValidator(component, version, packageManager string) *LiveVMValidator {
-	installedCommand := "list --installed"
-	if packageManager == "dnf" {
-		installedCommand = "list installed"
-	}
-	if packageManager == "apt" {
-		installedCommand = "list --installed"
-	} else if packageManager == "dnf" {
-		installedCommand = "list installed"
-	}
-
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("assert the installed version of %s", component),
-		Command:     fmt.Sprintf("%[2]s %[3]s moby-%[1]s | grep '%[1]s' | awk '{print $2}'", component, packageManager, installedCommand),
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-
-			if !strings.Contains(stdout, version) {
-				return fmt.Errorf(fmt.Sprintf("expected to find %s version %s, got: %s", component, version, stdout))
-			}
-			return nil
-		},
-	}
-}
-
 func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	// TODO: cache it
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
@@ -269,7 +229,7 @@ func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecR
 	return result
 }
 
-func installedPackagedValidator(ctx context.Context, s *Scenario, component, version string) {
+func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
 	s.T.Logf("assert %s %s is installed on the VM", component, version)
 	installedCommand := func() string {
 		switch s.VHD.OS {

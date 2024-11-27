@@ -24,7 +24,7 @@ func Test_azurelinuxv2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
 	})
@@ -163,8 +163,10 @@ func Test_azurelinuxv2CustomSysctls(t *testing.T) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				SysctlConfigValidator(customSysctls),
 				UlimitValidator(customContainerdUlimits),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
 	})
@@ -245,7 +247,7 @@ func Test_marinerv2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
 	})
@@ -386,8 +388,10 @@ func Test_marinerv2CustomSysctls(t *testing.T) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				SysctlConfigValidator(customSysctls),
 				UlimitValidator(customContainerdUlimits),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
 	})
@@ -469,8 +473,8 @@ func Test_ubuntu1804(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu1804Gen2Containerd,
 			Validator: func(ctx context.Context, s *Scenario) {
-				installedPackagedValidator(ctx, s, "moby-containerd", expected1804ContainredVersion)
-				installedPackagedValidator(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", expected1804ContainredVersion)
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r1804")[0])
 			},
 
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
@@ -583,8 +587,8 @@ func Test_ubuntu2204(t *testing.T) {
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
-				installedPackagedValidator(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
 			},
 		},
 	})
@@ -741,8 +745,10 @@ func Test_ubuntu2204CustomSysctls(t *testing.T) {
 				nbc.AgentPoolProfile.CustomLinuxOSConfig = customLinuxConfig
 			},
 			LiveVMValidators: []*LiveVMValidator{
-				SysctlConfigValidator(customSysctls),
 				UlimitValidator(customContainerdUlimits),
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateSysctlConfig(ctx, s, customSysctls)
 			},
 		},
 	})
@@ -872,7 +878,7 @@ func Test_ubuntu2204ContainerdURL(t *testing.T) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				installedPackagedValidator(ctx, s, "containerd", "1.6.9")
+				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
 			},
 		},
 	})
@@ -888,7 +894,7 @@ func Test_ubuntu2204ContainerdHasCurrentVersion(t *testing.T) {
 				nbc.ContainerdVersion = "1.6.9"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				installedPackagedValidator(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 			},
 		},
 	})

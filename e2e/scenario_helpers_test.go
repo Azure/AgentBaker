@@ -157,6 +157,8 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(s.Runtime.SSHKeyPrivate), s)
 	require.NoError(s.T, err)
 
+	ValidateCommon(ctx, s)
+
 	s.T.Logf("node %s bootstrapping succeeded!", s.Runtime.VMSSName)
 }
 
