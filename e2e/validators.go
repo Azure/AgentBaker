@@ -184,7 +184,7 @@ func makeExecutableCommand(steps []string) string {
 	return command
 }
 
-func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int) *LiveVMValidator {
+func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
 	steps := []string{
 		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
@@ -213,39 +213,8 @@ func ServiceCanRestartValidator(serviceName string, restartTimeoutInSeconds int)
 	}
 
 	command := makeExecutableCommand(steps)
-
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("asserts that %s restarts after it is killed", serviceName),
-		Command:     command,
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("service kill and check terminated with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s", code, command, stdout, stderr)
-			}
-			return nil
-		},
-	}
-}
-
-func CommandHasOutputValidator(commandToExecute string, expectedOutput string) *LiveVMValidator {
-	steps := []string{
-		fmt.Sprint(commandToExecute),
-	}
-
-	command := makeExecutableCommand(steps)
-
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("asserts that %s has output %s", commandToExecute, expectedOutput),
-		Command:     command,
-		Asserter: func(code, stdout, stderr string) error {
-			if !strings.Contains(stderr, expectedOutput) {
-				return fmt.Errorf("'%s' output did not contain expected string Stdout:\n%s\n\n Stderr:\n%s", command, stdout, stderr)
-			}
-			if code != "0" {
-				return fmt.Errorf("command failed with exit code %q (expected 0).\nCommand: %s\n\nStdout:\n%s\n\n Stderr:\n%s", code, command, stdout, stderr)
-			}
-			return nil
-		},
-	}
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "service kill and check terminated with exit code %q (expected 0)", execResult.exitCode)
 }
 
 func UlimitValidator(ulimits map[string]string) *LiveVMValidator {
@@ -299,6 +268,17 @@ func mobyComponentVersionValidator(component, version, packageManager string) *L
 	}
 }
 
+func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+	// TODO: cache it
+	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err, "failed to get VM private IP address")
+	hostPodName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	require.NoError(s.T, err, "failed to get host network debug pod name")
+	result, err := execOnVM(ctx, s.Runtime.Cluster.Kube, vmPrivateIP, hostPodName, string(s.Runtime.SSHKeyPrivate), cmd, false)
+	require.NoError(s.T, err, "failed to execute command on VM")
+	return result
+}
+
 func installedPackagedValidator(ctx context.Context, s *Scenario, component, version string) {
 	s.T.Logf("assert %s %s is installed on the VM", component, version)
 	installedCommand := func() string {
@@ -312,12 +292,7 @@ func installedPackagedValidator(ctx context.Context, s *Scenario, component, ver
 			return ""
 		}
 	}()
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err, "failed to get VM private IP address")
-	hostPodName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
-	execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, vmPrivateIP, hostPodName, string(s.Runtime.SSHKeyPrivate), installedCommand, false)
-	require.NoError(s.T, err)
+	execResult := execOnVMForScenario(ctx, s, installedCommand)
 	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
 	containsComponent := func() bool {
 		for _, line := range strings.Split(execResult.stdout.String(), "\n") {
