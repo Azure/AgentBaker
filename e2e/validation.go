@@ -136,7 +136,7 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 		},
 		// CURL goes to port 443 by default for HTTPS
 		{
-			Description: "check that curl to wireserver fails",
+			Description: "curl to wireserver shouldn't succeed",
 			Command:     "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {
@@ -147,7 +147,7 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 			IsPodNetwork: true,
 		},
 		{
-			Description: "check that curl to wireserver port 32526 fails",
+			Description: "curl to wireserver port 32526 shouldn't succeed",
 			Command:     "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
 			Asserter: func(code, stdout, stderr string) error {
 				if code != "28" {

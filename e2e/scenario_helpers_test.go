@@ -125,6 +125,8 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 }
 
 func createAndValidateVM(ctx context.Context, s *Scenario) {
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
+	defer cancel()
 	rid, _ := s.VHD.VHDResourceID(ctx, s.T)
 
 	s.T.Logf("running scenario %q with image %q in aks cluster %q", s.T.Name(), rid, *s.Runtime.Cluster.Model.ID)
