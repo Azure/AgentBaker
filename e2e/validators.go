@@ -155,12 +155,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 }
 
 func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	// TODO: cache it
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err, "failed to get VM private IP address")
-	hostPodName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
-	result, err := execOnVM(ctx, s.Runtime.Cluster.Kube, vmPrivateIP, hostPodName, string(s.Runtime.SSHKeyPrivate), cmd)
+	result, err := execOnVM(ctx, s.Runtime.Cluster.Kube, s.Runtime.VMPrivateIP, s.Runtime.HostPodName, string(s.Runtime.SSHKeyPrivate), cmd)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
