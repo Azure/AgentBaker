@@ -54,10 +54,7 @@ func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP,
 		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
 	}
 
-	validators := commonLiveVMValidators(scenario)
-	if scenario.LiveVMValidators != nil {
-		validators = append(validators, scenario.LiveVMValidators...)
-	}
+	validators := commonLiveVMValidators(ctx, scenario)
 
 	for _, validator := range validators {
 		t.Logf("running live VM validator on %s: %q", vmssName, validator.Description)
@@ -99,7 +96,7 @@ func ValidateCommon(ctx context.Context, s *Scenario) {
 	})
 }
 
-func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
+func commonLiveVMValidators(ctx context.Context, scenario *Scenario) []*LiveVMValidator {
 	validators := []*LiveVMValidator{
 		{
 			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
@@ -159,7 +156,7 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 			IsPodNetwork: true,
 		},
 	}
-	validators = append(validators, leakedSecretsValidators(scenario)...)
+	ValidateLeakedSecrets(ctx, scenario)
 
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
 	if scenario.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
@@ -169,35 +166,33 @@ func commonLiveVMValidators(scenario *Scenario) []*LiveVMValidator {
 	return validators
 }
 
-func leakedSecretsValidators(scenario *Scenario) []*LiveVMValidator {
+func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	var secrets map[string]string
 	b64Encoded := func(val string) string {
 		return base64.StdEncoding.EncodeToString([]byte(val))
 	}
-	if scenario.Runtime.NBC != nil {
+	if s.Runtime.NBC != nil {
 		secrets = map[string]string{
-			"client private key":       b64Encoded(scenario.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
-			"service principal secret": b64Encoded(scenario.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
-			"bootstrap token":          *scenario.Runtime.NBC.KubeletClientTLSBootstrapToken,
+			"client private key":       b64Encoded(s.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
+			"service principal secret": b64Encoded(s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
+			"bootstrap token":          *s.Runtime.NBC.KubeletClientTLSBootstrapToken,
 		}
 	} else {
-		token := scenario.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
+		token := s.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
 		strToken := ""
 		if token != nil {
 			strToken = *token
 		}
 		secrets = map[string]string{
-			"client private key":       b64Encoded(scenario.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
-			"service principal secret": b64Encoded(scenario.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
+			"client private key":       b64Encoded(s.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
+			"service principal secret": b64Encoded(s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
 			"bootstrap token":          strToken,
 		}
 	}
 
-	validators := make([]*LiveVMValidator, 0)
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
 		for secretName, secretValue := range secrets {
-			validators = append(validators, FileExcludesContentsValidator(logFile, secretValue, secretName))
+			ValidateFileExcludesContent(ctx, s, logFile, secretValue, secretName)
 		}
 	}
-	return validators
 }

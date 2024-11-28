@@ -779,10 +779,10 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				NvidiaModProbeInstalledValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
-				KubeletHasNotStoppedValidator(),
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
 			},
 		},
 	})
@@ -806,10 +806,10 @@ func Test_ubuntu2204GPUGridDriver(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				NvidiaSMIInstalledValidator(),
-				NvidiaModProbeInstalledValidator(),
-				KubeletHasNotStoppedValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateNvidiaSMIInstalled(ctx, s)
 			},
 		},
 	})
@@ -837,8 +837,8 @@ func Test_ubuntu2204gpuNoDriver(t *testing.T) {
 				}
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				NvidiaSMINotInstalledValidator(),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaSMINotInstalled(ctx, s)
 			},
 		},
 	})
@@ -931,12 +931,10 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags(t *testing.
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
-				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=false")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 			},
 		},
 	})
@@ -971,13 +969,11 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_CustomKubel
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
-				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
-				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
-			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
 			},
 		},
 	})
@@ -1000,10 +996,10 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisa
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
-				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
-				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
 			},
 		},
 	})
@@ -1033,10 +1029,10 @@ func Test_Ubuntu2204DisableKubeletServingCertificateRotationWithTags_AlreadyDisa
 				}
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileExcludesContentsValidator("/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true"),
-				FileExcludesContentsValidator("/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster"),
-				FileExcludesContentsValidator("/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true"),
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
 			},
 		},
 	})

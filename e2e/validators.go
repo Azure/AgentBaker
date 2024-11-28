@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,65 +42,23 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	}
 }
 
-func NvidiaSMINotInstalledValidator() *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert nvidia-smi is not installed",
-		Command:     "nvidia-smi",
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "1" {
-				return fmt.Errorf(
-					"nvidia-smi not installed should trigger exit 1, actual was: %q, stdout: %q, stderr: %q",
-					code,
-					stdout,
-					stderr,
-				)
-			}
-			if !strings.Contains(stderr, "nvidia-smi: command not found") {
-				return fmt.Errorf(
-					"expected stderr to contain 'nvidia-smi: command not found', actual: %q, stdout: %q",
-					stderr,
-					stdout,
-				)
-			}
-			return nil
-		},
-	}
+func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
+	command := "nvidia-smi"
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "1", execResult.exitCode, "expected nvidia-smi not to be installed and return exit code 1, but got %q", execResult.exitCode)
+	require.Contains(s.T, execResult.stderr.String(), "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr.String())
 }
 
-func NvidiaSMIInstalledValidator() *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert nvidia-smi is installed",
-		Command:     "nvidia-smi",
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf(
-					"nvidia-smi installed should trigger exit 0 actual was: %q, stdout: %q, stderr: %q",
-					code,
-					stdout,
-					stderr,
-				)
-			}
-			return nil
-		},
-	}
+func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
+	command := "nvidia-smi"
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "expected nvidia-smi to be installed and return exit code 0, but got %q", execResult.exitCode)
 }
 
-func NvidiaModProbeInstalledValidator() *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert nvidia-modprobe is installed",
-		Command:     "nvidia-modprobe",
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf(
-					"nvidia-modprobe installed should trigger exit 0 actual was: %q, stdout: %q, stderr: %q",
-					code,
-					stdout,
-					stderr,
-				)
-			}
-			return nil
-		},
-	}
+func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
+	command := "nvidia-modprobe"
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "expected nvidia-modprobe to be installed and return exit code 0, but got %q", execResult.exitCode)
 }
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
@@ -120,17 +79,10 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	require.Equal(s.T, "0", execResult.exitCode, "expected to find a file '%s' with contents '%s' but did not", fileName, contents)
 }
 
-func FileExcludesContentsValidator(fileName string, contents string, contentsName string) *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("assert %s does not contain %s", fileName, contentsName),
-		Command:     fmt.Sprintf("grep -q -F '%s' '%s'", contents, fileName),
-		Asserter: func(code, stdout, stderr string) error {
-			if code == "0" {
-				return fmt.Errorf("expected to find a file '%s' without %s but did not", fileName, contentsName)
-			}
-			return nil
-		},
-	}
+func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string, contentsName string) {
+	command := fmt.Sprintf("grep -q -F '%s' '%s'", contents, fileName)
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.NotEqual(s.T, "0", execResult.exitCode, "expected to find a file '%s' without %s but did not", fileName, contentsName)
 }
 
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
@@ -316,26 +268,12 @@ func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
 	}
 }
 
-// Ensure kubelet does not restart which can result in delays deploying pods and unnecessary nodepool scaling while the node is incapacitated.
-// This is intended to stop services (e.g. nvidia-modprobe), restarting kubelet rather than specifying the dependency order to run before kubelet.service
-func KubeletHasNotStoppedValidator() *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert that kubelet has not stopped or restarted",
-		Command:     "journalctl -u kubelet",
-		Asserter: func(code, stdout, stderr string) error {
-			startedText := "Started Kubelet"
-			stoppedText := "Stopped Kubelet"
-			stoppedCount := strings.Count(stdout, stoppedText)
-			startedCount := strings.Count(stdout, startedText)
-			if stoppedCount > 0 {
-				return fmt.Errorf("expected no occurences of '%s' in kubelet log, but found %d", stoppedText, stoppedCount)
-			}
-			if startedCount == 0 {
-				return fmt.Errorf("expected at least one occurence of '%s' in kubelet log, but found 0", startedText)
-			}
-			return nil
-		},
-	}
+func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
+	command := "journalctl -u kubelet"
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "expected to find kubelet service logs, but did not")
+	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
+	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
 }
 
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.

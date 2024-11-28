@@ -142,10 +142,6 @@ type Config struct {
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
-	//// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
-	//// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators []*LiveVMValidator
-
 	Validator func(ctx context.Context, s *Scenario)
 }
 
