@@ -134,8 +134,10 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", s.Runtime.VMSSName)
 
-	nodeName := ValidateNodeHealth(ctx, s)
+	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
 	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
+
+	ValidatePodRunning(ctx, s)
 
 	// test-specific validation
 	if s.Config.Validator != nil {
@@ -144,10 +146,10 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
 	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		ValidateWASM(ctx, s, nodeName)
+		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
-		ValidateWASM(ctx, s, nodeName)
+		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 
 	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)

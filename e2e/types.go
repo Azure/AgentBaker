@@ -121,6 +121,7 @@ type ScenarioRuntime struct {
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
 	VMSSName      string
+	KubeNodeName  string
 	SSHKeyPublic  []byte
 	SSHKeyPrivate []byte
 	VMPrivateIP   string

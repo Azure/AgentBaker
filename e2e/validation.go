@@ -9,19 +9,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ValidateNodeHealth(ctx context.Context, s *Scenario) string {
-	nodeName := waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
-	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
+func ValidatePodRunning(ctx context.Context, s *Scenario) {
+	testPodName := fmt.Sprintf("test-pod-%s", s.Runtime.KubeNodeName)
 	testPodManifest := ""
 	if s.VHD.OS == config.OSWindows {
-		testPodManifest = getHTTPServerTemplateWindows(testPodName, nodeName)
+		testPodManifest = getHTTPServerTemplateWindows(testPodName, s.Runtime.KubeNodeName)
 	} else {
-		testPodManifest = getHTTPServerTemplate(testPodName, nodeName, s.Tags.Airgap)
+		testPodManifest = getHTTPServerTemplate(testPodName, s.Runtime.KubeNodeName, s.Tags.Airgap)
 	}
 	err := ensurePod(ctx, s.T, defaultNamespace, s.Runtime.Cluster.Kube, testPodName, testPodManifest)
-	require.NoError(s.T, err, "failed to validate node health, unable to ensure test pod on node %q", nodeName)
-	s.T.Logf("node health validation: test pod %q is running on node %q", testPodName, nodeName)
-	return nodeName
+	require.NoError(s.T, err, "failed to validate node health, unable to ensure test pod on node %q", s.Runtime.KubeNodeName)
+	s.T.Logf("node health validation: test pod %q is running on node %q", testPodName, s.Runtime.KubeNodeName)
 }
 
 func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
