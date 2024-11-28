@@ -25,7 +25,7 @@ import (
 // the test results are unreliable, as there can be a version mismatch between the binary and the rest content of VHD image
 // it's intended to be used for quick testing without rebuilding VHD images
 // mostly executed locally
-func Test_ubuntu2204AKSNodeController(t *testing.T) {
+func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 	ctx := newTestCtx(t)
 	if !config.Config.EnableAKSNodeControllerTest {
 		t.Skip("ENABLE_AKS_NODE_CONTROLLER_TEST is not set")

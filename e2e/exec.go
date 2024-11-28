@@ -115,11 +115,9 @@ func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) stri
 	return fmt.Sprintf("%s.%s", id, token)
 }
 
-func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
+func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
-	if !isShellBuiltIn {
-		sshCommand = sshCommand + " sudo"
-	}
+	sshCommand = sshCommand + " sudo"
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)

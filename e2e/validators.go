@@ -12,21 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func DirectoryValidator(path string, files []string) *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: fmt.Sprintf("assert %s contents", path),
-		Command:     fmt.Sprintf("ls -la %s", path),
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
-			for _, file := range files {
-				if !strings.Contains(stdout, file) {
-					return fmt.Errorf("expected to find file %s within directory %s, but did not", file, path)
-				}
-			}
-			return nil
-		},
+func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
+	command := fmt.Sprintf("ls -la %s", path)
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
+	for _, file := range files {
+		require.Contains(s.T, execResult.stdout.String(), file, "expected to find file %s within directory %s, but did not", file, path)
 	}
 }
 
@@ -155,13 +146,21 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	}
 }
 
+func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
+	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, s.Runtime.Cluster.Kube, s.Runtime.VMSSName, s.T)
+	require.NoError(s.T, err, "failed to get non host debug pod name")
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, "default", nonHostPodName, cmd)
+	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
+	return execResult
+}
+
 func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecResult {
 	// TODO: cache it
 	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
 	hostPodName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
 	require.NoError(s.T, err, "failed to get host network debug pod name")
-	result, err := execOnVM(ctx, s.Runtime.Cluster.Kube, vmPrivateIP, hostPodName, string(s.Runtime.SSHKeyPrivate), cmd, false)
+	result, err := execOnVM(ctx, s.Runtime.Cluster.Kube, vmPrivateIP, hostPodName, string(s.Runtime.SSHKeyPrivate), cmd)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -195,37 +194,22 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 	}
 }
 
-// K8s 1.29+ should set --node-ip in kubelet flags due to behavior change in
-// https://github.com/kubernetes/kubernetes/pull/121028
-func kubeletNodeIPValidator() *LiveVMValidator {
-	return &LiveVMValidator{
-		Description: "assert /etc/default/kubelet has --node-ip flag set",
-		Command:     "cat /etc/default/kubelet",
-		Asserter: func(code, stdout, stderr string) error {
-			if code != "0" {
-				return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-			}
+func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
+	execResult := execOnVMForScenario(ctx, s, "cat /etc/default/kubelet")
+	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
 
-			// Search for "--node-ip" flag and its value.
-			matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
-			if matches == nil || len(matches) < 2 {
-				return fmt.Errorf("could not find kubelet flag --node-ip")
-			}
+	// Search for "--node-ip" flag and its value.
+	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(execResult.stdout.String())
+	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip")
+	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip")
 
-			ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
-			if len(ipAddresses) == 0 || len(ipAddresses) > 2 {
-				return fmt.Errorf("expected one or two --node-ip addresses, but got %d", len(ipAddresses))
-			}
+	ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
+	require.GreaterOrEqual(s.T, len(ipAddresses), 1, "expected at least one --node-ip address, but got none")
+	require.LessOrEqual(s.T, len(ipAddresses), 2, "expected at most two --node-ip addresses, but got %d", len(ipAddresses))
 
-			// Check that each IP is a valid address.
-			for _, ipAddress := range ipAddresses {
-				if parsedIP := net.ParseIP(ipAddress); parsedIP == nil {
-					return fmt.Errorf("--node-ip value %q is not a valid IP address", ipAddress)
-				}
-			}
-
-			return nil
-		},
+	// Check that each IP is a valid address.
+	for _, ipAddress := range ipAddresses {
+		require.NotNil(s.T, net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address", ipAddress)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -39,51 +38,11 @@ func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName 
 	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
-func runLiveVMValidators(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, scenario *Scenario) error {
-	// TODO: test something
-	if scenario.VHD.OS == config.OSWindows {
-		return nil
-	}
-	hostPodName, err := getHostNetworkDebugPodName(ctx, scenario.Runtime.Cluster.Kube, t)
-	if err != nil {
-		return fmt.Errorf("while running live validator for node %s, unable to get debug pod name: %w", vmssName, err)
-	}
+func ValidateCommonLinux(ctx context.Context, s *Scenario) {
+	execResult := execOnVMForScenario(ctx, s, "cat /etc/default/kubelet")
+	require.Equal(s.T, "0", execResult.exitCode, "cat /etc/default/kubelet failed with exit code %q", execResult.exitCode)
+	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet")
 
-	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, scenario.Runtime.Cluster.Kube, vmssName, t)
-	if err != nil {
-		return fmt.Errorf("while running live validator for node %s, unable to get non host debug pod name: %w", vmssName, err)
-	}
-
-	validators := commonLiveVMValidators(ctx, scenario)
-
-	for _, validator := range validators {
-		t.Logf("running live VM validator on %s: %q", vmssName, validator.Description)
-
-		var execResult *podExecResult
-		var err error
-		// Non Host Validators - meaning we want to execute checks through a pod which is NOT connected to host's network
-		if validator.IsPodNetwork {
-			execResult, err = execOnUnprivilegedPod(ctx, scenario.Runtime.Cluster.Kube, "default", nonHostPodName, validator.Command)
-		} else {
-			execResult, err = execOnVM(ctx, scenario.Runtime.Cluster.Kube, privateIP, hostPodName, sshPrivateKey, validator.Command, validator.IsShellBuiltIn)
-		}
-		if err != nil {
-			return fmt.Errorf("unable to execute validator on node %s command %q: %w", vmssName, validator.Command, err)
-		}
-
-		if validator.Asserter != nil {
-			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
-			if err != nil {
-				execResult.dumpAll(t)
-				return fmt.Errorf("failed validator on node %s assertion: %w", vmssName, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func ValidateCommon(ctx context.Context, s *Scenario) {
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
 		"net.core.message_burst":            "80",
@@ -94,76 +53,30 @@ func ValidateCommon(ctx context.Context, s *Scenario) {
 		"net.ipv4.neigh.default.gc_thresh2": "8192",
 		"net.ipv4.neigh.default.gc_thresh3": "16384",
 	})
-}
 
-func commonLiveVMValidators(ctx context.Context, scenario *Scenario) []*LiveVMValidator {
-	validators := []*LiveVMValidator{
-		{
-			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
-			Command:     "cat /etc/default/kubelet",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "0" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-				}
-				if strings.Contains(stdout, "--dynamic-config-dir") {
-					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
-				}
-				return nil
-			},
-		},
-		DirectoryValidator(
-			"/var/log/azure/aks",
-			[]string{
-				"cluster-provision.log",
-				"cluster-provision-cse-output.log",
-				"cloud-init-files.paved",
-				"vhd-install.complete",
-				//"cloud-config.txt", // file with UserData
-			},
-		),
-		// this check will run from host's network - we expect it to succeed
-		{
-			Description: "check that curl to wireserver succeeds from host's network",
-			Command:     "curl http://168.63.129.16:32526/vmSettings",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "0" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 0 (succeeded)", code)
-				}
-				return nil
-			},
-		},
-		// CURL goes to port 443 by default for HTTPS
-		{
-			Description: "curl to wireserver shouldn't succeed",
-			Command:     "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "28" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
-				}
-				return nil
-			},
-			IsPodNetwork: true,
-		},
-		{
-			Description: "curl to wireserver port 32526 shouldn't succeed",
-			Command:     "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "28" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 28 (CURL timeout)", code)
-				}
-				return nil
-			},
-			IsPodNetwork: true,
-		},
-	}
-	ValidateLeakedSecrets(ctx, scenario)
+	ValidateDirectoryContent(ctx, s, "/var/log/azure/aks", []string{
+		"cluster-provision.log",
+		"cluster-provision-cse-output.log",
+		"cloud-init-files.paved",
+		"vhd-install.complete",
+		//"cloud-config.txt", // file with UserData
+	})
+
+	execResult = execOnVMForScenario(ctx, s, "curl http://168.63.129.16:32526/vmSettings")
+	require.Equal(s.T, "0", execResult.exitCode, "curl to wireserver failed")
+
+	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
+	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
+
+	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
+	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
+
+	ValidateLeakedSecrets(ctx, s)
 
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
-	if scenario.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
-		validators = append(validators, kubeletNodeIPValidator())
+	if s.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
+		ValidateKubeletNodeIP(ctx, s)
 	}
-
-	return validators
 }
 
 func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {

@@ -147,19 +147,19 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 
 	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
-
 	if s.Config.Validator != nil {
 		s.Config.Validator(ctx, s)
 	}
 
 	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
-	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(s.Runtime.SSHKeyPrivate), s)
-	require.NoError(s.T, err)
+	switch s.VHD.OS {
+	case config.OSWindows:
+		// TODO: validate something
+	default:
+		ValidateCommonLinux(ctx, s)
 
-	ValidateCommon(ctx, s)
-
-	s.T.Logf("node %s bootstrapping succeeded!", s.Runtime.VMSSName)
+	}
+	s.T.Log("validation succeeded")
 }
 
 func getExpectedPackageVersions(packageName, distro, release string) []string {

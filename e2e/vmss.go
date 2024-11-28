@@ -131,7 +131,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	for file, sourceCmd := range commandList {
 		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
 
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd, false)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
 			s.T.Logf("error fetching logs for %s: %s", file, err)
 			continue
