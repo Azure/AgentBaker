@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 )
 
-func (s *Scenario) validateNodeHealth(ctx context.Context) string {
+func ValidateNodeHealth(ctx context.Context, s *Scenario) string {
 	nodeName := waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
 	testPodName := fmt.Sprintf("test-pod-%s", nodeName)
 	testPodManifest := ""
@@ -25,17 +24,17 @@ func (s *Scenario) validateNodeHealth(ctx context.Context) string {
 	return nodeName
 }
 
-func validateWasm(ctx context.Context, t *testing.T, kube *Kubeclient, nodeName string) {
-	t.Logf("wasm scenario: running wasm validation on %s...", nodeName)
+func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
+	s.T.Logf("wasm scenario: running wasm validation on %s...", nodeName)
 	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
-	err := createRuntimeClass(ctx, kube, spinClassName, wasmHandlerSpin)
-	require.NoError(t, err)
-	err = ensureWasmRuntimeClasses(ctx, kube)
-	require.NoError(t, err)
+	err := createRuntimeClass(ctx, s.Runtime.Cluster.Kube, spinClassName, wasmHandlerSpin)
+	require.NoError(s.T, err)
+	err = ensureWasmRuntimeClasses(ctx, s.Runtime.Cluster.Kube)
+	require.NoError(s.T, err)
 	spinPodName := fmt.Sprintf("wasm-spin-%s", nodeName)
 	spinPodManifest := getWasmSpinPodTemplate(spinPodName, nodeName)
-	err = ensurePod(ctx, t, defaultNamespace, kube, spinPodName, spinPodManifest)
-	require.NoError(t, err, "unable to ensure wasm pod on node %q", nodeName)
+	err = ensurePod(ctx, s.T, defaultNamespace, s.Runtime.Cluster.Kube, spinPodName, spinPodManifest)
+	require.NoError(s.T, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
