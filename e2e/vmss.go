@@ -103,7 +103,7 @@ func cleanupVMSS(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVM(ctx context.Context, s *Scenario) {
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		extractLogsFromVMWindows(ctx, s)
 	} else {
 		extractLogsFromVMLinux(ctx, s)
@@ -131,7 +131,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	for file, sourceCmd := range commandList {
 		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
 
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd, false)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
 			s.T.Logf("error fetching logs for %s: %s", file, err)
 			continue
@@ -422,7 +422,7 @@ func generateVMSSNameWindows(t *testing.T) string {
 }
 
 func generateVMSSName(s *Scenario) string {
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		return generateVMSSNameWindows(s.T)
 	}
 	return generateVMSSNameLinux(s.T)
@@ -518,7 +518,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 			},
 		}
 	}
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
 			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
 			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{

@@ -90,7 +90,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.Name = t.Name()
-	s.Tags.OS = s.VHD.OS
+	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	if config.Config.TagsToRun != "" {
@@ -121,42 +121,46 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
+	t.Logf("running scenario vhd: %q, tags %+v", vhd, s.Tags)
 }
 
 func createAndValidateVM(ctx context.Context, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
-	rid, _ := s.VHD.VHDResourceID(ctx, s.T)
-
-	s.T.Logf("running scenario %q with image %q in aks cluster %q", s.T.Name(), rid, *s.Runtime.Cluster.Model.ID)
 
 	createVMSS(ctx, s)
 
 	err := getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
-
 	s.T.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", s.Runtime.VMSSName)
-	nodeName := s.validateNodeHealth(ctx)
 
+	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
+	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
+
+	ValidatePodRunning(ctx, s)
+
+	// test-specific validation
+	if s.Config.Validator != nil {
+		s.Config.Validator(ctx, s)
+	}
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
 	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		validateWasm(ctx, s.T, s.Runtime.Cluster.Kube, nodeName)
+		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
-		validateWasm(ctx, s.T, s.Runtime.Cluster.Kube, nodeName)
+		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 
-	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
-
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, s)
-
 	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
-	err = runLiveVMValidators(ctx, s.T, s.Runtime.VMSSName, vmPrivateIP, string(s.Runtime.SSHKeyPrivate), s)
-	require.NoError(s.T, err)
+	switch s.VHD.OS {
+	case config.OSWindows:
+		// TODO: validate something
+	default:
+		ValidateCommonLinux(ctx, s)
 
-	s.T.Logf("node %s bootstrapping succeeded!", s.Runtime.VMSSName)
+	}
+	s.T.Log("validation succeeded")
 }
 
 func getExpectedPackageVersions(packageName, distro, release string) []string {
@@ -197,7 +201,7 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 			}
 			for _, extension := range instanceViewResp.Extensions {
 				for _, status := range extension.Statuses {
-					if s.VHD.Windows() {
+					if s.VHD.OS == config.OSWindows {
 						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
 							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
 						}
@@ -209,9 +213,8 @@ func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
 							return fmt.Errorf("Parse CSE message with error, error %w", err)
 						}
 						if resp.ExitCode != "0" {
-							return fmt.Errorf("vmssCSE %s, output=%s, error=%s", resp.ExitCode, resp.Output, resp.Error)
+							return fmt.Errorf("vmssCSE %s, output=%s, error=%s, cse output: %s", resp.ExitCode, resp.Output, resp.Error, *status.Message)
 						}
-						s.T.Logf("CSE completed successfully with exit code 0, cse output: %s", *status.Message)
 						return nil
 					}
 				}

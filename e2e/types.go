@@ -121,8 +121,11 @@ type ScenarioRuntime struct {
 	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
 	VMSSName      string
+	KubeNodeName  string
 	SSHKeyPublic  []byte
 	SSHKeyPrivate []byte
+	VMPrivateIP   string
+	HostPodName   string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -142,36 +145,8 @@ type Config struct {
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
-	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
-	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators []*LiveVMValidator
-}
-
-// VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
-// as strings and performs arbitrary assertions on them, returning an error in the case where the assertion fails
-type VMCommandOutputAsserterFn func(code, stdout, stderr string) error
-
-// LiveVMValidator represents a command to be run on a live VM after
-// node bootstrapping has succeeded that generates output which can be asserted against
-// to make sure that the live VM itself is in the correct state
-type LiveVMValidator struct {
-	// Description is the description of the validator and what it actually validates on the VM
-	Description string
-
-	// Command is the command string to be run on the live VM after node bootstrapping has succeeed
-	Command string
-
-	// Asserter is the validator's VMCommandOutputAsserterFn which will be run against command output
-	Asserter VMCommandOutputAsserterFn
-
-	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
-	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
-	IsShellBuiltIn bool
-
-	// TODO - extract this out of LiveVMValidator into a separate Pod level validator
-	// IsPodNetwork is a boolean flags which indicates whether or not the validator should run on a pod that is NOT using
-	// host's network interface. For example when testing connectivity from user pods to certain endpoints, we will set it to true
-	IsPodNetwork bool
+	// Validator is a function where the scenario can perform any extra validation checks
+	Validator func(ctx context.Context, s *Scenario)
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -182,6 +157,7 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
 	resourceID, err := s.VHD.VHDResourceID(ctx, t)
+	t.Logf("using %q for VHD", resourceID)
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
@@ -231,7 +207,7 @@ func (s *Scenario) PrepareRuntime(ctx context.Context) {
 	}
 
 	nbc := getBaseNBC(cluster, s.VHD)
-	if s.VHD.Windows() {
+	if s.VHD.OS == config.OSWindows {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
 	}
 
@@ -246,5 +222,9 @@ func (s *Scenario) PrepareRuntime(ctx context.Context) {
 	}
 
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
-	require.NoError(s.T, err)
+	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err, "failed to get VM private IP address")
+
+	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	require.NoError(s.T, err, "failed to get host network debug pod name")
 }
