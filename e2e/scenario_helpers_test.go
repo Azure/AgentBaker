@@ -84,8 +84,53 @@ func RunScenario(t *testing.T, s *Scenario) {
 	t.Parallel()
 	ctx := newTestCtx(t)
 	maybeSkipScenario(ctx, t, s)
-	s.PrepareRuntime(ctx)
-	createAndValidateVM(ctx, s)
+	cluster, err := s.Config.Cluster(ctx, s.T)
+	require.NoError(s.T, err)
+	s.Runtime = &ScenarioRuntime{
+		Cluster: cluster,
+	}
+	// use shorter timeout for faster feedback on test failures
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
+	defer cancel()
+	prepareAKSNode(ctx, s)
+	validateVM(ctx, s)
+}
+
+func prepareAKSNode(ctx context.Context, s *Scenario) {
+	s.Runtime.VMSSName = generateVMSSName(s)
+	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
+		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+	}
+
+	nbc := getBaseNBC(s.Runtime.Cluster, s.VHD)
+	if s.VHD.OS == config.OSWindows {
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
+	}
+
+	if s.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator(nbc)
+		s.Runtime.NBC = nbc
+	}
+	if s.AKSNodeConfigMutator != nil {
+		nodeconfig := nbcToAKSNodeConfigV1(nbc)
+		s.AKSNodeConfigMutator(nodeconfig)
+		s.Runtime.AKSNodeConfig = nodeconfig
+	}
+	var err error
+	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
+	require.NoError(s.T, err)
+	createVMSS(ctx, s)
+	err = getCustomScriptExtensionStatus(ctx, s)
+	require.NoError(s.T, err)
+	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
+
+	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
+	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
+
+	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err, "failed to get VM private IP address")
+	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	require.NoError(s.T, err, "failed to get host network debug pod name")
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -124,19 +169,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("running scenario vhd: %q, tags %+v", vhd, s.Tags)
 }
 
-func createAndValidateVM(ctx context.Context, s *Scenario) {
-	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
-	defer cancel()
-
-	createVMSS(ctx, s)
-
-	err := getCustomScriptExtensionStatus(ctx, s)
-	require.NoError(s.T, err)
-	s.T.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", s.Runtime.VMSSName)
-
-	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
-	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
-
+func validateVM(ctx context.Context, s *Scenario) {
 	ValidatePodRunning(ctx, s)
 
 	// test-specific validation
@@ -152,7 +185,6 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 
-	require.NoError(s.T, err, "get vm private IP %v", s.Runtime.VMSSName)
 	switch s.VHD.OS {
 	case config.OSWindows:
 		// TODO: validate something

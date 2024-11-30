@@ -192,39 +192,3 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
 }
-
-func (s *Scenario) PrepareRuntime(ctx context.Context) {
-	cluster, err := s.Config.Cluster(ctx, s.T)
-	require.NoError(s.T, err)
-
-	s.Runtime = &ScenarioRuntime{
-		Cluster:  cluster,
-		VMSSName: generateVMSSName(s),
-	}
-
-	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
-	}
-
-	nbc := getBaseNBC(cluster, s.VHD)
-	if s.VHD.OS == config.OSWindows {
-		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
-	}
-
-	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
-	}
-	if s.AKSNodeConfigMutator != nil {
-		nodeconfig := nbcToAKSNodeConfigV1(nbc)
-		s.AKSNodeConfigMutator(nodeconfig)
-		s.Runtime.AKSNodeConfig = nodeconfig
-	}
-
-	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err, "failed to get VM private IP address")
-
-	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
-}
