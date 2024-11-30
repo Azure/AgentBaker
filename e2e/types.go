@@ -222,9 +222,4 @@ func (s *Scenario) PrepareRuntime(ctx context.Context) {
 	}
 
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err, "failed to get VM private IP address")
-
-	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
 }

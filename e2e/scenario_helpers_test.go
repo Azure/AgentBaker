@@ -137,6 +137,12 @@ func createAndValidateVM(ctx context.Context, s *Scenario) {
 	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
 	s.T.Logf("node %s is ready, proceeding with validation commands...", s.Runtime.VMSSName)
 
+	// This is ugly to modify runtime in one step and expect in another. Maybe there is a better way to do this.
+	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err, "failed to get VM private IP address")
+	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	require.NoError(s.T, err, "failed to get host network debug pod name")
+
 	ValidatePodRunning(ctx, s)
 
 	// test-specific validation
