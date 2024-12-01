@@ -230,6 +230,14 @@ steps:
     condition: always()
     displayName: Check Build Performance
 
+#  - bash: make -f packer.mk generate-sas
+#    displayName: Getting Shared Access Signature URI
+#    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+#    env:
+#      RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+#      STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
+#      OFFER_NAME: $(OS_SKU)
+
   - bash: make -f packer.mk generate-publishing-info
     displayName: Generate Publishing Info
     condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
@@ -252,6 +260,17 @@ steps:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+#  - task: UniversalPackages@0
+#    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+#    displayName: Universal Publish
+#    inputs:
+#      command: publish
+#      publishDirectory: 'vhd-publishing-info.json'
+#      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
+#      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
+#      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
+#      versionOption: minor
 
   - task: PublishPipelineArtifact@0
     condition: succeeded()

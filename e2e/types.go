@@ -153,6 +153,10 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 
 }
 
+// VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
+// as strings and performs arbitrary assertions on them, returning an error in the case where the assertion fails
+type VMCommandOutputAsserterFn func(code, stdout, stderr string) error
+
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
@@ -191,4 +195,46 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
+}
+
+func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
+	cluster, err := s.Config.Cluster(ctx, t)
+	require.NoError(t, err)
+
+	s.Runtime = &ScenarioRuntime{
+		Cluster: cluster,
+	}
+
+	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
+		t.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+	}
+
+	if s.BootstrapConfigMutator != nil {
+		nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
+		require.NoError(t, err)
+		nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+		s.BootstrapConfigMutator(nbc)
+		s.Runtime.NBC = nbc
+	}
+	if s.AKSNodeConfigMutator != nil {
+		configAny, err := deepcopy.Anything(cluster.AKSNodeConfig)
+		require.NoError(t, err)
+		config := configAny.(*nbcontractv1.Configuration)
+		s.AKSNodeConfigMutator(config)
+		s.Runtime.AKSNodeConfig = config
+	}
+}
+
+// PrepareNodeBootstrappingConfiguration scenario's BootstrapConfigMutator on it, if configured.
+func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+	// avoid mutating cluster config
+	nbcAny, err := deepcopy.Anything(nbc)
+	if err != nil {
+		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
+	}
+	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
+	if s.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator(nbc)
+	}
+	return nbc, nil
 }
