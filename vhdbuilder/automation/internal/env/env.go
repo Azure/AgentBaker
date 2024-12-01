@@ -4,15 +4,15 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-var Variables = mustLoad()
+var Vars = mustLoadVariables()
 
-type Environment struct {
-	ADOPAT     string `env:"ADO_PAT"`
-	VHDBuildID string `env:"VHD_BUILD_ID"`
+type Variables struct {
+	ADOPAT    string `env:"ADO_PAT"`
+	GitHubPAT string `env:"GITHUB_PAT"`
 }
 
-func mustLoad() Environment {
-	e := Environment{}
+func mustLoadVariables() Variables {
+	e := Variables{}
 	if err := env.Parse(&e); err != nil {
 		panic(err)
 	}
