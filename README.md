@@ -1,59 +1,42 @@
-# Agentbaker
+# AgentBaker
 
 [![Coverage Status](https://coveralls.io/repos/github/Azure/AgentBaker/badge.svg?branch=master)](https://coveralls.io/github/Azure/AgentBaker?branch=master)
 
-Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
-
-Agentbaker has a few pieces
+AgentBaker is a collection of components used to provision Kubernetes nodes in Azure. It contains:
 
 - Packer templates and scripts to build VM images.
 - A set of templates and a public API to render those templates given input config.
 - An API to retrieve the latest VM image version for new clusters.
 
-The primary consumer of Agentbaker is Azure Kubernetes Service (AKS).
-
-AKS uses Agentbaker to provision Linux and Windows Kubernetes nodes.
+The primary consumer of AgentBaker is Azure Kubernetes Service (AKS). AKS uses AgentBaker to provision Linux and Windows Kubernetes nodes.
 
 ## Contributing
 
-Developing agentbaker requires a few basic requisites:
+Developing AgentBaker requires a few basic requisites:
 
-- Go (at least version 1.19)
+- Go (at least version 1.22)
 - Make
 
-Run `make -C hack/tools install` to install all development tools.
-
-If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`.
-
-This re-runs code to embed static files in Go code, which is what will actually be used at runtime.
-
-This additionally runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
+If you change code or artifacts used to generate custom data or custom script extension payloads, you should run `make`. 
+- it runs code to embed static files in Go, which will be used at runtime;
+- it runs unit tests (equivalent of `go test ./...`) and regenerates snapshot testdata.
 
 ## Style
 
 We use [golangci-lint](https://golangci-lint.run/) to enforce style.
 
-Run `make -C hack/tools install` to install the linter.
+```shell
+# to install the linter
+make -C hack/tools install
+# run the linter
+./hack/tools/bin/golangci-lint run
+```
 
-Run `./hack/tools/bin/golangci-lint run` to run the linter.
+There are currently have many failures we hope to eliminate. Currently we enforce  [job to run golangci-lint on pull requests](), which uses the linters "no-new-issues" feature. As long as PRs don't introduce net new issues, they should pass.
 
-We currently have many failures we hope to eliminate.
+AgentBaker repo adheres to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/). There is a linting job to enforce commit message style. 
 
-We have [job to run golangci-lint on pull requests]().
-
-This job uses the linters "no-new-issues" feature.
-
-As long as PRs don't introduce net new issues, they should pass.
-
-We also have a linting job to enforce commit message style.
-
-We adhere to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/).
-
-Prefer pull requests with single commits.
-
-To clean up in-progress commits, you can use `git rebase -i` to fixup commits.
-
-See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History#_squashing) for more details.
+Prefer pull requests with single commits. To clean up in-progress commits, you can use `git rebase -i` to fixup commits. See the [git documentation](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History#_squashing) for more details.
 
 ## Testing
 
