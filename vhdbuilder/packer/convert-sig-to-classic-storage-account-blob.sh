@@ -72,7 +72,7 @@ elif [[ ${OS_TYPE} == "Linux" && ${IMG_SKU} == "20_04-lts-cvm" ]]; then
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
       \"securityProfile\": { \
-        \"securityType\": \"ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey\" \
+        \"securityType\": \"TrustedLaunch\" \
       }, \
       \"creationData\": { \
         \"createOption\": \"FromImage\", \
