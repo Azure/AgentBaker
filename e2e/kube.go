@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -283,4 +284,68 @@ func podWASMSpin(s *Scenario) *corev1.Pod {
 			},
 		},
 	}
+}
+
+func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-validation-pod", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "gpu-validation-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							"nvidia.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+			RestartPolicy: corev1.RestartPolicyNever,
+		},
+	}
+}
+
+func podEnableNvidiaResource(s *Scenario) *corev1.Pod {
+	enableNvidiaPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-enable-nvidia-device-plugin", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			PriorityClassName: "system-node-critical",
+			Containers: []corev1.Container{
+				{
+					Name:  "nvidia-device-plugin-ctr",
+					Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+		},
+	}
+	return enableNvidiaPod
 }
