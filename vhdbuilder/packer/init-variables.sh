@@ -176,7 +176,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		fi
 		if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-			SIG_IMAGE_NAME+="Specialized"
+			SIG_IMAGE_NAME+="TrustedLaunchTest"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -269,7 +269,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+        TARGET_COMMAND_STRING+="--features SecurityType=TrustedLaunchSupported"
       fi
 
       az sig image-definition create \

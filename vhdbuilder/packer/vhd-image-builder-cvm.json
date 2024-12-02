@@ -1,7 +1,7 @@
 {
   "variables": {
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
-    "cvm_location": "{{env `CVM_PACKER_BUILD_LOCATION`}}",
+    "location": "{{env `PACKER_BUILD_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
     "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
     "build_number": "{{env `BUILD_NUMBER`}}",
@@ -56,7 +56,7 @@
         "image_sku": "{{user `img_sku`}}",
         "branch": "{{user `branch`}}"
       },
-      "location": "{{user `cvm_location`}}",
+      "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
       "managed_image_storage_account_type": "Premium_LRS",
