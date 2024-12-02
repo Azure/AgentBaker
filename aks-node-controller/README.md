@@ -1,55 +1,58 @@
 # AKS Node Controller
 
-This directory contains files related to AKS Node Controller go binary.
-
 ## Overview
 
-AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller expects a predefined contract from the client of type [`AKSNodeConfig`](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1) containing the bootstrap configuration. The controller has two primary functions: 1. Parse the bootstrap config and kickstart bootstrapping and 2. Monitor the completion status. 
+AKS Node Controller is a go binary that is responsible for bootstrapping AKS nodes. The controller expects a predefined contract from the client of type [`aksnodeconfigv1.Configuration`](pkg/gen/aksnodeconfig/v1).
 
-AKS Node Controller relies on two Azure mechanisms to inject the necessary data at provisioning time for bootstrapping: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1).
+AKS Node Controller relies on two Azure mechanisms for injecting the necessary bootstrap data during provisioning: [`Custom Script Extension (CSE)`](https://learn.microsoft.com/en-us/azure/virtual-machines/extensions/custom-script-linux) and [`Custom Data`](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data}). The bootstrapper should use `GetNodeBootstrapping` which returns the corresponding `CustomData` and `CSE` based on the given `AKSNodeConfig`. For guidance on populating the config, please refer to this [doc](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1).
 
 ## Usage
 
-Here is an example on how to retrieve node bootstrapping params and pass in the returned `CSE` and `CustomData` to CRP API for creating a VMSS instance.
+Here is an example of how to retrieve node bootstrapping parameters and use the returned `CSE` and `CustomData` for creating a Virtual Machine Scale Set (VMSS) instance via the CRP API.
 
 ```go
-builder := aksnodeconfigv1.NewAKSNodeConfigBuilder()
-builder.ApplyConfiguration(aksNodeConfig)
-nodeBootstrapping, err = builder.GetNodeBootstrapping()
+config := &aksnodeconfigv1.Configuration{
+    Version: "v0",
+    // fill in the rest of the fields
+}
+customData, err := nodeconfigutils.CustomData(config)
+if err != nil {
+    return err
+}
+
+cse := nodeconfigutils.CSE
 
 model := armcompute.VirtualMachineScaleSet{
     Properties: &armcompute.VirtualMachineScaleSetProperties{
         VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
             OSProfile: &armcompute.VirtualMachineScaleSetOSProfile{
-                CustomData:         &nodeBootstrapping.CustomData,
-                ...
-            }
-        },
-        VirtualMachineProfile: &armcompute.VirtualMachineScaleSetVMProfile{
-            Extensions: []*armcompute.VirtualMachineScaleSetExtension{
-                {
-                    Name: to.Ptr("vmssCSE"),
-                    Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
-                        Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
-                        Type:                    to.Ptr("CustomScript"),
-                        TypeHandlerVersion:      to.Ptr("2.0"),
-                        AutoUpgradeMinorVersion: to.Ptr(true),
-                        Settings:                map[string]interface{}{},
-                        ProtectedSettings: map[string]interface{}{
-                            "commandToExecute": nodeBootstrapping.CSE,
+                CustomData: &customData,
+            },
+            ExtensionProfile: &armcompute.VirtualMachineScaleSetExtensionProfile{
+                Extensions: []*armcompute.VirtualMachineScaleSetExtension{
+                    {
+                        Name: to.Ptr("vmssCSE"),
+                        Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
+                            Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
+                            Type:                    to.Ptr("CustomScript"),
+                            TypeHandlerVersion:      to.Ptr("2.0"),
+                            AutoUpgradeMinorVersion: to.Ptr(true),
+                            Settings:                map[string]interface{}{},
+                            ProtectedSettings: map[string]interface{}{
+                                "commandToExecute": cse,
+                            },
                         },
                     },
                 },
-            }
+            },
         },
-        ...
-    }
+    },
 }
 ```
 
 ### Extracting Provision Status
 
-The provision status can be extracted from the CSE response. CSE takes the stdout from the bootstrap scripts which contains information in the form [`datamodel.CSEStatus`](https://github.com/Azure/AgentBaker/blob/dev/pkg/agent/datamodel/types.go#L2189). You can find an example of how to parse the output [here](https://github.com/Azure/AgentBaker/blob/dev/e2e/scenario_helpers_test.go#L163).
+The provision status can be extracted from the CSE response. CSE takes the stdout from the bootstrap scripts which contains information in the form [`datamodel.CSEStatus`](https://github.com/Azure/AgentBaker/blob/dev/pkg/agent/datamodel/types.go#L2189).
 
 Here is an example response return by CSE:
 ```
@@ -81,9 +84,9 @@ Here is an example response return by CSE:
 
 Here is an indepth explanation of the provisioning flow. Upon first startup, CustomData is made available to the VM, after which cloud-init is able to process the content, in this case, writing the bootstrap config to disk. The binary is triggered by a systemd unit, [`aks-node-controller.service`](https://github.com/Azure/AgentBaker/blob/dev/parts/linux/cloud-init/artifacts/aks-node-controller.service) which is automatically run once cloud-init is complete. In this way, we are ensuring the bootstrapping config is present on the node and can proceeed to run the go binary to start the bootstrapping process.
 
-The content of `CustomData` and `CSE` that is returned by `GetNodeBootstrapping` is as follows:
+Clients need to provide CSE and Custom Data. [nodeconfigutils](pkg/nodeconfigutils) module contains helpers for generating these values.
 
-1. Custom Data: Contains base64 encoded bootstrap configuration of type [`AKSNodeConfig`](https://github.com/Azure/AgentBaker/tree/dev/pkg/proto/aksnodeconfig/v1) in json format which is placed on the node through cloud-init write directive.
+1. Custom Data: Contains base64 encoded bootstrap configuration of type [aksnodeconfigv1.Configuration](pkg/gen/aksnodeconfig/v1) in json format which is placed on the node through cloud-init write directive.
 
 Format:
 ```yaml
@@ -96,14 +99,35 @@ write_files:
    {{ encodedAKSNodeConfig }}`
 ```
 
-2. CSE: Script used to poll bootstrap status and return exit status once complete. 
+2. CSE: Script used to poll bootstrap status and return exit status once complete.
 
 CSE script: `/opt/azure/containers/aks-node-controller provision-wait`
 
 
 #### Provisioning flow diagram:
 
-![provisionFlowDiagram](../.github/images/scriptlessBootstrapFlow.png)
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant ARM as Azure Resource Manager (ARM)
+    participant VM as Virtual Machine (VM)
+
+    Client->>ARM: Request to create VM<br/>with CustomData & CSE
+    ARM->>VM: Deploy config.json<br/>(CustomData)
+    note over VM: cloud-init handles<br/>config.json deployment
+
+    note over VM: cloud-init completes processing
+    note over VM: Start aks-node-controller.service (systemd service)<br/> after cloud-init
+    VM->>VM: Run aks-node-controller<br/>(Go binary) in provision mode<br/>using config.json
+
+    ARM->>VM: Initiate aks-node-controller (Go binary)<br/>in provision-wait mode via CSE
+
+    loop Monitor provisioning status
+        VM->>VM: Check /opt/azure/containers/provision.complete
+    end
+
+    VM->>Client: Return CSE status with<br/>/var/log/azure/aks/provision.json content
+```
 
 Key components:
 

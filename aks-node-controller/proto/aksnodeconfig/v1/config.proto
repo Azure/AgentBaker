@@ -4,6 +4,7 @@ package aksnodeconfig.v1;
 
 import "aksnodeconfig/v1/api_server_config.proto";
 import "aksnodeconfig/v1/auth_config.proto";
+import "aksnodeconfig/v1/bootstrapping_config.proto";
 import "aksnodeconfig/v1/cluster_config.proto";
 import "aksnodeconfig/v1/containerd_config.proto";
 import "aksnodeconfig/v1/custom_cloud_config.proto";
@@ -17,7 +18,8 @@ import "aksnodeconfig/v1/kubelet_config.proto";
 import "aksnodeconfig/v1/network_config.proto";
 import "aksnodeconfig/v1/runc_config.proto";
 import "aksnodeconfig/v1/teleport_config.proto";
-import "aksnodeconfig/v1/tls_bootstrapping_config.proto";
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 enum WorkloadRuntime {
   WORKLOAD_RUNTIME_UNSPECIFIED = 0;
@@ -42,7 +44,7 @@ message Configuration {
   ClusterConfig cluster_config = 5;
 
   // TLS bootstrap config
-  TlsBootstrappingConfig tls_bootstrapping_config = 6;
+  BootstrappingConfig bootstrapping_config = 6;
 
   // Authentication configuration
   AuthConfig auth_config = 7;

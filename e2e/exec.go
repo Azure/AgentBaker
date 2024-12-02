@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 )
@@ -55,53 +55,15 @@ func (r podExecResult) dumpStderr(t *testing.T) {
 	}
 }
 
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
-	commandList := map[string]string{
-		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                      "journalctl -u kubelet",
-		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out":                   "sysctl -a",
-		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
-	}
-
-	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
-	}
-
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
-
-		execResult, err := execOnVM(ctx, cluster.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
-		if err != nil {
-			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
-			return nil, err
-		}
-		if execResult.stdout != nil {
-			out := execResult.stdout.String()
-			if out != "" {
-				result[file+".stdout.txt"] = out
-			}
-
-		}
-		if execResult.stderr != nil {
-			out := execResult.stderr.String()
-			if out != "" {
-				result[file+".stderr.txt"] = out
-			}
-		}
-	}
-	return result, nil
-}
-
 type ClusterParams struct {
 	CACert         []byte
 	BootstrapToken string
 	FQDN           string
+	APIServerCert  []byte
+	ClientKey      []byte
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) ClusterParams {
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
 	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
 	require.NoError(t, err)
 
@@ -109,11 +71,6 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	require.NoError(t, err)
 
 	bootstrapConfig := execResult.stdout.Bytes()
-	bootstrapToken, err := extractKeyValuePair("token", string(bootstrapConfig))
-	require.NoError(t, err)
-
-	bootstrapToken, err = strconv.Unquote(bootstrapToken)
-	require.NoError(t, err)
 
 	server, err := extractKeyValuePair("server", string(bootstrapConfig))
 	require.NoError(t, err)
@@ -126,18 +83,41 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
-	return ClusterParams{
+	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/apiserver.crt")
+	require.NoError(t, err)
+
+	clientKey, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/client.key")
+	require.NoError(t, err)
+
+	return &ClusterParams{
 		CACert:         caCert.stdout.Bytes(),
-		BootstrapToken: bootstrapToken,
+		BootstrapToken: getBootstrapToken(ctx, t, kube),
 		FQDN:           fqdn,
+		APIServerCert:  cmdAPIServer.stdout.Bytes(),
+		ClientKey:      clientKey.stdout.Bytes(),
 	}
 }
 
-func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
+func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {
+	secrets, err := kube.Typed.CoreV1().Secrets("kube-system").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	secret := func() *corev1.Secret {
+		for _, secret := range secrets.Items {
+			if strings.HasPrefix(secret.Name, "bootstrap-token-") {
+				return &secret
+			}
+		}
+		t.Fatal("could not find secret with bootstrap-token- prefix")
+		return nil
+	}()
+	id := secret.Data["token-id"]
+	token := secret.Data["token-secret"]
+	return fmt.Sprintf("%s.%s", id, token)
+}
+
+func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
 	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
-	if !isShellBuiltIn {
-		sshCommand = sshCommand + " sudo"
-	}
+	sshCommand = sshCommand + " sudo"
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
