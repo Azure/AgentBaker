@@ -203,6 +203,26 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
+          "latestVersion": "v1.13.18-241024"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
+          "latestVersion": "v1.14.15-241024",
+          "previousLatestVersion": "v1.14.15-241002"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
+          "latestVersion": "v1.16.2-241024",
+          "previousLatestVersion": "v1.16.2-241004"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
