@@ -23,8 +23,13 @@ function main() {
 
 function cleanup_rgs() {
     groups=$(az group list | jq -r --arg dl $DAY_AGO '.[] | select(.name | test("vhd-test*|vhd-scanning*|pkr-Resource-Group*")) | select(.tags.now < $dl).name'  | tr -d '\"' || "")
+    if [ -z "$groups" ]; then
+        echo "no resource groups found for garbage collection"
+        exit 0
+    fi
+
     for group in $groups; do
-        echo "resource group $group is more than 24 hours old"
+        echo "resource group $group is in-scope for garbage collection"
         group_object=$(az group show -g $group)
         tag_value=$(echo "$group_object" | jq -r --arg skipTagName $SKIP_TAG_NAME '.tags."\($skipTagName)"')
 
