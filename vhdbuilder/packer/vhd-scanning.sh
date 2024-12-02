@@ -72,6 +72,8 @@ fi
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
+    --admin-username $SCAN_VM_ADMIN_USERNAME \
+    --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --vnet-name $VNET_NAME \
     --subnet $SUBNET_NAME \
     --os-disk-size-gb 50 \
