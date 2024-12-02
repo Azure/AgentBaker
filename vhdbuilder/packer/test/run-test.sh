@@ -109,7 +109,7 @@ else
 
   if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5"
-    TARGET_COMMAND_STRING+=" --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized"
+    TARGET_COMMAND_STRING+=" --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
   fi
 
   az vm create \
