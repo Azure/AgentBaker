@@ -24,6 +24,7 @@ func Test_AzureLinuxV2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
@@ -189,6 +190,9 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
+			},
 		},
 	})
 }
@@ -212,6 +216,9 @@ func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})
@@ -405,11 +412,14 @@ func Test_MarinerV2_GPU(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableGPUDevicePluginIfNeeded = true
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})
@@ -434,6 +444,9 @@ func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})
@@ -541,6 +554,9 @@ func Test_Ubuntu1804_GPU(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
+			},
 		},
 	})
 }
@@ -564,6 +580,9 @@ func Test_Ubuntu1804_GPUAzureCNI(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})
@@ -782,6 +801,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
+				ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})
@@ -809,6 +829,7 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
+				ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})

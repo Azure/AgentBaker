@@ -10,6 +10,9 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -261,4 +264,70 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	require.Equal(s.T, "0", execResult.exitCode, "expected to find kubelet service logs, but did not")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
+}
+
+func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
+	s.T.Logf("validating pod using nvidia GPU")
+	// add "nvidia.com/gpu" resource to the node
+	enableNvidiaPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-enable-nvidia-device-plugin", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: v1.PodSpec{
+			PriorityClassName: "system-node-critical",
+			Containers: []v1.Container{
+				{
+					Name:  "nvidia-device-plugin-ctr",
+					Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+			},
+			Volumes: []v1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: v1.VolumeSource{
+						HostPath: &v1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+		},
+	}
+	ensurePod(ctx, s, enableNvidiaPod)
+
+	podName := fmt.Sprintf("%s-gpu-validation-pod", s.Runtime.KubeNodeName)
+	testPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: defaultNamespace,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:  "gpu-validation-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							"nvidia.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+			RestartPolicy: v1.RestartPolicyNever,
+		},
+	}
+	ensurePod(ctx, s, testPod)
 }

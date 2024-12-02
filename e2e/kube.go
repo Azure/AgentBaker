@@ -7,9 +7,13 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	v1 "k8s.io/api/apps/v1"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -90,77 +94,85 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, isAirgap bool) error {
-	// airgap set to false since acr does not exist during cluster creation
-	hostDS := getDebugDaemonsetTemplate(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
-	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
+	ds := daemonsetDebug(hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+	err := createDaemonset(ctx, kube, ds)
+	if err != nil {
 		return err
 	}
-	nonHostDS := getDebugDaemonsetTemplate(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
-	if err := createDebugDaemonset(ctx, kube, nonHostDS); err != nil {
+
+	nonHostDS := daemonsetDebug(podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	err = createDaemonset(ctx, kube, nonHostDS)
+	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getDebugDaemonsetTemplate(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
+func createDaemonset(ctx context.Context, kube *Kubeclient, ds *appsv1.DaemonSet) error {
+	desired := ds.DeepCopy()
+	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, ds, func() error {
+		ds = desired
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func daemonsetDebug(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", config.PrivateACRName)
 	}
-	t.Logf("using image %s for debug daemonset", image)
 
-	return fmt.Sprintf(`apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: &name %[1]s 
-  namespace: default
-  labels:
-    app: *name
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: *name
-  template:
-    metadata:
-      labels:
-        app: *name
-    spec:
-      hostNetwork: %[2]t 
-      nodeSelector:
-        kubernetes.azure.com/agentpool: %[3]s 
-      hostPID: true
-      containers:
-      - image: %[4]s
-        name: mariner
-        command: ["sleep", "infinity"]
-        resources:
-          requests: {}
-          limits: {}
-        securityContext:
-          privileged: true
-          capabilities:
-            add: ["SYS_PTRACE", "SYS_RAWIO"]
-`, deploymentName, isHostNetwork, targetNodeLabel, image)
-}
-
-func createDebugDaemonset(ctx context.Context, kube *Kubeclient, manifest string) error {
-	var ds v1.DaemonSet
-
-	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
-		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "DaemonSet",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deploymentName,
+			Namespace: "default",
+			Labels: map[string]string{
+				"app": deploymentName,
+			},
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": deploymentName,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": deploymentName,
+					},
+				},
+				Spec: corev1.PodSpec{
+					HostNetwork: isHostNetwork,
+					NodeSelector: map[string]string{
+						"kubernetes.azure.com/agentpool": targetNodeLabel,
+					},
+					HostPID: true,
+					Containers: []corev1.Container{
+						{
+							Image:   image,
+							Name:    "mariner",
+							Command: []string{"sleep", "infinity"},
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: to.Ptr(true),
+								Capabilities: &corev1.Capabilities{
+									Add: []corev1.Capability{"SYS_PTRACE", "SYS_RAWIO"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
-
-	desired := ds.DeepCopy()
-	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &ds, func() error {
-		ds = *desired
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to apply debug daemonset: %w for manifest %s", err, manifest)
-	}
-	return nil
 }
 
 func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *testing.T) (string, error) {
@@ -180,87 +192,95 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
+func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	if isAirgap {
+	if s.Tags.Airgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.PrivateACRName)
 	}
-
-	return fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %s
-spec:
-  containers:
-  - name: mariner
-    image: %s
-    imagePullPolicy: IfNotPresent
-    command: ["sh", "-c"]
-    args:
-    - |
-      mkdir -p /www &&
-      echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html &&
-      httpd -f -p 80 -h /www
-    ports:
-    - containerPort: 80
-  nodeSelector:
-    kubernetes.io/hostname: %s
-  readinessProbe:
-      periodSeconds: 1
-      httpGet:
-        path: /
-        port: 80
-`, podName, image, nodeName)
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "mariner",
+					Image: image,
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 80,
+						},
+					},
+					Command: []string{"sh", "-c"},
+					Args: []string{
+						"mkdir -p /www && echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html && httpd -f -p 80 -h /www",
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+		},
+	}
 }
 
-func getHTTPServerTemplateWindows(podName, nodeName string) string {
-	return fmt.Sprintf(`
-apiVersion: v1
-kind: Pod
-metadata:
-  name: %s
-spec:
-  containers:
-  - name: iis-container
-    image: mcr.microsoft.com/windows/servercore/iis
-    ports:
-    - containerPort: 80
-  nodeSelector:
-    kubernetes.io/hostname: %s
-  readinessProbe:
-      periodSeconds: 1
-      httpGet:
-        path: /
-        port: 80
-`, podName, nodeName)
-
+func podHTTPServerWindows(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "iis-container",
+					Image: "mcr.microsoft.com/windows/servercore/iis",
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 80,
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			ReadinessGates: []corev1.PodReadinessGate{
+				{
+					ConditionType: "httpGet",
+				},
+			},
+		},
+	}
 }
 
-func getWasmSpinPodTemplate(podName, nodeName string) string {
-	return fmt.Sprintf(`apiVersion: v1
-kind: Pod
-metadata:
-  name: %s
-spec:
-  runtimeClassName: wasmtime-spin
-  containers:
-  - name: spin-hello
-    image: ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1
-    imagePullPolicy: IfNotPresent
-    command: ["/"]
-    resources: # limit the resources to 128Mi of memory and 100m of CPU
-      limits:
-        cpu: 100m
-        memory: 128Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    readinessProbe:
-      periodSeconds: 1
-      httpGet:
-        path: /hello
-        port: 80
-  nodeSelector:
-    kubernetes.io/hostname: %s
-`, podName, nodeName)
+func podWASMSpin(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-wasm-spin", s.Runtime.KubeNodeName),
+			Namespace: "default",
+		},
+		Spec: corev1.PodSpec{
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			RuntimeClassName: to.Ptr("wasmtime-spin"),
+			Containers: []corev1.Container{
+				{
+					Name:  "spin-hello",
+					Image: "ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1",
+					ReadinessProbe: &corev1.Probe{
+						PeriodSeconds: 1,
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/hello",
+								Port: intstr.FromInt32(80),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
