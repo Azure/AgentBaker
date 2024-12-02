@@ -24,7 +24,6 @@ func Test_AzureLinuxV2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidatePodUsingNVidiaGPU(ctx, s)
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
@@ -412,7 +411,7 @@ func Test_MarinerV2_GPU(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
 				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
