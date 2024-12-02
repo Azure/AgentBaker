@@ -1296,7 +1296,7 @@ stages:
           echo "Looking into: $(Pipeline.Workspace)"
           
           # Search for all vhd-publishing-info.json files that are not in directories containing 'publishing-info'
-          find $(Pipeline.Workspace) -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
+          find . -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
             # Copy the vhd-publishing-info.json to the consolidated artifacts folder without the prefix
             cp "$filepath" "$(Pipeline.Workspace)/consolidated-artifacts/$(basename $filepath)"
             echo "Copied $filepath to $(Pipeline.Workspace)/consolidated-artifacts/$(basename $filepath)"
