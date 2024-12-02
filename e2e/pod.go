@@ -63,7 +63,7 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	s.T.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
-		err := kube.Typed.CoreV1().Pods("").Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
