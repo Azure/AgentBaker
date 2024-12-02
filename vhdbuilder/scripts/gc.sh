@@ -17,6 +17,8 @@ function main() {
 
     echo "garbage collecting ephemeral resource groups..."
     cleanup_rgs || exit $?
+
+    # TODO(cameissner): migrate linux VHD build back-fill deletion logic to this script
 }
 
 function cleanup_rgs() {
