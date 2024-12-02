@@ -54,7 +54,7 @@ type decodedValue struct {
 type cseVariableEncoding string
 
 const (
-	cseVariableEncodingGzip   cseVariableEncoding = "gzip"
+	cseVariableEncodingGzip cseVariableEncoding = "gzip"
 )
 
 type outputValidator func(*nodeBootstrappingOutput)
