@@ -288,22 +288,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/cilium/cilium:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/cilium/cilium",
-          "latestVersion": "1.13.13-4",
-          "previousLatestVersion": "1.13.13-3"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/cilium/cilium",
-          "latestVersion": "1.14.10-2",
-          "previousLatestVersion": "1.14.10-1"
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -558,24 +542,22 @@
       ]
     }
   ],
-
   "GPUContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "550.90.12-20241021235610"
-        }
+        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
+        "latestVersion": "550.90.12-20241021235610"
+      }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
-      "gpuVersion": { 
+      "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
         "latestVersion": "535.161.08-20241021235607"
       }
     }
   ],
-
   "Packages": [
     {
       "name": "oras",
@@ -801,8 +783,8 @@
                 "previousLatestVersion": "v1.29.9"
               },
               {
-                "k8sVersion": "1.30",         
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",       
+                "k8sVersion": "1.30",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.30.6",
                 "previousLatestVersion": "v1.30.5"
               },
