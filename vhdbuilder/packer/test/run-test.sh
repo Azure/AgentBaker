@@ -114,8 +114,6 @@ else
   az vm create \
       --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
       --name $VM_NAME \
-      --admin-username $SCAN_VM_ADMIN_USERNAME \
-      --admin-password $SCAN_VM_ADMIN_PASSWORD \
       --image $IMG_DEF \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
