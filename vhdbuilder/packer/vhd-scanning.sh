@@ -66,7 +66,7 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-    TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+    TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true --specialized true"
 fi
 
 az vm create --resource-group $RESOURCE_GROUP_NAME \
