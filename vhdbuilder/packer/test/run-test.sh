@@ -32,7 +32,7 @@ else
     exit 1
   fi
 fi
-az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
+az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
