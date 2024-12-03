@@ -1294,19 +1294,22 @@ stages:
           mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
           echo "Workspace: $(Pipeline.Workspace)"
           echo "Looking into: $(Pipeline.Workspace)"
+          echo "Expanded Pipeline.Workspace: $(Pipeline.Workspace)"
+          echo "PIPELINE_WORKSPACE: $PIPELINE_WORKSPACE"
 
           echo "checking find command"
-          find "$(Pipeline.Workspace)" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*"
+          find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*"
+          find_contents=$(find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*")
+          echo "$find_contents"
           
           # Search for all vhd-publishing-info.json files that are not in directories containing 'publishing-info'
-          find "$(Pipeline.Workspace)" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
-            # Copy the vhd-publishing-info.json to the consolidated artifacts folder without the prefix
-            cp "$filepath" "$(Pipeline.Workspace)/consolidated-artifacts/$(basename "$filepath")"
-            echo "Copied $filepath to $(Pipeline.Workspace)/consolidated-artifacts/$(basename "$filepath")"
+          find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
+              cp "$filepath" "$PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
+              echo "Copied $filepath to $PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
           done
           
           # List the contents of the consolidated artifacts directory
-          directory_contents=$(ls -l $(Pipeline.Workspace)/consolidated-artifacts)
+          directory_contents=$(ls -l "$PIPELINE_WORKSPACE/consolidated-artifacts")
           echo "$directory_contents"
         displayName: Move VHD publishing info to a consolidated folder
       - bash: bash .pipelines/scripts/setup_go.sh
