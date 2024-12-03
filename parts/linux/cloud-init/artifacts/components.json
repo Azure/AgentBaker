@@ -585,7 +585,7 @@
           "current": {
             "versionsV2": [
               {
-                "renovateTag": "<DO_NOT_UPDATE>",
+                "renovateTag": "OCI_registry=https://github.com, name=oras",
                 "latestVersion": "1.2.0"
               }
             ],
