@@ -206,14 +206,24 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
-		t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
-		return nil
-	}
-
-	// check if error is anything but not found
-	var azErr *azcore.ResponseError
-	if errors.As(err, &azErr) && azErr.StatusCode != 404 {
-		return fmt.Errorf("failed to get private ACR: %w", err)
+		err, recreateACR := checkCacheRules(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			return fmt.Errorf("failed to check cache rules: %w", err)
+		}
+		if !recreateACR {
+			t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
+			return nil
+		}
+		t.Logf("Private ACR exists with the wrong cache deleting...")
+		if err := deletePrivateAzureContainerRegistry(ctx, t, resourceGroup, privateACRName); err != nil {
+			return fmt.Errorf("failed to delete private acr: %w", err)
+		}
+	} else {
+		// check if error is anything but not found
+		var azErr *azcore.ResponseError
+		if errors.As(err, &azErr) && azErr.StatusCode != 404 {
+			return fmt.Errorf("failed to get private ACR: %w", err)
+		}
 	}
 
 	t.Logf("ACR does not exist, creating...")
@@ -247,6 +257,33 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
 	return nil
+}
+
+func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
+	t.Logf("Deleting private Azure Container Registry in rg %s\n", resourceGroup)
+
+	_, err := config.Azure.RegistriesClient.BeginDelete(ctx, resourceGroup, privateACRName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete private ACR: %w", err)
+	}
+
+	t.Logf("Private Azure Container Registry deleted\n")
+	return nil
+}
+
+func checkCacheRules(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (error, bool) {
+	recreateACR := false
+	cacheRules, err := config.Azure.CacheRulesClient.Get(ctx, resourceGroup, privateACRName, "aks-managed-rule", nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cache rules: %w", err), recreateACR
+	}
+	if cacheRules.Properties.TargetRepository != to.Ptr("*") {
+		recreateACR := true
+		t.Logf("Private ACR cache is not correct: %s", *cacheRules.Properties.TargetRepository)
+		return nil, recreateACR
+	}
+	t.Logf("Private ACR cache is correct")
+	return nil, recreateACR
 }
 
 func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
