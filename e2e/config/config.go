@@ -15,9 +15,9 @@ import (
 var (
 	Config            = mustLoadConfig()
 	Azure             = mustNewAzureClient()
-	ResourceGroupName = "abe2e-" + Config.Location
+	ResourceGroupName = "abe2e-alison-testing" + Config.Location
 	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2e" + Config.Location
+	PrivateACRName    = "privateacre2ealisontesting" + Config.Location
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -27,7 +27,7 @@ var (
 type Configuration struct {
 	AirgapNSGName                   string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
 	BlobContainer                   string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix        string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
+	BlobStorageAccountPrefix        string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2ealisontest"`
 	BuildID                         string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultSubnetName               string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	E2ELoggingDir                   string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`

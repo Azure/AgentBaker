@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"testing"
@@ -272,6 +273,30 @@ func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 }
 
 func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (error, bool) {
+	t.Logf("Checking if private Azure Container Registry cache rules are correct in rg %s\n", resourceGroup)
+	
+	// if the name of the ACR is incorrect delete and recreate it
+	pager := config.Azure.RegistriesClient.NewListByResourceGroupPager(resourceGroup, nil)
+	for pager.More() {
+		resp, err := pager.NextPage(context.Background())
+		if err != nil {
+			log.Fatalf("failed to get container registries: %v", err)
+		}
+
+		deletedACR := false
+		for _, registry := range resp.Value {
+			if *registry.Name != privateACRName {
+				if err = deletePrivateAzureContainerRegistry(ctx, t, resourceGroup, *registry.Name); err != nil {
+					return fmt.Errorf("failed to delete private ACR: %w", err), false
+				}
+				deletedACR = true
+			}
+		}
+		if deletedACR {
+			return nil, true
+		}
+	}
+
 	cacheRules, err := config.Azure.CacheRulesClient.Get(ctx, resourceGroup, privateACRName, "aks-managed-rule", nil)
 	if err != nil {
 		return fmt.Errorf("failed to get cache rules: %w", err), false
