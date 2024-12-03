@@ -317,6 +317,32 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	}
 }
 
+func podAMDGPUWorkload(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-validation-pod", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "gpu-validation-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							"amd.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+			RestartPolicy: corev1.RestartPolicyNever,
+		},
+	}
+}
+
 func podEnableNvidiaResource(s *Scenario) *corev1.Pod {
 	enableNvidiaPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -353,4 +379,50 @@ func podEnableNvidiaResource(s *Scenario) *corev1.Pod {
 		},
 	}
 	return enableNvidiaPod
+}
+
+func podEnableAMDGPUResource(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-enable-amd-gpu-device-plugin", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			PriorityClassName: "system-node-critical",
+			Containers: []corev1.Container{
+				{
+					Name:  "amdgpu-device-plugin-container",
+					Image: "rocm/k8s-device-plugin",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
+						{
+							Name:      "sys",
+							MountPath: "/sys",
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+				{
+					Name: "sys",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/sys",
+						},
+					},
+				},
+			},
+		},
+	}
 }

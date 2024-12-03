@@ -269,3 +269,9 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	ensurePod(ctx, s, podEnableNvidiaResource(s))
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
 }
+
+func ValidatePodUsingAMDGPU(ctx context.Context, s *Scenario) {
+	s.T.Logf("validating pod using AMD GPU")
+	ensurePod(ctx, s, podEnableAMDGPUResource(s))
+	ensurePod(ctx, s, podAMDGPUWorkload(s))
+}
