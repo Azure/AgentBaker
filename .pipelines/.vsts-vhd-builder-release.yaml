@@ -1281,7 +1281,10 @@ stages:
           echo "Created directory: $(Pipeline.Workspace)/downloaded-artifacts"
         displayName: "Create directory for downloaded artifacts"
     - job: Download_Artifacts
-      displayName: "Download Artifacts"
+      pool:
+        name: $(POOL_NAME)
+      timeoutInMinutes: 90  
+      displayName: "Download Artifacts and run vulnerability reporting VMs"
       steps:
       - task: DownloadPipelineArtifact@2
         inputs:
@@ -1292,12 +1295,6 @@ stages:
           directory_contents=$(ls -R $(Pipeline.Workspace)/downloaded-artifacts)
           echo "$directory_contents"
         displayName: "List downloaded artifacts"
-    - job: Create_Vulnerability_Reporting_VMs
-      pool:
-        name: $(POOL_NAME)  # Check if this is the correct pool
-      timeoutInMinutes: 90  
-      displayName: Create Production VMs
-      steps:
       - script: |
           set -x 
           mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
