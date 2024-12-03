@@ -1291,11 +1291,17 @@ stages:
       displayName: Create Production VMs
       steps:
       - script: |
+          set -x 
           mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
           echo "Workspace: $(Pipeline.Workspace)"
           echo "Looking into: $(Pipeline.Workspace)"
           echo "Expanded Pipeline.Workspace: $(Pipeline.Workspace)"
           echo "PIPELINE_WORKSPACE: $PIPELINE_WORKSPACE"
+
+          echo "Listing all files under $PIPELINE_WORKSPACE:"
+          find "$PIPELINE_WORKSPACE" -type f | while IFS= read -r filepath; do
+              echo "Found file: $filepath"
+          done
 
           echo "checking find command"
           find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*"
@@ -1311,6 +1317,7 @@ stages:
           # List the contents of the consolidated artifacts directory
           directory_contents=$(ls -l "$PIPELINE_WORKSPACE/consolidated-artifacts")
           echo "$directory_contents"
+          set -x
         displayName: Move VHD publishing info to a consolidated folder
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup Go
