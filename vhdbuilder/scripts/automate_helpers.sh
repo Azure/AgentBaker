@@ -19,8 +19,8 @@ retrycmd_if_failure() {
 
 set_git_config() {
     # git config needs to be set in the agent
-    git config --global user.email "aks-node@microsoft.com"
-    git config --global user.name "aks-node"
+    git config --global user.email "aks-node-assistant@microsoft.com"
+    git config --global user.name "aks-node-assistant"
     git config --list
 }
 
