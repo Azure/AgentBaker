@@ -242,15 +242,19 @@ func podHTTPServerWindows(s *Scenario) *corev1.Pod {
 							ContainerPort: 80,
 						},
 					},
+					ReadinessProbe: &corev1.Probe{
+						PeriodSeconds: 1,
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: "/",
+								Port: intstr.FromInt32(80),
+							},
+						},
+					},
 				},
 			},
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
-			},
-			ReadinessGates: []corev1.PodReadinessGate{
-				{
-					ConditionType: "httpGet",
-				},
 			},
 		},
 	}
