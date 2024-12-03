@@ -58,6 +58,7 @@ func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vms
 
 func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	kube := s.Runtime.Cluster.Kube
+	s.T.Logf("creating pod %q", pod.Name)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
 	s.T.Cleanup(func() {
@@ -69,5 +70,6 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		}
 	})
 	err = waitUntilPodReady(ctx, kube, pod.Name, s.T)
+	s.T.Logf("pod %q is ready", pod.Name)
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 }
