@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -29,7 +28,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
-	"github.com/google/uuid"
 )
 
 type AzureClient struct {
@@ -342,26 +340,28 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 }
 
 func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
-	// Role assignment requires uid to be provided
-	uid := uuid.New().String()
-	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
-		Properties: &armauthorization.RoleAssignmentProperties{
-			PrincipalID: principalID,
-			// built-in "Storage Blob Data Contributor" role
-			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
-			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
-		},
-	}, nil)
-	var respError *azcore.ResponseError
-	if err != nil {
-		// if the role assignment already exists, ignore the error
-		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
-			return nil
-		}
-		return fmt.Errorf("assign Storage Blob Data Contributor role: %w", err)
-	}
+	//TODO: undo the hack
 	return nil
+	//scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
+	//// Role assignment requires uid to be provided
+	//uid := uuid.New().String()
+	//_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
+	//	Properties: &armauthorization.RoleAssignmentProperties{
+	//		PrincipalID: principalID,
+	//		// built-in "Storage Blob Data Contributor" role
+	//		// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
+	//		RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
+	//	},
+	//}, nil)
+	//var respError *azcore.ResponseError
+	//if err != nil {
+	//	// if the role assignment already exists, ignore the error
+	//	if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
+	//		return nil
+	//	}
+	//	return fmt.Errorf("assign Storage Blob Data Contributor role: %w", err)
+	//}
+	//return nil
 }
 
 func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue string) (VHDResourceID, error) {
