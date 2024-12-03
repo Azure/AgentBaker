@@ -1310,6 +1310,25 @@ stages:
 
           # Find and copy VHD publishing info files
           echo "Checking for vhd-publishing-info.json files"
+          echo "way one"
+          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json \! -path '*publishing-info*'
+          
+          echo "way two"
+          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json '! -path *publishing-info*'
+
+          echo "way three"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" \! -path "*publishing-info*"
+          
+          echo "way four"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" '! -path "*publishing-info*"
+
+          echo "way five"
+          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json -not -path '*publishing-info*'
+
+          echo "way six"
+          find /mnt/vss/_work/1/downloaded-artifacts -type f -name "vhd-publishing-info.json" -not -path "*publishing-info*"
+
+
           find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
               cp "$filepath" "$PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
               echo "Copied $filepath to $PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
