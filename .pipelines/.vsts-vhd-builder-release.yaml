@@ -1273,17 +1273,25 @@ stages:
   - stage: Create_Production_VMs
     dependsOn: build # add a condition for a variable to determine if this stage should run
     jobs: 
+    - job: Create_Artifact_dir
+      displayName: "Create Artifact Directory"
+      steps:
+      - script: |
+          mkdir -p $(Pipeline.Workspace)/downloaded-artifacts
+          echo "Created directory: $(Pipeline.Workspace)/downloaded-artifacts"
+        displayName: "Create directory for downloaded artifacts"
     - job: Download_Artifacts
+      displayName: "Download Artifacts"
       steps:
       - task: DownloadPipelineArtifact@2
         inputs:
           buildType: 'current'
-          targetPath: '$(Pipeline.Workspace)'
+          targetPath: '$(Pipeline.Workspace)/downloaded-artifacts'
       - script: |
           echo "Here are the downloaded artifacts:"
-          directory_contents=$(ls -R $(Pipeline.Workspace))
+          directory_contents=$(ls -R $(Pipeline.Workspace)/downloaded-artifacts)
           echo "$directory_contents"
-
+        displayName: "List downloaded artifacts"
     - job: Create_Vulnerability_Reporting_VMs
       pool:
         name: $(POOL_NAME)  # Check if this is the correct pool
@@ -1293,32 +1301,28 @@ stages:
       - script: |
           set -x 
           mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
-          echo "Workspace: $(Pipeline.Workspace)"
-          echo "Looking into: $(Pipeline.Workspace)"
-          echo "Expanded Pipeline.Workspace: $(Pipeline.Workspace)"
-          echo "PIPELINE_WORKSPACE: $PIPELINE_WORKSPACE"
+          echo "PIPELINE_WORKSPACE is: $PIPELINE_WORKSPACE"
+          echo "Workspace contents: $(Pipeline.Workspace)"
+          echo "Downloaded artifacts directory: $PIPELINE_WORKSPACE/downloaded-artifacts"
 
-          echo "Listing all files under $PIPELINE_WORKSPACE:"
-          find "$PIPELINE_WORKSPACE" -type f | while IFS= read -r filepath; do
+          # Debug: List all files under downloaded-artifacts
+          echo "Listing all files under $PIPELINE_WORKSPACE/downloaded-artifacts:"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f | while IFS= read -r filepath; do
               echo "Found file: $filepath"
           done
 
-          echo "checking find command"
-          find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*"
-          find_contents=$(find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*")
-          echo "$find_contents"
-          
-          # Search for all vhd-publishing-info.json files that are not in directories containing 'publishing-info'
-          find "$PIPELINE_WORKSPACE" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
+          # Find and copy VHD publishing info files
+          echo "Checking for vhd-publishing-info.json files"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
               cp "$filepath" "$PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
               echo "Copied $filepath to $PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
           done
-          
-          # List the contents of the consolidated artifacts directory
-          directory_contents=$(ls -l "$PIPELINE_WORKSPACE/consolidated-artifacts")
-          echo "$directory_contents"
+
+          # List consolidated artifacts
+          echo "Consolidated artifacts directory contents:"
+          ls -l "$PIPELINE_WORKSPACE/consolidated-artifacts"
           set -x
-        displayName: Move VHD publishing info to a consolidated folder
+        displayName: "Move VHD publishing info to a consolidated folder"
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup Go
       - bash: |
