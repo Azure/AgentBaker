@@ -3,8 +3,8 @@ set -euxo pipefail
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set" && exit 1
 
-SKIP_TAG_NAME="${SKIP_TAG_NAME:-gc.skip}"
-SKIP_TAG_VALUE="${SKIP_TAG_VALUE:-true}"
+SKIP_TAG_NAME="gc.skip"
+SKIP_TAG_VALUE="true"
 
 DRY_RUN="${DRY_RUN:-}"
 
