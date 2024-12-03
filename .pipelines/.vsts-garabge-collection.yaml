@@ -1,0 +1,24 @@
+pool:
+  name: $(POOL_NAME)
+
+parameters:
+- name: DRY_RUN
+  displayName: Dry Run
+  type: boolean
+  default: false
+
+jobs:
+- job: gc
+  displayName: Garbage Collection
+  steps:
+    - checkout: self
+      fetchTags: false
+      fetchDepth: 1
+      
+    - bash: |
+        chmod +x ./vhdbuilder/scripts/gc.sh
+        ./vhdbuilder/scripts/gc.sh
+      env:
+        SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+        DRY_RUN: ${{ parameters.DRY_RUN }}
+      displayName: Garbage collect resource groups
