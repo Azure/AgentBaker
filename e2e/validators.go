@@ -6,6 +6,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
@@ -267,5 +268,8 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	s.T.Logf("validating pod using nvidia GPU")
 	// add "nvidia.com/gpu" resource to the node
 	ensurePod(ctx, s, podEnableNvidiaResource(s))
+	// NVidia pod can be ready, but resources may not be available yet
+	// a hacky way to ensure the next pod is schedulable
+	time.Sleep(5 * time.Second)
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
 }
