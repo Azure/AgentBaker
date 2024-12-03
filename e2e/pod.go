@@ -58,6 +58,10 @@ func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vms
 
 func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	kube := s.Runtime.Cluster.Kube
+	if len(pod.Name) > 63 {
+		pod.Name = pod.Name[:63]
+		s.T.Logf("truncated pod name to %q", pod.Name)
+	}
 	s.T.Logf("creating pod %q", pod.Name)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
