@@ -25,7 +25,7 @@ function cleanup_rgs() {
     groups=$(az group list | jq -r --arg dl $DAY_AGO '.[] | select(.name | test("vhd-test*|vhd-scanning*|pkr-Resource-Group*")) | select(.tags.now < $dl).name'  | tr -d '\"' || "")
     if [ -z "$groups" ]; then
         echo "no resource groups found for garbage collection"
-        exit 0
+        return 0
     fi
 
     for group in $groups; do
