@@ -276,7 +276,7 @@ func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, private
 	if err != nil {
 		return fmt.Errorf("failed to get cache rules: %w", err), false
 	}
-	if cacheRules.Properties.TargetRepository != to.Ptr("*") {
+	if *cacheRules.Properties.TargetRepository != "*" {
 		t.Logf("Private ACR cache is not correct: %s", *cacheRules.Properties.TargetRepository)
 		return nil, true
 	}
