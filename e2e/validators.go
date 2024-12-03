@@ -11,6 +11,9 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -270,6 +273,39 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	ensurePod(ctx, s, podEnableNvidiaResource(s))
 	// NVidia pod can be ready, but resources may not be available yet
 	// a hacky way to ensure the next pod is schedulable
-	time.Sleep(5 * time.Second)
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
+}
+
+// Waits until the specified resource is available on the given node.
+// Returns an error if the resource is not available within the specified timeout period.
+func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
+	nodeName := s.Runtime.KubeNodeName
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.T.Fatalf("context cancelled: %v", ctx.Err())
+		case <-ticker.C:
+			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			require.NoError(s.T, err, "failed to get node %q", nodeName)
+
+			if isResourceAvailable(node, resourceName) {
+				s.T.Logf("resource %q is available", resourceName)
+				return
+			}
+		}
+	}
+}
+
+// Checks if the specified resource is available on the node.
+func isResourceAvailable(node *corev1.Node, resourceName string) bool {
+	for rn, quantity := range node.Status.Allocatable {
+		if rn == corev1.ResourceName(resourceName) && quantity.Cmp(resource.MustParse("1")) >= 0 {
+			return true
+		}
+	}
+	return false
 }
