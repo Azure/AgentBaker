@@ -1268,5 +1268,6 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
