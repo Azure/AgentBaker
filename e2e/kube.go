@@ -269,8 +269,9 @@ func podWASMSpin(s *Scenario) *corev1.Pod {
 			RuntimeClassName: to.Ptr("wasmtime-spin"),
 			Containers: []corev1.Container{
 				{
-					Name:  "spin-hello",
-					Image: "ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1",
+					Name:    "spin-hello",
+					Image:   "ghcr.io/spinkube/containerd-shim-spin/examples/spin-rust-hello:v0.15.1",
+					Command: []string{"/"},
 					ReadinessProbe: &corev1.Probe{
 						PeriodSeconds: 1,
 						ProbeHandler: corev1.ProbeHandler{
