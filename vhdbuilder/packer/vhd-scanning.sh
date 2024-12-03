@@ -42,7 +42,7 @@ SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
