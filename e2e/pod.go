@@ -72,6 +72,7 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		if err != nil {
 			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
+		s.T.Logf("deleted pod %q", pod.Name)
 	})
 	err = waitUntilPodReady(ctx, kube, pod.Name, s.T)
 	s.T.Logf("pod %q is ready", pod.Name)
