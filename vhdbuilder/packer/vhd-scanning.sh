@@ -19,9 +19,13 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
 
-# we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
-VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
-SUBNET_NAME="scanning"
+# we must create VMs in a vnet subnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
+SCANNING_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/scanning"
+
+if [ -z "$(az network vnet subnet show --ids $SCANNING_SUBNET_ID | jq -r '.id')" ]; then
+    echo "scanning subnet $SCANNING_SUBNET_ID seems to be missing, unable to create scanning VM"
+    exit 1
+fi
 
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
@@ -60,11 +64,16 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning$(date +%s)${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.id')
+if [ -z "$SCANNING_NIC_ID" ]; then
+    echo "unable to create new NIC for scanning VM"
+    exit 1
+fi
+
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
-    --vnet-name $VNET_NAME \
-    --subnet $SUBNET_NAME \
+    --nics $SCANNING_NIC_ID \
     --admin-username $SCAN_VM_ADMIN_USERNAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
