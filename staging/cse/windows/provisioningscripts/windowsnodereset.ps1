@@ -129,6 +129,8 @@ if ($IsDualStackEnabled) {
 # Perform cleanup. It should run when node reset (node provsion and node restart)
 & "c:\k\cleanupnetwork.ps1" >> $global:LogPath
 
+& "c:\k\initnode.ps1"
+
 #
 # Start Services
 #
