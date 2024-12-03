@@ -1310,17 +1310,24 @@ stages:
 
           # Find and copy VHD publishing info files
           echo "Checking for vhd-publishing-info.json files"
+
+          echo "way zero"
+          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json
+
+          echo "way zero.5"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name vhd-publishing-info.json
+
           echo "way one"
           find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json \! -path '*publishing-info*'
           
           echo "way two"
-          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json '! -path *publishing-info*'
+          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json -not -path '*publishing-info*'
 
           echo "way three"
           find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" \! -path "*publishing-info*"
           
           echo "way four"
-          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" '! -path "*publishing-info*"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" '! -path "*publishing-info*"'
 
           echo "way five"
           find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json -not -path '*publishing-info*'
