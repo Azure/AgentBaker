@@ -215,6 +215,9 @@ else
 fi
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
+      sed -i "s/emit_via = motd/emit_via = stdio/g" /etc/dnf/automatic.conf
+    fi
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
 

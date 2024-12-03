@@ -323,6 +323,19 @@ testAuditDNotPresent() {
   echo "$test:Finish"
 }
 
+testMessageOfTheDayComponentsAzureLinux() {
+  os_sku=$1
+  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+    # this file controls how /etc/motd file is updated by dnf on azure linux nodes
+    # in CSE, if MotD is enabled, we modify that file to stop dnf from overwriting the user-specified message
+      if [[ ! -f /etc/default/automatic.conf ]]; then
+        err $test "/etc/default/automatic.conf should be present on Azure Linux VHD"
+      fi
+
+      echo "$test:Finish"
+  fi
+}
+
 testChrony() {
   os_sku=$1
   test="testChrony"
@@ -1157,3 +1170,4 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
+testMessageOfTheDayComponentsAzureLinux $OS_SKU
