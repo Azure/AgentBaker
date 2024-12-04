@@ -106,6 +106,11 @@ func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, 
 	if err != nil {
 		return err
 	}
+
+	err = createDaemonset(ctx, kube, nvidiaDevicePluginDaemonSet())
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -301,7 +306,6 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
 					Name:  "gpu-validation-container",
@@ -320,41 +324,70 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	}
 }
 
-func podEnableNvidiaResource(s *Scenario) *corev1.Pod {
-	enableNvidiaPod := &corev1.Pod{
+func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-enable-nvidia-device-plugin", s.Runtime.KubeNodeName),
-			Namespace: defaultNamespace,
+			Name:      "nvidia-device-plugin-daemonset",
+			Namespace: "kube-system",
 		},
-		Spec: corev1.PodSpec{
-			PriorityClassName: "system-node-critical",
-			RestartPolicy:     corev1.RestartPolicyNever,
-			Containers: []corev1.Container{
-				{
-					Name:  "nvidia-device-plugin-ctr",
-					Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
-					VolumeMounts: []corev1.VolumeMount{
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"name": "nvidia-device-plugin-ds",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"name": "nvidia-device-plugin-ds",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Tolerations: []corev1.Toleration{
 						{
-							Name:      "device-plugin",
-							MountPath: "/var/lib/kubelet/device-plugins",
+							Key:      "sku",
+							Operator: corev1.TolerationOpEqual,
+							Value:    "gpu",
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+					PriorityClassName: "system-node-critical",
+					Containers: []corev1.Container{
+						{
+							Image: "nvcr.io/nvidia/k8s-device-plugin:v0.15.0",
+							Name:  "nvidia-device-plugin-ctr",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "FAIL_ON_INIT_ERROR",
+									Value: "false",
+								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: to.Ptr(false),
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "device-plugin",
+									MountPath: "/var/lib/kubelet/device-plugins",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "device-plugin",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: "/var/lib/kubelet/device-plugins",
+								},
+							},
 						},
 					},
 				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "device-plugin",
-					VolumeSource: corev1.VolumeSource{
-						HostPath: &corev1.HostPathVolumeSource{
-							Path: "/var/lib/kubelet/device-plugins",
-						},
-					},
-				},
-			},
-			NodeSelector: map[string]string{
-				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
 			},
 		},
 	}
-	return enableNvidiaPod
 }
