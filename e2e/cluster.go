@@ -89,7 +89,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 
 	// private acr must be created before we add the debug daemonsets
 	if isAirgap {
-		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, config.ResourceGroupName, config.PrivateACRName); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
 	}
@@ -178,6 +178,26 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		// this operation will try to update the cluster if it's in a failed state
 		return createNewAKSClusterWithRetry(ctx, t, cluster)
 	}
+}
+
+func deleteCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster) error {
+	t.Logf("deleting cluster %s in rg %s\n", *cluster.Name, config.ResourceGroupName)
+	_, err := config.Azure.AKS.Get(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	if err != nil {
+		var azErr *azcore.ResponseError
+		if errors.As(err, &azErr) && azErr.StatusCode == 404 {
+			t.Logf("cluster %s does not exist in rg %s\n", *cluster.Name, config.ResourceGroupName)
+			return nil
+		}
+		return fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
+	}
+
+	_, err = config.Azure.AKS.BeginDelete(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster %q: %w", *cluster.Name, err)
+	}
+	t.Logf("deleted cluster %s in rg %s\n", *cluster.Name, config.ResourceGroupName)
+	return nil
 }
 
 func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {

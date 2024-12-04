@@ -15,9 +15,9 @@ import (
 var (
 	Config            = mustLoadConfig()
 	Azure             = mustNewAzureClient()
-	ResourceGroupName = "abe2e-alison-testing" + Config.Location
+	ResourceGroupName = "abe2e" + Config.Location
 	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2ealisontesting" + Config.Location
+	PrivateACRName    = "privateacre2e" + Config.Location
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,

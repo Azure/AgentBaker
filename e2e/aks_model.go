@@ -202,7 +202,7 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string) error {
 	t.Logf("Creating private Azure Container Registry in rg %s\n", resourceGroup)
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
@@ -218,6 +218,11 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 		t.Logf("Private ACR exists with the wrong cache deleting...")
 		if err := deletePrivateAzureContainerRegistry(ctx, t, resourceGroup, privateACRName); err != nil {
 			return fmt.Errorf("failed to delete private acr: %w", err)
+		}
+		// if ACR gets recreated so should the cluster
+		t.Logf("Private ACR deleted, deleting cluster %s\n", *cluster.Name)
+		if err := deleteCluster(ctx, t, cluster); err != nil {
+			return fmt.Errorf("failed to delete cluster: %w", err)
 		}
 	} else {
 		// check if error is anything but not found
@@ -272,9 +277,10 @@ func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 	return nil
 }
 
+// if the ACR needs to be recreated so does the airgap k8s cluster
 func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (error, bool) {
 	t.Logf("Checking if private Azure Container Registry cache rules are correct in rg %s\n", resourceGroup)
-	
+
 	// if the name of the ACR is incorrect delete and recreate it
 	pager := config.Azure.RegistriesClient.NewListByResourceGroupPager(resourceGroup, nil)
 	for pager.More() {
