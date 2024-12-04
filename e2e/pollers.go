@@ -99,7 +99,7 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 				continue
 			}
 
-			if pod.Status.Phase != corev1.PodRunning {
+			if pod.Status.Phase != corev1.PodRunning && pod.Status.Phase != corev1.PodSucceeded {
 				// Check for CrashLoopBackOff
 				for _, containerStatus := range pod.Status.ContainerStatuses {
 					if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
