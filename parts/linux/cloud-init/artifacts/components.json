@@ -176,23 +176,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
-          "latestVersion": "v0.0.20",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -558,24 +541,22 @@
       ]
     }
   ],
-
   "GPUContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "550.90.12-20241021235610"
-        }
+        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
+        "latestVersion": "550.90.12-20241021235610"
+      }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
-      "gpuVersion": { 
+      "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
         "latestVersion": "535.161.08-20241021235607"
       }
     }
   ],
-
   "Packages": [
     {
       "name": "oras",
