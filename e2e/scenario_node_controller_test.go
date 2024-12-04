@@ -92,7 +92,7 @@ func Test_Ubuntu2204AKSNodeController(t *testing.T) {
 }
 
 func CSEAKSNodeController(t *testing.T, cluster *Cluster, vhd *config.Image) string {
-	nbc := getBaseNBC(cluster, vhd)
+	nbc := getBaseNBC(t, cluster, vhd)
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 	configContent := nbcToAKSNodeConfigV1(nbc)
 	configJSON, err := json.Marshal(configContent)
