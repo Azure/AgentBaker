@@ -8,6 +8,7 @@ set -x
 
 NEW_IMAGE_VERSION="${IMAGE_VERSION:-""}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
+PR_TARGET_BRANCH="${PR_TARGET_BRANCH:-master}"
 
 # This function takes the build ID and reads the queue time.
 # It then sanitizes the queue time in the format that the Canonical snapshot endpoint expects, which is 20230727T000000Z 
@@ -57,11 +58,11 @@ update_image_version() {
 }
 
 create_image_bump_pr() {
-    create_branch $BRANCH_NAME
+    create_branch $BRANCH_NAME $PR_TARGET_BRANCH
     update_image_version
 
     set +x
-    create_pull_request $NEW_IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TITLE
+    create_pull_request $NEW_IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
     set -x
 }
 
