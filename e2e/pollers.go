@@ -60,22 +60,16 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 
 func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
 	checkTicker := time.NewTicker(defaultPollInterval)
-	defer checkTicker.Stop()
 	logTicker := time.NewTicker(5 * time.Minute) // log every 5 minutes
-	defer logTicker.Stop()
 
 	var pod *corev1.Pod
 	for {
 		select {
 		case <-ctx.Done():
-			if pod != nil {
-				logPodDebugInfo(ctx, kube, pod, t)
-			}
+			logPodDebugInfo(ctx, kube, podName, pod, t)
 			return ctx.Err()
 		case <-logTicker.C:
-			if pod != nil {
-				logPodDebugInfo(ctx, kube, pod, t)
-			}
+			logPodDebugInfo(ctx, kube, podName, pod, t)
 		case <-checkTicker.C:
 			var err error
 			pod, err = kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
@@ -121,7 +115,11 @@ func isPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
+func logPodDebugInfo(ctx context.Context, kube *Kubeclient, podName string, pod *corev1.Pod, t *testing.T) {
+	if pod == nil {
+		t.Logf("pod %s not found", podName)
+		return
+	}
 	t.Logf("-- pod metadata --\n")
 	t.Logf("   Name: %s\n               Namespace: %s\n               Node: %s\n               Status: %s\n               Start Time: %s\n", pod.Name, pod.Namespace, pod.Spec.NodeName, pod.Status.Phase, pod.Status.StartTime)
 	for _, condition := range pod.Status.Conditions {
