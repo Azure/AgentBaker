@@ -1302,7 +1302,6 @@ stages:
           echo "Workspace contents: $(Pipeline.Workspace)"
           echo "Downloaded artifacts directory: $PIPELINE_WORKSPACE/downloaded-artifacts"
 
-          # Debug: List all files under downloaded-artifacts
           echo "Listing all files under $PIPELINE_WORKSPACE/downloaded-artifacts:"
           find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f | while IFS= read -r filepath; do
               echo "Found file: $filepath"
@@ -1311,32 +1310,13 @@ stages:
           # Find and copy VHD publishing info files
           echo "Checking for vhd-publishing-info.json files"
 
-          echo "way zero"
-          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json
-
           echo "way zero.5"
-          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name vhd-publishing-info.json
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" ! -path "*/publishing-info-*/*"
 
-          echo "way one"
-          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json \! -path '*publishing-info*'
-          
-          echo "way two"
-          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json -not -path '*publishing-info*'
+          echo "way zero.6"
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json"
 
-          echo "way three"
-          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" \! -path "*publishing-info*"
-          
-          echo "way four"
-          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" '! -path "*publishing-info*"'
-
-          echo "way five"
-          find /mnt/vss/_work/1/downloaded-artifacts -type f -name vhd-publishing-info.json -not -path '*publishing-info*'
-
-          echo "way six"
-          find /mnt/vss/_work/1/downloaded-artifacts -type f -name "vhd-publishing-info.json" -not -path "*publishing-info*"
-
-
-          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" ! -path "*publishing-info*" | while read filepath; do
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" ! -path "*/publishing-info-*/*" | while read filepath; do
               cp "$filepath" "$PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
               echo "Copied $filepath to $PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
           done
