@@ -124,21 +124,28 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 }
 
 func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
-	t.Logf("-- pod metadata --\n")
-	t.Logf("   Name: %s\n               Namespace: %s\n               Node: %s\n               Status: %s\n               Start Time: %s\n", pod.Name, pod.Namespace, pod.Spec.NodeName, pod.Status.Phase, pod.Status.StartTime)
+	// Collects all log lines and outputs them in a single log message.
+	var logBuilder strings.Builder
+
+	logBuilder.WriteString("-- pod metadata --\n")
+	logBuilder.WriteString(fmt.Sprintf("   Name: %s\n               Namespace: %s\n               Node: %s\n               Status: %s\n               Start Time: %s\n", pod.Name, pod.Namespace, pod.Spec.NodeName, pod.Status.Phase, pod.Status.StartTime))
 	for _, condition := range pod.Status.Conditions {
-		t.Logf("   Reason: %s\n", condition.Reason)
-		t.Logf("   Message: %s\n", condition.Message)
+		logBuilder.WriteString(fmt.Sprintf("   Reason: %s\n", condition.Reason))
+		logBuilder.WriteString(fmt.Sprintf("   Message: %s\n", condition.Message))
 	}
-	t.Logf("-- container(s) info --\n")
+
+	logBuilder.WriteString("-- container(s) info --\n")
 	for _, container := range pod.Spec.Containers {
-		t.Logf("   Container: %s\n               Image: %s\n               Ports: %v\n", container.Name, container.Image, container.Ports)
+		logBuilder.WriteString(fmt.Sprintf("   Container: %s\n               Image: %s\n               Ports: %v\n", container.Name, container.Image, container.Ports))
 	}
-	t.Logf("-- pod events --")
+
+	logBuilder.WriteString("-- pod events --")
 	events, _ := kube.Typed.CoreV1().Events(defaultNamespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
 	for _, event := range events.Items {
-		t.Logf("   Reason: %s, Message: %s, Count: %d, Last Timestamp: %s\n", event.Reason, event.Message, event.Count, event.LastTimestamp)
+		logBuilder.WriteString(fmt.Sprintf("   Reason: %s, Message: %s, Count: %d, Last Timestamp: %s\n", event.Reason, event.Message, event.Count, event.LastTimestamp))
 	}
+
+	t.Log(logBuilder.String())
 }
 
 func waitUntilClusterReady(ctx context.Context, name string) (*armcontainerservice.ManagedCluster, error) {
