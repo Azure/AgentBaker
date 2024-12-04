@@ -35,15 +35,19 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 		}
 
 		for _, node := range nodes.Items {
-			if strings.HasPrefix(node.Name, vmssName) {
-				found = true
-				nodeStatus = node.Status
+			if !strings.HasPrefix(node.Name, vmssName) {
+				continue
+			}
+			found = true
+			nodeStatus = node.Status
+			if len(node.Spec.Taints) > 0 {
+				return false, nil
+			}
 
-				for _, cond := range node.Status.Conditions {
-					if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-						nodeName = node.Name
-						return true, nil
-					}
+			for _, cond := range node.Status.Conditions {
+				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+					nodeName = node.Name
+					return true, nil
 				}
 			}
 		}
@@ -55,7 +59,6 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 	}
 	require.NoError(t, err, "failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
 	t.Logf("node %s is ready", nodeName)
-
 	return nodeName
 }
 
