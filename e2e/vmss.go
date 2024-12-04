@@ -139,14 +139,14 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		if execResult.stdout != nil {
 			out := execResult.stdout.String()
 			if out != "" {
-				logFiles[file+".stdout.txt"] = out
+				logFiles[file+".txt"] = out
 			}
 
 		}
 		if execResult.stderr != nil {
 			out := execResult.stderr.String()
 			if out != "" {
-				logFiles[file+".stderr.txt"] = out
+				s.T.Logf("error when executin %q: %s", sourceCmd, out)
 			}
 		}
 	}
