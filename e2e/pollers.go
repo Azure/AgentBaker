@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -60,60 +59,66 @@ func waitUntilNodeReady(ctx context.Context, t *testing.T, kube *Kubeclient, vms
 }
 
 func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t *testing.T) error {
-	lastLogTime := time.Now()
-	logInterval := 5 * time.Minute // log every 5 minutes
+	checkTicker := time.NewTicker(defaultPollInterval)
+	defer checkTicker.Stop()
+	logTicker := time.NewTicker(5 * time.Minute) // log every 5 minutes
+	defer logTicker.Stop()
 
-	return wait.PollUntilContextCancel(ctx, defaultPollInterval, true, func(ctx context.Context) (bool, error) {
-		currentLogTime := time.Now()
-
-		pod, err := kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
-
-		printLog := false
-		if deadline, ok := ctx.Deadline(); ok {
-			remaining := time.Until(deadline)
-			if currentLogTime.Sub(lastLogTime) > logInterval {
-				// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
+	var pod *corev1.Pod
+	for {
+		select {
+		case <-ctx.Done():
+			if pod != nil {
 				logPodDebugInfo(ctx, kube, pod, t)
-				t.Logf("time before timeout: %v\n\n", remaining)
-				lastLogTime = currentLogTime
-				printLog = true
 			}
-		}
-
-		if err != nil {
-			// pod might not be created yet, let the poller continue
-			if errors.IsNotFound(err) {
-				if printLog {
-					// this logs every 5 minutes to reduce spam, iterations of poller are continuning as normal.
-					t.Logf("pod %s not found yet. Err %v", podName, err)
+			return ctx.Err()
+		case <-logTicker.C:
+			if pod != nil {
+				logPodDebugInfo(ctx, kube, pod, t)
+			}
+		case <-checkTicker.C:
+			var err error
+			pod, err = kube.Typed.CoreV1().Pods(defaultNamespace).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					continue
 				}
-				return false, nil
+				return err
 			}
-			return false, err
-		}
 
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
-				return false, fmt.Errorf("pod %s is in CrashLoopBackOff state", podName)
+			err = checkPod(pod)
+			if err != nil {
+				return err
+			}
+
+			if isPodReady(pod) {
+				return nil
 			}
 		}
+	}
+}
 
-		if pod.Status.Phase == "Pending" {
-			return false, nil
+func checkPod(pod *corev1.Pod) error {
+	if pod.Status.Phase == corev1.PodFailed {
+		return fmt.Errorf("pod %s failed", pod.Name)
+	}
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+			return fmt.Errorf("container %s in pod %s is in CrashLoopBackOff state", containerStatus.Name, pod.Name)
 		}
+	}
+	return nil
+}
 
-		if pod.Status.Phase != "Running" {
-			podStatus, _ := yaml.Marshal(pod.Status)
-			return false, fmt.Errorf("pod %s is in %s phase, status: %s", podName, pod.Status.Phase, string(podStatus))
-		}
-
+func isPodReady(pod *corev1.Pod) bool {
+	if pod.Status.Phase == corev1.PodRunning {
 		for _, cond := range pod.Status.Conditions {
-			if cond.Type == "Ready" && cond.Status == "True" {
-				return true, nil
+			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+				return true
 			}
 		}
-		return false, nil
-	})
+	}
+	return false
 }
 
 func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
