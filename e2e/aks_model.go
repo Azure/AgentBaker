@@ -267,11 +267,14 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
 	t.Logf("Deleting private Azure Container Registry in rg %s", resourceGroup)
 
-	_, err := config.Azure.RegistriesClient.BeginDelete(ctx, resourceGroup, privateACRName, nil)
+	pollerResp, err := config.Azure.RegistriesClient.BeginDelete(ctx, resourceGroup, privateACRName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete private ACR: %w", err)
 	}
-
+	_, err = pollerResp.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete private ACR during polling: %w", err)
+	}
 	t.Logf("Private Azure Container Registry deleted")
 	return nil
 }
@@ -284,7 +287,7 @@ func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, private
 	if err != nil {
 		return fmt.Errorf("failed to get cache rules: %w", err), false
 	}
-	if *cacheRules.Properties.TargetRepository != "*" {
+	if cacheRules.Properties != nil && cacheRules.Properties.TargetRepository != nil && *cacheRules.Properties.TargetRepository != config.Config.AzureContainerRegistrytargetRepository {
 		t.Logf("Private ACR cache is not correct: %s", *cacheRules.Properties.TargetRepository)
 		return nil, true
 	}
@@ -298,7 +301,7 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 	cacheParams := armcontainerregistry.CacheRule{
 		Properties: &armcontainerregistry.CacheRuleProperties{
 			SourceRepository: to.Ptr("mcr.microsoft.com/*"),
-			TargetRepository: to.Ptr("*"),
+			TargetRepository: to.Ptr(config.Config.AzureContainerRegistrytargetRepository),
 		},
 	}
 	cacheCreateResp, err := config.Azure.CacheRulesClient.BeginCreate(

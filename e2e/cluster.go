@@ -192,9 +192,13 @@ func deleteCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 		return fmt.Errorf("failed to get cluster %q: %w", *cluster.Name, err)
 	}
 
-	_, err = config.Azure.AKS.BeginDelete(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	pollerResp, err := config.Azure.AKS.BeginDelete(ctx, config.ResourceGroupName, *cluster.Name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster %q: %w", *cluster.Name, err)
+	}
+	_, err = pollerResp.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+	if err != nil {
+		return fmt.Errorf("failed to wait for cluster deletion %w", err)
 	}
 	t.Logf("deleted cluster %s in rg %s", *cluster.Name, config.ResourceGroupName)
 	return nil
