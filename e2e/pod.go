@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -56,42 +56,25 @@ func getPodNetworkDebugPodNameForVMSS(ctx context.Context, kube *Kubeclient, vms
 	return "", fmt.Errorf("failed to find non host debug pod on node %s", vmssName)
 }
 
-func applyPodManifest(ctx context.Context, namespace string, kube *Kubeclient, manifest string) error {
-	var podObj corev1.Pod
-	if err := yaml.Unmarshal([]byte(manifest), &podObj); err != nil {
-		return fmt.Errorf("failed to unmarshal Pod manifest: %w", err)
+func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
+	kube := s.Runtime.Cluster.Kube
+	if len(pod.Name) > 63 {
+		pod.Name = pod.Name[:63]
+		s.T.Logf("truncated pod name to %q", pod.Name)
 	}
-
-	podObj.Namespace = namespace
-
-	desired := podObj.DeepCopy()
-	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &podObj, func() error {
-		podObj = *desired
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to apply Pod manifest: %w", err)
-	}
-
-	return nil
-}
-
-func ensurePod(ctx context.Context, t *testing.T, namespace string, kube *Kubeclient, podName, manifest string) error {
-	if err := applyPodManifest(ctx, namespace, kube, manifest); err != nil {
-		return fmt.Errorf("failed to ensure pod: %w", err)
-	}
-	t.Cleanup(func() {
+	s.T.Logf("creating pod %q", pod.Name)
+	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
+	s.T.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
 		defer cancel()
-		err := kube.Typed.CoreV1().Pods(namespace).Delete(ctx, podName, metav1.DeleteOptions{})
+		err := kube.Typed.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{GracePeriodSeconds: to.Ptr(int64(0))})
 		if err != nil {
-			t.Logf("couldn't not delete pod %s: %v", podName, err)
+			s.T.Logf("couldn't not delete pod %s: %v", pod.Name, err)
 		}
+		s.T.Logf("deleted pod %q", pod.Name)
 	})
-	if err := waitUntilPodReady(ctx, kube, podName, t); err != nil {
-		return fmt.Errorf("failed to wait for pod to be in running state: %w", err)
-	}
-
-	return nil
+	err = waitUntilPodReady(ctx, kube, pod.Name, s.T)
+	s.T.Logf("pod %q is ready", pod.Name)
+	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 }
