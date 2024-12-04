@@ -85,7 +85,7 @@ if [ -z "${VNET_RG_NAME}" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
 		else
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
+			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-pool-vnet-rg"
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
@@ -99,7 +99,7 @@ fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+		VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet"
