@@ -76,5 +76,4 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	})
 	err = waitUntilPodReady(ctx, kube, pod.Name, s.T)
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
-	s.T.Logf("pod %q is ready", pod.Name)
 }
