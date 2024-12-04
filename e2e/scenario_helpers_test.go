@@ -86,6 +86,9 @@ func RunScenario(t *testing.T, s *Scenario) {
 	maybeSkipScenario(ctx, t, s)
 	cluster, err := s.Config.Cluster(ctx, s.T)
 	require.NoError(s.T, err)
+	// in some edge cases cluster cache is broken and nil cluster is returned
+	// need to find the root cause and fix it, this should help to catch such cases
+	require.NotNil(t, cluster)
 	s.Runtime = &ScenarioRuntime{
 		Cluster: cluster,
 	}
