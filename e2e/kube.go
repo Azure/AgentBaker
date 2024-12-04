@@ -27,7 +27,7 @@ import (
 type Kubeclient struct {
 	Dynamic    client.Client
 	Typed      kubernetes.Interface
-	Rest       *rest.Config
+	RESTConfig *rest.Config
 	KubeConfig []byte
 }
 
@@ -47,25 +47,25 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
 	}
 
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig(data)
+	config, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
-	restConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	restConfig.APIPath = "/api"
-	restConfig.GroupVersion = &schema.GroupVersion{
+	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
+	config.APIPath = "/api"
+	config.GroupVersion = &schema.GroupVersion{
 		Version: "v1",
 	}
 	// it's test cluster avoid unnecessary rate limiting
-	restConfig.QPS = 100
-	restConfig.Burst = 200
+	config.QPS = 200
+	config.Burst = 400
 
-	dynamic, err := client.New(restConfig, client.Options{})
+	dynamic, err := client.New(config, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("create dynamic Kubeclient: %w", err)
 	}
 
-	restClient, err := rest.RESTClientFor(restConfig)
+	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
 		return nil, fmt.Errorf("create rest kube client: %w", err)
 	}
@@ -75,7 +75,7 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 	return &Kubeclient{
 		Dynamic:    dynamic,
 		Typed:      typed,
-		Rest:       restConfig,
+		RESTConfig: config,
 		KubeConfig: data,
 	}, nil
 }

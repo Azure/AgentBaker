@@ -152,7 +152,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 		scheme.ParameterCodec,
 	)
 
-	exec, err := remotecommand.NewSPDYExecutor(kube.Rest, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(kube.RESTConfig, "POST", req.URL())
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
 	}
