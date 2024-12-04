@@ -68,11 +68,7 @@ func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true)
-		if err == nil {
-			err = addAirgapNetworkSettings(ctx, t, cluster.Model)
-		}
-		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
+		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true)
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
@@ -97,6 +93,12 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
+	}
+
+	if isAirgap {
+		if err := addAirgapNetworkSettings(ctx, t, cluster); err != nil {
+			return nil, fmt.Errorf("add airgap network settings: %w", err)
+		}
 	}
 
 	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, t, cluster)
