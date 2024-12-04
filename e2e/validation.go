@@ -7,19 +7,18 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func ValidatePodRunning(ctx context.Context, s *Scenario) {
-	testPodName := fmt.Sprintf("test-pod-%s", s.Runtime.KubeNodeName)
-	testPodManifest := ""
-	if s.VHD.OS == config.OSWindows {
-		testPodManifest = getHTTPServerTemplateWindows(testPodName, s.Runtime.KubeNodeName)
-	} else {
-		testPodManifest = getHTTPServerTemplate(testPodName, s.Runtime.KubeNodeName, s.Tags.Airgap)
-	}
-	err := ensurePod(ctx, s.T, defaultNamespace, s.Runtime.Cluster.Kube, testPodName, testPodManifest)
-	require.NoError(s.T, err, "failed to validate node health, unable to ensure test pod on node %q", s.Runtime.KubeNodeName)
-	s.T.Logf("node health validation: test pod %q is running on node %q", testPodName, s.Runtime.KubeNodeName)
+	testPod := func() *corev1.Pod {
+		if s.VHD.OS == config.OSWindows {
+			return podHTTPServerWindows(s)
+		}
+		return podHTTPServerLinux(s)
+	}()
+	ensurePod(ctx, s, testPod)
+	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
 }
 
 func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
@@ -29,9 +28,8 @@ func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
 	require.NoError(s.T, err)
 	err = ensureWasmRuntimeClasses(ctx, s.Runtime.Cluster.Kube)
 	require.NoError(s.T, err)
-	spinPodName := fmt.Sprintf("wasm-spin-%s", nodeName)
-	spinPodManifest := getWasmSpinPodTemplate(spinPodName, nodeName)
-	err = ensurePod(ctx, s.T, defaultNamespace, s.Runtime.Cluster.Kube, spinPodName, spinPodManifest)
+	spinPodManifest := podWASMSpin(s)
+	ensurePod(ctx, s, spinPodManifest)
 	require.NoError(s.T, err, "unable to ensure wasm pod on node %q", nodeName)
 }
 
