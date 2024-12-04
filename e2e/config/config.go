@@ -48,6 +48,7 @@ type Configuration struct {
 	TagsToRun                       string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                      string        `env:"TAGS_TO_SKIP"`
 	TestTimeout                     time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
+	TestTimeoutCluster              time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                 time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword            string        `env:"WINDOWS_ADMIN_PASSWORD"`
 }

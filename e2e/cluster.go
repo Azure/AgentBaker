@@ -81,6 +81,8 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
+	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
