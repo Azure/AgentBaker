@@ -274,6 +274,9 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	// NVidia pod can be ready, but resources may not be available yet
 	// a hacky way to ensure the next pod is schedulable
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	// device can be allocatable, but not healthy
+	// ugly hack, but I don't see a better solution
+	time.Sleep(10 * time.Second)
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
 }
 
