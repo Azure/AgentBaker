@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"regexp"
@@ -59,7 +60,7 @@ func newTestCtx(t *testing.T) context.Context {
 }
 
 func TestMain(m *testing.M) {
-	fmt.Printf("using E2E environment configuration:\n%s\n", config.Config)
+	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 	// clean up logs from previous run
 	if _, err := os.Stat("scenario-logs"); err == nil {
 		_ = os.RemoveAll("scenario-logs")
