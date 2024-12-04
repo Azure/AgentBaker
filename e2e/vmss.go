@@ -129,11 +129,11 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
+		//s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
 
 		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
-			s.T.Logf("error fetching logs for %s: %s", file, err)
+			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
 		}
 		if execResult.stdout != nil {
@@ -146,7 +146,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		if execResult.stderr != nil {
 			out := execResult.stderr.String()
 			if out != "" {
-				s.T.Logf("error when executin %q: %s", sourceCmd, out)
+				s.T.Logf("%q: %s", sourceCmd, out)
 			}
 		}
 	}
@@ -459,8 +459,12 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-						DiskSizeGB:   to.Ptr(int32(512)),
+						DiskSizeGB:   to.Ptr(int32(140)),
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
+						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
+						DiffDiskSettings: &armcompute.DiffDiskSettings{
+							Option: to.Ptr(armcompute.DiffDiskOptionsLocal),
+						},
 					},
 				},
 				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{
