@@ -82,39 +82,14 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
-
-	// private acr must be created before we add the debug daemonsets
-	if isAirgap {
-		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
-			return nil, fmt.Errorf("failed to create private acr: %w", err)
-		}
-	}
-
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	if isAirgap {
-		if err := addAirgapNetworkSettings(ctx, t, cluster); err != nil {
-			return nil, fmt.Errorf("add airgap network settings: %w", err)
-		}
-	}
-
 	maintenance, err := getOrCreateMaintenanceConfiguration(ctx, t, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get or create maintenance configuration: %w", err)
-	}
-
-	// sometimes tests can be interrupted and vmss are left behind
-	// don't waste resource and delete them
-	if err := collectGarbageVMSS(ctx, t, cluster); err != nil {
-		return nil, fmt.Errorf("collect garbage vmss: %w", err)
-	}
-
-	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
-	if err != nil {
-		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
 	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
@@ -123,9 +98,31 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
+	if isAirgap {
+		// private acr must be created before we add the debug daemonsets
+		if err := createPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+
+		if err := addAirgapNetworkSettings(ctx, t, cluster); err != nil {
+			return nil, fmt.Errorf("add airgap network settings: %w", err)
+		}
+	}
+
+	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
+	if err != nil {
+		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
+	}
+
 	t.Logf("ensuring debug daemonsets")
 	if err := ensureDebugDaemonsets(ctx, t, kube, isAirgap); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
+	}
+
+	// sometimes tests can be interrupted and vmss are left behind
+	// don't waste resource and delete them
+	if err := collectGarbageVMSS(ctx, t, cluster); err != nil {
+		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
 	return &Cluster{
