@@ -22,7 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func getBaseNBC(cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
+	require.NotNil(t, cluster) // sometimes tests are panicking, but I can't catch what exactly is nil
 	nbc := baseTemplateLinux(config.Config.Location)
 	if vhd.Distro.IsWindowsDistro() {
 		nbc = baseTemplateWindows(config.Config.Location)
