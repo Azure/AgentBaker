@@ -92,23 +92,21 @@ func waitUntilPodReady(ctx context.Context, kube *Kubeclient, podName string, t 
 				}
 			}
 
-			if pod.Status.Phase == corev1.PodFailed {
-				return fmt.Errorf("pod %s failed", podName)
+			if pod.Status.Phase == corev1.PodPending {
+				continue
 			}
 
 			if pod.Status.Phase != corev1.PodRunning {
 				// Check for CrashLoopBackOff
 				for _, containerStatus := range pod.Status.ContainerStatuses {
 					if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+						logPodDebugInfo(ctx, kube, pod, t)
 						return fmt.Errorf("pod %s is in CrashLoopBackOff state", podName)
 					}
 				}
 
-				if pod.Status.Phase == corev1.PodPending {
-					continue
-				}
-
 				podStatus, _ := yaml.Marshal(pod.Status)
+				logPodDebugInfo(ctx, kube, pod, t)
 				return fmt.Errorf("pod %s is in %s phase, status: %s", podName, pod.Status.Phase, string(podStatus))
 			}
 
