@@ -1157,4 +1157,3 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
-testMessageOfTheDayComponentsAzureLinux $OS_SKU
