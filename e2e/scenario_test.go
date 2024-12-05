@@ -1131,7 +1131,7 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
-				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "/etc/motd")
+				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "cat /etc/motd")
 			},
 		},
 	})

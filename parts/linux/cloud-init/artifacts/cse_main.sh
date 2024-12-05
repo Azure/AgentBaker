@@ -253,8 +253,7 @@ if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
           aksCustomMotdUpdatePath=/etc/update-motd.d/99-aks-custom-motd
           touch "${aksCustomMotdUpdatePath}"
           chmod 0755 "${aksCustomMotdUpdatePath}"
-          echo '#!/bin/bash' >> "${aksCustomMotdUpdatePath}"
-          echo 'cat /etc/motd' >> "${aksCustomMotdUpdatePath}"
+          echo -e "#!/bin/bash\ncat /etc/motd" > "${aksCustomMotdUpdatePath}"
     fi
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
