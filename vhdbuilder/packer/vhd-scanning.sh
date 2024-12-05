@@ -21,7 +21,6 @@ SCAN_VM_ADMIN_USERNAME="azureuser"
 
 # we must create VMs in a vnet subnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
 SCANNING_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/scanning"
-
 if [ -z "$(az network vnet subnet show --ids $SCANNING_SUBNET_ID | jq -r '.id')" ]; then
     echo "scanning subnet $SCANNING_SUBNET_ID seems to be missing, unable to create scanning VM"
     exit 1
@@ -46,7 +45,7 @@ SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
