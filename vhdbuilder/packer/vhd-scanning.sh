@@ -64,11 +64,8 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-OS_PROFILE="--admin-username ${SCAN_VM_ADMIN_USERNAME} --admin-password ${SCAN_VM_ADMIN_PASSWORD} \\"
-
 if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
-    OS_PROFILE=""
+    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning$(date +%s)${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
@@ -77,11 +74,32 @@ if [ -z "$SCANNING_NIC_ID" ]; then
     exit 1
 fi
 
+if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
+        --name $SCAN_VM_NAME \
+        --image $VHD_IMAGE \
+        --nics $SCANNING_NIC_ID \
+        --os-disk-size-gb 50 \
+        ${VM_OPTIONS} \
+        --assign-identity "${UMSI_RESOURCE_ID}"
+else
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
+        --name $SCAN_VM_NAME \
+        --image $VHD_IMAGE \
+        --nics $SCANNING_NIC_ID \
+        --admin-username ${SCAN_VM_ADMIN_USERNAME} \
+        --admin-password ${SCAN_VM_ADMIN_PASSWORD} \
+        --os-disk-size-gb 50 \
+        ${VM_OPTIONS} \
+        --assign-identity "${UMSI_RESOURCE_ID}"
+fi
+
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
     --nics $SCANNING_NIC_ID \
-    ${OS_PROFILE}
+    --admin-username ${SCAN_VM_ADMIN_USERNAME} \
+    --admin-password ${SCAN_VM_ADMIN_PASSWORD} \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
     --assign-identity "${UMSI_RESOURCE_ID}"
