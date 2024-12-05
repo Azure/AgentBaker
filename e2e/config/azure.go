@@ -208,7 +208,7 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(Config.GallerySubscriptionID, credential, opts)
+	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(Config.GallerySubscriptionIDLinux, credential, opts)
 	if err != nil {
 		return nil, fmt.Errorf("create a new images client: %v", err)
 	}
