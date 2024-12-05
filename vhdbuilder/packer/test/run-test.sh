@@ -11,7 +11,7 @@ TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
 if [ -z "${MANAGED_SIG_ID}" ]; then
-  echo "Managed Sig Id from packer-output is empty, unable to proceed..."
+  echo "SIG image version ID from packer output is empty, unable to proceed..."
   exit 1
 fi
 echo "SIG image version ID from packer output: ${MANAGED_SIG_ID}"
