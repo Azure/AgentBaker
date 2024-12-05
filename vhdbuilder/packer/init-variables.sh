@@ -101,13 +101,6 @@ if [ -z "${VNET_RG_NAME}" ]; then
 	fi
 fi
 
-
-			if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-
-			else
-
-			fi
-
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
 		if [ "${ENVIRONMENT,,}" == "prod" ]; then
