@@ -78,19 +78,33 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, isAirgap bool) error {
-	// airgap set to false since acr does not exist during cluster creation
-	hostDS := getDebugDaemonsetTemplate(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
-	if err := createDebugDaemonset(ctx, kube, hostDS); err != nil {
+	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+	err := createDaemonset(ctx, kube, ds)
+	if err != nil {
 		return err
 	}
-	nonHostDS := getDebugDaemonsetTemplate(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
-	if err := createDebugDaemonset(ctx, kube, nonHostDS); err != nil {
+
+	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	err = createDaemonset(ctx, kube, nonHostDS)
+	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getDebugDaemonsetTemplate(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) string {
+func createDaemonset(ctx context.Context, kube *Kubeclient, ds *appsv1.DaemonSet) error {
+	desired := ds.DeepCopy()
+	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, ds, func() error {
+		ds = desired
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/aks/cbl-mariner/base/core:2.0", config.PrivateACRName)
@@ -100,7 +114,6 @@ func getDebugDaemonsetTemplate(t *testing.T, deploymentName, targetNodeLabel str
 	return fmt.Sprintf(`apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: &name %[1]s 
   namespace: default
   labels:
     app: *name
@@ -138,6 +151,7 @@ func createDebugDaemonset(ctx context.Context, kube *Kubeclient, manifest string
 	if err := yaml.Unmarshal([]byte(manifest), &ds); err != nil {
 		return fmt.Errorf("failed to unmarshal debug daemonset manifest: %w", err)
 	}
+	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
 
 	desired := ds.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, &ds, func() error {
