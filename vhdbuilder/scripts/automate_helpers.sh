@@ -1,6 +1,9 @@
 #!/bin/bash
 set -x
 
+RELEASE_ASSISTANT_APP_NAME="aks-node-sig-release-assistant[bot]"
+RELEASE_ASSISTANT_APP_UID="190555641"
+
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; shift && shift
     for i in $(seq 1 $retries); do
@@ -18,9 +21,10 @@ retrycmd_if_failure() {
 }
 
 set_git_config() {
-    # git config needs to be set in the agent
-    git config --global user.email "aks-node-assistant@microsoft.com"
-    git config --global user.name "aks-node-assistant"
+    # git config needs to be set in the agent as the corresponding GitHub app
+    # https://github.com/orgs/community/discussions/24664#discussioncomment-3244950
+    git config --global user.email "${RELEASE_ASSISTANT_APP_UID}+${RELEASE_ASSISTANT_APP_NAME}@users.noreply.github.com"
+    git config --global user.name "$RELEASE_ASSISTANT_APP_NAME"
     git config --list
 }
 
@@ -55,8 +59,10 @@ create_pull_request() {
     echo "Branch Name is $branch_name"
     echo "PR is for $target"
 
-    set +x # to avoid logging PAT
-    git remote set-url origin https://${github_token}@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
+    set +x # to avoid logging token
+    # use the installation token to authenticate for HTTP-based git access
+    # https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#about-authentication-as-a-github-app-installation
+    git remote set-url origin https://x-access-token:${github_token}@github.com/Azure/AgentBaker.git
     git add .
     
     if [[ "$target" == "ReleaseNotes" ]]; then
