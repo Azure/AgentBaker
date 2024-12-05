@@ -103,16 +103,18 @@ else
     TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
   fi
 
+  OS_PROFILE="--admin-username ${SCAN_VM_ADMIN_USERNAME} --admin-password ${SCAN_VM_ADMIN_PASSWORD} \\"
+
   if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    OS_PROFILE=""
   fi
 
   az vm create \
       --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
       --name $VM_NAME \
+      ${OS_PROFILE}
       --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
       
