@@ -60,7 +60,7 @@ func (c *Configuration) BlobStorageAccountURL() string {
 }
 
 func (c *Configuration) GalleryResourceID() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionID, c.GalleryResourceGroupName, c.GalleryName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s", c.GallerySubscriptionIDLinux, c.GalleryResourceGroupNameLinux, c.GalleryNameLinux)
 }
 
 func (c Configuration) String() string {
