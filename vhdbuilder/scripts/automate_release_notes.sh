@@ -65,4 +65,4 @@ fi
 retrycmd_if_failure 5 10 generate_release_notes || exit $?
 git status
 set +x
-create_pull_request $IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
+create_pull_request $IMAGE_VERSION $GITHUB_TOKEN $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE

@@ -62,7 +62,7 @@ create_image_bump_pr() {
     update_image_version
 
     set +x
-    create_pull_request $NEW_IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
+    create_pull_request $NEW_IMAGE_VERSION $GITHUB_TOKEN $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
     set -x
 }
 

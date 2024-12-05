@@ -41,7 +41,7 @@ create_branch() {
 
 create_pull_request() {
     local image_version=$1
-    local github_pat=$2
+    local github_token=$2
     local branch_name=$3
     local base_branch=$4
     local target=$5
@@ -56,7 +56,7 @@ create_pull_request() {
     echo "PR is for $target"
 
     set +x # to avoid logging PAT
-    git remote set-url origin https://${github_pat}@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
+    git remote set-url origin https://${github_token}@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
     git add .
     
     if [[ "$target" == "ReleaseNotes" ]]; then
@@ -69,7 +69,7 @@ create_pull_request() {
 
     curl \
         -X POST \
-        -H "Authorization: Bearer $github_pat" \
+        -H "Authorization: Bearer $github_token" \
         https://api.github.com/repos/Azure/AgentBaker/pulls \
         -d '{
             "head" : "'$branch_name'", 
