@@ -2,7 +2,7 @@ name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
 pool:
-  name: $(POOL_NAME)
+  name: $(POOL_NAME_OVERRIDE)
 
 parameters:
   - name: useOverrides
