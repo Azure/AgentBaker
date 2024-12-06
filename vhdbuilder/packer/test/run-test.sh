@@ -104,16 +104,16 @@ else
   fi
 
   if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
-  fi
-
-  if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
     az vm create \
         --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
         --name $VM_NAME \
+        --admin-username ${TEST_VM_ADMIN_USERNAME} \
+        --admin-password ${TEST_VM_ADMIN_PASSWORD} \
+        --enable-secure-boot true --enable-vtpm true \
+        --location westeurope --os-disk-security-encryption-type VMGuestStateOnly \
         --image $IMG_DEF \
-        --public-ip-address "" \
-        ${TARGET_COMMAND_STRING}
+        --security-type ConfidentialVM --size Standard_DC8ads_v5 \
+        --specialized true --public-ip-address "" \
   else
     az vm create \
         --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
