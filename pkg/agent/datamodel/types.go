@@ -1773,7 +1773,8 @@ type HTTPProxyConfig struct {
 }
 
 type CustomCATrustConfig struct {
-	CustomCATrustCerts []string `json:"customCATrustCerts,omitempty"`
+	CustomCATrustCerts  []string `json:"customCATrustCerts,omitempty"`
+	EnableCustomCATrust bool     `json:"enableCustomCATrust,omitempty"`
 }
 
 // AKSKubeletConfiguration contains the configuration for the Kubelet that AKS set.
