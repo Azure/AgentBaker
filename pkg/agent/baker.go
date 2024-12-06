@@ -935,7 +935,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return 0
 		},
 		"ShouldConfigureCustomCATrust": func() bool {
-			return areCustomCATrustCertsPopulated(*config)
+			return isCustomCATrustEnabledOnNode(*config)
 		},
 		"GetCustomCATrustConfigCerts": func() []string {
 			if areCustomCATrustCertsPopulated(*config) {
@@ -1077,6 +1077,10 @@ func GPUNeedsFabricManager(size string) bool {
 
 func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfiguration) bool {
 	return config.CustomCATrustConfig != nil && len(config.CustomCATrustConfig.CustomCATrustCerts) > 0
+}
+
+func isCustomCATrustEnabledOnNode(config datamodel.NodeBootstrappingConfiguration) bool {
+	return config.CustomCATrustConfig != nil && config.CustomCATrustConfig.EnableCustomCATrust
 }
 
 func isMariner(osSku string) bool {
