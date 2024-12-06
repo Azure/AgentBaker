@@ -554,6 +554,10 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
+wait $BCC_PID
+BCC_EXIT_CODE=$?
+chmod 755 /var/log/bcc_installation.log
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
@@ -566,10 +570,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
-
-wait $BCC_PID
-BCC_EXIT_CODE=$?
-chmod 755 /var/log/bcc_installation.log
 
 if [ $BCC_EXIT_CODE -eq 0 ]; then
   echo "Bcc tools successfully installed."
