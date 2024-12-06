@@ -17,7 +17,7 @@ var (
 	Azure             = mustNewAzureClient()
 	ResourceGroupName = "abe2e-" + Config.Location
 	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2e" + Config.Location
+	PrivateACRName    = "privateacre2e" + Config.Location + "dev" // TODO (alburgess): remove dev once CCOA is over
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
