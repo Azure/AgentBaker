@@ -75,8 +75,7 @@ if [ -z "$SCANNING_NIC_ID" ]; then
 fi
 
 if [[ "${OS_TYPE}" == "Linux" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
-    az vm create \
-        --resource-group $RESOURCE_GROUP_NAME \
+    az vm create --resource-group $RESOURCE_GROUP_NAME \
         --name $SCAN_VM_NAME \
         --admin-username ${SCAN_VM_ADMIN_USERNAME} \
         --admin-password ${SCAN_VM_ADMIN_PASSWORD} \
@@ -99,16 +98,6 @@ else
         ${VM_OPTIONS} \
         --assign-identity "${UMSI_RESOURCE_ID}"
 fi
-
-az vm create --resource-group $RESOURCE_GROUP_NAME \
-    --name $SCAN_VM_NAME \
-    --image $VHD_IMAGE \
-    --nics $SCANNING_NIC_ID \
-    --admin-username ${SCAN_VM_ADMIN_USERNAME} \
-    --admin-password ${SCAN_VM_ADMIN_PASSWORD} \
-    --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
     
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x

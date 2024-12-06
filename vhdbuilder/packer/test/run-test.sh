@@ -21,7 +21,11 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
   fi
-  AZURE_LOCATION=$PACKER_BUILD_LOCATION
+  if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+    AZURE_LOCATION=$CVM_PACKER_BUILD_LOCATION
+  else
+    AZURE_LOCATION=$PACKER_BUILD_LOCATION
+  fi
 fi
 
 if [ "${OS_TYPE,,}" == "linux" ]; then
@@ -113,7 +117,7 @@ else
         --location westeurope --os-disk-security-encryption-type VMGuestStateOnly \
         --image $IMG_DEF \
         --security-type ConfidentialVM --size Standard_DC8ads_v5 \
-        --specialized true --public-ip-address "" \
+        --specialized true --public-ip-address "" 
   else
     az vm create \
         --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
