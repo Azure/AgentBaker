@@ -45,6 +45,10 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
 	templateGenerator := InitializeTemplateGenerator()
 	nodeBootstrapping := &datamodel.NodeBootstrapping{
 		CustomData: templateGenerator.getNodeBootstrappingPayload(config),

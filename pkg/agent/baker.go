@@ -253,15 +253,14 @@ func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
 	truncated := resourceGroupName
 	truncated = strings.ReplaceAll(truncated, "(", "-")
 	truncated = strings.ReplaceAll(truncated, ")", "-")
-	const maxKubernetesLabelLength = 63
-	if len(truncated) > maxKubernetesLabelLength {
-		truncated = truncated[0:maxKubernetesLabelLength]
+	if len(truncated) > datamodel.MaxK8sLabelValueLength {
+		truncated = truncated[0:datamodel.MaxK8sLabelValueLength]
 	}
 
 	if strings.HasSuffix(truncated, "-") ||
 		strings.HasSuffix(truncated, "_") ||
 		strings.HasSuffix(truncated, ".") {
-		if len(truncated) > maxKubernetesLabelLength-1 {
+		if len(truncated) > datamodel.MaxK8sLabelValueLength-1 {
 			return truncated[0:len(truncated)-1] + "z"
 		}
 		return truncated + "z"
