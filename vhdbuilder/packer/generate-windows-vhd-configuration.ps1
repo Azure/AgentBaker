@@ -39,7 +39,7 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
 
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://junjiezhang.blob.core.windows.net/testcontainerd/package-20240508.tar.gz"
 if ($windowsSKU -Like "23H2*") {
     $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
 }

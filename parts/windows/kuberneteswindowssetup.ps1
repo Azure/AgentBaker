@@ -271,6 +271,7 @@ try
     $sshEnabled = [System.Convert]::ToBoolean("{{ WindowsSSHEnabled }}")
 
     if ( $sshEnabled ) {
+        Write-Log "Install OpenSSH"
         Install-OpenSSH -SSHKeys $SSHKeys
     }
 
@@ -503,6 +504,13 @@ finally
     Write-Log "CSE ExecutionDuration: $ExecutionDuration. ExitCode: $global:ExitCode"
 
     Logs-To-Event -TaskName "AKS.WindowsCSE.cse_main" -TaskMessage "ExitCode: $global:ExitCode. ErrorMessage: $global:ErrorMessage." 
+
+    Write-Log "Start to enable full support of CimFS"
+    c:\AzureData\windows\StagingTool.exe /enable 44354424 47273241 47273202 48004466 48230524
+    Postpone-RestartComputer
+
+    # Please not use Write-Log or Logs-To-Events after Stop-Transcript
+    Stop-Transcript
 
     # $CSEResultFilePath is used to avoid running CSE multiple times
     if ($global:ExitCode -ne 0) {
