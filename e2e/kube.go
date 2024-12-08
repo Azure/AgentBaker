@@ -191,14 +191,14 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 	return ""
 }
 
-// Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
+// GetHostNetworkDebugPod returns a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
 func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context, t *testing.T) (*corev1.Pod, error) {
 	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
 }
 
-// Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
+// GetPodNetworkDebugPodForNode returns a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
 // the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
-func (k *Kubeclient) GetPodNetworkDebugPodForVMSS(ctx context.Context, kubeNodeName string, t *testing.T) (*corev1.Pod, error) {
+func (k *Kubeclient) GetPodNetworkDebugPodForNode(ctx context.Context, kubeNodeName string, t *testing.T) (*corev1.Pod, error) {
 	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
 }
 
@@ -206,7 +206,6 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *
 	if pod == nil {
 		return
 	}
-	events, _ := kube.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
 	logs, _ := kube.Typed.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{TailLines: to.Ptr(int64(5))}).DoRaw(ctx)
 	type Condition struct {
 		Reason  string
@@ -233,14 +232,19 @@ func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *
 		Events     []Event
 		Logs       string
 	}
-	formattedEvents := make([]Event, 0, len(events.Items))
-	for _, event := range events.Items {
-		formattedEvents = append(formattedEvents, Event{
-			Reason:        event.Reason,
-			Message:       event.Message,
-			Count:         event.Count,
-			LastTimestamp: event.LastTimestamp,
-		})
+	var formattedEvents []Event
+
+	events, err := kube.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+	if err == nil {
+		formattedEvents = make([]Event, 0, len(events.Items))
+		for _, event := range events.Items {
+			formattedEvents = append(formattedEvents, Event{
+				Reason:        event.Reason,
+				Message:       event.Message,
+				Count:         event.Count,
+				LastTimestamp: event.LastTimestamp,
+			})
+		}
 	}
 
 	conditions := make([]Condition, 0)
@@ -286,29 +290,29 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, isAirgap bool) error {
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool) error {
 	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
-	err := createDaemonset(ctx, kube, ds)
+	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
 	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
-	err = createDaemonset(ctx, kube, nonHostDS)
+	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
 	}
 
-	err = createDaemonset(ctx, kube, nvidiaDevicePluginDaemonSet())
+	err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func createDaemonset(ctx context.Context, kube *Kubeclient, ds *appsv1.DaemonSet) error {
+func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) error {
 	desired := ds.DeepCopy()
-	_, err := controllerutil.CreateOrUpdate(ctx, kube.Dynamic, ds, func() error {
+	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, ds, func() error {
 		ds = desired
 		return nil
 	})

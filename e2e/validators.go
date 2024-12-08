@@ -151,7 +151,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 }
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForVMSS(ctx, s.Runtime.KubeNodeName, s.T)
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.KubeNodeName, s.T)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
 	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
 	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
@@ -269,14 +269,12 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 
 func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	s.T.Logf("validating pod using nvidia GPU")
-	// add "nvidia.com/gpu" resource to the node
-	//ensurePod(ctx, s, podEnableNvidiaResource(s))
 	// NVidia pod can be ready, but resources may not be available yet
 	// a hacky way to ensure the next pod is schedulable
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 	// device can be allocatable, but not healthy
 	// ugly hack, but I don't see a better solution
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
 }
 

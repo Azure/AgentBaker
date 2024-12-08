@@ -116,11 +116,11 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	commandList := map[string]string{
-		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                      "journalctl -u kubelet",
-		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out":                   "sysctl -a",
-		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
+		"cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                      "journalctl -u kubelet",
+		"cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                   "sysctl -a",
+		"aks-node-controller.log":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
@@ -130,8 +130,6 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		//s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
-
 		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
@@ -140,7 +138,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		if execResult.stdout != nil {
 			out := execResult.stdout.String()
 			if out != "" {
-				logFiles[file+".txt"] = out
+				logFiles[file] = out
 			}
 
 		}

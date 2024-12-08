@@ -118,7 +118,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	t.Logf("ensuring debug daemonsets")
-	if err := ensureDebugDaemonsets(ctx, t, kube, isAirgap); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
