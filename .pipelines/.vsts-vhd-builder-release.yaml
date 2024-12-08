@@ -1271,3 +1271,25 @@ stages:
       TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
+  - stage: cveQuery
+    condition: ne(variables.SKIP_CVE_QUERY, 'true')
+    jobs:
+      - job: cveQuery
+        pool: $(QUERY_POOL_NAME)
+        steps:
+          - bash: make -f packer.mk query-cve
+            env:
+              BUILD_SOURCEVERSION: $(Build.SourceVersion)
+          - task: CopyFiles@2
+            condition: failed()
+            displayName: Copy CVE Report
+            inputs:
+              SourceFolder: '$(System.DefaultWorkingDirectory)'
+              Contents: 'cve-report.out'
+              TargetFolder: '$(Build.ArtifactStagingDirectory)'
+          - task: PublishPipelineArtifact@1
+            condition: always()
+            displayName: Publish CVE Report
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'cve-report'
