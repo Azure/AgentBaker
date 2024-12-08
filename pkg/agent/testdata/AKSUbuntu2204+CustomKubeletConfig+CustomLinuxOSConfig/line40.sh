@@ -560,7 +560,23 @@ installKubeletKubectlAndKubeProxy() {
         if [[ "$install_default_if_missing" == true ]]; then
             if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
-                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
+                binary_version="v${KUBERNETES_VERSION}" 
+                if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+                    echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+                    registry_url="${KUBE_BINARY_URL}"
+                else
+                    url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+                    if [[ -n ${KUBE_BINARY_URL} ]]; then
+                        if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                            version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                            binary_version="${version_with_prefix%%/*}"
+                            echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+                        fi
+                    fi
+                    registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+                fi
+
+                
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" 
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} $registry_url false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
 

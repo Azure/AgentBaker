@@ -613,7 +613,28 @@ installKubeletKubectlAndKubeProxy() {
             if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
                 # network isolated cluster
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
-                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
+                binary_version="v${KUBERNETES_VERSION}" # by default use Kubernetes versions
+                # if rp already passes registry url, then directly use the registry url that rp passes
+                # this path should have not catch for now, but keep it for future 
+                if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+                    echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+                    registry_url="${KUBE_BINARY_URL}"
+                else
+                    # however, the kubelet and kubectl binary version may different with kubernetes version due to hotfix or beta
+                    # so that we still need to extract the binary version from kube_binary_url
+                    url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+                    if [[ -n ${KUBE_BINARY_URL} ]]; then
+                        if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                            version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                            # Extract the version part
+                            binary_version="${version_with_prefix%%/*}"
+                            echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+                        fi
+                    fi
+                    registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+                fi
+
+                
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} $registry_url false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
                 # no egress traffic, default install will fail
