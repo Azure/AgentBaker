@@ -199,7 +199,7 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "nodepool2",
-						VMSize:              "Standard_D2ds_v5",
+						VMSize:              config.Config.DefaultVMSKU,
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
 						DNSPrefix:           "",
@@ -482,8 +482,8 @@ func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfigurat
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
-						Name: "winnp",
-						//VMSize:              windowsE2EVmSize,
+						Name:                "winnp",
+						VMSize:              config.Config.DefaultVMSKU,
 						OSType:              "Windows",
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
