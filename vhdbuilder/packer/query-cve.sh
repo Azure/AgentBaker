@@ -1,0 +1,26 @@
+#!/bin/bash
+set -eux
+
+source ./vhdbuilder/packer/vhd-scanning.sh
+
+QUERY_RESOURCE_PREFIX="cve-query"
+QUERY_VM_NAME="$QUERY_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
+VHD_IMAGE="/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/aksvhdtestbuildrg/providers/Microsoft.Compute/galleries/PackerSigGalleryEastUS/images/2204containerd/versions/latest"
+RESOURCE_GROUP_NAME="$QUERY_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
+
+QUERY_VM_USERNAME="azureuser"
+VM_LOCATION="westus"
+
+set +x
+QUERY_VM_PASSWORD="QueryVM@$(date +%s)"
+set -x
+
+az group create --name $RESOURCE_GROUP_NAME --location ${VM_LOCATION}
+trap cleanup EXIT
+
+az vm create --resource-group $RESOURCE_GROUP_NAME \
+  --name $QUERY_VM_NAME \
+  --image $VHD_IMAGE \
+  --admin-username $QUERY_VM_USERNAME \
+  --admin-password $QUERY_VM_PASSWORD \
+  --assign-identity "${UMSI_RESOURCE_ID}"

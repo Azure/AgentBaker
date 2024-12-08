@@ -1274,23 +1274,24 @@ stages:
     jobs:
       - job: cveQuery
         steps:
-          - bash: |
-              set -eux
-              az login --identity
-            displayName: Azure Login
-          - bash: |
-              arch="$(uname -m)"
-              if [ "${arch,,}" == "arm64" ] || [ "${arch,,}" == "aarch64" ]; then
-                  GO_ARCH="arm64"
-              elif [ "${arch,,}" == "x86_64" ]; then
-                  GO_ARCH="amd64"
-              else
-                  echo "invalid architecture ${arch,,}"
-                  exit 1
-              fi
+          - bash: make -f packer.mk query-cve
+          # - bash: |
+          #     set -eux
+          #     az login --identity
+          #   displayName: Azure Login
+          # - bash: |
+          #     arch="$(uname -m)"
+          #     if [ "${arch,,}" == "arm64" ] || [ "${arch,,}" == "aarch64" ]; then
+          #         GO_ARCH="arm64"
+          #     elif [ "${arch,,}" == "x86_64" ]; then
+          #         GO_ARCH="amd64"
+          #     else
+          #         echo "invalid architecture ${arch,,}"
+          #         exit 1
+          #     fi
 
-              az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
-                --name ${MODULE_VERSION}/vuln-to-kusto-vhd_linux_${GO_ARCH} \
-                --file ./vuln-to-kusto-vhd
-              chmod a+x vuln-to-kusto-vhd
-            displayName: Download vuln-to-kusto binary
+          #     az storage blob download --auth-mode login --account-name ${ACCOUNT_NAME} -c vuln-to-kusto \
+          #       --name ${MODULE_VERSION}/vuln-to-kusto-vhd_linux_${GO_ARCH} \
+          #       --file ./vuln-to-kusto-vhd
+          #     chmod a+x vuln-to-kusto-vhd
+          #   displayName: Download vuln-to-kusto binary
