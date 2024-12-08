@@ -274,7 +274,7 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
 	// device can be allocatable, but not healthy
 	// ugly hack, but I don't see a better solution
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
 }
 
