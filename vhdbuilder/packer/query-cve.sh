@@ -7,7 +7,7 @@ VHD_IMAGE="/subscriptions/c4c3550e-a965-4993-a50c-628fd38cd3e1/resourceGroups/ak
 RESOURCE_GROUP_NAME="$QUERY_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 
 QUERY_VM_USERNAME="azureuser"
-VM_LOCATION="westus"
+VM_LOCATION="eastus"
 
 set +x
 QUERY_VM_PASSWORD="QueryVM@$(date +%s)"
