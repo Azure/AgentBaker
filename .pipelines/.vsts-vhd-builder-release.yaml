@@ -1270,9 +1270,9 @@ stages:
   #     LOCATION: $(PACKER_BUILD_LOCATION)
   #   jobs:
   #     - template: ./templates/e2e-template.yaml
-  - stage: cve-query
+  - stage: cveQuery
     jobs:
-      - job: cve-query
+      - job: cveQuery
         steps:
           - bash: |
               set -eux
