@@ -23,7 +23,6 @@ import (
 )
 
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	require.NotNil(t, cluster) // sometimes tests are panicking, but I can't catch what exactly is nil
 	nbc := baseTemplateLinux(config.Config.Location)
 	if vhd.Distro.IsWindowsDistro() {
 		nbc = baseTemplateWindows(config.Config.Location)
@@ -156,8 +155,8 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 						UserAssignedID:                    "",
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
-						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
-						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.16", // Oldest supported version, end of life is Jul 2025 https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli#kubernetes-versions
+						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.27.16/binaries/kubernetes-node-linux-amd64.tar.gz",
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",

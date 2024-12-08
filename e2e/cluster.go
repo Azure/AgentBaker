@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -68,11 +69,7 @@ func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		cluster, err := prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap-dev"), true) // TODO (alburgess): remove -dev once CCOA is over
-		if err == nil {
-			err = addAirgapNetworkSettings(ctx, t, cluster.Model)
-		}
-		clusterKubenetAirgap, clusterKubenetAirgapError = cluster, err
+		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap-dev"), true) // TODO (alburgess): remove -dev once CCOA is over
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
@@ -85,15 +82,9 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
+	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
-
-	// private acr must be created before we add the debug daemonsets
-	if isAirgap {
-		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, config.ResourceGroupName, config.PrivateACRName); err != nil {
-			return nil, fmt.Errorf("failed to create private acr: %w", err)
-		}
-	}
-
 	cluster, err := getOrCreateCluster(ctx, t, cluster)
 	if err != nil {
 		return nil, err
@@ -104,10 +95,21 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get or create maintenance configuration: %w", err)
 	}
 
-	// sometimes tests can be interrupted and vmss are left behind
-	// don't waste resource and delete them
-	if err := collectGarbageVMSS(ctx, t, cluster); err != nil {
-		return nil, fmt.Errorf("collect garbage vmss: %w", err)
+	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
+	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
+	if err != nil {
+		return nil, fmt.Errorf("get cluster subnet: %w", err)
+	}
+
+	if isAirgap {
+		// private acr must be created before we add the debug daemonsets
+		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, config.ResourceGroupName, config.PrivateACRName); err != nil {
+			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+
+		if err := addAirgapNetworkSettings(ctx, t, cluster); err != nil {
+			return nil, fmt.Errorf("add airgap network settings: %w", err)
+		}
 	}
 
 	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
@@ -115,15 +117,15 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	t.Logf("node resource group: %s", *cluster.Properties.NodeResourceGroup)
-	subnetID, err := getClusterSubnetID(ctx, *cluster.Properties.NodeResourceGroup, t)
-	if err != nil {
-		return nil, fmt.Errorf("get cluster subnet: %w", err)
+	t.Logf("ensuring debug daemonsets")
+	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap); err != nil {
+		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
-	t.Logf("ensuring debug daemonsets")
-	if err := ensureDebugDaemonsets(ctx, t, kube, isAirgap); err != nil {
-		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
+	// sometimes tests can be interrupted and vmss are left behind
+	// don't waste resource and delete them
+	if err := collectGarbageVMSS(ctx, t, cluster); err != nil {
+		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
 	return &Cluster{
@@ -202,6 +204,29 @@ func deleteCluster(ctx context.Context, t *testing.T, cluster *armcontainerservi
 	}
 	t.Logf("deleted cluster %s in rg %s", *cluster.Name, config.ResourceGroupName)
 	return nil
+}
+
+func waitUntilClusterReady(ctx context.Context, name string) (*armcontainerservice.ManagedCluster, error) {
+	var cluster armcontainerservice.ManagedClustersClientGetResponse
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		var err error
+		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName, name, nil)
+		if err != nil {
+			return false, err
+		}
+		switch *cluster.ManagedCluster.Properties.ProvisioningState {
+		case "Succeeded":
+			return true, nil
+		case "Updating", "Assigned", "Creating":
+			return false, nil
+		default:
+			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &cluster.ManagedCluster, err
 }
 
 func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {

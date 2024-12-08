@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"regexp"
@@ -59,7 +60,7 @@ func newTestCtx(t *testing.T) context.Context {
 }
 
 func TestMain(m *testing.M) {
-	fmt.Printf("using E2E environment configuration:\n%s\n", config.Config)
+	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 	// clean up logs from previous run
 	if _, err := os.Stat("scenario-logs"); err == nil {
 		_ = os.RemoveAll("scenario-logs")
@@ -86,6 +87,9 @@ func RunScenario(t *testing.T, s *Scenario) {
 	maybeSkipScenario(ctx, t, s)
 	cluster, err := s.Config.Cluster(ctx, s.T)
 	require.NoError(s.T, err)
+	// in some edge cases cluster cache is broken and nil cluster is returned
+	// need to find the root cause and fix it, this should help to catch such cases
+	require.NotNil(t, cluster)
 	s.Runtime = &ScenarioRuntime{
 		Cluster: cluster,
 	}
@@ -124,13 +128,14 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
-	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
+	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
-	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
 	require.NoError(s.T, err, "failed to get host network debug pod name")
+	s.Runtime.HostPodName = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
