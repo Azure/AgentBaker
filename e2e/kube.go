@@ -287,13 +287,13 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func ensureDebugDaemonsets(ctx context.Context, t *testing.T, kube *Kubeclient, isAirgap bool) error {
-	ds := daemonsetDebug(hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
 	err := createDaemonset(ctx, kube, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
 	err = createDaemonset(ctx, kube, nonHostDS)
 	if err != nil {
 		return err
@@ -318,11 +318,12 @@ func createDaemonset(ctx context.Context, kube *Kubeclient, ds *appsv1.DaemonSet
 	return nil
 }
 
-func daemonsetDebug(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", config.PrivateACRName)
 	}
+	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
