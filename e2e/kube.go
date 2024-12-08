@@ -406,7 +406,6 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
 					Name:  "mariner",
@@ -436,7 +435,6 @@ func podHTTPServerWindows(s *Scenario) *corev1.Pod {
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
 					Name:  "iis-container",
@@ -471,7 +469,6 @@ func podWASMSpin(s *Scenario) *corev1.Pod {
 			Namespace: "default",
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
 			},
@@ -503,7 +500,6 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
 					Name:  "gpu-validation-container",
