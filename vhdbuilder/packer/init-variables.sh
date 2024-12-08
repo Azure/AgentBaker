@@ -99,7 +99,12 @@ fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+		if [ "${ENVIRONMENT,,}" == "prod" ]; then
+			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
+			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+		else
+			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet"
