@@ -28,6 +28,7 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		}
 		s.T.Logf("deleted pod %q", pod.Name)
 	})
-	pod, err = kube.WaitUntilPodRunning(ctx, s.T, pod.Namespace, "", "metadata.name="+pod.Name)
+
+	_, err = kube.WaitUntilPodRunning(ctx, s.T, pod.Namespace, "", "metadata.name="+pod.Name)
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
 }

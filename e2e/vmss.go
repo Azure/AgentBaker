@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -122,7 +123,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
 	if err != nil {
 		require.NoError(s.T, err)
 	}
@@ -131,7 +132,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	for file, sourceCmd := range commandList {
 		//s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
 
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -144,7 +145,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 
 		}
 		if execResult.stderr != nil {
-			out := execResult.stderr.String()
+			out := removeWarningMessages(execResult.stderr.String())
 			if out != "" {
 				s.T.Logf("%q: %s", sourceCmd, out)
 			}
@@ -152,6 +153,19 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
+}
+
+// removeWarningMessages removes noise from logs
+func removeWarningMessages(input string) string {
+	warningRegex := regexp.MustCompile(`Warning: Permanently added '.+' \(ED25519\) to the list of known hosts\.?`)
+	authRegex := regexp.MustCompile(`Authorized uses only\. All activity may be monitored and reported\.`)
+
+	// Replace matches with an empty string
+	cleaned := warningRegex.ReplaceAllString(input, "")
+	cleaned = authRegex.ReplaceAllString(cleaned, "")
+
+	// Trim any extra whitespace or newlines
+	return strings.TrimSpace(cleaned)
 }
 
 const uploadLogsPowershellScript = `
@@ -404,7 +418,7 @@ func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error)
 }
 
 func generateVMSSNameLinux(t *testing.T) string {
-	name := fmt.Sprintf("%s-%s-%s", time.Now().Format(time.DateOnly), randomLowercaseString(4), t.Name())
+	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), t.Name())
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
