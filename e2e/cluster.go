@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -179,6 +180,29 @@ func getOrCreateCluster(ctx context.Context, t *testing.T, cluster *armcontainer
 		// this operation will try to update the cluster if it's in a failed state
 		return createNewAKSClusterWithRetry(ctx, t, cluster)
 	}
+}
+
+func waitUntilClusterReady(ctx context.Context, name string) (*armcontainerservice.ManagedCluster, error) {
+	var cluster armcontainerservice.ManagedClustersClientGetResponse
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		var err error
+		cluster, err = config.Azure.AKS.Get(ctx, config.ResourceGroupName, name, nil)
+		if err != nil {
+			return false, err
+		}
+		switch *cluster.ManagedCluster.Properties.ProvisioningState {
+		case "Succeeded":
+			return true, nil
+		case "Updating", "Assigned", "Creating":
+			return false, nil
+		default:
+			return false, fmt.Errorf("cluster %s is in state %s", name, *cluster.ManagedCluster.Properties.ProvisioningState)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &cluster.ManagedCluster, err
 }
 
 func isExistingResourceGroup(ctx context.Context, resourceGroupName string) (bool, error) {

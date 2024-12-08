@@ -3,11 +3,15 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -15,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -30,6 +35,11 @@ type Kubeclient struct {
 	RESTConfig *rest.Config
 	KubeConfig []byte
 }
+
+const (
+	hostNetworkDebugAppLabel = "debug-mariner"
+	podNetworkDebugAppLabel  = "debugnonhost-mariner"
+)
 
 func (k *Kubeclient) clientCertificate() string {
 	var kc map[string]any
@@ -78,6 +88,188 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		RESTConfig: config,
 		KubeConfig: data,
 	}, nil
+}
+
+func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, namespace string, labelSelector string, fieldSelector string) (*corev1.Pod, error) {
+	t.Logf("waiting for pod %s %s in %q namespace to be ready", labelSelector, fieldSelector, namespace)
+
+	watcher, err := k.Typed.CoreV1().Pods(namespace).Watch(ctx, metav1.ListOptions{
+		FieldSelector: fieldSelector,
+		LabelSelector: labelSelector,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to start watching pod: %v", err)
+	}
+	defer watcher.Stop()
+
+	logTicker := time.NewTicker(5 * time.Minute)
+	var pod *corev1.Pod
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-logTicker.C:
+			if deadline, ok := ctx.Deadline(); ok {
+				remaining := time.Until(deadline)
+				t.Logf("time before timeout: %v\n", remaining)
+			}
+			if pod != nil {
+				logPodDebugInfo(ctx, k, pod, t)
+			}
+		case event := <-watcher.ResultChan():
+			if event.Type != "ADDED" && event.Type != "MODIFIED" {
+				continue
+			}
+			pod = event.Object.(*corev1.Pod)
+
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason == "CrashLoopBackOff" {
+					logPodDebugInfo(ctx, k, pod, t)
+					return nil, fmt.Errorf("pod %s is in CrashLoopBackOff state", pod.Name)
+				}
+			}
+
+			switch pod.Status.Phase {
+			case corev1.PodPending:
+				continue
+			case corev1.PodSucceeded:
+				//return pod, nil
+			case corev1.PodRunning:
+				// Check if the pod is ready
+				for _, cond := range pod.Status.Conditions {
+					if cond.Type == "Ready" && cond.Status == "True" {
+						t.Logf("pod %s is ready", pod.Name)
+						return pod, nil
+					}
+				}
+			default:
+				logPodDebugInfo(ctx, k, pod, t)
+				return nil, fmt.Errorf("pod %s is in %s phase", pod.Name, pod.Status.Phase)
+			}
+		}
+	}
+}
+
+func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
+	nodeStatus := corev1.NodeStatus{}
+	found := false
+
+	t.Logf("waiting for node %s to be ready", vmssName)
+
+	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "failed to start watching nodes")
+	defer watcher.Stop()
+
+	for event := range watcher.ResultChan() {
+		if event.Type != watch.Added && event.Type != watch.Modified {
+			continue
+		}
+		node := event.Object.(*corev1.Node)
+
+		if !strings.HasPrefix(node.Name, vmssName) {
+			continue
+		}
+		found = true
+		nodeStatus = node.Status
+		if len(node.Spec.Taints) > 0 {
+			continue
+		}
+
+		for _, cond := range node.Status.Conditions {
+			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+				t.Logf("node %s is ready", node.Name)
+				return node.Name
+			}
+		}
+	}
+
+	if !found {
+		t.Logf("node %q isn't connected to the AKS cluster", vmssName)
+	}
+	require.NoError(t, err, "failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
+	return ""
+}
+
+// Returns the name of a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
+func (k *Kubeclient) GetHostNetworkDebugPod(ctx context.Context, t *testing.T) (*corev1.Pod, error) {
+	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", hostNetworkDebugAppLabel), "")
+}
+
+// Returns the name of a pod that's a member of the 'debugnonhost' daemonset running in the cluster - this will return
+// the name of the pod that is running on the node created for specifically for the test case which is running validation checks.
+func (k *Kubeclient) GetPodNetworkDebugPodForVMSS(ctx context.Context, kubeNodeName string, t *testing.T) (*corev1.Pod, error) {
+	return k.WaitUntilPodRunning(ctx, t, defaultNamespace, fmt.Sprintf("app=%s", podNetworkDebugAppLabel), "spec.nodeName="+kubeNodeName)
+}
+
+func logPodDebugInfo(ctx context.Context, kube *Kubeclient, pod *corev1.Pod, t *testing.T) {
+	if pod == nil {
+		return
+	}
+	events, _ := kube.Typed.CoreV1().Events(pod.Namespace).List(ctx, metav1.ListOptions{FieldSelector: "involvedObject.name=" + pod.Name})
+	logs, _ := kube.Typed.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{TailLines: to.Ptr(int64(5))}).DoRaw(ctx)
+	type Condition struct {
+		Reason  string
+		Message string
+	}
+	type Container struct {
+		Name  string
+		Image string
+		Ports []corev1.ContainerPort
+	}
+	type Event struct {
+		Reason        string
+		Message       string
+		Count         int32
+		LastTimestamp metav1.Time
+	}
+	type Pod struct {
+		Name       string
+		Namespace  string
+		Containers []Container
+		Conditions []Condition
+		Phase      corev1.PodPhase
+		StartTime  *metav1.Time
+		Events     []Event
+		Logs       string
+	}
+	formattedEvents := make([]Event, 0, len(events.Items))
+	for _, event := range events.Items {
+		formattedEvents = append(formattedEvents, Event{
+			Reason:        event.Reason,
+			Message:       event.Message,
+			Count:         event.Count,
+			LastTimestamp: event.LastTimestamp,
+		})
+	}
+
+	conditions := make([]Condition, 0)
+	for _, cond := range pod.Status.Conditions {
+		conditions = append(conditions, Condition{Reason: cond.Reason, Message: cond.Message})
+	}
+
+	containers := make([]Container, 0)
+	for _, container := range pod.Spec.Containers {
+		containers = append(containers, Container{
+			Name:  container.Name,
+			Image: container.Image,
+			Ports: container.Ports,
+		})
+	}
+
+	info, err := json.MarshalIndent(Pod{
+		Name:       pod.Name,
+		Namespace:  pod.Namespace,
+		Phase:      pod.Status.Phase,
+		StartTime:  pod.Status.StartTime,
+		Events:     formattedEvents,
+		Containers: containers,
+		Logs:       string(logs),
+	}, "", "  ")
+	if err != nil {
+		t.Logf("couldn't debug info: %s", info)
+	}
+	t.Log(string(info))
 }
 
 func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterName string) ([]byte, error) {
@@ -302,10 +494,11 @@ func podWASMSpin(s *Scenario) *corev1.Pod {
 func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gpu-validation-pod", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-gpu-validation", s.Runtime.KubeNodeName),
 			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
 					Name:  "gpu-validation-container",

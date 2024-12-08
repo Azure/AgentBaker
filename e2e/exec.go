@@ -64,10 +64,10 @@ type ClusterParams struct {
 }
 
 func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
-	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
+	pod, err := kube.GetHostNetworkDebugPod(ctx, t)
 	require.NoError(t, err)
 
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+	execResult, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /var/lib/kubelet/bootstrap-kubeconfig")
 	require.NoError(t, err)
 
 	bootstrapConfig := execResult.stdout.Bytes()
@@ -80,13 +80,13 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	}
 	fqdn := tokens[1][2:]
 
-	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
+	caCert, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
-	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/apiserver.crt")
+	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/apiserver.crt")
 	require.NoError(t, err)
 
-	clientKey, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/client.key")
+	clientKey, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/client.key")
 	require.NoError(t, err)
 
 	return &ClusterParams{

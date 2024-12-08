@@ -151,9 +151,9 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 }
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, s.Runtime.Cluster.Kube, s.Runtime.VMSSName, s.T)
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForVMSS(ctx, s.Runtime.KubeNodeName, s.T)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, "default", nonHostPodName, cmd)
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
 	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
 	return execResult
 }

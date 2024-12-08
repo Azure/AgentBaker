@@ -128,13 +128,14 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
-	s.Runtime.KubeNodeName = waitUntilNodeReady(ctx, s.T, s.Runtime.Cluster.Kube, s.Runtime.VMSSName)
+	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
-	s.Runtime.HostPodName, err = getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
 	require.NoError(s.T, err, "failed to get host network debug pod name")
+	s.Runtime.HostPodName = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
