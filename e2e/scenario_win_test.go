@@ -17,9 +17,9 @@ func Test_Windows2019Containerd(t *testing.T) {
 			VHD:     config.VHDWindows2019Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2_v2")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil // D2_v2 does not support ephemeral OS disk
 			},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-
 			},
 		},
 	})
@@ -33,6 +33,7 @@ func Test_Windows2022Containerd(t *testing.T) {
 			VHD:     config.VHDWindows2022Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2_v2")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil // D2_v2 does not support ephemeral OS disk
 			},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 
@@ -65,6 +66,7 @@ func Test_Windows23H2(t *testing.T) {
 			VHD:     config.VHDWindows23H2,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2_v2")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil // D2_v2 does not support ephemeral OS disk
 			},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 
