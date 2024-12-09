@@ -516,6 +516,7 @@ if [ ! isMarinerOrAzureLinux "$OS" ]; then
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
 fi
+echo "testing this script"
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
