@@ -5,7 +5,7 @@ pool:
 
 parameters:
 - name: ImageBump
-  displayName: Image Bump + Branch Cutting
+  displayName: Image Bump
   type: boolean
   default: false
 - name: ReleaseNotes
