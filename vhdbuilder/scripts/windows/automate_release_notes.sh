@@ -12,7 +12,7 @@ echo "Build Id is $build_id"
 
 
 image_version=$(date +"%Y-%m")
-branch_name=$github_user_name/win-${image_version}b-release-notes
+branch_name=releaseNotes/win-${image_version}b-release-notes
 
 pr_purpose="ReleaseNotes"
 
