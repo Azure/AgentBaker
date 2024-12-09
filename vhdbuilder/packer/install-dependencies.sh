@@ -361,6 +361,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GP
 
   while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+    # shellcheck disable=SC2001
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
     if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
@@ -511,7 +512,7 @@ capture_benchmark "download_gpu_device_plugin"
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
-if [ ! isMarinerOrAzureLinux "$OS" ]; then
+if ! isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
