@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -135,35 +134,10 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
 		}
-		if execResult.stdout != nil {
-			out := execResult.stdout.String()
-			if out != "" {
-				logFiles[file] = out
-			}
-
-		}
-		if execResult.stderr != nil {
-			out := removeWarningMessages(execResult.stderr.String())
-			if out != "" {
-				s.T.Logf("%q: %s", sourceCmd, out)
-			}
-		}
+		logFiles[file] = execResult.String()
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
-}
-
-// removeWarningMessages removes noise from logs
-func removeWarningMessages(input string) string {
-	warningRegex := regexp.MustCompile(`Warning: Permanently added '.+' \(ED25519\) to the list of known hosts\.?`)
-	authRegex := regexp.MustCompile(`Authorized uses only\. All activity may be monitored and reported\.`)
-
-	// Replace matches with an empty string
-	cleaned := warningRegex.ReplaceAllString(input, "")
-	cleaned = authRegex.ReplaceAllString(cleaned, "")
-
-	// Trim any extra whitespace or newlines
-	return strings.TrimSpace(cleaned)
 }
 
 const uploadLogsPowershellScript = `

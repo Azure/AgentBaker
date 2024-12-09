@@ -23,36 +23,15 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func (r podExecResult) dumpAll(t *testing.T) {
-	r.dumpStdout(t)
-	r.dumpStderr(t)
-}
-
-func (r podExecResult) dumpStdout(t *testing.T) {
-	if r.stdout != nil {
-		stdoutContent := r.stdout.String()
-		if stdoutContent != "" && stdoutContent != "<nil>" {
-			t.Logf("%s\n%s\n%s\n%s",
-				"dumping stdout:",
-				"----------------------------------- begin stdout -----------------------------------",
-				stdoutContent,
-				"------------------------------------ end stdout ------------------------------------")
-		}
-	}
-}
-
-func (r podExecResult) dumpStderr(t *testing.T) {
-	if r.stderr != nil {
-		stderrContent := r.stderr.String()
-		if stderrContent != "" && stderrContent != "<nil>" {
-			t.Logf("%s\n%s\n%s\n%s",
-				"dumping stderr:",
-				"----------------------------------- begin stderr -----------------------------------",
-				stderrContent,
-				"------------------------------------ end stderr ------------------------------------")
-		}
-
-	}
+func (r podExecResult) String() string {
+	return fmt.Sprintf(`exit code: %s
+----------------------------------- begin stderr -----------------------------------
+%s
+------------------------------------ end stderr ------------------------------------
+----------------------------------- begin stdout -----------------------------------,
+%s
+----------------------------------- end stdout ------------------------------------
+`, r.exitCode, r.stderr.String(), r.stdout.String())
 }
 
 type ClusterParams struct {
