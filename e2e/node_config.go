@@ -157,7 +157,7 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
 						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
-						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.29.6/binaries/kubernetes-node-linux-amd64.tar.gz",
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",

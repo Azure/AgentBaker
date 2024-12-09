@@ -603,4 +603,24 @@ removeKubeletNodeLabel() {
     fi
 }
 
+updateKubeBinaryRegistryURL() {
+    if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+        echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+    else
+        url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+        if [[ -n ${KUBE_BINARY_URL} ]]; then
+            binary_version="v${KUBERNETES_VERSION}" 
+            if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                binary_version="${version_with_prefix%%/*}"
+                echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+            else
+                echo "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: $binary_version"
+            fi
+        fi
+        KUBE_BINARY_REGISTRY_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+    fi
+}
+
 #HELPERSEOF
