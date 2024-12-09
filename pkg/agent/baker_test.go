@@ -138,6 +138,22 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
+		Describe(".isCustomCATrustEnabledOnNode()", func() {
+			It("should return false for an empty profile", func() {
+				Expect(isCustomCATrustEnabledOnNode(*config)).To(BeFalse())
+			})
+			It("should return false when zero valued profile passed", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{}
+				Expect(isCustomCATrustEnabledOnNode(*config)).To(BeFalse())
+			})
+			It("should return true when enabled in profile", func() {
+				config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+					EnableCustomCATrust: true,
+				}
+				Expect(isCustomCATrustEnabledOnNode(*config)).To(BeTrue())
+			})
+		})
+
 		Describe(".areCustomCATrustCertsPopulated()", func() {
 			It("given an empty profile, it returns false", func() {
 				Expect(areCustomCATrustCertsPopulated(*config)).To(BeFalse())
@@ -1092,7 +1108,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 
 		Entry("AKSUbuntu1804 with custom ca trust", "AKSUbuntu1804+CustomCATrust", "1.18.14", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-				CustomCATrustCerts: []string{encodedTestCert, encodedTestCert, encodedTestCert},
+				CustomCATrustCerts:  []string{encodedTestCert, encodedTestCert, encodedTestCert},
+				EnableCustomCATrust: true,
 			}
 		}, func(o *nodeBootstrappingOutput) {
 			Expect(o.vars["CUSTOM_CA_TRUST_COUNT"]).To(Equal("3"))
