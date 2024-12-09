@@ -102,7 +102,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
 	}
 
-	nbc := getBaseNBC(s.Runtime.Cluster, s.VHD)
+	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
 	if s.VHD.OS == config.OSWindows {
 		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
 	}
