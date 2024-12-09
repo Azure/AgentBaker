@@ -1269,4 +1269,67 @@ stages:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
-      - template: ./templates/e2e-template.yaml
+      - template: ./templates/e2e-template.yaml  
+  - stage: Create_Production_VMs
+    dependsOn: build # add a condition for a variable to determine if this stage should run
+    jobs: 
+    - job: Create_Artifact_dir
+      displayName: "Create Artifact Directory"
+      steps:
+      - script: |
+          mkdir -p $(Pipeline.Workspace)/downloaded-artifacts
+          echo "Created directory: $(Pipeline.Workspace)/downloaded-artifacts"
+        displayName: "Create directory for downloaded artifacts"
+    - job: Download_Artifacts
+      pool:
+        name: $(POOL_NAME)
+      timeoutInMinutes: 90  
+      displayName: "Download Artifacts and run vulnerability reporting VMs"
+      steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          targetPath: '$(Pipeline.Workspace)/downloaded-artifacts'
+      - script: |
+          echo "Here are the downloaded artifacts:"
+          directory_contents=$(ls -R $(Pipeline.Workspace)/downloaded-artifacts)
+          echo "$directory_contents"
+        displayName: "List downloaded artifacts"
+      - script: |
+          set -x 
+          mkdir -p $(Pipeline.Workspace)/consolidated-artifacts
+          echo "PIPELINE_WORKSPACE is: $PIPELINE_WORKSPACE"
+          echo "Workspace contents: $(Pipeline.Workspace)"
+          echo "Downloaded artifacts directory: $PIPELINE_WORKSPACE/downloaded-artifacts"
+
+          # Find and copy VHD publishing info files
+          echo "Checking for vhd-publishing-info.json files"
+
+          find "$PIPELINE_WORKSPACE/downloaded-artifacts" -type f -name "vhd-publishing-info.json" ! -path "*/publishing-info-*/*" | while read filepath; do
+              cp "$filepath" "$PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
+              echo "Copied $filepath to $PIPELINE_WORKSPACE/consolidated-artifacts/$(basename "$filepath")"
+          done
+
+          # List consolidated artifacts
+          echo "Consolidated artifacts directory contents:"
+          ls -l "$PIPELINE_WORKSPACE/consolidated-artifacts"
+          set -x
+        displayName: "Move VHD publishing info to a consolidated folder"
+      - bash: bash .pipelines/scripts/setup_go.sh
+        displayName: Setup Go
+      - bash: |
+          set -ex
+          LOGGING_DIR="creating-vulnerability-reporting-vms-$(date +%s)"
+          echo "setting up logging in $LOGGING_DIR"
+          echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
+        displayName: Setup logging directory
+      - bash: |
+          set -ex
+          export PATH="/usr/local/go/bin:$PATH"
+          go version
+
+          cd vulnerability-reporting-vms
+          mkdir -p bin
+          GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
+          go run . --json-dir $(Pipeline.Workspace)/consolidated-artifacts
+        displayName: Run Go program with JSON files
