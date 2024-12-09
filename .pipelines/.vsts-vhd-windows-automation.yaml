@@ -26,6 +26,7 @@ steps:
     /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh "$GITHUB_TOKEN" "$CHERRY_PICK_COMMIT_ID"
   env:
     GITHUB_TOKEN: $(GITHUB_TOKEN)
+    CHERRY_PICK_COMMIT_ID: $(CHERRY_PICK_COMMIT_ID)
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
@@ -41,6 +42,7 @@ steps:
     /bin/bash vhdbuilder/scripts/windows/automate_release_notes.sh "$GITHUB_TOKEN" "$BUILD_ID"
   env:
     GITHUB_TOKEN: $(GITHUB_TOKEN)
+    BUILD_ID: $(BUILD_ID)
   displayName: 'Release Notes'
   condition: eq('${{ parameters.ReleaseNotes }}', true)
   
