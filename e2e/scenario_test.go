@@ -550,7 +550,6 @@ func Test_Ubuntu1804_GPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				//ValidatePodUsingNVidiaGPU(ctx, s)
 			},
 		},
 	})
