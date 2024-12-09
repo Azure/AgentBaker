@@ -361,6 +361,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GP
 
   while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq -r '.downloadURL')
+    # shellcheck disable=SC2001
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
     if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
