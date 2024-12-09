@@ -38,6 +38,19 @@ installKataDeps() {
     fi
 }
 
+installGPUDriversAMD() {
+   echo "Installing AMD drivers..."
+   wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+   sudo rpm -ivh epel-release-latest-9.noarch.rpm
+   sudo dnf install dnf-plugin-config-manager
+   sudo crb enable
+   sudo dnf install "kernel-headers-$(uname -r)" "kernel-devel-$(uname -r)"
+   sudo usermod -a -G render,video $LOGNAME
+   sudo dnf install https://repo.radeon.com/amdgpu-install/6.2.4/rhel/9.4/amdgpu-install-6.2.60204-1.el9.noarch.rpm
+   sudo dnf clean all
+   sudo dnf install amdgpu-dkms rocm
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
@@ -50,18 +63,6 @@ downloadGPUDrivers() {
     if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
-
-    echo "installing amdgpu drivers"
-
-    wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
-    sudo rpm -ivh epel-release-latest-9.noarch.rpm
-    sudo dnf install dnf-plugin-config-manager
-    sudo crb enable
-    sudo dnf install "kernel-headers-$(uname -r)" "kernel-devel-$(uname -r)"
-    sudo usermod -a -G render,video $LOGNAME # Add the current user to the render and video groups
-    sudo dnf install https://repo.radeon.com/amdgpu-install/6.2.4/rhel/9.4/amdgpu-install-6.2.60204-1.el9.noarch.rpm
-    sudo dnf clean all
-    sudo dnf install amdgpu-dkms rocm
 }
 
 

@@ -1206,7 +1206,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_AMDGPU(t *testing.T) {
+func Test_AzureLinuxV2_AMDGPU_MI300(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -1226,6 +1226,35 @@ func Test_AzureLinuxV2_AMDGPU(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND96isr_MI300X_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidatePodUsingAMDGPU(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2_AMDGPU_V710(t *testing.T) {
+	// LOCATION=southcentralus
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NV4ads_V710_v5"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
+				nbc.AgentPoolProfile.VMSize = "Standard_NV4ads_V710_v5"
+				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
+				//nbc.ConfigGPUDriverIfNeeded = true
+				//nbc.EnableGPUDevicePluginIfNeeded = false
+				//nbc.EnableNvidia = true // TODO: delete me
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV4ads_V710_v5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidatePodUsingAMDGPU(ctx, s)

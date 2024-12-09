@@ -273,5 +273,5 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 func ValidatePodUsingAMDGPU(ctx context.Context, s *Scenario) {
 	s.T.Logf("validating pod using AMD GPU")
 	ensurePod(ctx, s, podEnableAMDGPUResource(s))
-	ensurePod(ctx, s, podAMDGPUWorkload(s))
+	ensureJob(ctx, s, jobAMDGPUWorkload(s))
 }

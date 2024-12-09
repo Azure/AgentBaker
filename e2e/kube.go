@@ -9,6 +9,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -423,6 +424,37 @@ func podEnableAMDGPUResource(s *Scenario) *corev1.Pod {
 					},
 				},
 			},
+		},
+	}
+}
+
+func jobAMDGPUWorkload(s *Scenario) *batchv1.Job {
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-validation-job", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "gpu-validation-container",
+							Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+							Args: []string{
+								"--max-steps", "1",
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									"amd.com/gpu": resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyNever,
+				},
+			},
+			BackoffLimit: to.Ptr(int32(0)), // No retries, fail immediately if something goes wrong
 		},
 	}
 }
