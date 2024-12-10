@@ -154,7 +154,6 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
 	nodeStatus := corev1.NodeStatus{}
-	found := false
 
 	t.Logf("waiting for node %s to be ready", vmssName)
 
@@ -171,7 +170,6 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 		if !strings.HasPrefix(node.Name, vmssName) {
 			continue
 		}
-		found = true
 		nodeStatus = node.Status
 		if len(node.Spec.Taints) > 0 {
 			continue
@@ -184,11 +182,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 			}
 		}
 	}
-
-	if !found {
-		t.Logf("node %q isn't connected to the AKS cluster", vmssName)
-	}
-	require.NoError(t, err, "failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
+	require.FailNow(t, "failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
 	return ""
 }
 

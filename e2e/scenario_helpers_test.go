@@ -171,7 +171,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario vhd: %q, tags %+v", vhd, s.Tags)
+	t.Logf("vhd: %q, tags %+v", vhd, s.Tags)
 }
 
 func validateVM(ctx context.Context, s *Scenario) {

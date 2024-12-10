@@ -1208,7 +1208,7 @@ func Test_AzureLinuxV2_AMDGPU_MI300(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDUbuntu2204Gen2Containerd, //TODO: add support for older
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_ND96isr_MI300X_v5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -1237,7 +1237,7 @@ func Test_AzureLinuxV2_AMDGPU_V710(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NV4ads_V710_v5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
