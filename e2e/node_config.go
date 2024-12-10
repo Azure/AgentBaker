@@ -137,7 +137,7 @@ func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootst
 				ProvisioningState: "",
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.29.6",
+					OrchestratorVersion: k8sVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubernetesImageBase:               "",
 						MCRKubernetesImageBase:            "",
