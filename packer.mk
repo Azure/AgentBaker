@@ -68,7 +68,7 @@ ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
 	@az login --identity
 else
 	@echo "Logging in with Hosted Pool's Managed Identity: ${MANAGED_IDENTITY_ID}"
-	@az login --identity --username ${MANAGED_IDENTITY_ID}
+	@az login --identity --username ${MANAGED_IDENTITY_ID} --debug
 endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
