@@ -189,6 +189,8 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
 		},
 	})
 }
@@ -212,6 +214,8 @@ func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -411,6 +415,8 @@ func Test_MarinerV2_GPU(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
 		},
 	})
 }
@@ -434,6 +440,8 @@ func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -541,6 +549,8 @@ func Test_Ubuntu1804_GPU(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
 		},
 	})
 }
@@ -564,6 +574,8 @@ func Test_Ubuntu1804_GPUAzureCNI(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
 			},
 		},
 	})
@@ -1111,6 +1123,7 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "cat /etc/motd")
 			},
 		},
 	})
@@ -1127,6 +1140,7 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
 			},
 		},
 	})

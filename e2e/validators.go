@@ -6,10 +6,14 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
@@ -147,9 +151,9 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 }
 
 func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd string) *podExecResult {
-	nonHostPodName, err := getPodNetworkDebugPodNameForVMSS(ctx, s.Runtime.Cluster.Kube, s.Runtime.VMSSName, s.T)
+	nonHostPod, err := s.Runtime.Cluster.Kube.GetPodNetworkDebugPodForNode(ctx, s.Runtime.KubeNodeName, s.T)
 	require.NoError(s.T, err, "failed to get non host debug pod name")
-	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, "default", nonHostPodName, cmd)
+	execResult, err := execOnUnprivilegedPod(ctx, s.Runtime.Cluster.Kube, nonHostPod.Namespace, nonHostPod.Name, cmd)
 	require.NoErrorf(s.T, err, "failed to execute command on pod: %v", cmd)
 	return execResult
 }
@@ -261,4 +265,48 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	require.Equal(s.T, "0", execResult.exitCode, "expected to find kubelet service logs, but did not")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
+}
+
+func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
+	s.T.Logf("validating pod using nvidia GPU")
+	// NVidia pod can be ready, but resources may not be available yet
+	// a hacky way to ensure the next pod is schedulable
+	waitUntilResourceAvailable(ctx, s, "nvidia.com/gpu")
+	// device can be allocatable, but not healthy
+	// ugly hack, but I don't see a better solution
+	time.Sleep(20 * time.Second)
+	ensurePod(ctx, s, podRunNvidiaWorkload(s))
+}
+
+// Waits until the specified resource is available on the given node.
+// Returns an error if the resource is not available within the specified timeout period.
+func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
+	nodeName := s.Runtime.KubeNodeName
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.T.Fatalf("context cancelled: %v", ctx.Err())
+		case <-ticker.C:
+			node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+			require.NoError(s.T, err, "failed to get node %q", nodeName)
+
+			if isResourceAvailable(node, resourceName) {
+				s.T.Logf("resource %q is available", resourceName)
+				return
+			}
+		}
+	}
+}
+
+// Checks if the specified resource is available on the node.
+func isResourceAvailable(node *corev1.Node, resourceName string) bool {
+	for rn, quantity := range node.Status.Allocatable {
+		if rn == corev1.ResourceName(resourceName) && quantity.Cmp(resource.MustParse("1")) >= 0 {
+			return true
+		}
+	}
+	return false
 }
