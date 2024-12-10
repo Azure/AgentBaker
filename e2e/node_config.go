@@ -23,12 +23,10 @@ import (
 )
 
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	require.NotNil(t, cluster) // sometimes tests are panicking, but I can't catch what exactly is nil
-	nbc := baseTemplateLinux(config.Config.Location)
+	nbc := baseTemplateLinux(config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion)
 	if vhd.Distro.IsWindowsDistro() {
 		nbc = baseTemplateWindows(config.Config.Location)
 		cert := cluster.Kube.clientCertificate()
-
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
 		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
 		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = string(cluster.ClusterParams.ClientKey)
@@ -124,7 +122,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootstrappingConfiguration {
 	return &datamodel.NodeBootstrappingConfiguration{
 		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
@@ -139,7 +137,7 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 				ProvisioningState: "",
 				OrchestratorProfile: &datamodel.OrchestratorProfile{
 					OrchestratorType:    "Kubernetes",
-					OrchestratorVersion: "1.29.6",
+					OrchestratorVersion: k8sVersion,
 					KubernetesConfig: &datamodel.KubernetesConfig{
 						KubernetesImageBase:               "",
 						MCRKubernetesImageBase:            "",
@@ -156,8 +154,8 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 						UserAssignedID:                    "",
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
-						CustomKubeProxyImage:              "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.26.0.1",
-						CustomKubeBinaryURL:               "https://acs-mirror.azureedge.net/kubernetes/v1.26.0/binaries/kubernetes-node-linux-amd64.tar.gz",
+						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
+						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion),
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -200,7 +198,7 @@ func baseTemplateLinux(location string) *datamodel.NodeBootstrappingConfiguratio
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
 						Name:                "nodepool2",
-						VMSize:              "Standard_D2ds_v5",
+						VMSize:              config.Config.DefaultVMSKU,
 						KubeletDiskType:     "",
 						WorkloadRuntime:     "",
 						DNSPrefix:           "",
@@ -483,8 +481,8 @@ func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfigurat
 				},
 				AgentPoolProfiles: []*datamodel.AgentPoolProfile{
 					{
-						Name: "winnp",
-						//VMSize:              windowsE2EVmSize,
+						Name:                "winnp",
+						VMSize:              config.Config.DefaultVMSKU,
 						OSType:              "Windows",
 						AvailabilityProfile: "VirtualMachineScaleSets",
 						StorageProfile:      "ManagedDisks",
@@ -580,8 +578,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			WindowsPackageURL: fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/windowszip/v%s-1int.zip", kubernetesVersion, kubernetesVersion),
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
-			Name: "winnp",
-			//VMSize:              windowsE2EVmSize,
+			Name:                "winnp",
 			OSType:              "Windows",
 			AvailabilityProfile: "VirtualMachineScaleSets",
 			StorageProfile:      "ManagedDisks",
