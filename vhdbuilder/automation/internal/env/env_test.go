@@ -10,40 +10,40 @@ func TestEnv(t *testing.T) {
 	cases := []struct {
 		name        string
 		envSetter   func(t *testing.T)
-		expectedEnv Environment
+		expectedEnv Variables
 	}{
 		{
 			name:        "empty environment",
 			envSetter:   nil,
-			expectedEnv: Environment{},
+			expectedEnv: Variables{},
 		},
 		{
 			name: "only ADO_PAT is set",
 			envSetter: func(t *testing.T) {
 				t.Setenv("ADO_PAT", "pat")
 			},
-			expectedEnv: Environment{
+			expectedEnv: Variables{
 				ADOPAT: "pat",
 			},
 		},
 		{
-			name: "only VHD_BUILD_ID is set",
+			name: "only GITHUB_PAT is set",
 			envSetter: func(t *testing.T) {
-				t.Setenv("VHD_BUILD_ID", "id")
+				t.Setenv("GITHUB_PAT", "pat")
 			},
-			expectedEnv: Environment{
-				VHDBuildID: "id",
+			expectedEnv: Variables{
+				GitHubPAT: "pat",
 			},
 		},
 		{
-			name: "ADO_PAT and VHD_BUILD_ID are set",
+			name: "ADO_PAT and GITHUB_PAT are set",
 			envSetter: func(t *testing.T) {
-				t.Setenv("ADO_PAT", "pat")
-				t.Setenv("VHD_BUILD_ID", "id")
+				t.Setenv("ADO_PAT", "adoPat")
+				t.Setenv("VHD_BUILD_ID", "githubPat")
 			},
-			expectedEnv: Environment{
-				ADOPAT:     "pat",
-				VHDBuildID: "id",
+			expectedEnv: Variables{
+				ADOPAT:    "adoPat",
+				GitHubPAT: "githubPat",
 			},
 		},
 	}
@@ -55,7 +55,7 @@ func TestEnv(t *testing.T) {
 			if c.envSetter != nil {
 				c.envSetter(t)
 			}
-			actualEnv := mustLoad()
+			actualEnv := mustLoadVariables()
 			assert.Equal(t, c.expectedEnv, actualEnv)
 		})
 	}
@@ -63,5 +63,5 @@ func TestEnv(t *testing.T) {
 
 func clearTestEnv(t *testing.T) {
 	t.Setenv("ADO_PAT", "")
-	t.Setenv("VHD_BUILD_ID", "")
+	t.Setenv("GITHUB_PAT", "")
 }
