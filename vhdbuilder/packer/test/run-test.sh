@@ -60,11 +60,9 @@ set -x
 # In SIG mode, Windows VM requires admin-username and admin-password to be set,
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-TARGET_COMMAND_STRING=""
+TARGET_COMMAND_STRING="--size Standard_DS2_v2"
 if [ "${ARCHITECTURE,,}" == "arm64" ]; then
   TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
-else
-  TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
 
 if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
