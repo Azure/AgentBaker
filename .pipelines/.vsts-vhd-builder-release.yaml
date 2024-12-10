@@ -13,6 +13,10 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+  - name: SKIP_SCANNING
+    displayName: Skip VHD Scanning Steps
+    type: boolean
+    default: false
   - name: build1804containerd
     displayName: Build 1804 containerd
     type: boolean
