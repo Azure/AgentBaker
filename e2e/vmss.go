@@ -115,40 +115,26 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	commandList := map[string]string{
-		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                      "journalctl -u kubelet",
-		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out":                   "sysctl -a",
-		"aks-node-controller":          "cat /var/log/azure/aks-node-controller.log",
+		"cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                      "journalctl -u kubelet",
+		"cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                   "sysctl -a",
+		"aks-node-controller.log":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
-	podName, err := getHostNetworkDebugPodName(ctx, s.Runtime.Cluster.Kube, s.T)
+	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
 	if err != nil {
 		require.NoError(s.T, err)
 	}
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		s.T.Logf("executing command on remote VM at %s: %q", privateIP, sourceCmd)
-
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, podName, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
-			s.T.Logf("error fetching logs for %s: %s", file, err)
+			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
 		}
-		if execResult.stdout != nil {
-			out := execResult.stdout.String()
-			if out != "" {
-				logFiles[file+".stdout.txt"] = out
-			}
-
-		}
-		if execResult.stderr != nil {
-			out := execResult.stderr.String()
-			if out != "" {
-				logFiles[file+".stderr.txt"] = out
-			}
-		}
+		logFiles[file] = execResult.String()
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
@@ -404,7 +390,7 @@ func getNewRSAKeyPair() (privatePEMBytes []byte, publicKeyBytes []byte, e error)
 }
 
 func generateVMSSNameLinux(t *testing.T) string {
-	name := fmt.Sprintf("%s-%s-%s", time.Now().Format(time.DateOnly), randomLowercaseString(4), t.Name())
+	name := fmt.Sprintf("%s-%s-%s", randomLowercaseString(4), time.Now().Format(time.DateOnly), t.Name())
 	name = strings.ReplaceAll(name, "_", "")
 	name = strings.ReplaceAll(name, "/", "")
 	name = strings.ReplaceAll(name, "Test", "")
@@ -459,8 +445,12 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 				StorageProfile: &armcompute.VirtualMachineScaleSetStorageProfile{
 					OSDisk: &armcompute.VirtualMachineScaleSetOSDisk{
 						CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
-						DiskSizeGB:   to.Ptr(int32(512)),
+						DiskSizeGB:   to.Ptr(int32(50)),
 						OSType:       to.Ptr(armcompute.OperatingSystemTypesLinux),
+						Caching:      to.Ptr(armcompute.CachingTypesReadOnly),
+						DiffDiskSettings: &armcompute.DiffDiskSettings{
+							Option: to.Ptr(armcompute.DiffDiskOptionsLocal),
+						},
 					},
 				},
 				NetworkProfile: &armcompute.VirtualMachineScaleSetNetworkProfile{

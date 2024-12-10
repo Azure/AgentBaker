@@ -374,10 +374,6 @@ const (
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
 
-	// This is currently for testing only, we do not build 2404 images regularly
-	// Once 2404 is preview in AKS, we will refer to the images using regular LinuxSIGImageVersion and remove this.
-	Ubuntu2404SIGImageVersionForTest string = "202405.20.0"
-
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
@@ -539,7 +535,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2arm64containerd",
-		Version:       Ubuntu2404SIGImageVersionForTest, // TODO(artunduman): Update version to LinuxSIGImageVersion when the image is ready
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2204ImageConfigTemplate = SigImageConfigTemplate{
@@ -595,14 +591,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404containerd",
-		Version:       Ubuntu2404SIGImageVersionForTest,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGUbuntuContainerd2404Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2containerd",
-		Version:       Ubuntu2404SIGImageVersionForTest,
+		Version:       LinuxSIGImageVersion,
 	}
 
 	SIGCBLMarinerV1ImageConfigTemplate = SigImageConfigTemplate{
