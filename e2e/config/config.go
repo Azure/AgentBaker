@@ -31,6 +31,7 @@ type Configuration struct {
 	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
+	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableAKSNodeControllerTest            bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
@@ -49,6 +50,7 @@ type Configuration struct {
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
+	TestTimeoutCluster                     time.Duration `env:"TEST_TIMEOUT_CLUSTER" envDefault:"20m"`
 	TestTimeoutVMSS                        time.Duration `env:"TEST_TIMEOUT_VMSS" envDefault:"17m"`
 	WindowsAdminPassword                   string        `env:"WINDOWS_ADMIN_PASSWORD"`
 }

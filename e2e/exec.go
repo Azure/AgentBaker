@@ -23,36 +23,15 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func (r podExecResult) dumpAll(t *testing.T) {
-	r.dumpStdout(t)
-	r.dumpStderr(t)
-}
-
-func (r podExecResult) dumpStdout(t *testing.T) {
-	if r.stdout != nil {
-		stdoutContent := r.stdout.String()
-		if stdoutContent != "" && stdoutContent != "<nil>" {
-			t.Logf("%s\n%s\n%s\n%s",
-				"dumping stdout:",
-				"----------------------------------- begin stdout -----------------------------------",
-				stdoutContent,
-				"------------------------------------ end stdout ------------------------------------")
-		}
-	}
-}
-
-func (r podExecResult) dumpStderr(t *testing.T) {
-	if r.stderr != nil {
-		stderrContent := r.stderr.String()
-		if stderrContent != "" && stderrContent != "<nil>" {
-			t.Logf("%s\n%s\n%s\n%s",
-				"dumping stderr:",
-				"----------------------------------- begin stderr -----------------------------------",
-				stderrContent,
-				"------------------------------------ end stderr ------------------------------------")
-		}
-
-	}
+func (r podExecResult) String() string {
+	return fmt.Sprintf(`exit code: %s
+----------------------------------- begin stderr -----------------------------------
+%s
+------------------------------------ end stderr ------------------------------------
+----------------------------------- begin stdout -----------------------------------,
+%s
+----------------------------------- end stdout ------------------------------------
+`, r.exitCode, r.stderr.String(), r.stdout.String())
 }
 
 type ClusterParams struct {
@@ -64,10 +43,10 @@ type ClusterParams struct {
 }
 
 func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
-	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
+	pod, err := kube.GetHostNetworkDebugPod(ctx, t)
 	require.NoError(t, err)
 
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+	execResult, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /var/lib/kubelet/bootstrap-kubeconfig")
 	require.NoError(t, err)
 
 	bootstrapConfig := execResult.stdout.Bytes()
@@ -80,13 +59,13 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	}
 	fqdn := tokens[1][2:]
 
-	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
+	caCert, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
-	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/apiserver.crt")
+	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/apiserver.crt")
 	require.NoError(t, err)
 
-	clientKey, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/client.key")
+	clientKey, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/client.key")
 	require.NoError(t, err)
 
 	return &ClusterParams{
@@ -152,7 +131,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 		scheme.ParameterCodec,
 	)
 
-	exec, err := remotecommand.NewSPDYExecutor(kube.Rest, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(kube.RESTConfig, "POST", req.URL())
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
 	}
