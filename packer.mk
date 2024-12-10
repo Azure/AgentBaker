@@ -62,6 +62,7 @@ endif
 
 az-login:
 	@echo "Logging into Azure with agent VM MSI..."
+	MANAGED_IDENTITY_ID=${UMSI_PRINCIPAL_ID}
 ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
 	@echo "Logging in with Hosted Pool's Default Managed Identity"
 	@az login --identity
