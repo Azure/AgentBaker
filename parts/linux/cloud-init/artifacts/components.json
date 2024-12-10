@@ -340,7 +340,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.8.9"
+          "latestVersion": "v1.8.11"
         }
       ]
     },
