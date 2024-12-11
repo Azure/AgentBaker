@@ -83,6 +83,10 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+if [[ "${OS_TYPE}" == "Linux" && ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+fi
+
 if [ "${OS_TYPE,,}" == "linux" ]; then
   # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
   PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
