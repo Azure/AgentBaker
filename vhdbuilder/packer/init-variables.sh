@@ -81,15 +81,10 @@ fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+		if [ "${ENVIRONMENT,,}" == "test" && ${IMG_SKU} == "20_04-lts-cvm" ]; then
+			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${CVM_PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		else
-			if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-				VNET_RG_NAME="nodesig-${ENVIRONMENT}-${CVM_PACKER_BUILD_LOCATION}-packer-vnet-rg"
-			else
-				VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
-			fi
+			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
@@ -103,15 +98,10 @@ fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+		if [ "${ENVIRONMENT,,}" == "test" && ${IMG_SKU} == "20_04-lts-cvm" ]; then
+			VNET_NAME="nodesig-packer-vnet-${CVM_PACKER_BUILD_LOCATION}"
 		else
-			if [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-				VNET_NAME="nodesig-packer-vnet-${CVM_PACKER_BUILD_LOCATION}"
-			else
-				VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
-			fi
+			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
