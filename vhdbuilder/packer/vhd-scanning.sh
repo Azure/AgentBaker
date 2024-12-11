@@ -45,7 +45,11 @@ SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
+if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+    az group create --name $RESOURCE_GROUP_NAME --location ${CVM_PACKER_BUILD_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
+else
+    az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
+fi
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
