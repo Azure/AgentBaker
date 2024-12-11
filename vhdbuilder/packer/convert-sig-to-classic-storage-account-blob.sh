@@ -31,7 +31,11 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
   fi
-  LOCATION=$PACKER_BUILD_LOCATION
+  if [[ "${ENVIRONMENT,,}" == "test" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+    LOCATION=$CVM_PACKER_BUILD_LOCATION
+  else
+    LOCATION=$PACKER_BUILD_LOCATION
+  fi
 fi
 
 # Default to this hard-coded value for Linux does not pass this environment variable into here
