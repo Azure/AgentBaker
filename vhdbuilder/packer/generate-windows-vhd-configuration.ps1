@@ -65,12 +65,14 @@ switch -Regex ($windowsSku) {
         $global:patchUrls = @(
           "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/11/windows10.0-kb5046615-x64_d88444ff882129230297936cb0a221157099d074.msu",
           "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/09/windows10.0-kb5044016-x64_64b2bcbd9edcc7fc1dd860751fdb537c947cf037.msu",
-          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/12/windows10.0-kb5048661-x64_6bfc43258aab46ec793d2977122226a4a2b8ed6f.msu"
+          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/12/windows10.0-kb5048661-x64_6bfc43258aab46ec793d2977122226a4a2b8ed6f.msu",
+          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/10/windows10.0-kb5046268-x64_cd2f14649df2343f1b4692c50644f22b863ed408.msu"
         )
         $global:patchIDs = @(
           "KB5046615",
           "KB5044016",
-          "KB5048661"
+          "KB5048661",
+          "KB5046540"
         )
 
         $global:imagesToPull = @(
@@ -149,6 +151,7 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24",
 
     # CNS (Container Networking Service) Owner: evanbaker
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.56",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
