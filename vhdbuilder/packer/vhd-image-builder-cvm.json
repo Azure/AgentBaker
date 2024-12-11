@@ -73,7 +73,7 @@
         "image_name": "{{user `sig_image_name`}}",
         "image_version": "{{user `captured_sig_version`}}",
         "replication_regions": [
-          "{{user `cvm_location`}}"
+          "{{user `location`}}"
         ]
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
