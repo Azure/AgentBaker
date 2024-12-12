@@ -51,7 +51,7 @@ function cleanup_rgs() {
 }
 
 function cleanup_storage_blobs() {
-    blobs=$(az storage blob list --account-name $VHD_BLOB_STORAGE_ACCOUNT_NAME --container-name $VHD_BLOB_STORAGE_CONTAINER_NAME --auth-mode login --query "[?properties.creationTime<='$WEEK_AGO_ISO'].{name:name}" -o tsv || "")
+    blobs=$(az storage blob list --account-name $VHD_BLOB_STORAGE_ACCOUNT_NAME --container-name $VHD_BLOB_STORAGE_CONTAINER_NAME --auth-mode login --query "[?properties.creationTime<='${WEEK_AGO_ISO}'].{name:name}" -o tsv || "")
     for blob in $blobs; do
         echo "will delete VHD blob $blob if unmodified since $WEEK_AGO_ISO..."
         if [ "${DRY_RUN,,}" == "true" ]; then
