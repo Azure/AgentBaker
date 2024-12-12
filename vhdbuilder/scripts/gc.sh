@@ -2,6 +2,8 @@
 set -euxo pipefail
 
 [ -z "${SUBSCRIPTION_ID:-}" ] && echo "SUBSCRIPTION_ID must be set" && exit 1
+[ -z "${VHD_BLOB_STORAGE_ACCOUNT_NAME}" ] && echo "VHD_BLOB_STORAGE_ACCOUNT_NAME must be set" && exit 1
+[ -z "${VHD_BLOB_STORAGE_CONTAINER_NAME}" ] && echo "VHD_BLOB_STORAGE_CONTAINER_NAME must be set" && exit 1
 
 SKIP_TAG_NAME="gc.skip"
 SKIP_TAG_VALUE="true"
@@ -10,6 +12,7 @@ DRY_RUN="${DRY_RUN:-}"
 
 DAY_AGO=$(( $(date +%s) - 86400 )) # 24 hours ago
 WEEK_AGO=$(( $(date +%s) - 604800 )) # 7 days ago
+WEEK_AGO_ISO=$(date @${WEEK_AGO} -Iseconds) # 7 days ago ISO format
 
 function main() {
     az login --identity # relies on an appropriately permissioned identity being attached to the build agent
@@ -44,6 +47,23 @@ function cleanup_rgs() {
 
         echo "will attempt to delete resource group $group"
         delete_group $group || return $?
+    done
+}
+
+function cleanup_storage_blobs() {
+    blobs=$(az storage blob list --account-name $VHD_BLOB_STORAGE_ACCOUNT_NAME --container-name $VHD_BLOB_STORAGE_CONTAINER_NAME --auth-mode login --query "[?properties.creationTime<='$WEEK_AGO_ISO'].{name:name}" -o tsv || "")
+    for blob in $blobs; do
+        echo "will delete VHD blob $blob if unmodified since $WEEK_AGO_ISO..."
+        if [ "${DRY_RUN,,}" == "true" ]; then
+            echo "DRY_RUN: az storage blob delete --account-name $VHD_BLOB_STORAGE_ACCOUNT_NAME --container-name $VHD_BLOB_STORAGE_CONTAINER_NAME --name $blob --if-unmodified-since $WEEK_AGO_ISO --auth-mode login"
+            continue
+        fi
+        az storage blob delete \
+            --account-name $VHD_BLOB_STORAGE_ACCOUNT_NAME \
+            --container-name $VHD_BLOB_STORAGE_CONTAINER_NAME \
+            --name $blob \
+            --if-unmodified-since "$WEEK_AGO_ISO" \
+            --auth-mode login || return $?
     done
 }
 
