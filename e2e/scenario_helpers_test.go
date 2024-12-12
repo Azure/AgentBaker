@@ -135,7 +135,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err, "failed to get VM private IP address")
 	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
 	require.NoError(s.T, err, "failed to get host network debug pod name")
-	s.Runtime.HostPodName = hostPod.Name
+	s.Runtime.DebugHostPod = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -171,16 +171,12 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario vhd: %q, tags %+v", vhd, s.Tags)
+	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
 	ValidatePodRunning(ctx, s)
 
-	// test-specific validation
-	if s.Config.Validator != nil {
-		s.Config.Validator(ctx, s)
-	}
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
 	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
@@ -195,7 +191,11 @@ func validateVM(ctx context.Context, s *Scenario) {
 		// TODO: validate something
 	default:
 		ValidateCommonLinux(ctx, s)
+	}
 
+	// test-specific validation
+	if s.Config.Validator != nil {
+		s.Config.Validator(ctx, s)
 	}
 	s.T.Log("validation succeeded")
 }

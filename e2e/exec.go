@@ -7,15 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
-)
-
-const (
-	sshCommandTemplate = `echo '%s' > sshkey%[2]s && chmod 0600 sshkey%[2]s && ssh -i sshkey%[2]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`
 )
 
 type podExecResult struct {
@@ -94,8 +91,17 @@ func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) stri
 	return fmt.Sprintf("%s.%s", id, token)
 }
 
+func sshKeyName(vmPrivateIP string) string {
+	return fmt.Sprintf("sshkey%s", strings.ReplaceAll(vmPrivateIP, ".", ""))
+
+}
+
+func sshString(vmPrivateIP string) string {
+	return fmt.Sprintf(`ssh -i %s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`, sshKeyName(vmPrivateIP), vmPrivateIP)
+}
+
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
+	sshCommand := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s && %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP))
 	sshCommand = sshCommand + " sudo"
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
@@ -178,4 +184,17 @@ func unprivilegedCommandArray() []string {
 		"bash",
 		"-c",
 	}
+}
+
+func logSSHInstructions(s *Scenario) {
+	result := "SSH Instructions:"
+	if !config.Config.KeepVMSS {
+		result += fmt.Sprintf(" (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)")
+	}
+	result += fmt.Sprintf("\n========================\n")
+	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
+	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
+	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.DebugHostPod, sshString(s.Runtime.VMPrivateIP))
+	s.T.Log(result)
+	//runtime.Breakpoint() // uncomment to pause the test
 }
