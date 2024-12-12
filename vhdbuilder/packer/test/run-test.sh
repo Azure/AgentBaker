@@ -27,7 +27,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
   fi
-  if [[ "${ENVIRONMENT,,}" == "test" && "${IMG_SKU}" == "20_04-lts-cvm" ]]; then
+  if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
     AZURE_LOCATION=$CVM_PACKER_BUILD_LOCATION
   else
     AZURE_LOCATION=$PACKER_BUILD_LOCATION
