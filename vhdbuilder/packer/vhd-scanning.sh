@@ -54,7 +54,7 @@ function cleanup() {
 trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
-VM_OPTIONS="--size Standard_DS2_v2"
+VM_OPTIONS="--size Standard_D8ds_v5"
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D8pds_v5"
 fi
