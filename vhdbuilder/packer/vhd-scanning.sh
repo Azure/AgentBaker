@@ -84,9 +84,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $SCAN_VM_ADMIN_USERNAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
-    
+    --assign-identity "${UMSI_RESOURCE_ID}" \
+    ${VM_OPTIONS}
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
