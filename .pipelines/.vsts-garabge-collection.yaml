@@ -20,5 +20,7 @@ jobs:
         ./vhdbuilder/scripts/gc.sh
       env:
         SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+        VHD_BLOB_STORAGE_ACCOUNT_NAME: $(VHD_BLOB_STORAGE_ACCOUNT_NAME)
+        VHD_BLOB_STORAGE_CONTAINER_NAME: $(VHD_BLOB_STORAGE_CONTAINER_NAME)
         DRY_RUN: ${{ parameters.DRY_RUN }}
       displayName: Garbage collect resource groups
