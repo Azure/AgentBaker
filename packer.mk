@@ -5,21 +5,12 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-UA_SETTINGS_EXIST=0
-
 build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
-ifneq ("$(wildcard $(vhdbuilder/packer/ua-settings.json))","")
-	UA_SETTINGS_EXIST=1
-endif
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
 	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
-ifeq ($(UA_SETTINGS_EXIST),1)
-	@packer build -var-file=vhdbuilder/packer/settings.json --var-file=vhdbuilder/packer/ua-settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
-else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
-endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
@@ -39,11 +30,7 @@ else
 endif
 ifeq (${OS_SKU},Ubuntu)
 	@echo "Using packer template file: vhd-image-builder-base.json"
-ifeq ($(UA_SETTINGS_EXIST),1)
-	@packer build -var-file=vhdbuilder/packer/settings.json --var-file=vhdbuilder/packer/ua-settings.json vhdbuilder/packer/vhd-image-builder-base.json
-else
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
-endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json

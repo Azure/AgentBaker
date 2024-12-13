@@ -507,19 +507,16 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 fi
 
 if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
+	set +x # so we don't accidently log the token
 	if [ "${UBUNTU_RELEASE}" == "18.04" ] || [ "${UBUNTU_RELEASE}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
-		set +x
-		if [ -z "${UA_TOKEN}" ]; then
+		if [ -z "${UA_TOKEN:-}" ]; then
 			echo "UA_TOKEN must be provided when building SKUs which require ESM"
 			exit 1
 		fi
-		cat <<EOF > vhdbuilder/packer/ua-settings.json
-{ 
-  "ua_token": "${UA_TOKEN}"
-}
-EOF
-		set -x
+	else
+		UA_TOKEN="notused"
 	fi
+	set -x
 fi
 
 # windows_image_version refers to the version from azure gallery
@@ -556,6 +553,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
+  "ua_token": "${UA_TOKEN}",
   "build_date": "${BUILD_DATE}"
 }
 EOF
