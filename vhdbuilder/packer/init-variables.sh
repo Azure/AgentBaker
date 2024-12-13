@@ -514,6 +514,7 @@ if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
 			echo "UA_TOKEN must be provided when building SKUs which require ESM"
 			exit 1
 		fi
+    echo "UBUNTU_RELEASE: ${UBUNTU_RELEASE}, ENABLE_FIPS: ${ENABLE_FIPS,,}: will use token for UA attachment"
 	else
 		UA_TOKEN="notused"
 	fi
