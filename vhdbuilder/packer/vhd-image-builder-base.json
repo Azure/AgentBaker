@@ -29,7 +29,7 @@
     "subnet_name": "{{env `SUBNET_NAME`}}",
     "private_packages_url": "{{env `PRIVATE_PACKAGES_URL`}}",
     "branch": "{{env `BRANCH`}}",
-    "ua_token": "{{user `UA_TOKEN`}}",
+    "ua_token": "{{env `UA_TOKEN`}}",
     "vhd_build_timestamp": "{{user `VHD_BUILD_TIMESTAMP`}}"
   },
   "builders": [
