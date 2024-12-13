@@ -327,7 +327,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSAzureLinuxV3FIPS,
 				datamodel.AKSAzureLinuxV2Gen2FIPS,
 				datamodel.AKSAzureLinuxV3Gen2FIPS,
-				datamodel.AKSAzureLinuxV2Gen2Kata,
+				datamodel.AKSAzureLinuxV3Gen2Kata,
 				datamodel.AKSAzureLinuxV2Arm64Gen2,
 				datamodel.AKSAzureLinuxV3Arm64Gen2,
 				datamodel.AKSAzureLinuxV2Gen2TL,
