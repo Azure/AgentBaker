@@ -507,7 +507,7 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 fi
 
 if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
-	set +x # so we don't accidently log the token
+	set +x
 	if [ "${UBUNTU_RELEASE}" == "18.04" ] || [ "${UBUNTU_RELEASE}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
 		if [ -z "${UA_TOKEN:-}" ]; then
 			echo "UA_TOKEN must be provided when building SKUs which require ESM"
