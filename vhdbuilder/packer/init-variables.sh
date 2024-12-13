@@ -514,12 +514,12 @@ if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
 			echo "UA_TOKEN must be provided when building SKUs which require ESM"
 			exit 1
 		fi
-    echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}: will use token for UA attachment"
+        echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
 	else
 		UA_TOKEN="notused"
 	fi
 else
-  UA_TOKEN="notused"
+    UA_TOKEN="notused"
 fi
 
 # windows_image_version refers to the version from azure gallery
