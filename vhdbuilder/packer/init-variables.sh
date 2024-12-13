@@ -510,16 +510,16 @@ set +x
 UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
 if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
 	if [ "${OS_VERSION}" == "18.04" ] || [ "${OS_VERSION}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
+		echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
 		if [ -z "${UA_TOKEN}" ]; then
 			echo "UA_TOKEN must be provided when building SKUs which require ESM"
 			exit 1
 		fi
-		echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
 	else
 		UA_TOKEN="notused"
 	fi
 else
-    UA_TOKEN="notused"
+	UA_TOKEN="notused"
 fi
 
 # windows_image_version refers to the version from azure gallery
