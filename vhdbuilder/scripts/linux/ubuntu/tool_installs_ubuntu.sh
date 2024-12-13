@@ -2,7 +2,7 @@
 {{/* FIPS-related error codes */}}
 ERR_UA_TOOLS_INSTALL_TIMEOUT=180 {{/* Timeout waiting for ubuntu-advantage-tools install */}}
 ERR_ADD_UA_APT_REPO=181 {{/* Error to add UA apt repository */}}
-ERR_AUTO_UA_ATTACH=182 {{/* Error to auto UA attach */}}
+ERR_UA_ATTACH=182 {{/* Error attaching UA */}}
 ERR_UA_DISABLE_LIVEPATCH=183 {{/* Error to disable UA livepatch */}}
 ERR_UA_ENABLE_FIPS=184 {{/* Error to enable UA FIPS */}}
 ERR_UA_DETACH=185 {{/* Error to detach UA */}}
@@ -239,7 +239,7 @@ listInstalledPackages() {
 
 autoAttachUA() {
     echo "attaching ua..."
-    retrycmd_if_failure_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_AUTO_UA_ATTACH
+    retrycmd_if_failure_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
