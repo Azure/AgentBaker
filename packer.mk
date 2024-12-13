@@ -5,8 +5,9 @@ ifeq (${ARCHITECTURE},ARM64)
 	GOARCH=arm64
 endif
 
-build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
 UA_SETTINGS_EXIST=0
+
+build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
 ifneq ("$(wildcard $(vhdbuilder/packer/ua-settings.json))","")
 	UA_SETTINGS_EXIST=1
 endif
