@@ -506,6 +506,21 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
+if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
+	if [ "${UBUNTU_RELEASE}" == "18.04" ] || [ "${UBUNTU_RELEASE}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
+		set +x
+		if [ -z "${UA_TOKEN}" ]; then
+			echo "UA_TOKEN must be provided when building SKUs which require ESM" && exit 1
+		fi
+		cat <<EOF > vhdbuilder/packer/ua-settings.json
+{ 
+  "ua_token": "${UA_TOKEN}"
+}
+EOF
+		set -x
+	fi
+fi
+
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
