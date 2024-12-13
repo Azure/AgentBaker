@@ -5,7 +5,7 @@ go 1.22.2
 toolchain go1.23.0
 
 require (
-	github.com/Azure/agentbaker v0.20240503.0
+	//github.com/Azure/agentbaker v0.20240503.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/protobuf v1.34.2
