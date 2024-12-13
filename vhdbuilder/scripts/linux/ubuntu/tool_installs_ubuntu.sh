@@ -239,7 +239,6 @@ listInstalledPackages() {
 
 autoAttachUA() {
     echo "attaching ua..."
-    echo "DEBUG: $UA_TOKEN"
     retrycmd_if_failure 5 10 120 ua attach $UA_TOKEN || exit $ERR_AUTO_UA_ATTACH
 
     echo "disabling ua livepatch..."
