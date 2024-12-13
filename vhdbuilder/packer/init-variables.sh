@@ -506,6 +506,7 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
+UA_TOKEN="${UA_TOKEN:-}"
 if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
 	set +x
 	if [ "${UBUNTU_RELEASE}" == "18.04" ] || [ "${UBUNTU_RELEASE}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
@@ -517,6 +518,8 @@ if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
 		UA_TOKEN="notused"
 	fi
 	set -x
+else
+  UA_TOKEN="notused"
 fi
 
 set +x
