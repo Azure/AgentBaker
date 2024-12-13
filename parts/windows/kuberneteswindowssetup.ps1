@@ -242,10 +242,10 @@ try
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.50.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
-    # Old AKS RP sets the full URL (https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
+    # Old AKS RP sets the full URL (https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.11.zip) in CSEScriptsPackageUrl
     # but it is better to set the CSE package version in Windows CSE in AgentBaker
     # since most changes in CSE package also need the change in Windows CSE in AgentBaker
-    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror.azureedge.net/aks/windows/cse/
+    # In future, AKS RP only sets the endpoint with the pacakge name, for example, https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/cse/
     if ($global:CSEScriptsPackageUrl.EndsWith("/")) {
         $global:CSEScriptsPackageUrl = $global:CSEScriptsPackageUrl + $WindowsCSEScriptsPackage
         Write-Log "CSEScriptsPackageUrl is set to $global:CSEScriptsPackageUrl"

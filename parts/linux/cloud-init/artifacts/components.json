@@ -726,7 +726,7 @@
                 "latestVersion": "1.4.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -753,7 +753,7 @@
                 "previousLatestVersion": "1.6.7"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -770,7 +770,7 @@
                 "latestVersion": "1.31.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
+            "downloadURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
           }
         }
       }
@@ -878,7 +878,7 @@
                 "latestVersion": "0.15.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/spinkube/v${version}/linux/${CPU_ARCH}"
+            "downloadURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/spinkube/v${version}/linux/${CPU_ARCH}"
           }
         }
       }

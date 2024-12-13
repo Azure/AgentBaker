@@ -108,7 +108,7 @@ func getContainerImageNameFromURL(downloadURL string) (string, error) {
 }
 
 func getComponentNameFromURL(downloadURL string) (string, error) {
-	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+	// example URL "downloadURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cni-plugins/v*/binaries",
 	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
 	if err != nil {
 		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
