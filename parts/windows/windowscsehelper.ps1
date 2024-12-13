@@ -403,9 +403,9 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion"
 
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
+  # Example: "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
   # To support multiple containerd versions, we only set the endpoint in $global:ContainerdUrl.
-  # Example: "https://acs-mirror.azureedge.net/containerd/windows/"
+  # Example: "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/"
   # We only set containerd package based on kubernetes version when $global:ContainerdUrl ends with "/" so we support:
   #   1. Current behavior to set the full URL
   #   2. Setting containerd package in toggle for test purpose or hotfix

@@ -55,7 +55,7 @@ jobs:
             KUBERNETES_VERSION=$(az aks get-versions -l $AZURE_BUILD_LOCATION -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
-          export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+          export windowsPackageURL="https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
           export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
         fi
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}
@@ -102,10 +102,10 @@ jobs:
         export WINDOWS_DISTRO=${{ parameters.windowsDistro }}
         export WINDOWS_GPU_DRIVER_SUFFIX=${{ parameters.windowsGpuDriverSuffix }}
         if [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-grid" ]]; then
-            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/grid/537.13_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
+            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/gpudrivers/grid/537.13_grid_win10_win11_server2019_server2022_dch_64bit_international_azure_swl.exe"
             export CONFIG_GPU_DRIVER_IF_NEEDED=true
         elif [[ "${WINDOWS_GPU_DRIVER_SUFFIX}" == "-cuda" ]]; then
-            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror.azureedge.net/aks/windows/gpudrivers/cuda/473.47-data-center-tesla-desktop-winserver-2019-2016-international.exe"
+            export WINDOWS_GPU_DRIVER_URL="https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/gpudrivers/cuda/473.47-data-center-tesla-desktop-winserver-2019-2016-international.exe"
             export CONFIG_GPU_DRIVER_IF_NEEDED=true
         else
             export WINDOWS_GPU_DRIVER_URL=""
@@ -120,7 +120,7 @@ jobs:
             KUBERNETES_VERSION=$(az aks get-versions -l $AZURE_BUILD_LOCATION -o table | awk '{print $1}' | awk "/$defaultMajorVersion/ {print}" | sort -r | awk 'NR==1')
             echo "Using default kubernetes version ${KUBERNETES_VERSION} for the windows package"
           fi
-          export windowsPackageURL="https://acs-mirror.azureedge.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
+          export windowsPackageURL="https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v${KUBERNETES_VERSION}/windowszip/v${KUBERNETES_VERSION}-1int.zip"
           export WINDOWS_PACKAGE_VERSION=$KUBERNETES_VERSION
         fi
         export K8S_VERSION=${WINDOWS_PACKAGE_VERSION//./}

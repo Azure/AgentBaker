@@ -196,8 +196,8 @@ function Test-CompareSingleDir {
             continue
         }
 
-        if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
-            $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+        if ($URL.StartsWith("https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/")) {
+            $mcURL = $URL.replace("https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
 
             $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
 

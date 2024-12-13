@@ -39,9 +39,9 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
 
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+$global:defaultContainerdPackageUrl = "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
 if ($windowsSKU -Like "23H2*") {
-    $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+    $global:defaultContainerdPackageUrl = "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
 }
 
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
@@ -159,10 +159,10 @@ $global:imagesToPull += @(
 
 $global:map = @{
     "c:\akse-cache\"              = @(
-        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.46.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.46.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
     );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
@@ -171,15 +171,15 @@ $global:map = @{
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
         $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
-        "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
     );
     "c:\akse-cache\credential-provider\"    = @(
-        "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz",
-        "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-windows-amd64-v1.30.0.tar.gz"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-windows-amd64-v1.30.0.tar.gz"
     );
     # When to remove depracted Kubernetes Windows packages:
     # There are 30 days grace period before a depracted Kubernetes version is out of supported
@@ -197,33 +197,33 @@ $global:map = @{
     #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
     #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
     "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.16/windowszip/v1.27.16-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.100-akslts/windowszip/v1.27.100-akslts-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.13/windowszip/v1.28.13-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.14/windowszip/v1.28.14-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.9/windowszip/v1.29.9-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.10/windowszip/v1.29.10-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.6/windowszip/v1.30.6-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.2/windowszip/v1.31.2-1int.zip"
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.27.16/windowszip/v1.27.16-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.27.100-akslts/windowszip/v1.27.100-akslts-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.28.13/windowszip/v1.28.13-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.28.14/windowszip/v1.28.14-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.29.9/windowszip/v1.29.9-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.29.10/windowszip/v1.29.10-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.30.6/windowszip/v1.30.6-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.31.2/windowszip/v1.31.2-1int.zip"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.6.13/binaries/azure-vnet-cni-windows-amd64-v1.6.13.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.6.13/binaries/azure-vnet-cni-windows-amd64-v1.6.13.zip",
         # Azure CNI v2 (pod subnet)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.56.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.56.zip",
         # Azure CNI for Overlay
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.56.zip"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.56.zip"
     );
     "c:\akse-cache\calico\" = @(
-        "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
     )
 }
 '@

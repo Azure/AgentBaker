@@ -34,7 +34,7 @@ declare -A URL_LIST=(
     ["eastus.data.mcr.microsoft.com"]="FQDN *.data.mcr.microsoft.com is required for MCR storage backed by the Azure content delivery network (CDN)."\
     ["login.microsoftonline.com"]="This is equired for Microsoft Entra authentication."\
     ["packages.microsoft.com"]="This is required to download packages (like Moby, PowerShell, and Azure CLI) using cached apt-get operations."\
-    ["acs-mirror.azureedge.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\
+    ["acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\
 )
 
 function logs_to_events {
@@ -100,7 +100,7 @@ function check_and_curl {
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
-        elif [ $response -eq 400 ] && ([ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
+        elif [ $response -eq 400 ] && ([ $url == "acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
