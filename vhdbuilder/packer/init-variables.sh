@@ -519,6 +519,7 @@ if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
 	set -x
 fi
 
+set +x
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
@@ -558,4 +559,6 @@ cat <<EOF > vhdbuilder/packer/settings.json
 }
 EOF
 
-cat vhdbuilder/packer/settings.json
+# so we don't accidently log UA_TOKEN, though ADO will automatically mask it if it appears in stdout
+# since it's coming from a variable group
+jq 'del(.ua_token)' < vhdbuilder/packer/settings.json
