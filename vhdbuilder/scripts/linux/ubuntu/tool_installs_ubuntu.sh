@@ -237,7 +237,7 @@ listInstalledPackages() {
     apt list --installed
 }
 
-autoAttachUA() {
+attachUA() {
     echo "attaching ua..."
     retrycmd_if_failure_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
