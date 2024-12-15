@@ -125,7 +125,7 @@ type ScenarioRuntime struct {
 	SSHKeyPublic  []byte
 	SSHKeyPrivate []byte
 	VMPrivateIP   string
-	HostPodName   string
+	DebugHostPod  string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.
@@ -157,7 +157,6 @@ func (s *Scenario) PrepareAKSNodeConfig() {
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *armcompute.VirtualMachineScaleSet) {
 	resourceID, err := s.VHD.VHDResourceID(ctx, t)
-	t.Logf("using %q for VHD", resourceID)
 	require.NoError(t, err)
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
