@@ -1,15 +1,12 @@
 version: 2
 updates:
   - package-ecosystem: "gomod"
-    directories:
-      - "**/*"
+    directory: "/"
     schedule:
       interval: daily
       time: "01:00"
     labels:
       - "cleanup"
-    allow:
-      - dependency-type: all
 
   - package-ecosystem: "github-actions"
     directory: "/"
