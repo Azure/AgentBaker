@@ -3,6 +3,8 @@ module github.com/Azure/agentbaker/e2e
 go 1.22.2
 
 require (
+	github.com/Azure/agentbaker v0.20240503.0
+	github.com/Azure/agentbaker/aks-node-controller v0.0.0-20241215075802-f13a779d5362
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2 v2.2.0
@@ -29,9 +31,12 @@ require (
 )
 
 require (
+	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/Masterminds/semver/v3 v3.2.1 // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/onsi/gomega v1.33.1 // indirect
 )
 
 require (
@@ -86,3 +91,6 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
+
+replace github.com/Azure/agentbaker => ../
+replace github.com/Azure/agentbaker/aks-node-controller => ../aks-node-controller
