@@ -55,9 +55,9 @@ find_current_image_version() {
 # This function replaces the old image version with the new input image version for all relevant files
 update_image_version() {
     local linux_sig_version_file=pkg/agent/datamodel/linux_sig_version.json
-    jq ".version=\"${NEW_IMAGE_VERSION}\"" < "${linux_sig_version_file}" > "${linux_sig_version_file}"-tmp
+    jq ".version=\"${NEW_IMAGE_VERSION}\"" < "${linux_sig_version_file}" > "${linux_sig_version_file}-tmp"
     rm "${linux_sig_version_file}"
-    mv "${linux_sig_version_file}"-tmp "${linux_sig_version_file}"
+    mv "${linux_sig_version_file}-tmp" "${linux_sig_version_file}"
 }
 
 create_image_bump_pr() {
