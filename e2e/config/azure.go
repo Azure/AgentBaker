@@ -66,7 +66,6 @@ func mustNewAzureClient() *AzureClient {
 		panic(err)
 	}
 	return client
-
 }
 
 func NewAzureClient() (*AzureClient, error) {
