@@ -774,7 +774,7 @@ func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBoots
 	if err != nil {
 		return nil, err
 	}
-	constraint, err := semver.NewConstraint("> 1.30.0")
+	constraint, err := semver.NewConstraint(">= 1.30.0")
 	if err != nil {
 		return nil, err
 	}
