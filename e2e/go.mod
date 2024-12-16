@@ -22,7 +22,7 @@ require (
 	github.com/sanity-io/litter v1.5.5
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.17.1
-	golang.org/x/crypto v0.27.0
+	golang.org/x/crypto v0.31.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
@@ -77,9 +77,9 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
-	golang.org/x/term v0.24.0 // indirect
-	golang.org/x/text v0.18.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -93,4 +93,5 @@ require (
 )
 
 replace github.com/Azure/agentbaker => ../
+
 replace github.com/Azure/agentbaker/aks-node-controller => ../aks-node-controller
