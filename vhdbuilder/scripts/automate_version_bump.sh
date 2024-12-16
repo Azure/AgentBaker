@@ -3,7 +3,7 @@ set -euxo pipefail
 source vhdbuilder/scripts/automate_helpers.sh
 
 set +x
-GITHUB_PAT="${GITHUB_PAT:-""}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-""}"
 set -x
 
 NEW_IMAGE_VERSION="${IMAGE_VERSION:-""}"
@@ -62,7 +62,7 @@ create_image_bump_pr() {
     update_image_version
 
     set +x
-    create_pull_request $NEW_IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
+    create_pull_request $NEW_IMAGE_VERSION $GITHUB_TOKEN $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
     set -x
 }
 
@@ -109,8 +109,8 @@ cut_official_branch() {
 }
 
 set +x
-if [ -z "$GITHUB_PAT" ]; then
-    echo "GITHUB_PAT must be set in order to bump the image version and create the official branch"
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "GITHUB_TOKEN must be set in order to bump the image version and create the official branch"
     exit 1
 fi
 set -x

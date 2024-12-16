@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
 
-github_user_name=$2
 source vhdbuilder/scripts/windows/automate_helpers.sh
 
 az login --identity
@@ -14,7 +13,7 @@ set +x
 github_access_token=$1
 set -x
 
-cherry_pick_commit_id=$3
+cherry_pick_commit_id=$2
 
 # This function finds the latest windows VHD base Image version from the command az vm image show
 find_latest_image_version() {
@@ -29,7 +28,7 @@ find_latest_image_version() {
     echo "Latest windows 23H2 base image version is ${latest_image_version_23H2}"
     echo "Latest windows 23H2 Gen 2 base image version is: ${latest_image_version_23H2_g2}"
     new_image_version=$(date +"%Y-%m")
-    branch_name=$github_user_name/win-${new_image_version}b
+    branch_name=imageBump/win-${new_image_version}b
 }
 
 # This function replaces the old Windows 2019 & Windows 2022 (gen1/gen2) base image version with the latest version found by az vm image show in windows-image.env
@@ -75,6 +74,6 @@ create_image_bump_pr() {
     set -x
 }
 
-set_git_config $github_user_name
+set_git_config
 find_latest_image_version
 create_image_bump_pr
