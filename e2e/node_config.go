@@ -449,7 +449,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string) *datamo
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
-	config, err := pruneKubeletConfig(t, k8sVersion, config)
+	config, err := pruneKubeletConfig(k8sVersion, config)
 	require.NoError(t, err)
 	return config
 }
@@ -649,7 +649,7 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			},
 		},
 	}
-	config, err := pruneKubeletConfig(t, kubernetesVersion, config)
+	config, err := pruneKubeletConfig(kubernetesVersion, config)
 	require.NoError(t, err)
 	return config
 }
@@ -770,7 +770,7 @@ func zipWindowsCSE() (*os.File, error) {
 
 // https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp?path=/resourceprovider/server/microsoft.com/datamodel/model/defaults_kubelet.go&version=GBmaster&_a=contents
 // k8s version > 1.30.0 contains deprecated kubelet flags
-func pruneKubeletConfig(t *testing.T, kubernetesVersion string, datamodel *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
 	version, err := semver.NewVersion(kubernetesVersion)
 	if err != nil {
 		return nil, err
