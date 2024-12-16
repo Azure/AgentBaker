@@ -68,6 +68,7 @@
       "shared_image_gallery_destination": {
         "specialized": true,
         "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
+        "shared_image_gallery_replica_count": 2,
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
         "image_name": "{{user `sig_image_name`}}",
