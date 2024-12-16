@@ -65,6 +65,7 @@
       "vtpm_enabled": true,
       "security_type": "ConfidentialVM",
       "security_encryption_type": "VMGuestStateOnly",
+      "shared_image_gallery_replica_count": 2,
       "shared_image_gallery_destination": {
         "specialized": true,
         "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
