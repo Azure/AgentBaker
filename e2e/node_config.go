@@ -381,7 +381,6 @@ func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootst
 			"--anonymous-auth":                    "false",
 			"--authentication-token-webhook":      "true",
 			"--authorization-mode":                "Webhook",
-			"--azure-container-registry-config":   "/etc/kubernetes/azure.json",
 			"--cgroups-per-qos":                   "true",
 			"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
 			"--cloud-config":                      "",
