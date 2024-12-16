@@ -768,7 +768,6 @@ func zipWindowsCSE() (*os.File, error) {
 	return zipFile, nil
 }
 
-// https://dev.azure.com/msazure/CloudNativeCompute/_git/aks-rp?path=/resourceprovider/server/microsoft.com/datamodel/model/defaults_kubelet.go&version=GBmaster&_a=contents
 // k8s version > 1.30.0 contains deprecated kubelet flags
 func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
 	version, err := semver.NewVersion(kubernetesVersion)
