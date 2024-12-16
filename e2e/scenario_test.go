@@ -632,7 +632,6 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached,
-
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				if nbc.KubeletConfig != nil {
 					delete(nbc.KubeletConfig, "--azure-container-registry-config")
