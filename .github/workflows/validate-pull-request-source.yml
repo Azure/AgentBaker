@@ -3,7 +3,7 @@ on: pull_request
 
 jobs:
   validate-pull-request-source:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Validate if PR is not from a forked repo
         run: |
