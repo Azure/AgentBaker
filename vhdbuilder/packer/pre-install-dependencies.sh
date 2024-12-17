@@ -39,6 +39,10 @@ copyPackerFiles
 echo 'installing rsyslog on 2404'
 apt_get_update
 apt_get_install 5 1 60 rsyslog
+apt_get_install 5 1 60 gnupg
+
+echo 'gpg version'
+gpg --version
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
