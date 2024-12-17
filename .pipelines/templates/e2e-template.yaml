@@ -26,6 +26,7 @@ jobs:
           go version
           
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
+          
           if [ -n "${VHD_BUILD_ID}" ]; then
             export SIG_VERSION_TAG_NAME=buildId
             export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
