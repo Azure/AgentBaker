@@ -25,8 +25,6 @@ jobs:
           export PATH="/usr/local/go/bin:$PATH"
           go version
           
-          export LOCATION=$LOCATION
-          
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
           if [ -n "${VHD_BUILD_ID}" ]; then
             export SIG_VERSION_TAG_NAME=buildId
@@ -43,7 +41,7 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-          LOCATION: $(LOCATION)
+          E2E_LOCATION: $(E2E_LOCATION)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
       - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
