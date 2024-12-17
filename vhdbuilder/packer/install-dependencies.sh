@@ -58,26 +58,27 @@ EOF
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 
+installDeps
 # If the IMG_SKU does not contain "minimal", installDeps normally
-if [[ "$IMG_SKU" != *"minimal"* ]]; then
-  installDeps
-else
-  updateAptWithMicrosoftPkg
-  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-  BLOBFUSE2_VERSION="2.3.2"
-  if [ "${OS_VERSION}" == "18.04" ]; then
-    # keep legacy version on ubuntu 18.04
-    BLOBFUSE2_VERSION="2.2.0"
-  fi
-  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
-  for apt_package in ${required_pkg_list[*]}; do
-      if ! apt_get_install 30 1 600 $apt_package; then
-          journalctl --no-pager -u $apt_package
-          exit $ERR_APT_INSTALL_TIMEOUT
-      fi
-  done
-fi
+#if [[ "$IMG_SKU" != *"minimal"* ]]; then
+#  installDeps
+#else
+#  updateAptWithMicrosoftPkg
+#  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
+#  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
+#  BLOBFUSE2_VERSION="2.3.2"
+#  if [ "${OS_VERSION}" == "18.04" ]; then
+#    # keep legacy version on ubuntu 18.04
+#    BLOBFUSE2_VERSION="2.2.0"
+#  fi
+#  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
+#  for apt_package in ${required_pkg_list[*]}; do
+#      if ! apt_get_install 30 1 600 $apt_package; then
+#          journalctl --no-pager -u $apt_package
+#          exit $ERR_APT_INSTALL_TIMEOUT
+#      fi
+#  done
+#fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
