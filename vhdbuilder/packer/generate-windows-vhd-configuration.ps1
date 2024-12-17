@@ -64,7 +64,7 @@ switch -Regex ($windowsSku) {
 
         $global:patchUrls = @(
           "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/12/windows10.0-kb5048661-x64_6bfc43258aab46ec793d2977122226a4a2b8ed6f.msu",
-          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/10/windows10.0-kb5046268-x86_7f3f529d713bae9320796375a93471a245fb86c6.msu"
+          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/10/windows10.0-kb5046269-x64-ndp48_ffaedfbf319b1822620e751996e1d9ba0653b2f6.msu"
         )
         $global:patchIDs = @(
           "KB5048661",
