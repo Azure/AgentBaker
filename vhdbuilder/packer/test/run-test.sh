@@ -198,7 +198,7 @@ else
   #   Invalid string: control characters from U+0000 through U+001F must be escaped
   errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
-  if [ $errMsg != \"\" ]; then
+  if [ "$errMsg" != \"\" ]; then
         echo "Tests failed. Test output is: "
         echo "$ret"
     exit 1
