@@ -105,7 +105,7 @@ else
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
 fi
-    
+
 echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 
 time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
@@ -199,6 +199,8 @@ else
   errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
   if [ $errMsg != \"\" ]; then
+        echo "Tests failed. Test output is: "
+        echo "$ret"
     exit 1
   fi
 fi
