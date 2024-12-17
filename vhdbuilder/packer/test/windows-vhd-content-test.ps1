@@ -23,12 +23,18 @@ function Write-ErrorWithTimestamp($Message) {
     $msg = $message | Timestamp
     Write-Error $msg
 }
+
+function Write-OutputWithTimestamp($Message) {
+    $msg = $message | Timestamp
+    Write-Output $msg
+}
+
 # We do not create static public IP for test VM but we need the public IP
 # when we want to check some issues in infra. Let me use this solution to
 # get it. We can create a static public IP when creating test VM if this
 # does not work
 $testVMPublicIPAddress=$(curl.exe -s -4 icanhazip.com)
-Write-Output "Public IP address of the Test VM is $testVMPublicIPAddress"
+Write-OutputWithTimestamp "Public IP address of the Test VM is $testVMPublicIPAddress"
 
 function Start-Job-To-Expected-State {
     [CmdletBinding()]
@@ -54,6 +60,7 @@ function Start-Job-To-Expected-State {
     }
 
     Process {
+        Write-OutputWithTimestamp "Starting Job $JobName"
         Start-Job -Name $JobName -ScriptBlock $ScriptBlock
 
         do {
@@ -76,6 +83,7 @@ function DownloadFileWithRetry {
         $retryDelay = 0,
         [Switch]$redactUrl = $false
     )
+    Write-OutputWithTimestamp "Downloading file $URL"
     curl.exe -s -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
     if ($LASTEXITCODE) {
         $logURL = $URL
@@ -217,6 +225,8 @@ function Test-PatchInstalled {
     if($lostPatched.count -ne 0) {
         Write-ErrorWithTimestamp "$lostPatched is(are) not installed"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "$lostPatched is(are) installed"
     }
 }
 
@@ -237,6 +247,8 @@ function Test-ImagesPulled {
     if($result) {
         Write-ErrorWithTimestamp "images to pull do not equal images cached $(($result).InputObject) ."
         exit 1
+    } else {
+        Write-OutputWithTimestamp "images to pull do equal images cached."
     }
 }
 
@@ -252,6 +264,8 @@ function Validate-WindowsFixInFeatureManagement {
     if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in FeatureManagement\Overrides is not added"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The registry for $Name in FeatureManagement\Overrides was added"
     }
 }
 
@@ -267,6 +281,8 @@ function Validate-WindowsFixInHnsState {
     if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in hns\State is not added"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The registry for $Name in hns\State was added"
     }
 }
 
@@ -282,6 +298,8 @@ function Validate-WindowsFixInVfpExtParameters {
     if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in VfpExt\Parameters is not added"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The registry for $Name in VfpExt\Parameters was added"
     }
 }
 
@@ -299,12 +317,14 @@ function Validate-WindowsFixInPath {
     if ($result.$Name -ne $Value) {
         Write-ErrorWithTimestamp "The registry for $Name in $Path is not added"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The registry for $Name in $Path was added"
     }
 }
 
 function Test-RegistryAdded {
     if ($skipValidateReofferUpdate -eq $true) {
-        Write-Output "Skip validating ReofferUpdate"
+        Write-OutputWithTimestamp "Skip validating ReofferUpdate"
     } else {
         # Check whether the registry ReofferUpdate is added. ReofferUpdate indicates that the OS is not updated to the latest version.
         $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate -ErrorAction Ignore)
@@ -312,7 +332,7 @@ function Test-RegistryAdded {
             Write-ErrorWithTimestamp "The registry ReofferUpdate is added. The value is 1."
             exit 1
         }
-        Write-Output "The registry for ReofferUpdate is \"$result\" ."
+        Write-OutputWithTimestamp "The registry for ReofferUpdate is \"$result\" ."
     }
 
     Validate-WindowsFixInHnsState -Name EnableCompartmentNamespace
@@ -322,7 +342,10 @@ function Test-RegistryAdded {
         if (($result.HNSControlFlag -band 0x10) -ne 0x10) {
             Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
             exit 1
+        } else {
+            Write-OutputWithTimestamp "The registry for the two HNS fixes was added"
         }
+
         Validate-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -Value 0
         Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
         Validate-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
@@ -431,6 +454,8 @@ function Test-DefenderSignature {
     if (-not ($mpPreference -and ($mpPreference.SignatureFallbackOrder -eq "MicrosoftUpdateServer|MMPC") -and [string]::IsNullOrEmpty($mpPreference.SignatureDefinitionUpdateFileSharesSources))) {
         Write-ErrorWithTimestamp "The Windows Defender has wrong Signature. SignatureFallbackOrder: $($mpPreference.SignatureFallbackOrder). SignatureDefinitionUpdateFileSharesSources: $($mpPreference.SignatureDefinitionUpdateFileSharesSources)"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The Windows Defender has correct Signature"
     }
 }
 
@@ -440,6 +465,8 @@ function Test-ExcludeUDPSourcePort {
     if (-not $result) {
         Write-ErrorWithTimestamp "The UDP source port 65330 is not excluded."
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The UDP source port 65330 is excluded."
     }
 }
 
@@ -452,6 +479,8 @@ function Test-WindowsDefenderPlatformUpdate {
     if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
         Write-ErrorWithTimestamp "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "Defender update succeeded."
     }
 }
 
@@ -464,6 +493,8 @@ function Test-ToolsToCacheOnVHD {
         if (!(Test-Path -Path $toolPath)) {
             Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
             exit 1
+        } else {
+            Write-OutputWithTimestamp "Got tool: $toolPath"
         }
     }
 }
@@ -476,6 +507,8 @@ function Test-ExpandVolumeTask {
     if ($osDiskSize -ne $osDiskAllocatedSize) {
         Write-ErrorWithTimestamp "The OS disk size $osDiskSize is not equal to the allocated size $osDiskAllocatedSize"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "The OS disk size $osDiskSize is equal to the allocated size"
     }
 }
 
@@ -485,10 +518,15 @@ function Test-SSHDConfig {
     if ($result -Match 'chacha20-poly1305@openssh.com') {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "C:\programdata\ssh\sshd_config is updated for CVE-2023-48795"
     }
+
     if ($result -Match '.*-etm@openssh.com') {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2023-48795"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "C:\programdata\ssh\sshd_config is updated for CVE-2023-48795"
     }
 
     $ConfigPath = "C:\programdata\ssh\sshd_config"
@@ -496,36 +534,38 @@ function Test-SSHDConfig {
     if ($sshdConfig.Contains("#LoginGraceTime") -or (-not $sshdConfig.Contains("LoginGraceTime 0"))) {
         Write-ErrorWithTimestamp "C:\programdata\ssh\sshd_config is not updated for CVE-2006-5051"
         exit 1
+    } else {
+        Write-OutputWithTimestamp "C:\programdata\ssh\sshd_config is updated for CVE-2006-5051"
     }
 }
 
-Write-Output "Starting Tests"
+Write-OutputWithTimestamp "Starting Tests"
 
-Write-Output "Test: FilesToCacheOnVHD"
+Write-OutputWithTimestamp "Test: FilesToCacheOnVHD"
 Test-FilesToCacheOnVHD
 
-Write-Output "Test: PatchInstalled"
+Write-OutputWithTimestamp "Test: PatchInstalled"
 Test-PatchInstalled
 
-Write-Output "Test: ImagesPulled"
+Write-OutputWithTimestamp "Test: ImagesPulled"
 Test-ImagesPulled
 
-Write-Output "Test: RegistryAdded"
+Write-OutputWithTimestamp "Test: RegistryAdded"
 Test-RegistryAdded
 
-Write-Output "Test: DefenderSignature"
+Write-OutputWithTimestamp "Test: DefenderSignature"
 Test-DefenderSignature
 
-Write-Output "Test: ExcludeUDPSourcePort"
+Write-OutputWithTimestamp "Test: ExcludeUDPSourcePort"
 Test-ExcludeUDPSourcePort
 
-Write-Output "Test: WindowsDefenderPlatformUpdate"
+Write-OutputWithTimestamp "Test: WindowsDefenderPlatformUpdate"
 Test-WindowsDefenderPlatformUpdate
 
-Write-Output "Test: ToolsToCacheOnVHD"
+Write-OutputWithTimestamp "Test: ToolsToCacheOnVHD"
 Test-ToolsToCacheOnVHD
 
-Write-Output "Test: ExpandVolumeTask"
+Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask
 
 Remove-Item -Path c:\windows-vhd-configuration.ps1
