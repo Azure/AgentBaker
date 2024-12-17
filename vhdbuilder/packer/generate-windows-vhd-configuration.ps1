@@ -149,11 +149,14 @@ $global:imagesToPull += @(
     # CNS (Container Networking Service) Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.40",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
 
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cni:v1.4.56",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.40",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
 )
 

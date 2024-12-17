@@ -51,9 +51,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.4.56",
+          "latestVersion": "v1.4.58",
+          "previousLatestVersion": "v1.4.56",
           "containerImagePrefetch": {
             "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -62,8 +68,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
+          "latestVersion": "v1.5.40",
+          "previousLatestVersion": "v1.5.38",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -80,14 +86,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.13",
-          "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -102,9 +102,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.56",
+          "latestVersion": "v1.4.58",
+          "previousLatestVersion": "v1.4.56",
           "containerImagePrefetch": {
             "latestVersion": {
+              "binaries": [
+                "/usr/local/bin/azure-cns"
+              ]
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
@@ -113,8 +119,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
+          "latestVersion": "v1.5.40",
+          "previousLatestVersion": "v1.5.38",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -131,14 +137,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.6.13",
-          "previousLatestVersion": "v1.6.7",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
@@ -153,9 +153,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.0.7",
+          "latestVersion": "v0.0.8",
+          "previousLatestVersion": "v0.0.7",
           "containerImagePrefetch": {
             "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -164,9 +170,15 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.2.0",
+          "latestVersion": "v0.2.1",
+          "previousLatestVersion": "v0.2.0",
           "containerImagePrefetch": {
             "latestVersion": {
+              "binaries": [
+                "/dropgz"
+              ]
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -558,24 +570,22 @@
       ]
     }
   ],
-
   "GPUContainerImages": [
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-          "latestVersion": "550.127.08-20241204190836"
-        }
+        "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
+        "latestVersion": "550.127.08-20241204190836"
+      }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
-      "gpuVersion": { 
+      "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
         "latestVersion": "535.161.08-20241204190836"
       }
     }
   ],
-
   "Packages": [
     {
       "name": "oras",
@@ -801,8 +811,8 @@
                 "previousLatestVersion": "v1.29.10"
               },
               {
-                "k8sVersion": "1.30",         
-                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",       
+                "k8sVersion": "1.30",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
                 "latestVersion": "v1.30.7",
                 "previousLatestVersion": "v1.30.6"
               },
