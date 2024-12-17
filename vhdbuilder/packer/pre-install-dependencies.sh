@@ -37,7 +37,8 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_declare_variables_and_set_
 
 copyPackerFiles
 echo 'installing rsyslog on 2404'
-apt-get install rsyslog
+apt_get_update
+apt_get_install 5 1 60 rsyslog
 
 # Update rsyslog configuration
 RSYSLOG_CONFIG_FILEPATH="/etc/rsyslog.d/60-CIS.conf"
