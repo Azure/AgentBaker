@@ -68,7 +68,7 @@ switch -Regex ($windowsSku) {
         )
         $global:patchIDs = @(
           "KB5048661",
-          "KB5046540"
+          "KB5046269"
         )
 
         $global:imagesToPull = @(
