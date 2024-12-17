@@ -1,6 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
-  TAGS_TO_SKIP: "os=windows"
+  TAGS_TO_RUN: "os=windows"
 trigger:
   branches:
     include:
@@ -17,8 +17,9 @@ pr:
       - .pipelines/e2e.yaml
       - .pipelines/templates/e2e-template.yaml
       - e2e
-      - parts/linux
+      - parts/windows
       - pkg/agent
+      - staging/cse/windows/
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
