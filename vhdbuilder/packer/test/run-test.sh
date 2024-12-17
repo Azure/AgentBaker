@@ -199,7 +199,8 @@ else
   errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
   if [ "$errMsg" != \"\" ]; then
-        echo "Tests failed. Test output is: "
+        echo "Tests failed. errMsg is $errMsg"
+        echo "Test output is: "
         echo "$ret"
     exit 1
   fi
