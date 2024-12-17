@@ -1268,6 +1268,5 @@ stages:
     condition: ne(variables.SKIP_E2E_TESTS, 'true')
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      E2E_LOCATION: $(E2E_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
