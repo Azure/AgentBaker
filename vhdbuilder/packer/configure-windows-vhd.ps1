@@ -429,7 +429,7 @@ function Install-WindowsPatches {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
                 Download-File -URL $patchUrl -Dest $fullPath -redactUrl
                 Write-Log "Starting install of $fileName"
-                $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
+                $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /norestart"
                 Wait-Process -InputObject $proc
                 switch ($proc.ExitCode) {
                     0 {
