@@ -180,6 +180,7 @@ parameters:
 
 variables:
   - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
 
 stages:
   - stage: build
