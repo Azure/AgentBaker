@@ -431,4 +431,16 @@ write_files:
   content: |
     [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
       capabilities = ["pull", "resolve"]
+- path: /etc/containerd/certs.d/mcr.microsoft.scloud/hosts.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
+      capabilities = ["pull", "resolve"]
+- path: /etc/containerd/certs.d/mcr.eaglex.ic.gov/hosts.toml
+  permissions: "0644"
+  owner: root
+  content: |
+    [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
+      capabilities = ["pull", "resolve"]
 {{- end}}
