@@ -337,7 +337,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 	source $CDIR/windows-image.env.sh
 
-	echo "Set the base image sku and version from windows-image.env"
+	echo "Set the base image sku and version from windows-image.env.sh"
 	case "${WINDOWS_SKU}" in
 	"2019")
 		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
@@ -346,7 +346,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 		echo "Set OS disk size"
 		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+			echo "Setting os_disk_size_gb to the value in windows-image.env.sh for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
 			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
 		fi
 		;;
@@ -357,7 +357,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 		echo "Set OS disk size"
 		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
+			echo "Setting os_disk_size_gb to the value in windows-image.env.sh for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
 			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
 		fi
 		;;
