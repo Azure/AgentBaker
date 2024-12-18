@@ -334,7 +334,8 @@ fi
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 	imported_windows_image_name=""
-	source $CDIR/windows-image.env
+
+	source $CDIR/windows-image.env.sh
 
 	echo "Set the base image sku and version from windows-image.env"
 	case "${WINDOWS_SKU}" in
@@ -398,7 +399,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		;;
 	esac
 
-	# Create the sig image from the official images defined in windows-image.env by default
+	# Create the sig image from the official images defined in windows-image.env.sh by default
 	windows_sigmode_source_subscription_id=""
 	windows_sigmode_source_resource_group_name=""
 	windows_sigmode_source_gallery_name=""
