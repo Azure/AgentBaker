@@ -42,7 +42,7 @@ type Configuration struct {
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID_WINDOWS" envDefault:"4be8920b-2978-43d7-ab14-04d8549c1d05"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                               bool          `env:"KEEP_VMSS"`
-	Location                               string        `env:"LOCATION" envDefault:"westus3"`
+	Location                               string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/dev"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`

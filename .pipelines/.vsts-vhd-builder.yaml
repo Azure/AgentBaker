@@ -97,10 +97,9 @@ stages:
           parameters:
             artifactName: marinerv2-gen2
   - stage: e2e
-    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
 

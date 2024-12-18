@@ -61,6 +61,7 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 switch -Regex ($windowsSku) {
     "2019-containerd" {
         # TODO: clean up when you bump 2025-1B. These patches do an upgrade from 2024-9B to 2024-12B in a way that doesn't break openssh.
+        # The right patch for .NET is actually KB5046540. However, the download page us for KB5046269. So we have to verify that patch. I have no idea why.
 
         $global:patchUrls = @(
           "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/12/windows10.0-kb5048661-x64_6bfc43258aab46ec793d2977122226a4a2b8ed6f.msu",
@@ -68,7 +69,7 @@ switch -Regex ($windowsSku) {
         )
         $global:patchIDs = @(
           "KB5048661",
-          "KB5046540"
+          "KB5046268"
         )
 
         $global:imagesToPull = @(
@@ -147,12 +148,12 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24",
 
     # CNS (Container Networking Service) Owner: evanbaker
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
 
     # CNI installer for azure-vnet. Owner: evanbaker
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.56",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
 )
@@ -218,9 +219,9 @@ $global:map = @{
         "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
         "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.6.13/binaries/azure-vnet-cni-windows-amd64-v1.6.13.zip",
         # Azure CNI v2 (pod subnet)
-        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.56.zip",
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip",
         # Azure CNI for Overlay
-        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.56.zip"
+        "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"

@@ -1265,9 +1265,9 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
   - stage: e2e
-    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
