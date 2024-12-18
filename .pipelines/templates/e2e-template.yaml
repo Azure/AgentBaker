@@ -1,5 +1,6 @@
 jobs:
   - job: e2e
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
     pool:
       name: $(POOL_NAME)
     timeoutInMinutes: 90

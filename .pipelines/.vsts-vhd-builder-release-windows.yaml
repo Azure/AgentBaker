@@ -60,7 +60,11 @@ parameters:
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
-  - stage: build
+  - stage: build_vhd_2019_containerd
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=2019-containerd"
     jobs:
       - job: build_vhd_2019_containerd
         dependsOn: []
@@ -81,7 +85,14 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2019-containerd
+      - template: ./templates/e2e-template.yaml
 
+  - stage: build_vhd_2022_containerd
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=2022_containerd"
+    jobs:
       - job: build_vhd_2022_containerd
         dependsOn: []
         condition: eq('${{ parameters.build2022containerd }}', True)
@@ -101,7 +112,14 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2022-containerd
+      - template: ./templates/e2e-template.yaml
 
+  - stage: build_vhd_2022_containerd_gen2
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=2022_containerd_gen2"
+    jobs:
       - job: build_vhd_2022_containerd_gen2
         dependsOn: []
         condition: eq('${{ parameters.build2022containerdgen2 }}', True)
@@ -121,7 +139,14 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2022-containerd-gen2
+      - template: ./templates/e2e-template.yaml
 
+  - stage: build_vhd_23H2
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=23H2"
+    jobs:
       - job: build_vhd_23H2
         dependsOn: []
         condition: eq('${{ parameters.build23H2 }}', True)
@@ -141,7 +166,14 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 23H2
+      - template: ./templates/e2e-template.yaml
 
+  - stage: build_vhd_23H2_gen2
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=23H2-gen2"
+    jobs:
       - job: build_vhd_23H2_gen2
         dependsOn: []
         condition: eq('${{ parameters.build23H2gen2 }}', True)
@@ -161,14 +193,6 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 23H2-gen2
-
-  - stage: e2e
-    condition: ne(variables.SKIP_E2E_TESTS, 'true')
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows"
-    jobs:
       - template: ./templates/e2e-template.yaml
 
   - stage: backfill_cleanup_outdated_resources
