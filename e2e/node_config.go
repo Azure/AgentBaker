@@ -156,7 +156,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
 						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
-						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion, arch),
+						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
