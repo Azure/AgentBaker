@@ -42,7 +42,6 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-          E2E_LOCATION: $(E2E_LOCATION)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
       - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
