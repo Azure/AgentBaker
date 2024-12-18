@@ -85,7 +85,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2019-containerd
-      - template: ./templates/e2e-template.yaml
+      - job:
+        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_2022_containerd
     variables:
@@ -112,7 +113,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2022-containerd
-      - template: ./templates/e2e-template.yaml
+      - job:
+        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_2022_containerd_gen2
     variables:
@@ -139,7 +141,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2022-containerd-gen2
-      - template: ./templates/e2e-template.yaml
+      - job:
+        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_23H2
     variables:
@@ -166,7 +169,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 23H2
-      - template: ./templates/e2e-template.yaml
+      - job:
+        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_23H2_gen2
     variables:
@@ -193,7 +197,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 23H2-gen2
-      - template: ./templates/e2e-template.yaml
+      - job:
+        template: ./templates/e2e-template.yaml
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []
