@@ -193,8 +193,8 @@ downloadCNI() {
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "${SCRIPT_NAME}_create_containerd_service_directory_and_configure_runtime_and_network"
-echo 'catting components'
-cat $COMPONENTS_FILEPATH
+#echo 'catting components'
+#cat $COMPONENTS_FILEPATH
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f $COMPONENTS_FILEPATH ]; then

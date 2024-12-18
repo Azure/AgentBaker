@@ -31,13 +31,15 @@ if isMarinerOrAzureLinux "$OS"; then
   chmod 755 /opt/azure
   chmod 644 ${VHD_LOGS_FILEPATH}
 fi
+apt_get_update
+apt_get_install 5 1 60 apt-utils
 
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_declare_variables_and_set_mariner_permissions"
 
 copyPackerFiles
 echo 'installing rsyslog on 2404'
-apt_get_update
+
 apt_get_install 5 1 60 rsyslog
 apt_get_install 5 1 60 gnupg
 
