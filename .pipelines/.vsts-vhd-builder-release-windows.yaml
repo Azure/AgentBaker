@@ -231,7 +231,7 @@ stages:
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []
-    condition: always()
+    condition: never()
     jobs:
     - job: build
       timeoutInMinutes: 180
