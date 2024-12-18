@@ -107,8 +107,6 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2022-containerd
-      - job:
-        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_2022_containerd_gen2
     jobs:
