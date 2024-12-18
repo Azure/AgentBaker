@@ -45,7 +45,11 @@ SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
+if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+    az group create --name $RESOURCE_GROUP_NAME --location ${CVM_PACKER_BUILD_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
+else
+    az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker,now=$(date +%s)" "branch=${GIT_BRANCH}"
+fi
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
@@ -63,6 +67,10 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+if [[ "${OS_TYPE}" == "Linux" && ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+fi
+
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning$(date +%s)${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
 if [ -z "$SCANNING_NIC_ID" ]; then
     echo "unable to create new NIC for scanning VM"
@@ -76,9 +84,9 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-username $SCAN_VM_ADMIN_USERNAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
-    ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
-    
+    --assign-identity "${UMSI_RESOURCE_ID}" \
+    ${VM_OPTIONS}
+
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
 
