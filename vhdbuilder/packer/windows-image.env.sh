@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+
 # Windows base images for building VHD. To install Windows patches, please refer to configure-windows-vhd.ps1
 # CLI example to get all available image version under a SKU:
 #   az vm image list --all --publisher MicrosoftWindowsServer --offer WindowsServer --output table -s 2019-Datacenter-Core-smalldisk
