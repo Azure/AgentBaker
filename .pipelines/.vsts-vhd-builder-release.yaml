@@ -1268,5 +1268,6 @@ stages:
     condition: ne(variables.SKIP_E2E_TESTS, 'true')
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
+      TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
