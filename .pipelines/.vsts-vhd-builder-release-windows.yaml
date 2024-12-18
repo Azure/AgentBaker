@@ -61,10 +61,6 @@ parameters:
 
 stages:
   - stage: build_vhd_2019_containerd
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=2019-containerd"
     jobs:
       - job: build_vhd_2019_containerd
         dependsOn: []
@@ -85,8 +81,6 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2019-containerd
-      - job:
-        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_2022_containerd
     variables:
@@ -117,10 +111,6 @@ stages:
         template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_2022_containerd_gen2
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=2022_containerd_gen2"
     jobs:
       - job: build_vhd_2022_containerd_gen2
         dependsOn: []
@@ -141,14 +131,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 2022-containerd-gen2
-      - job:
-        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_23H2
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=23H2"
     jobs:
       - job: build_vhd_23H2
         dependsOn: []
@@ -169,14 +153,8 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 23H2
-      - job:
-        template: ./templates/e2e-template.yaml
 
   - stage: build_vhd_23H2_gen2
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=23H2-gen2"
     jobs:
       - job: build_vhd_23H2_gen2
         dependsOn: []
@@ -197,8 +175,57 @@ stages:
           - template: ./templates/.builder-release-template-windows.yaml
             parameters:
               artifactName: 23H2-gen2
-      - job:
-        template: ./templates/e2e-template.yaml
+
+
+  - stage: e2e-2019-containerd
+    dependsOn: [ build_vhd_2019_containerd ]
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=2019-containerd"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+
+  - stage: e2e_2022_containerd
+    dependsOn: [ build_vhd_2022_containerd ]
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=2022_containerd"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+
+  - stage: e2e-2022_containerd_gen2
+    dependsOn: [ build_vhd_2022_containerd_gen2 ]
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=2022_containerd_gen2"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+
+  - stage: e2e-23H2
+    dependsOn: [ build_vhd_23H2 ]
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=23H2"
+    jobs:
+      - template: ./templates/e2e-template.yaml
+
+  - stage: e2e-23H2-gen2
+    dependsOn: [ build_vhd_23H2_gen2 ]
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+      LOCATION: $(PACKER_BUILD_LOCATION)
+      TAGS_TO_RUN: "os=windows,imageName=23H2-gen2"
+    jobs:
+      - template: ./templates/e2e-template.yaml
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []
