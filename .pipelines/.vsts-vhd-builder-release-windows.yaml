@@ -231,7 +231,7 @@ stages:
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []
-    condition: never()
+    condition: always()
     jobs:
     - job: build
       timeoutInMinutes: 180
@@ -250,5 +250,6 @@ stages:
             -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
             -e OS_TYPE="Windows" \
             ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
+          enabled: false
           displayName: Backfill Clean Up Older Resources
           condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
