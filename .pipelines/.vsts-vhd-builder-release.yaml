@@ -144,7 +144,7 @@ parameters:
   - name: build2404arm64gen2containerd
     displayName: Build 2404 ARM64 Gen2 containerd
     type: boolean
-    default: false
+    default: true
   - name: build2204containerd
     displayName: Build 2204 Gen1 Containerd
     type: boolean
@@ -156,11 +156,11 @@ parameters:
   - name: build2404containerd
     displayName: Build 2404 Gen1 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404gen2containerd
     displayName: Build 2404 Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2004cvmgen2containerd
     displayName: Build 2004 CVM Gen2 Containerd
     type: boolean
@@ -180,6 +180,7 @@ parameters:
 
 variables:
   - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
 
 stages:
   - stage: build
@@ -1116,8 +1117,8 @@ stages:
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-noble-daily'
-              echo '##vso[task.setvariable variable=IMG_SKU]24_04-daily-lts'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server-gen1'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
@@ -1142,8 +1143,8 @@ stages:
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-              echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-noble-daily'
-              echo '##vso[task.setvariable variable=IMG_SKU]24_04-daily-lts-gen2'
+              echo '##vso[task.setvariable variable=IMG_OFFER]ubuntu-24_04-lts'
+              echo '##vso[task.setvariable variable=IMG_SKU]server'
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
@@ -1267,6 +1268,5 @@ stages:
     condition: ne(variables.SKIP_E2E_TESTS, 'true')
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml

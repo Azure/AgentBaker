@@ -154,7 +154,6 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
 	nodeStatus := corev1.NodeStatus{}
-
 	t.Logf("waiting for node %s to be ready", vmssName)
 
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
@@ -182,7 +181,8 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 			}
 		}
 	}
-	require.FailNow(t, "failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
+
+	t.Fatalf("failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
 	return ""
 }
 

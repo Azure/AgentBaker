@@ -125,7 +125,7 @@ type ScenarioRuntime struct {
 	SSHKeyPublic  []byte
 	SSHKeyPrivate []byte
 	VMPrivateIP   string
-	HostPodName   string
+	DebugHostPod  string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.

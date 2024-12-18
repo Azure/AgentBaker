@@ -60,16 +60,15 @@ $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&
 
 switch -Regex ($windowsSku) {
     "2019-containerd" {
-        # TODO: clean up when you bump 12B. These patches do an upgrade from 10B to 12B in a way that doesn't break openssh.
+        # TODO: clean up when you bump 2025-1B. These patches do an upgrade from 2024-9B to 2024-12B in a way that doesn't break openssh.
 
         $global:patchUrls = @(
-          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/11/windows10.0-kb5046615-x64_d88444ff882129230297936cb0a221157099d074.msu",
-          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/09/windows10.0-kb5044016-x64_64b2bcbd9edcc7fc1dd860751fdb537c947cf037.msu"
+          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/secu/2024/12/windows10.0-kb5048661-x64_6bfc43258aab46ec793d2977122226a4a2b8ed6f.msu",
+          "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2024/10/windows10.0-kb5046268-x64_cd2f14649df2343f1b4692c50644f22b863ed408.msu"
         )
-
         $global:patchIDs = @(
-          "KB5046615",
-          "KB5044016"
+          "KB5048661",
+          "KB5046540"
         )
 
         $global:imagesToPull = @(
@@ -110,20 +109,20 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/windows/servercore/iis:latest",
 
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
+#    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.1", # for k8s 1.30+
     "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0", # for k8s 1.30+
 
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
+#    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1", # for k8s 1.27+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1", # for k8s 1.30+
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0", # for k8s 1.30+
 
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.11-windows-hp", # for k8s 1.27.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.11-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5-windows-hp", # for k8s 1.30.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.0-windows-hp", # for k8s 1.31.x
 
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.13-windows-hp", # for k8s 1.27.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.13-windows-hp", # for k8s 1.27.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.0-windows-hp", # for k8s 1.31.x
@@ -147,17 +146,14 @@ $global:imagesToPull += @(
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
     "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24",
 
-    # CNS (Container Networking Service) Owner: jaer-tsun (Jaeryn)
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.52",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.56",
+    # CNS (Container Networking Service) Owner: evanbaker
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
 
     # CNI installer for azure-vnet. Owner: evanbaker
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.56",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.7",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
 )
 
@@ -222,9 +218,9 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
         "https://acs-mirror.azureedge.net/azure-cni/v1.6.13/binaries/azure-vnet-cni-windows-amd64-v1.6.13.zip",
         # Azure CNI v2 (pod subnet)
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.56.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip",
         # Azure CNI for Overlay
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.56/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.56.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
