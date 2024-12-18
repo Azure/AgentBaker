@@ -40,7 +40,7 @@ function cleanup() {
     echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
-    az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
+    az group delete --name $TEST_VM_RESOURCE_GROUP_NAME --yes --no-wait
   fi
 }
 trap cleanup EXIT
@@ -115,11 +115,11 @@ else
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
-time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
+time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
 
 FULL_PATH=$(realpath $0)
-CDIR=$(dirname "$FULL_PATH")
+CDIR=$(dirname $FULL_PATH)
 
 if [ "$OS_TYPE" == "Linux" ]; then
   if [[ -z "${ENABLE_FIPS// }" ]]; then
@@ -131,10 +131,10 @@ if [ "$OS_TYPE" == "Linux" ]; then
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
-      --name "$VM_NAME" \
-      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-      --scripts "@$SCRIPT_PATH" \
-      --parameters "${CONTAINER_RUNTIME}" "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}") && break
+      --name $VM_NAME \
+      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
+      --scripts @$SCRIPT_PATH \
+      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH} ${IMG_SKU}) && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -152,8 +152,6 @@ if [ "$OS_TYPE" == "Linux" ]; then
   errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
   echo $errMsg
   if [[ $errMsg != '' ]]; then
-        echo "Tests failed. Test output is: "
-        echo "$ret"
     exit 1
   fi
 else
@@ -161,16 +159,16 @@ else
   echo "Run $SCRIPT_PATH"
   az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
-    --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-    --scripts "@$SCRIPT_PATH" \
+    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
     --output json
 
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
-    --name "$VM_NAME" \
-    --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-    --scripts "@$SCRIPT_PATH" \
+    --name $VM_NAME \
+    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
+    --scripts @$SCRIPT_PATH \
     --output json \
     --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
   # An example of failed run-command output:
@@ -204,7 +202,7 @@ else
   # we have to use `-E` to disable interpretation of backslash escape sequences, for jq cannot process string
   # with a range of control characters not escaped as shown in the error below:
   #   Invalid string: control characters from U+0000 through U+001F must be escaped
-  errMsg=$(echo -E "$ret" | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
+  errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
   if [[ $errMsg != \"\" ]]; then
     echo "Tests failed. errMsg is $errMsg"
