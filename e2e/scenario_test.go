@@ -1204,18 +1204,15 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 		Tags: Tags{
 			KubeletCustomConfig: true,
 		},
-		Description: "tests that a node on ubuntu 2204 ARM64 bootstrapped with kubelet custom config for seccomp set to non default values",
+		Description: "tests that a node on ubuntu 2204 ARM64 bootstrapped with kubelet custom config",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				//nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				//nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
-				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-
 				nbc.IsARM64 = true
+				nbc.AgentPoolProfile.Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 
 				customKubeletConfig := &datamodel.CustomKubeletConfig{
 					SeccompDefault: to.Ptr(true),
@@ -1226,6 +1223,7 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
+
 			Validator: func(ctx context.Context, s *Scenario) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
