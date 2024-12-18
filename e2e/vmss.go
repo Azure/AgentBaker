@@ -76,7 +76,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
-
+	logSSHInstructions(ctx, s) // we want to log instruction earliest possible, and on test failures as well
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
@@ -122,14 +122,11 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"aks-node-controller.log":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	if err != nil {
-		require.NoError(s.T, err)
-	}
+	pod := s.Runtime.Cluster.DebugPod
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, s.Runtime.SSHKeyPrivate, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -138,6 +135,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
+	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
 const uploadLogsPowershellScript = `
