@@ -61,6 +61,7 @@ parameters:
 
 stages:
   - stage: build_vhd_2019_containerd
+    dependsOn: [ ]
     jobs:
       - job: build_vhd_2019_containerd
         dependsOn: []
@@ -83,6 +84,7 @@ stages:
               artifactName: 2019-containerd
 
   - stage: build_vhd_2022_containerd
+    dependsOn: [ ]
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
@@ -109,6 +111,7 @@ stages:
               artifactName: 2022-containerd
 
   - stage: build_vhd_2022_containerd_gen2
+    dependsOn: [ ]
     jobs:
       - job: build_vhd_2022_containerd_gen2
         dependsOn: []
@@ -131,6 +134,7 @@ stages:
               artifactName: 2022-containerd-gen2
 
   - stage: build_vhd_23H2
+    dependsOn: [ ]
     jobs:
       - job: build_vhd_23H2
         dependsOn: []
@@ -153,6 +157,7 @@ stages:
               artifactName: 23H2
 
   - stage: build_vhd_23H2_gen2
+    dependsOn: [ ]
     jobs:
       - job: build_vhd_23H2_gen2
         dependsOn: []
