@@ -60,10 +60,10 @@ parameters:
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
-  - stage: build_vhd_2019_gen1
+  - stage: build_win_2019_gen1
     dependsOn: [ ]
     jobs:
-      - job: build_vhd_2019_gen1
+      - job: build_win_2019_gen1
         dependsOn: []
         condition: eq('${{ parameters.build2019containerd }}', True)
         timeoutInMinutes: 180
@@ -83,10 +83,10 @@ stages:
             parameters:
               artifactName: 2019-containerd
 
-  - stage: build_vhd_2022_gen1
+  - stage: build_win_2022_gen1
     dependsOn: [ ]
     jobs:
-      - job: build_vhd_2022_gen1
+      - job: build_win_2022_gen1
         dependsOn: []
         condition: eq('${{ parameters.build2022containerd }}', True)
         timeoutInMinutes: 180
@@ -106,10 +106,10 @@ stages:
             parameters:
               artifactName: 2022-containerd
 
-  - stage: build_vhd_2022_gen2
+  - stage: build_win_2022_gen2
     dependsOn: [ ]
     jobs:
-      - job: build_vhd_2022_gen2
+      - job: build_win_2022_gen2
         dependsOn: []
         condition: eq('${{ parameters.build2022containerdgen2 }}', True)
         timeoutInMinutes: 180
@@ -129,10 +129,10 @@ stages:
             parameters:
               artifactName: 2022-containerd-gen2
 
-  - stage: build_vhd_23H2_gen1
+  - stage: build_win_23H2_gen1
     dependsOn: [ ]
     jobs:
-      - job: build_vhd_23H2_gen1
+      - job: build_win_23H2_gen1
         dependsOn: []
         condition: eq('${{ parameters.build23H2 }}', True)
         timeoutInMinutes: 180
@@ -152,10 +152,10 @@ stages:
             parameters:
               artifactName: 23H2
 
-  - stage: build_vhd_23H2_gen2
+  - stage: build_win_23H2_gen2
     dependsOn: [ ]
     jobs:
-      - job: build_vhd_23H2_gen2
+      - job: build_win_23H2_gen2
         dependsOn: []
         condition: eq('${{ parameters.build23H2gen2 }}', True)
         timeoutInMinutes: 180
@@ -176,7 +176,7 @@ stages:
               artifactName: 23H2-gen2
 
   - stage: e2e_win_2019_gen1
-    dependsOn: [ build_vhd_2019_gen1 ]
+    dependsOn: [ build_win_2019_gen1 ]
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
@@ -186,7 +186,7 @@ stages:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_2022_gen1
-    dependsOn: [ build_vhd_2022_gen1 ]
+    dependsOn: [ build_win_2022_gen1 ]
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
@@ -196,7 +196,7 @@ stages:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_2022_gen2
-    dependsOn: [ build_vhd_2022_gen2 ]
+    dependsOn: [ build_win_2022_gen2 ]
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
@@ -206,7 +206,7 @@ stages:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_23H2_gen1
-    dependsOn: [ build_vhd_23H2_gen1 ]
+    dependsOn: [ build_win_23H2_gen1 ]
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
@@ -216,7 +216,7 @@ stages:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_23H2_gen2
-    dependsOn: [ build_vhd_23H2_gen2 ]
+    dependsOn: [ build_win_23H2_gen2 ]
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
