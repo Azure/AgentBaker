@@ -185,7 +185,7 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=2019-containerd"
+      TAGS_TO_RUN: "os=windows,imageName=windows-2019-containerd"
     jobs:
       - template: ./templates/e2e-template.yaml
 
@@ -195,7 +195,7 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=2022_containerd"
+      TAGS_TO_RUN: "os=windows,imageName=2022-containerd"
     jobs:
       - template: ./templates/e2e-template.yaml
 
@@ -205,7 +205,7 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=2022_containerd_gen2"
+      TAGS_TO_RUN: "os=windows,imageName=windows-2022-containerd-gen2"
     jobs:
       - template: ./templates/e2e-template.yaml
 
@@ -215,7 +215,7 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=23H2"
+      TAGS_TO_RUN: "os=windows,imageName=windows-23H2"
     jobs:
       - template: ./templates/e2e-template.yaml
 
@@ -225,7 +225,7 @@ stages:
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=23H2-gen2"
+      TAGS_TO_RUN: "os=windows,imageName=windows-23H2-gen2"
     jobs:
       - template: ./templates/e2e-template.yaml
 
