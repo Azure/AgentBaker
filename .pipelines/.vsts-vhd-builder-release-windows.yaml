@@ -174,7 +174,7 @@ stages:
             parameters:
               artifactName: 23H2-gen2
 
-  - stage: e2e_2019-containerd
+  - stage: e2e_2019_containerd
     dependsOn: [ build_vhd_2019_containerd ]
     condition: ne(variables.SKIP_E2E_TESTS, 'true')
     variables:
