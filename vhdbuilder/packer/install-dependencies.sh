@@ -202,6 +202,9 @@ if [ ! -f $COMPONENTS_FILEPATH ]; then
   exit 1
 fi
 
+echo "echoing jq packages"
+packages1=$(jq ".Packages" $COMPONENTS_FILEPATH)
+echo $packages1
 packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 # Iterate over each element in the packages array
 while IFS= read -r p; do
