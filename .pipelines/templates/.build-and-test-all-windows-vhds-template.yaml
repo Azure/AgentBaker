@@ -40,7 +40,7 @@ stages:
       build: ${{ parameters.build2019containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
-      buildVmSize: ${{ Standard_D4s_v3 }}
+      buildVmSize: Standard_D4s_v3
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -52,7 +52,7 @@ stages:
       build: ${{ parameters.build2022containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
-      buildVmSize: ${{ Standard_D4s_v3 }}
+      buildVmSize: Standard_D4s_v3
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -64,7 +64,7 @@ stages:
       build: ${{ parameters.build2022containerdgen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
-      buildVmSize: ${{ Standard_D4s_v3 }}
+      buildVmSize: Standard_D4s_v3
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -76,7 +76,7 @@ stages:
       build: ${{ parameters.build23H2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
-      buildVmSize: ${{ Standard_D4s_v3 }}
+      buildVmSize: Standard_D4s_v3
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -88,4 +88,4 @@ stages:
       build: ${{ parameters.build23H2gen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
-      buildVmSize: ${{ Standard_D4s_v3 }}
+      buildVmSize: Standard_D4s_v3
