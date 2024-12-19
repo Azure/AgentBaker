@@ -28,78 +28,80 @@ variables:
   - group: "AKS Node SIG UA Token (KV)"
 
 stages:
-  - stage: build
-    jobs:
-    - job: build2204gen2containerd
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]22.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]0001-com-ubuntu-server-jammy'
-            echo '##vso[task.setvariable variable=IMG_SKU]22_04-lts-gen2'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 2204-gen2-containerd
-    - job: build1804gen2gpucontainerd
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC4as_T4_v3'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 1804-gen2-gpu-containerd
-    - job: buildmarinerv2gen2
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
-            echo '##vso[task.setvariable variable=OS_VERSION]V2'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
-            echo '##vso[task.setvariable variable=IMG_OFFER]cbl-mariner'
-            echo '##vso[task.setvariable variable=IMG_SKU]cbl-mariner-2-gen2'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16ds_v5'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]False'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: marinerv2-gen2
-  - stage: e2e
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
-    variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-    jobs:
-      - template: ./templates/e2e-template.yaml
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_gen2_containerd
+      imageName:
+      artifactName: 2204-gen2-containerd
+      build: true
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: False
+      sgxInstall: True
+      enableCGroupV2: false
 
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804gen2gpucontainerd
+      imageName: 1804gen2gpucontainerd
+      artifactName: 1804-gen2-gpu-containerd
+      build: true
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      imgOffer: UbuntuServer
+      imgSku: 18_04-LTS-GEN2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_NC4as_T4_v3
+      featureFlags: fullgpudaemon
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: False
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2
+      imageName:
+      artifactName: marinerv2-gen2
+      build: true
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
