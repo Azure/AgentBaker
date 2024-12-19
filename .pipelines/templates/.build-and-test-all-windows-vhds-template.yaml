@@ -42,7 +42,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       buildVmSize: Standard_D4s_v3
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1
       artifactName: 2022-containerd
@@ -54,7 +54,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       buildVmSize: Standard_D4s_v3
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v2
       artifactName: 2022-containerd-gen2
@@ -66,7 +66,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       buildVmSize: Standard_D4s_v3
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_23H2_v1
       artifactName: 23H2
@@ -78,7 +78,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       buildVmSize: Standard_D4s_v3
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_23H2_v2
       artifactName: 23H2-gen2
