@@ -27,10 +27,6 @@ variables:
 stages:
   - template: ./templates/.build-and-test-all-linux-vhds-template.yaml
     parameters:
-      useOverrides: ${{ parameters.useOverrides }}
-      overrideBranch: ${{ parameters.overrideBranch }}
-      dryrun: ${{ parameters.dryrun }}
-      vhddebug: ${{ parameters.vhddebug }}
       build1804containerd: false
       build1804gen2containerd: false
       build1804gpucontainerd: false

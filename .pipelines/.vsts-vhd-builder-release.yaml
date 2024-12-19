@@ -187,8 +187,8 @@ stages:
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
-      dryrun: ${{ parameters.dryrun }}
-      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: false
+      vhddebug: false
       build1804containerd: {{ parameters.build1804containerd }}
       build1804gen2containerd: {{ parameters.build1804gen2containerd }}
       build1804gpucontainerd: {{ parameters.build1804gpucontainerd }}
