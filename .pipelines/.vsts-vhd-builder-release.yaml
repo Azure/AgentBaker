@@ -1271,3 +1271,13 @@ stages:
       TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
+  - stage: cveQuery
+    condition: ne(variables.SKIP_CVE_QUERY, 'true')
+    jobs:
+      - job: cveQuery
+        pool: $(QUERY_POOL_NAME)
+        steps:
+          - bash: make -f packer.mk query-cve
+            env:
+              BUILD_SOURCEVERSION: $(Build.SourceVersion)
+
