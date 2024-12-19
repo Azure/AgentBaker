@@ -1,9 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 
-variables:
-  - group: aks-vuln-to-kusto
-
 pool:
   name: $(POOL_NAME)
 
@@ -180,10 +177,9 @@ parameters:
     displayName: Build 2204 Minimal Gen2 Containerd
     type: boolean
     default: false
-  - name: dryrun
-    displayName: Dry run
-    type: boolean
-    default: False
+
+variables:
+  - group: aks-vuln-to-kusto
 
 stages:
   - stage: build
@@ -194,7 +190,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]18.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -221,7 +216,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]18.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -248,7 +242,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]18.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -275,7 +268,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]18.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -302,7 +294,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -330,7 +321,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -358,7 +348,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V3'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -384,7 +373,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -412,7 +400,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -440,7 +427,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V3'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -466,7 +452,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -494,7 +479,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -522,7 +506,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V3'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -548,7 +531,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -576,7 +558,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -604,7 +585,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V3'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -630,7 +610,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -658,7 +637,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -686,7 +664,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V3'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -712,7 +689,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -740,7 +716,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -768,7 +743,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -796,7 +770,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -824,7 +797,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -852,7 +824,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
               echo '##vso[task.setvariable variable=OS_VERSION]V2kata'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -880,7 +851,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]18.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -907,7 +877,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]18.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -934,7 +903,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]20.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -961,7 +929,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]20.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -988,7 +955,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1016,7 +982,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1044,7 +1009,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1071,7 +1035,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1098,7 +1061,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1125,7 +1087,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1152,7 +1113,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1179,7 +1139,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]24.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1206,7 +1165,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]20.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1233,7 +1191,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1260,7 +1217,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1287,7 +1243,6 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
               echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
               echo '##vso[task.setvariable variable=OS_VERSION]22.04'
               echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -1309,7 +1264,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
               artifactName: 2204-minimal-gen2-containerd
   - stage: e2e
-    condition: and(ne(variables.SKIP_E2E_TESTS, 'true'), eq('${{ parameters.dryrun }}', false))
+    condition: ne(variables.SKIP_E2E_TESTS, 'true')
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
       LOCATION: $(PACKER_BUILD_LOCATION)
