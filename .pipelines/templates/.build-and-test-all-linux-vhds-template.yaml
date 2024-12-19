@@ -217,7 +217,7 @@ stages:
       stageName: 1804_gen2_containerd
       imageName: 1804gen2containerd
       artifactName: 1804-gen2-containerd
-      build: ${{ parameters.asdfasdfasdfasdf }}
+      build: ${{ parameters.build1804gen2containerd }}
       osSku: Ubuntu
       osVersion: "18.04"
       imgPublisher: Canonical
