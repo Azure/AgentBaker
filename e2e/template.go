@@ -10,17 +10,22 @@ import (
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
 	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Masterminds/semver"
 )
 
-func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, kube *Kubeclient) *datamodel.NodeBootstrappingConfiguration {
+func getBaseNodeBootstrappingConfiguration(ctx context.Context, t *testing.T, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*datamodel.NodeBootstrappingConfiguration, error) {
 	t.Log("getting the node bootstrapping configuration for cluster")
 	clusterParams := extractClusterParameters(ctx, t, kube)
-	nbc := baseTemplate(config.Config.Location)
+	nbc, err := baseTemplate(config.Config.Location, *cluster.Properties.CurrentKubernetesVersion)
+	if err != nil {
+		return nil, err
+	}
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(clusterParams.CACert)
 	nbc.KubeletClientTLSBootstrapToken = &clusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = clusterParams.FQDN
-	return nbc
+	return nbc, nil
 }
 
 // is a temporary workaround
@@ -101,12 +106,12 @@ func nbcToNbcContractV1(nbc *datamodel.NodeBootstrappingConfiguration) *nbcontra
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplate(location, kubernetesVersion string) (*datamodel.NodeBootstrappingConfiguration, error) {
 	var (
 		trueConst  = true
 		falseConst = false
 	)
-	config := &datamodel.NodeBootstrappingConfiguration{ 
+	config := &datamodel.NodeBootstrappingConfiguration{
 		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -537,7 +542,18 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
-	return config
+	version, err := semver.NewVersion(kubernetesVersion)
+	if err != nil {
+		return nil, err
+	}
+	constraint, err := semver.NewConstraint(">= 1.30.0")
+	if err != nil {
+		return nil, err
+	}
+	if constraint.Check(version) {
+		delete(config.KubeletConfig, "--azure-container-registry-config")
+	}
+	return config, nil
 }
 
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
