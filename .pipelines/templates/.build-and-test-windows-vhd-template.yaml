@@ -13,12 +13,14 @@ parameters:
     displayName: VHD Debug
     type: boolean
     default: False
-  - name: buildImage
+  - name: build
     type: boolean
     default: True
   - name: buildVmSize
     type: string
     default: Standard_D4s_v3
+  - name: hyperVGeneration
+    type: string
 
 stages:
   - stage: build_${{ parameters.artifactName }}
@@ -26,7 +28,7 @@ stages:
     jobs:
       - job: build_${{ parameters.artifactName }}
         dependsOn: []
-        condition: eq('${{ parameters.buildImage }}', True)
+        condition: eq('${{ parameters.build }}', True)
         timeoutInMinutes: 180
         steps:
           - bash: |
