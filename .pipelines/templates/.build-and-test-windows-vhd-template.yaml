@@ -45,7 +45,7 @@ stages:
               artifactName: ${{ parameters.artifactName }}
 
   - stage: e2e_${{ parameters.artifactName }}
-    dependsOn: [ build_${{ parameters.artifactName }} ]
+    dependsOn: build_${{ parameters.artifactName }}
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
     jobs:
