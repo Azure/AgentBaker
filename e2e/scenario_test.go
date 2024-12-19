@@ -793,6 +793,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
 			},
 		},
 	})
