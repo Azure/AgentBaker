@@ -298,8 +298,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/cilium/cilium",
-          "latestVersion": "1.14.10-2",
-          "previousLatestVersion": "1.14.10-1"
+          "latestVersion": "1.14.13-2",
+          "previousLatestVersion": "1.14.10-2"
         }
       ]
     },
