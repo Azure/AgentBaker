@@ -809,8 +809,8 @@
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.31.3",
-                "previousLatestVersion": "v1.31.2"
+                "latestVersion": "v1.31.4",
+                "previousLatestVersion": "v1.31.3"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}"
