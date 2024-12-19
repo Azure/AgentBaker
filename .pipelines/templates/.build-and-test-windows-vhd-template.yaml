@@ -20,10 +20,6 @@ parameters:
     type: string
     default: Standard_D4s_v3
 
-variables:
-  VHD_BUILD_ID: $(Build.BuildId)
-  LOCATION: $(PACKER_BUILD_LOCATION)
-
 stages:
   - stage: build_${{ parameters.artifactName }}
     dependsOn: [ ]
@@ -48,7 +44,7 @@ stages:
             parameters:
               artifactName: ${{ parameters.artifactName }}
 
-  - stage: e2e_${{ parameters.artifactName }})
+  - stage: e2e_${{ parameters.artifactName }}
     dependsOn: [ build_${{ parameters.artifactName }} ]
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
