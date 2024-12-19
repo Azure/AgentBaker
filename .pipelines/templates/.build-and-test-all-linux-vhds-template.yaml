@@ -182,7 +182,7 @@ parameters:
     default: false
 
 stages:
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -208,7 +208,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -234,7 +234,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -260,7 +260,7 @@ stages:
       sgxInstall: False
       enableCGroupV2: False
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -286,7 +286,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -312,7 +312,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -338,7 +338,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -364,7 +364,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -390,7 +390,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -416,7 +416,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -442,7 +442,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -468,7 +468,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -494,7 +494,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -520,7 +520,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -546,7 +546,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -572,7 +572,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -598,7 +598,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -624,7 +624,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -650,7 +650,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -676,7 +676,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -702,7 +702,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -728,7 +728,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -754,7 +754,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -780,7 +780,7 @@ stages:
       sgxInstall: True
       enableCGroupV2: True
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -806,7 +806,7 @@ stages:
       sgxInstall: True
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -832,7 +832,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: true
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -858,7 +858,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -884,7 +884,7 @@ stages:
       sgxInstall: True
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -910,7 +910,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -936,7 +936,7 @@ stages:
       sgxInstall: True
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -962,7 +962,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -988,7 +988,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1014,7 +1014,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1040,7 +1040,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1066,7 +1066,7 @@ stages:
       sgxInstall: False
       enableCGroupV2: False
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1092,7 +1092,7 @@ stages:
       sgxInstall: True
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1118,7 +1118,7 @@ stages:
       sgxInstall: False
       enableCGroupV2: False
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1144,7 +1144,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: False
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1170,7 +1170,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1196,7 +1196,7 @@ stages:
       sgxInstall: true
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -1222,7 +1222,7 @@ stages:
       sgxInstall: false
       enableCGroupV2: false
 
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./.build-and-test-linux-vhd-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
