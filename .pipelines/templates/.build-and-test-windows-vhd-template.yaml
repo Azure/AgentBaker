@@ -1,12 +1,16 @@
 parameters:
   - name: stageName
     type: string
+    displayName: Stage name for the created stages. Must contain only alphanmumeric values and _
   - name: imageName
     type: string
+    displayName: The value of the imageName tag to run E2E tests on
   - name: windowsSku
     type: string
+    displayName: The windows artifact to build. Might be a duplicate of artifactName
   - name: artifactName
     type: string
+    displayName: The artifact to build. Might be a duplicate of windowsSku
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -16,13 +20,16 @@ parameters:
     type: boolean
     default: False
   - name: build
+    displayName: Boolean flag to actually run these stages.
     type: boolean
     default: True
   - name: buildVmSize
     type: string
     default: Standard_D4s_v3
+    displayName: VM SKU to build the VHD with. Has a sensible default
   - name: hyperVGeneration
     type: string
+    displayName: V1 or V2.
 
 stages:
   - stage: build_${{ parameters.stageName }}
