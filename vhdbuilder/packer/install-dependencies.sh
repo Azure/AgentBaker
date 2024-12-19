@@ -203,9 +203,9 @@ if [ ! -f $COMPONENTS_FILEPATH ]; then
 fi
 
 echo "echoing jq packages"
-packages1=$(jq ".Packages" $COMPONENTS_FILEPATH)
-echo $packages1
-packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+packages=$(jq ".Packages" $COMPONENTS_FILEPATH)
+echo $packages
+#packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 # Iterate over each element in the packages array
 while IFS= read -r p; do
   #getting metadata for each package
