@@ -203,7 +203,7 @@ if [ ! -f $COMPONENTS_FILEPATH ]; then
 fi
 
 echo "echoing jq packages"
-packages=$(jq ".Packages" $COMPONENTS_FILEPATH)
+packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --compact-output)
 echo $packages
 #packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 # Iterate over each element in the packages array
