@@ -69,7 +69,7 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
-    enabled: ${{ parameters.build }}
+    condition: eq('${{ parameters.build }}', True)
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
@@ -112,7 +112,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
 
   - stage: e2e_${{ parameters.stageName }}
-    enabled: ${{ parameters.build }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: build_${{ parameters.stageName }}
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
