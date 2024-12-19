@@ -7,11 +7,11 @@
         "kubernetesConfig": {
           "networkPlugin": "azure",
           "loadBalancerSku": "Standard",
-          "azureCNIURLWindows": "https://acs-mirror.azureedge.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
+          "azureCNIURLWindows": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v1.4.35/binaries/azure-vnet-cni-singletenancy-windows-amd64-v1.4.35.zip",
           "useCloudControllerManager": true,
           "useInstanceMetadata": true,
           "useManagedIdentity": true,
-          "windowsContainerdURL": "https://acs-mirror.azureedge.net/containerd/windows/",
+          "windowsContainerdURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/containerd/windows/",
           "dnsServiceIP": "10.0.0.10",
           "clusterSubnet": "10.224.0.0/16",
           "serviceCidr": "10.0.0.0/16"
@@ -44,7 +44,7 @@
       "windowsProfile": {
         "cseScriptsPackageURL": "${csePackageURL}",
         "gpuDriverUrl": "${WINDOWS_GPU_DRIVER_URL}",
-        "csiProxyURL": "https://acs-mirror.azureedge.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
+        "csiProxyURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/csi-proxy/v0.2.2/binaries/csi-proxy-v0.2.2.tar.gz",
         "enableAutomaticUpdates": false,
         "enableCSIProxy": true,
         "hnsRemediatorIntervalInMinutes": 1,

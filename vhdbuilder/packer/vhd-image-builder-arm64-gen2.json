@@ -76,6 +76,13 @@
     {
       "type": "shell",
       "inline": [
+        "echo TODO REMOVE ME HACK TO TEST CDN DOMAIN CHANGE",
+        "sudo sh -c \"echo '127.0.0.1     acs-mirror.azureedge.net' >> /etc/hosts\""
+      ]
+    },
+    {
+      "type": "shell",
+      "inline": [
         "sudo mkdir -p /opt/azure/containers",
         "sudo chown -R $USER /opt/azure/containers"
       ]

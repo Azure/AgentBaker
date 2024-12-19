@@ -19,7 +19,7 @@ url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/
 
 mkdir -p temp-work-folder/aks-windows-cse
 cd temp-work-folder
-curl -O "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-$currentCseVersion.zip"
+curl -O "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/aks/windows/cse/aks-windows-cse-scripts-$currentCseVersion.zip"
 pushd aks-windows-cse
     unzip ../aks-windows-cse-scripts-*.zip
     rm ../*.zip
