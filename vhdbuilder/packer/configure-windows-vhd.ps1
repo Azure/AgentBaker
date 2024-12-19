@@ -121,12 +121,16 @@ function Retry-Command {
                 return
             } catch {
                 Write-Log $_.Exception.InnerException.Message
-                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
+                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk.")) {
                     Write-Error "Exit retry since there is not enough space on the disk"
                     break
                 }
+                if ($_.Exception.InnerException.Message.Contains("The device is not connected.: unknown.")) {
+                    Write-Error "Exit retry since drive disconnected (usually means that disk is out of space)"
+                    break
+                }
                 Write-Log "Retry $cnt : $ScriptBlock"
-                Start-Sleep $Delay
+                Start-Sleep -Seconds $Delay
             }
         } while ($cnt -lt $Maximum)
 
