@@ -189,7 +189,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 1804_containerd
-      imageName: 1804gen2containerd
+      e2eTags: imageName= 1804gen2containerd
       artifactName: 1804-containerd
       osSku: Ubuntu
       osVersion: "18.04"
@@ -215,7 +215,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 1804_gen2_containerd
-      imageName: 1804gen2containerd
+      e2eTags: imageName=1804gen2containerd
       artifactName: 1804-gen2-containerd
       build: ${{ parameters.build1804gen2containerd }}
       osSku: Ubuntu
@@ -241,7 +241,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 1804_gpu_containerd
-      imageName: 1804gpucontainerd
+      e2eTags: imageName=1804gpucontainerd
       artifactName: 1804-gpu-containerd
       build: ${{ parameters.build1804gpucontainerd }}
       osSku: Ubuntu
@@ -267,7 +267,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 1804gen2gpucontainerd
-      imageName: 1804gen2gpucontainerd
+      e2eTags: imageName=1804gen2gpucontainerd
       artifactName: 1804-gen2-gpu-containerd
       build: ${{ parameters.build1804gen2gpucontainerd }}
       osSku: Ubuntu
@@ -293,7 +293,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen1
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen1
       build: ${{ parameters.buildMarinerV2gen1 }}
       osSku: CBLMariner
@@ -319,7 +319,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen1
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen1
       build: ${{ parameters.buildAzureLinuxV2gen1 }}
       osSku: AzureLinux
@@ -345,7 +345,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv3_gen1
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv3-gen1
       build: ${{ parameters.buildAzureLinuxV3gen1 }}
       osSku: AzureLinux
@@ -371,7 +371,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen2
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen2
       build: ${{ parameters.buildMarinerV2gen2 }}
       osSku: CBLMariner
@@ -397,7 +397,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen2
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen2
       build: ${{ parameters.buildAzureLinuxV2gen2 }}
       osSku: AzureLinux
@@ -423,7 +423,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv3_gen2
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv3-gen2
       build: ${{ parameters.buildAzureLinuxV3gen2 }}
       osSku: AzureLinux
@@ -449,7 +449,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen1_fips
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen1-fips
       build: ${{ parameters.buildMarinerV2gen1fips }}
       osSku: CBLMariner
@@ -475,7 +475,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen1_fips
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen1-fips
       build: ${{ parameters.buildAzureLinuxV2gen1fips }}
       osSku: AzureLinux
@@ -501,7 +501,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv3_gen1_fips
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv3-gen1-fips
       build: ${{ parameters.buildAzureLinuxV3gen1fips }}
       osSku: AzureLinux
@@ -527,7 +527,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen2_fips
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen2-fips
       build: ${{ parameters.buildMarinerV2gen2fips }}
       osSku: CBLMariner
@@ -553,7 +553,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen2_fips
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen2-fips
       build: ${{ parameters.buildAzureLinuxV2gen2fips }}
       osSku: AzureLinux
@@ -579,7 +579,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv3_gen2_fips
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv3-gen2-fips
       build: ${{ parameters.buildAzureLinuxV3gen2fips }}
       osSku: AzureLinux
@@ -605,7 +605,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen2_arm64
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen2-arm64
       build: ${{ parameters.buildMarinerV2ARM64 }}
       osSku: CBLMariner
@@ -631,7 +631,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen2_arm64
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen2-arm64
       build: ${{ parameters.buildAzureLinuxV2ARM64 }}
       osSku: AzureLinux
@@ -657,7 +657,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv3_gen2_arm64
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv3-gen2-arm64
       build: ${{ parameters.buildAzureLinuxV3ARM64 }}
       osSku: AzureLinux
@@ -683,7 +683,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen2_kata
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen2-kata
       build: ${{ parameters.buildMarinerV2gen2kata }}
       osSku: CBLMariner
@@ -709,7 +709,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen2_kata
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen2-kata
       build: ${{ parameters.buildAzureLinuxV2gen2kata }}
       osSku: AzureLinux
@@ -735,7 +735,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen2_trustedlaunch
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen2-trustedlaunch
       build: ${{ parameters.buildMarinerV2gen2TrustedLaunch }}
       osSku: CBLMariner
@@ -761,7 +761,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen2_trustedlaunch
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen2-trustedlaunch
       build: ${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}
       osSku: AzureLinux
@@ -787,7 +787,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: marinerv2_gen2_kata_trustedlaunch
-      imageName:
+      e2eTags: imageName=
       artifactName: marinerv2-gen2-kata-trustedlaunch
       build: ${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}
       osSku: CBLMariner
@@ -813,7 +813,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: azurelinuxv2_gen2_kata_trustedlaunch
-      imageName:
+      e2eTags: imageName=
       artifactName: azurelinuxv2-gen2-kata-trustedlaunch
       build: ${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}
       osSku: AzureLinux
@@ -839,7 +839,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 1804_fips_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 1804-fips-containerd
       build: ${{ parameters.build1804fipscontainerd }}
       osSku: Ubuntu
@@ -865,7 +865,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 1804_fips_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 1804-fips-gen2-containerd
       build: ${{ parameters.build1804fipsgen2containerd }}
       osSku: Ubuntu
@@ -891,7 +891,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2004_fips_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2004-fips-containerd
       build: ${{ parameters.build2004fipscontainerd }}
       osSku: Ubuntu
@@ -917,7 +917,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2004_fips_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2004-fips-gen2-containerd
       build: ${{ parameters.build2004fipsgen2containerd }}
       osSku: Ubuntu
@@ -943,7 +943,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_fips_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-fips-containerd
       build: ${{ parameters.build2204fipscontainerd }}
       osSku: Ubuntu
@@ -969,7 +969,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_fips_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-fips-gen2-containerd
       build: ${{ parameters.build2204fipsgen2containerd }}
       osSku: Ubuntu
@@ -995,7 +995,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_arm64_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-arm64-gen2-containerd
       build: ${{ parameters.build2204arm64gen2containerd }}
       osSku: Ubuntu
@@ -1021,7 +1021,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2404_arm64_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2404-arm64-gen2-containerd
       build: ${{ parameters.build2404arm64gen2containerd }}
       osSku: Ubuntu
@@ -1047,7 +1047,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-containerd
       build: ${{ parameters.build2204containerd }}
       osSku: Ubuntu
@@ -1073,7 +1073,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-gen2-containerd
       build: ${{ parameters.build2204gen2containerd }}
       osSku: Ubuntu
@@ -1099,7 +1099,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2404_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2404-containerd
       build: ${{ parameters.build2404containerd }}
       osSku: Ubuntu
@@ -1125,7 +1125,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2404_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2404-gen2-containerd
       build: ${{ parameters.build2404gen2containerd }}
       osSku: Ubuntu
@@ -1151,7 +1151,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2004_cvm_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2004-cvm-gen2-containerd
       build: ${{ parameters.build2004cvmgen2containerd }}
       osSku: Ubuntu
@@ -1177,7 +1177,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_tl_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-tl-gen2-containerd
       build: ${{ parameters.build2204tlgen2containerd }}
       osSku: Ubuntu
@@ -1203,7 +1203,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_minimal_gen1_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-minimal-gen1-containerd
       build: ${{ parameters.build2204minimalgen1containerd }}
       osSku: Ubuntu
@@ -1229,7 +1229,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
       stageName: 2204_minimal_gen2_containerd
-      imageName:
+      e2eTags: imageName=
       artifactName: 2204-minimal-gen2-containerd
       build: ${{ parameters.build2204minimalgen2containerd }}
       osSku: Ubuntu

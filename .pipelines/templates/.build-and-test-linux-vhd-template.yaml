@@ -15,13 +15,12 @@ parameters:
     displayName: VHD Debug
     type: boolean
     default: False
-
   - name: stageName
     type: string
     displayName: Stage name for the created stages. Must contain only alphanmumeric values and _
-  - name: imageName
+  - name: e2eTags
     type: string
-    displayName: The value of the imageName tag to run E2E tests on
+    displayName: The tags to use to select the e2e tests to run
   - name: osSku
     type: string
     displayName: The windows artifact to build. Might be a duplicate of artifactName
@@ -115,6 +114,6 @@ stages:
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: build_${{ parameters.stageName }}
     variables:
-      TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      TAGS_TO_RUN: ${{ parameters.e2eTags }}
     jobs:
       - template: ./e2e-template.yaml

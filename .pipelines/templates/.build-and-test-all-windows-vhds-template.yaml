@@ -34,7 +34,7 @@ stages:
     parameters:
       stageName: win_2019_v1
       artifactName: 2019-containerd
-      imageName: windows-2019-containerd
+      e2eTags: imageName=windows-2019-containerd
       windowsSku: 2019-containerd
       hyperVGeneration: V1
       build: ${{ parameters.build2019containerd }}
@@ -46,7 +46,7 @@ stages:
     parameters:
       stageName: win_2022_v1
       artifactName: 2022-containerd
-      imageName: windows-2022-containerd
+      e2eTags: imageName=windows-2022-containerd
       windowsSku: 2022-containerd
       hyperVGeneration: V1
       build: ${{ parameters.build2022containerd }}
@@ -58,7 +58,7 @@ stages:
     parameters:
       stageName: win_2022_v2
       artifactName: 2022-containerd-gen2
-      imageName: windows-2022-containerd-gen2
+      e2eTags: imageName=windows-2022-containerd-gen2
       windowsSku: 2022-containerd-gen2
       hyperVGeneration: V2
       build: ${{ parameters.build2022containerdgen2 }}
@@ -70,7 +70,7 @@ stages:
     parameters:
       stageName: win_23H2_v1
       artifactName: 23H2
-      imageName: windows-23H2
+      e2eTags: imageName=windows-23H2
       windowsSku: 23H2
       hyperVGeneration: V1
       build: ${{ parameters.build23H2 }}
@@ -82,7 +82,7 @@ stages:
     parameters:
       stageName: win_23H2_v2
       artifactName: 23H2-gen2
-      imageName: windows-23H2-gen2
+      e2eTags: imageName=windows-23H2-gen2
       windowsSku: 23H2-gen2
       hyperVGeneration: V2
       build: ${{ parameters.build23H2gen2 }}
