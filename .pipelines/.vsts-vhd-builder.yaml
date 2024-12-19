@@ -19,89 +19,56 @@ pr:
     - vhdbuilder/packer/**/*.ps1
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
-
 pool:
   name: $(POOL_NAME)
-
 variables:
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
-
 stages:
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+  - template: ./templates/.build-and-test-all-linux-vhds-template.yaml
     parameters:
       useOverrides: ${{ parameters.useOverrides }}
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName: 2204_gen2_containerd
-      imageName:
-      artifactName: 2204-gen2-containerd
-      build: true
-      osSku: Ubuntu
-      osVersion: "22.04"
-      imgPublisher: Canonical
-      imgOffer: 0001-com-ubuntu-server-jammy
-      imgSku: 22_04-lts-gen2
-      imgVersion: latest
-      hyperVGeneration: V2
-      buildVmSize: Standard_D16ds_v5
-      featureFlags: None
-      containerRuntime: containerd
-      architecture: X86_64
-      enableFips: False
-      enableTrustedLaunch: False
-      sgxInstall: True
-      enableCGroupV2: false
-
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
-    parameters:
-      useOverrides: ${{ parameters.useOverrides }}
-      overrideBranch: ${{ parameters.overrideBranch }}
-      dryrun: ${{ parameters.dryrun }}
-      vhddebug: ${{ parameters.vhddebug }}
-      stageName: 1804gen2gpucontainerd
-      imageName: 1804gen2gpucontainerd
-      artifactName: 1804-gen2-gpu-containerd
-      build: true
-      osSku: Ubuntu
-      osVersion: "18.04"
-      imgPublisher: Canonical
-      imgOffer: UbuntuServer
-      imgSku: 18_04-LTS-GEN2
-      imgVersion: latest
-      hyperVGeneration: V2
-      buildVmSize: Standard_NC4as_T4_v3
-      featureFlags: fullgpudaemon
-      containerRuntime: containerd
-      architecture: X86_64
-      enableFips: false
-      enableTrustedLaunch: False
-      sgxInstall: true
-      enableCGroupV2: false
-
-  - template: ./templates/.build-and-test-linux-vhd-template.yaml
-    parameters:
-      useOverrides: ${{ parameters.useOverrides }}
-      overrideBranch: ${{ parameters.overrideBranch }}
-      dryrun: ${{ parameters.dryrun }}
-      vhddebug: ${{ parameters.vhddebug }}
-      stageName: marinerv2_gen2
-      imageName:
-      artifactName: marinerv2-gen2
-      build: true
-      osSku: CBLMariner
-      osVersion: "V2"
-      imgPublisher: MicrosoftCBLMariner
-      imgOffer: cbl-mariner
-      imgSku: cbl-mariner-2-gen2
-      imgVersion: latest
-      hyperVGeneration: V2
-      buildVmSize: Standard_D16ds_v5
-      featureFlags: None
-      containerRuntime: containerd
-      architecture: X86_64
-      enableFips: false
-      enableTrustedLaunch: false
-      sgxInstall: true
-      enableCGroupV2: false
+      build1804containerd: false
+      build1804gen2containerd: false
+      build1804gpucontainerd: false
+      build1804gen2gpucontainerd: true
+      buildMarinerV2gen1: false
+      buildAzureLinuxV2gen1: false
+      buildAzureLinuxV3gen1: false
+      buildMarinerV2gen2: true
+      buildAzureLinuxV2gen2: false
+      buildAzureLinuxV3gen2: false
+      buildMarinerV2gen1fips: false
+      buildAzureLinuxV2gen1fips: false
+      buildAzureLinuxV3gen1fips: false
+      buildMarinerV2gen2fips: false
+      buildAzureLinuxV2gen2fips: false
+      buildAzureLinuxV3gen2fips: false
+      buildMarinerV2gen2kata: false
+      buildAzureLinuxV2gen2kata: false
+      buildMarinerV2ARM64: false
+      buildAzureLinuxV2ARM64: false
+      buildAzureLinuxV3ARM64: false
+      buildMarinerV2gen2TrustedLaunch: false
+      buildAzureLinuxV2gen2TrustedLaunch: false
+      buildMarinerV2gen2kataTrustedLaunch: false
+      buildAzureLinuxV2gen2kataTrustedLaunch: false
+      build1804fipscontainerd: false
+      build1804fipsgen2containerd: false
+      build2004fipscontainerd: false
+      build2004fipsgen2containerd: false
+      build2204fipscontainerd: false
+      build2204fipsgen2containerd: false
+      build2204arm64gen2containerd: false
+      build2404arm64gen2containerd: false
+      build2204containerd: false
+      build2204gen2containerd: true
+      build2404containerd: false
+      build2404gen2containerd: false
+      build2004cvmgen2containerd: false
+      build2204tlgen2containerd: false
+      build2204minimalgen1containerd: false
+      build2204minimalgen2containerd: false

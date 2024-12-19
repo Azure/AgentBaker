@@ -1,0 +1,1241 @@
+
+parameters:
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+    default: false
+  - name: overrideBranch
+    displayName: Branch in aks-rp to use for overrides
+    type: string
+    default: master
+  - name: build1804containerd
+    displayName: Build 1804 containerd
+    type: boolean
+    default: true
+  - name: build1804gen2containerd
+    displayName: Build 1804 Gen2 containerd
+    type: boolean
+    default: true
+  - name: build1804gpucontainerd
+    displayName: Build 1804 GPU+containerd
+    type: boolean
+    default: true
+  - name: build1804gen2gpucontainerd
+    displayName: Build 1804 Gen2 GPU+containerd
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen1
+    displayName: Build MarinerV2 Gen1
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2gen1
+    displayName: Build AzureLinuxV2 Gen1
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen1
+    displayName: Build AzureLinuxV3 Gen1
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen2
+    displayName: Build MarinerV2 Gen2
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2gen2
+    displayName: Build AzureLinuxV2 Gen2
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen2
+    displayName: Build AzureLinuxV3 Gen2
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen1fips
+    displayName: Build MarinerV2 Gen1 FIPS
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2gen1fips
+    displayName: Build AzureLinuxV2 Gen1 FIPS
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen1fips
+    displayName: Build AzureLinuxV3 Gen1 FIPS
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen2fips
+    displayName: Build MarinerV2 Gen2 FIPS
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2gen2fips
+    displayName: Build AzureLinuxV2 Gen2 FIPS
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3gen2fips
+    displayName: Build AzureLinuxV3 Gen2 FIPS
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen2kata
+    displayName: Build MarinerV2 Gen2 Kata
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2gen2kata
+    displayName: Build AzureLinuxV2 Gen2 Kata
+    type: boolean
+    default: true
+  - name: buildMarinerV2ARM64
+    displayName: Build MarinerV2 Gen2 - ARM64
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2ARM64
+    displayName: Build AzureLinuxV2 Gen2 - ARM64
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV3ARM64
+    displayName: Build AzureLinuxV3 Gen2 - ARM64
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen2TrustedLaunch
+    displayName: Build MarinerV2 Gen2 - Trusted Launch
+    type: boolean
+    default: true
+  - name: buildAzureLinuxV2gen2TrustedLaunch
+    displayName: Build AzureLinuxV2 Gen2 - Trusted Launch
+    type: boolean
+    default: true
+  - name: buildMarinerV2gen2kataTrustedLaunch
+    displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
+    type: boolean
+    default: false
+  - name: buildAzureLinuxV2gen2kataTrustedLaunch
+    displayName: Build AzureLinuxV2 Gen2 Kata - Trusted Launch
+    type: boolean
+    default: false
+  - name: build1804fipscontainerd
+    displayName: Build 1804 FIPS containerd
+    type: boolean
+    default: true
+  - name: build1804fipsgen2containerd
+    displayName: Build 1804 FIPS Gen2 containerd
+    type: boolean
+    default: true
+  - name: build2004fipscontainerd
+    displayName: Build 2004 FIPS containerd
+    type: boolean
+    default: true
+  - name: build2004fipsgen2containerd
+    displayName: Build 2004 FIPS Gen2 containerd
+    type: boolean
+    default: true
+  - name: build2204fipscontainerd
+    displayName: Build 2204 FIPS containerd
+    type: boolean
+    default: false
+  - name: build2204fipsgen2containerd
+    displayName: Build 2204 FIPS Gen2 containerd
+    type: boolean
+    default: false
+  - name: build2204arm64gen2containerd
+    displayName: Build 2204 ARM64 Gen2 containerd
+    type: boolean
+    default: true
+  - name: build2404arm64gen2containerd
+    displayName: Build 2404 ARM64 Gen2 containerd
+    type: boolean
+    default: true
+  - name: build2204containerd
+    displayName: Build 2204 Gen1 Containerd
+    type: boolean
+    default: true
+  - name: build2204gen2containerd
+    displayName: Build 2204 Gen2 Containerd
+    type: boolean
+    default: true
+  - name: build2404containerd
+    displayName: Build 2404 Gen1 Containerd
+    type: boolean
+    default: true
+  - name: build2404gen2containerd
+    displayName: Build 2404 Gen2 Containerd
+    type: boolean
+    default: true
+  - name: build2004cvmgen2containerd
+    displayName: Build 2004 CVM Gen2 Containerd
+    type: boolean
+    default: true
+  - name: build2204tlgen2containerd
+    displayName: Build 2204 TL Gen2 Containerd
+    type: boolean
+    default: true
+  - name: build2204minimalgen1containerd
+    displayName: Build 2204 Minimal Gen1 Containerd
+    type: boolean
+    default: false
+  - name: build2204minimalgen2containerd
+    displayName: Build 2204 Minimal Gen2 Containerd
+    type: boolean
+    default: false
+
+stages:
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804_containerd
+      imageName: 1804gen2containerd
+      artifactName: 1804-containerd
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      build: ${{ parameters.build1804containerd }}
+      buildVmSize: Standard_D16ds_v5
+      hyperVGeneration: V1
+      imgOffer: UbuntuServer
+      imgSku: 18.04-LTS
+      imgVersion: latest
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804_gen2_containerd
+      imageName: 1804gen2containerd
+      artifactName: 1804-gen2-containerd
+      build: ${{ parameters.asdfasdfasdfasdf }}
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      imgOffer: UbuntuServer
+      imgSku: 18_04-LTS-GEN2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804_gpu_containerd
+      imageName: 1804gpucontainerd
+      artifactName: 1804-gpu-containerd
+      build: ${{ parameters.build1804gpucontainerd }}
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      imgOffer: UbuntuServer
+      imgSku: 18.04-LTS
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_NC4as_T4_v3
+      featureFlags: fullgpudaemon
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: False
+      sgxInstall: False
+      enableCGroupV2: False
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804gen2gpucontainerd
+      imageName: 1804gen2gpucontainerd
+      artifactName: 1804-gen2-gpu-containerd
+      build: ${{ parameters.build1804gen2gpucontainerd }}
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      imgOffer: UbuntuServer
+      imgSku: 18_04-LTS-GEN2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_NC4as_T4_v3
+      featureFlags: fullgpudaemon
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: False
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen1
+      imageName:
+      artifactName: marinerv2-gen1
+      build: ${{ parameters.buildMarinerV2gen1 }}
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen1
+      imageName:
+      artifactName: azurelinuxv2-gen1
+      build: ${{ parameters.buildAzureLinuxV2gen1 }}
+      osSku: AzureLinux
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: False
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv3_gen1
+      imageName:
+      artifactName: azurelinuxv3-gen1
+      build: ${{ parameters.buildAzureLinuxV3gen1 }}
+      osSku: AzureLinux
+      osVersion: "V3"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: azure-linux-3
+      imgSku: azure-linux-3
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2
+      imageName:
+      artifactName: marinerv2-gen2
+      build: ${{ parameters.buildMarinerV2gen2 }}
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen2
+      imageName:
+      artifactName: azurelinuxv2-gen2
+      build: ${{ parameters.buildAzureLinuxV2gen2 }}
+      osSku: AzureLinux
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv3_gen2
+      imageName:
+      artifactName: azurelinuxv3-gen2
+      build: ${{ parameters.buildAzureLinuxV3gen2 }}
+      osSku: AzureLinux
+      osVersion: "V3"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: azure-linux-3
+      imgSku: azure-linux-3-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen1_fips
+      imageName:
+      artifactName: marinerv2-gen1-fips
+      build: ${{ parameters.buildMarinerV2gen1fips }}
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen1_fips
+      imageName:
+      artifactName: azurelinuxv2-gen1-fips
+      build: ${{ parameters.buildAzureLinuxV2gen1fips }}
+      osSku: AzureLinux
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: true
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv3_gen1_fips
+      imageName:
+      artifactName: azurelinuxv3-gen1-fips
+      build: ${{ parameters.buildAzureLinuxV3gen1fips }}
+      osSku: AzureLinux
+      osVersion: "V3"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: azure-linux-3
+      imgSku: azure-linux-3
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: true
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2_fips
+      imageName:
+      artifactName: marinerv2-gen2-fips
+      build: ${{ parameters.buildMarinerV2gen2fips }}
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: true
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen2_fips
+      imageName:
+      artifactName: azurelinuxv2-gen2-fips
+      build: ${{ parameters.buildAzureLinuxV2gen2fips }}
+      osSku: AzureLinux
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: true
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv3_gen2_fips
+      imageName:
+      artifactName: azurelinuxv3-gen2-fips
+      build: ${{ parameters.buildAzureLinuxV3gen2fips }}
+      osSku: AzureLinux
+      osVersion: "V3"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: azure-linux-3
+      imgSku: azure-linux-3-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: true
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2_arm64
+      imageName:
+      artifactName: marinerv2-gen2-arm64
+      build: ${{ parameters.buildMarinerV2ARM64 }}
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-arm64
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16pds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: ARM64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen2_arm64
+      imageName:
+      artifactName: azurelinuxv2-gen2-arm64
+      build: ${{ parameters.buildAzureLinuxV2ARM64 }}
+      osSku: AzureLinux
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-arm64
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16pds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: ARM64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv3_gen2_arm64
+      imageName:
+      artifactName: azurelinuxv3-gen2-arm64
+      build: ${{ parameters.buildAzureLinuxV3ARM64 }}
+      osSku: AzureLinux
+      osVersion: "V3"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: azure-linux-3
+      imgSku: azure-linux-3-arm64
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16pds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: ARM64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2_kata
+      imageName:
+      artifactName: marinerv2-gen2-kata
+      build: ${{ parameters.buildMarinerV2gen2kata }}
+      osSku: CBLMariner
+      osVersion: "V2kata"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ads_v5
+      featureFlags: kata
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen2_kata
+      imageName:
+      artifactName: azurelinuxv2-gen2-kata
+      build: ${{ parameters.buildAzureLinuxV2gen2kata }}
+      osSku: AzureLinux
+      osVersion: "V2kata"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-kata
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ads_v5
+      featureFlags: kata
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2_trustedlaunch
+      imageName:
+      artifactName: marinerv2-gen2-trustedlaunch
+      build: ${{ parameters.buildMarinerV2gen2TrustedLaunch }}
+      osSku: CBLMariner
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: true
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen2_trustedlaunch
+      imageName:
+      artifactName: azurelinuxv2-gen2-trustedlaunch
+      build: ${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}
+      osSku: AzureLinux
+      osVersion: "V2"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: True
+      sgxInstall: True
+      enableCGroupV2: True
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: marinerv2_gen2_kata_trustedlaunch
+      imageName:
+      artifactName: marinerv2-gen2-kata-trustedlaunch
+      build: ${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}
+      osSku: CBLMariner
+      osVersion: "V2kata"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-kata
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ads_v5
+      featureFlags: kata
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: True
+      sgxInstall: True
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: azurelinuxv2_gen2_kata_trustedlaunch
+      imageName:
+      artifactName: azurelinuxv2-gen2-kata-trustedlaunch
+      build: ${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}
+      osSku: AzureLinux
+      osVersion: "V2kata"
+      imgPublisher: MicrosoftCBLMariner
+      imgOffer: cbl-mariner
+      imgSku: cbl-mariner-2-kata
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ads_v5
+      featureFlags: kata
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: true
+      sgxInstall: true
+      enableCGroupV2: true
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804_fips_containerd
+      imageName:
+      artifactName: 1804-fips-containerd
+      build: ${{ parameters.build1804fipscontainerd }}
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      imgOffer: UbuntuServer
+      imgSku: 18.04-LTS
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 1804_fips_gen2_containerd
+      imageName:
+      artifactName: 1804-fips-gen2-containerd
+      build: ${{ parameters.build1804fipsgen2containerd }}
+      osSku: Ubuntu
+      osVersion: "18.04"
+      imgPublisher: Canonical
+      imgOffer: UbuntuServer
+      imgSku: 18_04-LTS-GEN2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: True
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2004_fips_containerd
+      imageName:
+      artifactName: 2004-fips-containerd
+      build: ${{ parameters.build2004fipscontainerd }}
+      osSku: Ubuntu
+      osVersion: "20.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-focal
+      imgSku: 20_04-lts
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2004_fips_gen2_containerd
+      imageName:
+      artifactName: 2004-fips-gen2-containerd
+      build: ${{ parameters.build2004fipsgen2containerd }}
+      osSku: Ubuntu
+      osVersion: "20.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-focal
+      imgSku: 20_04-lts-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: True
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_fips_containerd
+      imageName:
+      artifactName: 2204-fips-containerd
+      build: ${{ parameters.build2204fipscontainerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_fips_gen2_containerd
+      imageName:
+      artifactName: 2204-fips-gen2-containerd
+      build: ${{ parameters.build2204fipsgen2containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: True
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_arm64_gen2_containerd
+      imageName:
+      artifactName: 2204-arm64-gen2-containerd
+      build: ${{ parameters.build2204arm64gen2containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts-arm64
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16pds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: ARM64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2404_arm64_gen2_containerd
+      imageName:
+      artifactName: 2404-arm64-gen2-containerd
+      build: ${{ parameters.build2404arm64gen2containerd }}
+      osSku: Ubuntu
+      osVersion: "24.04"
+      imgPublisher: Canonical
+      imgOffer: ubuntu-24_04-lts
+      imgSku: server-arm64
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16pds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: ARM64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_containerd
+      imageName:
+      artifactName: 2204-containerd
+      build: ${{ parameters.build2204containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: False
+      sgxInstall: False
+      enableCGroupV2: False
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_gen2_containerd
+      imageName:
+      artifactName: 2204-gen2-containerd
+      build: ${{ parameters.build2204gen2containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: False
+      sgxInstall: True
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2404_containerd
+      imageName:
+      artifactName: 2404-containerd
+      build: ${{ parameters.build2404containerd }}
+      osSku: Ubuntu
+      osVersion: "24.04"
+      imgPublisher: Canonical
+      imgOffer: ubuntu-24_04-lts
+      imgSku: server-gen1
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: False
+      sgxInstall: False
+      enableCGroupV2: False
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2404_gen2_containerd
+      imageName:
+      artifactName: 2404-gen2-containerd
+      build: ${{ parameters.build2404gen2containerd }}
+      osSku: Ubuntu
+      osVersion: "24.04"
+      imgPublisher: Canonical
+      imgOffer: ubuntu-24_04-lts
+      imgSku: server
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: False
+      sgxInstall: true
+      enableCGroupV2: False
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2004_cvm_gen2_containerd
+      imageName:
+      artifactName: 2004-cvm-gen2-containerd
+      build: ${{ parameters.build2004cvmgen2containerd }}
+      osSku: Ubuntu
+      osVersion: "20.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-confidential-vm-focal
+      imgSku: 20_04-lts-cvm
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_tl_gen2_containerd
+      imageName:
+      artifactName: 2204-tl-gen2-containerd
+      build: ${{ parameters.build2204tlgen2containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-server-jammy
+      imgSku: 22_04-lts-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: False
+      enableTrustedLaunch: true
+      sgxInstall: true
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_minimal_gen1_containerd
+      imageName:
+      artifactName: 2204-minimal-gen1-containerd
+      build: ${{ parameters.build2204minimalgen1containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-minimal-jammy-aks-daily-preview
+      imgSku: minimal-aks-22_04-daily-lts
+      imgVersion: latest
+      hyperVGeneration: V1
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
+
+  - template: ./templates/.build-and-test-linux-vhd-template.yaml
+    parameters:
+      useOverrides: ${{ parameters.useOverrides }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      dryrun: ${{ parameters.dryrun }}
+      vhddebug: ${{ parameters.vhddebug }}
+      stageName: 2204_minimal_gen2_containerd
+      imageName:
+      artifactName: 2204-minimal-gen2-containerd
+      build: ${{ parameters.build2204minimalgen2containerd }}
+      osSku: Ubuntu
+      osVersion: "22.04"
+      imgPublisher: Canonical
+      imgOffer: 0001-com-ubuntu-minimal-jammy-aks-daily-preview
+      imgSku: minimal-aks-22_04-daily-lts-gen2
+      imgVersion: latest
+      hyperVGeneration: V2
+      buildVmSize: Standard_D16ds_v5
+      featureFlags: None
+      containerRuntime: containerd
+      architecture: X86_64
+      enableFips: false
+      enableTrustedLaunch: false
+      sgxInstall: false
+      enableCGroupV2: false
