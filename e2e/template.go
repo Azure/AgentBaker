@@ -537,8 +537,6 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
-	config, err := pruneKubeletConfig(k8sVersion, config)
-	require.NoError(t, err)
 	return config
 }
 
