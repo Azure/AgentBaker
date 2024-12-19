@@ -69,6 +69,7 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
+    enabled: ${{ parameters.build }}
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
@@ -111,6 +112,7 @@ stages:
               overrideBranch: ${{ parameters.overrideBranch }}
 
   - stage: e2e_${{ parameters.stageName }}
+    enabled: ${{ parameters.build }}
     dependsOn: build_${{ parameters.stageName }}
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
