@@ -7,11 +7,14 @@ pr:
     - dev
   paths:
     include:
+    - .pipelines/.vsts-vhd-builder.yaml
+    - .pipelines/templates/.build-and-test-all-linux-vhds-template.yaml
+    - .pipelines/templates/.build-and-test-linux-vhd-template.yaml
+    - .pipelines/templates/.builder-release-template.yaml
+    - .pipelines/templates/.e2e-template.yaml
     - schemas
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
-    - .pipelines/.vsts-vhd-builder.yaml
-    - .pipelines/templates/.builder-release-template.yaml
     - parts/linux/*
     - packer.mk
     exclude:
