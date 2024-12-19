@@ -62,8 +62,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
+          "latestVersion": "v1.5.40",
+          "previousLatestVersion": "v1.5.38",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
