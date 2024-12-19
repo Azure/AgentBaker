@@ -8,6 +8,14 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
   - name: build1804containerd
     displayName: Build 1804 containerd
     type: boolean
