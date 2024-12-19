@@ -797,8 +797,8 @@
               {
                 "k8sVersion": "1.29",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/kubernetes-node",
-                "latestVersion": "v1.29.11",
-                "previousLatestVersion": "v1.29.10"
+                "latestVersion": "v1.29.12",
+                "previousLatestVersion": "v1.29.11"
               },
               {
                 "k8sVersion": "1.30",         
