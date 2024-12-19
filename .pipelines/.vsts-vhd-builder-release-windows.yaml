@@ -55,6 +55,10 @@ parameters:
   type: boolean
   default: False
 
+variables:
+  VHD_BUILD_ID: $(Build.BuildId)
+  LOCATION: $(PACKER_BUILD_LOCATION)
+
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
@@ -177,51 +181,36 @@ stages:
 
   - stage: e2e_win_2019_gen1
     dependsOn: [ build_win_2019_gen1 ]
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=windows-2019-containerd"
+      TAGS_TO_RUN: "imageName=windows-2019-containerd"
     jobs:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_2022_gen1
     dependsOn: [ build_win_2022_gen1 ]
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=windows-2022-containerd"
+      TAGS_TO_RUN: "imageName=windows-2022-containerd"
     jobs:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_2022_gen2
     dependsOn: [ build_win_2022_gen2 ]
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=windows-2022-containerd-gen2"
+      TAGS_TO_RUN: "imageName=windows-2022-containerd-gen2"
     jobs:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_23H2_gen1
     dependsOn: [ build_win_23H2_gen1 ]
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=windows-23H2"
+      TAGS_TO_RUN: "imageName=windows-23H2"
     jobs:
       - template: ./templates/e2e-template.yaml
 
   - stage: e2e_win_23H2_gen2
     dependsOn: [ build_win_23H2_gen2 ]
-    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
-      VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
-      TAGS_TO_RUN: "os=windows,imageName=windows-23H2-gen2"
+      TAGS_TO_RUN: "imageName=windows-23H2-gen2"
     jobs:
       - template: ./templates/e2e-template.yaml
 
