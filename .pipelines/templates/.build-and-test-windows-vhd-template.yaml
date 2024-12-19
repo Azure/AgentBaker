@@ -5,12 +5,12 @@ parameters:
   - name: imageName
     type: string
     displayName: The value of the imageName tag to run E2E tests on
-  - name: windowsSku
+  - name: osSku
     type: string
-    displayName: The windows artifact to build. Might be a duplicate of artifactName
+    displayName: The windows or linux os sku
   - name: artifactName
     type: string
-    displayName: The artifact to build. Might be a duplicate of windowsSku
+    displayName: The artifact to build.
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -45,7 +45,7 @@ stages:
               echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]${{ parameters.hyperVGeneration }}'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]${{ parameters.buildVmSize }}'
-              echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.windowsSku }}'
+              echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.osSku }}'
               echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)'
               echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
               echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'

@@ -1,0 +1,118 @@
+parameters:
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+    default: false
+  - name: overrideBranch
+    displayName: Branch in aks-rp to use for overrides
+    type: string
+    default: master
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+
+  - name: stageName
+    type: string
+    displayName: Stage name for the created stages. Must contain only alphanmumeric values and _
+  - name: imageName
+    type: string
+    displayName: The value of the imageName tag to run E2E tests on
+  - name: osSku
+    type: string
+    displayName: The windows artifact to build. Might be a duplicate of artifactName
+  - name: artifactName
+    type: string
+    displayName: The artifact to build. Might be a duplicate of windowsSku
+  - name: build
+    displayName: Boolean flag to actually run these stages.
+    type: boolean
+    default: True
+  - name: buildVmSize
+    type: string
+    default: Standard_D16ds_v5
+    displayName: VM SKU to build the VHD with. Has a sensible default
+  - name: hyperVGeneration
+    type: string
+    displayName: V1 or V2.
+  - name: osVersion
+    type: string
+  - name: imgPublisher
+    type: string
+  - name: imgOffer
+    type: string
+  - name: imgSku
+    type: string
+  - name: imgVersion
+    type: string
+  - name: featureFlags
+    type: string
+    default: None
+  - name: containerRuntime
+    type: string
+    default: containerd
+  - name: architecture
+    type: string
+  - name: enableFips
+    type: boolean
+  - name: enableTrustedLaunch
+    type: boolean
+  - name: sgxInstall
+    type: boolean
+  - name: enableCGroupV2
+    type: boolean
+    default: false
+
+stages:
+  - stage: build_${{ parameters.stageName }}
+    dependsOn: [ ]
+    jobs:
+      - job: build_${{ parameters.stageName }}
+        dependsOn: []
+        condition: eq('${{ parameters.build }}', True)
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=VHD_DEBUG]${{ parameters.vhddebug }}'
+              echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]${{ parameters.hyperVGeneration }}'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]${{ parameters.buildVmSize }}'
+              echo '##vso[task.setvariable variable=OS_SKU]{{ parameters.osSku }}'
+
+              echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.osSku }}'
+              echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)'
+              echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
+              echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
+              echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
+              
+              
+              echo '##vso[task.setvariable variable=OS_VERSION]${{ parameters.osVersion }}'
+              echo '##vso[task.setvariable variable=IMG_PUBLISHER]${{ parameters.imgPublisher }}'
+              echo '##vso[task.setvariable variable=IMG_OFFER]${{ parameters.imgOffer }}'
+              echo '##vso[task.setvariable variable=IMG_SKU]${{ parameters.imgSku }}'
+              echo '##vso[task.setvariable variable=IMG_VERSION]${{ parameters.imgVersion }}'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]${{ parameters.featureFlags }}'
+              echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]${{ parameters.containerRuntime }}'
+              echo '##vso[task.setvariable variable=ARCHITECTURE]${{ parameters.architecture }}'
+              echo '##vso[task.setvariable variable=ENABLE_FIPS]${{ parameters.enableFips }}'
+              echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]${{ parameters.enableTrustedLaunch }}'
+              echo '##vso[task.setvariable variable=SGX_INSTALL]${{ parameters.sgxInstall }}'
+              echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]${{ parameters.enableCGroupV2 }}'
+            displayName: Setup Build Variables
+
+          - template: ./templates/.builder-release-template.yaml
+            parameters:
+              artifactName: ${{ parameters.artifactName }}
+              useOverrides: ${{ parameters.useOverrides }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+
+  - stage: e2e_${{ parameters.stageName }}
+    dependsOn: build_${{ parameters.stageName }}
+    variables:
+      TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+    jobs:
+      - template: ./e2e-template.yaml
