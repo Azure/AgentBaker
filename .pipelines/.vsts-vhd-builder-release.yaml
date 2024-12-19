@@ -293,7 +293,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen1
       imageName:
       artifactName: marinerv2-gen1
       build: ${{ parameters.buildMarinerV2gen1 }}
@@ -319,7 +319,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen1
       imageName:
       artifactName: azurelinuxv2-gen1
       build: ${{ parameters.buildAzureLinuxV2gen1 }}
@@ -345,7 +345,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv3_gen1
       imageName:
       artifactName: azurelinuxv3-gen1
       build: ${{ parameters.buildAzureLinuxV3gen1 }}
@@ -371,7 +371,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen2
       imageName:
       artifactName: marinerv2-gen2
       build: ${{ parameters.buildMarinerV2gen2 }}
@@ -397,7 +397,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen2
       imageName:
       artifactName: azurelinuxv2-gen2
       build: ${{ parameters.buildAzureLinuxV2gen2 }}
@@ -423,7 +423,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv3_gen2
       imageName:
       artifactName: azurelinuxv3-gen2
       build: ${{ parameters.buildAzureLinuxV3gen2 }}
@@ -449,7 +449,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen1_fips
       imageName:
       artifactName: marinerv2-gen1-fips
       build: ${{ parameters.buildMarinerV2gen1fips }}
@@ -475,7 +475,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen1_fips
       imageName:
       artifactName: azurelinuxv2-gen1-fips
       build: ${{ parameters.buildAzureLinuxV2gen1fips }}
@@ -501,7 +501,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv3_gen1_fips
       imageName:
       artifactName: azurelinuxv3-gen1-fips
       build: ${{ parameters.buildAzureLinuxV3gen1fips }}
@@ -527,7 +527,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen2_fips
       imageName:
       artifactName: marinerv2-gen2-fips
       build: ${{ parameters.buildMarinerV2gen2fips }}
@@ -553,7 +553,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen2_fips
       imageName:
       artifactName: azurelinuxv2-gen2-fips
       build: ${{ parameters.buildAzureLinuxV2gen2fips }}
@@ -579,7 +579,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv3_gen2_fips
       imageName:
       artifactName: azurelinuxv3-gen2-fips
       build: ${{ parameters.buildAzureLinuxV3gen2fips }}
@@ -605,7 +605,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen2_arm64
       imageName:
       artifactName: marinerv2-gen2-arm64
       build: ${{ parameters.buildMarinerV2ARM64 }}
@@ -631,7 +631,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen2_arm64
       imageName:
       artifactName: azurelinuxv2-gen2-arm64
       build: ${{ parameters.buildAzureLinuxV2ARM64 }}
@@ -657,7 +657,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv3_gen2_arm64
       imageName:
       artifactName: azurelinuxv3-gen2-arm64
       build: ${{ parameters.buildAzureLinuxV3ARM64 }}
@@ -683,7 +683,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen2_kata
       imageName:
       artifactName: marinerv2-gen2-kata
       build: ${{ parameters.buildMarinerV2gen2kata }}
@@ -709,7 +709,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen2_kata
       imageName:
       artifactName: azurelinuxv2-gen2-kata
       build: ${{ parameters.buildAzureLinuxV2gen2kata }}
@@ -735,7 +735,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen2_trustedlaunch
       imageName:
       artifactName: marinerv2-gen2-trustedlaunch
       build: ${{ parameters.buildMarinerV2gen2TrustedLaunch }}
@@ -761,7 +761,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen2_trustedlaunch
       imageName:
       artifactName: azurelinuxv2-gen2-trustedlaunch
       build: ${{ parameters.buildAzureLinuxV2gen2TrustedLaunch }}
@@ -787,7 +787,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: marinerv2_gen2_kata_trustedlaunch
       imageName:
       artifactName: marinerv2-gen2-kata-trustedlaunch
       build: ${{ parameters.buildMarinerV2gen2kataTrustedLaunch }}
@@ -813,7 +813,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: azurelinuxv2_gen2_kata_trustedlaunch
       imageName:
       artifactName: azurelinuxv2-gen2-kata-trustedlaunch
       build: ${{ parameters.buildAzureLinuxV2gen2kataTrustedLaunch }}
@@ -839,7 +839,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 1804_fips_containerd
       imageName:
       artifactName: 1804-fips-containerd
       build: ${{ parameters.build1804fipscontainerd }}
@@ -865,7 +865,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 1804_fips_gen2_containerd
       imageName:
       artifactName: 1804-fips-gen2-containerd
       build: ${{ parameters.build1804fipsgen2containerd }}
@@ -891,7 +891,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2004_fips_containerd
       imageName:
       artifactName: 2004-fips-containerd
       build: ${{ parameters.build2004fipscontainerd }}
@@ -917,7 +917,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2004_fips_gen2_containerd
       imageName:
       artifactName: 2004-fips-gen2-containerd
       build: ${{ parameters.build2004fipsgen2containerd }}
@@ -943,7 +943,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_fips_containerd
       imageName:
       artifactName: 2204-fips-containerd
       build: ${{ parameters.build2204fipscontainerd }}
@@ -969,7 +969,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_fips_gen2_containerd
       imageName:
       artifactName: 2204-fips-gen2-containerd
       build: ${{ parameters.build2204fipsgen2containerd }}
@@ -995,7 +995,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_arm64_gen2_containerd
       imageName:
       artifactName: 2204-arm64-gen2-containerd
       build: ${{ parameters.build2204arm64gen2containerd }}
@@ -1021,7 +1021,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2404_arm64_gen2_containerd
       imageName:
       artifactName: 2404-arm64-gen2-containerd
       build: ${{ parameters.build2404arm64gen2containerd }}
@@ -1047,7 +1047,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_containerd
       imageName:
       artifactName: 2204-containerd
       build: ${{ parameters.build2204containerd }}
@@ -1073,7 +1073,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_gen2_containerd
       imageName:
       artifactName: 2204-gen2-containerd
       build: ${{ parameters.build2204gen2containerd }}
@@ -1099,7 +1099,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2404_containerd
       imageName:
       artifactName: 2404-containerd
       build: ${{ parameters.build2404containerd }}
@@ -1125,7 +1125,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2404_gen2_containerd
       imageName:
       artifactName: 2404-gen2-containerd
       build: ${{ parameters.build2404gen2containerd }}
@@ -1151,7 +1151,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2004_cvm_gen2_containerd
       imageName:
       artifactName: 2004-cvm-gen2-containerd
       build: ${{ parameters.build2004cvmgen2containerd }}
@@ -1177,7 +1177,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_tl_gen2_containerd
       imageName:
       artifactName: 2204-tl-gen2-containerd
       build: ${{ parameters.build2204tlgen2containerd }}
@@ -1203,7 +1203,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_minimal_gen1_containerd
       imageName:
       artifactName: 2204-minimal-gen1-containerd
       build: ${{ parameters.build2204minimalgen1containerd }}
@@ -1229,7 +1229,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       dryrun: ${{ parameters.dryrun }}
       vhddebug: ${{ parameters.vhddebug }}
-      stageName:
+      stageName: 2204_minimal_gen2_containerd
       imageName:
       artifactName: 2204-minimal-gen2-containerd
       build: ${{ parameters.build2204minimalgen2containerd }}
