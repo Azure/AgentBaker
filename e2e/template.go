@@ -106,7 +106,7 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		trueConst  = true
 		falseConst = false
 	)
-	return &datamodel.NodeBootstrappingConfiguration{
+	config := &datamodel.NodeBootstrappingConfiguration{ 
 		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -537,6 +537,9 @@ func baseTemplate(location string) *datamodel.NodeBootstrappingConfiguration {
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
+	config, err := pruneKubeletConfig(k8sVersion, config)
+	require.NoError(t, err)
+	return config
 }
 
 func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
