@@ -66,6 +66,7 @@ variables:
 stages:
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
+      stageName: win_2019_v1
       artifactName: 2019-containerd
       imageName: windows-2019-containerd
       windowsSku: 2019-containerd
@@ -76,6 +77,7 @@ stages:
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
+      stageName: win_2022_v1
       artifactName: 2022-containerd
       imageName: windows-2022-containerd
       windowsSku: 2022-containerd
@@ -86,6 +88,7 @@ stages:
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
+      stageName: win_2022_v2
       artifactName: 2022-containerd-gen2
       imageName: windows-2022-containerd-gen2
       windowsSku: 2022-containerd-gen2
@@ -96,6 +99,7 @@ stages:
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
+      stageName: win_23H2_v1
       artifactName: 23H2
       imageName: windows-23H2
       windowsSku: 23H2
@@ -106,6 +110,7 @@ stages:
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
+      stageName: win_23H2_v2
       artifactName: 23H2-gen2
       imageName: windows-23H2-gen2
       windowsSku: 23H2-gen2

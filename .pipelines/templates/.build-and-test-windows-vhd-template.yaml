@@ -1,4 +1,6 @@
 parameters:
+  - name: stageName
+    type: string
   - name: imageName
     type: string
   - name: windowsSku
@@ -23,10 +25,10 @@ parameters:
     type: string
 
 stages:
-  - stage: build_${{ parameters.artifactName }}
+  - stage: build_${{ parameters.stageName }}
     dependsOn: [ ]
     jobs:
-      - job: build_${{ parameters.artifactName }}
+      - job: build_${{ parameters.stageName }}
         dependsOn: []
         condition: eq('${{ parameters.build }}', True)
         timeoutInMinutes: 180
@@ -46,8 +48,8 @@ stages:
             parameters:
               artifactName: ${{ parameters.artifactName }}
 
-  - stage: e2e_${{ parameters.artifactName }}
-    dependsOn: build_${{ parameters.artifactName }}
+  - stage: e2e_${{ parameters.stageName }}
+    dependsOn: build_${{ parameters.stageName }}
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
     jobs:
