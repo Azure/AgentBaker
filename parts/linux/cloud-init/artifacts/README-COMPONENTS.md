@@ -138,7 +138,7 @@ Here are the explanation of the above schema.
     - `DefaultOSDistro` means the default case of OS Distro. If an OSDistro metadata is not defined, it will fetch it from `default`. For example, if a node is Ubuntu 20.04, but we don't specify `ubuntu` in components.json, then it will fetch `default.current`. For another example, if only `default.current` is specified in the components.json, No matter what OSDistro is the node running, it will only fetch `default.current` because it's the default metadata. This provides flexibility while elimiating unnecessary duplication when defining the metadata.
 1. In `ReleaseDownloadURI`, you can see 2 keys.
     - `versionsV2`: This is updated from `versions`. You can define a list of `VersionV2` for a particular package. And in the codes, it's up to the feature developer to determine how to use the list. For example, install all versions in the list or just pick the latest one. Note that in package `containerd`, `marinerkata`, the `versionV2s` array is defined as `<SKIP>`. This is to tell the install-dependencies.sh not to install any `containerd` version for Kata SKU.
-	- `downloadURL`: you can define a downloadURL with unresolved variables. For example, `https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz`. But the feature developer needs to make sure all variables are resolvable in the codes. In this example, `${CPU_ARCH}` is resolvable as it's defined at global scope. `${version}` is resovled based on the `versions` list above.
+	- `downloadURL`: you can define a downloadURL with unresolved variables. For example, `https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz`. But the feature developer needs to make sure all variables are resolvable in the codes. In this example, `${CPU_ARCH}` is resolvable as it's defined at global scope. `${version}` is resovled based on the `versions` list above.
 1. `VersionV2`: explained in the previous section [ContainerImages](#containerimages)
 
 # Hands-on guide and FAQ
@@ -232,7 +232,7 @@ For a `containerImage`, you don't need to distinguish among distros and releases
                 "latestVersion": "1.6.3"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
