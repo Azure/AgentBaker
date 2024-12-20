@@ -84,6 +84,7 @@
     {
       "type": "shell",
       "inline": [
+        "chmod +x /home/packer/overwrite-acs-mirror-cname.sh",
         "sudo /home/packer/overwrite-acs-mirror-cname.sh",
         "dig acs-mirror.azureedge.net"
       ]
