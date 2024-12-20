@@ -17,7 +17,6 @@ required_env_vars=(
   "UMSI_CLIENT_ID"
   "BUILD_RUN_NUMBER"
   "VHD_ARTIFACT_NAME"
-  "SKIP_SCANNING"
   "DRY_RUN"
 )
 
