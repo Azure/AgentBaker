@@ -259,6 +259,13 @@ func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
 }
 
+func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
+	// grep all filesin /etc/systemd/system/ for /restart\s+kubelet/ and count results
+	command := "grep -rl 'restart[[:space:]]\\+kubelet' /etc/systemd/system/"
+	execResult := execOnVMForScenario(ctx, s, command)
+	require.Equal(s.T, "1", execResult.exitCode, "expected to find no services containing 'restart kubelet' in /etc/systemd/system/, but found %q", execResult.stdout.String())
+}
+
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.
 func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) {
 	execResult := execOnVMForScenario(ctx, s, `journalctl -u kubelet`)
