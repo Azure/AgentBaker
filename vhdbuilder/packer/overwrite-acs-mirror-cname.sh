@@ -1,8 +1,9 @@
-sudo apt update
-sudo apt install -y bind9 bind9utils bind9-doc
-sudo sed -i s/"-u bind"/"-u bind -4"/g /etc/default/named
+#!/bin/bash
+apt update
+apt install -y bind9 bind9utils bind9-doc
+sed -i s/"-u bind"/"-u bind -4"/g /etc/default/named
 
-sudo cat <<EOF > /etc/bind/named.conf.options
+cat <<EOF > /etc/bind/named.conf.options
 options {
 	      directory "/var/cache/bind";
         recursion yes;
@@ -13,7 +14,7 @@ options {
 };
 EOF
 
-sudo cat <<EOF > /etc/bind/db.rpz
+cat <<EOF > /etc/bind/db.rpz
 \$TTL 60
 @            IN    SOA  localhost. root.localhost.  (
                           2015112501   ; serial
@@ -28,19 +29,19 @@ localhost       A   127.0.0.1
 acs-mirror.azureedge.net   CNAME    acs-mirror-migration.trafficmanager.net.
 EOF
 
-sudo cat <<EOF > /etc/bind/named.conf.local
+cat <<EOF > /etc/bind/named.conf.local
 zone "rpz" {
   type master;
   file "/etc/bind/db.rpz";
 };
 EOF
 
-sudo systemctl restart named
+systemctl restart named
 
 #####
 # OVERWRITE LOCAL DNS
 ####
 
-sudo sed -i s/#DNS=/DNS=127.0.0.1/g /etc/systemd/resolved.conf 
-sudo service systemd-resolved restart
-sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+sed -i s/#DNS=/DNS=127.0.0.1/g /etc/systemd/resolved.conf 
+service systemd-resolved restart
+ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
