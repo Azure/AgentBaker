@@ -78,13 +78,13 @@
   "provisioners": [
     {
       "type": "file",
-      "source": "vhdbuilder/packer/overwrite-as-mirror-cname.sh",
-      "destination": "/home/packer/overwrite-as-mirror-cname.sh"
+      "source": "vhdbuilder/packer/overwrite-acs-mirror-cname.sh",
+      "destination": "/home/packer/overwrite-acs-mirror-cname.sh"
     },
     {
       "type": "shell",
       "inline": [
-        "sudo /home/packer/overwrite-as-mirror-cname.sh",
+        "sudo /home/packer/overwrite-acs-mirror-cname.sh",
         "dig acs-mirror.azureedge.net"
       ]
     },
