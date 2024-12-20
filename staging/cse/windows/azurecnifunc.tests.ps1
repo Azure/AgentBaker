@@ -32,7 +32,7 @@ Describe 'Set-AzureCNIConfig' {
         $global:KubeproxyFeatureGates = @("WinDSR=true")
         $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
 
-        # Set the default AzureCNI (mock the file download from https://acs-mirror.azureedge.net/azure-cni/.../10-azure.conflist)
+        # Set the default AzureCNI (mock the file download from https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/azure-cni/.../10-azure.conflist)
         function Set-Default-AzureCNI ([string]$fileName) {
             $defaultFile = [Io.path]::Combine($azureCNIConfDir, $fileName)    
             Copy-Item -Path $defaultFile -Destination $azureCNIConfigFile
