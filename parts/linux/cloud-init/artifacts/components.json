@@ -164,7 +164,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "latestVersion": "v0.2.0",
+          "latestVersion": "v0.2.1",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
