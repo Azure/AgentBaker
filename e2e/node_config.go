@@ -14,6 +14,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Masterminds/semver"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -23,9 +24,9 @@ import (
 )
 
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	nbc := baseTemplateLinux(config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion)
+	nbc := baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(config.Config.Location)
+		nbc = baseTemplateWindows(t, config.Config.Location)
 		cert := cluster.Kube.clientCertificate()
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
 		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
@@ -122,8 +123,8 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootstrappingConfiguration {
-	return &datamodel.NodeBootstrappingConfiguration{
+func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+	config := &datamodel.NodeBootstrappingConfiguration{
 		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -155,7 +156,7 @@ func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootst
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
 						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
-						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion),
+						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -448,13 +449,16 @@ func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootst
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
+	config, err := pruneKubeletConfig(k8sVersion, config)
+	require.NoError(t, err)
+	return config
 }
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
-func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
 	kubernetesVersion := "1.29.9"
-	return &datamodel.NodeBootstrappingConfiguration{
+	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
 		ResourceGroupName: "resourcegroup",
@@ -645,6 +649,9 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			},
 		},
 	}
+	config, err := pruneKubeletConfig(kubernetesVersion, config)
+	require.NoError(t, err)
+	return config
 }
 
 var uploadWindowsCSEOnce sync.Once
@@ -759,4 +766,20 @@ func zipWindowsCSE() (*os.File, error) {
 	}
 
 	return zipFile, nil
+}
+
+// k8s version > 1.30.0 contains deprecated kubelet flags
+func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+	version, err := semver.NewVersion(kubernetesVersion)
+	if err != nil {
+		return nil, err
+	}
+	constraint, err := semver.NewConstraint(">= 1.30.0")
+	if err != nil {
+		return nil, err
+	}
+	if constraint.Check(version) {
+		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
+	}
+	return datamodel, nil
 }

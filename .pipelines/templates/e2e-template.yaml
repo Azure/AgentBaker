@@ -1,5 +1,6 @@
 jobs:
   - job: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     pool:
       name: $(POOL_NAME)
     timeoutInMinutes: 90
@@ -42,7 +43,6 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-          LOCATION: $(LOCATION)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
       - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
