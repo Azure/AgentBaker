@@ -424,6 +424,11 @@ function Install-WindowsPatches {
                     3010 {
                         WRite-Log "Finished install of $fileName. Reboot required"
                     }
+                    2359302 {
+                        # https://learn.microsoft.com/en-gb/windows/win32/wua_sdk/wua-success-and-error-codes-?redirectedfrom=MSDN
+                        # this number is 0x00240006 and means already installed
+                        Write-Log "The update was already installed. Ignoring $fileName"
+                    }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
                         throw "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
