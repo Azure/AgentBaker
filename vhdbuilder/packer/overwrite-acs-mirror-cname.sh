@@ -37,6 +37,7 @@ zone "rpz" {
 EOF
 
 systemctl restart named
+systemctl enable named
 
 #####
 # OVERWRITE LOCAL DNS
