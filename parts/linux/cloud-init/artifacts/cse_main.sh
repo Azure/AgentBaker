@@ -104,7 +104,10 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-if [ -f $VHD_LOGS_FILEPATH ]; then
+if [ "$SKIP_BINARY_CLEANUP" = "false" ];
+    echo "SKIP_BINARY_CLEANUP is false, binaries will not be cleaned up"
+    FULL_INSTALL_REQUIRED=false
+elif [ -f $VHD_LOGS_FILEPATH ]; then
     echo "detected golden image pre-install"
     logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false

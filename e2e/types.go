@@ -27,6 +27,7 @@ type Tags struct {
 	ServerTLSBootstrapping bool
 	Scriptless             bool
 	KubeletCustomConfig    bool
+	SkipBinaryCleanup      bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
