@@ -104,7 +104,7 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-if [ "$SKIP_BINARY_CLEANUP" = "false" ];
+if [ $SKIP_BINARY_CLEANUP = "false" ]; then
     echo "SKIP_BINARY_CLEANUP is false, binaries will not be cleaned up"
     FULL_INSTALL_REQUIRED=false
 elif [ -f $VHD_LOGS_FILEPATH ]; then
@@ -112,7 +112,7 @@ elif [ -f $VHD_LOGS_FILEPATH ]; then
     logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
-    if [[ "${IS_VHD}" = true ]]; then
+    if [ $IS_VHD = true ]; then
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
         exit $ERR_VHD_FILE_NOT_FOUND
     fi
