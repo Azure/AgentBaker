@@ -15,6 +15,7 @@ pr:
     - parts/linux/*
     - packer.mk
     exclude:
+    - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1
     - vhdbuilder/packer/*windows*
