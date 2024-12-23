@@ -21,6 +21,8 @@ pr:
     - vhdbuilder/packer/init-variables.sh
     - vhdbuilder/packer/windows-image.env
     - vhdbuilder/packer/windows-vhd-builder-sig.json
+    exclude:
+    - vhdbuilder/release-notes
 
 pool:
   name: $(AZURE_POOL_NAME)
