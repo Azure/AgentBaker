@@ -139,6 +139,18 @@
       "downloadLocation": "dummy/location",
       "downloadURIs": {
         "ubuntu": {
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
+                "latestVersion": "1.7.1"
+              },
+              {
+                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
+                "latestVersion": "2.0.0"
+              }
+            ]
+          },
           "r2004": {
             "versionsV2": [
               {
