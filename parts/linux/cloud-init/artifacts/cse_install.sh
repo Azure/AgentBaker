@@ -48,6 +48,13 @@ cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
+getLatestPackageVersion() {
+    local sortedPackageVersions=("$@")
+    local array_size=${#sortedPackageVersions[@]}
+    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
+    echo "${sortedPackageVersions[${last_index}]}"
+}
+
 # After the centralized packages changes, the containerd versions are only available in the components.json.
 installContainerdWithComponentsJson() {
     os=${UBUNTU_OS_NAME}
@@ -67,9 +74,14 @@ installContainerdWithComponentsJson() {
     
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
+    # with the exception of os_version 24.04, both containerd 1.x and 2.x are present.
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
-        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        # for os_version other than 24.04, there should only be 1 version of containerd
+        if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
+            echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        fi
     fi
+
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
         echo "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
         return 0
@@ -77,20 +89,42 @@ installContainerdWithComponentsJson() {
     # sort the array from lowest to highest version before getting the last element
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
-    array_size=${#sortedPackageVersions[@]}
-    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
-    packageVersion=${sortedPackageVersions[${last_index}]}
-    # containerd version is expected to be in the format major.minor.patch-hotfix
-    # e.g., 1.4.3-1. Then containerdMajorMinorPatchVersion=1.4.3 and containerdHotFixVersion=1
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-        echo "invalid containerd version: $packageVersion"
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-    echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
+    # if UBUNTU_RELEASE is not 24.04, then the last element in the array is the containerd version to install
+    containerdVersions=()
+    if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
+        packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
+        containerdVersions+=("${packageVersion}")
+    else
+        # if UBUNTU_RELEASE is 24.04, then containerd 1.x and 2.x are present in the array
+        versions1x=()
+        versions2x=()
+        for version in "${sortedPackageVersions[@]}"; do
+            if [[ $version == 1.* ]]; then
+                versions1x+=("$version")
+            elif [[ $version == 2.* ]]; then
+                versions2x+=("$version")
+            fi
+        done
+        v1PackageVersion=$(getLatestPackageVersion "${versions1x[@]}")
+        containerdVersions+=("${v1PackageVersion}")
+        v2PackageVersion=$(getLatestPackageVersion "${versions2x[@]}")
+        containerdVersions+=("${v2PackageVersion}")
+    fi
+
+    # iterate through containerdVersions to install containerd
+    for packageVersion in "${containerdVersions[@]}"; do
+        # containerd version is expected to be in the format major.minor.patch-osVersion
+        # e.g., 1.7.24-ubuntu22.04u1. Then containerdMajorMinorPatchVersion=1.7.24 for os ubuntu22.04u1.
+        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
+        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+            echo "invalid containerd version: $packageVersion"
+            exit $ERR_CONTAINERD_VERSION_INVALID
+        fi
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
+    done
 }
 
 # containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.
