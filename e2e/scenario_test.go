@@ -709,6 +709,7 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 					CustomCATrustCerts: []string{
 						encodedTestCert,
 					},
+					EnableCustomCATrust: true,
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
