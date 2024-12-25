@@ -359,8 +359,8 @@ EOF
 }
 
 configureContainerdRegistryHost() {
-  # TODO(binxi): need to update for sovereign cloud.
-  CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+  echo "binxi-test: ${MCR_REPOSITORY_BASE}"
+  CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${MCR_REPOSITORY_BASE}/hosts.toml"
   mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
   touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
