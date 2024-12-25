@@ -607,7 +607,7 @@
               },
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.0-ubuntu24.04u1"
+                "latestVersion": "2.0.1-ubuntu24.04u1"
               }
             ]
           },
