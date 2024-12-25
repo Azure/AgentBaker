@@ -75,11 +75,9 @@ installContainerdWithComponentsJson() {
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
     # with the exception of os_version 24.04, both containerd 1.x and 2.x are present.
-    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
+    if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 && "${UBUNTU_RELEASE}" != "24.04" ]]; then
         # for os_version other than 24.04, there should only be 1 version of containerd
-        if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
-            echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        fi
+        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
     fi
 
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
