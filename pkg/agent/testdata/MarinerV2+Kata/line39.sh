@@ -47,6 +47,13 @@ cleanupContainerdDlFiles() {
     rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
+getLatestPackageVersion() {
+    local sortedPackageVersions=("$@")
+    local array_size=${#sortedPackageVersions[@]}
+    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
+    echo "${sortedPackageVersions[${last_index}]}"
+}
+
 installContainerdWithComponentsJson() {
     os=${UBUNTU_OS_NAME}
     if [[ -z "$UBUNTU_RELEASE" ]]; then
@@ -66,26 +73,48 @@ installContainerdWithComponentsJson() {
     #Containerd's versions array is expected to have only one element.
     #If it has more than one element, we will install the last element in the array.
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
-        echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
+            echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
+        fi
     fi
+
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
         echo "INFO: containerd package versions array is either empty or the first element is <SKIP>. Skipping containerd installation."
         return 0
     fi
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
-    array_size=${#sortedPackageVersions[@]}
-    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
-    packageVersion=${sortedPackageVersions[${last_index}]}
-    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-        echo "invalid containerd version: $packageVersion"
-        exit $ERR_CONTAINERD_VERSION_INVALID
-    fi
-    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-    echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 
+    containerdVersions=()
+    if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
+        packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
+        containerdVersions+=("${packageVersion}")
+    else
+        versions1x=()
+        versions2x=()
+        for version in "${sortedPackageVersions[@]}"; do
+            if [[ $version == 1.* ]]; then
+                versions1x+=("$version")
+            elif [[ $version == 2.* ]]; then
+                versions2x+=("$version")
+            fi
+        done
+        v1PackageVersion=$(getLatestPackageVersion "${versions1x[@]}")
+        containerdVersions+=("${v1PackageVersion}")
+        v2PackageVersion=$(getLatestPackageVersion "${versions2x[@]}")
+        containerdVersions+=("${v2PackageVersion}")
+    fi
+
+    for packageVersion in "${containerdVersions[@]}"; do
+        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
+        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+            echo "invalid containerd version: $packageVersion"
+            exit $ERR_CONTAINERD_VERSION_INVALID
+        fi
+        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
+    done
 }
 
 installContainerdWithManifestJson() {
