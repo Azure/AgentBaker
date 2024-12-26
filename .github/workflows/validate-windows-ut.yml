@@ -17,3 +17,4 @@ jobs:
         run: |
           Install-Module -Name powershell-yaml -Force
           Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
+
