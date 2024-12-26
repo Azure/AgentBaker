@@ -43,7 +43,9 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$true)][bool]
         $IsDualStackEnabled,
         [Parameter(Mandatory=$false)][bool]
-        $IsAzureCNIOverlayEnabled
+        $IsAzureCNIOverlayEnabled,
+        [Parameter(Mandatory=$false)][bool]
+        $EbpfDataplane = $false
     )
     Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat"
 
@@ -51,6 +53,10 @@ function Set-AzureCNIConfig
     $configJson = Get-Content $fileName | ConvertFrom-Json
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
     $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
+    
+    if ($EbpfDataplane) {
+        $configJson.plugins.ipam.type = "azure-cns"
+    }
 
     if ($global:IsDisableWindowsOutboundNat) {
         # Replace OutBoundNAT with LoopbackDSR for IMDS acess if AKS cluster disabled Windows OutBoundNAT.

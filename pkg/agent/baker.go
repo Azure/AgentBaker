@@ -626,6 +626,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsAzureCNIOverlayFeatureEnabled": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay")
 		},
+		"EbpfDataplane": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane
+		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
 			return base64.StdEncoding.EncodeToString([]byte(customEnvironmentJSON))
