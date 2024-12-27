@@ -13,10 +13,6 @@ set +x
 QUERY_VM_PASSWORD="QueryVM@$(date +%s)"
 set -x
 
-MODULE_NAME="vuln-to-kusto-vhd"
-MODULE_VERSION="v0.0.2-ac18d186094"
-GO_ARCH="amd64"
-
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
@@ -76,6 +72,7 @@ ret=$(az vm run-command invoke \
       "CVE_REPORT_CONTAINER_NAME"=${CVE_REPORT_CONTAINER_NAME} \
       "AZURE_MSI_RESOURCE_STRING"=${AZURE_MSI_RESOURCE_STRING})
 
+# check stderr for script errors
 errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
 if [[ $errMsg != '' ]]; then
   az storage blob download --account-name $STORAGE_ACCOUNT_NAME --container-name $CVE_REPORT_CONTAINER_NAME --name $CVE_REPORT_OUTPUT_NAME --file cve-report.out --auth-mode login
