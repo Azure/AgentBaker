@@ -22,6 +22,7 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	if linuxProfile != nil {
 		addValue(parametersMap, "linuxAdminUsername", linuxProfile.AdminUsername)
 	}
+	addValue(parametersMap, "containerd2MinKubeVersion", datamodel.KubernetesContainerd2Version)
 	// masterEndpointDNSNamePrefix is the basis for storage account creation across dcos, swarm, and k8s
 	// looks like masterEndpointDNSNamePrefix is only used in windows cse kubeconfig cluster/context name and it's not
 	// required since linux uses static value for that.

@@ -154,7 +154,7 @@ installStandaloneContainerd() {
     UBUNTU_RELEASE=$(lsb_release -r -s)
     UBUNTU_CODENAME=$(lsb_release -c -s)
     CONTAINERD_VERSION=$1    
-    # we always default to the .1 patch versons
+    # we always default to the .1 patch versions
     CONTAINERD_PATCH_VERSION="${2:-1}"
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails

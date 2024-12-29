@@ -4,7 +4,7 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
-#TODO pull this out of componetns.json too?
+#TODO pull this out of components.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
@@ -42,10 +42,6 @@ removeManDbAutoUpdateFlagFile() {
 
 createManDbAutoUpdateFlagFile() {
     touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
-}
-
-cleanupContainerdDlFiles() {
-    rm -rf $CONTAINERD_DOWNLOADS_DIR
 }
 
 getLatestPackageVersion() {
@@ -89,10 +85,9 @@ installContainerdWithComponentsJson() {
     unset IFS
 
     # if UBUNTU_RELEASE is not 24.04, then the last element in the array is the containerd version to install
-    containerdVersions=()
+
     if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
         packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
-        containerdVersions+=("${packageVersion}")
     else
         # if UBUNTU_RELEASE is 24.04, then containerd 1.x and 2.x are present in the array
         versions1x=()
@@ -104,25 +99,24 @@ installContainerdWithComponentsJson() {
                 versions2x+=("$version")
             fi
         done
-        v1PackageVersion=$(getLatestPackageVersion "${versions1x[@]}")
-        containerdVersions+=("${v1PackageVersion}")
-        v2PackageVersion=$(getLatestPackageVersion "${versions2x[@]}")
-        containerdVersions+=("${v2PackageVersion}")
+        # if UBUNTU_RELEASE is 24.04, use container2 if kubenenetes > 1.32
+        if semverCompare "${KUBERNETES_VERSION}" "${CONTAINERD2_MIN_KUBE_VERSION}"; then
+           packageVersion=$(getLatestPackageVersion "${versions2x[@]}")
+        else # use containerd 1.x
+           packageVersion=$(getLatestPackageVersion "${versions1x[@]}")
+        fi
     fi
 
-    # iterate through containerdVersions to install containerd
-    for packageVersion in "${containerdVersions[@]}"; do
-        # containerd version is expected to be in the format major.minor.patch-osVersion
-        # e.g., 1.7.24-ubuntu22.04u1. Then containerdMajorMinorPatchVersion=1.7.24 for os ubuntu22.04u1.
-        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-            echo "invalid containerd version: $packageVersion"
-            exit $ERR_CONTAINERD_VERSION_INVALID
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
-    done
+    # containerd version is expected to be in the format major.minor.patch-osVersion
+    # e.g., 1.7.24-ubuntu22.04u1. Then containerdMajorMinorPatchVersion=1.7.24 for os ubuntu22.04u1.
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
+    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+        echo "invalid containerd version: $packageVersion"
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 }
 
 # containerd versions definitions are only available in the manifest file before the centralized packages changes, before around early July 2024.

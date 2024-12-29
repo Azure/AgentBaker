@@ -603,13 +603,14 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
-                "latestVersion": "1.7.24-ubuntu22.04u1"
+                "latestVersion": "1.7.24"
               },
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.1-ubuntu24.04u1"
+                "latestVersion": "2.0.1"
               }
-            ]
+            ],
+            "downloadURL": "https://github.com/containerd/containerd/releases/download/v{version}/containerd-{version}-linux-${CPU_ARCH}.tar.gz"
           },
           "r2204": {
             "versionsV2": [
