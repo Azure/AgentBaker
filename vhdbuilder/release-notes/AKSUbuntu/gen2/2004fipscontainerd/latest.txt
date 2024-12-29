@@ -1,4 +1,4 @@
-Starting build on  Sun Dec 15 09:06:35 UTC 2024
+Starting build on  Tue Dec 10 03:32:11 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.1
   - runc version 1.1.15-ubuntu20.04u1
@@ -147,16 +147,16 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
 -rwxr-xr-x 1 1001  127  10334343 Dec  5 08:41 /usr/local/bin/oras
 -rw-r--r-- 1 1001  127     11343 Dec  6 03:21 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root       705 Dec 15 09:06 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  47622592 Dec 15 09:19 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  39369104 Dec 15 09:19 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  45334640 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  52232184 Dec 15 09:19 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  53775024 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  60175432 Dec 15 09:19 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  63515504 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Dec 15 09:20 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root       705 Dec 10 03:32 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Dec 10 03:46 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Dec 10 03:46 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  47622592 Dec 10 03:46 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Dec 10 03:46 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  52232184 Dec 10 03:46 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  53775024 Dec 10 03:46 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  60175432 Dec 10 03:46 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Dec 10 03:46 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Dec 10 03:47 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/focal-updates,focal-security,now 0.6.55-0ubuntu12~20.04.7 amd64 [installed,automatic]
@@ -651,20 +651,20 @@ linux-cloud-tools-5.15.0-1075-azure/focal-updates,now 5.15.0-1075.84~20.04.1 amd
 linux-cloud-tools-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
 linux-cloud-tools-azure-fips/now 5.4.0.1140.79 amd64 [installed,local]
 linux-cloud-tools-azure/focal-updates,now 5.15.0.1075.84~20.04.1 amd64 [installed]
-linux-cloud-tools-common/focal-updates,focal-security,now 5.4.0-202.222 all [installed,automatic]
+linux-cloud-tools-common/focal-updates,focal-security,now 5.4.0-200.220 all [installed,automatic]
 linux-headers-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
 linux-headers-azure-fips/now 5.4.0.1140.79 amd64 [installed,local]
 linux-image-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
 linux-image-azure-fips/now 5.4.0.1140.79 amd64 [installed,local]
 linux-image-hmac-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
-linux-libc-dev/focal-updates,focal-security,now 5.4.0-202.222 amd64 [installed,automatic]
+linux-libc-dev/focal-updates,focal-security,now 5.4.0-200.220 amd64 [installed,automatic]
 linux-modules-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
 linux-modules-extra-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
 linux-tools-5.15.0-1075-azure/focal-updates,now 5.15.0-1075.84~20.04.1 amd64 [installed,automatic]
 linux-tools-5.4.0-1140-azure-fips/now 5.4.0-1140.147+fips1 amd64 [installed,local]
 linux-tools-azure-fips/now 5.4.0.1140.79 amd64 [installed,local]
 linux-tools-azure/focal-updates,now 5.15.0.1075.84~20.04.1 amd64 [installed]
-linux-tools-common/focal-updates,focal-security,now 5.4.0-202.222 all [installed,automatic]
+linux-tools-common/focal-updates,focal-security,now 5.4.0-200.220 all [installed,automatic]
 locales/focal-updates,focal-security,now 2.31-0ubuntu9.16 all [installed,automatic]
 login/focal-updates,focal-security,now 1:4.8.1-1ubuntu5.20.04.5 amd64 [installed,automatic]
 logrotate/focal,now 3.14.0-4ubuntu3 amd64 [installed,automatic]
@@ -840,7 +840,7 @@ shared-mime-info/focal,now 1.15-1 amd64 [installed,automatic]
 shim-signed/focal-updates,now 1.40.10+15.8-0ubuntu1 amd64 [installed]
 socat/focal,now 1.7.3.3-2 amd64 [installed]
 software-properties-common/focal-updates,now 0.99.9.12 all [installed]
-sosreport/focal-updates,now 4.7.2-0ubuntu1~20.04.2 amd64 [installed]
+sosreport/focal-updates,now 4.7.2-0ubuntu1~20.04.1 amd64 [installed]
 sound-theme-freedesktop/focal,now 0.8-2ubuntu1 all [installed,automatic]
 ssh-import-id/focal,now 5.10-0ubuntu1 all [installed]
 strace/focal-updates,now 5.5-3ubuntu1 amd64 [installed,automatic]
@@ -898,7 +898,7 @@ zlib1g/focal-updates,focal-security,now 1:1.2.11.dfsg-2ubuntu1.5 amd64 [installe
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   26G  3.4G  89% /
+/dev/root        29G   26G  3.1G  90% /
 devtmpfs         32G     0   32G   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           6.3G  1.1M  6.3G   1% /run
@@ -923,10 +923,10 @@ UBUNTU_CODENAME=focal
 === os-release End
 Using kernel:
 Linux version 5.4.0-1140-azure-fips (buildd@lcy02-amd64-090) (gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04.2)) #147+fips1-Ubuntu SMP Tue Oct 22 06:43:12 UTC 2024
-Install completed successfully on  Sun Dec 15 09:33:30 UTC 2024
-VSTS Build NUMBER: 20241215.1_master_110407074
-VSTS Build ID: 110407074
-Commit: 8d14f56f54ffe1b2badbca4ad89d9860620102d3
+Install completed successfully on  Tue Dec 10 03:57:07 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 20.04
 Hyperv generation: V2
 Feature flags: None

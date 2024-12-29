@@ -1,4 +1,4 @@
-Starting build on  Sun Dec 15 09:10:06 UTC 2024
+Starting build on  Tue Dec 10 03:28:24 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.1
   - CNI plugin version 1.4.1
@@ -148,15 +148,15 @@ lrwxrwxrwx 1 root root          32 Dec  3 20:17 /usr/local/bin/containerd-shim-k
 -rwxr-xr-x 1 root root    49345112 Dec  3 20:19 /usr/local/bin/containerd-shim-kata-cc-v2
 -rwxr-xr-x 1 1001 docker  10334343 Dec  5 08:41 /usr/local/bin/oras
 -rw-r--r-- 1 1001 docker     11343 Dec  6 03:21 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root         705 Dec 15 09:10 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Dec 15 09:17 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root    52232184 Dec 15 09:17 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root    60175432 Dec 15 09:17 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root    47622592 Dec 15 09:17 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root    53775024 Dec 15 09:17 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root    39369104 Dec 15 09:17 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root    45334640 Dec 15 09:17 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root    63515504 Dec 15 09:17 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root         705 Dec 10 03:29 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    47622592 Dec 10 03:35 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root    53775024 Dec 10 03:35 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root    52232184 Dec 10 03:35 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root    39369104 Dec 10 03:35 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root    36014944 Dec 10 03:35 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root    60175432 Dec 10 03:35 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root    45334640 Dec 10 03:35 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root    63515504 Dec 10 03:35 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 pcre-libs-8.45-2.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
@@ -182,9 +182,11 @@ e2fsprogs-libs-1.46.5-3.cm2.x86_64
 libassuan-2.5.5-2.cm2.x86_64
 iana-etc-20211115-2.cm2.noarch
 libpwquality-1.4.4-1.cm2.x86_64
+file-libs-5.40-2.cm2.x86_64
 lmdb-libs-0.9.29-1.cm2.x86_64
 lua-libs-5.4.4-1.cm2.x86_64
 libedit-3.1.20210910-1.cm2.x86_64
+file-5.40-2.cm2.x86_64
 pinentry-1.2.0-1.cm2.x86_64
 e2fsprogs-1.46.5-3.cm2.x86_64
 libmetalink-0.1.3-1.cm2.x86_64
@@ -288,10 +290,8 @@ expat-libs-2.6.3-2.cm2.x86_64
 gpgme-1.16.0-2.cm2.x86_64
 shadow-utils-4.9-13.cm2.x86_64
 kmod-29-2.cm2.x86_64
-file-libs-5.40-3.cm2.x86_64
 libffi-3.4.2-3.cm2.x86_64
 glib-2.71.0-3.cm2.x86_64
-util-linux-2.37.4-9.cm2.x86_64
 mariner-repos-shared-2.0-9.cm2.noarch
 expat-2.6.3-2.cm2.x86_64
 python3-3.9.19-7.cm2.x86_64
@@ -299,11 +299,12 @@ python3-libs-3.9.19-7.cm2.x86_64
 libsolv-0.7.24-1.cm2.x86_64
 iproute-5.15.0-3.cm2.x86_64
 openssh-clients-8.9p1-6.cm2.x86_64
+util-linux-2.37.4-9.cm2.x86_64
 libxml2-2.10.4-4.cm2.x86_64
 mpfr-4.1.0-2.cm2.x86_64
 json-c-0.15-2.cm2.x86_64
 sed-4.8-3.cm2.x86_64
-hyperv-daemons-license-5.15.173.1-1.cm2.noarch
+hyperv-daemons-license-5.15.167.1-1.cm2.noarch
 ca-certificates-shared-2.0.0-18.cm2.noarch
 PyYAML-5.4.1-1.cm2.x86_64
 python3-idna-3.7-1.cm2.noarch
@@ -338,8 +339,7 @@ python3-requests-2.27.1-7.cm2.noarch
 mariner-repos-2.0-9.cm2.noarch
 mariner-repos-extras-2.0-9.cm2.noarch
 mariner-repos-microsoft-2.0-9.cm2.noarch
-file-5.40-3.cm2.x86_64
-kernel-5.15.173.1-1.cm2.x86_64
+kernel-5.15.167.1-2.cm2.x86_64
 libarchive-3.6.1-4.cm2.x86_64
 rpm-4.18.0-4.cm2.x86_64
 ncurses-term-6.4-3.cm2.x86_64
@@ -592,12 +592,12 @@ elfutils-default-yama-scope-0.186-2.cm2.noarch
 elfutils-devel-0.186-2.cm2.x86_64
 elfutils-0.186-2.cm2.x86_64
 rpm-build-libs-4.18.0-4.cm2.x86_64
-hypervfcopyd-5.15.173.1-1.cm2.x86_64
-hypervkvpd-5.15.173.1-1.cm2.x86_64
-hypervvssd-5.15.173.1-1.cm2.x86_64
+hypervfcopyd-5.15.167.1-1.cm2.x86_64
+hypervkvpd-5.15.167.1-1.cm2.x86_64
+hypervvssd-5.15.167.1-1.cm2.x86_64
 irqbalance-1.8.0-4.cm2.x86_64
 cryptsetup-2.4.3-4.cm2.x86_64
-mariner-release-2.0-69.cm2.noarch
+mariner-release-2.0-68.cm2.noarch
 core-packages-container-2.0-8.cm2.x86_64
 busybox-1.35.0-12.cm2.x86_64
 bind-license-9.16.50-1.cm2.noarch
@@ -606,7 +606,7 @@ bind-utils-9.16.50-1.cm2.x86_64
 chrony-4.1-3.cm2.x86_64
 core-packages-base-image-2.0-8.cm2.x86_64
 kata-containers-3.2.0.azl2-5.cm2.x86_64
-hyperv-daemons-5.15.173.1-1.cm2.x86_64
+hyperv-daemons-5.15.167.1-1.cm2.x86_64
 python3-rpm-4.18.0-4.cm2.x86_64
 initramfs-2.0-14.cm2.x86_64
 cronie-anacron-1.5.7-3.cm2.x86_64
@@ -663,7 +663,7 @@ less-590-4.cm2.x86_64
 git-2.39.4-1.cm2.x86_64
 iotop-0.6-10.cm2.noarch
 ipset-7.15-2.cm2.x86_64
-kernel-devel-5.15.173.1-1.cm2.x86_64
+kernel-devel-5.15.167.1-2.cm2.x86_64
 libtirpc-1.3.3-1.cm2.x86_64
 lsof-4.94.0-1.cm2.x86_64
 libpcap-1.10.1-4.cm2.x86_64
@@ -705,8 +705,8 @@ cloud-hypervisor-32.0-3.cm2.x86_64
 kata-packages-host-1.0.0-3.cm2.x86_64
 acr-mirror-0.2.10-1.x86_64
 llvm-12.0.1-7.cm2.x86_64
-binutils-devel-2.37-10.cm2.x86_64
-binutils-2.37-10.cm2.x86_64
+binutils-devel-2.37-8.cm2.x86_64
+binutils-2.37-8.cm2.x86_64
 compiler-rt-12.0.1-1.cm2.x86_64
 clang-libs-12.0.1-4.cm2.x86_64
 bcc-0.27.0-2.cm2.x86_64
@@ -721,7 +721,7 @@ Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  672K   13G   1% /run
-/dev/sda3        29G   25G  2.9G  90% /
+/dev/sda3        29G   25G  3.0G  90% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       474M  103M  343M  24% /boot
 /dev/sda1        64M   37M   28M  58% /boot/efi
@@ -729,7 +729,7 @@ tmpfs            32G  4.0K   32G   1% /tmp
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 NAME="Common Base Linux Mariner"
-VERSION="2.0.20241208"
+VERSION="2.0.20241029"
 ID=mariner
 VERSION_ID="2.0"
 PRETTY_NAME="CBL-Mariner/Linux"
@@ -740,10 +740,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.126.mshv9-3.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Wed Apr 3 16:46:56 UTC 2024
-Install completed successfully on  Sun Dec 15 09:27:13 UTC 2024
-VSTS Build NUMBER: 20241215.1_master_110407074
-VSTS Build ID: 110407074
-Commit: 8d14f56f54ffe1b2badbca4ad89d9860620102d3
+Install completed successfully on  Tue Dec 10 03:42:56 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata
