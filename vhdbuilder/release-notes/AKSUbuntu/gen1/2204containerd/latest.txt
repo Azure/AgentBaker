@@ -1,4 +1,4 @@
-Starting build on  Sun Dec 15 09:06:31 UTC 2024
+Starting build on  Tue Dec 10 03:32:13 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.1
   - runc version 1.1.15-ubuntu22.04u1
@@ -147,16 +147,16 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
 -rwxr-xr-x 1 1001  127  10334343 Dec  5 08:41 /usr/local/bin/oras
 -rw-r--r-- 1 1001  127     11343 Dec  6 03:21 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root       705 Dec 15 09:06 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Dec 15 09:14 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  45334640 Dec 15 09:14 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  47622592 Dec 15 09:14 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  39369104 Dec 15 09:14 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  53775024 Dec 15 09:14 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  60175432 Dec 15 09:14 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  52232184 Dec 15 09:14 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  63515504 Dec 15 09:14 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Dec 15 09:15 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root       705 Dec 10 03:32 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Dec 10 03:39 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  52232184 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  45334640 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  47622592 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  53775024 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  60175432 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Dec 10 03:40 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 acr-mirror/now 0.2.10-1 amd64 [installed,local]
@@ -224,7 +224,7 @@ distro-info-data/jammy-updates,now 0.52ubuntu0.8 all [installed,automatic]
 distro-info/jammy-updates,now 1.1ubuntu0.2 amd64 [installed,automatic]
 dkms/jammy-updates,now 2.8.7-2ubuntu2.2 all [installed]
 dmeventd/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
-dmidecode/jammy-updates,now 3.3-3ubuntu0.2 amd64 [installed,automatic]
+dmidecode/jammy-updates,now 3.3-3ubuntu0.1 amd64 [installed,automatic]
 dmsetup/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
 dosfstools/jammy,now 4.2-1build3 amd64 [installed,automatic]
 dpkg-dev/jammy-updates,now 1.21.1ubuntu2.3 all [installed,automatic]
@@ -256,7 +256,7 @@ gcc/jammy,now 4:11.2.0-1ubuntu1 amd64 [installed]
 gdisk/jammy,now 1.0.8-4build1 amd64 [installed,automatic]
 gettext-base/jammy,now 0.21-4ubuntu4 amd64 [installed,automatic]
 gir1.2-glib-2.0/jammy,now 1.72.0-1 amd64 [installed,automatic]
-gir1.2-packagekitglib-1.0/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
+gir1.2-packagekitglib-1.0/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
 git-man/jammy-updates,jammy-security,now 1:2.34.1-1ubuntu1.11 all [installed,automatic]
 git/jammy-updates,jammy-security,now 1:2.34.1-1ubuntu1.11 amd64 [installed]
 glusterfs-client/jammy-updates,jammy-security,now 10.1-1ubuntu0.2 amd64 [installed]
@@ -506,7 +506,7 @@ liboath0/jammy-updates,jammy-security,now 2.6.7-3ubuntu0.1 amd64 [installed,auto
 libonig5/jammy,now 6.9.7.1-2build1 amd64 [installed,automatic]
 libopeniscsiusr/jammy,now 2.1.5-1ubuntu1 amd64 [installed,automatic]
 libp11-kit0/jammy,now 0.24.0-6build1 amd64 [installed,automatic]
-libpackagekit-glib2-18/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
+libpackagekit-glib2-18/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
 libpam-cap/jammy-updates,jammy-security,now 1:2.44-1ubuntu0.22.04.1 amd64 [installed,automatic]
 libpam-modules-bin/jammy-updates,jammy-security,now 1.4.0-11ubuntu2.4 amd64 [installed,automatic]
 libpam-modules/jammy-updates,jammy-security,now 1.4.0-11ubuntu2.4 amd64 [installed,automatic]
@@ -689,8 +689,8 @@ openssh-sftp-server/jammy-updates,jammy-security,now 1:8.9p1-3ubuntu0.10 amd64 [
 openssl/jammy-updates,jammy-security,now 3.0.2-0ubuntu1.18 amd64 [installed,automatic]
 os-prober/jammy,now 1.79ubuntu2 amd64 [installed,automatic]
 overlayroot/jammy,now 0.47ubuntu1 all [installed]
-packagekit-tools/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
-packagekit/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
+packagekit-tools/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
+packagekit/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
 packages-microsoft-prod/jammy,now 1.0-ubuntu22.04.1 all [installed]
 parted/jammy,now 3.4-2build1 amd64 [installed,automatic]
 passwd/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.2 amd64 [installed,automatic]
@@ -816,7 +816,7 @@ shared-mime-info/jammy,now 2.1-2 amd64 [installed,automatic]
 shim-signed/jammy-updates,now 1.51.4+15.8-0ubuntu1 amd64 [installed]
 socat/jammy,now 1.7.4.1-3ubuntu4 amd64 [installed]
 software-properties-common/jammy-updates,now 0.99.22.9 all [installed]
-sosreport/jammy-updates,now 4.7.2-0ubuntu1~22.04.2 amd64 [installed]
+sosreport/jammy-updates,now 4.7.2-0ubuntu1~22.04.1 amd64 [installed]
 ssh-import-id/jammy,now 5.11-0ubuntu1 all [installed]
 strace/jammy,now 5.16-0ubuntu3 amd64 [installed,automatic]
 sudo/jammy-updates,jammy-security,now 1.9.9-1ubuntu2.4 amd64 [installed,automatic]
@@ -877,12 +877,12 @@ zstd/jammy,now 1.4.8+dfsg-3build1 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   26G  3.8G  88% /
+/dev/root        29G   27G  2.8G  91% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  896K   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
-/dev/sda15      105M  6.1M   99M   6% /boot/efi
-/dev/sdb1       590G   32K  560G   1% /mnt
+/dev/sdb15      105M  6.1M   99M   6% /boot/efi
+/dev/sda1       590G   32K  560G   1% /mnt
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 PRETTY_NAME="Ubuntu 22.04.5 LTS"
@@ -900,10 +900,10 @@ UBUNTU_CODENAME=jammy
 === os-release End
 Using kernel:
 Linux version 5.15.0-1075-azure (buildd@lcy02-amd64-073) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #84-Ubuntu SMP Mon Oct 21 15:42:52 UTC 2024
-Install completed successfully on  Sun Dec 15 09:29:56 UTC 2024
-VSTS Build NUMBER: 20241215.1_master_110407074
-VSTS Build ID: 110407074
-Commit: 8d14f56f54ffe1b2badbca4ad89d9860620102d3
+Install completed successfully on  Tue Dec 10 03:48:02 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 22.04
 Hyperv generation: V1
 Feature flags: None

@@ -1,4 +1,4 @@
-Starting build on  Sun Dec 15 09:10:02 UTC 2024
+Starting build on  Tue Dec 10 03:28:59 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.1
   - runc version 1.1.14-ubuntu18.04u1
@@ -124,20 +124,20 @@ containerd images pre-pulled:
   - /var/lib/kubelet/device-plugins
   - extracted nvidia-device-plugin...
 total 23532
--rwxr-xr-x 1 root root    40769 Dec 15 09:21 nvidia-bug-report.sh
--rwxr-xr-x 1 root root      900 Dec 15 09:21 nvidia-sleep.sh
--rwxr-xr-x 1 root root   372128 Dec 15 09:21 nvidia-installer
--rwxr-xr-x 1 root root  1068640 Dec 15 09:21 nvidia-smi
--rwxr-xr-x 1 root root   142064 Dec 15 09:21 nvidia-debugdump
--rwxr-xr-x 1 root root    54088 Dec 15 09:21 nvidia-cuda-mps-control
--rwxr-xr-x 1 root root    18656 Dec 15 09:21 nvidia-cuda-mps-server
--rwxr-xr-x 1 root root   208336 Dec 15 09:21 nvidia-persistenced
--rwxr-xr-x 1 root root   229888 Dec 15 09:21 nvidia-powerd
--rwxr-xr-x 1 root root   207424 Dec 15 09:21 nvidia-xconfig
--rwxr-xr-x 1 root root   306312 Dec 15 09:21 nvidia-settings
--rwxr-xr-x 1 root root  5043392 Dec 15 09:21 nvidia-ngx-updater
-lrwxrwxrwx 1 root root       16 Dec 15 09:21 nvidia-uninstall -> nvidia-installer
--rwxr-xr-x 1 root root 16381360 Dec 15 09:31 nvidia-device-plugin
+-rwxr-xr-x 1 root root      900 Dec 10 03:42 nvidia-sleep.sh
+-rwxr-xr-x 1 root root   372128 Dec 10 03:42 nvidia-installer
+-rwxr-xr-x 1 root root    40769 Dec 10 03:42 nvidia-bug-report.sh
+-rwxr-xr-x 1 root root  1068640 Dec 10 03:42 nvidia-smi
+-rwxr-xr-x 1 root root   142064 Dec 10 03:42 nvidia-debugdump
+-rwxr-xr-x 1 root root    18656 Dec 10 03:42 nvidia-cuda-mps-server
+-rwxr-xr-x 1 root root    54088 Dec 10 03:42 nvidia-cuda-mps-control
+-rwxr-xr-x 1 root root   208336 Dec 10 03:42 nvidia-persistenced
+-rwxr-xr-x 1 root root   229888 Dec 10 03:42 nvidia-powerd
+-rwxr-xr-x 1 root root   207424 Dec 10 03:42 nvidia-xconfig
+-rwxr-xr-x 1 root root   306312 Dec 10 03:42 nvidia-settings
+-rwxr-xr-x 1 root root  5043392 Dec 10 03:42 nvidia-ngx-updater
+lrwxrwxrwx 1 root root       16 Dec 10 03:42 nvidia-uninstall -> nvidia-installer
+-rwxr-xr-x 1 root root 16381360 Dec 10 03:53 nvidia-device-plugin
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
@@ -164,17 +164,17 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
 -rwxr-xr-x 1 1001  127  10334343 Dec  5 08:41 /usr/local/bin/oras
 -rw-r--r-- 1 1001  127     11343 Dec  6 03:21 /usr/local/bin/LICENSE
--r-xr--r-- 1 root root       593 Dec 15 09:10 /usr/local/bin/logrotate.sh
--rwxr-xr-x 1 root root       705 Dec 15 09:10 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  45334640 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  52232184 Dec 15 09:19 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  39369104 Dec 15 09:19 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  47622592 Dec 15 09:19 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  53775024 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  60175432 Dec 15 09:19 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  63515504 Dec 15 09:19 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Dec 15 09:22 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root       593 Dec 10 03:29 /usr/local/bin/logrotate.sh
+-rwxr-xr-x 1 root root       705 Dec 10 03:29 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Dec 10 03:39 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  60175432 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  53775024 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  47622592 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  52232184 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  63515504 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Dec 10 03:43 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/now 0.6.45-1ubuntu1.3+esm1 amd64 [installed,local]
@@ -841,12 +841,12 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev             14G     0   14G   0% /dev
 tmpfs           2.8G  752K  2.8G   1% /run
-/dev/sda1        29G   27G  2.1G  93% /
+/dev/sdb1        29G   27G  2.1G  93% /
 tmpfs            14G     0   14G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            14G     0   14G   0% /sys/fs/cgroup
-/dev/sda15      105M  5.3M  100M   5% /boot/efi
-/dev/sdb1       173G   32K  164G   1% /mnt
+/dev/sdb15      105M  5.3M  100M   5% /boot/efi
+/dev/sda1       173G   32K  164G   1% /mnt
 tmpfs           2.8G     0  2.8G   0% /run/user/1000
 === os-release Begin
 NAME="Ubuntu"
@@ -864,10 +864,10 @@ UBUNTU_CODENAME=bionic
 === os-release End
 Using kernel:
 Linux version 5.4.0-1140-azure (buildd@lcy02-amd64-014) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #147~18.04.1-Ubuntu SMP Tue Oct 22 15:50:37 UTC 2024
-Install completed successfully on  Sun Dec 15 09:33:35 UTC 2024
-VSTS Build NUMBER: 20241215.1_master_110407074
-VSTS Build ID: 110407074
-Commit: 8d14f56f54ffe1b2badbca4ad89d9860620102d3
+Install completed successfully on  Tue Dec 10 03:55:55 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 18.04
 Hyperv generation: V1
 Feature flags: fullgpudaemon
