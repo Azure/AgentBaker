@@ -3,6 +3,8 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -14,10 +16,7 @@ import (
 
 func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 	kube := s.Runtime.Cluster.Kube
-	if len(pod.Name) > 63 {
-		pod.Name = pod.Name[:63]
-		s.T.Logf("truncated pod name to %q", pod.Name)
-	}
+	truncatePodName(s.T, pod)
 	s.T.Logf("creating pod %q", pod.Name)
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
@@ -33,6 +32,15 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 
 	_, err = kube.WaitUntilPodRunning(ctx, s.T, pod.Namespace, "", "metadata.name="+pod.Name)
 	require.NoErrorf(s.T, err, "failed to wait for pod %q to be in running state", pod.Name)
+}
+
+func truncatePodName(t *testing.T, pod *corev1.Pod) {
+	if len(pod.Name) < 63 {
+		return
+	}
+	pod.Name = pod.Name[:63]
+	pod.Name = strings.TrimRight(pod.Name, "-")
+	t.Logf("truncated pod name to %q", pod.Name)
 }
 
 func ensureJob(ctx context.Context, s *Scenario, job *batchv1.Job) {
