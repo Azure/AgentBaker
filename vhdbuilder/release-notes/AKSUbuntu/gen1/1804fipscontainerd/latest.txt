@@ -1,4 +1,4 @@
-Starting build on  Sun Dec 15 09:09:42 UTC 2024
+Starting build on  Tue Dec 10 03:31:49 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.1
   - runc version 1.1.14-ubuntu18.04u1
@@ -147,17 +147,17 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
 -rwxr-xr-x 1 1001  127  10334343 Dec  5 08:41 /usr/local/bin/oras
 -rw-r--r-- 1 1001  127     11343 Dec  6 03:21 /usr/local/bin/LICENSE
--r-xr--r-- 1 root root       593 Dec 15 09:10 /usr/local/bin/logrotate.sh
--rwxr-xr-x 1 root root       705 Dec 15 09:10 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root  36014944 Dec 15 09:22 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  47622592 Dec 15 09:22 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root  39369104 Dec 15 09:22 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root  45334640 Dec 15 09:22 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root  52232184 Dec 15 09:22 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root  60175432 Dec 15 09:22 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root  53775024 Dec 15 09:22 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root  63515504 Dec 15 09:22 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Dec 15 09:23 /usr/local/bin/bpftrace
+-r-xr--r-- 1 root root       593 Dec 10 03:32 /usr/local/bin/logrotate.sh
+-rwxr-xr-x 1 root root       705 Dec 10 03:32 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Dec 10 03:44 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Dec 10 03:44 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  45334640 Dec 10 03:44 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  60175432 Dec 10 03:44 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  52232184 Dec 10 03:44 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  47622592 Dec 10 03:44 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  53775024 Dec 10 03:44 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Dec 10 03:44 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Dec 10 03:45 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/now 0.6.45-1ubuntu1.3+esm1 amd64 [installed,local]
@@ -828,7 +828,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 udev             32G     0   32G   0% /dev
 tmpfs           6.3G  796K  6.3G   1% /run
-/dev/sda1        29G   26G  3.5G  88% /
+/dev/sda1        29G   26G  3.3G  89% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs           5.0M     0  5.0M   0% /run/lock
 tmpfs            32G     0   32G   0% /sys/fs/cgroup
@@ -851,10 +851,10 @@ UBUNTU_CODENAME=bionic
 === os-release End
 Using kernel:
 Linux version 4.15.0-2092-azure-fips (buildd@lcy02-amd64-028) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #98-Ubuntu SMP Fri Nov 8 14:09:09 UTC 2024
-Install completed successfully on  Sun Dec 15 09:34:32 UTC 2024
-VSTS Build NUMBER: 20241215.1_master_110407074
-VSTS Build ID: 110407074
-Commit: 8d14f56f54ffe1b2badbca4ad89d9860620102d3
+Install completed successfully on  Tue Dec 10 03:55:30 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 18.04
 Hyperv generation: V1
 Feature flags: None
