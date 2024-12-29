@@ -3,11 +3,13 @@ package config
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -458,6 +460,57 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (
 	}
 
 	return VHDResourceID(*resp.ID), nil
+}
+
+func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	attempt := 0
+	delay := 5 * time.Second
+	retryOn := func(err error) bool {
+		var respErr *azcore.ResponseError
+		return errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "AllocationFailed"
+	}
+	for {
+		attempt++
+		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
+		if err == nil {
+			return vmss, nil
+		}
+
+		// not a retryable error
+		if !retryOn(err) {
+			return nil, err
+		}
+
+		if attempt >= 10 {
+			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
+		}
+
+		t.Logf("failed to create VMSS: %v, retrying in %v", err, delay)
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(delay):
+		}
+	}
+}
+
+func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	operation, err := a.VMSS.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		vmssName,
+		parameters,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	vmssResp, err := operation.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
+
 }
 
 func DefaultRetryOpts() policy.RetryOptions {

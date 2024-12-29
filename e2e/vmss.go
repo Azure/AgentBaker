@@ -64,23 +64,13 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
-		ctx,
-		*cluster.Model.Properties.NodeResourceGroup,
-		s.Runtime.VMSSName,
-		model,
-		nil,
-	)
-	skipTestIfSKUNotAvailableErr(s.T, err)
-	require.NoError(s.T, err)
+	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
+	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
 	logSSHInstructions(ctx, s) // we want to log instruction earliest possible, and on test failures as well
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	// fail test, but continue to extract debug information
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
-	return &vmssResp.VirtualMachineScaleSet
+	return vmss
 }
 
 func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
