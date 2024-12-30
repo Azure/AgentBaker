@@ -22,7 +22,6 @@ func getParameters(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	if linuxProfile != nil {
 		addValue(parametersMap, "linuxAdminUsername", linuxProfile.AdminUsername)
 	}
-	addValue(parametersMap, "containerd2MinKubeVersion", datamodel.KubernetesContainerd2Version)
 	// masterEndpointDNSNamePrefix is the basis for storage account creation across dcos, swarm, and k8s
 	// looks like masterEndpointDNSNamePrefix is only used in windows cse kubeconfig cluster/context name and it's not
 	// required since linux uses static value for that.
@@ -115,6 +114,7 @@ func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Proper
 
 	k8sVersion := orchestratorProfile.OrchestratorVersion
 	addValue(parametersMap, "kubernetesVersion", k8sVersion)
+	addValue(parametersMap, "containerd2MinKubeVersion", datamodel.KubernetesContainerd2Version)
 
 	kubernetesConfig := orchestratorProfile.KubernetesConfig
 
@@ -184,9 +184,6 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 	orchestratorProfile := properties.OrchestratorProfile
 
 	if orchestratorProfile.IsKubernetes() {
-		k8sVersion := orchestratorProfile.OrchestratorVersion
-		addValue(parametersMap, "kubernetesVersion", k8sVersion)
-
 		assignKubernetesParametersfromKubernetesConfig(properties, parametersMap, cloudSpecConfig, k8sComponents, config)
 
 		servicePrincipalProfile := properties.ServicePrincipalProfile
