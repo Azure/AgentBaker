@@ -46,6 +46,10 @@ installDeps() {
         pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
     fi
 
+    if [ "${OSVERSION}" == "24.04" ]; then
+        pkg_list+=(irqbalance)
+    fi
+
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
             journalctl --no-pager -u $apt_package
