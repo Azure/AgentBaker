@@ -52,8 +52,10 @@ function Set-AzureCNIConfig
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
     $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
     
-    if ($global:EbpfDataplane) {
-        $configJson.plugins.ipam.type = "azure-cns"
+    if (Test-Path variable:global:EbpfDataplane) {
+        if($global:EbpfDataplane) {
+            $configJson.plugins.ipam.type = "azure-cns"
+        }
     }
 
     if ($global:IsDisableWindowsOutboundNat) {
