@@ -143,11 +143,11 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.1"
+                "latestVersion": "1.7.1-ubuntu24.04u1"
               },
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "2.0.0"
+                "latestVersion": "2.0.1-ubuntu24.04u1"
               }
             ]
           },

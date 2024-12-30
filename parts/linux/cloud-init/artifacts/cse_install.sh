@@ -15,7 +15,7 @@ K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
+#OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
@@ -46,9 +46,8 @@ createManDbAutoUpdateFlagFile() {
 
 getLatestPackageVersion() {
     local sortedPackageVersions=("$@")
-    local array_size=${#sortedPackageVersions[@]}
-    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
-    echo "${sortedPackageVersions[${last_index}]}"
+    local last_version=$(printf "%s\n" "${sortedPackageVersions[@]}" | grep -v '^$' | sort -V | tail -n 1)
+    echo "$last_version"
 }
 
 # After the centralized packages changes, the containerd versions are only available in the components.json.
@@ -83,26 +82,20 @@ installContainerdWithComponentsJson() {
     # sort the array from lowest to highest version before getting the last element
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
+#    array_size=${#sortedPackageVersions[@]}
+#    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
+    packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
 
     # if UBUNTU_RELEASE is not 24.04, then the last element in the array is the containerd version to install
-
-    if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
-        packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
-    else
-        # if UBUNTU_RELEASE is 24.04, then containerd 1.x and 2.x are present in the array
-        versions1x=()
-        versions2x=()
-        for version in "${sortedPackageVersions[@]}"; do
-            if [[ $version == 1.* ]]; then
-                versions1x+=("$version")
-            elif [[ $version == 2.* ]]; then
-                versions2x+=("$version")
-            fi
-        done
-        # if UBUNTU_RELEASE is 24.04, use container2 if kubenenetes > 1.32
-        if semverCompare "${KUBERNETES_VERSION}" "${CONTAINERD2_MIN_KUBE_VERSION}"; then
-           packageVersion=$(getLatestPackageVersion "${versions2x[@]}")
-        else # use containerd 1.x
+    if [[ "${UBUNTU_RELEASE}" == "24.04" ]]; then
+        # if UBUNTU_RELEASE is 24.04, use container2 only if kubernetes >= 1.32
+        if ! semverCompare "${KUBERNETES_VERSION}" "${CONTAINERD2_MIN_KUBE_VERSION}"; then
+            versions1x=()
+            for version in "${sortedPackageVersions[@]}"; do
+                if [[ $version == 1.* ]]; then
+                    versions1x+=("$version")
+                fi
+            done
            packageVersion=$(getLatestPackageVersion "${versions1x[@]}")
         fi
     fi
@@ -111,7 +104,7 @@ installContainerdWithComponentsJson() {
     # e.g., 1.7.24-ubuntu22.04u1. Then containerdMajorMinorPatchVersion=1.7.24 for os ubuntu22.04u1.
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
     containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+    if [[ -z "$containerdMajorMinorPatchVersion" ]] || [[ "$containerdMajorMinorPatchVersion" == "null" ]] || [[ "$containerdHotFixVersion" == "null" ]]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi

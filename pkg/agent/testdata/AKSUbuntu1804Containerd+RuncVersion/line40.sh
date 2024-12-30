@@ -14,7 +14,7 @@ K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s)
-OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
+#OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
@@ -45,9 +45,8 @@ createManDbAutoUpdateFlagFile() {
 
 getLatestPackageVersion() {
     local sortedPackageVersions=("$@")
-    local array_size=${#sortedPackageVersions[@]}
-    [[ $((array_size-1)) -lt 0 ]] && last_index=0 || last_index=$((array_size-1))
-    echo "${sortedPackageVersions[${last_index}]}"
+    local last_version=$(printf "%s\n" "${sortedPackageVersions[@]}" | grep -v '^$' | sort -V | tail -n 1)
+    echo "$last_version"
 }
 
 installContainerdWithComponentsJson() {
@@ -78,30 +77,23 @@ installContainerdWithComponentsJson() {
     fi
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
+    packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
 
-
-    if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
-        packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
-    else
-        versions1x=()
-        versions2x=()
-        for version in "${sortedPackageVersions[@]}"; do
-            if [[ $version == 1.* ]]; then
-                versions1x+=("$version")
-            elif [[ $version == 2.* ]]; then
-                versions2x+=("$version")
-            fi
-        done
-        if semverCompare "${KUBERNETES_VERSION}" "${CONTAINERD2_MIN_KUBE_VERSION}"; then
-           packageVersion=$(getLatestPackageVersion "${versions2x[@]}")
-        else 
+    if [[ "${UBUNTU_RELEASE}" == "24.04" ]]; then
+        if ! semverCompare "${KUBERNETES_VERSION}" "${CONTAINERD2_MIN_KUBE_VERSION}"; then
+            versions1x=()
+            for version in "${sortedPackageVersions[@]}"; do
+                if [[ $version == 1.* ]]; then
+                    versions1x+=("$version")
+                fi
+            done
            packageVersion=$(getLatestPackageVersion "${versions1x[@]}")
         fi
     fi
 
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
     containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+    if [[ -z "$containerdMajorMinorPatchVersion" ]] || [[ "$containerdMajorMinorPatchVersion" == "null" ]] || [[ "$containerdHotFixVersion" == "null" ]]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi

@@ -19,13 +19,24 @@ Describe 'cse_install.sh'
         NEEDS_CONTAINERD="true"
         COMPONENTS_FILEPATH="spec/parts/linux/cloud-init/artifacts/test_components.json"
 
-        It 'returns expected output for successful installation of 2 versions of containerd in UBUNTU 24.04'
+        It 'returns containerd 2.x when k8s version is at least 1.32 for UBUNTU 24.04'
             UBUNTU_RELEASE="24.04"
+            CONTAINERD2_MIN_KUBE_VERSION="1.32"
+            KUBERNETES_VERSION="1.32"
+            containerdPackage=$(readPackage "containerd")
+            When call installContainerRuntime
+            The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 2.0.1"
+        End
+
+        It 'returns containerd 1.x when k8s version is less than 1.32 for UBUNTU 24.04'
+            UBUNTU_RELEASE="24.04"
+            CONTAINERD2_MIN_KUBE_VERSION="1.32"
+            KUBERNETES_VERSION="1.31"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
             The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.1"
-            The output line 6 should equal "in installContainerRuntime - CONTAINERD_VERSION = 2.0.0"
         End
         It 'returns expected output for successful installation of fake containerd in UBUNTU 20.04'
             UBUNTU_RELEASE="20.04"
