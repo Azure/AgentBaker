@@ -29,6 +29,7 @@ Describe 'Set-AzureCNIConfig' {
         $isDualStackEnabled = $false
         $KubeDnsServiceIp = "10.0.0.10"
         $global:IsDisableWindowsOutboundNat = $false
+        $global:EbpfDataplane = $false
         $global:KubeproxyFeatureGates = @("WinDSR=true")
         $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
 
