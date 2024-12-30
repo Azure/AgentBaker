@@ -59,13 +59,13 @@ Describe 'Set-AzureCNIConfig' {
         It "Should use azure-cns as IPAM" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
+            $global:EbpfDataplane = $true
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
                 -KubeClusterCIDR $kubeClusterCIDR `
                 -KubeServiceCIDR $kubeServiceCIDR `
                 -VNetCIDR $vNetCIDR `
-                -IsDualStackEnabled $isDualStackEnabled `
-                -EbpfDataplane $true
+                -IsDualStackEnabled $isDualStackEnabled
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.CiliumNodeSubnet.conflist"))
