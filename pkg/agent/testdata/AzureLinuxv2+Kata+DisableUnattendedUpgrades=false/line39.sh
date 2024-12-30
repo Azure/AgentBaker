@@ -4,7 +4,7 @@ CC_SERVICE_IN_TMP=/opt/azure/containers/cc-proxy.service.in
 CC_SOCKET_IN_TMP=/opt/azure/containers/cc-proxy.socket.in
 CNI_CONFIG_DIR="/etc/cni/net.d"
 CNI_BIN_DIR="/opt/cni/bin"
-#TODO pull this out of componetns.json too?
+#TODO pull this out of components.json too?
 CNI_DOWNLOADS_DIR="/opt/cni/downloads"
 CRICTL_DOWNLOAD_DIR="/opt/crictl/downloads"
 CRICTL_BIN_DIR="/usr/local/bin"
@@ -43,10 +43,6 @@ createManDbAutoUpdateFlagFile() {
     touch $MAN_DB_AUTO_UPDATE_FLAG_FILEPATH
 }
 
-cleanupContainerdDlFiles() {
-    rm -rf $CONTAINERD_DOWNLOADS_DIR
-}
-
 getLatestPackageVersion() {
     local sortedPackageVersions=("$@")
     local array_size=${#sortedPackageVersions[@]}
@@ -83,10 +79,9 @@ installContainerdWithComponentsJson() {
     IFS=$'\n' sortedPackageVersions=($(sort -V <<<"${PACKAGE_VERSIONS[*]}"))
     unset IFS
 
-    containerdVersions=()
+
     if [[ "${UBUNTU_RELEASE}" != "24.04" ]]; then
         packageVersion=$(getLatestPackageVersion "${sortedPackageVersions[@]}")
-        containerdVersions+=("${packageVersion}")
     else
         versions1x=()
         versions2x=()
@@ -97,22 +92,21 @@ installContainerdWithComponentsJson() {
                 versions2x+=("$version")
             fi
         done
-        v1PackageVersion=$(getLatestPackageVersion "${versions1x[@]}")
-        containerdVersions+=("${v1PackageVersion}")
-        v2PackageVersion=$(getLatestPackageVersion "${versions2x[@]}")
-        containerdVersions+=("${v2PackageVersion}")
+        if semverCompare "${KUBERNETES_VERSION}" "${CONTAINERD2_MIN_KUBE_VERSION}"; then
+           packageVersion=$(getLatestPackageVersion "${versions2x[@]}")
+        else 
+           packageVersion=$(getLatestPackageVersion "${versions1x[@]}")
+        fi
     fi
 
-    for packageVersion in "${containerdVersions[@]}"; do
-        containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
-        containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-        if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
-            echo "invalid containerd version: $packageVersion"
-            exit $ERR_CONTAINERD_VERSION_INVALID
-        fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
-    done
+    containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
+    containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
+    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+        echo "invalid containerd version: $packageVersion"
+        exit $ERR_CONTAINERD_VERSION_INVALID
+    fi
+    logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
+    echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
 }
 
 installContainerdWithManifestJson() {
