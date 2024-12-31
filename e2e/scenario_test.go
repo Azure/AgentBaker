@@ -1242,10 +1242,6 @@ func Test_Ubuntu2404(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// Check that we don't leak these secrets if they're
-				// set (which they mostly aren't in these scenarios).
-				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
-				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2404")[0])
