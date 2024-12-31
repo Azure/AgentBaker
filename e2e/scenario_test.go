@@ -1232,7 +1232,62 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 			},
 		},
 	})
+}
 
+func Test_Ubuntu2404UbuntuGen2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				if len(containerdVersions) != 1 {
+					t.Errorf("expected exactly one version for containerd, got %v", containerdVersions)
+				}
+				// assert versions[0] value starts with '2.'
+				if !strings.HasPrefix(containerdVersions[0], "2.") {
+					t.Errorf("expected containerd version to start with '2.', got %v", containerdVersions[0])
+				}
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", containerdVersions[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2404")[0])
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen1(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen1Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2404")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2404")[0])
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404ARM(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2404")[0])
+				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2404")[0])
+			},
+		},
+	})
 }
 
 func Test_Ubuntu2404(t *testing.T) {
