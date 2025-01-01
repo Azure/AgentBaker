@@ -1253,6 +1253,8 @@ func Test_Ubuntu2404UbuntuGen2(t *testing.T) {
 				}
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", containerdVersions[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2404")[0])
+				// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
+				ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath", "CriuPath")
 			},
 		},
 	})
