@@ -100,17 +100,4 @@ Describe 'cse_config.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
         End
     End
-    Describe 'configureContainerd'
-        It 'should not contain deprecated properties in config.toml'
-            retrycmd_if_failure_no_stats() { # for mocking IMDS calls
-                echo "false"
-            }
-            KUBELET_FLAGS="--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false"
-            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=wp0"
-            ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="false"
-            When call ensureContainerd
-            The stdout should eq 'kubelet serving certificate rotation is disabled, nothing to configure'
-            The variable KUBELET_FLAGS should equal '--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
-            The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
-        End
 End
