@@ -116,7 +116,7 @@ var (
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
-		Name:    "2404gen1containerd",
+		Name:    "2404containerd",
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404,
@@ -132,7 +132,7 @@ var (
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
-		Name:    "2404containerdarm64",
+		Name:    "2404gen2arm64containerd",
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
