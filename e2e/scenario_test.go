@@ -1251,7 +1251,6 @@ func Test_Ubuntu2404UbuntuGen2(t *testing.T) {
 				if !strings.HasPrefix(containerdVersions[0], "2.") {
 					t.Errorf("expected containerd version to start with '2.', got %v", containerdVersions[0])
 				}
-
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				if len(runcVersions) != 1 {
 					t.Errorf("expected exactly one version for containerd, got %v", runcVersions)
@@ -1262,6 +1261,8 @@ func Test_Ubuntu2404UbuntuGen2(t *testing.T) {
 				}
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", containerdVersions[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2404")[0])
+				// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
+				ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath", "CriuPath")
 			},
 		},
 	})
@@ -1290,6 +1291,9 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404ArmContainerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2404")[0])
