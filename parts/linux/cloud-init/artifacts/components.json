@@ -587,7 +587,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=24.04",
-                "latestVersion": "1.1.15-ubuntu24.04u1"
+                "latestVersion": "1.2.3-ubuntu24.04u1"
               }
             ]
           }
