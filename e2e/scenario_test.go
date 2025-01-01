@@ -1251,6 +1251,14 @@ func Test_Ubuntu2404UbuntuGen2(t *testing.T) {
 				if !strings.HasPrefix(containerdVersions[0], "2.") {
 					t.Errorf("expected containerd version to start with '2.', got %v", containerdVersions[0])
 				}
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				if len(runcVersions) != 1 {
+					t.Errorf("expected exactly one version for containerd, got %v", runcVersions)
+				}
+				// assert versions[0] value starts with '1.2.'
+				if !strings.HasPrefix(runcVersions[0], "1.2.") {
+					t.Errorf("expected containerd version to start with '1.2.', got %v", containerdVersions[0])
+				}
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", containerdVersions[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2404")[0])
 				// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
