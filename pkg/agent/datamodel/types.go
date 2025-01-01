@@ -1659,19 +1659,19 @@ type K8sComponents struct {
 	HyperkubeImageURL string
 
 	// Full path to the Windows package (windowszip) to use.
-	// For example: https://acs-mirror.azureedge.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip.
+	// For example: https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip.
 	WindowsPackageURL string
 
 	// Full path to the Linux package (tar.gz) to use.
-	// For example: url=https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz
+	// For example: url=https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz
 	LinuxPrivatePackageURL string
 
 	// Full path to the Windows credential provider (tar.gz) to use.
-	// For example: https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz
+	// For example: https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz
 	WindowsCredentialProviderURL string
 
 	// Full path to the Linux credential provider (tar.gz) to use.
-	// For example: "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz"
+	// For example: "https://acs-mirror-euadb5gkdbg5c7f6.z01.azurefd.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz"
 	LinuxCredentialProviderURL string
 }
 
