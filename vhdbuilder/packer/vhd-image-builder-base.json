@@ -77,6 +77,19 @@
   ],
   "provisioners": [
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/overwrite-acs-mirror-cname.sh",
+      "destination": "/home/packer/overwrite-acs-mirror-cname.sh"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "chmod +x /home/packer/overwrite-acs-mirror-cname.sh",
+        "sudo /home/packer/overwrite-acs-mirror-cname.sh",
+        "dig acs-mirror.azureedge.net"
+      ]
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo mkdir -p /opt/azure/containers",
