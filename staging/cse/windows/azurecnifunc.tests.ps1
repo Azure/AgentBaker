@@ -70,8 +70,8 @@ Describe 'Set-AzureCNIConfig' {
 
             $actualConfigJson = Read-Format-Json $azureCNIConfigFile
             $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.CiliumNodeSubnet.conflist"))
-            $diffence = Compare-Object $actualConfigJson $expectedConfigJson
-            $diffence | Should -Be $null
+            $difference = Compare-Object $actualConfigJson $expectedConfigJson
+            $difference | Should -Be $null
         }
     }
 
