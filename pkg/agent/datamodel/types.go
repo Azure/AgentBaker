@@ -676,6 +676,7 @@ type KubernetesConfig struct {
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
+	EbpfDataplane                     int               `json:"ebpfDataplane,omitempty"`
 }
 
 /*
