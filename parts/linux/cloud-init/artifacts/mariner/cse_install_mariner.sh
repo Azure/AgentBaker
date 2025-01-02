@@ -127,6 +127,10 @@ installStandaloneContainerd() {
         if [[ $OS_VERSION == "2.0" ]]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
         fi
+        if [[ $OS_VERSION == "3.0" ]]; then
+            containerdPackageName="containerd2-${desiredVersion}"
+            echo "installing containerd version ${desiredVersion}"
+         fi
 
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 $containerdPackageName; then
