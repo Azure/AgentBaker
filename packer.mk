@@ -107,6 +107,10 @@ scanning-vhd: az-login
 test-scan-and-cleanup: az-login
 	@./vhdbuilder/packer/test-scan-and-cleanup.sh
 
+query-cve: az-login
+	@chmod +x ./vhdbuilder/packer/query-cve.sh
+	@./vhdbuilder/packer/query-cve.sh
+
 evaluate-build-performance: az-login
 	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
 
