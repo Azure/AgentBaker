@@ -75,8 +75,8 @@ Describe 'Set-AzureCNIConfig' {
         }
     }
 
-    Context 'WinDSR is enabled by default' {
-        It "Should remove ROUTE" {
+    Context 'WinDSR is enabled, ebpf dataplane disabled by default' {
+        It "Should remove ROUTE and use azure-vnet-ipam for IPAM" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
