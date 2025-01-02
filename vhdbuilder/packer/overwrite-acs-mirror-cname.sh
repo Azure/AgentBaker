@@ -26,7 +26,7 @@ cat <<EOF > /etc/bind/db.rpz
 
 localhost       A   127.0.0.1
 
-acs-mirror.azureedge.net   CNAME    cs-mirror-traffic-manager-stg.trafficmanager.net.
+acs-mirror.azureedge.net   CNAME    acs-mirror-traffic-manager-stg.trafficmanager.net.
 EOF
 
 cat <<EOF > /etc/bind/named.conf.local
