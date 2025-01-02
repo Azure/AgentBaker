@@ -388,8 +388,7 @@ try
         -KubeServiceCIDR $global:KubeServiceCIDR `
         -VNetCIDR $global:VNetCIDR `
         -IsDualStackEnabled $global:IsDualStackEnabled `
-        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled `
-        -EbpfDataplane $global:EbpfDataplane
+        -IsAzureCNIOverlayEnabled $global:IsAzureCNIOverlayEnabled
         
     
     if ($TargetEnvironment -ieq "AzureStackCloud") {
