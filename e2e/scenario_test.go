@@ -33,10 +33,12 @@ func Test_azurelinuxv2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				// for now azure linux reports itself as mariner, so expected version for azure linux is the same as that for mariner
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0], "dnf"),
+				FileHasContentsValidator("/etc/motd", "foobar"),
 			},
 		},
 	})
@@ -208,33 +210,6 @@ func Test_azurelinuxv2gpu(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-		},
-	})
-}
-
-func Test_azurelinuxv2gpu_azurecni(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
@@ -446,32 +421,6 @@ func Test_marinerv2CustomSysctls(t *testing.T) {
 	})
 }
 
-// Returns config for the 'gpu' E2E scenario
-func Test_marinerv2gpu(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-		},
-	})
-}
-
 func Test_marinerv2gpu_azurecni(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "MarinerV2 gpu scenario on cluster configured with Azure CNI",
@@ -612,33 +561,6 @@ func Test_ubuntu1804gpu(t *testing.T) {
 	})
 }
 
-func Test_ubuntu1804gpu_azurecni(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Ubuntu1804 gpu scenario on cluster configured with Azure CNI",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu1804Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_NC6s_v3"
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-18.04-gen2"
-				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-18.04-gen2"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
-			},
-		},
-	})
-}
-
 func Test_ubuntu2204(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped",
@@ -652,10 +574,12 @@ func Test_ubuntu2204(t *testing.T) {
 				// set (which they mostly aren't in these scenarios).
 				nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "client cert private key"
 				nbc.ContainerService.Properties.ServicePrincipalProfile.Secret = "SP secret"
+				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				mobyComponentVersionValidator("containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0], "apt"),
 				mobyComponentVersionValidator("runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0], "apt"),
+				FileHasContentsValidator("/etc/motd", "foobar"), // validate message of the day
 			},
 		},
 	})
@@ -850,6 +774,7 @@ func Test_ubuntu2204gpua10(t *testing.T) {
 
 // Returns config for the 'gpu' E2E scenario
 func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
+	t.Helper()
 	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu 2204 VHD can be properly bootstrapped", vmSize),
 		Tags: Tags{
@@ -1216,42 +1141,6 @@ func Test_ubuntu1804imdsrestriction_mangletable(t *testing.T) {
 			},
 			LiveVMValidators: []*LiveVMValidator{
 				imdsRestrictionRuleValidator("mangle"),
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204MessageOfTheDay(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that a node on ubuntu 2204 bootstrapped and message of the day is properly added to the node",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-ubuntu-containerd-22.04-gen2"
-				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/motd", "foobar"),
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2MessageOfTheDay(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.Distro = "aks-azurelinux-v2-gen2"
-				nbc.AgentPoolProfile.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
-			},
-			LiveVMValidators: []*LiveVMValidator{
-				FileHasContentsValidator("/etc/motd", "foobar"),
 			},
 		},
 	})
