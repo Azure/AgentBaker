@@ -1,4 +1,5 @@
 **What type of PR is this?**
+/kind feature
 
 <!--
 Add one of the following kinds:
@@ -18,6 +19,10 @@ Optionally add one or more of the following kinds if applicable:
 -->
 
 **What this PR does / why we need it**:
+Update Windows base images to 2025-01B
+- Windows 2019: [xxxxx]()
+- Windows 2022: [xxxxx]()
+- Windows 23H2: [xxxxx]()
 
 **Which issue(s) this PR fixes**:
 <!-- 
@@ -29,7 +34,7 @@ Fixes #
 
 **Requirements**:
 
-- [ ] uses [conventional commit messages](https://www.conventionalcommits.org/)
+- [x] uses [conventional commit messages](https://www.conventionalcommits.org/)
   <!-- Common commit types:
         build: Build 🏭
         chore: Maintenance 🔧
