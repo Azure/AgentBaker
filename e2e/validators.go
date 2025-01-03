@@ -317,3 +317,23 @@ func isResourceAvailable(node *corev1.Node, resourceName string) bool {
 	}
 	return false
 }
+
+func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) {
+	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-containerd but got %d", len(versions))
+	// assert versions[0] value starts with '2.'
+	require.Truef(s.T, strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0])
+
+	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
+	// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
+	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath", "CriuPath")
+	// assert that containerd.server service file does not contain LimitNOFILE
+	// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
+	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE", "LimitNOFILE")
+}
+
+func ValidateRunc1_2Properties(ctx context.Context, s *Scenario, versions []string) {
+	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
+	// assert versions[0] value starts with '1.2.'
+	require.Truef(s.T, strings.HasPrefix(versions[0], "1.2."), "expected moby-runc version to start with '1.2.', got %v", versions[0])
+	ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
+}
