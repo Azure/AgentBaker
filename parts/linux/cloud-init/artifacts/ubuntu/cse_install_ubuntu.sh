@@ -35,7 +35,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.3.2"
+    BLOBFUSE2_VERSION="2.4.0"
 
     # keep legacy version on ubuntu 16.04 and 18.04
     if [ "${OSVERSION}" == "18.04" ]; then
