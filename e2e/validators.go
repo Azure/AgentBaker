@@ -331,7 +331,7 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE", "LimitNOFILE")
 }
 
-func ValidateRunc1_2Properties(ctx context.Context, s *Scenario, versions []string) {
+func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
 	require.Lenf(s.T, versions, 1, "Expected exactly one version for moby-runc but got %d", len(versions))
 	// assert versions[0] value starts with '1.2.'
 	require.Truef(s.T, strings.HasPrefix(versions[0], "1.2."), "expected moby-runc version to start with '1.2.', got %v", versions[0])

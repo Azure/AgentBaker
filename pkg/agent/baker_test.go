@@ -333,7 +333,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// !!! WARNING !!!
 		// avoid mutation of the original config -- both functions mutate input.
 		// GetNodeBootstrappingPayload mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
-		// unit tests should always rely on unmutated copies of the base config.
+		// unit tests should always rely on un-mutated copies of the base config.
 		configCustomDataInput, err := deepcopy.Anything(config)
 		Expect(err).To(BeNil())
 
@@ -1624,6 +1624,36 @@ oom_score = 0
 		}, func(o *nodeBootstrappingOutput) {
 			Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("false"))
 			Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
+		}),
+		Entry("AKSUbuntu2404 with custom osConfig for Ulimit", "AKSUbuntu2404+CustomLinuxOSConfigUlimit", ">=1.32.x", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				UlimitConfig: &datamodel.UlimitConfig{
+					MaxLockedMemory: "75000",
+					NoFile:          "1048",
+				},
+			}
+		}, func(o *nodeBootstrappingOutput) {
+			containerdUlimitContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_ULIMITS"]))
+			Expect(err).To(BeNil())
+			// assert defaults for gc_thresh2 and gc_thresh3
+			// assert custom values for all others.
+			Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
+			Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
+		}),
+		Entry("AKSUbuntu2404 with custom osConfig for Ulimit", "AKSUbuntu2404+CustomLinuxOSConfigUlimit", "<=1.31.x", func(config *datamodel.NodeBootstrappingConfiguration) {
+			config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+				UlimitConfig: &datamodel.UlimitConfig{
+					MaxLockedMemory: "75000",
+					NoFile:          "1048",
+				},
+			}
+		}, func(o *nodeBootstrappingOutput) {
+			containerdUlimitContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_ULIMITS"]))
+			Expect(err).To(BeNil())
+			// assert defaults for gc_thresh2 and gc_thresh3
+			// assert custom values for all others.
+			Expect(containerdUlimitContent).To(ContainSubstring("LimitNOFILE=1048"))
+			Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
 		}),
 	)
 })

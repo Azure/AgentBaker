@@ -1243,10 +1243,10 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "2404")
-				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "2404")
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc1_2Properties(ctx, s, runcVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1261,10 +1261,10 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "2404")
-				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "2404")
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc1_2Properties(ctx, s, runcVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
 		},
 	})
@@ -1282,10 +1282,10 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "2404")
-				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "2404")
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc1_2Properties(ctx, s, runcVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
 		},
 	})
