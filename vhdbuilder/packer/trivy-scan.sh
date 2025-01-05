@@ -40,6 +40,8 @@ export SYSTEM_COLLECTIONURI=${26}
 export SYSTEM_TEAMPROJECT=${27}
 export BUILD_BUILDID=${28}
 
+#test
+
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
