@@ -150,57 +150,76 @@ fi
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
+installGPUDriversAMD() {
+    echo "Installing AMD GPU drivers"
+    set -e
+    wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
+    sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.1/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.3 jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
+
+
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.1/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.3.1 jammy main" | sudo tee --append /etc/apt/sources.list.d/rocm.list
+    echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | sudo tee /etc/apt/preferences.d/rocm-pin-600
+
+    sudo apt-get update
+    sudo apt-get install -y amdgpu-dkms
+    REBOOTREQUIRED=true
+    set +e
+    echo "AMD GPU drivers installed"
+}
+
+
+
 echo $(date),$(hostname), "Start configuring GPU drivers"
+installGPUDriversAMD
 if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
-    if [[ "${GPU_DRIVER_TYPE}" == "ROC" ]]; then
-      installGPUDriversAMD
-    else
-      logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-      if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-          if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
-              mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
-              tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
+    logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
+    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
+        if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
+            mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
+            tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
 ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
-          fi
-          logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
-      else
-          logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
-      fi
+        fi
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+    else
+        logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
+    fi
 
-      if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-          # fabric manager trains nvlink connections between multi instance gpus.
-          # it appears this is only necessary for systems with *multiple cards*.
-          # i.e., an A100 can be partitioned a maximum of 7 ways.
-          # An NC24ads_A100_v4 has one A100.
-          # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
-          # ND96 seems to require fabric manager *even when not using mig partitions*
-          # while it fails to install on NC24.
-          if isMarinerOrAzureLinux "$OS"; then
-              logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
-          fi
-          logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
-      fi
+    if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
+        # fabric manager trains nvlink connections between multi instance gpus.
+        # it appears this is only necessary for systems with *multiple cards*.
+        # i.e., an A100 can be partitioned a maximum of 7 ways.
+        # An NC24ads_A100_v4 has one A100.
+        # An ND96asr_v4 has eight A100, for a maximum of 56 partitions.
+        # ND96 seems to require fabric manager *even when not using mig partitions*
+        # while it fails to install on NC24.
+        if isMarinerOrAzureLinux "$OS"; then
+            logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
+        fi
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+    fi
 
-      # This will only be true for multi-instance capable VM sizes
-      # for which the user has specified a partitioning profile.
-      # it is valid to use mig-capable gpus without a partitioning profile.
-      if [[ "${MIG_NODE}" == "true" ]]; then
-          # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
-          # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
-          # Commands such as `nvidia-smi --gpu-reset` may succeed,
-          # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
-          # this will not be required per nvidia for next gen H100.
-          REBOOTREQUIRED=true
+    # This will only be true for multi-instance capable VM sizes
+    # for which the user has specified a partitioning profile.
+    # it is valid to use mig-capable gpus without a partitioning profile.
+    if [[ "${MIG_NODE}" == "true" ]]; then
+        # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
+        # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
+        # Commands such as `nvidia-smi --gpu-reset` may succeed,
+        # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
+        # this will not be required per nvidia for next gen H100.
+        REBOOTREQUIRED=true
 
-          # this service applies the partitioning scheme with nvidia-smi.
-          # we should consider moving to mig-parted which is simpler/newer.
-          # we couldn't because of old drivers but that has long been fixed.
-          logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
-      fi
+        # this service applies the partitioning scheme with nvidia-smi.
+        # we should consider moving to mig-parted which is simpler/newer.
+        # we couldn't because of old drivers but that has long been fixed.
+        logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
     fi
 fi
 

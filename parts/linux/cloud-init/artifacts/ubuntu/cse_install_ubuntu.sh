@@ -10,17 +10,6 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
-installGPUDriversAMD() {
-    echo "Installing AMD drivers..."
-    sudo apt update # TODO: should be removed?
-    sudo apt install "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
-    sudo usermod -a -G render,video $LOGNAME # Add the current user to the render and video groups
-    wget https://repo.radeon.com/amdgpu-install/6.3/ubuntu/jammy/amdgpu-install_6.3.60300-1_all.deb
-    sudo apt install ./amdgpu-install_6.3.60300-1_all.deb # TODO: cache to avoid network call and
-    sudo apt update
-    sudo apt install amdgpu-dkms rocm
-}
-
 
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
