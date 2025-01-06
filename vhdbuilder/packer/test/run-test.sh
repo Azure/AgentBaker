@@ -59,7 +59,7 @@ if [ "$MODE" == "default" ]; then
     --attach-os-disk $DISK_NAME \
     --os-type $OS_TYPE \
     --public-ip-address ""
-else 
+else
   if [ "$MODE" == "sigMode" ]; then
     id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
     if [ -z "$id" ]; then
@@ -111,7 +111,7 @@ else
       --admin-password $TEST_VM_ADMIN_PASSWORD \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
-      
+
   echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 fi
 
@@ -205,6 +205,9 @@ else
   errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
   if [[ $errMsg != \"\" ]]; then
+    echo "Tests failed. errMsg is $errMsg"
+    echo "Test output is: "
+    echo "$ret"
     exit 1
   fi
 fi

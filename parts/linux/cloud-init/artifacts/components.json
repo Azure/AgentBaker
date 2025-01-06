@@ -485,8 +485,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.8.0",
-          "previousLatestVersion": "1.7.1"
+          "latestVersion": "1.9.1",
+          "previousLatestVersion": "1.8.0"
         }
       ]
     },
@@ -496,8 +496,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.8.0",
-          "previousLatestVersion": "1.7.1"
+          "latestVersion": "1.9.1",
+          "previousLatestVersion": "1.8.0"
         }
       ]
     },
@@ -586,7 +586,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.2.1"
+                "latestVersion": "1.2.2"
               }
             ],
             "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
