@@ -27,7 +27,11 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
   fi
-  AZURE_LOCATION=$PACKER_BUILD_LOCATION
+  if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+    AZURE_LOCATION=$CVM_PACKER_BUILD_LOCATION
+  else
+    AZURE_LOCATION=$PACKER_BUILD_LOCATION
+  fi
 fi
 
 if [ "${OS_TYPE,,}" == "linux" ]; then
@@ -73,6 +77,10 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
     TARGET_COMMAND_STRING+=" "
   fi
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+fi
+
+if [[ "${OS_TYPE}" == "Linux" && ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 if [ "${OS_TYPE,,}" == "linux" ]; then

@@ -81,9 +81,8 @@ fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
+		if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${CVM_PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		else
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		fi
@@ -99,9 +98,8 @@ fi
 
 if [ -z "${VNET_NAME}" ]; then
 	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
-			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
-			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
+		if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+			VNET_NAME="nodesig-packer-vnet-${CVM_PACKER_BUILD_LOCATION}"
 		else
 			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
 		fi
@@ -259,7 +257,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+        TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
       fi
 
       az sig image-definition create \
@@ -525,6 +523,7 @@ fi
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
+  "cvm_location": "${CVM_PACKER_BUILD_LOCATION}",
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
