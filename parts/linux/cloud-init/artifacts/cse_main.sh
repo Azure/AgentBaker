@@ -79,6 +79,35 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
+# acr access check for artifact pull
+if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    echo "Checking access to ACR with anonymous pull"
+    logs_to_events "AKS.CSE.acrAnonymousCheck" retrycmd_acr_access_check 10 1 "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+    ret_check_anonymous=$?
+    if [[ $ret_check_anonymous -eq $ERR_ORAS_PULL_UNAUTHORIZED ]]; then
+        echo "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
+        acr_login_server="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+        azureconfig=$(cat /etc/kubernetes/azure.json)
+        tenant_id=$(echo $azureconfig | jq -r '.tenantId')
+        # sp cluster is not supported for network isolated cluster
+        kubelet_identity=$(echo $azureconfig | jq -r '.userAssignedIdentityID')
+        logs_to_events "AKS.CSE.orasLogin" oras_login_with_identity $acr_login_server $kubelet_identity $tenant_id
+        ret_login=$?
+        if [[ "$ret_login" != "0" ]]; then
+            # even though we do not support anonymous pull until kubelet identity is bound in same request in vmss put. we should still failure since the oras pull will anyway fail at last.
+            exit $ERR_ORAS_PULL_UNAUTHORIZED
+        fi
+        logs_to_events "AKS.CSE.acrNonAnonymousCheck" retrycmd_acr_access_check 10 1 "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+        ret_check_after_login=$?
+        if [[ "$ret_check_after_login" != "0" ]]; then
+            exit $ret_check_after_login
+        fi
+    elif [ $ret_check_anonymous -ne 0 ]; then
+        exit $ret_check_anonymous
+    fi
+    echo "bootstarp acr '$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER' access check passed"
+fi
+
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
