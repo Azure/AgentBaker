@@ -418,16 +418,22 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
+          "latestVersion": "v3.17.1-5"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
           "latestVersion": "v3.17.1"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.16.3"
         }
       ]
     },
