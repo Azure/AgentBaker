@@ -79,8 +79,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.6.13",
-          "previousLatestVersion": "v1.6.7",
+          "latestVersion": "v1.6.18",
+          "previousLatestVersion": "v1.6.13",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -130,8 +130,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.13",
-          "previousLatestVersion": "v1.6.7",
+          "latestVersion": "v1.6.18",
+          "previousLatestVersion": "v1.6.13",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -709,8 +709,8 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.13",
-                "previousLatestVersion": "1.6.7"
+                "latestVersion": "1.6.18",
+                "previousLatestVersion": "1.6.13"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
