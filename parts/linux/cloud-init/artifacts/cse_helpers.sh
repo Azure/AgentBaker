@@ -221,7 +221,6 @@ retrycmd_acr_access_check() {
     echo "${access_retries} retries for acr access check"
     sample_image="$acr_url/mcr/hello-world:latest"
     for i in $(seq 1 $access_retries); do
-        tar -tzf $tarball && break || \
         if [ $i -eq $access_retries ]; then
             return $ERR_ORAS_PULL_NETWORK_ACCESS
         else
