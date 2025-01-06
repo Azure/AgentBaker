@@ -234,7 +234,6 @@ retrycmd_acr_access_check() {
                     return $ERR_ORAS_PULL_INCORRECT_CACHE
                 elif [[ $error_output == *"unauthorized"* ]]; then
                     return $ERR_ORAS_PULL_UNAUTHORIZED
-                else
                 fi
             fi
             sleep $wait_sleep
@@ -259,7 +258,7 @@ oras_login_with_identity() {
         -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" -s | jq -r '.refresh_token')
 
     if ACR_TOKEN=""; then
-        echo "Failed to retrieve access token to acr $acr_url, it is by expected if the acr is anoyomous access enabled. Otherwise, please check the kubelet identity access to acr"
+        echo "Failed to retrieve access token to acr '$acr_url', it is by expected if the acr is anoyomous access enabled. Otherwise, please check the kubelet identity access to acr"
         return 1
     fi
 
