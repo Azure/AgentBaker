@@ -413,14 +413,14 @@ configureKubeletServingCertificateRotation() {
         return 0
     fi
 
+    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+
     export -f should_disable_kubelet_serving_certificate_rotation
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
     if [ $? -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
-
-    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
 
     if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" == "true" ]; then
         echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels"
@@ -434,11 +434,22 @@ configureKubeletServingCertificateRotation() {
         fi
 
         removeKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
-        return 0
+    else
+        echo "kubelet serving certificate rotation is enabled"
+        echo "removing --tls-cert-file and --tls-private-key-file from kubelet flags"
+
+        removeKubeletFlag "--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt"
+        removeKubeletFlag "--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key"
+
+        if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+            set +x
+            KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'del(.tlsCertFile)' | jq 'del(.tlsPrivateKeyFile)' | base64)
+            set -x
+        fi
+
+        echo "adding node label $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL if needed"
+        addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
     fi
-    
-    echo "kubelet serving certificate rotation is enabled, will add node label if needed"
-    addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
 }
 
 ensureKubelet() {
