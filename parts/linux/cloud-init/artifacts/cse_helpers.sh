@@ -246,7 +246,7 @@ oras_login_with_identity() {
     local client_id=$2
     local tenant_id=$3
 
-    ACCESS_TOKEN=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s | jq .access_token)
+    ACCESS_TOKEN=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s | jq .access_token -r)
     if [ -z "$ACCESS_TOKEN" ]; then
         echo "Failed to retrieve kubelet token"
         return 1
