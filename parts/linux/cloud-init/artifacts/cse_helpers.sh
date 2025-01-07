@@ -234,6 +234,8 @@ retrycmd_acr_access_check() {
                 elif [[ $error_output == *"unauthorized"* ]]; then
                     return $ERR_ORAS_PULL_UNAUTHORIZED
                 fi
+            else
+                break
             fi
             sleep $wait_sleep
         fi
