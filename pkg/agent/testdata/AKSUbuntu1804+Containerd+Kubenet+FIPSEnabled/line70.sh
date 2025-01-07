@@ -159,6 +159,11 @@ configureKubeletServerCert() {
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
+    if [ -s "$KUBELET_SERVER_CERT_PATH" ] && [ -s "$KUBELET_SERVER_PRIVATE_KEY_PATH" ]; then
+        echo "kubelet serving cert and key already exist"
+        return 0
+    fi
+
     openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
     openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
 }
@@ -239,9 +244,7 @@ EOF
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
-        configureKubeletServerCert
-    fi
+    configureKubeletServerCert
 
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
