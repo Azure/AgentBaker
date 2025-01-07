@@ -155,19 +155,6 @@ EOF
   systemctl restart containerd
 }
 
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    if [ -s "$KUBELET_SERVER_CERT_PATH" ] && [ -s "$KUBELET_SERVER_PRIVATE_KEY_PATH" ]; then
-        echo "kubelet serving cert and key already exist"
-        return 0
-    fi
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureK8s() {
     mkdir -p "/etc/kubernetes/certs"
     
@@ -243,8 +230,6 @@ EOF
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
-
-    configureKubeletServerCert
 
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
@@ -410,13 +395,24 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
-configureKubeletServingCertificateRotation() {
+generateSelfSignedKubeletServingCertificate() {
+    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
+    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+
+    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
+    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
+}
+
+configureKubeletServing() {
     if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
-        echo "kubelet serving certificate rotation is disabled, nothing to configure"
+        echo "kubelet serving certificate rotation is disabled, generating self-signed serving certificate with openssl"
+        generateSelfSignedKubeletServingCertificate
         return 0
     fi
 
     KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
+    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
     export -f should_disable_kubelet_serving_certificate_rotation
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
@@ -426,24 +422,27 @@ configureKubeletServingCertificateRotation() {
     fi
 
     if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" == "true" ]; then
-        echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels"
+        echo "kubelet serving certificate rotation is disabled by nodepool tags"
 
+        echo "reconfiguring kubelet flags and config as needed"
         KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-
         if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
             set -x
         fi
 
+        echo "generating self-signed serving certificate with openssl"
+        generateSelfSignedKubeletServingCertificate
+
+        echo "removing node label $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL"
         removeKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
     else
         echo "kubelet serving certificate rotation is enabled"
+
         echo "removing --tls-cert-file and --tls-private-key-file from kubelet flags"
-
-        removeKubeletFlag "--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt"
-        removeKubeletFlag "--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key"
-
+        removeKubeletFlag "--tls-cert-file=$KUBELET_SERVER_CERT_PATH"
+        removeKubeletFlag "--tls-private-key-file=$KUBELET_SERVER_PRIVATE_KEY_PATH"
         if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'del(.tlsCertFile)' | jq 'del(.tlsPrivateKeyFile)' | base64)
