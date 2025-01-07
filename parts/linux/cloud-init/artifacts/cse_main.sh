@@ -87,11 +87,7 @@ if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
     if [[ $ret_check_anonymous -eq $ERR_ORAS_PULL_UNAUTHORIZED ]]; then
         echo "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
         acr_login_server="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
-        azureconfig=$(cat /etc/kubernetes/azure.json)
-        tenant_id=$(echo $azureconfig | jq -r '.tenantId')
-        # sp cluster is not supported for network isolated cluster
-        kubelet_identity=$(echo $azureconfig | jq -r '.userAssignedIdentityID')
-        logs_to_events "AKS.CSE.orasLogin" oras_login_with_identity $acr_login_server $kubelet_identity $tenant_id
+        logs_to_events "AKS.CSE.orasLogin" oras_login_with_identity $acr_login_server $USER_ASSIGNED_IDENTITY_ID $TENANT_ID
         ret_login=$?
         if [[ "$ret_login" != "0" ]]; then
             # even though we do not support anonymous pull until kubelet identity is bound in same request in vmss put. we should still failure since the oras pull will anyway fail at last.
