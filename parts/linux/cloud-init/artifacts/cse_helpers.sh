@@ -247,10 +247,8 @@ oras_login_with_identity() {
     local tenant_id=$3
 
     ACCESS_TOKEN=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s | jq .access_token)
-    if[ $ACCESS_TOKEN -ne ""]; then
-        echo "Successfully retrieved access token"
-    else
-        echo "Failed to retrieve access token"
+    if [ -z "$ACCESS_TOKEN" ]; then
+        echo "Failed to retrieve kubelet token"
         return 1
     fi
 
@@ -258,8 +256,8 @@ oras_login_with_identity() {
         -H "Content-Type: application/x-www-form-urlencoded" \
         -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" -s | jq -r '.refresh_token')
 
-    if[ $ACR_TOKEN -eq "" ]; then
-        echo "Failed to retrieve access token to acr '$acr_url', it is by expected if the acr is anoyomous access enabled. Otherwise, please check the kubelet identity access to acr"
+    if [ -z "$ACR_TOKEN" ]; then
+        echo "Failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
         return 1
     fi
 
