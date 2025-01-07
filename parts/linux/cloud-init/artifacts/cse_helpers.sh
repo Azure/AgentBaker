@@ -483,7 +483,7 @@ should_disable_kubelet_serving_certificate_rotation() {
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "$should_disable"
+    echo "${should_disable,,}"
 }
 
 isMarinerOrAzureLinux() {

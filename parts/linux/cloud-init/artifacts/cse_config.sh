@@ -432,13 +432,13 @@ configureKubeletServing() {
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
-    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" == "true" ]; then
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "true" ]; then
         echo "kubelet serving certificate rotation is disabled by nodepool tags"
 
         # set --rotate-server-certificates flag and serverTLSBootstrap config file field to false
         echo "reconfiguring kubelet flags and config as needed"
         KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-        if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
             set -x
@@ -459,7 +459,7 @@ configureKubeletServing() {
         echo "removing --tls-cert-file and --tls-private-key-file from kubelet flags"
         removeKubeletFlag "--tls-cert-file=$KUBELET_SERVER_CERT_PATH"
         removeKubeletFlag "--tls-private-key-file=$KUBELET_SERVER_PRIVATE_KEY_PATH"
-        if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'del(.tlsCertFile)' | jq 'del(.tlsPrivateKeyFile)' | base64)
             set -x
