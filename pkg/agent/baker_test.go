@@ -333,7 +333,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// !!! WARNING !!!
 		// avoid mutation of the original config -- both functions mutate input.
 		// GetNodeBootstrappingPayload mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
-		// unit tests should always rely on unmutated copies of the base config.
+		// unit tests should always rely on un-mutated copies of the base config.
 		configCustomDataInput, err := deepcopy.Anything(config)
 		Expect(err).To(BeNil())
 
@@ -1546,6 +1546,10 @@ oom_score = 0
 					TransparentHugePageEnabled: "never",
 					TransparentHugePageDefrag:  "defer+madvise",
 					SwapFileSizeMB:             &swapFileSizeMB,
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: "75000",
+						NoFile:          "1048",
+					},
 				}
 			}, func(o *nodeBootstrappingOutput) {
 				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
@@ -1565,6 +1569,11 @@ oom_score = 0
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
+
+				Expect(o.vars["SHOULD_CONFIG_CONTAINERD_ULIMITS"]).To(Equal("true"))
+				containerdUlimitContent := o.vars["CONTAINERD_ULIMITS"]
+				Expect(containerdUlimitContent).To(ContainSubstring("LimitNOFILE=1048"))
+				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
 			}),
 		Entry("AKSUbuntu2204 with k8s 1.31 and custom kubeletConfig and serializeImagePull flag", "AKSUbuntu2204+CustomKubeletConfig+SerializeImagePulls", "1.31.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -1625,6 +1634,21 @@ oom_score = 0
 			Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("false"))
 			Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
 		}),
+		Entry("AKSUbuntu2404 with custom osConfig for Ulimit", "AKSUbuntu2404+CustomLinuxOSConfigUlimit", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: "75000",
+						NoFile:          "1048",
+					},
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["SHOULD_CONFIG_CONTAINERD_ULIMITS"]).To(Equal("true"))
+				containerdUlimitContent := o.vars["CONTAINERD_ULIMITS"]
+				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
+				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
+			}),
 	)
 })
 
