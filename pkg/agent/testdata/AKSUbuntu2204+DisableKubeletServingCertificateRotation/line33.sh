@@ -199,7 +199,7 @@ fi
 
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
-logs_to_events "AKS.CSE.configureKubeletServingCertificateRotation" configureKubeletServingCertificateRotation
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
