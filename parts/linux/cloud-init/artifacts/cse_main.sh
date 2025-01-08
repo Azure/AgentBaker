@@ -107,7 +107,7 @@ logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 export -f should_skip_binary_cleanup
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
-if [[ "${SKIP_BINARY_CLEANUP}" == "true" ]]; then
+if [[ "${SKIP_BINARY_CLEANUP}" == true ]]; then
     echo "binaries will not be cleaned up"
     FULL_INSTALL_REQUIRED=true
 elif [ -f $VHD_LOGS_FILEPATH ]; then

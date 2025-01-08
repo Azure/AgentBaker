@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -216,6 +217,30 @@ func ValidateIMDSRestrictionRule(ctx context.Context, s *Scenario, table string)
 	cmd := fmt.Sprintf("iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table)
 	execResult := execOnVMForScenario(ctx, s, cmd)
 	require.Equal(s.T, "0", execResult.exitCode, "expected to find IMDS restriction rule, but did not")
+}
+
+func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
+	execResult := execOnVMForScenario(ctx, s, "ctr --namespace k8s.io images list | grep kube-proxy | awk '{print $1}' | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'")
+	if execResult.exitCode != "0" {
+		s.T.Errorf("Failed to list kube-proxy images: %s", execResult.stderr)
+		return
+	}
+
+	versions := bytes.NewBufferString(strings.TrimSpace(execResult.stdout.String()))
+	versionMap := make(map[string]int)
+	for _, version := range strings.Split(versions.String(), "\n") {
+		if version != "" {
+			versionMap[version]++
+		}
+	}
+
+	if len(versionMap) > 1 {
+		fmt.Printf("Multiple kube-proxy versions exist: %v\n", versionMap)
+	} else if len(versionMap) == 1 {
+		s.T.Errorf("Only one kube-proxy version exists: %v\n", versionMap)
+	} else {
+		s.T.Errorf("No kube-proxy versions found.")
+	}
 }
 
 func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
