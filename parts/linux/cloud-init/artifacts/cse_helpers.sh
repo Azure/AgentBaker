@@ -229,7 +229,7 @@ retrycmd_acr_access_check() {
                 echo "acr access check failed:"
                 error_output=$(cat $ORAS_OUTPUT)
                 if [[ $error_output == *"not found"* ]]; then
-                    echo "Error: Image '$sample_image' not found, please check acr cache is settled correctly"
+                    echo "Error: Image '$sample_image' not found, please check acr cache is correctly set"
                     return $ERR_ORAS_PULL_INCORRECT_CACHE
                 elif [[ $error_output == *"unauthorized"* ]]; then
                     return $ERR_ORAS_PULL_UNAUTHORIZED
