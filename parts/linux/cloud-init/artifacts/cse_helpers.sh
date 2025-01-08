@@ -470,7 +470,7 @@ should_disable_kubelet_serving_certificate_rotation() {
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "$should_disable"
+    echo "${should_disable,,}"
 }
 
 isMarinerOrAzureLinux() {
@@ -641,6 +641,18 @@ removeKubeletNodeLabel() {
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
     elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+# removes the specified FLAG_STRING (which should be in the form of 'key=value') from KUBELET_FLAGS
+removeKubeletFlag() {
+    local FLAG_STRING=$1
+    if grep -e ",${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/,${FLAG_STRING}/}"
+    elif grep -e "${FLAG_STRING}," <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING},/}"
+    elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
 }
 
