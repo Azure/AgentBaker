@@ -1,7 +1,7 @@
 # Unit Tests
 
-1. Execute unit tests on pipeline. The yaml file of unit test pipeline is .github/workflows/validate-windows-ut.yml.
-1. Execute unit tests locally:
+- Execute unit tests on pipeline. The yaml file of unit test pipeline is `.github/workflows/validate-windows-ut.yml`.
+- Execute unit tests locally:
   1. Please install [pester](https://github.com/pester/Pester) with the command `Install-Module -Name pester -SkipPublisherCheck -Force`.
     - Doc: https://pester.dev/docs/quick-start
     - Courses: https://docs.microsoft.com/en-us/shows/testing-powershell-with-pester/
@@ -11,7 +11,9 @@
     - `Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru`
 
 # Test with AKS RP
-1. Run below commands to build a test package
+
+- Run below commands to build a test package
+
 ```bash
 branchName="master"
 currentCseVersion="v0.0.50" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
@@ -22,42 +24,43 @@ mkdir -p temp-work-folder/aks-windows-cse
 cd temp-work-folder
 curl -O "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-$currentCseVersion.zip"
 pushd aks-windows-cse
-    unzip ../aks-windows-cse-scripts-*.zip
-    rm ../*.zip
-
-	files=("azurecnifunc.ps1" "calicofunc.ps1" "configfunc.ps1" "containerdfunc.ps1" "containerdtemplate.toml" "kubeletfunc.ps1" "kubernetesfunc.ps1" "nvidiagpudriverfunc.ps1")
-	for file in ${files[@]}; do
-	    echo "Downloading $file from $url/$file"
-	   curl -O "$url/$file"
-	done
-
-	pushd debug
-		files=("VFP.psm1" "captureNetworkFlows.ps1" "collect-windows-logs.ps1" "collectlogs.ps1" "dumpVfpPolicies.ps1" "helper.psm1" "hns.psm1" "hns.v2.psm1" "networkhealth.ps1" "portReservationTest.ps1" "starthnstrace.cmd" "starthnstrace.ps1" "startpacketcapture.cmd" "startpacketcapture.ps1" "stoppacketcapture.cmd")
-		for file in ${files[@]}; do
-		    echo "Downloading $file from $url/debug/$file"
-		   curl -O "$url/debug/$file"
-		done
-	popd
-	
-	pushd provisioningscripts
-		files=("cleanupnetwork.ps1" "hnsremediator.ps1" "hostsconfigagent.ps1" "kubeletstart.ps1" "kubeproxystart.ps1" "loggenerator.ps1" "windowslogscleanup.ps1" "windowsnodereset.ps1" "windowssecuretls.ps1")
-		for file in ${files[@]}; do
-		    echo "Downloading $file from $url/provisioningscripts/$file"
-		   curl -O "$url/provisioningscripts/$file"
-		done
-	popd
-
-	zip -r "../aks-windows-cse-scripts-$testCseVersion.zip" *
+  unzip ../aks-windows-cse-scripts-*.zip
+  rm ../*.zip
+  
+  files=("azurecnifunc.ps1" "calicofunc.ps1" "configfunc.ps1" "containerdfunc.ps1" "containerdtemplate.toml" "kubeletfunc.ps1" "kubernetesfunc.ps1" "nvidiagpudriverfunc.ps1")
+  for file in ${files[@]}; do
+    echo "Downloading $file from $url/$file"
+    curl -O "$url/$file"
+  done
+  
+  pushd debug
+    files=("VFP.psm1" "captureNetworkFlows.ps1" "collect-windows-logs.ps1" "collectlogs.ps1" "dumpVfpPolicies.ps1" "helper.psm1" "hns.psm1" "hns.v2.psm1" "networkhealth.ps1" "portReservationTest.ps1" "starthnstrace.cmd" "starthnstrace.ps1" "startpacketcapture.cmd" "startpacketcapture.ps1" "stoppacketcapture.cmd")
+    for file in ${files[@]}; do
+      echo "Downloading $file from $url/debug/$file"
+      curl -O "$url/debug/$file"
+    done
+  popd
+  
+  pushd provisioningscripts
+    files=("cleanupnetwork.ps1" "hnsremediator.ps1" "hostsconfigagent.ps1" "kubeletstart.ps1" "kubeproxystart.ps1" "loggenerator.ps1" "windowslogscleanup.ps1" "windowsnodereset.ps1" "windowssecuretls.ps1")
+    for file in ${files[@]}; do
+      echo "Downloading $file from $url/provisioningscripts/$file"
+      curl -O "$url/provisioningscripts/$file"
+    done
+  popd
+  
+  zip -r "../aks-windows-cse-scripts-$testCseVersion.zip" *
 popd
 ```
-1. Upload the test package to your Azure storage container `$web`
+
+- Upload the test package to your Azure storage container `$web`
   - You need to enable `Static website` in your storage account on Azure portal
   - You need to note down your `Primary endpoint` of `Static website` of your storage account
   - The test package download URL should be `[Primary endpoint]/aks-windows-cse-scripts-[$testCseVersion].zip`
-1. Test it with AKS RP in the toggle `windows-cse-package-url.yaml`
+- Test it with AKS RP in the toggle `windows-cse-package-url.yaml`
 
 # AKS Windows CSE Scripts Package
-All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+All files except `*.test.ps1` and `README.md` will be published in AKS Windows CSE Scripts Package.
 
 ## v0.0.50
 - fix: do not use return in updating kubelet node labels #5151
