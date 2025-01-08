@@ -269,7 +269,6 @@ oras_login_with_identity() {
     ret=$?
     if [ $ret -ne 0 ]; then
         echo "Failed to login to acr '$acr_url' with identity token"
-        set -x 
         return 1
     fi
 }
