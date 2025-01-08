@@ -114,7 +114,7 @@ elif [ -f $VHD_LOGS_FILEPATH ]; then
     logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
     FULL_INSTALL_REQUIRED=false
 else
-    if [ $IS_VHD = true ]; then
+    if [[ "${IS_VHD}" = true ]]; then
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
         exit $ERR_VHD_FILE_NOT_FOUND
     fi
