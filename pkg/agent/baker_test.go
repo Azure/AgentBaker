@@ -876,8 +876,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("true"))
 				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--rotate-server-certificates=true")).To(BeTrue())
-				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--tls-cert-file")).To(BeFalse())
-				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--tls-private-key-file")).To(BeFalse())
 			}),
 
 		Entry("AKSUbuntu2204 with kubelet serving certificate rotation disabled and custom kubelet config",
