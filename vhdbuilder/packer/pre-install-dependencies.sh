@@ -78,7 +78,7 @@ systemctl enable bootstrap.service
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
-  sudo dnf versionlock add kernel*
+  dnf versionlock add kernel*
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
