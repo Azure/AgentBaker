@@ -943,15 +943,17 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=false")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTagsCustomKubeletConfig(t *testing.T) {
+func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			ServerTLSBootstrapping: true,
@@ -981,10 +983,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTagsCustomKubel
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1008,9 +1012,11 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1041,9 +1047,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
