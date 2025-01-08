@@ -224,10 +224,10 @@ retrycmd_acr_access_check() {
         if [ $i -eq $access_retries ]; then
             return $ERR_ORAS_PULL_NETWORK_ACCESS
         else
-            timeout 60 oras pull $sample_image --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            ORAS_OUTPUT=$(timeout 60 oras pull $sample_image --registry-config ${ORAS_REGISTRY_CONFIG_FILE} 2>&1)
             if [[ $? != 0 ]]; then
-                echo "acr access check failed:"
-                error_output=$(cat $ORAS_OUTPUT)
+                echo "acr access check failed"
+                error_output=$(echo $ORAS_OUTPUT)
                 if [[ $error_output == *"not found"* ]]; then
                     echo "Error: Image '$sample_image' not found, please check acr cache is correctly set"
                     return $ERR_ORAS_PULL_INCORRECT_CACHE
