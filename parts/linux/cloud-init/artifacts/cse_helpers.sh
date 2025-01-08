@@ -224,10 +224,10 @@ retrycmd_acr_access_check() {
         if [ $i -eq $access_retries ]; then
             return $ERR_ORAS_PULL_NETWORK_ACCESS
         else
-            ORAS_OUTPUT=$(timeout 60 oras pull $sample_image --registry-config ${ORAS_REGISTRY_CONFIG_FILE} 2>&1)
+            ORAS_RET=$(timeout 60 oras pull $sample_image --registry-config ${ORAS_REGISTRY_CONFIG_FILE} 2>&1)
             if [[ $? != 0 ]]; then
                 echo "acr access check failed"
-                error_output=$(echo $ORAS_OUTPUT)
+                error_output=$(echo $ORAS_RET)
                 if [[ $error_output == *"not found"* ]]; then
                     echo "Error: Image '$sample_image' not found, please check acr cache is correctly set"
                     return $ERR_ORAS_PULL_INCORRECT_CACHE
@@ -249,7 +249,7 @@ oras_login_with_identity() {
     ACCESS_TOKEN=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s | jq .access_token -r)
     if [ -z "$ACCESS_TOKEN" ]; then
         echo "Failed to retrieve kubelet token"
-        set -x 
+        set -x
         return 1
     fi
 
@@ -259,7 +259,7 @@ oras_login_with_identity() {
 
     if [ -z "$ACR_TOKEN" ]; then
         echo "Failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
-        set -x 
+        set -x
         return 1
     fi
 
