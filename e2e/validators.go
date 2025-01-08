@@ -227,19 +227,21 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 	}
 
 	versions := bytes.NewBufferString(strings.TrimSpace(execResult.stdout.String()))
-	versionMap := make(map[string]int)
+	versionMap := make(map[string]struct{})
 	for _, version := range strings.Split(versions.String(), "\n") {
 		if version != "" {
-			versionMap[version]++
+			versionMap[version] = struct{}{}
 		}
 	}
 
-	if len(versionMap) > 1 {
-		fmt.Printf("Multiple kube-proxy versions exist: %v\n", versionMap)
-	} else if len(versionMap) == 1 {
-		s.T.Errorf("Only one kube-proxy version exists: %v\n", versionMap)
-	} else {
+	switch len(versionMap) {
+	case 0:
 		s.T.Errorf("No kube-proxy versions found.")
+	case 1:
+		s.T.Errorf("Only one kube-proxy version exists: %v", versionMap)
+	default:
+		s.T.Logf("Multiple kube-proxy versions exist: %v", versionMap)
+		fmt.Printf("Multiple kube-proxy versions exist: %v\n", versionMap)
 	}
 }
 
