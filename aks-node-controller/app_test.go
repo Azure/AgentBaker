@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -145,6 +146,17 @@ func TestApp_Provision(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestApp_Provision_DryRun(t *testing.T) {
+	app := &App{
+		cmdRunner: cmdRunner,
+	}
+	result := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json", "--dry-run"})
+	assert.Equal(t, 0, result)
+	if reflect.ValueOf(app.cmdRunner).Pointer() != reflect.ValueOf(cmdRunnerDryRun).Pointer() {
+		t.Fatal("app.cmdRunner is expected to be cmdRunnerDryRun")
 	}
 }
 
