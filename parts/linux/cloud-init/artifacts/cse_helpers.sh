@@ -245,10 +245,11 @@ oras_login_with_identity() {
     local acr_url=$1
     local client_id=$2
     local tenant_id=$3
-
+    set +x
     ACCESS_TOKEN=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s | jq .access_token -r)
     if [ -z "$ACCESS_TOKEN" ]; then
         echo "Failed to retrieve kubelet token"
+        set -x 
         return 1
     fi
 
@@ -258,10 +259,19 @@ oras_login_with_identity() {
 
     if [ -z "$ACR_TOKEN" ]; then
         echo "Failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
+        set -x 
         return 1
     fi
 
-    oras login $acr_url --identity-token $ACR_TOKEN
+    oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}
+    set -x
+
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        echo "Failed to login to acr '$acr_url' with identity token"
+        set -x 
+        return 1
+    fi
 }
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
