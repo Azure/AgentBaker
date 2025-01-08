@@ -923,7 +923,7 @@ func Test_Ubuntu2204_WASM(t *testing.T) {
 
 func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a new ubuntu 2204 node that will skip binary cleanup can be properly bootstrapped",
+		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
