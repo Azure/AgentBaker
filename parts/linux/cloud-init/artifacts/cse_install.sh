@@ -774,7 +774,7 @@ cleanUpContainerd() {
 
 handleContainerImageCleanup() {
     local SKIP_BINARY_CLEANUP=$1
-    local IS_VHD=$2
+    local IS_VHD=$2 
 
     if [ ! -f $VHD_LOGS_FILEPATH ] && [ "${IS_VHD,,}" == "true" ]; then
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
