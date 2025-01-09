@@ -158,7 +158,7 @@ func execOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd s
 	execResult := execOnVMForScenario(ctx, s, cmd)
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
-	require.Equal(s.T, expectedExitCodeStr, execResult.exitCode, "'%s' failed with exit code %q, expected %s\nAdditional error message: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", cmd, expectedExitCodeStr, expectedExitCode, additionalErrorMessage, execResult.stdout, execResult.stderr)
+	require.Equal(s.T, expectedExitCodeStr, execResult.exitCode, "exec command failed with exit code %q, expected exit code %s\nCommand: %s\nAdditional detail: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage, execResult.stdout, execResult.stderr)
 
 	return execResult
 }
