@@ -18,8 +18,7 @@ import (
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
 	command := fmt.Sprintf("ls -la %s", path)
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "Command to get directory content terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not get directory contents")
 	for _, file := range files {
 		require.Contains(s.T, execResult.stdout.String(), file, "expected to find file %s within directory %s, but did not", file, path)
 	}
@@ -30,8 +29,7 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
-	execResult := execOnVMForScenario(ctx, s, fmt.Sprintf("sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")))
-	require.Equal(s.T, "0", execResult.exitCode, "sysctl command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")), 0, "systmctl command failed")
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
@@ -39,27 +37,23 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 	command := "nvidia-smi"
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "1", execResult.exitCode, "expected nvidia-smi not to be installed and return exit code 1, but got %q\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, command, 1, "")
 	require.Contains(s.T, execResult.stderr.String(), "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr.String())
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
 	command := "nvidia-smi"
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "expected nvidia-smi to be installed and return exit code 0, but got %q", execResult.exitCode)
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not execute nvidia-smi command")
 }
 
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
 	command := "nvidia-modprobe"
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "expected nvidia-modprobe to be installed and return exit code 0, but got %q", execResult.exitCode)
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "cound not execute nvidia-modprobe command")
 }
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	command := fmt.Sprintf("ls -1q %s | grep -q '^.*$' && true || false", dirName)
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "expected to find a file in directory %s, but did not", dirName)
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "either could not find expected file, or something went wrong")
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
@@ -70,14 +64,12 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	}
 
 	command := makeExecutableCommand(steps)
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "expected to find a file '%s' with contents '%s' but did not", fileName, contents)
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 }
 
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string, contentsName string) {
 	command := fmt.Sprintf("grep -q -F '%s' '%s'", contents, fileName)
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.NotEqual(s.T, "0", execResult.exitCode, "expected to find a file '%s' without %s but did not", fileName, contentsName)
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
@@ -131,8 +123,7 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 	}
 
 	command := makeExecutableCommand(steps)
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "service kill and check terminated with exit code %q (expected 0)", execResult.exitCode)
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "command to restart service failed")
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
@@ -142,8 +133,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 	}
 
 	command := fmt.Sprintf("systemctl cat containerd.service | grep -E -i '%s'", strings.Join(ulimitKeys, "|"))
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "systemctl cat containerd.service command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read containerd.service file")
 
 	for name, value := range ulimits {
 		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
@@ -164,6 +154,14 @@ func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecR
 	return result
 }
 
+func execOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
+	execResult := execOnVMForScenario(ctx, s, cmd)
+
+	require.Equal(s.T, string(expectedExitCode), execResult.exitCode, "'%s' failed with exit code %q, expected %s\nAdditional error message: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", cmd, string(execResult.exitCode), expectedExitCode, additionalErrorMessage, execResult.stdout, execResult.stderr)
+
+	return execResult
+}
+
 func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component, version string) {
 	s.T.Logf("assert %s %s is installed on the VM", component, version)
 	installedCommand := func() string {
@@ -177,8 +175,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 			return ""
 		}
 	}()
-	execResult := execOnVMForScenario(ctx, s, installedCommand)
-	require.Equal(s.T, "0", execResult.exitCode, "Command to get package list terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, installedCommand, 0, "could not get package list")
 	containsComponent := func() bool {
 		for _, line := range strings.Split(execResult.stdout.String(), "\n") {
 			if strings.Contains(line, component) && strings.Contains(line, version) {
@@ -194,8 +191,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 }
 
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
-	execResult := execOnVMForScenario(ctx, s, "cat /etc/default/kubelet")
-	require.Equal(s.T, "0", execResult.exitCode, "cat /etc/default/kubelet command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, "cat /etc/default/kubelet", 0, "could lot read kubelet config")
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(execResult.stdout.String())
@@ -214,13 +210,11 @@ func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 
 func ValidateIMDSRestrictionRule(ctx context.Context, s *Scenario, table string) {
 	cmd := fmt.Sprintf("iptables -t %s -S | grep -q 'AKS managed: added by AgentBaker ensureIMDSRestriction for IMDS restriction feature'", table)
-	execResult := execOnVMForScenario(ctx, s, cmd)
-	require.Equal(s.T, "0", execResult.exitCode, "expected to find IMDS restriction rule, but did not")
+	execOnVMForScenarioValidateExitCode(ctx, s, cmd, 0, "expected to find IMDS restriction rule, but did not")
 }
 
 func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
-	execResult := execOnVMForScenario(ctx, s, "cat /etc/containerd/config.toml")
-	require.Equal(s.T, "0", execResult.exitCode, "expected to find containerd config.toml, but did not")
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, "cat /etc/containerd/config.toml", 0, "could not get containerd config content")
 	expectedShims := []string{
 		`[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.spin]`,
 		`runtime_type = "io.containerd.spin.v2"`,
@@ -253,8 +247,7 @@ func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
 
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "journalctl -u kubelet"
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "expected to find kubelet service logs, but did not")
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs")
 	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
 	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
 }
@@ -262,14 +255,12 @@ func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
 	// grep all filesin /etc/systemd/system/ for /restart\s+kubelet/ and count results
 	command := "grep -rl 'restart[[:space:]]\\+kubelet' /etc/systemd/system/"
-	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "1", execResult.exitCode, "expected to find no services containing 'restart kubelet' in /etc/systemd/system/, but found %q", execResult.stdout.String())
+	execOnVMForScenarioValidateExitCode(ctx, s, command, 1, "expected to find no services containing 'restart kubelet' in /etc/systemd/system/")
 }
 
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.
 func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) {
-	execResult := execOnVMForScenario(ctx, s, `journalctl -u kubelet`)
-	require.Equal(s.T, "0", execResult.exitCode, "expected to find kubelet service logs, but did not")
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, `journalctl -u kubelet`, 0, "could not get kubelet logs")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
 }
