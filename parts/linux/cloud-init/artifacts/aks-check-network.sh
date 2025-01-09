@@ -96,7 +96,11 @@ function check_and_curl {
     while true;
     do
         # curl the url and capture the response code
-        response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
+        if [ "$url" == "mcr.microsoft.com" ]; then 
+            response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
+        else 
+            response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L --head)
+        fi
 
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
