@@ -68,7 +68,12 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 }
 
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string, contentsName string) {
-	command := fmt.Sprintf("grep -q -v -F '%s' '%s'", contents, fileName)
+	steps := []string{
+		fmt.Sprintf("ls -la %[1]s", fileName),
+		fmt.Sprintf("sudo cat %[1]s", fileName),
+		fmt.Sprintf("grep -q -v -F '%s' '%s'", contents, fileName),
+	}
+	command := makeExecutableCommand(steps)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
