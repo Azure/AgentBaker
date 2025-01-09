@@ -157,7 +157,8 @@ func execOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *podExecR
 func execOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario, cmd string, expectedExitCode int, additionalErrorMessage string) *podExecResult {
 	execResult := execOnVMForScenario(ctx, s, cmd)
 
-	require.Equal(s.T, string(expectedExitCode), execResult.exitCode, "'%s' failed with exit code %q, expected %s\nAdditional error message: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", cmd, string(execResult.exitCode), expectedExitCode, additionalErrorMessage, execResult.stdout, execResult.stderr)
+	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
+	require.Equal(s.T, expectedExitCodeStr, execResult.exitCode, "'%s' failed with exit code %q, expected %s\nAdditional error message: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", cmd, expectedExitCodeStr, expectedExitCode, additionalErrorMessage, execResult.stdout, execResult.stderr)
 
 	return execResult
 }
