@@ -374,9 +374,11 @@ const (
 	//  of support and image builds have stopped.
 	FrozenCBLMarinerV1SIGImageVersionForDeprecation string = "202308.28.0"
 
-	Frozen1804Gen1GPUDedicatedVHDSIGIMageVersionForDeprecation string = "202412.29.0"
+	// DO NOT MODIFY: 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as
+	// GPU Dedicated preview image is being deprecated and image builds have stopped.
+	Frozen1804Gen1GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202412.29.0"
 
-	Frozen1804Gen2GPUDedicatedVHDSIGIMageVersionForDeprecation string = "202412.29.0"
+	Frozen1804Gen2GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202412.29.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -474,14 +476,14 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gpucontainerd",
-		Version:       Frozen1804Gen1GPUDedicatedVHDSIGIMageVersionForDeprecation,
+		Version:       Frozen1804Gen1GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation,
 	}
 
 	SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gen2gpucontainerd",
-		Version:       Frozen1804Gen2GPUDedicatedVHDSIGIMageVersionForDeprecation,
+		Version:       Frozen1804Gen2GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation,
 	}
 
 	SIGUbuntuFipsContainerd1804ImageConfigTemplate = SigImageConfigTemplate{
