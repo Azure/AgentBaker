@@ -122,6 +122,9 @@ ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registr
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
+# Error either getting the install mode or cleaning up container images
+ERR_CLEANUP_CONTAINER_IMAGES=214
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -486,7 +489,7 @@ should_disable_kubelet_serving_certificate_rotation() {
     echo "${should_disable,,}"
 }
 
-should_skip_binary_cleanup() {
+getInstallModeAndCleanupContainerImages() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?

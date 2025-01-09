@@ -103,9 +103,14 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-export -f should_skip_binary_cleanup
-SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
+export -f getInstallModeAndCleanupContainerImages
+SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx getInstallModeAndCleanupContainerImages)
 FULL_INSTALL_REQUIRED=$(handleContainerImageCleanup $SKIP_BINARY_CLEANUP $IS_VHD)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to get the install mode and cleanup container images"
+    exit $ERR_CLEANUP_CONTAINER_IMAGES
+fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
