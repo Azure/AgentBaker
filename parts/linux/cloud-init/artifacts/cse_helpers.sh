@@ -494,7 +494,7 @@ should_skip_binary_cleanup() {
       return $ret
     fi
     should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
-    echo "$should_skip"
+    echo "${should_skip,,}"
 }
 
 isMarinerOrAzureLinux() {
