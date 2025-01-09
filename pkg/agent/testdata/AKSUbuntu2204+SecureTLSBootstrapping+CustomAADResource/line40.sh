@@ -737,18 +737,6 @@ getInstallModeAndCleanupContainerImages() {
     echo "${FULL_INSTALL_REQUIRED,,}"
 }
 
-if [ -f $VHD_LOGS_FILEPATH ]; then
-    echo "detected golden image pre-install"
-    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
-    FULL_INSTALL_REQUIRED=false
-else
-    if [[ "${IS_VHD}" = true ]]; then
-        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-        exit $ERR_VHD_FILE_NOT_FOUND
-    fi
-    FULL_INSTALL_REQUIRED=true
-fi
-
 overrideNetworkConfig() {
     CONFIG_FILEPATH="/etc/cloud/cloud.cfg.d/80_azure_net_config.cfg"
     touch ${CONFIG_FILEPATH}

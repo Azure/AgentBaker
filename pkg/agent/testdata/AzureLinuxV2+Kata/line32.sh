@@ -98,8 +98,8 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 export -f getInstallModeAndCleanupContainerImages
-SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx getInstallModeAndCleanupContainerImages)
-FULL_INSTALL_REQUIRED=$(handleContainerImageCleanup $SKIP_BINARY_CLEANUP $IS_VHD)
+SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
+FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD)
 ret=$?
 if [[ "$ret" != "0" ]]; then
     echo "Failed to get the install mode and cleanup container images"
