@@ -64,5 +64,12 @@ Describe 'cse_install.sh'
             The output line 2 should equal "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
             The output line 3 should equal "mock installContainerdWithManifestJson calling"
         End
+        It 'should skip binary cleanup if SKIP_BINARY_CLEANUP is true'
+            SKIP_BINARY_CLEANUP="true"
+            IS_VHD="false"
+            VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
+            When call handleContainerImageCleanup $SKIP_BINARY_CLEANUP $IS_VHD
+            The output line 1 should equal "binaries will not be cleaned up"
+        End
     End
 End

@@ -97,23 +97,9 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 export -f should_skip_binary_cleanup
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
-if [[ "${SKIP_BINARY_CLEANUP}" == true ]]; then
-    echo "binaries will not be cleaned up"
-    FULL_INSTALL_REQUIRED=true
-elif [ -f $VHD_LOGS_FILEPATH ]; then
-    echo "detected golden image pre-install"
-    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
-    FULL_INSTALL_REQUIRED=false
-else
-    if [[ "${IS_VHD}" = true ]]; then
-        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-        exit $ERR_VHD_FILE_NOT_FOUND
-    fi
-    FULL_INSTALL_REQUIRED=true
-fi
+FULL_INSTALL_REQUIRED=$(handleContainerImageCleanup $SKIP_BINARY_CLEANUP $IS_VHD)
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps

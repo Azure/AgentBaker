@@ -23,6 +23,7 @@ CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
+VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
@@ -707,6 +708,32 @@ cleanUpContainerImages() {
 
 cleanUpContainerd() {
     rm -Rf $CONTAINERD_DOWNLOADS_DIR
+}
+
+handleContainerImageCleanup() {
+    local SKIP_BINARY_CLEANUP=$1
+    local IS_VHD=$2
+
+    if [ ! -f $VHD_LOGS_FILEPATH ] && [ "${IS_VHD,,}" == "true" ]; then
+        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+        exit $ERR_VHD_FILE_NOT_FOUND
+    fi
+
+    FULL_INSTALL_REQUIRED=false
+    if [[ "${SKIP_BINARY_CLEANUP}" == true ]]; then
+        echo "binaries will not be cleaned up"
+        FULL_INSTALL_REQUIRED=true
+    elif [ -f $VHD_LOGS_FILEPATH ]; then
+        echo "detected golden image pre-install"
+        logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
+    else
+        if [[ "${IS_VHD}" = true ]]; then
+            echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+            exit $ERR_VHD_FILE_NOT_FOUND
+        fi
+        FULL_INSTALL_REQUIRED=true
+    fi
+    echo "${FULL_INSTALL_REQUIRED,,}"
 }
 
 overrideNetworkConfig() {
