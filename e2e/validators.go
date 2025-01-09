@@ -241,7 +241,6 @@ func ValidateMultipleKubeProxyVersionsExist(ctx context.Context, s *Scenario) {
 		s.T.Errorf("Only one kube-proxy version exists: %v", versionMap)
 	default:
 		s.T.Logf("Multiple kube-proxy versions exist: %v", versionMap)
-		fmt.Printf("Multiple kube-proxy versions exist: %v\n", versionMap)
 	}
 }
 

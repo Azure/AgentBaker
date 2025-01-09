@@ -925,13 +925,9 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
 		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				if nbc.KubeletConfig == nil {
-					nbc.KubeletConfig = map[string]string{}
-				}
-			},
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
 					vmss.Tags = map[string]*string{}
