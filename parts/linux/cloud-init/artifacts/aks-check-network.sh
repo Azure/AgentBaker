@@ -34,7 +34,7 @@ declare -A URL_LIST=(
     ["eastus.data.mcr.microsoft.com"]="FQDN *.data.mcr.microsoft.com is required for MCR storage backed by the Azure content delivery network (CDN)."\
     ["login.microsoftonline.com"]="This is equired for Microsoft Entra authentication."\
     ["packages.microsoft.com"]="This is required to download packages (like Moby, PowerShell, and Azure CLI) using cached apt-get operations."\
-    ["acs-mirror.azureedge.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\
+    ["acs-mirror.azureedge.net/acs-mirror/healthz"]="This checks connection to CDN which is required to download and install required binaries like kubenet and Azure CNI."\
 )
 
 function logs_to_events {
@@ -81,13 +81,14 @@ function check_and_curl {
     local url=$1
     local error_msg=$2
 
-    # check DNS 
-    nslookup $url > /dev/null
+    # check DNS - cut here to extract domain since acs-mirror health check endpoint is a full URL
+    dnsLookupURL=$(echo $url | cut -d'/' -f1)
+    nslookup $dnsLookupURL > /dev/null
     if [ $? -eq 0 ]; then
-        logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $url'"
+        logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $dnsLookupURL'"
     else
-        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url. $error_msg'"
-        dns_trace $url
+        logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $dnsLookupURL. $error_msg'"
+        dns_trace $dnsLookupURL
         return 1
     fi
 
@@ -100,7 +101,7 @@ function check_and_curl {
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
-        elif [ $response -eq 400 ] && ([ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
+        elif [ $response -eq 400 ] && ([ $url == "eastus.data.mcr.microsoft.com" ]); then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
