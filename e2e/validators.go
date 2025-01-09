@@ -19,7 +19,7 @@ import (
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
 	command := fmt.Sprintf("ls -la %s", path)
 	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
+	require.Equal(s.T, "0", execResult.exitCode, "Command to get directory content terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 	for _, file := range files {
 		require.Contains(s.T, execResult.stdout.String(), file, "expected to find file %s within directory %s, but did not", file, path)
 	}
@@ -31,7 +31,7 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		keysToCheck = append(keysToCheck, k)
 	}
 	execResult := execOnVMForScenario(ctx, s, fmt.Sprintf("sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")))
-	require.Equal(s.T, "0", execResult.exitCode, "sysctl command terminated with exit code %q but expected code 0", execResult.exitCode)
+	require.Equal(s.T, "0", execResult.exitCode, "sysctl command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 	for name, value := range customSysctls {
 		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not", name, value)
 	}
@@ -40,7 +40,7 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 	command := "nvidia-smi"
 	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "1", execResult.exitCode, "expected nvidia-smi not to be installed and return exit code 1, but got %q", execResult.exitCode)
+	require.Equal(s.T, "1", execResult.exitCode, "expected nvidia-smi not to be installed and return exit code 1, but got %q\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 	require.Contains(s.T, execResult.stderr.String(), "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr.String())
 }
 
@@ -143,7 +143,7 @@ func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string
 
 	command := fmt.Sprintf("systemctl cat containerd.service | grep -E -i '%s'", strings.Join(ulimitKeys, "|"))
 	execResult := execOnVMForScenario(ctx, s, command)
-	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
+	require.Equal(s.T, "0", execResult.exitCode, "systemctl cat containerd.service command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 
 	for name, value := range ulimits {
 		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s=%v", name, value), "expected to find %s set to %v, but was not", name, value)
@@ -173,7 +173,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 		case config.OSMariner, config.OSAzureLinux:
 			return "dnf list installed"
 		default:
-			s.T.Fatalf("validator isn't implemented for OS %s", s.VHD.OS)
+			s.T.Fatalf("command to get package list isn't implemented for OS %s", s.VHD.OS)
 			return ""
 		}
 	}()
@@ -195,7 +195,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
 	execResult := execOnVMForScenario(ctx, s, "cat /etc/default/kubelet")
-	require.Equal(s.T, "0", execResult.exitCode, "validator command terminated with exit code %q but expected code 0", execResult.exitCode)
+	require.Equal(s.T, "0", execResult.exitCode, "cat /etc/default/kubelet command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
 
 	// Search for "--node-ip" flag and its value.
 	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(execResult.stdout.String())
