@@ -489,7 +489,7 @@ should_disable_kubelet_serving_certificate_rotation() {
     echo "${should_disable,,}"
 }
 
-getInstallModeAndCleanupContainerImages() {
+should_skip_binary_cleanup() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
