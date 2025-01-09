@@ -115,10 +115,16 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0", # for k8s 1.30+
 
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.12-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.7-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.2-windows-hp", # for k8s 1.31.x
 
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7-windows-hp", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.1-windows-hp", # for k8s 1.31.x
 
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",

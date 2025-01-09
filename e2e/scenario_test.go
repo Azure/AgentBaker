@@ -943,15 +943,17 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=false")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
 }
 
-func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTagsCustomKubeletConfig(t *testing.T) {
+func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			ServerTLSBootstrapping: true,
@@ -981,10 +983,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTagsCustomKubel
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": false")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1008,9 +1012,11 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "\\-\\-tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
-				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1041,9 +1047,12 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "\\-\\-rotate-server-certificates=true", "\\-\\-rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true", "serverTLSBootstrap: true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
 			},
 		},
 	})
@@ -1229,6 +1238,63 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen1(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen1Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404ARM(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404ArmContainerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
 			},
 		},
 	})

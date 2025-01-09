@@ -73,8 +73,8 @@
       "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
     {
-      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns"],
-      "assignees": ["rbtr", "behzad-mir", "QxBytes"]
+      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns", "containernetworking/cilium/cilium"],
+      "assignees": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"]
     },
     {
       "matchPackageNames": ["aks/aks-node-ca-watcher"],
