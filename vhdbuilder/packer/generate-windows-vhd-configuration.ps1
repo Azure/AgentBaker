@@ -160,12 +160,13 @@ $global:map = @{
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
     # We use the latest containerd package to start containerd then cache images, and the latest one is expected to be
-    # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
+    # specified by AKS RP for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
     # versions synced.
     "c:\akse-cache\containerd\"   = @(
         $defaultContainerdPackageUrl,
         "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz",
+        "https://acs-mirror.azureedge.net/containerd/windows/v2.0.1-azure.1/binaries/containerd-v2.0.1-azure.1-windows-amd64.tar.gz"
     );
     "c:\akse-cache\csi-proxy\"    = @(
         "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
