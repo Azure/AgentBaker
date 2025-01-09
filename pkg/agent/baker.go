@@ -627,7 +627,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay")
 		},
 		"EbpfDataplane": func() bool {
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane == 1
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane == datamodel.EbpfDataplane_cilium
 		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)

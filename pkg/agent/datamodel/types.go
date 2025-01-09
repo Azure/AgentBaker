@@ -620,6 +620,22 @@ type KubernetesAddon struct {
 	Data       string                    `json:"data,omitempty"`
 }
 
+// EbpfDataplane controls the eBPF networking dataplane.
+type EbpfDataplane int32
+
+const (
+	// none means don't install an eBPF dataplane.
+	EbpfDataplane_none EbpfDataplane = 0
+	// cilium means use Cilium as the eBPF dataplane.
+	EbpfDataplane_cilium EbpfDataplane = 1
+	// unspecified means the cx didn't provide a value.
+	// This is used only during validation / defaulting, never written to the database.
+	EbpfDataplane_unspecified EbpfDataplane = 3
+	// invalid means the cx provided a value that isn't an enum in the API version.
+	// This will always be rejected by validation (and therefore never written to the database).
+	EbpfDataplane_invalid EbpfDataplane = 4
+)
+
 // KubernetesConfig contains the Kubernetes config structure, containing Kubernetes specific configuration.
 type KubernetesConfig struct {
 	KubernetesImageBase               string            `json:"kubernetesImageBase,omitempty"`
@@ -676,7 +692,7 @@ type KubernetesConfig struct {
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
-	EbpfDataplane                     int               `json:"ebpfDataplane,omitempty"`
+	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
 }
 
 /*
