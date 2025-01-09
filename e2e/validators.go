@@ -178,7 +178,7 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 		}
 	}()
 	execResult := execOnVMForScenario(ctx, s, installedCommand)
-	require.Equal(s.T, "0", execResult.exitCode, fmt.Sprintf("validator command terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.stdout.String(), execResult.stderr.String()), execResult.exitCode)
+	require.Equal(s.T, "0", execResult.exitCode, fmt.Sprintf("Command to get package list terminated with exit code %q but expected code 0\nSTDOUT:\n%s\n\nSTDERR\n%s", execResult.stdout.String(), execResult.stderr.String()), execResult.exitCode)
 	containsComponent := func() bool {
 		for _, line := range strings.Split(execResult.stdout.String(), "\n") {
 			if strings.Contains(line, component) && strings.Contains(line, version) {
