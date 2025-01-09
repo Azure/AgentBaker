@@ -222,7 +222,7 @@ mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
 # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-logs_to_events "AKS.CSE.configureKubeletServingCertificateRotation" configureKubeletServingCertificateRotation
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
