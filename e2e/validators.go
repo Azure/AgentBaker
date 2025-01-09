@@ -68,7 +68,7 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 }
 
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string, contentsName string) {
-	command := fmt.Sprintf("grep -q -F '%s' '%s'", contents, fileName)
+	command := fmt.Sprintf("grep -q -v -F '%s' '%s'", contents, fileName)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
