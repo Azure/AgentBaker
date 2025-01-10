@@ -330,7 +330,7 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
 	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE")
 	// nri plugin is enabled by default
-	ValidateDirectoryContent(ctx, s, "/var/run/nri/nri", []string{"nri.sock"})
+	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
