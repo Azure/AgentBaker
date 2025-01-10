@@ -34,8 +34,7 @@ func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
-	execResult := execOnVMForScenario(ctx, s, "cat /etc/default/kubelet")
-	require.Equal(s.T, "0", execResult.exitCode, "cat /etc/default/kubelet failed with exit code %q", execResult.exitCode)
+	execResult := execOnVMForScenarioValidateExitCode(ctx, s, "cat /etc/default/kubelet", 0, "could not read kubelet config")
 	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet")
 
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
@@ -62,8 +61,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		//"cloud-config.txt", // file with UserData
 	})
 
-	execResult = execOnVMForScenario(ctx, s, "curl http://168.63.129.16:32526/vmSettings")
-	require.Equal(s.T, "0", execResult.exitCode, "curl to wireserver failed")
+	execResult = execOnVMForScenarioValidateExitCode(ctx, s, "curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
@@ -104,8 +102,10 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	}
 
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
-		for secretName, secretValue := range secrets {
-			ValidateFileExcludesContent(ctx, s, logFile, secretValue, secretName)
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+			}
 		}
 	}
 }
