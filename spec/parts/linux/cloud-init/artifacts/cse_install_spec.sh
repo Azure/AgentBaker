@@ -74,11 +74,13 @@ Describe 'cse_install.sh'
         }
         VHD_LOGS_FILEPATH="non_existent_file.txt"
         setup() {
-            touch $VHD_LOGS_FILEPATH
+            touch "$VHD_LOGS_FILEPATH"
         }
         cleanup() {
-            rm -f $VHD_LOGS_FILEPATH
+            VHD_LOGS_FILEPATH="non_existent_file.txt"
+            rm -f "$VHD_LOGS_FILEPATH"
         }
+
         BeforeEach 'setup'
         AfterEach 'cleanup'
         It 'should skip binary cleanup if SKIP_BINARY_CLEANUP is true'
