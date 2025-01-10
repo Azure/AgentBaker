@@ -386,13 +386,15 @@ function Install-ContainerD {
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
+function Reapply-Long-Term-Update {
+    Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser
+    Import-Module PSWindowsUpdate
+    Get-WindowsUpdate | Where-Object {$_.Title -match "Cumulative Update"} | Install-WindowsUpdate -AcceptAll -AutoReboo
+}
+
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
-    if ($env:WindowsSKU -Like '2019*')
-    {
-        Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
-        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
-    }
+
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
     # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
@@ -408,8 +410,12 @@ function Install-OpenSSH {
     $ModifiedConfigContents = $ModifiedConfigContents.Replace("#LoginGraceTime 2m", "LoginGraceTime 0")
     Stop-Service sshd
     Out-File -FilePath $ConfigPath -InputObject $ModifiedConfigContents -Encoding UTF8
-    Start-Service sshd
     Write-Log "Updated $ConfigPath for CVEs"
+}
+
+function Start-OpenSSH {
+    Start-Service sshd
+    Write-Log "Started SSHd"
 }
 
 function Install-WindowsPatches {
@@ -483,6 +489,8 @@ function Update-WindowsFeatures {
         Write-Log "Enabling Windows feature: $feature"
         Install-WindowsFeature $feature
     }
+
+    Reapply-Long-Term-Update
 }
 
 function Enable-WindowsFixInFeatureManagement {
@@ -918,6 +926,7 @@ try{
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
+            Start-OpenSSH
             Log-ReofferUpdate
             Set-WinRmServiceAutoStart
             Install-ContainerD
