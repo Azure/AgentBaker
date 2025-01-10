@@ -690,10 +690,6 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 2193453709
         Enable-WindowsFixInFeatureManagement -Name 3331554445
 
-        Write-Log "Enable 2 fixes in 2024-01B"
-        Enable-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv4
-        Enable-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv6
-
         Write-Log "Enable 1 fix in 2024-02B"
         Enable-WindowsFixInFeatureManagement -Name 1327590028
 

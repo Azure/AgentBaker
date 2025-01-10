@@ -300,10 +300,6 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 	if IsKubeletServingCertificateRotationEnabled(config) {
 		// ensure the required feature gate is set
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
-		// backfill deletion of --tls-cert-file and --tls-private-key-file, which are incompatible with --rotate-server-certificates
-		// these are set as defaults on the RP-side for Linux
-		delete(kubeletFlags, "--tls-cert-file")
-		delete(kubeletFlags, "--tls-private-key-file")
 	}
 
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
@@ -347,9 +343,6 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 
 		if IsKubeletServingCertificateRotationEnabled(config) {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
-			// RP doesn't currently set these flags for windows, though we filter them out anyways just to be safe
-			delete(kubeletFlags, "--tls-cert-file")
-			delete(kubeletFlags, "--tls-private-key-file")
 		}
 	}
 }
@@ -481,7 +474,11 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 				sb.WriteString(fmt.Sprintf("LimitMEMLOCK=%s\n", ulimitConfig.MaxLockedMemory))
 			}
 			if ulimitConfig.NoFile != "" {
-				sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+				// ulimit is removed in containerd 2.0+, which is available only in ubuntu2404 distro
+				// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
+				if !profile.Is2404VHDDistro() {
+					sb.WriteString(fmt.Sprintf("LimitNOFILE=%s\n", ulimitConfig.NoFile))
+				}
 			}
 			return sb.String()
 		},
@@ -625,6 +622,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsAzureCNIOverlayFeatureEnabled": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.IsUsingNetworkPluginMode("overlay")
+		},
+		"CiliumDataplaneEnabled": func() bool {
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.EbpfDataplane == datamodel.EbpfDataplane_cilium
 		},
 		"GetBase64EncodedEnvironmentJSON": func() string {
 			customEnvironmentJSON, _ := cs.Properties.GetCustomEnvironmentJSON(false)
