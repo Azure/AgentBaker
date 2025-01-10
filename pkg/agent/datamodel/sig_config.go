@@ -380,9 +380,9 @@ const (
 
 	// DO NOT MODIFY: 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as
 	// GPU Dedicated preview image is being deprecated and image builds have stopped.
-	Frozen1804Gen1GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202412.29.0"
+	Frozen1804Gen1GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202501.05.0"
 
-	Frozen1804Gen2GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202412.29.0"
+	Frozen1804Gen2GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202501.05.0"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
