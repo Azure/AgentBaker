@@ -45,15 +45,15 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$false)][bool]
         $IsAzureCNIOverlayEnabled
     )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, EbpfDataplane: $global:EbpfDataplane"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, CiliumDataplaneEnabled: $global:CiliumDataplaneEnabled"
 
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
     $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
     
-    if (Test-Path variable:global:EbpfDataplane) {
-        if($global:EbpfDataplane) {
+    if (Test-Path variable:global:CiliumDataplaneEnabled) {
+        if($global:CiliumDataplaneEnabled) {
             $configJson.plugins.ipam.type = "azure-cns"
         }
     }

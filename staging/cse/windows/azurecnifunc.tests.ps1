@@ -29,7 +29,7 @@ Describe 'Set-AzureCNIConfig' {
         $isDualStackEnabled = $false
         $KubeDnsServiceIp = "10.0.0.10"
         $global:IsDisableWindowsOutboundNat = $false
-        $global:EbpfDataplane = $false
+        $global:CiliumDataplaneEnabled = $false
         $global:KubeproxyFeatureGates = @("WinDSR=true")
         $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
 
@@ -60,7 +60,7 @@ Describe 'Set-AzureCNIConfig' {
         It "Should use azure-cns as IPAM" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
-            $global:EbpfDataplane = $true
+            $global:CiliumDataplaneEnabled = $true
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
                 -KubeDnsSearchPath $kubeDnsSearchPath `
                 -KubeClusterCIDR $kubeClusterCIDR `
