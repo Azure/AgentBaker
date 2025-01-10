@@ -63,10 +63,8 @@ switch -Regex ($windowsSku) {
         # TODO: clean up when you bump 2025-1B. These patches do an upgrade from 2024-9B to 2024-12B in a way that doesn't break openssh.
         # The right patch for .NET is actually KB5046540. However, the download page us for KB5046269. So we have to verify that patch. I have no idea why.
 
-        $global:patchUrls = @(
-        )
-        $global:patchIDs = @(
-        )
+        $global:patchUrls = @()
+        $global:patchIDs = @()
 
         $global:imagesToPull = @(
             "mcr.microsoft.com/windows/servercore:ltsc2019",
