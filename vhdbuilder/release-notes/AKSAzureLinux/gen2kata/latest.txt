@@ -1,4 +1,4 @@
-Starting build on  Sun Dec 29 21:56:09 UTC 2024
+Starting build on  Sun Jan 5 09:10:32 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - CNI plugin version 1.4.1
@@ -148,15 +148,15 @@ lrwxrwxrwx 1 root root          32 Dec  3 20:17 /usr/local/bin/containerd-shim-k
 -rwxr-xr-x 1 root root    49345112 Dec  3 20:19 /usr/local/bin/containerd-shim-kata-cc-v2
 -rwxr-xr-x 1 1001 docker  10334343 Dec 17 09:51 /usr/local/bin/oras
 -rw-r--r-- 1 1001 docker     11343 Dec 19 08:28 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root         705 Dec 29 21:56 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    36014944 Dec 29 22:03 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root    39369104 Dec 29 22:03 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root    45334640 Dec 29 22:03 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root    52232184 Dec 29 22:03 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root    60175432 Dec 29 22:03 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root    47622592 Dec 29 22:03 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root    53775024 Dec 29 22:03 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root    63515504 Dec 29 22:03 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root         705 Jan  5 09:11 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    39369104 Jan  5 09:17 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root    36014944 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root    52232184 Jan  5 09:17 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root    53775024 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root    60175432 Jan  5 09:17 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root    47622592 Jan  5 09:17 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root    45334640 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root    63515504 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 pcre-libs-8.45-2.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
@@ -740,10 +740,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.126.mshv9-3.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Wed Apr 3 16:46:56 UTC 2024
-Install completed successfully on  Sun Dec 29 22:07:41 UTC 2024
-VSTS Build NUMBER: 20241229.2_master_111361734
-VSTS Build ID: 111361734
-Commit: d39990d3271d9ad345f6fe11394f0914756954d0
+Install completed successfully on  Sun Jan 5 09:25:10 UTC 2025
+VSTS Build NUMBER: 20250105.1_master_111733188
+VSTS Build ID: 111733188
+Commit: 0f6b0c86649e6a5a8e7a4c2cd646aae80449b7ff
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata
