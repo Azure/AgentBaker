@@ -380,7 +380,7 @@ const (
 
 	// DO NOT MODIFY: 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as
 	// GPU Dedicated preview image is being deprecated and image builds have stopped.
-	Frozen1804Gen1GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202501.05.0"
+	Frozen1804GPUContainerdSIGImageVersionForDeprecation string = "202501.05.0"
 
 	Frozen1804Gen2GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation string = "202501.05.0"
 
@@ -480,7 +480,7 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "1804gpucontainerd",
-		Version:       Frozen1804Gen1GPUDedicatedVHDContainerdSIGIMageVersionForDeprecation,
+		Version:       Frozen1804GPUContainerdSIGImageVersionForDeprecation,
 	}
 
 	SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate = SigImageConfigTemplate{
