@@ -211,8 +211,8 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		switch {
 		case i.Latest:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, "", "")
-		case i.Version != "":
-			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, i)
+		//case i.Version != "":
+		//i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, i)
 		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
 		}
