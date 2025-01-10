@@ -1,6 +1,6 @@
-Starting build on  Sun Jan 5 09:10:13 UTC 2025
+Starting build on  Tue Dec 10 03:31:56 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
-  - oras version 1.2.2
+  - oras version 1.2.1
   - runc version 1.1.15-ubuntu22.04u1
   - containerd version 1.7.23-ubuntu22.04u1
   - CNI plugin version 1.4.1
@@ -105,10 +105,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.17.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.16.3
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.9.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.8.0
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.9.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.7.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.8.0
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.7.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:v0.7.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.101-akslts
@@ -124,39 +124,39 @@ containerd images pre-pulled:
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root   38693345 Aug 13 10:41 /usr/local/bin/crictl
--rwxr-xr-x 1 root root  110649604 Sep 12 23:20 /usr/local/bin/kubelet-1.28.14
--rwxr-xr-x 1 root root   49623192 Sep 12 23:20 /usr/local/bin/kubectl-1.28.14
--rwxr-xr-x 1 root root  108712196 Oct 17 06:39 /usr/local/bin/kubelet-1.27.100-akslts
--rwxr-xr-x 1 root root   49066136 Oct 17 06:39 /usr/local/bin/kubectl-1.27.100-akslts
--rwxr-xr-x 1 root root   76902744 Oct 23 15:59 /usr/local/bin/kubelet-1.31.2
--rwxr-xr-x 1 root root   56381592 Oct 23 15:59 /usr/local/bin/kubectl-1.31.2
--rwxr-xr-x 1 root root  100161976 Oct 23 16:03 /usr/local/bin/kubelet-1.30.6
--rwxr-xr-x 1 root root   51454104 Oct 23 16:03 /usr/local/bin/kubectl-1.30.6
--rwxr-xr-x 1 root root  110649604 Oct 23 16:18 /usr/local/bin/kubelet-1.28.15
--rwxr-xr-x 1 root root   49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
--rwxr-xr-x 1 root root  112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
--rwxr-xr-x 1 root root   50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
--rwxr-xr-x 1 root root  108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
--rwxr-xr-x 1 root root   49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
--rwxr-xr-x 1 root root   76902744 Dec  2 23:49 /usr/local/bin/kubelet-1.31.3
--rwxr-xr-x 1 root root   56381592 Dec  2 23:49 /usr/local/bin/kubectl-1.31.3
--rwxr-xr-x 1 root root  100161976 Dec  2 23:52 /usr/local/bin/kubelet-1.30.7
--rwxr-xr-x 1 root root   51454104 Dec  2 23:52 /usr/local/bin/kubectl-1.30.7
--rwxr-xr-x 1 root root  112603396 Dec  3 00:08 /usr/local/bin/kubelet-1.29.11
--rwxr-xr-x 1 root root   50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
--rwxr-xr-x 1 1001 admin  10334343 Dec 17 09:51 /usr/local/bin/oras
--rw-r--r-- 1 1001 admin     11343 Dec 19 08:28 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root        705 Jan  5 09:10 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root   36014944 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root   39369104 Jan  5 09:17 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root   45334640 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root   47622592 Jan  5 09:17 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root   60175432 Jan  5 09:17 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root   53775024 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root   52232184 Jan  5 09:17 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root   63515504 Jan  5 09:17 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root   35384960 Jan  5 09:18 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root  38693345 Aug 13 10:41 /usr/local/bin/crictl
+-rwxr-xr-x 1 root root 110649604 Sep 12 23:20 /usr/local/bin/kubelet-1.28.14
+-rwxr-xr-x 1 root root  49623192 Sep 12 23:20 /usr/local/bin/kubectl-1.28.14
+-rwxr-xr-x 1 root root 108712196 Oct 17 06:39 /usr/local/bin/kubelet-1.27.100-akslts
+-rwxr-xr-x 1 root root  49066136 Oct 17 06:39 /usr/local/bin/kubectl-1.27.100-akslts
+-rwxr-xr-x 1 root root  76902744 Oct 23 15:59 /usr/local/bin/kubelet-1.31.2
+-rwxr-xr-x 1 root root  56381592 Oct 23 15:59 /usr/local/bin/kubectl-1.31.2
+-rwxr-xr-x 1 root root 100161976 Oct 23 16:03 /usr/local/bin/kubelet-1.30.6
+-rwxr-xr-x 1 root root  51454104 Oct 23 16:03 /usr/local/bin/kubectl-1.30.6
+-rwxr-xr-x 1 root root 110649604 Oct 23 16:18 /usr/local/bin/kubelet-1.28.15
+-rwxr-xr-x 1 root root  49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
+-rwxr-xr-x 1 root root 112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
+-rwxr-xr-x 1 root root  50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
+-rwxr-xr-x 1 root root 108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
+-rwxr-xr-x 1 root root  49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
+-rwxr-xr-x 1 root root  76902744 Dec  2 23:49 /usr/local/bin/kubelet-1.31.3
+-rwxr-xr-x 1 root root  56381592 Dec  2 23:49 /usr/local/bin/kubectl-1.31.3
+-rwxr-xr-x 1 root root 100161976 Dec  2 23:52 /usr/local/bin/kubelet-1.30.7
+-rwxr-xr-x 1 root root  51454104 Dec  2 23:52 /usr/local/bin/kubectl-1.30.7
+-rwxr-xr-x 1 root root 112603396 Dec  3 00:08 /usr/local/bin/kubelet-1.29.11
+-rwxr-xr-x 1 root root  50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
+-rwxr-xr-x 1 1001  127  10334343 Dec  5 08:41 /usr/local/bin/oras
+-rw-r--r-- 1 1001  127     11343 Dec  6 03:21 /usr/local/bin/LICENSE
+-rwxr-xr-x 1 root root       705 Dec 10 03:32 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  36014944 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  45334640 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  39369104 Dec 10 03:39 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  52232184 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  53775024 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  47622592 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  60175432 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Dec 10 03:39 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 acr-mirror/now 0.2.10-1 amd64 [installed,local]
@@ -193,7 +193,7 @@ cgroup-lite/jammy,now 1.15 all [installed]
 chrony/jammy,now 4.2-2ubuntu2 amd64 [installed]
 cifs-utils/jammy-updates,jammy-security,now 2:6.14-1ubuntu0.1 amd64 [installed]
 cloud-guest-utils/jammy,now 0.32-22-g45fe84a5-0ubuntu1 all [installed]
-cloud-init/jammy-updates,now 24.4-0ubuntu1~22.04.1 all [installed]
+cloud-init/jammy-updates,now 24.3.1-0ubuntu0~22.04.1 all [installed]
 cloud-initramfs-copymods/jammy,now 0.47ubuntu1 all [installed]
 cloud-initramfs-dyn-netconf/jammy,now 0.47ubuntu1 all [installed]
 command-not-found/jammy,now 22.04.0 all [installed,automatic]
@@ -210,7 +210,7 @@ cron/jammy,now 3.0pl1-137ubuntu3 amd64 [installed,automatic]
 cryptsetup-bin/jammy-updates,now 2:2.4.3-1ubuntu1.2 amd64 [installed,automatic]
 cryptsetup-initramfs/jammy-updates,now 2:2.4.3-1ubuntu1.2 all [installed,automatic]
 cryptsetup/jammy-updates,now 2:2.4.3-1ubuntu1.2 amd64 [installed,automatic]
-curl/jammy-updates,jammy-security,now 7.81.0-1ubuntu1.20 amd64 [installed]
+curl/jammy-updates,jammy-security,now 7.81.0-1ubuntu1.19 amd64 [installed]
 dash/jammy,now 0.5.11+git20210903+057cd650a4ed-3build1 amd64 [installed]
 dbus-user-session/jammy-updates,jammy-security,now 1.12.20-2ubuntu4.1 amd64 [installed,automatic]
 dbus/jammy-updates,jammy-security,now 1.12.20-2ubuntu4.1 amd64 [installed,automatic]
@@ -224,7 +224,7 @@ distro-info-data/jammy-updates,now 0.52ubuntu0.8 all [installed,automatic]
 distro-info/jammy-updates,now 1.1ubuntu0.2 amd64 [installed,automatic]
 dkms/jammy-updates,now 2.8.7-2ubuntu2.2 all [installed]
 dmeventd/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
-dmidecode/jammy-updates,now 3.3-3ubuntu0.2 amd64 [installed,automatic]
+dmidecode/jammy-updates,now 3.3-3ubuntu0.1 amd64 [installed,automatic]
 dmsetup/jammy,now 2:1.02.175-2.1ubuntu4 amd64 [installed,automatic]
 dosfstools/jammy,now 4.2-1build3 amd64 [installed,automatic]
 dpkg-dev/jammy-updates,now 1.21.1ubuntu2.3 all [installed,automatic]
@@ -256,7 +256,7 @@ gcc/jammy,now 4:11.2.0-1ubuntu1 amd64 [installed]
 gdisk/jammy,now 1.0.8-4build1 amd64 [installed,automatic]
 gettext-base/jammy,now 0.21-4ubuntu4 amd64 [installed,automatic]
 gir1.2-glib-2.0/jammy,now 1.72.0-1 amd64 [installed,automatic]
-gir1.2-packagekitglib-1.0/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
+gir1.2-packagekitglib-1.0/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
 git-man/jammy-updates,jammy-security,now 1:2.34.1-1ubuntu1.11 all [installed,automatic]
 git/jammy-updates,jammy-security,now 1:2.34.1-1ubuntu1.11 amd64 [installed]
 glusterfs-client/jammy-updates,jammy-security,now 10.1-1ubuntu0.2 amd64 [installed]
@@ -365,8 +365,8 @@ libcrypt1/jammy,now 1:4.4.27-1 amd64 [installed,automatic]
 libcryptsetup12/jammy-updates,now 2:2.4.3-1ubuntu1.2 amd64 [installed,automatic]
 libctf-nobfd0/jammy-updates,jammy-security,now 2.38-4ubuntu2.6 amd64 [installed,automatic]
 libctf0/jammy-updates,jammy-security,now 2.38-4ubuntu2.6 amd64 [installed,automatic]
-libcurl3-gnutls/jammy-updates,jammy-security,now 7.81.0-1ubuntu1.20 amd64 [installed,automatic]
-libcurl4/jammy-updates,jammy-security,now 7.81.0-1ubuntu1.20 amd64 [installed,automatic]
+libcurl3-gnutls/jammy-updates,jammy-security,now 7.81.0-1ubuntu1.19 amd64 [installed,automatic]
+libcurl4/jammy-updates,jammy-security,now 7.81.0-1ubuntu1.19 amd64 [installed,automatic]
 libdaxctl1/jammy,now 72.1-1 amd64 [installed,automatic]
 libdb5.3/jammy,now 5.3.28+dfsg1-0.8ubuntu3 amd64 [installed,automatic]
 libdbus-1-3/jammy-updates,jammy-security,now 1.12.20-2ubuntu4.1 amd64 [installed,automatic]
@@ -424,7 +424,7 @@ libgpg-error0/jammy,now 1.43-3 amd64 [installed,automatic]
 libgpgme11/jammy-updates,now 1.16.0-1.2ubuntu4.2 amd64 [installed]
 libgpm2/jammy,now 1.20.7-10build1 amd64 [installed,automatic]
 libgssapi-krb5-2/jammy-updates,jammy-security,now 1.19.2-2ubuntu0.4 amd64 [installed,automatic]
-libgstreamer1.0-0/jammy-updates,jammy-security,now 1.20.3-0ubuntu1.1 amd64 [installed,automatic]
+libgstreamer1.0-0/jammy-updates,now 1.20.3-0ubuntu1 amd64 [installed,automatic]
 libgudev-1.0-0/jammy,now 1:237-2build1 amd64 [installed]
 libgusb2/jammy,now 0.3.10-1 amd64 [installed]
 libhogweed6/jammy,now 3.7.3-1build2 amd64 [installed,automatic]
@@ -506,7 +506,7 @@ liboath0/jammy-updates,jammy-security,now 2.6.7-3ubuntu0.1 amd64 [installed,auto
 libonig5/jammy,now 6.9.7.1-2build1 amd64 [installed,automatic]
 libopeniscsiusr/jammy,now 2.1.5-1ubuntu1 amd64 [installed,automatic]
 libp11-kit0/jammy,now 0.24.0-6build1 amd64 [installed,automatic]
-libpackagekit-glib2-18/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
+libpackagekit-glib2-18/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
 libpam-cap/jammy-updates,jammy-security,now 1:2.44-1ubuntu0.22.04.1 amd64 [installed,automatic]
 libpam-modules-bin/jammy-updates,jammy-security,now 1.4.0-11ubuntu2.4 amd64 [installed,automatic]
 libpam-modules/jammy-updates,jammy-security,now 1.4.0-11ubuntu2.4 amd64 [installed,automatic]
@@ -633,17 +633,17 @@ linux-base-sgx/jammy,now 4.5ubuntu9 all [installed,automatic]
 linux-base/jammy,now 4.5ubuntu9 all [installed]
 linux-cloud-tools-5.15.0-1075-azure/jammy-updates,jammy-security,now 5.15.0-1075.84 amd64 [installed,automatic]
 linux-cloud-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1075.73 amd64 [installed]
-linux-cloud-tools-common/jammy-updates,now 5.15.0-130.140 all [installed,automatic]
+linux-cloud-tools-common/jammy-updates,now 5.15.0-126.136 all [installed,automatic]
 linux-headers-5.15.0-1075-azure/jammy-updates,jammy-security,now 5.15.0-1075.84 amd64 [installed]
 linux-headers-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1075.73 amd64 [installed]
 linux-image-5.15.0-1075-azure/jammy-updates,jammy-security,now 5.15.0-1075.84 amd64 [installed,automatic]
 linux-image-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1075.73 amd64 [installed]
-linux-libc-dev/jammy-updates,now 5.15.0-130.140 amd64 [installed,automatic]
+linux-libc-dev/jammy-updates,now 5.15.0-126.136 amd64 [installed,automatic]
 linux-modules-5.15.0-1075-azure/jammy-updates,jammy-security,now 5.15.0-1075.84 amd64 [installed,automatic]
 linux-modules-extra-5.15.0-1075-azure/jammy-updates,jammy-security,now 5.15.0-1075.84 amd64 [installed]
 linux-tools-5.15.0-1075-azure/jammy-updates,jammy-security,now 5.15.0-1075.84 amd64 [installed,automatic]
 linux-tools-azure-lts-22.04/jammy-updates,jammy-security,now 5.15.0.1075.73 amd64 [installed]
-linux-tools-common/jammy-updates,now 5.15.0-130.140 all [installed,automatic]
+linux-tools-common/jammy-updates,now 5.15.0-126.136 all [installed,automatic]
 locales/jammy-updates,jammy-security,now 2.35-0ubuntu3.8 all [installed,automatic]
 login/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.2 amd64 [installed]
 logrotate/jammy-updates,jammy-security,now 3.19.0-1ubuntu1.1 amd64 [installed,automatic]
@@ -662,8 +662,8 @@ manpages/jammy,now 5.10-1ubuntu1 all [installed,automatic]
 mawk/jammy,now 1.3.4.20200120-3 amd64 [installed,automatic]
 mdadm/jammy-updates,now 4.2-0ubuntu2 amd64 [installed]
 media-types/jammy,now 7.0.0 all [installed,automatic]
-moby-containerd/testing,now 1.7.23-ubuntu22.04u1 amd64 [installed,upgradable to: 2.0.1-ubuntu22.04u1]
-moby-runc/testing,jammy,now 1.1.15-ubuntu22.04u1 amd64 [installed,upgradable to: 1.2.3-ubuntu22.04u1]
+moby-containerd/testing,now 1.7.23-ubuntu22.04u1 amd64 [installed,upgradable to: 1.7.24-ubuntu22.04u1]
+moby-runc/testing,jammy,now 1.1.15-ubuntu22.04u1 amd64 [installed]
 mokutil/jammy-updates,jammy-security,now 0.6.0-2~22.04.2 amd64 [installed,automatic]
 motd-news-config/jammy-updates,now 12ubuntu4.7 all [installed]
 mount/jammy-updates,jammy-security,now 2.37.2-4ubuntu3.4 amd64 [installed]
@@ -689,8 +689,8 @@ openssh-sftp-server/jammy-updates,jammy-security,now 1:8.9p1-3ubuntu0.10 amd64 [
 openssl/jammy-updates,jammy-security,now 3.0.2-0ubuntu1.18 amd64 [installed,automatic]
 os-prober/jammy,now 1.79ubuntu2 amd64 [installed,automatic]
 overlayroot/jammy,now 0.47ubuntu1 all [installed]
-packagekit-tools/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
-packagekit/jammy-updates,now 1.2.5-2ubuntu3 amd64 [installed,automatic]
+packagekit-tools/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
+packagekit/jammy,now 1.2.5-2ubuntu2 amd64 [installed,automatic]
 packages-microsoft-prod/jammy,now 1.0-ubuntu22.04.1 all [installed]
 parted/jammy,now 3.4-2build1 amd64 [installed,automatic]
 passwd/jammy-updates,jammy-security,now 1:4.8.1-2ubuntu2.2 amd64 [installed,automatic]
@@ -816,7 +816,7 @@ shared-mime-info/jammy,now 2.1-2 amd64 [installed,automatic]
 shim-signed/jammy-updates,now 1.51.4+15.8-0ubuntu1 amd64 [installed]
 socat/jammy,now 1.7.4.1-3ubuntu4 amd64 [installed]
 software-properties-common/jammy-updates,now 0.99.22.9 all [installed]
-sosreport/jammy-updates,now 4.7.2-0ubuntu1~22.04.2 amd64 [installed]
+sosreport/jammy-updates,now 4.7.2-0ubuntu1~22.04.1 amd64 [installed]
 ssh-import-id/jammy,now 5.11-0ubuntu1 all [installed]
 strace/jammy,now 5.16-0ubuntu3 amd64 [installed,automatic]
 sudo/jammy-updates,jammy-security,now 1.9.9-1ubuntu2.4 amd64 [installed,automatic]
@@ -877,7 +877,7 @@ zstd/jammy,now 1.4.8+dfsg-3build1 amd64 [installed,automatic]
 === Installed Packages End
 Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/root        29G   26G  3.0G  90% /
+/dev/root        29G   27G  2.9G  91% /
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  772K   13G   1% /run
 tmpfs           5.0M     0  5.0M   0% /run/lock
@@ -900,10 +900,10 @@ UBUNTU_CODENAME=jammy
 === os-release End
 Using kernel:
 Linux version 5.15.0-1075-azure (buildd@lcy02-amd64-073) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #84-Ubuntu SMP Mon Oct 21 15:42:52 UTC 2024
-Install completed successfully on  Sun Jan 5 09:28:43 UTC 2025
-VSTS Build NUMBER: 20250105.1_master_111733188
-VSTS Build ID: 111733188
-Commit: 0f6b0c86649e6a5a8e7a4c2cd646aae80449b7ff
+Install completed successfully on  Tue Dec 10 03:47:42 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 22.04
 Hyperv generation: V2
 Feature flags: None
