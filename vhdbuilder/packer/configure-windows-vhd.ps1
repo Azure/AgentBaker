@@ -921,8 +921,9 @@ try{
             Log-ReofferUpdate
             Install-OpenSSH
             Log-ReofferUpdate
-            Install-WindowsPatches
             Update-WindowsFeatures
+            Log-ReofferUpdate
+            Install-WindowsPatches
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
