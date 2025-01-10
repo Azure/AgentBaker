@@ -26,6 +26,10 @@ type App struct {
 func cmdRunner(cmd *exec.Cmd) error {
 	return cmd.Run()
 }
+func cmdRunnerDryRun(cmd *exec.Cmd) error {
+	slog.Info("dry-run", "cmd", cmd.String())
+	return nil
+}
 
 type ProvisionFlags struct {
 	ProvisionConfig string
@@ -56,12 +60,16 @@ func (a *App) run(ctx context.Context, args []string) error {
 	case "provision":
 		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
 		err := fs.Parse(args[2:])
 		if err != nil {
 			return fmt.Errorf("parse args: %w", err)
 		}
 		if provisionConfig == nil || *provisionConfig == "" {
 			return errors.New("--provision-config is required")
+		}
+		if dryRun != nil && *dryRun {
+			a.cmdRunner = cmdRunnerDryRun
 		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
 	case "provision-wait":

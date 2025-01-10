@@ -115,10 +115,16 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0", # for k8s 1.30+
 
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.12-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.7-windows-hp", # for k8s 1.30.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.2-windows-hp", # for k8s 1.31.x
 
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp", # for k8s 1.28.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7-windows-hp", # for k8s 1.29.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.1-windows-hp", # for k8s 1.31.x
 
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",
@@ -142,12 +148,12 @@ $global:imagesToPull += @(
     # CNS (Container Networking Service) Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.18",
 
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.18"
 )
 
 $global:map = @{
@@ -209,7 +215,7 @@ $global:map = @{
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
         "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
-        "https://acs-mirror.azureedge.net/azure-cni/v1.6.13/binaries/azure-vnet-cni-windows-amd64-v1.6.13.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip",
         # Azure CNI v2 (pod subnet)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip",
         # Azure CNI for Overlay
