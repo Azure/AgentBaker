@@ -19,6 +19,8 @@ installDeps() {
       fi
     done
 
+    dnf downgrade iptables -y
+
     # install 2.0 specific packages
     # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
     if [[ $OS_VERSION == "2.0" ]]; then

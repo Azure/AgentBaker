@@ -53,7 +53,7 @@ dnf_update() {
   retries=10
   dnf_update_output=/tmp/dnf-update.out
   for i in $(seq 1 $retries); do
-    ! (dnf update --exclude mshv-linuxloader --exclude kernel-mshv -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (dnf update --exclude mshv-linuxloader --exclude iptables --exclude kernel-mshv -y --refresh 2>&1 | tee $dnf_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
     cat $dnf_update_output && break || \
     cat $dnf_update_output
     if [ $i -eq $retries ]; then
