@@ -67,7 +67,9 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 }
 
-func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string, contentsName string) {
+func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
+	require.NotEqual(s.T, "", contents, "Test setup failure: Can't validate that a file excludes an empty string. Filename: %s", fileName)
+
 	steps := []string{
 		fmt.Sprintf("test -f %[1]s || exit 0", fileName),
 		fmt.Sprintf("ls -la %[1]s", fileName),
@@ -323,10 +325,10 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
 	// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
-	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath", "CriuPath")
+	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath")
 	// assert that containerd.server service file does not contain LimitNOFILE
 	// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
-	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE", "LimitNOFILE")
+	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE")
 	// nri plugin is enabled by default
 	ValidateDirectoryContent(ctx, s, "/run/nri/nri", []string{"nri.sock"})
 }

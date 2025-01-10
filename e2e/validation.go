@@ -102,8 +102,10 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	}
 
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
-		for secretName, secretValue := range secrets {
-			ValidateFileExcludesContent(ctx, s, logFile, secretValue, secretName)
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+			}
 		}
 	}
 }
