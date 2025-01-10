@@ -1,6 +1,6 @@
-Starting build on  Sun Jan 5 09:10:20 UTC 2025
+Starting build on  Tue Dec 10 03:28:46 UTC 2024
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
-  - oras version 1.2.2
+  - oras version 1.2.1
   - runc version 1.1.14-ubuntu18.04u1
   - containerd version 1.7.1-1
   - CNI plugin version 1.4.1
@@ -105,10 +105,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.17.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.16.3
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.9.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.8.0
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.9.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.7.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.8.0
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.7.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:v0.7.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.101-akslts
@@ -124,57 +124,57 @@ containerd images pre-pulled:
   - /var/lib/kubelet/device-plugins
   - extracted nvidia-device-plugin...
 total 23532
--rwxr-xr-x 1 root root   372128 Jan  5 09:22 nvidia-installer
--rwxr-xr-x 1 root root    40769 Jan  5 09:22 nvidia-bug-report.sh
--rwxr-xr-x 1 root root      900 Jan  5 09:22 nvidia-sleep.sh
--rwxr-xr-x 1 root root  1068640 Jan  5 09:22 nvidia-smi
--rwxr-xr-x 1 root root   142064 Jan  5 09:22 nvidia-debugdump
--rwxr-xr-x 1 root root    18656 Jan  5 09:22 nvidia-cuda-mps-server
--rwxr-xr-x 1 root root    54088 Jan  5 09:22 nvidia-cuda-mps-control
--rwxr-xr-x 1 root root   208336 Jan  5 09:22 nvidia-persistenced
--rwxr-xr-x 1 root root   229888 Jan  5 09:22 nvidia-powerd
--rwxr-xr-x 1 root root   207424 Jan  5 09:22 nvidia-xconfig
--rwxr-xr-x 1 root root   306312 Jan  5 09:22 nvidia-settings
--rwxr-xr-x 1 root root  5043392 Jan  5 09:22 nvidia-ngx-updater
-lrwxrwxrwx 1 root root       16 Jan  5 09:22 nvidia-uninstall -> nvidia-installer
--rwxr-xr-x 1 root root 16381360 Jan  5 09:30 nvidia-device-plugin
+-rwxr-xr-x 1 root root   372128 Dec 10 03:42 nvidia-installer
+-rwxr-xr-x 1 root root    40769 Dec 10 03:42 nvidia-bug-report.sh
+-rwxr-xr-x 1 root root      900 Dec 10 03:42 nvidia-sleep.sh
+-rwxr-xr-x 1 root root  1068640 Dec 10 03:42 nvidia-smi
+-rwxr-xr-x 1 root root   142064 Dec 10 03:42 nvidia-debugdump
+-rwxr-xr-x 1 root root    18656 Dec 10 03:42 nvidia-cuda-mps-server
+-rwxr-xr-x 1 root root    54088 Dec 10 03:42 nvidia-cuda-mps-control
+-rwxr-xr-x 1 root root   208336 Dec 10 03:42 nvidia-persistenced
+-rwxr-xr-x 1 root root   229888 Dec 10 03:42 nvidia-powerd
+-rwxr-xr-x 1 root root   207424 Dec 10 03:42 nvidia-xconfig
+-rwxr-xr-x 1 root root   306312 Dec 10 03:42 nvidia-settings
+-rwxr-xr-x 1 root root  5043392 Dec 10 03:42 nvidia-ngx-updater
+lrwxrwxrwx 1 root root       16 Dec 10 03:42 nvidia-uninstall -> nvidia-installer
+-rwxr-xr-x 1 root root 16381360 Dec 10 03:53 nvidia-device-plugin
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
--rwxr-xr-x 1 root root     38693345 Aug 13 10:41 /usr/local/bin/crictl
--rwxr-xr-x 1 root root    110649604 Sep 12 23:20 /usr/local/bin/kubelet-1.28.14
--rwxr-xr-x 1 root root     49623192 Sep 12 23:20 /usr/local/bin/kubectl-1.28.14
--rwxr-xr-x 1 root root    108712196 Oct 17 06:39 /usr/local/bin/kubelet-1.27.100-akslts
--rwxr-xr-x 1 root root     49066136 Oct 17 06:39 /usr/local/bin/kubectl-1.27.100-akslts
--rwxr-xr-x 1 root root     76902744 Oct 23 15:59 /usr/local/bin/kubelet-1.31.2
--rwxr-xr-x 1 root root     56381592 Oct 23 15:59 /usr/local/bin/kubectl-1.31.2
--rwxr-xr-x 1 root root    100161976 Oct 23 16:03 /usr/local/bin/kubelet-1.30.6
--rwxr-xr-x 1 root root     51454104 Oct 23 16:03 /usr/local/bin/kubectl-1.30.6
--rwxr-xr-x 1 root root    110649604 Oct 23 16:18 /usr/local/bin/kubelet-1.28.15
--rwxr-xr-x 1 root root     49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
--rwxr-xr-x 1 root root    112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
--rwxr-xr-x 1 root root     50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
--rwxr-xr-x 1 root root    108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
--rwxr-xr-x 1 root root     49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
--rwxr-xr-x 1 root root     76902744 Dec  2 23:49 /usr/local/bin/kubelet-1.31.3
--rwxr-xr-x 1 root root     56381592 Dec  2 23:49 /usr/local/bin/kubectl-1.31.3
--rwxr-xr-x 1 root root    100161976 Dec  2 23:52 /usr/local/bin/kubelet-1.30.7
--rwxr-xr-x 1 root root     51454104 Dec  2 23:52 /usr/local/bin/kubectl-1.30.7
--rwxr-xr-x 1 root root    112603396 Dec  3 00:08 /usr/local/bin/kubelet-1.29.11
--rwxr-xr-x 1 root root     50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
--rwxr-xr-x 1 1001 _chrony  10334343 Dec 17 09:51 /usr/local/bin/oras
--rw-r--r-- 1 1001 _chrony     11343 Dec 19 08:28 /usr/local/bin/LICENSE
--r-xr--r-- 1 root root          593 Jan  5 09:10 /usr/local/bin/logrotate.sh
--rwxr-xr-x 1 root root          705 Jan  5 09:10 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root     36014944 Jan  5 09:20 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root     39369104 Jan  5 09:20 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root     52232184 Jan  5 09:20 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root     47622592 Jan  5 09:20 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root     53775024 Jan  5 09:20 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root     45334640 Jan  5 09:20 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root     60175432 Jan  5 09:20 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root     63515504 Jan  5 09:20 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root     35384960 Jan  5 09:22 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root  38693345 Aug 13 10:41 /usr/local/bin/crictl
+-rwxr-xr-x 1 root root 110649604 Sep 12 23:20 /usr/local/bin/kubelet-1.28.14
+-rwxr-xr-x 1 root root  49623192 Sep 12 23:20 /usr/local/bin/kubectl-1.28.14
+-rwxr-xr-x 1 root root 108712196 Oct 17 06:39 /usr/local/bin/kubelet-1.27.100-akslts
+-rwxr-xr-x 1 root root  49066136 Oct 17 06:39 /usr/local/bin/kubectl-1.27.100-akslts
+-rwxr-xr-x 1 root root  76902744 Oct 23 15:59 /usr/local/bin/kubelet-1.31.2
+-rwxr-xr-x 1 root root  56381592 Oct 23 15:59 /usr/local/bin/kubectl-1.31.2
+-rwxr-xr-x 1 root root 100161976 Oct 23 16:03 /usr/local/bin/kubelet-1.30.6
+-rwxr-xr-x 1 root root  51454104 Oct 23 16:03 /usr/local/bin/kubectl-1.30.6
+-rwxr-xr-x 1 root root 110649604 Oct 23 16:18 /usr/local/bin/kubelet-1.28.15
+-rwxr-xr-x 1 root root  49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
+-rwxr-xr-x 1 root root 112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
+-rwxr-xr-x 1 root root  50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
+-rwxr-xr-x 1 root root 108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
+-rwxr-xr-x 1 root root  49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
+-rwxr-xr-x 1 root root  76902744 Dec  2 23:49 /usr/local/bin/kubelet-1.31.3
+-rwxr-xr-x 1 root root  56381592 Dec  2 23:49 /usr/local/bin/kubectl-1.31.3
+-rwxr-xr-x 1 root root 100161976 Dec  2 23:52 /usr/local/bin/kubelet-1.30.7
+-rwxr-xr-x 1 root root  51454104 Dec  2 23:52 /usr/local/bin/kubectl-1.30.7
+-rwxr-xr-x 1 root root 112603396 Dec  3 00:08 /usr/local/bin/kubelet-1.29.11
+-rwxr-xr-x 1 root root  50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
+-rwxr-xr-x 1 1001  127  10334343 Dec  5 08:41 /usr/local/bin/oras
+-rw-r--r-- 1 1001  127     11343 Dec  6 03:21 /usr/local/bin/LICENSE
+-r-xr--r-- 1 root root       593 Dec 10 03:29 /usr/local/bin/logrotate.sh
+-rwxr-xr-x 1 root root       705 Dec 10 03:29 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root  47622592 Dec 10 03:40 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root  39369104 Dec 10 03:40 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root  36014944 Dec 10 03:40 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root  52232184 Dec 10 03:40 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root  45334640 Dec 10 03:40 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  53775024 Dec 10 03:40 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root  60175432 Dec 10 03:40 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root  63515504 Dec 10 03:40 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Dec 10 03:43 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 accountsservice/now 0.6.45-1ubuntu1.3+esm1 amd64 [installed,local]
@@ -864,10 +864,10 @@ UBUNTU_CODENAME=bionic
 === os-release End
 Using kernel:
 Linux version 5.4.0-1140-azure (buildd@lcy02-amd64-014) (gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04)) #147~18.04.1-Ubuntu SMP Tue Oct 22 15:50:37 UTC 2024
-Install completed successfully on  Sun Jan 5 09:32:38 UTC 2025
-VSTS Build NUMBER: 20250105.1_master_111733188
-VSTS Build ID: 111733188
-Commit: 0f6b0c86649e6a5a8e7a4c2cd646aae80449b7ff
+Install completed successfully on  Tue Dec 10 03:55:51 UTC 2024
+VSTS Build NUMBER: 20241210.1_master_109964864
+VSTS Build ID: 109964864
+Commit: 9d93f9050119736271fd9a8591dacf536504247a
 Ubuntu version: 18.04
 Hyperv generation: V2
 Feature flags: fullgpudaemon
