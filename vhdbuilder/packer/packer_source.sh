@@ -348,13 +348,6 @@ copyPackerFiles() {
     fi
   fi
 
-  if grep -q "fullgpu" <<<"$FEATURE_FLAGS"; then
-    cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644
-    if grep -q "gpudaemon" <<<"$FEATURE_FLAGS"; then
-      cpAndMode $NVIDIA_DEVICE_PLUGIN_SERVICE_SRC $NVIDIA_DEVICE_PLUGIN_SERVICE_DEST 644
-    fi
-  fi
-
   cpAndMode $NOTICE_SRC $NOTICE_DEST 444
 
   # Always copy the VHD cleanup script responsible for prepping the instance for first boot
