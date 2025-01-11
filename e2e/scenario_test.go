@@ -921,6 +921,26 @@ func Test_Ubuntu2204_WASM(t *testing.T) {
 	})
 }
 
+func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that an AzureLinux node will skip binary cleanup and can be properly bootstrapped",
+		Config: Config{
+			Cluster:                ClusterKubenet,
+			VHD:                    config.VHDAzureLinuxV2Gen2,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["SkipBinaryCleanup"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateMultipleKubeProxyVersionsExist(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
