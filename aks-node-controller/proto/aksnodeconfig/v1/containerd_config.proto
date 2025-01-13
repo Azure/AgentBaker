@@ -1,0 +1,15 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message ContainerdConfig {
+  // The base URL for downloading containerd.
+  string containerd_download_url_base = 1;
+
+  // The version of containerd to download.
+  string containerd_version = 2;
+
+  // The URL for downloading the containerd package.
+  string containerd_package_url = 3;
+}

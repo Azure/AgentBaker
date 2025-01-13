@@ -1,13 +1,18 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+variables:
+  TAGS_TO_SKIP: "os=windows"
+  SKIP_E2E_TESTS: false
 trigger:
   branches:
     include:
       - master
+      - dev
 pr:
   branches:
     include:
       - master
       - official/*
+      - dev
   paths:
     include:
       - .pipelines/e2e.yaml
@@ -16,10 +21,10 @@ pr:
       - parts/linux
       - pkg/agent
     exclude:
-      - e2e/windows
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
       - pkg/agent/testdata/AKSWindows* # Windows test data
       - parts/linux/cloud-init/artifacts/components.json # centralized components management file
+      - staging/cse/windows/README
 jobs:
   - template: ./templates/e2e-template.yaml

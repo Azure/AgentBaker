@@ -1,0 +1,65 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+// Custom Linux Node OS Config
+message CustomLinuxOsConfig {
+  // Sysctl settings for Linux agent nodes
+  SysctlConfig sysctl_config = 1;
+
+  // Ulimit settings for Linux agent nodes
+  UlimitConfig ulimit_config = 2;
+
+  // Enable or disable swap configuration
+  bool enable_swap_config = 3;
+
+  // The size in MB of a swap file that will be created on each node
+  int32 swap_file_size = 4;
+
+  // Valid values are "always", "defer", "defer+madvise", "madvise" and "never"
+  // If it's unset or set to empty string, it will use the default value in the VHD "always"
+  string transparent_hugepage_support = 5;
+
+  // Valid values are "always", "madvise" and "never"
+  // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
+  string transparent_defrag = 6;
+}
+
+message SysctlConfig {
+  // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
+  optional int32 net_core_somaxconn = 1;
+  optional int32 net_core_netdev_max_backlog = 2;
+  optional int32 net_core_rmem_default = 3;
+  optional int32 net_core_rmem_max = 4;
+  optional int32 net_core_wmem_default = 5;
+  optional int32 net_core_wmem_max = 6;
+  optional int32 net_core_optmem_max = 7;
+  optional int32 net_ipv4_tcp_max_syn_backlog = 8;
+  optional int32 net_ipv4_tcp_max_tw_buckets = 9;
+  optional int32 net_ipv4_tcp_fin_timeout = 10;
+  optional int32 net_ipv4_tcp_keepalive_time = 11;
+  optional int32 net_ipv4_tcp_keepalive_probes = 12;
+  optional int32 net_ipv4_tcpkeepalive_intvl = 13;
+  optional bool net_ipv4_tcp_tw_reuse = 14;
+  optional string net_ipv4_ip_local_port_range = 15;
+  optional int32 net_ipv4_neigh_default_gc_thresh1 = 16;
+  optional int32 net_ipv4_neigh_default_gc_thresh2 = 17;
+  optional int32 net_ipv4_neigh_default_gc_thresh3 = 18;
+  optional int32 net_netfilter_nf_conntrack_max = 19;
+  optional int32 net_netfilter_nf_conntrack_buckets = 20;
+  optional int32 fs_inotify_max_user_watches = 21;
+  optional int32 fs_file_max = 22;
+  optional int32 fs_aio_max_nr = 23;
+  optional int32 fs_nr_open = 24;
+  optional int32 kernel_threads_max = 25;
+  optional int32 vm_max_map_count = 26;
+  optional int32 vm_swappiness = 27;
+  optional int32 vm_vfs_cache_pressure = 28;
+}
+
+message UlimitConfig {
+  // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
+  optional string no_file = 1;
+  optional string max_locked_memory = 2;
+}

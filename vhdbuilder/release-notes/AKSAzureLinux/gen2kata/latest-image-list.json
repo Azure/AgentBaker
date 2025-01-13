@@ -653,22 +653,22 @@
       ]
     },
     {
-      "id": "sha256:d122b6f09458d9cd87931892fcb6c076ea5945ef685ea7fb642a92eb90caa112",
-      "bytes": 22093258,
-      "size": "21.1 MiB",
+      "id": "sha256:c05d275106483a56d68bdc0037354f0de985809a613c98a6df66cb5f52fc12f6",
+      "bytes": 160737601,
+      "size": "153.3 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1"
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.3"
       ],
       "repoDigests": [
-        "sha256:e9b522399e4ec6bc4ce90c173e59db135d742de7b16f0f5454b4d88ba78a98c7"
+        "sha256:6083fcb64d0efc7ddb88fc1dc487f20cd1ea2ca2bc81a5dffafecdf7e6225cee"
       ]
     },
     {
-      "id": "sha256:bdaf4ac59709c9f6580afe2f05fa23806a81a3da6e159b00d2d800244d5b9912",
-      "bytes": 22846651,
-      "size": "21.8 MiB",
+      "id": "sha256:cc8e7a4fde67bb1c9f7754dcf279fc338683826120e43b6782ff14eca59e3213",
+      "bytes": 158787279,
+      "size": "151.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.9.4-2"
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.5"
       ],
       "repoDigests": [
         "sha256:6c0c5e32e29451c511093dcdfa14f915b2ab114d73347aef39067a67488f36a6"
@@ -943,10 +943,10 @@
       "bytes": 92781917,
       "size": "88.5 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.3"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.2"
       ],
       "repoDigests": [
-        "sha256:f4a9c8fce0e7b36f2be8a0a55021447b9ff5c65448e68148b2d6fb3419c2887d"
+        "sha256:518118f09ab65efc1dc115fb94c9be0af7008dd46a9daa67449249217b0b9fbb"
       ]
     },
     {
@@ -1016,14 +1016,14 @@
       ]
     },
     {
-      "id": "sha256:72caddef8e30b93d88227034b3db067a76110856e2b3df3ccaf3b61c6ef2c9b6",
-      "bytes": 159083682,
-      "size": "151.7 MiB",
+      "id": "sha256:d122b6f09458d9cd87931892fcb6c076ea5945ef685ea7fb642a92eb90caa112",
+      "bytes": 22093258,
+      "size": "21.1 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.10.0-main-09-16-2024-85a71678-cfg"
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1"
       ],
       "repoDigests": [
-        "sha256:432d3d663dbf262e6a377c20fb2b92fe382e388e2a95b1b7c65c7d73ac3cf4c9"
+        "sha256:e9b522399e4ec6bc4ce90c173e59db135d742de7b16f0f5454b4d88ba78a98c7"
       ]
     }
   ]

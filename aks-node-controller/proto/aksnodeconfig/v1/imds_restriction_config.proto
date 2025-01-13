@@ -1,0 +1,12 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message ImdsRestrictionConfig {
+  // Enable IMDS restriction for the node.
+  bool enable_imds_restriction = 1;
+
+  // Insert IMDS restriction rule to mangle table.
+  bool insert_imds_restriction_rule_to_mangle_table = 2;
+}

@@ -411,25 +411,25 @@
       ]
     },
     {
-      "id": "sha256:bb66f4dbb1fb95ea519e4cf45150e7860130c7d3c6c77b6e4d1c4f51da2a2c85",
-      "bytes": 40801154,
-      "size": "38.9 MiB",
+      "id": "sha256:96b278a19ffe27bd026c5048ad13f2841efe4b22b5e91a16539813149630daf4",
+      "bytes": 59956860,
+      "size": "57.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.10.0-main-09-16-2024-85a71678-targetallocator"
+        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10"
       ],
       "repoDigests": [
-        "sha256:98f3f2eb8ebfdcabcb9fe22bda0d1198edac4ef620d2fe98682aeaee55305f0a"
+        "sha256:27d9cbfe411a38cee217f22d7276e10f23fb72790cb2407db7a66b04c6adeda7"
       ]
     },
     {
-      "id": "sha256:17c9d008f45debc00a173c70309642c5ffc924d4397141d7abf753b0cb175e6a",
-      "bytes": 81187165,
-      "size": "77.4 MiB",
+      "id": "sha256:715da2205f1fbdb1dda2fba465c2b572724b5080a4c1302fe19460d702f02d35",
+      "bytes": 17612247,
+      "size": "16.8 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.100-akslts"
+        "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21"
       ],
       "repoDigests": [
-        "sha256:d95147676d7630df8460f64d3fff6127ab9e191772631011262572291975a27a"
+        "sha256:e4bc0d59696f4c9f76a3a7c7fabec7f3bcd6b3845759bfc28f43817ab149c698"
       ]
     },
     {
@@ -862,14 +862,14 @@
       ]
     },
     {
-      "id": "sha256:f6f4bac2c31fd7a4824211574cab8045b12f49fab93633529a73226f4b478338",
-      "bytes": 82295317,
-      "size": "78.5 MiB",
+      "id": "sha256:81ba48e19ff47fba73c9485ec60b28888563f769b6399cc74dc9a79f931bf5c3",
+      "bytes": 292698937,
+      "size": "279.1 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38"
+        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.10.0-main-09-16-2024-85a71678"
       ],
       "repoDigests": [
-        "sha256:71ec4ef3ff95487b3f956034d464f1b5ece556022af6b5b351b0f7d2cad95316"
+        "sha256:a414de81d6976fc96a97d9e5c79781ed3a7691a4cbbf29733cfc52a737c79c3d"
       ]
     },
     {

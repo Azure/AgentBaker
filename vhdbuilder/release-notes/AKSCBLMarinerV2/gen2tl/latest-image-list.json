@@ -443,14 +443,14 @@
       ]
     },
     {
-      "id": "sha256:f2839dc20fd2ea6c85ffde9629ead290a8f44ffac5b2802f6e992d82670e357b",
-      "bytes": 14034564,
-      "size": "13.4 MiB",
+      "id": "sha256:c303ce4aca7e8d71122189ca0b04b182cf8b204da4fdd252abbbe8d1814756a0",
+      "bytes": 86003037,
+      "size": "82.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.7"
       ],
       "repoDigests": [
-        "sha256:8b470340c23ebac3d182d2c3cf07c46983f8c4cdf08d0907e2b780339d506dfd"
+        "sha256:0f43277371f1e7c7ff48455d17c67f5b814d4fcc522aad9b271c4d54d3a992c7"
       ]
     },
     {

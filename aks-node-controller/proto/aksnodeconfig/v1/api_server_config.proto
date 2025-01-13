@@ -1,0 +1,12 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message ApiServerConfig {
+  // The certificate public key of the API server.
+  string api_server_public_key = 1;
+
+  // The name or endpoint URI of the API server.
+  string api_server_name = 2;
+}

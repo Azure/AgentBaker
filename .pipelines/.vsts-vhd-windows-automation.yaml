@@ -12,6 +12,10 @@ parameters:
   displayName: Release Notes
   type: boolean
   default: false
+- name: PRTargetBranch
+  displayName: PR Target Branch
+  type: string
+  default: master
 
 variables:
   - group: "AKS Dev Assistant (KV)"
@@ -43,6 +47,7 @@ steps:
   env:
     GITHUB_TOKEN: $(GITHUB_TOKEN)
     BUILD_ID: $(BUILD_ID)
+    PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
   displayName: 'Release Notes'
   condition: eq('${{ parameters.ReleaseNotes }}', true)
   

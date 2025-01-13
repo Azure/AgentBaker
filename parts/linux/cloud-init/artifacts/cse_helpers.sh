@@ -122,6 +122,9 @@ ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registr
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
+# Error either getting the install mode or cleaning up container images
+ERR_CLEANUP_CONTAINER_IMAGES=214
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -172,6 +175,19 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
+
+retrycmd_if_failure_silent() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+}
+
 retrycmd_nslookup() {
     wait_sleep=$1; timeout=$2; total_timeout=$3; record=$4
     start_time=$(date +%s)
@@ -263,7 +279,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -471,6 +487,17 @@ should_disable_kubelet_serving_certificate_rotation() {
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
     echo "${should_disable,,}"
+}
+
+should_skip_binary_cleanup() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
+    echo "${should_skip,,}"
 }
 
 isMarinerOrAzureLinux() {

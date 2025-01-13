@@ -4,18 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
-)
-
-const (
-	sshCommandTemplate = `echo '%s' > sshkey%[2]s && chmod 0600 sshkey%[2]s && ssh -i sshkey%[2]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`
 )
 
 type podExecResult struct {
@@ -23,97 +20,33 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-func (r podExecResult) dumpAll(t *testing.T) {
-	r.dumpStdout(t)
-	r.dumpStderr(t)
-}
-
-func (r podExecResult) dumpStdout(t *testing.T) {
-	if r.stdout != nil {
-		stdoutContent := r.stdout.String()
-		if stdoutContent != "" && stdoutContent != "<nil>" {
-			t.Logf("%s\n%s\n%s\n%s",
-				"dumping stdout:",
-				"----------------------------------- begin stdout -----------------------------------",
-				stdoutContent,
-				"------------------------------------ end stdout ------------------------------------")
-		}
-	}
-}
-
-func (r podExecResult) dumpStderr(t *testing.T) {
-	if r.stderr != nil {
-		stderrContent := r.stderr.String()
-		if stderrContent != "" && stderrContent != "<nil>" {
-			t.Logf("%s\n%s\n%s\n%s",
-				"dumping stderr:",
-				"----------------------------------- begin stderr -----------------------------------",
-				stderrContent,
-				"------------------------------------ end stderr ------------------------------------")
-		}
-
-	}
-}
-
-func extractLogsFromVM(ctx context.Context, t *testing.T, vmssName, privateIP, sshPrivateKey string, cluster *Cluster) (map[string]string, error) {
-	commandList := map[string]string{
-		"cluster-provision":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet":                      "journalctl -u kubelet",
-		"cluster-provision-cse-output": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out":                   "sysctl -a",
-		"node-bootstrapper":            "cat /var/log/azure/node-bootstrapper.log",
-	}
-
-	podName, err := getHostNetworkDebugPodName(ctx, cluster.Kube, t)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get debug pod name: %w", err)
-	}
-
-	var result = map[string]string{}
-	for file, sourceCmd := range commandList {
-		t.Logf("executing command on remote VM at %s of VMSS %s: %q", privateIP, vmssName, sourceCmd)
-
-		execResult, err := execOnVM(ctx, cluster.Kube, privateIP, podName, sshPrivateKey, sourceCmd, false)
-		if err != nil {
-			t.Logf("error executing command on remote VM at %s of VMSS %s: %s", privateIP, vmssName, err)
-			return nil, err
-		}
-		if execResult.stdout != nil {
-			out := execResult.stdout.String()
-			if out != "" {
-				result[file+".stdout.txt"] = out
-			}
-
-		}
-		if execResult.stderr != nil {
-			out := execResult.stderr.String()
-			if out != "" {
-				result[file+".stderr.txt"] = out
-			}
-		}
-	}
-	return result, nil
+func (r podExecResult) String() string {
+	return fmt.Sprintf(`exit code: %s
+----------------------------------- begin stderr -----------------------------------
+%s
+------------------------------------ end stderr ------------------------------------
+----------------------------------- begin stdout -----------------------------------,
+%s
+----------------------------------- end stdout ------------------------------------
+`, r.exitCode, r.stderr.String(), r.stdout.String())
 }
 
 type ClusterParams struct {
 	CACert         []byte
 	BootstrapToken string
 	FQDN           string
+	APIServerCert  []byte
+	ClientKey      []byte
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) ClusterParams {
-	podName, err := getHostNetworkDebugPodName(ctx, kube, t)
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
+	pod, err := kube.GetHostNetworkDebugPod(ctx, t)
 	require.NoError(t, err)
 
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+	execResult, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /var/lib/kubelet/bootstrap-kubeconfig")
 	require.NoError(t, err)
 
 	bootstrapConfig := execResult.stdout.Bytes()
-	bootstrapToken, err := extractKeyValuePair("token", string(bootstrapConfig))
-	require.NoError(t, err)
-
-	bootstrapToken, err = strconv.Unquote(bootstrapToken)
-	require.NoError(t, err)
 
 	server, err := extractKeyValuePair("server", string(bootstrapConfig))
 	require.NoError(t, err)
@@ -123,21 +56,53 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	}
 	fqdn := tokens[1][2:]
 
-	caCert, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, podName, "cat /etc/kubernetes/certs/ca.crt")
+	caCert, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
-	return ClusterParams{
+	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/apiserver.crt")
+	require.NoError(t, err)
+
+	clientKey, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/client.key")
+	require.NoError(t, err)
+
+	return &ClusterParams{
 		CACert:         caCert.stdout.Bytes(),
-		BootstrapToken: bootstrapToken,
+		BootstrapToken: getBootstrapToken(ctx, t, kube),
 		FQDN:           fqdn,
+		APIServerCert:  cmdAPIServer.stdout.Bytes(),
+		ClientKey:      clientKey.stdout.Bytes(),
 	}
 }
 
-func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string, isShellBuiltIn bool) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(sshCommandTemplate, sshPrivateKey, strings.ReplaceAll(vmPrivateIP, ".", ""), vmPrivateIP)
-	if !isShellBuiltIn {
-		sshCommand = sshCommand + " sudo"
-	}
+func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {
+	secrets, err := kube.Typed.CoreV1().Secrets("kube-system").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	secret := func() *corev1.Secret {
+		for _, secret := range secrets.Items {
+			if strings.HasPrefix(secret.Name, "bootstrap-token-") {
+				return &secret
+			}
+		}
+		t.Fatal("could not find secret with bootstrap-token- prefix")
+		return nil
+	}()
+	id := secret.Data["token-id"]
+	token := secret.Data["token-secret"]
+	return fmt.Sprintf("%s.%s", id, token)
+}
+
+func sshKeyName(vmPrivateIP string) string {
+	return fmt.Sprintf("sshkey%s", strings.ReplaceAll(vmPrivateIP, ".", ""))
+
+}
+
+func sshString(vmPrivateIP string) string {
+	return fmt.Sprintf(`ssh -i %s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`, sshKeyName(vmPrivateIP), vmPrivateIP)
+}
+
+func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+	sshCommand := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s && %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP))
+	sshCommand = sshCommand + " sudo"
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
@@ -172,7 +137,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 		scheme.ParameterCodec,
 	)
 
-	exec, err := remotecommand.NewSPDYExecutor(kube.Rest, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(kube.RESTConfig, "POST", req.URL())
 	if err != nil {
 		return nil, fmt.Errorf("unable to create new SPDY executor for pod exec: %w", err)
 	}
@@ -219,4 +184,17 @@ func unprivilegedCommandArray() []string {
 		"bash",
 		"-c",
 	}
+}
+
+func logSSHInstructions(s *Scenario) {
+	result := "SSH Instructions:"
+	if !config.Config.KeepVMSS {
+		result += fmt.Sprintf(" (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)")
+	}
+	result += fmt.Sprintf("\n========================\n")
+	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
+	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
+	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.DebugHostPod, sshString(s.Runtime.VMPrivateIP))
+	s.T.Log(result)
+	//runtime.Breakpoint() // uncomment to pause the test
 }

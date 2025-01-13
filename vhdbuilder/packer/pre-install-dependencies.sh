@@ -72,8 +72,8 @@ capture_benchmark "${SCRIPT_NAME}_enable_modified_log_rotate_service"
 systemctlEnableAndStart sync-container-logs.service || exit 1
 capture_benchmark "${SCRIPT_NAME}_sync_container_logs"
 
-# enable bootstrap.service
-systemctl enable bootstrap.service
+# enable aks-node-controller.service
+systemctl enable aks-node-controller.service
 
 # First handle Mariner + FIPS
 if isMarinerOrAzureLinux "$OS"; then
@@ -85,9 +85,11 @@ if isMarinerOrAzureLinux "$OS"; then
     installFIPS
   fi
 else
-  # Enable ESM for 18.04 and FIPS only
+  # Enable ESM only for 18.04, 20.04, and FIPS
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
-    autoAttachUA
+    set +x
+    attachUA
+    set -x
   fi
 
   # Run apt get update to refresh repo list

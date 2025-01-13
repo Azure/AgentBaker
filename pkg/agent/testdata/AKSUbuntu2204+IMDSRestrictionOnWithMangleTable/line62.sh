@@ -33,7 +33,7 @@ installDeps() {
     local OSVERSION
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
-    BLOBFUSE2_VERSION="2.3.2"
+    BLOBFUSE2_VERSION="2.4.0"
 
     if [ "${OSVERSION}" == "18.04" ]; then
         BLOBFUSE2_VERSION="2.2.0"

@@ -89,10 +89,6 @@ validate-image-version:
 generate-kubelet-flags:
 	@./e2e/kubelet/generate-kubelet-flags.sh
 
-.PHONY: compile-proto-files
-compile-proto-files:
-	@./hack/tools/bin/buf generate -o . --path ./pkg/proto/ --template ./pkg/proto/buf.gen.yaml
-
 .PHONY: generate-manifest
 generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
@@ -180,11 +176,11 @@ endif
 ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
-test: test-node-bootstrapper
+test: test-aks-node-controller
 	go test ./...
 
-test-node-bootstrapper:
-	pushd node-bootstrapper && go test ./... && popd
+test-aks-node-controller:
+	pushd aks-node-controller && go test ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers

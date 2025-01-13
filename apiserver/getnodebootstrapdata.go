@@ -18,7 +18,7 @@ const (
 	defaultTimeout                    = 30 * time.Second
 )
 
-// GetNodeBootstrapConfig endpoint for getting node bootstrapping data.
+// GetNodeBootstrapData endpoint for getting node bootstrapping data.
 func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)

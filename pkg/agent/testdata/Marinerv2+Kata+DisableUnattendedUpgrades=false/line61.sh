@@ -67,8 +67,13 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerToolkit() {
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
-    
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") | .downloadURIs.azurelinux.current.versionsV2[0].latestVersion' $COMPONENTS_FILEPATH)
+
+    if [ -z "$MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION" ]; then
+      echo "nvidia-container-toolkit not found in components.json" # Expected for older VHD with new CSE
+      MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
+    fi
+
     for nvidia_package in libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT

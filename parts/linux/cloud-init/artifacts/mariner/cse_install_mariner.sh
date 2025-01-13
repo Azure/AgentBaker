@@ -74,8 +74,14 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerToolkit() {
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
-    
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") | .downloadURIs.azurelinux.current.versionsV2[0].latestVersion' $COMPONENTS_FILEPATH)
+
+    # Check if the version is empty and set the default if needed
+    if [ -z "$MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION" ]; then
+      echo "nvidia-container-toolkit not found in components.json" # Expected for older VHD with new CSE
+      MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
+    fi
+
     # The following packages need to be installed in this sequence because:
     # - libnvidia-container packages are required by nvidia-container-toolkit
     # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config 
