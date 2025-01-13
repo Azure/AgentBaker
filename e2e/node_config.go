@@ -123,15 +123,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-<<<<<<< HEAD:e2e/template.go
-func baseTemplate(location, kubernetesVersion string) (*datamodel.NodeBootstrappingConfiguration, error) {
-	var (
-		trueConst  = true
-		falseConst = false
-	)
-=======
 func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
->>>>>>> 97637de2b4761de7481e4a44e1e49ef62676ac21:e2e/node_config.go
 	config := &datamodel.NodeBootstrappingConfiguration{
 		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
@@ -457,26 +449,6 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
-<<<<<<< HEAD:e2e/template.go
-	version, err := semver.NewVersion(kubernetesVersion)
-	if err != nil {
-		return nil, err
-	}
-	constraint, err := semver.NewConstraint(">= 1.30.0")
-	if err != nil {
-		return nil, err
-	}
-	if constraint.Check(version) {
-		delete(config.KubeletConfig, "--azure-container-registry-config")
-	}
-	return config, nil
-}
-
-func getHTTPServerTemplate(podName, nodeName string, isAirgap bool) string {
-	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.PrivateACRName)
-=======
 	config, err := pruneKubeletConfig(k8sVersion, config)
 	require.NoError(t, err)
 	return config
@@ -717,7 +689,6 @@ func zipWindowsCSE() (*os.File, error) {
 		"README",
 		"provisioningscripts/*.md",
 		"debug/update-scripts.ps1",
->>>>>>> 97637de2b4761de7481e4a44e1e49ef62676ac21:e2e/node_config.go
 	}
 
 	shouldExclude := func(path string) bool {
