@@ -5,7 +5,7 @@ pr:
     include:
     - master
   paths:
-    include: 
+    include:
     - .pipelines/.vsts-vhd-builder-release-windows.yaml
     - .pipelines/templates/.builder-release-template-windows.yaml
     - packer.mk
