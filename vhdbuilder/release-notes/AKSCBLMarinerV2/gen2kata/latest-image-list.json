@@ -932,10 +932,10 @@
       "bytes": 92781917,
       "size": "88.5 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.3"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.7"
       ],
       "repoDigests": [
-        "sha256:f4a9c8fce0e7b36f2be8a0a55021447b9ff5c65448e68148b2d6fb3419c2887d"
+        "sha256:0f43277371f1e7c7ff48455d17c67f5b814d4fcc522aad9b271c4d54d3a992c7"
       ]
     },
     {
@@ -1009,10 +1009,10 @@
       "bytes": 60412229,
       "size": "57.6 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.11"
+        "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1"
       ],
       "repoDigests": [
-        "sha256:95bbca5ab28f1a81d8a9ec0b6e74ead74519ce0c4c67a49a43d9c47d537cfa15"
+        "sha256:27a7a7ebd0f4b6d4a4cd56d9c96d27288a7b223b4feacee3b7fcf5be3c2ec63a"
       ]
     },
     {

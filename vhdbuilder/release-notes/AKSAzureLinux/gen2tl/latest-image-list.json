@@ -389,14 +389,69 @@
       ]
     },
     {
-      "id": "sha256:dbb7d998378436b3965205747633b498102cc48fc831187ae4a17e43d3f54c8e",
-      "bytes": 25846128,
-      "size": "24.6 MiB",
+      "id": "sha256:186473cf0a31771a84572c2245ab61e4b1e26340ca151169868dc1c666d481a0",
+      "bytes": 9900276,
+      "size": "9.4 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7"
+        "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.1.6-hotfix.20240116"
       ],
       "repoDigests": [
-        "sha256:49ff3d67f3b4adcaf3808783858be2460c1b7921ff5e67a87ba9f9fcb051e1e0"
+        "sha256:5e04a0beccf65b4e70a25bc95e4706d4cf7e930cf827d0278336021315cf8934"
+      ]
+    },
+    {
+      "id": "sha256:9c3b000e3613eaff6a2bb89f7d9f1171bb82282828da23501f7732429d150981",
+      "bytes": 44388499,
+      "size": "42.3 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.11.0"
+      ],
+      "repoDigests": [
+        "sha256:66b9dcb966f97ecc314d9670067de0ea096b982e1c9ec459a74d0b70a50c91bb"
+      ]
+    },
+    {
+      "id": "sha256:8e0d37f66394e8df3c8d01ef2a1edd8dbbcd20ac41b5ed86d691ab7d02fb5165",
+      "bytes": 99150372,
+      "size": "94.6 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9"
+      ],
+      "repoDigests": [
+        "sha256:543b4eedbeca474aebdff1aae6d92d8294d1d193c2376cc3d6e3a0e6da455898"
+      ]
+    },
+    {
+      "id": "sha256:8f2fb5a07b56ea57b0a32f6dfd387e9eb637d861e12ef938dc2d4fd18535c76a",
+      "bytes": 101209176,
+      "size": "96.5 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.5"
+      ],
+      "repoDigests": [
+        "sha256:f44180bbeb14b08571f2858f1fdedfbbcff5600c6d6e34ec430c11d62400c153"
+      ]
+    },
+    {
+      "id": "sha256:c41d14929e70e26fb608d01b0df08f05a910bf5b9df246dbf48c9844bc68c85a",
+      "bytes": 159111623,
+      "size": "151.7 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.0"
+      ],
+      "repoDigests": [
+        "sha256:c2fb2656ce89e454ba0541e425a36e62a7302ee8ae9f21093517791576b04775"
+      ]
+    },
+    {
+      "id": "sha256:952ef95e220d6f5f1f924724406c2ba8632fe569181f293ee2bee19813198cd8",
+      "bytes": 210876979,
+      "size": "201.1 MiB",
+      "repoTags": [
+        "mcr.microsoft.com/oss/cilium/cilium:1.14.10-1"
+      ],
+      "repoDigests": [
+        "sha256:54cf5b778baf88059fd468468eb0235af4feec9beb68627d0c8282c53745ec76"
       ]
     },
     {

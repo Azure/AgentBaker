@@ -162,7 +162,6 @@ pcre-libs-8.45-2.cm2.x86_64
 libstdc++-11.2.0-8.cm2.x86_64
 zlib-1.2.13-2.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
-ncurses-libs-6.4-3.cm2.x86_64
 readline-8.1-1.cm2.x86_64
 libcap-2.60-2.cm2.x86_64
 bzip2-libs-1.0.8-1.cm2.x86_64
@@ -175,8 +174,8 @@ bash-5.1.8-4.cm2.x86_64
 libsepol-3.2-2.cm2.x86_64
 xz-5.2.5-1.cm2.x86_64
 kmod-29-2.cm2.x86_64
-kernel-5.15.173.1-1.cm2.x86_64
-mariner-release-2.0-69.cm2.noarch
+kernel-5.15.167.1-2.cm2.x86_64
+mariner-release-2.0-68.cm2.noarch
 shim-15.8-1.cm2.x86_64
 grub2-efi-binary-2.06-13.cm2.x86_64
 popt-1.18-1.cm2.x86_64
@@ -194,7 +193,6 @@ util-linux-libs-2.37.4-9.cm2.x86_64
 libgpg-error-1.46-1.cm2.x86_64
 openssl-libs-1.1.1k-35.cm2.x86_64
 libgcrypt-1.10.3-1.cm2.x86_64
-glib-2.71.0-3.cm2.x86_64
 lz4-1.9.4-1.cm2.x86_64
 systemd-rpm-macros-250.3-21.cm2.noarch
 zstd-libs-1.5.4-1.cm2.x86_64
@@ -212,19 +210,16 @@ cronie-anacron-1.5.7-3.cm2.x86_64
 logrotate-3.20.1-1.cm2.x86_64
 openssl-1.1.1k-35.cm2.x86_64
 sqlite-libs-3.39.2-3.cm2.x86_64
-expat-libs-2.6.3-2.cm2.x86_64
 elfutils-libelf-0.186-2.cm2.x86_64
 e2fsprogs-libs-1.46.5-3.cm2.x86_64
 krb5-1.19.4-3.cm2.x86_64
 libassuan-2.5.5-2.cm2.x86_64
-expat-2.6.3-2.cm2.x86_64
 libssh2-1.9.0-4.cm2.x86_64
 iana-etc-20211115-2.cm2.noarch
 libpwquality-1.4.4-1.cm2.x86_64
-file-libs-5.40-3.cm2.x86_64
+file-libs-5.40-2.cm2.x86_64
 device-mapper-2.03.15-3.cm2.x86_64
 device-mapper-event-libs-2.03.15-3.cm2.x86_64
-ncurses-6.4-3.cm2.x86_64
 lmdb-libs-0.9.29-1.cm2.x86_64
 lua-libs-5.4.4-1.cm2.x86_64
 rpm-libs-4.18.0-4.cm2.x86_64
@@ -233,7 +228,7 @@ libedit-3.1.20210910-1.cm2.x86_64
 procps-ng-3.3.17-2.cm2.x86_64
 device-mapper-event-2.03.15-3.cm2.x86_64
 util-linux-2.37.4-9.cm2.x86_64
-file-5.40-3.cm2.x86_64
+file-5.40-2.cm2.x86_64
 cryptsetup-2.4.3-4.cm2.x86_64
 iptables-1.8.7-4.cm2.x86_64
 dbus-1.15.6-1.cm2.x86_64
@@ -251,7 +246,6 @@ irqbalance-1.8.0-4.cm2.x86_64
 libtool-2.4.6-8.cm2.x86_64
 mariner-rpm-macros-2.0-25.cm2.noarch
 net-tools-2.10-3.cm2.x86_64
-tar-1.34-3.cm2.x86_64
 tzdata-2024a-1.cm2.noarch
 which-2.21-8.cm2.x86_64
 libseccomp-2.5.3-1.cm2.x86_64
@@ -326,7 +320,6 @@ rpm-devel-4.18.0-4.cm2.x86_64
 python3-rpm-4.18.0-4.cm2.x86_64
 python3-dnf-4.8.0-2.cm2.noarch
 dnf-4.8.0-2.cm2.noarch
-wget-1.21.2-4.cm2.x86_64
 python3-six-1.16.0-2.cm2.noarch
 python3-markupsafe-2.1.0-1.cm2.x86_64
 python3-idna-3.7-1.cm2.noarch
@@ -363,11 +356,11 @@ cloud-utils-growpart-0.32-3.cm2.noarch
 grub2-2.06-13.cm2.x86_64
 installkernel-1.0.0-2.cm2.noarch
 grubby-8.40-46.cm2.x86_64
-hyperv-daemons-license-5.15.173.1-1.cm2.noarch
-hypervvssd-5.15.173.1-1.cm2.x86_64
-hypervkvpd-5.15.173.1-1.cm2.x86_64
-hypervfcopyd-5.15.173.1-1.cm2.x86_64
-hyperv-daemons-5.15.173.1-1.cm2.x86_64
+hyperv-daemons-license-5.15.167.1-1.cm2.noarch
+hypervvssd-5.15.167.1-1.cm2.x86_64
+hypervkvpd-5.15.167.1-1.cm2.x86_64
+hypervfcopyd-5.15.167.1-1.cm2.x86_64
+hyperv-daemons-5.15.167.1-1.cm2.x86_64
 lzo-2.10-4.cm2.x86_64
 squashfs-tools-4.5.1-2.cm2.x86_64
 ethtool-5.16-2.cm2.x86_64
@@ -376,7 +369,6 @@ kexec-tools-2.0.23-4.cm2.x86_64
 libnl3-3.5.0-4.cm2.x86_64
 wpa_supplicant-2.10-2.cm2.x86_64
 netplan-0.95-2.cm2.x86_64
-ncurses-term-6.4-3.cm2.x86_64
 openssh-server-8.9p1-6.cm2.x86_64
 libestr-0.1.11-1.cm2.x86_64
 libfastjson-0.99.9-1.cm2.x86_64
@@ -384,7 +376,6 @@ gc-8.0.0-4.cm2.x86_64
 libmpc-1.2.1-1.cm2.x86_64
 libstdc++-devel-11.2.0-8.cm2.x86_64
 liblognorm-2.0.6-2.cm2.x86_64
-postgresql-libs-14.14-1.cm2.x86_64
 autogen-libopts-5.18.16-8.cm2.x86_64
 cyrus-sasl-2.1.28-4.cm2.x86_64
 librdkafka1-1.8.2-2.cm2.x86_64
@@ -634,7 +625,7 @@ less-590-4.cm2.x86_64
 git-2.39.4-1.cm2.x86_64
 iotop-0.6-10.cm2.noarch
 ipset-7.15-2.cm2.x86_64
-kernel-devel-5.15.173.1-1.cm2.x86_64
+kernel-devel-5.15.167.1-2.cm2.x86_64
 libtirpc-1.3.3-1.cm2.x86_64
 lsof-4.94.0-1.cm2.x86_64
 libpcap-1.10.1-4.cm2.x86_64
@@ -668,8 +659,8 @@ moby-runc-1.1.9-7.cm2.x86_64
 moby-containerd-1.6.26-5.cm2.x86_64
 acr-mirror-0.2.10-1.x86_64
 llvm-12.0.1-7.cm2.x86_64
-binutils-devel-2.37-10.cm2.x86_64
-binutils-2.37-10.cm2.x86_64
+binutils-devel-2.37-8.cm2.x86_64
+binutils-2.37-8.cm2.x86_64
 compiler-rt-12.0.1-1.cm2.x86_64
 clang-libs-12.0.1-4.cm2.x86_64
 bcc-0.27.0-2.cm2.x86_64
@@ -693,7 +684,7 @@ tmpfs            32G  4.0K   32G   1% /tmp
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 NAME="Common Base Linux Mariner"
-VERSION="2.0.20241208"
+VERSION="2.0.20241029"
 ID=mariner
 VERSION_ID="2.0"
 PRETTY_NAME="CBL-Mariner/Linux"
