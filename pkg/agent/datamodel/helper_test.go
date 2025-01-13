@@ -341,7 +341,7 @@ func TestIndentString(t *testing.T) {
 			got := IndentString(test.input, test.count)
 			diff := cmp.Diff(test.want, got)
 			if diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}

@@ -121,12 +121,16 @@ function Retry-Command {
                 return
             } catch {
                 Write-Log $_.Exception.InnerException.Message
-                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
+                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk.")) {
                     Write-Error "Exit retry since there is not enough space on the disk"
                     break
                 }
+                if ($_.Exception.InnerException.Message.Contains("The device is not connected.: unknown.")) {
+                    Write-Error "Exit retry since drive disconnected (usually means that disk is out of space)"
+                    break
+                }
                 Write-Log "Retry $cnt : $ScriptBlock"
-                Start-Sleep $Delay
+                Start-Sleep -Seconds $Delay
             }
         } while ($cnt -lt $Maximum)
 
@@ -569,7 +573,7 @@ function Enable-WindowsFixInPath {
     $regPath=(Get-Item -Path $Path -ErrorAction Ignore)
     if (!$regPath) {
         Write-Log "Creating $Path"
-        New-Item -Path $Path
+        New-Item -Force -Path $Path
     }
     $currentValue=(Get-ItemProperty -Path $Path -Name $Name -ErrorAction Ignore)
     if (![string]::IsNullOrEmpty($currentValue)) {
@@ -628,6 +632,11 @@ function Update-Registry {
 
         Write-Log "Enable 1 fix in 2024-06B"
         Enable-WindowsFixInFeatureManagement -Name 1605443213
+
+        Write-Log "CVE-2013-3900 Fixs"
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '2022*') {
@@ -681,10 +690,6 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 2193453709
         Enable-WindowsFixInFeatureManagement -Name 3331554445
 
-        Write-Log "Enable 2 fixes in 2024-01B"
-        Enable-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv4
-        Enable-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv6
-
         Write-Log "Enable 1 fix in 2024-02B"
         Enable-WindowsFixInFeatureManagement -Name 1327590028
 
@@ -726,6 +731,10 @@ function Update-Registry {
         Enable-WindowsFixInFeatureManagement -Name 684111502
         Enable-WindowsFixInFeatureManagement -Name 1455863438
 
+        Write-Log "CVE-2013-3900 Fixs"
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '23H2*') {

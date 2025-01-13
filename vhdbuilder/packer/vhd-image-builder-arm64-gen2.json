@@ -96,13 +96,13 @@
     },
     {
       "type": "file",
-      "source": "node-bootstrapper/bin/node-bootstrapper-linux-arm64",
-      "destination": "/home/packer/node-bootstrapper"
+      "source": "aks-node-controller/bin/aks-node-controller-linux-arm64",
+      "destination": "/home/packer/aks-node-controller"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/bootstrap.service",
-      "destination": "/home/packer/bootstrap.service"
+      "source": "parts/linux/cloud-init/artifacts/aks-node-controller.service",
+      "destination": "/home/packer/aks-node-controller.service"
     },
     {
       "type": "file",

@@ -950,14 +950,14 @@
       ]
     },
     {
-      "id": "sha256:179c4431a76ff38a8b129b89e0323aaeaca40a7b7b7de985afd941887225f8d5",
-      "bytes": 97875093,
-      "size": "93.3 MiB",
+      "id": "sha256:9801ac90bcb83a3d7f86c1f5a0d2674b2d2231d64d61b8fe91cc37dcc8205c90",
+      "bytes": 37923249,
+      "size": "36.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12"
+        "mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.9"
       ],
       "repoDigests": [
-        "sha256:db138d893ec8198a71c60f260945e4b4a444c238ff007385546bf6d08e21650e"
+        "sha256:f8d8fcddccf5f21cb2400b544b63e17ce693d879f847d1bda9be29af6cd54b2e"
       ]
     },
     {

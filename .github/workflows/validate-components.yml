@@ -3,7 +3,7 @@ on: pull_request
 
 jobs: 
   cue:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: test
     steps:
       - uses: actions/checkout@v4

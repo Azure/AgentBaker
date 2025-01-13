@@ -121,10 +121,15 @@ steps:
       BUILD_NUMBER: $(Build.BuildNumber)
       BUILD_ID: $(Build.BuildId)
       BUILD_DEFINITION_NAME: $(Build.DefinitionName)
+      UA_TOKEN: $(ua-token)
 
   - bash: |
+      PACKER_VNET_RESOURCE_GROUP_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_resource_group_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      PACKER_VNET_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
+      echo "##vso[task.setvariable variable=PACKER_VNET_NAME]${PACKER_VNET_NAME}" && \
       echo "##vso[task.setvariable variable=VHD_NAME]${CAPTURED_SIG_VERSION}.vhd" && \
       echo "##vso[task.setvariable variable=IMAGE_NAME]${SIG_IMAGE_NAME}-${CAPTURED_SIG_VERSION}" && \
       echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]${SIG_IMAGE_NAME}" && \
@@ -158,6 +163,12 @@ steps:
       SYSTEM_COLLECTIONURI: $(System.CollectionUri)
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
+      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      PACKER_VNET_RESOURCE_GROUP_NAME: $(PACKER_VNET_RESOURCE_GROUP_NAME)
+      PACKER_VNET_NAME: $(PACKER_VNET_NAME)
+      SKIP_SCANNING: $(SKIP_SCANNING)
+      DRY_RUN: $(DRY_RUN)
 
   - task: PublishPipelineArtifact@0
     condition: always()
@@ -210,7 +221,7 @@ steps:
       targetPath: 'image-bom.json'
 
   - task: CopyFiles@2
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    condition: succeeded()
     displayName: Copy Image Bom
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
@@ -218,7 +229,7 @@ steps:
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
   - bash: make -f packer.mk convert-sig-to-classic-storage-account-blob
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
@@ -227,44 +238,32 @@ steps:
     condition: always()
     displayName: Check Build Performance
 
-  - bash: make -f packer.mk generate-sas
-    displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
+  - bash: make -f packer.mk generate-publishing-info
+    displayName: Generate Publishing Info
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
       STORAGE_ACCT_BLOB_URL: $(CLASSIC_BLOB)
       OFFER_NAME: $(OS_SKU)
 
   - task: PublishPipelineArtifact@1
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-    displayName: Publish VHD Publishing-info
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    displayName: Publish Publishing Info
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
 
   - task: CopyFiles@2
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-    displayName: Copy VHD Publishing-info
+    condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    displayName: Copy Publishing Info
     inputs:
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'vhd-publishing-info.json'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  - task: UniversalPackages@0
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-    displayName: Universal Publish
-    inputs:
-      command: publish
-      publishDirectory: 'vhd-publishing-info.json'
-      vstsFeedPublish: 'CloudNativeCompute/AKS-Linux-VHD-Artifacts'
-      vstsFeedPackagePublish: 'publishing-info-${{ parameters.artifactName }}'
-      packagePublishDescription: 'VHD publishing info ${{ parameters.artifactName }}'
-      versionOption: minor
-
   - task: PublishPipelineArtifact@0
-    # These "bulk" artifacts are the folders, per SKU, that contain all other artifacts (publishing-info, image-bom, trivy reports, etc.)
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'))
-    displayName: Publish Bulk Artifacts
+    condition: succeeded()
+    displayName: Publish Artifacts
     inputs:
       artifactName: '${{ parameters.artifactName }}'
       targetPath: '$(Build.ArtifactStagingDirectory)'
