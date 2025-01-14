@@ -629,7 +629,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.24-ubuntu22.04u1"
+                "latestVersion": "1.7.25-ubuntu22.04u1"
               }
             ]
           },
