@@ -158,6 +158,7 @@ steps:
       SYSTEM_COLLECTIONURI: $(System.CollectionUri)
       SYSTEM_TEAMPROJECT: $(System.TeamProject)
       BUILD_RUN_NUMBER: $(Build.BuildNumber)
+      VHD_ARTIFACT_NAME: ${{ parameters.artifactName }}
 
   - task: PublishPipelineArtifact@0
     condition: always()
