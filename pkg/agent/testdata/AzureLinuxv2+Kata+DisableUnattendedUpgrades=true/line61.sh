@@ -118,7 +118,10 @@ installStandaloneContainerd() {
         if [[ $OS_VERSION == "2.0" ]]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
         fi
-
+        if [[ $OS_VERSION == "3.0" ]]; then
+            containerdPackageName="containerd2-${desiredVersion}"
+        fi
+        
         if ! dnf_install 30 1 600 $containerdPackageName; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
