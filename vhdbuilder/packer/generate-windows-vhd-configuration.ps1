@@ -127,8 +127,8 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.1-windows-hp", # for k8s 1.31.x
 
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
-    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",
-    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
+    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.7",
+    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2",
 
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21", # for k8s 1.27.x
