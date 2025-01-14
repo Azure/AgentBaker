@@ -575,7 +575,7 @@
     {
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
-      "downloadURIs": {
+      "downloadURIs": { 
         "ubuntu": {
           "r1804": {
             "versionsV2": [
