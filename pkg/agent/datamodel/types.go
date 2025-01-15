@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Masterminds/semver/v3"
 )
 
 // TypeMeta describes an individual API model object.
