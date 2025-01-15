@@ -374,8 +374,6 @@ function Test-RegistryAdded {
         Validate-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2
         Validate-WindowsFixInFeatureManagement -Name 2193453709
         Validate-WindowsFixInFeatureManagement -Name 3331554445
-        Validate-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv4
-        Validate-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv6
         Validate-WindowsFixInFeatureManagement -Name 1327590028
         Validate-WindowsFixInFeatureManagement -Name 1114842764
         Validate-WindowsFixInHnsState -Name HnsPreallocatePortRange

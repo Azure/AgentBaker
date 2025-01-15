@@ -1,6 +1,6 @@
-Starting build on  Tue Dec 10 03:32:26 UTC 2024
+Starting build on  Sun Jan 5 09:06:34 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
-  - oras version 1.2.1
+  - oras version 1.2.2
   - containerd version 1.6.26-5.cm2
   - CNI plugin version 1.4.1
   - Azure CNI version 1.4.56
@@ -103,10 +103,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.17.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.16.3
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.9.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.8.0
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.7.1
+  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.9.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.8.0
-  - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.7.1
   - mcr.microsoft.com/aks/aks-node-ca-watcher:master.241021.1
   - mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:v0.7.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.101-akslts
@@ -143,17 +143,17 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    51454104 Dec  2 23:52 /usr/local/bin/kubectl-1.30.7
 -rwxr-xr-x 1 root root   112603396 Dec  3 00:08 /usr/local/bin/kubelet-1.29.11
 -rwxr-xr-x 1 root root    50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
--rwxr-xr-x 1 1001 docker  10334343 Dec  5 08:41 /usr/local/bin/oras
--rw-r--r-- 1 1001 docker     11343 Dec  6 03:21 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root         705 Dec 10 03:32 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root    52232184 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root    39369104 Dec 10 03:39 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
--rwxr-xr-x 1 root root    45334640 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root    36014944 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root    53775024 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root    47622592 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root    60175432 Dec 10 03:39 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root    63515504 Dec 10 03:39 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 1001 docker  10334343 Dec 17 09:51 /usr/local/bin/oras
+-rw-r--r-- 1 1001 docker     11343 Dec 19 08:28 /usr/local/bin/LICENSE
+-rwxr-xr-x 1 root root         705 Jan  5 09:07 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    36014944 Jan  5 09:13 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root    45334640 Jan  5 09:13 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root    39369104 Jan  5 09:13 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root    47622592 Jan  5 09:13 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root    52232184 Jan  5 09:13 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root    53775024 Jan  5 09:13 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root    60175432 Jan  5 09:13 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root    63515504 Jan  5 09:13 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 filesystem-1.1-20.cm2.x86_64
 glibc-2.35-7.cm2.x86_64
@@ -162,6 +162,7 @@ pcre-libs-8.45-2.cm2.x86_64
 libstdc++-11.2.0-8.cm2.x86_64
 zlib-1.2.13-2.cm2.x86_64
 xz-libs-5.2.5-1.cm2.x86_64
+ncurses-libs-6.4-3.cm2.x86_64
 readline-8.1-1.cm2.x86_64
 libcap-2.60-2.cm2.x86_64
 bzip2-libs-1.0.8-1.cm2.x86_64
@@ -174,8 +175,8 @@ bash-5.1.8-4.cm2.x86_64
 libsepol-3.2-2.cm2.x86_64
 xz-5.2.5-1.cm2.x86_64
 kmod-29-2.cm2.x86_64
-kernel-5.15.167.1-2.cm2.x86_64
-mariner-release-2.0-68.cm2.noarch
+kernel-5.15.173.1-1.cm2.x86_64
+mariner-release-2.0-69.cm2.noarch
 shim-15.8-1.cm2.x86_64
 grub2-efi-binary-2.06-13.cm2.x86_64
 popt-1.18-1.cm2.x86_64
@@ -193,6 +194,7 @@ util-linux-libs-2.37.4-9.cm2.x86_64
 libgpg-error-1.46-1.cm2.x86_64
 openssl-libs-1.1.1k-35.cm2.x86_64
 libgcrypt-1.10.3-1.cm2.x86_64
+glib-2.71.0-3.cm2.x86_64
 lz4-1.9.4-1.cm2.x86_64
 systemd-rpm-macros-250.3-21.cm2.noarch
 zstd-libs-1.5.4-1.cm2.x86_64
@@ -210,16 +212,19 @@ cronie-anacron-1.5.7-3.cm2.x86_64
 logrotate-3.20.1-1.cm2.x86_64
 openssl-1.1.1k-35.cm2.x86_64
 sqlite-libs-3.39.2-3.cm2.x86_64
+expat-libs-2.6.3-2.cm2.x86_64
 elfutils-libelf-0.186-2.cm2.x86_64
 e2fsprogs-libs-1.46.5-3.cm2.x86_64
 krb5-1.19.4-3.cm2.x86_64
 libassuan-2.5.5-2.cm2.x86_64
+expat-2.6.3-2.cm2.x86_64
 libssh2-1.9.0-4.cm2.x86_64
 iana-etc-20211115-2.cm2.noarch
 libpwquality-1.4.4-1.cm2.x86_64
-file-libs-5.40-2.cm2.x86_64
+file-libs-5.40-3.cm2.x86_64
 device-mapper-2.03.15-3.cm2.x86_64
 device-mapper-event-libs-2.03.15-3.cm2.x86_64
+ncurses-6.4-3.cm2.x86_64
 lmdb-libs-0.9.29-1.cm2.x86_64
 lua-libs-5.4.4-1.cm2.x86_64
 rpm-libs-4.18.0-4.cm2.x86_64
@@ -228,7 +233,7 @@ libedit-3.1.20210910-1.cm2.x86_64
 procps-ng-3.3.17-2.cm2.x86_64
 device-mapper-event-2.03.15-3.cm2.x86_64
 util-linux-2.37.4-9.cm2.x86_64
-file-5.40-2.cm2.x86_64
+file-5.40-3.cm2.x86_64
 cryptsetup-2.4.3-4.cm2.x86_64
 iptables-1.8.7-4.cm2.x86_64
 dbus-1.15.6-1.cm2.x86_64
@@ -246,6 +251,7 @@ irqbalance-1.8.0-4.cm2.x86_64
 libtool-2.4.6-8.cm2.x86_64
 mariner-rpm-macros-2.0-25.cm2.noarch
 net-tools-2.10-3.cm2.x86_64
+tar-1.34-3.cm2.x86_64
 tzdata-2024a-1.cm2.noarch
 which-2.21-8.cm2.x86_64
 libseccomp-2.5.3-1.cm2.x86_64
@@ -320,6 +326,7 @@ rpm-devel-4.18.0-4.cm2.x86_64
 python3-rpm-4.18.0-4.cm2.x86_64
 python3-dnf-4.8.0-2.cm2.noarch
 dnf-4.8.0-2.cm2.noarch
+wget-1.21.2-4.cm2.x86_64
 python3-six-1.16.0-2.cm2.noarch
 python3-markupsafe-2.1.0-1.cm2.x86_64
 python3-idna-3.7-1.cm2.noarch
@@ -356,11 +363,11 @@ cloud-utils-growpart-0.32-3.cm2.noarch
 grub2-2.06-13.cm2.x86_64
 installkernel-1.0.0-2.cm2.noarch
 grubby-8.40-46.cm2.x86_64
-hyperv-daemons-license-5.15.167.1-1.cm2.noarch
-hypervvssd-5.15.167.1-1.cm2.x86_64
-hypervkvpd-5.15.167.1-1.cm2.x86_64
-hypervfcopyd-5.15.167.1-1.cm2.x86_64
-hyperv-daemons-5.15.167.1-1.cm2.x86_64
+hyperv-daemons-license-5.15.173.1-1.cm2.noarch
+hypervvssd-5.15.173.1-1.cm2.x86_64
+hypervkvpd-5.15.173.1-1.cm2.x86_64
+hypervfcopyd-5.15.173.1-1.cm2.x86_64
+hyperv-daemons-5.15.173.1-1.cm2.x86_64
 lzo-2.10-4.cm2.x86_64
 squashfs-tools-4.5.1-2.cm2.x86_64
 ethtool-5.16-2.cm2.x86_64
@@ -369,6 +376,7 @@ kexec-tools-2.0.23-4.cm2.x86_64
 libnl3-3.5.0-4.cm2.x86_64
 wpa_supplicant-2.10-2.cm2.x86_64
 netplan-0.95-2.cm2.x86_64
+ncurses-term-6.4-3.cm2.x86_64
 openssh-server-8.9p1-6.cm2.x86_64
 libestr-0.1.11-1.cm2.x86_64
 libfastjson-0.99.9-1.cm2.x86_64
@@ -376,6 +384,7 @@ gc-8.0.0-4.cm2.x86_64
 libmpc-1.2.1-1.cm2.x86_64
 libstdc++-devel-11.2.0-8.cm2.x86_64
 liblognorm-2.0.6-2.cm2.x86_64
+postgresql-libs-14.14-1.cm2.x86_64
 autogen-libopts-5.18.16-8.cm2.x86_64
 cyrus-sasl-2.1.28-4.cm2.x86_64
 librdkafka1-1.8.2-2.cm2.x86_64
@@ -591,19 +600,10 @@ gpg-pubkey-be1229cf-5631588c
 oniguruma-6.9.7.1-2.cm2.x86_64
 jq-1.6-2.cm2.x86_64
 inotify-tools-3.22.1.0-1.cm2.x86_64
-ncurses-libs-6.4-3.cm2.x86_64
-ncurses-6.4-3.cm2.x86_64
-expat-libs-2.6.3-2.cm2.x86_64
-expat-2.6.3-2.cm2.x86_64
-python3-3.9.19-7.cm2.x86_64
-python3-libs-3.9.19-7.cm2.x86_64
-python3-curses-3.9.19-7.cm2.x86_64
-python3-setuptools-3.9.19-7.cm2.noarch
-ncurses-term-6.4-3.cm2.x86_64
-wget-1.21.2-4.cm2.x86_64
-tar-1.34-3.cm2.x86_64
-postgresql-libs-14.14-1.cm2.x86_64
-glib-2.71.0-3.cm2.x86_64
+python3-libs-3.9.19-8.cm2.x86_64
+python3-3.9.19-8.cm2.x86_64
+python3-curses-3.9.19-8.cm2.x86_64
+python3-setuptools-3.9.19-8.cm2.noarch
 nspr-4.30-2.cm2.x86_64
 nss-libs-3.75-2.cm2.x86_64
 nss-3.75-2.cm2.x86_64
@@ -640,7 +640,7 @@ less-590-4.cm2.x86_64
 git-2.39.4-1.cm2.x86_64
 iotop-0.6-10.cm2.noarch
 ipset-7.15-2.cm2.x86_64
-kernel-devel-5.15.167.1-2.cm2.x86_64
+kernel-devel-5.15.173.1-1.cm2.x86_64
 libtirpc-1.3.3-1.cm2.x86_64
 lsof-4.94.0-1.cm2.x86_64
 libpcap-1.10.1-4.cm2.x86_64
@@ -674,8 +674,8 @@ moby-runc-1.1.9-7.cm2.x86_64
 moby-containerd-1.6.26-5.cm2.x86_64
 acr-mirror-0.2.10-1.x86_64
 llvm-12.0.1-7.cm2.x86_64
-binutils-devel-2.37-8.cm2.x86_64
-binutils-2.37-8.cm2.x86_64
+binutils-devel-2.37-10.cm2.x86_64
+binutils-2.37-10.cm2.x86_64
 compiler-rt-12.0.1-1.cm2.x86_64
 clang-libs-12.0.1-4.cm2.x86_64
 bcc-0.27.0-2.cm2.x86_64
@@ -690,7 +690,7 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
-tmpfs            13G  828K   13G   1% /run
+tmpfs            13G  824K   13G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
 /dev/sda3        29G   24G  4.4G  85% /
 tmpfs            32G  4.0K   32G   1% /tmp
@@ -699,7 +699,7 @@ tmpfs            32G  4.0K   32G   1% /tmp
 tmpfs           6.3G     0  6.3G   0% /run/user/1000
 === os-release Begin
 NAME="Common Base Linux Mariner"
-VERSION="2.0.20241029"
+VERSION="2.0.20241208"
 ID=mariner
 VERSION_ID="2.0"
 PRETTY_NAME="CBL-Mariner/Linux"
@@ -709,11 +709,11 @@ BUG_REPORT_URL="https://aka.ms/cbl-mariner"
 SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
-Linux version 5.15.167.1-2.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Tue Oct 29 03:13:52 UTC 2024
-Install completed successfully on  Tue Dec 10 03:46:26 UTC 2024
-VSTS Build NUMBER: 20241210.1_master_109964864
-VSTS Build ID: 109964864
-Commit: 9d93f9050119736271fd9a8591dacf536504247a
+Linux version 5.15.173.1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sun Dec 8 02:17:37 UTC 2024
+Install completed successfully on  Sun Jan 5 09:22:37 UTC 2025
+VSTS Build NUMBER: 20250105.1_master_111733188
+VSTS Build ID: 111733188
+Commit: 0f6b0c86649e6a5a8e7a4c2cd646aae80449b7ff
 Ubuntu version: 
 Hyperv generation: V1
 Feature flags: None
