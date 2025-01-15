@@ -338,10 +338,10 @@
       "bytes": 189765665,
       "size": "181.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.7"
+        "mcr.microsoft.com/oss/cilium/cilium:1.13.13-4"
       ],
       "repoDigests": [
-        "sha256:0f43277371f1e7c7ff48455d17c67f5b814d4fcc522aad9b271c4d54d3a992c7"
+        "sha256:05a7fc6b0f803422d7e001cc2a24b6bf8fead5cc1be43407638d702457d6e808"
       ]
     },
     {
@@ -635,10 +635,10 @@
       "bytes": 43204770,
       "size": "41.2 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
+        "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.11.0"
       ],
       "repoDigests": [
-        "sha256:cde4eebec2a877f44cd07df9077225f1684d5c0c25e2fd2817613eb96423f831"
+        "sha256:66b9dcb966f97ecc314d9670067de0ea096b982e1c9ec459a74d0b70a50c91bb"
       ]
     },
     {
