@@ -506,6 +506,22 @@ if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
+set +x
+UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
+if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
+	if [ "${OS_VERSION}" == "18.04" ] || [ "${OS_VERSION}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
+		echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
+		if [ -z "${UA_TOKEN}" ]; then
+			echo "UA_TOKEN must be provided when building SKUs which require ESM"
+			exit 1
+		fi
+	else
+		UA_TOKEN="notused"
+	fi
+else
+	UA_TOKEN="notused"
+fi
+
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
@@ -540,8 +556,12 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vnet_resource_group_name": "${VNET_RG_NAME}",
   "msi_resource_strings": "${msi_resource_strings}",
   "private_packages_url": "${private_packages_url}",
+  "ua_token": "${UA_TOKEN}",
   "build_date": "${BUILD_DATE}"
 }
 EOF
 
-cat vhdbuilder/packer/settings.json
+# so we don't accidently log UA_TOKEN, though ADO will automatically mask it if it appears in stdout
+# since it's coming from a variable group
+echo "packer settings:"
+jq 'del(.ua_token)' < vhdbuilder/packer/settings.json

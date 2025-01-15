@@ -11,7 +11,7 @@ steps:
         else
           echo "This is a release build triggered from the release pipeline"
 
-          echo "$(Build.SourceBranch)" | grep -E 'windows/v[[:digit:]]{8}'
+          echo "$(Build.SourceBranch)" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$'
           if (( $? != 0 )); then
             echo "The branch $(Build.SourceBranch) is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
             exit 1
