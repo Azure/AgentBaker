@@ -876,10 +876,10 @@
       "bytes": 86003037,
       "size": "82.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.5"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.7"
       ],
       "repoDigests": [
-        "sha256:6c0c5e32e29451c511093dcdfa14f915b2ab114d73347aef39067a67488f36a6"
+        "sha256:0f43277371f1e7c7ff48455d17c67f5b814d4fcc522aad9b271c4d54d3a992c7"
       ]
     },
     {

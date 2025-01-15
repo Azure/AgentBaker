@@ -2,17 +2,22 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
+	"regexp"
+	"strings"
 	"syscall"
 	"testing"
+	"time"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
-	"github.com/Azure/agentbakere2e/config"
-	"github.com/stretchr/testify/assert"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -27,15 +32,19 @@ func setupSignalHandler() context.Context {
 	ch := make(chan os.Signal, 2)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 
+	red := func(text string) string {
+		return "\033[31m" + text + "\033[0m"
+	}
+
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit.")
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit."))
 		cancel()
 
 		// block until second signal is received
 		<-ch
-		fmt.Println("Received second cancellation signal, forcing exit.")
+		fmt.Println(red("Received second cancellation signal, forcing exit."))
 		os.Exit(1)
 	}()
 	return ctx
@@ -50,19 +59,88 @@ func newTestCtx(t *testing.T) context.Context {
 	return ctx
 }
 
+func TestMain(m *testing.M) {
+	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
+	// clean up logs from previous run
+	if _, err := os.Stat("scenario-logs"); err == nil {
+		_ = os.RemoveAll("scenario-logs")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	err := ensureResourceGroup(ctx)
+	mustNoError(err)
+	_, err = config.Azure.CreateVMManagedIdentity(ctx)
+	mustNoError(err)
+	m.Run()
+}
+
+func mustNoError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func RunScenario(t *testing.T, s *Scenario) {
+	s.T = t
 	t.Parallel()
 	ctx := newTestCtx(t)
-	cleanTestDir(t)
-	ensureResourceGroupOnce(ctx)
 	maybeSkipScenario(ctx, t, s)
-	s.PrepareRuntime(ctx, t)
-	createAndValidateVM(ctx, t, s)
+	cluster, err := s.Config.Cluster(ctx, s.T)
+	require.NoError(s.T, err)
+	// in some edge cases cluster cache is broken and nil cluster is returned
+	// need to find the root cause and fix it, this should help to catch such cases
+	require.NotNil(t, cluster)
+	s.Runtime = &ScenarioRuntime{
+		Cluster: cluster,
+	}
+	// use shorter timeout for faster feedback on test failures
+	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
+	defer cancel()
+	prepareAKSNode(ctx, s)
+	validateVM(ctx, s)
+}
+
+func prepareAKSNode(ctx context.Context, s *Scenario) {
+	s.Runtime.VMSSName = generateVMSSName(s)
+	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
+		s.T.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
+	}
+
+	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	if s.VHD.OS == config.OSWindows {
+		nbc.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSE(ctx, s.T)
+	}
+
+	if s.BootstrapConfigMutator != nil {
+		s.BootstrapConfigMutator(nbc)
+		s.Runtime.NBC = nbc
+	}
+	if s.AKSNodeConfigMutator != nil {
+		nodeconfig := nbcToAKSNodeConfigV1(nbc)
+		s.AKSNodeConfigMutator(nodeconfig)
+		s.Runtime.AKSNodeConfig = nodeconfig
+	}
+	var err error
+	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
+	require.NoError(s.T, err)
+	createVMSS(ctx, s)
+	err = getCustomScriptExtensionStatus(ctx, s)
+	require.NoError(s.T, err)
+	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
+
+	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
+	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
+
+	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+	require.NoError(s.T, err, "failed to get VM private IP address")
+	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
+	require.NoError(s.T, err, "failed to get host network debug pod name")
+	s.Runtime.DebugHostPod = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	s.Tags.Name = t.Name()
-	s.Tags.OS = s.VHD.OS
+	s.Tags.OS = string(s.VHD.OS)
 	s.Tags.Arch = s.VHD.Arch
 	s.Tags.ImageName = s.VHD.Name
 	if config.Config.TagsToRun != "" {
@@ -93,42 +171,33 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("running scenario %q with vhd: %q, tags %+v", t.Name(), vhd, s.Tags)
+	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
-func createAndValidateVM(ctx context.Context, t *testing.T, scenario *Scenario) {
-	rid, _ := scenario.VHD.VHDResourceID(ctx, t)
-
-	t.Logf("running scenario %q with image %q in aks cluster %q", t.Name(), rid, *scenario.Runtime.Cluster.Model.ID)
-
-	privateKeyBytes, publicKeyBytes, err := getNewRSAKeyPair()
-	assert.NoError(t, err)
-
-	vmssName := getVmssName(t)
-	createVMSS(ctx, t, vmssName, scenario, privateKeyBytes, publicKeyBytes)
-
-	t.Logf("vmss %s creation succeeded, proceeding with node readiness and pod checks...", vmssName)
-	nodeName := validateNodeHealth(ctx, t, scenario.Runtime.Cluster.Kube, vmssName, scenario.Tags.Airgap)
+func validateVM(ctx context.Context, s *Scenario) {
+	ValidatePodRunning(ctx, s)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
-	if scenario.Runtime.NBC != nil && scenario.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && scenario.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
-		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
+		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
-	if scenario.Runtime.AKSNodeConfig != nil && scenario.Runtime.AKSNodeConfig.WorkloadRuntime == nbcontractv1.WorkloadRuntime_WASM_WASI {
-		validateWasm(ctx, t, scenario.Runtime.Cluster.Kube, nodeName)
+	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
+		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 
-	t.Logf("node %s is ready, proceeding with validation commands...", vmssName)
+	switch s.VHD.OS {
+	case config.OSWindows:
+		// TODO: validate something
+	default:
+		ValidateCommonLinux(ctx, s)
+	}
 
-	vmPrivateIP, err := getVMPrivateIPAddress(ctx, *scenario.Runtime.Cluster.Model.Properties.NodeResourceGroup, vmssName)
-	require.NoError(t, err)
-
-	require.NoError(t, err, "get vm private IP %v", vmssName)
-	err = runLiveVMValidators(ctx, t, vmssName, vmPrivateIP, string(privateKeyBytes), scenario)
-	require.NoError(t, err)
-
-	t.Logf("node %s bootstrapping succeeded!", vmssName)
+	// test-specific validation
+	if s.Config.Validator != nil {
+		s.Config.Validator(ctx, s)
+	}
+	s.T.Log("validation succeeded")
 }
 
 func getExpectedPackageVersions(packageName, distro, release string) []string {
@@ -152,4 +221,76 @@ func getExpectedPackageVersions(packageName, distro, release string) []string {
 		}
 	}
 	return expectedVersions
+}
+
+func getCustomScriptExtensionStatus(ctx context.Context, s *Scenario) error {
+	pager := config.Azure.VMSSVM.NewListPager(*s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get VMSS instances: %v", err)
+		}
+
+		for _, vmInstance := range page.Value {
+			instanceViewResp, err := config.Azure.VMSSVM.GetInstanceView(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, *vmInstance.InstanceID, nil)
+			if err != nil {
+				return fmt.Errorf("failed to get instance view for VM %s: %v", *vmInstance.InstanceID, err)
+			}
+			for _, extension := range instanceViewResp.Extensions {
+				for _, status := range extension.Statuses {
+					if s.VHD.OS == config.OSWindows {
+						if status.Code == nil || !strings.EqualFold(*status.Code, "ProvisioningState/succeeded") {
+							return fmt.Errorf("failed to get CSE output, error: %s", *status.Message)
+						}
+						return nil
+
+					} else {
+						resp, err := parseLinuxCSEMessage(*status)
+						if err != nil {
+							return fmt.Errorf("Parse CSE message with error, error %w", err)
+						}
+						if resp.ExitCode != "0" {
+							return fmt.Errorf("vmssCSE %s, output=%s, error=%s, cse output: %s", resp.ExitCode, resp.Output, resp.Error, *status.Message)
+						}
+						return nil
+					}
+				}
+			}
+		}
+	}
+	return fmt.Errorf("failed to get CSE output.")
+}
+
+func parseLinuxCSEMessage(status armcompute.InstanceViewStatus) (*datamodel.CSEStatus, error) {
+	if status.Code == nil || status.Message == nil {
+		return nil, datamodel.NewError(datamodel.InvalidCSEMessage, "No valid Status code or Message provided from cse extension")
+	}
+
+	start := strings.Index(*status.Message, "[stdout]") + len("[stdout]")
+	end := strings.Index(*status.Message, "[stderr]")
+
+	var linuxExtensionExitCodeStrRegex = regexp.MustCompile(linuxExtensionExitCodeStr)
+	var linuxExtensionErrorCodeRegex = regexp.MustCompile(extensionErrorCodeRegex)
+	extensionFailed := linuxExtensionErrorCodeRegex.MatchString(*status.Code)
+	if end <= start {
+		return nil, fmt.Errorf("Parse CSE failed with error cannot find [stdout] and [stderr], raw CSE Message: %s, delete vm: %t", *status.Message, extensionFailed)
+	}
+	rawInstanceViewInfo := (*status.Message)[start:end]
+	// Parse CSE message
+	var cseStatus datamodel.CSEStatus
+	err := json.Unmarshal([]byte(rawInstanceViewInfo), &cseStatus)
+	if err != nil {
+		exitCodeMatch := linuxExtensionExitCodeStrRegex.FindStringSubmatch(*status.Message)
+		if len(exitCodeMatch) > 1 && extensionFailed {
+			// Failed but the format is not expected.
+			cseStatus.ExitCode = exitCodeMatch[1]
+			cseStatus.Error = *status.Message
+			return &cseStatus, nil
+		}
+		return nil, fmt.Errorf("Parse CSE Json failed with error: %s, raw CSE Message: %s, delete vm: %t", err, *status.Message, extensionFailed)
+	}
+	if cseStatus.ExitCode == "" {
+		return nil, fmt.Errorf("CSE Json does not contain exit code, raw CSE Message: %s", *status.Message)
+	}
+	return &cseStatus, nil
 }
