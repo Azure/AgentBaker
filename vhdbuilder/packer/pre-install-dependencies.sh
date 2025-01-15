@@ -85,30 +85,22 @@ if isMarinerOrAzureLinux "$OS"; then
     installFIPS
   fi
 else
-  # Enable ESM for 18.04 and FIPS only
+  # Enable ESM for 18.04, 20.04, and FIPS only
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     autoAttachUA
   fi
 
+  # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
+  # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
+  # Therefore keeping this to 22.04 only for now
+  if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+    sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+  fi
+
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
-
-  # CVM breaks on kernel image updates due to nullboot package post-install.
-  # it relies on boot measurements from real tpm hardware.
-  # building on a real CVM would solve this, but packer doesn't support it.
-  # we could make upstream changes but that takes time, and we are broken now.
-  # so we just hold the kernel image packages for now on CVM.
-  # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
-    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
-    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
-    # Therefore keeping this to 22.04 only for now
-    if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
-      sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
-    fi
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  fi
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
   if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
     # Can not currently update kernel in CVM builds due to nullboot post-installation failure when no TPM is present on the VM
