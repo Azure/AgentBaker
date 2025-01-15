@@ -884,7 +884,7 @@ function Log-ReofferUpdate {
             Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
         }
     } catch {
-        Write-Log "ReofferUpdate does not exist"
+        Write-Log "ReofferUpdate registry setting does not exist"
     }
 }
 
