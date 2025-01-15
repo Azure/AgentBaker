@@ -48,7 +48,7 @@ RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
     az group create --name $RESOURCE_GROUP_NAME --location ${CVM_PACKER_BUILD_LOCATION} --tags --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 else
-    az group create --name $RESOURCE_GROUP_NAME --location ${CVM_PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
+    az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
 fi
 
 function cleanup() {
