@@ -720,8 +720,8 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
-tmpfs            13G  668K   13G   1% /run
-/dev/sda3        29G   24G  3.5G  88% /
+tmpfs            13G  672K   13G   1% /run
+/dev/sda3        29G   25G  2.9G  90% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       474M  103M  343M  24% /boot
 /dev/sda1        64M   37M   27M  58% /boot/efi

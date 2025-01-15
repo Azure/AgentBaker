@@ -1,6 +1,9 @@
 #!/bin/bash
 
 required_env_vars=(
+  "SUBSCRIPTION_ID"
+  "PACKER_VNET_RESOURCE_GROUP_NAME"
+  "PACKER_VNET_NAME"
   "SIG_IMAGE_NAME"
   "AZURE_RESOURCE_GROUP_NAME"
   "CAPTURED_SIG_VERSION"
@@ -14,6 +17,7 @@ required_env_vars=(
   "UMSI_CLIENT_ID"
   "BUILD_RUN_NUMBER"
   "VHD_ARTIFACT_NAME"
+  "DRY_RUN"
 )
 
 for v in "${required_env_vars[@]}"; do
@@ -66,8 +70,8 @@ fi
 SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
-echo -e "\nENVIRONMENT is: ${ENVIRONMENT}, OS_VERSION is: ${OS_VERSION}"
-if [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
+echo -e "\nENVIRONMENT ${ENVIRONMENT}, OS_VERSION ${OS_VERSION}, SKIP_SCANNING: ${SKIP_SCANNING}"
+if [ "${SKIP_SCANNING,,}" != "true" ] && [ "${ENVIRONMENT,,}" != "prod" ] && [ "$OS_VERSION" != "18.04" ]; then
   echo -e "Running scanning step"
   SCRIPT_ARRAY+=("./vhdbuilder/packer/vhd-scanning.sh")
 else

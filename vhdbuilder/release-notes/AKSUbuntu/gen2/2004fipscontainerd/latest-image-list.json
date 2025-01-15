@@ -326,10 +326,10 @@
       "bytes": 202382742,
       "size": "193.0 MiB",
       "repoTags": [
-        "mcr.microsoft.com/containernetworking/azure-cns:v1.4.56"
+        "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.7"
       ],
       "repoDigests": [
-        "sha256:7eaf6d3c753c28c170ae6d724a42441ab14620979a82d003a6b5cb2891c32270"
+        "sha256:0f43277371f1e7c7ff48455d17c67f5b814d4fcc522aad9b271c4d54d3a992c7"
       ]
     },
     {

@@ -4,6 +4,7 @@ pr:
   branches:
     include:
     - master
+    - dev
   paths:
     include:
     - .pipelines/.vsts-vhd-builder-release-windows.yaml
@@ -20,6 +21,8 @@ pr:
     - vhdbuilder/packer/init-variables.sh
     - vhdbuilder/packer/windows-image.env
     - vhdbuilder/packer/windows-vhd-builder-sig.json
+    exclude:
+    - vhdbuilder/release-notes
 
 pool:
   name: $(AZURE_POOL_NAME)
@@ -54,121 +57,70 @@ parameters:
   type: boolean
   default: False
 
+variables:
+  VHD_BUILD_ID: $(Build.BuildId)
+  LOCATION: $(PACKER_BUILD_LOCATION)
+
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
-  - stage: build_vhd_2019_containerd
-    dependsOn: []
-    condition: eq('${{ parameters.build2019containerd }}', True)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
-            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=WINDOWS_SKU]2019-containerd'
-            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2019_BASE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2019_NANO_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2019_CORE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template-windows.yaml
-          parameters:
-            artifactName: 2019-containerd
+  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2019_v1
+      artifactName: 2019-containerd
+      imageName: windows-2019-containerd
+      windowsSku: 2019-containerd
+      hyperVGeneration: V1
+      build: ${{ parameters.build2019containerd }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
 
-  - stage: build_vhd_2022_containerd
-    dependsOn: []
-    condition: eq('${{ parameters.build2022containerd }}', True)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
-            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd'
-            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_BASE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template-windows.yaml
-          parameters:
-            artifactName: 2022-containerd
+  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2022_v1
+      artifactName: 2022-containerd
+      imageName: windows-2022-containerd
+      windowsSku: 2022-containerd
+      hyperVGeneration: V1
+      build: ${{ parameters.build2022containerd }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
 
-  - stage: build_vhd_2022_containerd_gen2
-    dependsOn: []
-    condition: eq('${{ parameters.build2022containerdgen2 }}', True)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
-            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=WINDOWS_SKU]2022-containerd-gen2'
-            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_2022_GEN2_BASE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template-windows.yaml
-          parameters:
-            artifactName: 2022-containerd-gen2
+  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2022_v2
+      artifactName: 2022-containerd-gen2
+      imageName: windows-2022-containerd-gen2
+      windowsSku: 2022-containerd-gen2
+      hyperVGeneration: V2
+      build: ${{ parameters.build2022containerdgen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
 
-  - stage: build_vhd_23H2
-    dependsOn: []
-    condition: eq('${{ parameters.build23H2 }}', True)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
-            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V1'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=WINDOWS_SKU]23H2'
-            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_23H2_BASE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template-windows.yaml
-          parameters:
-            artifactName: 23H2
+  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_23H2_v1
+      artifactName: 23H2
+      imageName: windows-23H2
+      windowsSku: 23H2
+      hyperVGeneration: V1
+      build: ${{ parameters.build23H2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
 
-  - stage: build_vhd_23H2_gen2
-    dependsOn: []
-    condition: eq('${{ parameters.build23H2gen2 }}', True)
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=VHD_DEBUG]${{parameters.vhddebug}}'
-            echo '##vso[task.setvariable variable=DRY_RUN]${{parameters.dryrun}}'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D4s_v3'
-            echo '##vso[task.setvariable variable=WINDOWS_SKU]23H2-gen2'
-            echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'
-            echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template-windows.yaml
-          parameters:
-            artifactName: 23H2-gen2
-  
+  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_23H2_v2
+      artifactName: 23H2-gen2
+      imageName: windows-23H2-gen2
+      windowsSku: 23H2-gen2
+      hyperVGeneration: V2
+      build: ${{ parameters.build23H2gen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []
     condition: always()
@@ -190,5 +142,6 @@ stages:
             -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
             -e OS_TYPE="Windows" \
             ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
+          enabled: false
           displayName: Backfill Clean Up Older Resources
           condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')

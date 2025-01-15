@@ -692,7 +692,7 @@ devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
 tmpfs            13G  824K   13G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   24G  4.3G  85% /
+/dev/sda3        29G   24G  4.4G  85% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       452M   37M  381M   9% /boot
 /dev/sdb1       590G   32K  560G   1% /mnt
