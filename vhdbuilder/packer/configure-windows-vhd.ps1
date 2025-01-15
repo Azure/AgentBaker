@@ -388,6 +388,14 @@ function Install-ContainerD {
 
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
+
+    # Somehow openssh client got added to Windows 2019 base image.
+    if ($env:WindowsSKU -Like '2019*')
+    {
+        Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+    }
+
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
     # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
