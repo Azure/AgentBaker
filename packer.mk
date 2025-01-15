@@ -29,8 +29,13 @@ else
 	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
 endif
 ifeq (${OS_SKU},Ubuntu)
-	@echo "Using packer template file: vhd-image-builder-base.json"
+ifeq (${IMG_SKU},20_04-lts-cvm)
+	@echo "Using packer template file vhd-image-builder-cvm.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+else
+	@echo "Using packer template file vhd-image-builder-base.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
