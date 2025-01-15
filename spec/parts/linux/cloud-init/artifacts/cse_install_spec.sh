@@ -50,10 +50,10 @@ Describe 'cse_install.sh'
             OS="AZURELINUX"
             containerdPackage=$(readPackage "containerd")
             When call installContainerRuntime
-            The variable containerdMajorMinorPatchVersion should equal "1.7.13"
-            The variable containerdHotFixVersion should equal "3.fake"
+            The variable containerdMajorMinorPatchVersion should equal "2.0.0"
+            The variable containerdHotFixVersion should equal "1.fake"
             The output line 3 should equal "mock logs to events calling with AKS.CSE.installContainerRuntime.installStandaloneContainerd"
-            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 1.7.13-3.fake"
+            The output line 4 should equal "in installContainerRuntime - CONTAINERD_VERSION = 2.0.0-1.fake"
         End
         It 'skips validation if components.json file is not found'
             COMPONENTS_FILEPATH="non_existent_file.json"
