@@ -71,6 +71,10 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	exit 1
 fi
 
+if [ "$MODE" == "linuxVhdMode" ] && [ -z "${CVM_PACKER_BUILD_LOCATION}" ]; then
+	CVM_PACKER_BUILD_LOCATION=$PACKER_BUILD_LOCATION
+fi
+
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
