@@ -625,6 +625,7 @@ type KubernetesAddon struct {
 // EbpfDataplane controls the eBPF networking dataplane.
 type EbpfDataplane int32
 
+//nolint:stylecheck // underscores in constant names are used for clarity in this context
 const (
 	// none means don't install an eBPF dataplane.
 	EbpfDataplane_none EbpfDataplane = 0

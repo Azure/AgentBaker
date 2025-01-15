@@ -396,6 +396,8 @@ getPrimaryNicIP() {
 }
 
 generateSelfSignedKubeletServingCertificate() {
+    mkdir -p "/etc/kubernetes/certs"
+    
     KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
