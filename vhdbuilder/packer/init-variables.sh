@@ -85,7 +85,11 @@ if [ -z "${VNET_RG_NAME}" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
 		else
-			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
+			if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+				VNET_RG_NAME="nodesig-${ENVIRONMENT}-${CVM_PACKER_BUILD_LOCATION}-packer-vnet-rg"
+			else
+				VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
+			fi
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
@@ -103,13 +107,18 @@ if [ -z "${VNET_NAME}" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 		else
-			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+			if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+				VNET_NAME="nodesig-packer-vnet-${CVM_PACKER_BUILD_LOCATION}"
+			else
+				VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
+			fi
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet"
 	fi
 fi
+
 
 if [ -z "${SUBNET_NAME}" ]; then
 	SUBNET_NAME="packer"
@@ -167,6 +176,8 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
+		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+      SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -259,7 +270,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVM"
       fi
 
       az sig image-definition create \
