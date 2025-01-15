@@ -387,9 +387,23 @@ function Install-ContainerD {
 }
 
 function Reapply-Long-Term-Update {
+    Write-Log "Reapplying Long Term Updates"
     Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser
     Import-Module PSWindowsUpdate
-    Get-WindowsUpdate | Where-Object {$_.Title -match "Cumulative Update"} | Install-WindowsUpdate -AcceptAll -AutoReboo
+
+    # Get any cumulative updates that need to be applied.
+    $updates = Get-WindowsUpdate
+
+    # Print the table of updates that will be applied for debugging
+    Write-Log "List of all updates available"
+    echo $updates
+
+    $updatesToApply = echo $updates | Where-Object {$_.Title -match "Cumulative Update"}
+    Write-Log "List of all updates to apply"
+    echo $updatesToApply
+
+    # Now apply them.
+    echo $updatesToApply | Install-WindowsUpdate -AcceptAll
 }
 
 function Install-OpenSSH {
