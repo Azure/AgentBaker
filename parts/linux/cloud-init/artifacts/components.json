@@ -51,7 +51,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.4.58",
+          "latestVersion": "v1.4.59",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
