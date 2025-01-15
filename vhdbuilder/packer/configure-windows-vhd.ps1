@@ -393,7 +393,9 @@ function Install-OpenSSH {
     # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
     # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
     $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
-    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    $ConfigDirectory = "C:\programdata\ssh"
+    New-Item -ItemType Directory -Force -Path $ConfigDirectory
+    $ConfigPath = $ConfigDirectory + "\sshd_config"
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
