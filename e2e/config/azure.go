@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -26,7 +27,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/Azure/go-armbalancer"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/google/uuid"
 )
 
@@ -37,7 +39,6 @@ type AzureClient struct {
 	CacheRulesClient          *armcontainerregistry.CacheRulesClient
 	Core                      *azcore.Client
 	Credential                *azidentity.DefaultAzureCredential
-	GalleryImageVersion       *armcompute.GalleryImageVersionsClient
 	Maintenance               *armcontainerservice.MaintenanceConfigurationsClient
 	PrivateDNSZoneGroup       *armnetwork.PrivateDNSZoneGroupsClient
 	PrivateEndpointClient     *armnetwork.PrivateEndpointsClient
@@ -55,6 +56,8 @@ type AzureClient struct {
 	VMSSVM                    *armcompute.VirtualMachineScaleSetVMsClient
 	VNet                      *armnetwork.VirtualNetworksClient
 	VirutalNetworkLinksClient *armprivatedns.VirtualNetworkLinksClient
+	ArmOptions                *arm.ClientOptions
+	VMSSVMRunCommands         *armcompute.VirtualMachineScaleSetVMRunCommandsClient
 }
 
 func mustNewAzureClient() *AzureClient {
@@ -71,24 +74,24 @@ func NewAzureClient() (*AzureClient, error) {
 		// use a bunch of connections for load balancing
 		// ensure all timeouts are defined and reasonable
 		// ensure TLS1.2+ and HTTP2
-		Transport: armbalancer.New(armbalancer.Options{
-			PoolSize: 100,
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				ForceAttemptHTTP2:     true,
-				MaxIdleConns:          100,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-				TLSClientConfig: &tls.Config{
-					MinVersion: tls.VersionTLS12,
-				},
+		//Transport: armbalancer.New(armbalancer.Options{
+		//	PoolSize: 100,
+		//}),
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
 			},
-		}),
+		},
 	}
 
 	logger := runtime.NewLogPolicy(&policy.LogOptions{
@@ -208,11 +211,6 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create vnet client: %w", err)
 	}
 
-	cloud.GalleryImageVersion, err = armcompute.NewGalleryImageVersionsClient(Config.GallerySubscriptionID, credential, opts)
-	if err != nil {
-		return nil, fmt.Errorf("create a new images client: %v", err)
-	}
-
 	cloud.Blob, err = azblob.NewClient(Config.BlobStorageAccountURL(), credential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create blob container client: %w", err)
@@ -238,7 +236,13 @@ func NewAzureClient() (*AzureClient, error) {
 		return nil, fmt.Errorf("create storage accounts client: %w", err)
 	}
 
+	cloud.VMSSVMRunCommands, err = armcompute.NewVirtualMachineScaleSetVMRunCommandsClient(Config.SubscriptionID, credential, opts)
+	if err != nil {
+		return nil, fmt.Errorf("create vmss vm run command client: %w", err)
+	}
+
 	cloud.Credential = credential
+	cloud.ArmOptions = opts
 
 	return cloud, nil
 }
@@ -253,6 +257,36 @@ func (a *AzureClient) UploadAndGetLink(ctx context.Context, blobName string, fil
 
 	// is there a better way?
 	return fmt.Sprintf("%s/%s/%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName), nil
+}
+
+// UploadAndGetSignedLink uploads the data to the blob storage and returns the signed link to download the blob
+// If the blob already exists, it will be overwritten
+func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName string, file *os.File) (string, error) {
+	_, err := a.Blob.UploadFile(ctx, Config.BlobContainer, blobName, file, nil)
+	if err != nil {
+		return "", fmt.Errorf("upload blob: %w", err)
+	}
+
+	udc, err := a.Blob.ServiceClient().GetUserDelegationCredential(ctx, service.KeyInfo{
+		Expiry: to.Ptr(time.Now().Add(time.Hour).UTC().Format(sas.TimeFormat)),
+		Start:  to.Ptr(time.Now().UTC().Format(sas.TimeFormat)),
+	}, nil)
+	if err != nil {
+		return "", fmt.Errorf("get user delegation credential: %w", err)
+	}
+
+	sig, err := sas.BlobSignatureValues{
+		Protocol:      sas.ProtocolHTTPS,
+		ExpiryTime:    time.Now().Add(time.Hour),
+		Permissions:   to.Ptr(sas.BlobPermissions{Read: true}).String(),
+		ContainerName: Config.BlobContainer,
+		BlobName:      blobName,
+	}.SignWithUserDelegation(udc)
+	if err != nil {
+		return "", fmt.Errorf("sign blob: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s/%s?%s", Config.BlobStorageAccountURL(), Config.BlobContainer, blobName, sig.Encode()), nil
 }
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
@@ -271,7 +305,7 @@ func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, erro
 		return "", err
 	}
 
-	if err := a.assignReaderRoleToBlobStorage(ctx, identity.Properties.PrincipalID); err != nil {
+	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
 		return "", err
 	}
 	return *identity.Properties.ClientID, nil
@@ -307,15 +341,16 @@ func (a *AzureClient) createBlobStorageContainer(ctx context.Context) error {
 	return nil
 }
 
-func (a *AzureClient) assignReaderRoleToBlobStorage(ctx context.Context, principalID *string) error {
+func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *string) error {
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s", Config.SubscriptionID, ResourceGroupName, Config.BlobStorageAccount())
 	// Role assignment requires uid to be provided
 	uid := uuid.New().String()
 	_, err := a.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
 			PrincipalID: principalID,
-			// built-in "Storage Blob Data Reader" role
-			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/2a2b9908-6ea1-4ae2-8e65-a410df84e7d1"),
+			// built-in "Storage Blob Data Contributor" role
+			// https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
+			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/ba92f5b4-2d11-453d-a403-e96b0029c9fe"),
 		},
 	}, nil)
 	var respError *azcore.ResponseError
@@ -324,10 +359,105 @@ func (a *AzureClient) assignReaderRoleToBlobStorage(ctx context.Context, princip
 		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
 			return nil
 		}
-		return fmt.Errorf("assign reader role: %w", err)
+		return fmt.Errorf("assign Storage Blob Data Contributor role: %w", err)
 	}
 	return nil
+}
 
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return "", fmt.Errorf("create a new images client: %v", err)
+	}
+	pager := galleryImageVersion.NewListByGalleryImagePager(image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, nil)
+	var latestVersion *armcompute.GalleryImageVersion
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get next page: %w", err)
+		}
+		versions := page.Value
+		for _, version := range versions {
+			// skip images tagged with the no-selection tag, indicating they
+			// shouldn't be selected dynmically for running abe2e scenarios
+			if _, ok := version.Tags[noSelectionTagName]; ok {
+				continue
+			}
+			if tagName != "" {
+				tag, ok := version.Tags[tagName]
+				if !ok || tag == nil || *tag != tagValue {
+					continue
+				}
+			}
+
+			if err := ensureProvisioningState(version); err != nil {
+				continue
+			}
+			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
+				latestVersion = version
+			}
+		}
+	}
+	if latestVersion == nil {
+		return "", ErrNotFound
+	}
+
+	if err := a.ensureReplication(ctx, image, latestVersion); err != nil {
+		return "", fmt.Errorf("ensuring image replication: %w", err)
+	}
+
+	return VHDResourceID(*latestVersion.ID), nil
+}
+
+func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	if replicatedToCurrentRegion(version) {
+		return nil
+	}
+	return a.replicateImageVersionToCurrentRegion(ctx, image, version)
+}
+
+func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return fmt.Errorf("create a new images client: %v", err)
+	}
+	version.Properties.PublishingProfile.TargetRegions = append(version.Properties.PublishingProfile.TargetRegions, &armcompute.TargetRegion{
+		Name:                 &Config.Location,
+		RegionalReplicaCount: to.Ptr[int32](1),
+		StorageAccountType:   to.Ptr(armcompute.StorageAccountTypeStandardLRS),
+	})
+
+	resp, err := galleryImageVersion.BeginCreateOrUpdate(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, *version.Name, *version, nil)
+	if err != nil {
+		return fmt.Errorf("begin updating image version target regions: %w", err)
+	}
+	if _, err := resp.PollUntilDone(ctx, DefaultPollUntilDoneOptions); err != nil {
+		return fmt.Errorf("updating image version target regions: %w", err)
+	}
+
+	return nil
+}
+
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (VHDResourceID, error) {
+	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if err != nil {
+		return "", fmt.Errorf("create a new images client: %v", err)
+	}
+	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
+	if err != nil {
+		return "", fmt.Errorf("getting live image version info: %w", err)
+	}
+
+	liveVersion := &resp.GalleryImageVersion
+	if err := ensureProvisioningState(liveVersion); err != nil {
+		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
+	}
+
+	if err := a.ensureReplication(ctx, image, liveVersion); err != nil {
+		return "", fmt.Errorf("ensuring image replication: %w", err)
+	}
+
+	return VHDResourceID(*resp.ID), nil
 }
 
 func DefaultRetryOpts() policy.RetryOptions {
@@ -344,4 +474,20 @@ func DefaultRetryOpts() policy.RetryOptions {
 			http.StatusNotFound,            // 404
 		},
 	}
+}
+
+func replicatedToCurrentRegion(version *armcompute.GalleryImageVersion) bool {
+	for _, targetRegion := range version.Properties.PublishingProfile.TargetRegions {
+		if strings.EqualFold(strings.ReplaceAll(*targetRegion.Name, " ", ""), Config.Location) {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
+	if *version.Properties.ProvisioningState != armcompute.GalleryProvisioningStateSucceeded {
+		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
+	}
+	return nil
 }
