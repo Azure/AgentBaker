@@ -386,14 +386,23 @@ function Install-ContainerD {
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
+function Reapply-Long-Term-Update {
+    Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser
+    Import-Module PSWindowsUpdate
+    Get-WindowsUpdate | Where-Object {$_.Title -match "Cumulative Update"} | Install-WindowsUpdate -AcceptAll -AutoReboo
+}
+
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
+
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
     # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
     # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
     $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
-    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    $ConfigDirectory = "C:\programdata\ssh"
+    New-Item -ItemType Directory -Force -Path $ConfigDirectory
+    $ConfigPath = $ConfigDirectory + "\sshd_config"
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
@@ -401,8 +410,12 @@ function Install-OpenSSH {
     $ModifiedConfigContents = $ModifiedConfigContents.Replace("#LoginGraceTime 2m", "LoginGraceTime 0")
     Stop-Service sshd
     Out-File -FilePath $ConfigPath -InputObject $ModifiedConfigContents -Encoding UTF8
-    Start-Service sshd
     Write-Log "Updated $ConfigPath for CVEs"
+}
+
+function Start-OpenSSH {
+    Start-Service sshd
+    Write-Log "Started SSHd"
 }
 
 function Install-WindowsPatches {
@@ -476,6 +489,8 @@ function Update-WindowsFeatures {
         Write-Log "Enabling Windows feature: $feature"
         Install-WindowsFeature $feature
     }
+
+    Reapply-Long-Term-Update
 }
 
 function Enable-WindowsFixInFeatureManagement {
@@ -906,11 +921,13 @@ try{
             Log-ReofferUpdate
             Install-OpenSSH
             Log-ReofferUpdate
-            Install-WindowsPatches
             Update-WindowsFeatures
+            Log-ReofferUpdate
+            Install-WindowsPatches
         }
         "2" {
             Write-Log "Performing actions for provisioning phase 2"
+            Start-OpenSSH
             Log-ReofferUpdate
             Set-WinRmServiceAutoStart
             Install-ContainerD
