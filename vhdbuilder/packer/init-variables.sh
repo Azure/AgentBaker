@@ -176,6 +176,8 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
+		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+      SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -268,7 +270,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVM"
       fi
 
       az sig image-definition create \
