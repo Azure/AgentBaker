@@ -44,6 +44,8 @@ JSON_STRING=$( jq -n \
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
 
+mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
+
 # messsage_string is here because GA only accepts strings in Message.
 message_string=$( jq -n \
 --arg EXECUTION_DURATION                  "${EXECUTION_DURATION}" \

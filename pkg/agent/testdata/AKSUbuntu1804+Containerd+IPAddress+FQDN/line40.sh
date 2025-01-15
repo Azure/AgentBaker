@@ -23,6 +23,7 @@ CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
 TELEPORTD_PLUGIN_BIN_DIR="/usr/local/bin"
 MANIFEST_FILEPATH="/opt/azure/manifest.json"
 COMPONENTS_FILEPATH="/opt/azure/components.json"
+VHD_LOGS_FILEPATH="/opt/azure/vhd-install.complete"
 MAN_DB_AUTO_UPDATE_FLAG_FILEPATH="/var/lib/man-db/auto-update"
 CURL_OUTPUT=/tmp/curl_verbose.out
 UBUNTU_OS_NAME="UBUNTU"
@@ -150,6 +151,11 @@ downloadCredentialProvider() {
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_K8S_FAIL
         return 
+    elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
+        local cred_version=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | head -n 1)
+        CREDENTIAL_PROVIDER_TGZ_TMP="azure-acr-credential-provider-linux-${CPU_ARCH}-${cred_version}.tar.gz"
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_K8S_FAIL
+        return
     fi
 
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
@@ -702,6 +708,33 @@ cleanUpContainerImages() {
 
 cleanUpContainerd() {
     rm -Rf $CONTAINERD_DOWNLOADS_DIR
+}
+
+getInstallModeAndCleanupContainerImages() {
+    local SKIP_BINARY_CLEANUP=$1
+    local IS_VHD=$2
+
+    if [ ! -f $VHD_LOGS_FILEPATH ] && [ "${IS_VHD,,}" == "true" ]; then
+        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+        exit $ERR_VHD_FILE_NOT_FOUND
+    fi
+
+    FULL_INSTALL_REQUIRED=true
+    if [[ "${SKIP_BINARY_CLEANUP}" == true ]]; then
+        echo "binaries will not be cleaned up"
+        echo "${FULL_INSTALL_REQUIRED,,}"
+        return
+    fi
+
+    if [ -f $VHD_LOGS_FILEPATH ]; then
+        echo "detected golden image pre-install"
+        logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
+        FULL_INSTALL_REQUIRED=false
+    else 
+        echo "the file $VHD_LOGS_FILEPATH does not exist and IS_VHD is "${IS_VHD,,}", full install requred"
+    fi
+ 
+    echo "${FULL_INSTALL_REQUIRED,,}"
 }
 
 overrideNetworkConfig() {

@@ -1,0 +1,15 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message CustomSearchDomainConfig {
+  // The name of the custom search domain.
+  string domain_name = 1;
+
+  // The user name for the custom search domain.
+  string realm_user = 2;
+
+  // The password for the custom search domain.
+  string realm_password = 3;
+}
