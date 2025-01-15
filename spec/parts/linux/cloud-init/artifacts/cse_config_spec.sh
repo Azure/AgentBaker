@@ -34,6 +34,9 @@ Describe 'cse_config.sh'
         Mock openssl
             echo "$@"
         End
+        Mock mkdir
+            echo "mkdir $@"
+        End
 
         It 'should only generate the self-signed serving cert when EnableKubeletServingCertificateRotation is false'
             retrycmd_if_failure_no_stats() { # for mocking IMDS calls
@@ -46,6 +49,7 @@ Describe 'cse_config.sh'
             The stdout should include 'kubelet serving certificate rotation is disabled, generating self-signed serving certificate with openssl'
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
         End
@@ -60,6 +64,7 @@ Describe 'cse_config.sh'
             When run configureKubeletServing
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
         End
@@ -82,6 +87,7 @@ Describe 'cse_config.sh'
             The stderr should not eq ''
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The variable KUBELET_CONFIG_FILE_CONTENT should satisfy kubelet_config_file
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
@@ -96,6 +102,7 @@ Describe 'cse_config.sh'
             ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION="true"
             When run configureKubeletServing
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
@@ -111,6 +118,7 @@ Describe 'cse_config.sh'
             When run configureKubeletServing
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
         End
@@ -132,6 +140,7 @@ Describe 'cse_config.sh'
             When run configureKubeletServing
             The stderr should not eq ''
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
             The variable KUBELET_CONFIG_FILE_CONTENT should satisfy kubelet_config_file
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
