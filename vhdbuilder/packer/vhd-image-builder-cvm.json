@@ -1,7 +1,7 @@
 {
   "variables": {
     "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
-    "location": "{{env `PACKER_BUILD_LOCATION`}}",
+    "location": "{{env `CVM_PACKER_BUILD_LOCATION`}}",
     "vm_size": "{{env `AZURE_VM_SIZE`}}",
     "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
     "build_number": "{{env `BUILD_NUMBER`}}",
