@@ -525,7 +525,7 @@
       "bytes": 159111623,
       "size": "151.7 MiB",
       "repoTags": [
-        "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.10.0-main-09-16-2024-85a71678-cfg"
+        "mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.0"
       ],
       "repoDigests": [
         "sha256:c2fb2656ce89e454ba0541e425a36e62a7302ee8ae9f21093517791576b04775"
