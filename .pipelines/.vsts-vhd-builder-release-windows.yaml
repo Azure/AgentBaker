@@ -60,6 +60,7 @@ parameters:
 variables:
   VHD_BUILD_ID: $(Build.BuildId)
   LOCATION: $(PACKER_BUILD_LOCATION)
+  POOL_NAME: $(AZURE_POOL_NAME)
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
