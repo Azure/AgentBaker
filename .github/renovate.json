@@ -70,7 +70,8 @@
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
     {
       "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns", "containernetworking/cilium/cilium"],
@@ -79,15 +80,18 @@
     },
     {
       "matchPackageNames": ["aks/aks-node-ca-watcher"],
-      "assignees": ["UtheMan"]
+      "assignees": ["UtheMan"],
+      "reviewers": ["UtheMan"]
     },
     {
       "matchPackageNames": ["oss/kubernetes/coredns", "oss/v2/kubernetes/coredns"],
-      "assignees": ["SriHarsha001"]
+      "assignees": ["SriHarsha001"],
+      "reviewers": ["SriHarsha001"]
     },
     {
       "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
-      "assignees": ["mainred"]
+      "assignees": ["mainred"],
+      "reviewers": ["mainred"]
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
