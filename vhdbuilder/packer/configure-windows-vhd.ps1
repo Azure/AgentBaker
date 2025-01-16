@@ -388,12 +388,22 @@ function Install-ContainerD {
 
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
+
+    # Somehow openssh client got added to Windows 2019 base image.
+    if ($env:WindowsSKU -Like '2019*')
+    {
+        Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+    }
+
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
     # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
     # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
     $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
-    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    $ConfigDirectory = "C:\programdata\ssh"
+    New-Item -ItemType Directory -Force -Path $ConfigDirectory
+    $ConfigPath = $ConfigDirectory + "\sshd_config"
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
@@ -874,7 +884,7 @@ function Log-ReofferUpdate {
             Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
         }
     } catch {
-        Write-Log "ReofferUpdate does not exist"
+        Write-Log "ReofferUpdate registry setting does not exist"
     }
 }
 
