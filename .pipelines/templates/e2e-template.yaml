@@ -45,7 +45,9 @@ jobs:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
-      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+      - bash: |
+          set -ex
+          mkdir -p "$(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)"
         condition: always()
         displayName: Create folder for scenario logs
       - task: PublishTestResults@2
