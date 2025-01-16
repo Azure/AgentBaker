@@ -311,6 +311,7 @@ ensureContainerd() {
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
 [Service]
+ExecStartPre=/sbin/modprobe ip_tables iptable_filter iptable_mangle iptable_nat iptable_raw iptable_security ipt_ah ipt_ECN ipt_REJECT ipt_rpfilter ipt_SYNPROXY ebt_ip
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
