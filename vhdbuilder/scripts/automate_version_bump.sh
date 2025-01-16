@@ -3,11 +3,12 @@ set -euxo pipefail
 source vhdbuilder/scripts/automate_helpers.sh
 
 set +x
-GITHUB_PAT="${GITHUB_PAT:-""}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-""}"
 set -x
 
 NEW_IMAGE_VERSION="${IMAGE_VERSION:-""}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
+PR_TARGET_BRANCH="${PR_TARGET_BRANCH:-master}"
 
 # This function takes the build ID and reads the queue time.
 # It then sanitizes the queue time in the format that the Canonical snapshot endpoint expects, which is 20230727T000000Z 
@@ -53,15 +54,19 @@ find_current_image_version() {
 
 # This function replaces the old image version with the new input image version for all relevant files
 update_image_version() {
-    sed -i "s/${CURRENT_IMAGE_VERSION}/${NEW_IMAGE_VERSION}/g" pkg/agent/datamodel/linux_sig_version.json
+    local linux_sig_version_file=pkg/agent/datamodel/linux_sig_version.json
+    # jq has no "edit inline" mode, so we create a temp file then replace the original file
+    jq ".version=\"${NEW_IMAGE_VERSION}\"" < "${linux_sig_version_file}" > "${linux_sig_version_file}-tmp"
+    rm "${linux_sig_version_file}"
+    mv "${linux_sig_version_file}-tmp" "${linux_sig_version_file}"
 }
 
 create_image_bump_pr() {
-    create_branch $BRANCH_NAME
+    create_branch $BRANCH_NAME $PR_TARGET_BRANCH
     update_image_version
 
     set +x
-    create_pull_request $NEW_IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TITLE
+    create_pull_request $NEW_IMAGE_VERSION $GITHUB_TOKEN $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
     set -x
 }
 
@@ -108,8 +113,8 @@ cut_official_branch() {
 }
 
 set +x
-if [ -z "$GITHUB_PAT" ]; then
-    echo "GITHUB_PAT must be set in order to bump the image version and create the official branch"
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "GITHUB_TOKEN must be set in order to bump the image version and create the official branch"
     exit 1
 fi
 set -x

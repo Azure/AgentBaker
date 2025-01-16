@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/agentbakere2e/config"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerregistry/armcontainerregistry"
@@ -67,7 +67,7 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 }
 
 func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *armcontainerservice.ManagedCluster) error {
-	t.Logf("Adding network settings for airgap cluster %s in rg %s\n", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
+	t.Logf("Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
 	if err != nil {
@@ -151,7 +151,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 }
 
 func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
-	t.Logf("Checking if private endpoint for private container registry is in rg %s\n", nodeResourceGroup)
+	t.Logf("Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
 
 	var err error
 	var exists bool
@@ -192,7 +192,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName string) (bool, error) {
 	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
 	if err == nil && existingPE.ID != nil {
-		t.Logf("Private Endpoint already exists with ID: %s\n", *existingPE.ID)
+		t.Logf("Private Endpoint already exists with ID: %s", *existingPE.ID)
 		return true, nil
 	}
 	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
@@ -201,19 +201,34 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
-	t.Logf("Creating private Azure Container Registry in rg %s\n", resourceGroup)
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string) error {
+	t.Logf("Creating private Azure Container Registry in rg %s", resourceGroup)
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
-		t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
-		return nil
-	}
-
-	// check if error is anything but not found
-	var azErr *azcore.ResponseError
-	if errors.As(err, &azErr) && azErr.StatusCode != 404 {
-		return fmt.Errorf("failed to get private ACR: %w", err)
+		err, recreateACR := shouldRecreateACR(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			return fmt.Errorf("failed to check cache rules: %w", err)
+		}
+		if !recreateACR {
+			t.Logf("Private ACR already exists at id %s, skipping creation", *acr.ID)
+			return nil
+		}
+		t.Logf("Private ACR exists with the wrong cache deleting...")
+		if err := deletePrivateAzureContainerRegistry(ctx, t, resourceGroup, privateACRName); err != nil {
+			return fmt.Errorf("failed to delete private acr: %w", err)
+		}
+		// if ACR gets recreated so should the cluster
+		t.Logf("Private ACR deleted, deleting cluster %s", *cluster.Name)
+		if err := deleteCluster(ctx, t, cluster); err != nil {
+			return fmt.Errorf("failed to delete cluster: %w", err)
+		}
+	} else {
+		// check if error is anything but not found
+		var azErr *azcore.ResponseError
+		if errors.As(err, &azErr) && azErr.StatusCode != 404 {
+			return fmt.Errorf("failed to get private ACR: %w", err)
+		}
 	}
 
 	t.Logf("ACR does not exist, creating...")
@@ -242,20 +257,51 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, reso
 		return fmt.Errorf("failed to create private ACR during polling: %w", err)
 	}
 
-	t.Logf("Private Azure Container Registry created\n")
+	t.Logf("Private Azure Container Registry created")
 	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
 	return nil
 }
 
+func deletePrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
+	t.Logf("Deleting private Azure Container Registry in rg %s", resourceGroup)
+
+	pollerResp, err := config.Azure.RegistriesClient.BeginDelete(ctx, resourceGroup, privateACRName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete private ACR: %w", err)
+	}
+	_, err = pollerResp.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete private ACR during polling: %w", err)
+	}
+	t.Logf("Private Azure Container Registry deleted")
+	return nil
+}
+
+// if the ACR needs to be recreated so does the airgap k8s cluster
+func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (error, bool) {
+	t.Logf("Checking if private Azure Container Registry cache rules are correct in rg %s", resourceGroup)
+
+	cacheRules, err := config.Azure.CacheRulesClient.Get(ctx, resourceGroup, privateACRName, "aks-managed-rule", nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cache rules: %w", err), false
+	}
+	if cacheRules.Properties != nil && cacheRules.Properties.TargetRepository != nil && *cacheRules.Properties.TargetRepository != config.Config.AzureContainerRegistrytargetRepository {
+		t.Logf("Private ACR cache is not correct: %s", *cacheRules.Properties.TargetRepository)
+		return nil, true
+	}
+	t.Logf("Private ACR cache is correct")
+	return nil, false
+}
+
 func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
-	t.Logf("Adding cache rules to private Azure Container Registry in rg %s\n", resourceGroup)
+	t.Logf("Adding cache rules to private Azure Container Registry in rg %s", resourceGroup)
 
 	cacheParams := armcontainerregistry.CacheRule{
 		Properties: &armcontainerregistry.CacheRuleProperties{
 			SourceRepository: to.Ptr("mcr.microsoft.com/*"),
-			TargetRepository: to.Ptr("aks/*"),
+			TargetRepository: to.Ptr(config.Config.AzureContainerRegistrytargetRepository),
 		},
 	}
 	cacheCreateResp, err := config.Azure.CacheRulesClient.BeginCreate(
@@ -274,12 +320,12 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 		return fmt.Errorf("failed to create cache rule in polling: %w", err)
 	}
 
-	t.Logf("Cache rule created\n")
+	t.Logf("Cache rule created")
 	return nil
 }
 
 func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, acrName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
-	t.Logf("Creating Private Endpoint in rg %s\n", nodeResourceGroup)
+	t.Logf("Creating Private Endpoint in rg %s", nodeResourceGroup)
 	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, acrName)
 
 	peParams := armnetwork.PrivateEndpoint{
@@ -315,7 +361,7 @@ func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup,
 		return armnetwork.PrivateEndpointsClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private endpoint in polling: %w", err)
 	}
 
-	t.Logf("Private Endpoint created or updated with ID: %s\n", *resp.ID)
+	t.Logf("Private Endpoint created or updated with ID: %s", *resp.ID)
 	return resp, nil
 }
 
@@ -338,7 +384,7 @@ func createPrivateZone(ctx context.Context, t *testing.T, nodeResourceGroup, pri
 		return armprivatedns.PrivateZonesClientCreateOrUpdateResponse{}, fmt.Errorf("failed to create private dns zone in polling: %w", err)
 	}
 
-	t.Logf("Private DNS Zone created or updated with ID: %s\n", *resp.ID)
+	t.Logf("Private DNS Zone created or updated with ID: %s", *resp.ID)
 	return resp, nil
 }
 
@@ -373,7 +419,7 @@ func createPrivateDNSLink(ctx context.Context, t *testing.T, vnet VNet, nodeReso
 		return fmt.Errorf("failed to create virtual network link in polling: %w", err)
 	}
 
-	t.Logf("Virtual Network Link created or updated with ID: %s\n", *resp.ID)
+	t.Logf("Virtual Network Link created or updated with ID: %s", *resp.ID)
 	return nil
 }
 

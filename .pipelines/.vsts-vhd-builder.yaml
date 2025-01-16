@@ -1,9 +1,10 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 pr:
   branches:
     include:
     - master
+    - dev
   paths:
     include:
     - schemas
@@ -14,6 +15,7 @@ pr:
     - parts/linux/*
     - packer.mk
     exclude:
+    - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1
     - vhdbuilder/packer/*windows*
@@ -23,7 +25,8 @@ pool:
   name: $(POOL_NAME)
 
 variables:
-- group: aks-vuln-to-kusto
+  - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
 
 stages:
   - stage: build
@@ -32,7 +35,6 @@ stages:
       timeoutInMinutes: 180
       steps:
         - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]False'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]22.04'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -51,34 +53,10 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-gen2-containerd
-    - job: build1804gen2gpucontainerd
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]False'
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC4as_T4_v3'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 1804-gen2-gpu-containerd
     - job: buildmarinerv2gen2
       timeoutInMinutes: 180
       steps:
         - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]False'
             echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -97,11 +75,10 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-  - stage: Run_E2E_Tests
-    condition: ne(variables.SKIP_E2E_TESTS, 'true')
+  - stage: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      LOCATION: $(PACKER_BUILD_LOCATION)
     jobs:
       - template: ./templates/e2e-template.yaml
 

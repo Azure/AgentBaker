@@ -1,7 +1,8 @@
 jobs:
-  - job: E2E_Tests
+  - job: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     pool:
-      name: nodesigtest-pool
+      name: $(POOL_NAME)
     timeoutInMinutes: 90
     displayName: Run AgentBaker E2E
     variables:
@@ -10,7 +11,7 @@ jobs:
       - bash: |
           set -ex
           az login --identity
-          az account set -s $(AZURE_SUBSCRIPTION_ID)
+          az account set -s $(SUBSCRIPTION_ID)
         displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup go
@@ -32,7 +33,7 @@ jobs:
             export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
             export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
           else
-            echo "Build.BuildId is not specified. Running default e2e tests."
+            echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
           fi
           
           cd e2e
@@ -42,10 +43,11 @@ jobs:
         displayName: Run AgentBaker E2E
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
-          LOCATION: $(LOCATION)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
-      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+      - bash: |
+          set -ex
+          mkdir -p "$(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)"
         condition: always()
         displayName: Create folder for scenario logs
       - task: PublishTestResults@2

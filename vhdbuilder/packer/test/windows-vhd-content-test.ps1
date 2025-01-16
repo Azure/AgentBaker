@@ -338,7 +338,12 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 3152880268
 
         Validate-WindowsFixInFeatureManagement -Name 1605443213
+
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
+
     if ($env:WindowsSKU -Like '2022*') {
         Validate-WindowsFixInFeatureManagement -Name 2629306509
         Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
@@ -369,8 +374,6 @@ function Test-RegistryAdded {
         Validate-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2
         Validate-WindowsFixInFeatureManagement -Name 2193453709
         Validate-WindowsFixInFeatureManagement -Name 3331554445
-        Validate-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv4
-        Validate-WindowsFixInHnsState -Name OverrideReceiveRoutingForLocalAddressesIpv6
         Validate-WindowsFixInFeatureManagement -Name 1327590028
         Validate-WindowsFixInFeatureManagement -Name 1114842764
         Validate-WindowsFixInHnsState -Name HnsPreallocatePortRange
@@ -398,11 +401,26 @@ function Test-RegistryAdded {
         Validate-WindowsFixInFeatureManagement -Name 260097166
 
         Validate-WindowsFixInFeatureManagement -Name 4288867982
+
+        # 2024-11B
+        Validate-WindowsFixInFeatureManagement -Name 1825620622
+        Validate-WindowsFixInFeatureManagement -Name 684111502
+        Validate-WindowsFixInFeatureManagement -Name 1455863438
+
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
+
     if ($env:WindowsSKU -Like '23H2*') {
         Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0
 
         Validate-WindowsFixInFeatureManagement -Name 1800977551
+
+        # 2024-11B
+        Validate-WindowsFixInFeatureManagement -Name 3197800078
+        Validate-WindowsFixInFeatureManagement -Name 340036751
+        Validate-WindowsFixInFeatureManagement -Name 2020509326
     }
 }
 

@@ -115,6 +115,8 @@ ERR_ORAS_PULL_FAIL_RESERVE_5=212
 
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
+ERR_CLEANUP_CONTAINER_IMAGES=214
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -157,6 +159,19 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
+
+retrycmd_if_failure_silent() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+}
+
 retrycmd_nslookup() {
     wait_sleep=$1; timeout=$2; total_timeout=$3; record=$4
     start_time=$(date +%s)
@@ -245,7 +260,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -444,7 +459,18 @@ should_disable_kubelet_serving_certificate_rotation() {
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "$should_disable"
+    echo "${should_disable,,}"
+}
+
+should_skip_binary_cleanup() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
+    echo "${should_skip,,}"
 }
 
 isMarinerOrAzureLinux() {
@@ -600,6 +626,17 @@ removeKubeletNodeLabel() {
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
     elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+removeKubeletFlag() {
+    local FLAG_STRING=$1
+    if grep -e ",${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/,${FLAG_STRING}/}"
+    elif grep -e "${FLAG_STRING}," <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING},/}"
+    elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
 }
 

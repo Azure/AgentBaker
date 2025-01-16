@@ -36,7 +36,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   retrycmd_if_failure 10 2 60 apt-get -y clean || exit 1
 
   # Final step, if 18.04 or FIPS, log ua status, detach UA and clean up
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # 'ua status' for logging
     ua status
     detachAndCleanUpUA

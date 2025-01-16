@@ -3,8 +3,15 @@ set -eux
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
+# This variable is used to determine where we need to deploy the VM on which we'll run trivy.
+# We must be sure this location matches the location used by packer when delivering the output image
+# version to the staging gallery, as the particular image version will only have a single replica in this region.
+if [ -z "$PACKER_BUILD_LOCATION" ]; then
+    echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
+    exit 1
+fi
+
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
-EXE_SCRIPT_PATH="vhd-scanning-exe-on-vm.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
 SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
@@ -12,15 +19,10 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
 
-# we must create VMs in a vnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
-VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
-SUBNET_NAME="scanning"
-
-# This variable is used to determine where we need to deploy the VM on which we'll run trivy.
-# We must be sure this location matches the location used by packer when delivering the output image
-# version to the staging gallery, as the particular image version will only have a single replica in this region.
-if [ -z "$PACKER_BUILD_LOCATION" ]; then
-    echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
+# we must create VMs in a vnet subnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
+SCANNING_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/scanning"
+if [ -z "$(az network vnet subnet show --ids $SCANNING_SUBNET_ID | jq -r '.id')" ]; then
+    echo "scanning subnet $SCANNING_SUBNET_ID seems to be missing, unable to create scanning VM"
     exit 1
 fi
 
@@ -43,7 +45,7 @@ SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
 set -x
 
 RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
@@ -61,11 +63,16 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning$(date +%s)${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
+if [ -z "$SCANNING_NIC_ID" ]; then
+    echo "unable to create new NIC for scanning VM"
+    exit 1
+fi
+
 az vm create --resource-group $RESOURCE_GROUP_NAME \
     --name $SCAN_VM_NAME \
     --image $VHD_IMAGE \
-    --vnet-name $VNET_NAME \
-    --subnet $SUBNET_NAME \
+    --nics $SCANNING_NIC_ID \
     --admin-username $SCAN_VM_ADMIN_USERNAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
@@ -73,6 +80,10 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --assign-identity "${UMSI_RESOURCE_ID}"
     
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
+set +x
+
+# for scanning storage account/container upload access
+az vm identity assign -g $RESOURCE_GROUP_NAME --name $SCAN_VM_NAME --identities $AZURE_MSI_RESOURCE_STRING
 
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname $FULL_PATH)
@@ -96,7 +107,7 @@ az vm run-command invoke \
         "SIG_CONTAINER_NAME"=${SIG_CONTAINER_NAME} \
         "STORAGE_ACCOUNT_NAME"=${STORAGE_ACCOUNT_NAME} \
         "ENABLE_TRUSTED_LAUNCH"=${ENABLE_TRUSTED_LAUNCH} \
-        "VHD_NAME"=${VHD_NAME} \
+        "VHD_ARTIFACT_NAME"=${VHD_ARTIFACT_NAME} \
         "SKU_NAME"=${SKU_NAME} \
         "KUSTO_ENDPOINT"=${KUSTO_ENDPOINT} \
         "KUSTO_DATABASE"=${KUSTO_DATABASE} \
@@ -109,6 +120,7 @@ az vm run-command invoke \
         "MODULE_VERSION"=${MODULE_VERSION} \
         "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
         "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID} \
+        "AZURE_MSI_RESOURCE_STRING"=${AZURE_MSI_RESOURCE_STRING} \
         "BUILD_RUN_NUMBER"=${BUILD_RUN_NUMBER} \
         "BUILD_REPOSITORY_NAME"=${BUILD_REPOSITORY_NAME} \
         "BUILD_SOURCEBRANCH"=${GIT_BRANCH} \

@@ -1,5 +1,8 @@
 [Unit]
 Description=Bind mount kubelet data
+Requires=mnt.mount
+After=mnt.mount
+
 [Service]
 Restart=on-failure
 RemainAfterExit=yes

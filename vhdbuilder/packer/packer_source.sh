@@ -125,8 +125,6 @@ copyPackerFiles() {
   VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
-  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
-  NODE_BOOTSTRAPPER_DEST=/opt/azure/node-bootstrapper
 
   CSE_REDACT_SRC=/home/packer/cse_redact_cloud_config.py
   CSE_REDACT_DEST=/opt/azure/containers/provision_redact_cloud_config.py
@@ -246,13 +244,13 @@ copyPackerFiles() {
   CSE_HELPERS_DISTRO_DEST=/opt/azure/containers/provision_source_distro.sh
   cpAndMode $CSE_HELPERS_DISTRO_SRC $CSE_HELPERS_DISTRO_DEST 0744
 
-  NODE_BOOTSTRAPPER_SRC=/home/packer/node-bootstrapper
-  NODE_BOOTSTRAPPER_DEST=/opt/azure/containers/node-bootstrapper
-  cpAndMode $NODE_BOOTSTRAPPER_SRC $NODE_BOOTSTRAPPER_DEST 755
+  AKS_NODE_CONTROLLER_SRC=/home/packer/aks-node-controller
+  AKS_NODE_CONTROLLER_DEST=/opt/azure/containers/aks-node-controller
+  cpAndMode $AKS_NODE_CONTROLLER_SRC $AKS_NODE_CONTROLLER_DEST 755
 
-  NODE_BOOTSTRAPPER_SERVICE_SRC=/home/packer/bootstrap.service
-  NODE_BOOTSTRAPPER_SERVICE_DEST=/etc/systemd/system/bootstrap.service
-  cpAndMode $NODE_BOOTSTRAPPER_SERVICE_SRC $NODE_BOOTSTRAPPER_SERVICE_DEST 0644
+  AKS_NODE_CONTROLLER_SERVICE_SRC=/home/packer/aks-node-controller.service
+  AKS_NODE_CONTROLLER_SERVICE_DEST=/etc/systemd/system/aks-node-controller.service
+  cpAndMode $AKS_NODE_CONTROLLER_SERVICE_SRC $AKS_NODE_CONTROLLER_SERVICE_DEST 0644
 
   NOTICE_SRC=/home/packer/NOTICE.txt
   NOTICE_DEST=/NOTICE.txt
@@ -345,13 +343,6 @@ copyPackerFiles() {
     else
       cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
       cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
-    fi
-  fi
-
-  if grep -q "fullgpu" <<<"$FEATURE_FLAGS"; then
-    cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644
-    if grep -q "gpudaemon" <<<"$FEATURE_FLAGS"; then
-      cpAndMode $NVIDIA_DEVICE_PLUGIN_SERVICE_SRC $NVIDIA_DEVICE_PLUGIN_SERVICE_DEST 644
     fi
   fi
 

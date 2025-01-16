@@ -10,6 +10,12 @@ WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
 
+if [ -z "${MANAGED_SIG_ID}" ]; then
+  echo "SIG image version ID from packer output is empty, unable to proceed..."
+  exit 1
+fi
+echo "SIG image version ID from packer output: ${MANAGED_SIG_ID}"
+
 set +x
 TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
 set -x
@@ -32,97 +38,85 @@ else
     exit 1
   fi
 fi
-az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker" "branch=${GIT_BRANCH}"
+
+# Create the testing resource group
+az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATION}" --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
-  if [[ "$VHD_DEBUG" == "True" ]]; then
+  if [ "$VHD_DEBUG" == "True" ]; then
     echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
-    az group delete --name $TEST_VM_RESOURCE_GROUP_NAME --yes --no-wait
+    az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
   fi
 }
 trap cleanup EXIT
 
-DISK_NAME="${TEST_RESOURCE_PREFIX}-disk"
 VM_NAME="${TEST_RESOURCE_PREFIX}-vm"
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_test_resource_group"
+set -x
 
-if [ "$MODE" == "default" ]; then
-  az disk create --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-    --name $DISK_NAME \
-    --source "${OS_DISK_URI}" \
-    --query id
-  az vm create --name $VM_NAME \
-    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-    --attach-os-disk $DISK_NAME \
-    --os-type $OS_TYPE \
-    --public-ip-address ""
-else 
-  if [ "$MODE" == "sigMode" ]; then
-    id=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME}) || id=""
-    if [ -z "$id" ]; then
-      echo "Shared Image gallery ${SIG_GALLERY_NAME} does not exist in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
-      exit 1
-    fi
-
-    id=$(az sig image-definition show \
-      --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
-      --gallery-name ${SIG_GALLERY_NAME} \
-      --gallery-image-definition ${SIG_IMAGE_NAME}) || id=""
-    if [ -z "$id" ]; then
-      echo "Image definition ${SIG_IMAGE_NAME} does not exist in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
-      exit 1
-    fi
-  fi
-
-  if [ -z "${MANAGED_SIG_ID}" ]; then
-    echo "Managed Sig Id from packer-output is empty, unable to proceed..."
-    exit 1
-  else
-    echo "Managed Sig Id from packer-output is ${MANAGED_SIG_ID}"
-    IMG_DEF=${MANAGED_SIG_ID}
-  fi
-
-  # In SIG mode, Windows VM requires admin-username and admin-password to be set,
-  # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
-  # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
-  TARGET_COMMAND_STRING=""
-  if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
-    TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
-  else
-    TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
-  fi
-
-  if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
-    if [[ -n "$TARGET_COMMAND_STRING" ]]; then
-      # To take care of Mariner Kata TL images
-      TARGET_COMMAND_STRING+=" "
-    fi
-    TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
-  fi
-
-  az vm create \
-      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $IMG_DEF \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --public-ip-address "" \
-      ${TARGET_COMMAND_STRING}
-      
-  echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+# In SIG mode, Windows VM requires admin-username and admin-password to be set,
+# otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
+# ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
+TARGET_COMMAND_STRING=""
+if [ "${ARCHITECTURE,,}" == "arm64" ]; then
+  TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
+else
+  TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
 
-time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
+if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
+  if [ -n "$TARGET_COMMAND_STRING" ]; then
+    # To take care of Mariner Kata TL images
+    TARGET_COMMAND_STRING+=" "
+  fi
+  TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
+fi
+
+if [ "${OS_TYPE,,}" == "linux" ]; then
+  # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
+  PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
+  if [ -z "$(az network vnet subnet show --ids "$PACKER_SUBNET_ID" | jq -r '.id')" ]; then
+      echo "packer subnet $PACKER_SUBNET_ID seems to be missing, unable to create test VM"
+      exit 1
+  fi
+  TESTING_NIC_ID=$(az network nic create --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" --name "testing$(date +%s)${RANDOM}" --subnet "$PACKER_SUBNET_ID" | jq -r '.NewNIC.id')
+  if [ -z "$TESTING_NIC_ID" ]; then
+      echo "unable to create new NIC for test VM"
+      exit 1
+  fi
+  az vm create \
+      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --name "$VM_NAME" \
+      --image "$MANAGED_SIG_ID" \
+      --admin-username "$TEST_VM_ADMIN_USERNAME" \
+      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+      --nics "$TESTING_NIC_ID" \
+      ${TARGET_COMMAND_STRING}
+else
+  az vm create \
+      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --name "$VM_NAME" \
+      --image "$MANAGED_SIG_ID" \
+      --admin-username "$TEST_VM_ADMIN_USERNAME" \
+      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+      --public-ip-address "" \
+      ${TARGET_COMMAND_STRING}
+fi
+
+echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+
+time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
+set -x
 
 FULL_PATH=$(realpath $0)
-CDIR=$(dirname $FULL_PATH)
+CDIR=$(dirname "$FULL_PATH")
 
 if [ "$OS_TYPE" == "Linux" ]; then
-  if [[ -z "${ENABLE_FIPS// }" ]]; then
+  if [ -z "${ENABLE_FIPS// }" ]; then
     ENABLE_FIPS="false"
   fi
 
@@ -131,10 +125,10 @@ if [ "$OS_TYPE" == "Linux" ]; then
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
-      --name $VM_NAME \
-      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-      --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH} ${IMG_SKU}) && break
+      --name "$VM_NAME" \
+      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --scripts "@$SCRIPT_PATH" \
+      --parameters "${CONTAINER_RUNTIME}" "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}") && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -149,9 +143,11 @@ if [ "$OS_TYPE" == "Linux" ]; then
   #    }
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
-  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
-  echo $errMsg
-  if [[ $errMsg != '' ]]; then
+  errMsg=$(echo -e "$(echo "$ret" | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")')")
+  echo "$errMsg"
+  if [ "$errMsg" != '' ]; then
+    echo "Tests failed. Test output is: "
+    echo "$ret"
     exit 1
   fi
 else
@@ -159,16 +155,16 @@ else
   echo "Run $SCRIPT_PATH"
   az vm run-command invoke --command-id RunPowerShellScript \
     --name $VM_NAME \
-    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-    --scripts @$SCRIPT_PATH \
+    --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+    --scripts "@$SCRIPT_PATH" \
     --output json
 
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
-    --name $VM_NAME \
-    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-    --scripts @$SCRIPT_PATH \
+    --name "$VM_NAME" \
+    --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+    --scripts "@$SCRIPT_PATH" \
     --output json \
     --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
   # An example of failed run-command output:
@@ -202,9 +198,12 @@ else
   # we have to use `-E` to disable interpretation of backslash escape sequences, for jq cannot process string
   # with a range of control characters not escaped as shown in the error below:
   #   Invalid string: control characters from U+0000 through U+001F must be escaped
-  errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
+  errMsg=$(echo -E "$ret" | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
-  if [[ $errMsg != \"\" ]]; then
+  if [ "$errMsg" != \"\" ]; then
+        echo "Tests failed. errMsg is $errMsg"
+        echo "Test output is: "
+        echo "$ret"
     exit 1
   fi
 fi

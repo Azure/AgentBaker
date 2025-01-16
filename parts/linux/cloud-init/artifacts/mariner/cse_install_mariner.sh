@@ -74,9 +74,19 @@ installNvidiaFabricManager() {
 }
 
 installNvidiaContainerToolkit() {
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
-    
-    for nvidia_package in nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") | .downloadURIs.azurelinux.current.versionsV2[0].latestVersion' $COMPONENTS_FILEPATH)
+
+    # Check if the version is empty and set the default if needed
+    if [ -z "$MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION" ]; then
+      echo "nvidia-container-toolkit not found in components.json" # Expected for older VHD with new CSE
+      MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
+    fi
+
+    # The following packages need to be installed in this sequence because:
+    # - libnvidia-container packages are required by nvidia-container-toolkit
+    # - nvidia-container-toolkit-base provides nvidia-ctk that is used to generate the nvidia container runtime config 
+    #   during the posttrans phase of nvidia-container-toolkit package installation
+    for nvidia_package in libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -123,7 +133,10 @@ installStandaloneContainerd() {
         if [[ $OS_VERSION == "2.0" ]]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
         fi
-
+        if [[ $OS_VERSION == "3.0" ]]; then
+            containerdPackageName="containerd2-${desiredVersion}"
+        fi
+        
         # TODO: tie runc to r92 once that's possible on Mariner's pkg repo and if we're still using v1.linux shim
         if ! dnf_install 30 1 600 $containerdPackageName; then
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT

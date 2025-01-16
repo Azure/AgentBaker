@@ -73,8 +73,8 @@
       "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
     {
-      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns"],
-      "assignees": ["rbtr", "behzad-mir", "QxBytes"]
+      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns", "containernetworking/cilium/cilium"],
+      "assignees": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"]
     },
     {
       "matchPackageNames": ["aks/aks-node-ca-watcher"],
@@ -85,8 +85,24 @@
       "assignees": ["SriHarsha001"]
     },
     {
+      "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
+      "assignees": ["mainred"]
+    },
+    {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
       "extractVersion": "^v?(?<version>.+)$"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
+      "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+    },
+    {      
+      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "automerge": false,      
+      "enabled": true,
+      "ignoreUnstable": false
     }
   ],
   "customManagers": [
@@ -102,6 +118,19 @@
       ],
       "datasourceTemplate": "docker",
       "autoReplaceStringTemplate": "\"renovateTag\": \"registry={{{registryUrl}}}, name={{{packageName}}}\",\n          \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n          \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "auto update OCI artifacts in components.json",
+      "fileMatch": [
+        "parts/linux/cloud-init/artifacts/components.json"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "\"renovateTag\":\\s*\"OCI_registry=(?<registryUrl>[^,]+), name=(?<packageName>[^\"]+)\",\\s*\"latestVersion\":\\s*\"(?<currentValue>[^\"]+)\"(?:[^}]*\"previousLatestVersion\":\\s*\"(?<depType>[^\"]+)\")?"
+      ],
+      "datasourceTemplate": "docker",
+      "autoReplaceStringTemplate": "\"renovateTag\": \"OCI_registry={{{registryUrl}}}, name={{{packageName}}}\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",

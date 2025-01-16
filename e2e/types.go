@@ -8,12 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	nbcontractv1 "github.com/Azure/agentbaker/pkg/proto/nbcontract/v1"
-	"github.com/Azure/agentbakere2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,6 +26,7 @@ type Tags struct {
 	WASM                   bool
 	ServerTLSBootstrapping bool
 	Scriptless             bool
+	KubeletCustomConfig    bool
 }
 
 // MatchesFilters checks if the Tags struct matches all given filters.
@@ -75,7 +75,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 			return false, fmt.Errorf("unknown filter key: %s", key)
 		}
 
-		match := false
+		var match bool
 		switch field.Kind() {
 		case reflect.String:
 			match = strings.EqualFold(field.String(), value)
@@ -100,7 +100,7 @@ func (t Tags) matchFilters(filters string, all bool) (bool, error) {
 	return all, nil
 }
 
-// Scenario represents an AgentBaker E2E scenario
+// Scenario represents an AgentBaker E2E scenario.
 type Scenario struct {
 	// Description is a short description of what the scenario does and tests for
 	Description string
@@ -113,15 +113,22 @@ type Scenario struct {
 
 	// Runtime contains the runtime state of the scenario. It's populated in the beginning of the test run
 	Runtime *ScenarioRuntime
+	T       *testing.T
 }
 
 type ScenarioRuntime struct {
 	NBC           *datamodel.NodeBootstrappingConfiguration
-	AKSNodeConfig *nbcontractv1.Configuration
+	AKSNodeConfig *aksnodeconfigv1.Configuration
 	Cluster       *Cluster
+	VMSSName      string
+	KubeNodeName  string
+	SSHKeyPublic  []byte
+	SSHKeyPrivate []byte
+	VMPrivateIP   string
+	DebugHostPod  string
 }
 
-// Config represents the configuration of an AgentBaker E2E scenario
+// Config represents the configuration of an AgentBaker E2E scenario.
 type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
@@ -133,43 +140,13 @@ type Config struct {
 	BootstrapConfigMutator func(*datamodel.NodeBootstrappingConfiguration)
 
 	// AKSNodeConfigMutator if defined then aks-node-controller will be used to provision nodes
-	AKSNodeConfigMutator func(*nbcontractv1.Configuration)
+	AKSNodeConfigMutator func(*aksnodeconfigv1.Configuration)
 
 	// VMConfigMutator is a function which mutates the base VMSS model according to the scenario's requirements
 	VMConfigMutator func(*armcompute.VirtualMachineScaleSet)
 
-	// LiveVMValidators is a slice of LiveVMValidator objects for performing any live VM validation
-	// specific to the scenario that isn't covered in the set of common validators run with all scenarios
-	LiveVMValidators  []*LiveVMValidator
-	CSEOverride       string
-	DisableCustomData bool
-}
-
-// VMCommandOutputAsserterFn is a function which takes in stdout and stderr stream content
-// as strings and performs arbitrary assertions on them, returning an error in the case where the assertion fails
-type VMCommandOutputAsserterFn func(code, stdout, stderr string) error
-
-// LiveVMValidator represents a command to be run on a live VM after
-// node bootstrapping has succeeded that generates output which can be asserted against
-// to make sure that the live VM itself is in the correct state
-type LiveVMValidator struct {
-	// Description is the description of the validator and what it actually validates on the VM
-	Description string
-
-	// Command is the command string to be run on the live VM after node bootstrapping has succeeed
-	Command string
-
-	// Asserter is the validator's VMCommandOutputAsserterFn which will be run against command output
-	Asserter VMCommandOutputAsserterFn
-
-	// IsShellBuiltIn is a boolean flag which indicates whether or not the command is a shell built-in
-	// that will fail when executed with sudo - requires separate command to avoid command not found error on node
-	IsShellBuiltIn bool
-
-	// TODO - extract this out of LiveVMValidator into a separate Pod level validator
-	// IsPodNetwork is a boolean flags which indicates whether or not the validator should run on a pod that is NOT using
-	// host's network interface. For example when testing connectivity from user pods to certain endpoints, we will set it to true
-	IsPodNetwork bool
+	// Validator is a function where the scenario can perform any extra validation checks
+	Validator func(ctx context.Context, s *Scenario)
 }
 
 func (s *Scenario) PrepareAKSNodeConfig() {
@@ -213,46 +190,4 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 		}
 		vmss.Tags[buildIDTagKey] = &config.Config.BuildID
 	}
-}
-
-func (s *Scenario) PrepareRuntime(ctx context.Context, t *testing.T) {
-	cluster, err := s.Config.Cluster(ctx, t)
-	require.NoError(t, err)
-
-	s.Runtime = &ScenarioRuntime{
-		Cluster: cluster,
-	}
-
-	if (s.BootstrapConfigMutator == nil) == (s.AKSNodeConfigMutator == nil) {
-		t.Fatalf("exactly one of BootstrapConfigMutator or AKSNodeConfigMutator must be set")
-	}
-
-	if s.BootstrapConfigMutator != nil {
-		nbcAny, err := deepcopy.Anything(cluster.NodeBootstrappingConfiguration)
-		require.NoError(t, err)
-		nbc := nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
-	}
-	if s.AKSNodeConfigMutator != nil {
-		configAny, err := deepcopy.Anything(cluster.AKSNodeConfig)
-		require.NoError(t, err)
-		config := configAny.(*nbcontractv1.Configuration)
-		s.AKSNodeConfigMutator(config)
-		s.Runtime.AKSNodeConfig = config
-	}
-}
-
-// scenario's BootstrapConfigMutator on it, if configured.
-func (s *Scenario) PrepareNodeBootstrappingConfiguration(nbc *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
-	// avoid mutating cluster config
-	nbcAny, err := deepcopy.Anything(nbc)
-	if err != nil {
-		return nil, fmt.Errorf("deep copy NodeBootstrappingConfiguration: %w", err)
-	}
-	nbc = nbcAny.(*datamodel.NodeBootstrappingConfiguration)
-	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-	}
-	return nbc, nil
 }

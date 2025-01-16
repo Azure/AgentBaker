@@ -5,6 +5,10 @@ parameters:
 - name: VHD_BUILD_ID
   displayName: VHD Build ID
   type: string
+- name: PRTargetBranch
+  displayName: PR Target Branch
+  type: string
+  default: master
 - name: ImageBump
   displayName: Image Bump + Create Official Branch
   type: boolean
@@ -32,6 +36,7 @@ stages:
       - template: ./templates/.configure-azdevops-template.yaml
         parameters:
           ADO_PAT: $(PAT-aksdevassistant)
+      - template: ./templates/.generate-github-token.yaml
       - template: ./templates/.set-image-version-template.yaml
         parameters:
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
@@ -40,9 +45,10 @@ stages:
           echo "PR for Image Bumping, Official Branch Cutting"
           /bin/bash vhdbuilder/scripts/automate_version_bump.sh
         env:
-          GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_TOKEN: $(GITHUB_TOKEN)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
         displayName: 'Bump image version and create official branch'
   - stage: generate_release_notes
     dependsOn: []
@@ -54,6 +60,7 @@ stages:
       - template: ./templates/.configure-azdevops-template.yaml
         parameters:
           ADO_PAT: $(PAT-aksdevassistant)
+      - template: ./templates/.generate-github-token.yaml
       - template: ./templates/.set-image-version-template.yaml
         parameters:
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
@@ -62,10 +69,11 @@ stages:
           echo "PR for Release Notes"
           /bin/bash vhdbuilder/scripts/automate_release_notes.sh
         env:
-          GITHUB_PAT: $(GITHUB_PAT)
+          GITHUB_TOKEN: $(GITHUB_TOKEN)
           IMAGE_VERSION: $(IMAGE_VERSION)
           VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
           SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
+          PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
         displayName: 'Generate release notes'
   - stage: create_release
     dependsOn: []

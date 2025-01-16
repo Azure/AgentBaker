@@ -103,17 +103,13 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-if [ -f $VHD_LOGS_FILEPATH ]; then
-    echo "detected golden image pre-install"
-    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
-    FULL_INSTALL_REQUIRED=false
-else
-    if [[ "${IS_VHD}" = true ]]; then
-        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-        exit $ERR_VHD_FILE_NOT_FOUND
-    fi
-    FULL_INSTALL_REQUIRED=true
+export -f getInstallModeAndCleanupContainerImages
+SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
+FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to get the install mode and cleanup container images"
+    exit $ERR_CLEANUP_CONTAINER_IMAGES
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
@@ -222,7 +218,7 @@ mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
 # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-logs_to_events "AKS.CSE.configureKubeletServingCertificateRotation" configureKubeletServingCertificateRotation
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
@@ -247,6 +243,14 @@ else
 fi
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    if isMarinerOrAzureLinux "$OS" && [ -f /etc/dnf/automatic.conf ]; then
+      sed -i "s/emit_via = motd/emit_via = stdio/g" /etc/dnf/automatic.conf
+    elif [[ $OS == "$UBUNTU_OS_NAME" ]] && [[ -d "/etc/update-motd.d" ]]; then
+          aksCustomMotdUpdatePath=/etc/update-motd.d/99-aks-custom-motd
+          touch "${aksCustomMotdUpdatePath}"
+          chmod 0755 "${aksCustomMotdUpdatePath}"
+          echo -e "#!/bin/bash\ncat /etc/motd" > "${aksCustomMotdUpdatePath}"
+    fi
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
 
@@ -438,7 +442,6 @@ fi
 
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
-mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
 

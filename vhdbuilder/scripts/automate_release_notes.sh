@@ -3,12 +3,13 @@ set -euo pipefail
 source vhdbuilder/scripts/automate_helpers.sh
 
 set +x
-GITHUB_PAT="${GITHUB_PAT:-""}"
+GITHUB_TOKEN="${GITHUB_TOKEN:-""}"
 set -x
 
 IMAGE_VERSION="${IMAGE_VERSION:-""}"
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 SKIP_LATEST="${SKIP_LATEST:-false}"
+PR_TARGET_BRANCH="${PR_TARGET_BRANCH:-master}"
 
 generate_release_notes() {
     included_skus=""
@@ -41,8 +42,8 @@ if [ -z "$VHD_BUILD_ID" ]; then
 fi
 
 set +x
-if [ -z "$GITHUB_PAT" ]; then
-    echo "GITHUB_PAT must be set to generate release notes"
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "GITHUB_TOKEN must be set to generate release notes"
 fi
 set -x
 
@@ -58,10 +59,10 @@ if [ `git branch --list $BRANCH_NAME` ]; then
     git pull origin
     git checkout master -- .
 else
-    create_branch $BRANCH_NAME
+    create_branch $BRANCH_NAME $PR_TARGET_BRANCH
 fi
 
 retrycmd_if_failure 5 10 generate_release_notes || exit $?
 git status
 set +x
-create_pull_request $IMAGE_VERSION $GITHUB_PAT $BRANCH_NAME $PR_TITLE
+create_pull_request $IMAGE_VERSION $GITHUB_TOKEN $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE
