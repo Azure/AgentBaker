@@ -70,5 +70,5 @@ stages:
     jobs:
       - template: ./e2e-template.yaml
         parameters:
-          - subscriptionId: ${{ parameters.subscriptionId }}
-          - poolName: ${{ parameters.poolName }}
+          subscriptionId: ${{ parameters.subscriptionId }}
+          poolName: ${{ parameters.poolName }}
