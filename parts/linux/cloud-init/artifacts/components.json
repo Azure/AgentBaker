@@ -37,11 +37,11 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-2"
+          "latestVersion": "v1.11.3-4"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.9.4-2"
+          "latestVersion": "v1.9.4-4"
         }
       ]
     },
@@ -208,13 +208,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.14.15-241024",
-          "previousLatestVersion": "v1.14.15-241002"
+          "latestVersion": "v1.14.18-250107",
+          "previousLatestVersion": "v1.14.15-241024"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.2-241024",
-          "previousLatestVersion": "v1.16.2-241004"
+          "latestVersion": "v1.16.5-250110",
+          "previousLatestVersion": "v1.16.2-241024"
         }
       ]
     },

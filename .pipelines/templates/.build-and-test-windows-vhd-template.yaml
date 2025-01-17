@@ -59,5 +59,6 @@ stages:
     dependsOn: build_${{ parameters.stageName }}
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      POOL_NAME: $(AZURE_POOL_NAME)
     jobs:
       - template: ./e2e-template.yaml
