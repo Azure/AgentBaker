@@ -888,4 +888,36 @@ setKubeletNodeIPFlag() {
     fi
 }
 
+orasLogin() {
+    echo "Checking access to ACR with anonymous pull"
+
+    logs_to_events "AKS.CSE.acrAnonymousCheck" retrycmd_acr_access_check 10 1 "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" 
+    ret_check_anonymous=$?
+    if [ $ret_check_anonymous -eq 0 ]; then
+        # this conditional should always be hit since only anonymous pull is supported at the moment
+        echo "bootstarp acr '$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER' access check passed"
+        return 0
+    elif [ $ret_check_anonymous -ne $ERR_ORAS_PULL_UNAUTHORIZED ]; then
+        echo "retrycmd_acr_access_check failed with something other than unauthorized"
+        return $ret_check_anonymous
+    fi
+
+    # we cannot support anonymous pull until kubelet identity exists on the vmss. This should not be hit until the feature becomes available
+    echo "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
+    acr_login_server="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+    logs_to_events "AKS.CSE.orasLogin" oras_login_with_identity $acr_login_server $USER_ASSIGNED_IDENTITY_ID $TENANT_ID
+    ret_login=$?
+    if [[ "$ret_login" != 0 ]]; then
+        exit $ret_login
+    fi
+
+    logs_to_events "AKS.CSE.acrNonAnonymousCheck" retrycmd_acr_access_check 10 1 "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
+    ret_check_after_login=$?
+    if [[ "$ret_check_after_login" != 0 ]]; then
+        exit $ret_check_after_login
+    fi
+
+    echo "bootstarp acr '$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER' access check passed"
+}
+
 #EOF

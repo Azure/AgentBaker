@@ -79,6 +79,11 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
+#
+#if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+#    orasLogin || exit $?
+#fi
+
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
