@@ -144,7 +144,7 @@ $global:imagesToPull += @(
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13"
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.18"
 )
 
 $global:map = @{
