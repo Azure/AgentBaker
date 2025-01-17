@@ -44,7 +44,6 @@ jobs:
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOGGING_DIR: $(LOGGING_DIR)
-          SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
       # Without this step next step may fail on successful run
       - bash: |
           set -ex
