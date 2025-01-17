@@ -24,9 +24,6 @@ pr:
     exclude:
     - vhdbuilder/release-notes
 
-pool:
-  name: $(AZURE_POOL_NAME)
-
 parameters:
 - name: build2019containerd
   displayName: Build 2019 containerd
@@ -69,6 +66,9 @@ variables:
   SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
   SKIP_E2E_TESTS: $(PIPELINE_SKIP_E2E_TESTS)
 
+pool:
+  name: $(AZURE_POOL_NAME)
+
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
@@ -84,6 +84,8 @@ stages:
       build: ${{ parameters.build2019containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
+      poolName: $(AZURE_POOL_NAME)
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -95,6 +97,8 @@ stages:
       build: ${{ parameters.build2022containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
+      poolName: $(AZURE_POOL_NAME)
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -106,6 +110,8 @@ stages:
       build: ${{ parameters.build2022containerdgen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
+      poolName: $(AZURE_POOL_NAME)
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -117,6 +123,8 @@ stages:
       build: ${{ parameters.build23H2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
+      poolName: $(AZURE_POOL_NAME)
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -128,6 +136,8 @@ stages:
       build: ${{ parameters.build23H2gen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
+      poolName: $(AZURE_POOL_NAME)
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []

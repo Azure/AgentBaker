@@ -81,4 +81,7 @@ stages:
       VHD_BUILD_ID: $(Build.BuildId)
     jobs:
       - template: ./templates/e2e-template.yaml
+        parameters:
+          subscriptionId: $(SUBSCRIPTION_ID)
+          poolName: $(POOL_NAME)
 

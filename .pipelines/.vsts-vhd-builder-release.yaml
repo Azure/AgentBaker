@@ -1272,3 +1272,6 @@ stages:
       TAGS_TO_SKIP: "os=windows"
     jobs:
       - template: ./templates/e2e-template.yaml
+        parameters:
+          subscriptionId: $(SUBSCRIPTION_ID)
+          poolName: $(POOL_NAME)

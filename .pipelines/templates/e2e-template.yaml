@@ -1,17 +1,27 @@
+parameters:
+  - name: subscriptionId
+    type: string
+  - name: poolName
+    type: string
+
 jobs:
   - job: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     pool:
-      name: $(POOL_NAME)
+      name: ${{ parameters.poolName }}
     timeoutInMinutes: 90
     displayName: Run AgentBaker E2E
     variables:
       - group: ab-e2e
     steps:
       - bash: |
+          echo "Subscription ID: ${{ parameters.subscriptionId }}"
+          echo "Pool Name: ${{ parameters.poolName }}"
+        displayName: Echo Vars
+      - bash: |
           set -ex
           az login --identity
-          az account set -s $(SUBSCRIPTION_ID)
+          az account set -s ${{ parameters.subscriptionId }}
         displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup go

@@ -29,3 +29,6 @@ pr:
       - staging/cse/windows/README
 jobs:
   - template: ./templates/e2e-template.yaml
+    parameters:
+      subscriptionId: $(SUBSCRIPTION_ID)
+      poolName: $(POOL_NAME)
