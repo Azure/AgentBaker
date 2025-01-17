@@ -47,6 +47,7 @@ stages:
           - bash: |
               echo "Subscription ID: ${{ parameters.subscriptionId }}"
               echo "Pool Name: ${{ parameters.poolName }}"
+            displayName: "Echo template variables"
           - bash: |
               echo '##vso[task.setvariable variable=VHD_DEBUG]${{ parameters.vhddebug }}'
               echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'

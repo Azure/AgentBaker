@@ -17,7 +17,7 @@ jobs:
       - bash: |
           echo "Subscription ID: ${{ parameters.subscriptionId }}"
           echo "Pool Name: ${{ parameters.poolName }}"
-        displayName: Echo Vars
+        displayName: "Echo template variables"
       - bash: |
           set -ex
           az login --identity
