@@ -97,8 +97,10 @@ TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
 
 # set image version locally, if it is not set in environment variable
-if [ -z "${IMAGE_VERSION}" ]; then
+if [ -z "${IMAGE_VERSION:-}" ]; then
     IMAGE_VERSION=$(date +%Y%m.%d.0)
+    echo "IMAGE_VERSION was not set, setting it to ${IMAGE_VERSION} for trivy scan and Kusto ingestion"
+fi
 fi
 
 az vm run-command invoke \
