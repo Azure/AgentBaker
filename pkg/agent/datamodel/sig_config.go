@@ -808,6 +808,7 @@ var (
 	}
 )
 
+// nolint:gochecknoglobals
 var allLinuxSIGImageConfigTemplates = []SigImageConfigTemplate{
 	SIGUbuntu1604ImageConfigTemplate,
 	SIGUbuntu1804ImageConfigTemplate,
