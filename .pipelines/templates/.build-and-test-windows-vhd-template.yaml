@@ -48,6 +48,7 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
+              echo "skip e2e tests: ${{ parameters.skipE2eTests }}"
               echo "Subscription ID: ${{ parameters.subscriptionId }}"
               echo "Pool Name: ${{ parameters.poolName }}"
               echo 'vhddebug: ${{ parameters.vhddebug }}'
