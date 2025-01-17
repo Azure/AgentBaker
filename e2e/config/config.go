@@ -44,7 +44,7 @@ type Configuration struct {
 	KeepVMSS                               bool          `env:"KEEP_VMSS"`
 	Location                               string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
-	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/dev"`
+	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
 	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
