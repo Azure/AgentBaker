@@ -808,6 +808,71 @@ var (
 	}
 )
 
+var allLinuxSIGImageConfigTemplates = []SigImageConfigTemplate{
+	SIGUbuntu1604ImageConfigTemplate,
+	SIGUbuntu1804ImageConfigTemplate,
+	SIGUbuntu1804Gen2ImageConfigTemplate,
+	SIGUbuntuGPU1804ImageConfigTemplate,
+	SIGUbuntuGPU1804Gen2ImageConfigTemplate,
+	SIGUbuntuContainerd1804ImageConfigTemplate,
+	SIGUbuntuContainerd1804Gen2ImageConfigTemplate,
+	SIGUbuntuGPUContainerd1804ImageConfigTemplate,
+	SIGUbuntuGPUContainerd1804Gen2ImageConfigTemplate,
+	SIGUbuntuFipsContainerd1804ImageConfigTemplate,
+	SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate,
+	SIGUbuntuFipsContainerd2004ImageConfigTemplate,
+	SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate,
+	SIGUbuntuFipsContainerd2204ImageConfigTemplate,
+	SIGUbuntuFipsContainerd2204Gen2ImageConfigTemplate,
+	SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate,
+	SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate,
+	SIGUbuntuContainerd2204ImageConfigTemplate,
+	SIGUbuntuContainerd2204Gen2ImageConfigTemplate,
+	SIGUbuntuContainerd2204TLGen2ImageConfigTemplate,
+	SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate,
+	SIGUbuntuMinimalContainerd2204ImageConfigTemplate,
+	SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate,
+	SIGUbuntuEgressContainerd2204Gen2ImageConfigTemplate,
+	SIGUbuntuContainerd2404ImageConfigTemplate,
+	SIGUbuntuContainerd2404Gen2ImageConfigTemplate,
+	SIGCBLMarinerV1ImageConfigTemplate,
+	SIGCBLMarinerV2Gen1ImageConfigTemplate,
+	SIGAzureLinuxV2Gen1ImageConfigTemplate,
+	SIGAzureLinuxV3Gen1ImageConfigTemplate,
+	SIGCBLMarinerV2Gen2ImageConfigTemplate,
+	SIGAzureLinuxV2Gen2ImageConfigTemplate,
+	SIGAzureLinuxV3Gen2ImageConfigTemplate,
+	SIGCBLMarinerV2Gen1FIPSImageConfigTemplate,
+	SIGAzureLinuxV2Gen1FIPSImageConfigTemplate,
+	SIGAzureLinuxV3Gen1FIPSImageConfigTemplate,
+	SIGCBLMarinerV2Gen2FIPSImageConfigTemplate,
+	SIGAzureLinuxV2Gen2FIPSImageConfigTemplate,
+	SIGAzureLinuxV3Gen2FIPSImageConfigTemplate,
+	SIGCBLMarinerV2KataImageConfigTemplate,
+	SIGAzureLinuxV2KataImageConfigTemplate,
+	SIGCBLMarinerV2Arm64ImageConfigTemplate,
+	SIGAzureLinuxV2Arm64ImageConfigTemplate,
+	SIGAzureLinuxV3Arm64ImageConfigTemplate,
+	SIGCBLMarinerV2TLImageConfigTemplate,
+	SIGAzureLinuxV2TLImageConfigTemplate,
+	SIGAzureLinuxV3TLImageConfigTemplate,
+	SIGCBLMarinerV2KataGen2TLImageConfigTemplate,
+}
+
+// GetAllMaintainedLinuxSIGImageConfigTemplates returns the SIG image config templates associated
+// with all currently-maintained Linux images. In this case, "currently-maintained" denotes that the
+// image is currently built and released during official SIG releases. This is used downstream to make sure
+// that all expected images have been properly replicated before releasing new versions of agentbakersvc.
+func GetAllMaintainedLinuxSIGImageConfigTemplates() []SigImageConfigTemplate {
+	var maintained []SigImageConfigTemplate
+	for _, template := range allLinuxSIGImageConfigTemplates {
+		if template.Version == LinuxSIGImageVersion {
+			maintained = append(maintained, template)
+		}
+	}
+	return maintained
+}
+
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSUbuntu1604:                      SIGUbuntu1604ImageConfigTemplate.WithOptions(opts...),

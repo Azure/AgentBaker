@@ -5,6 +5,49 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var _ = Describe("GetAllMaintainedLinuxSIGImageConfigTemplates", func() {
+	It("should return the correct value", func() {
+		expected := []SigImageConfigTemplate{
+			SIGUbuntuContainerd1804ImageConfigTemplate,
+			SIGUbuntuContainerd1804Gen2ImageConfigTemplate,
+			SIGUbuntuFipsContainerd1804ImageConfigTemplate,
+			SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate,
+			SIGUbuntuFipsContainerd2004ImageConfigTemplate,
+			SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate,
+			SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate,
+			SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate,
+			SIGUbuntuContainerd2204ImageConfigTemplate,
+			SIGUbuntuContainerd2204Gen2ImageConfigTemplate,
+			SIGUbuntuContainerd2204TLGen2ImageConfigTemplate,
+			SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate,
+			SIGUbuntuContainerd2404ImageConfigTemplate,
+			SIGUbuntuContainerd2404Gen2ImageConfigTemplate,
+			SIGCBLMarinerV2Gen1ImageConfigTemplate,
+			SIGAzureLinuxV2Gen1ImageConfigTemplate,
+			SIGAzureLinuxV3Gen1ImageConfigTemplate,
+			SIGCBLMarinerV2Gen2ImageConfigTemplate,
+			SIGAzureLinuxV2Gen2ImageConfigTemplate,
+			SIGAzureLinuxV3Gen2ImageConfigTemplate,
+			SIGCBLMarinerV2Gen1FIPSImageConfigTemplate,
+			SIGAzureLinuxV2Gen1FIPSImageConfigTemplate,
+			SIGAzureLinuxV3Gen1FIPSImageConfigTemplate,
+			SIGCBLMarinerV2Gen2FIPSImageConfigTemplate,
+			SIGAzureLinuxV2Gen2FIPSImageConfigTemplate,
+			SIGAzureLinuxV3Gen2FIPSImageConfigTemplate,
+			SIGCBLMarinerV2KataImageConfigTemplate,
+			SIGAzureLinuxV2KataImageConfigTemplate,
+			SIGCBLMarinerV2Arm64ImageConfigTemplate,
+			SIGAzureLinuxV2Arm64ImageConfigTemplate,
+			SIGAzureLinuxV3Arm64ImageConfigTemplate,
+			SIGCBLMarinerV2TLImageConfigTemplate,
+			SIGAzureLinuxV2TLImageConfigTemplate,
+			SIGAzureLinuxV3TLImageConfigTemplate,
+		}
+		actual := GetAllMaintainedLinuxSIGImageConfigTemplates()
+		Expect(actual).To(Equal(expected))
+	})
+})
+
 var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 	var (
 		config SIGConfig
