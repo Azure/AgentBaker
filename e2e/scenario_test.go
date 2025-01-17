@@ -532,7 +532,7 @@ func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
 
 func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
+		Description: "testings that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
