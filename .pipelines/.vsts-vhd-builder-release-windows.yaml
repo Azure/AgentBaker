@@ -64,7 +64,7 @@ variables:
   LOCATION: $(PACKER_BUILD_LOCATION)
   POOL_NAME: $(AZURE_POOL_NAME)
   SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
-  SKIP_E2E_TESTS: $(PIPELINE_SKIP_E2E_TESTS)
+  SKIP_E2E_TESTS: ${{ parameters.PIPELINE_SKIP_E2E_TESTS }}
 
 pool:
   name: $(AZURE_POOL_NAME)
@@ -86,6 +86,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
       poolName: $(AZURE_POOL_NAME)
+      skipE2eTests: ${{ parameters.PIPELINE_SKIP_E2E_TESTS }}
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -99,6 +100,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
       poolName: $(AZURE_POOL_NAME)
+      skipE2eTests: ${{ parameters.PIPELINE_SKIP_E2E_TESTS }}
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -112,6 +114,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
       poolName: $(AZURE_POOL_NAME)
+      skipE2eTests: ${{ parameters.PIPELINE_SKIP_E2E_TESTS }}
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -125,6 +128,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
       poolName: $(AZURE_POOL_NAME)
+      skipE2eTests: ${{ parameters.PIPELINE_SKIP_E2E_TESTS }}
 
   - template: ./templates/.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -138,6 +142,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       subscriptionId: $(AZURE_PROD_SUBSCRIPTION_ID)
       poolName: $(AZURE_POOL_NAME)
+      skipE2eTests: ${{ parameters.PIPELINE_SKIP_E2E_TESTS }}
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []

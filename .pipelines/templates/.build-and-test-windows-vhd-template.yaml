@@ -34,6 +34,9 @@ parameters:
     type: string
   - name: poolName
     type: string
+  - name: skipE2eTests
+    type: boolean
+    default: false
 
 stages:
   - stage: build_${{ parameters.stageName }}
@@ -73,6 +76,7 @@ stages:
 
   - stage: e2e_${{ parameters.stageName }}
     dependsOn: build_${{ parameters.stageName }}
+    condition: and(succeeded(), ne(parameters.skipE2eTests, false))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
       POOL_NAME: ${{ parameters.poolName }}
