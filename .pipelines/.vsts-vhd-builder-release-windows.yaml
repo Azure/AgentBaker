@@ -8,7 +8,9 @@ pr:
   paths:
     include:
     - .pipelines/.vsts-vhd-builder-release-windows.yaml
+    - .pipelines/templates/.build-and-test-windows-vhd-template.yaml
     - .pipelines/templates/.builder-release-template-windows.yaml
+    - .pipelines/templates/e2e-template.yaml
     - packer.mk
     - vhdbuilder/packer/packer-plugin.pkr.hcl
     - vhdbuilder/packer/*.ps1
