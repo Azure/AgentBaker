@@ -47,6 +47,14 @@ stages:
           - bash: |
               echo "Subscription ID: ${{ parameters.subscriptionId }}"
               echo "Pool Name: ${{ parameters.poolName }}"
+              echo 'vhddebug: ${{ parameters.vhddebug }}'
+              echo 'dryrun: ${{ parameters.dryrun }}'
+              echo 'hyperVGeneration: ${{ parameters.hyperVGeneration }}'
+              echo 'buildVmSize: ${{ parameters.buildVmSize }}'
+              echo 'windowsSku: ${{ parameters.windowsSku }}'
+              echo 'artifactName: ${{ parameters.artifactName }}'
+              echo 'stageName: ${{ parameters.stageName }}'
+              echo 'imageName: ${{ parameters.imageName }}'
             displayName: "Echo template variables"
           - bash: |
               echo '##vso[task.setvariable variable=VHD_DEBUG]${{ parameters.vhddebug }}'
