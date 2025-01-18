@@ -15,7 +15,7 @@ pr:
       - dev
   paths:
     include:
-      - .pipelines/e2e.yaml
+      - .pipelines/e2e-windows.yaml
       - .pipelines/templates/e2e-template.yaml
       - e2e
       - parts/windows
