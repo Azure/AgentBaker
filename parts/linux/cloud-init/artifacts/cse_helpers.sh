@@ -204,6 +204,7 @@ retrycmd_nslookup() {
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
+
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -215,6 +216,7 @@ retrycmd_if_failure_no_stats() {
         fi
     done
 }
+
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
@@ -313,6 +315,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
         fi
     done
 }
+
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
@@ -335,6 +338,7 @@ retrycmd_get_binary_from_registry_with_oras() {
         fi
     done
 }
+
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
@@ -351,6 +355,7 @@ retrycmd_curl_file() {
         fi
     done
 }
+
 wait_for_file() {
     retries=$1; wait_sleep=$2; filepath=$3
     paved=/opt/azure/cloud-init-files.paved
@@ -366,6 +371,7 @@ wait_for_file() {
     sed -i "/#EOF/d" $filepath
     echo $filepath >> $paved
 }
+
 systemctl_restart() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
@@ -380,6 +386,7 @@ systemctl_restart() {
         fi
     done
 }
+
 systemctl_stop() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
@@ -392,6 +399,7 @@ systemctl_stop() {
         fi
     done
 }
+
 systemctl_disable() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
@@ -404,6 +412,7 @@ systemctl_disable() {
         fi
     done
 }
+
 sysctl_reload() {
     retries=$1; wait_sleep=$2; timeout=$3
     for i in $(seq 1 $retries); do
@@ -415,6 +424,7 @@ sysctl_reload() {
         fi
     done
 }
+
 version_gte() {
   test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
 }
