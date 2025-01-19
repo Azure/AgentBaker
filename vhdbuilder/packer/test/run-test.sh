@@ -16,10 +16,6 @@ if [ -z "${MANAGED_SIG_ID}" ]; then
 fi
 echo "SIG image version ID from packer output: ${MANAGED_SIG_ID}"
 
-set +x
-TEST_VM_ADMIN_PASSWORD="TestVM@$(date +%s)"
-set -x
-
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
 # we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
 if [ "${OS_TYPE,,}" == "linux" ]; then
@@ -92,7 +88,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
-      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+      --generate-ssh-keys \
       --nics "$TESTING_NIC_ID" \
       ${TARGET_COMMAND_STRING}
 else
@@ -101,12 +97,12 @@ else
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
-      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+      --generate-ssh-keys \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
 fi
 
-echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
+echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME"
 
 time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
