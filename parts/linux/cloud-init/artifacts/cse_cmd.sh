@@ -134,6 +134,7 @@ GPU_DRIVER_VERSION="{{GPUDriverVersion}}"
 GPU_DRIVER_TYPE="ROC" # TODO: FIX ME
 GPU_IMAGE_SHA="{{GPUImageSHA}}"
 GPU_INSTANCE_PROFILE="{{GetGPUInstanceProfile}}"
+GPU_ENABLE_AMD="{{GetGPUEnableAMD}}"
 CUSTOM_SEARCH_DOMAIN_NAME="{{GetSearchDomainName}}"
 CUSTOM_SEARCH_REALM_USER="{{GetSearchDomainRealmUser}}"
 CUSTOM_SEARCH_REALM_PASSWORD="{{GetSearchDomainRealmPassword}}"

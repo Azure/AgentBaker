@@ -1233,7 +1233,8 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
-func Test_AzureLinuxV2_AMDGPU_MI300(t *testing.T) {
+func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
+	//t.Skip("Provisioning of Standard_ND96isr_MI300X_v5 isn't reliable yet")
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -1243,25 +1244,27 @@ func Test_AzureLinuxV2_AMDGPU_MI300(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd, //TODO: add support for older
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// kubectl create -f https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_ND96isr_MI300X_v5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_ND96isr_MI300X_v5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true // TODO: delete me
+				nbc.EnableAMD = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND96isr_MI300X_v5")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128) // drivers and gpu images are huge, give us some headroom
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidatePodUsingAMDGPU(ctx, s)
+				ValidateAMDGPU(ctx, s)
 			},
 		},
 	})
 }
 
-func Test_AzureLinuxV2_AMDGPU_V710(t *testing.T) {
+func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
+	// the SKU isn't available in subscriptrion/region we run tests
+	//t.Skip("Provisioning of NV4ads_V710_v5 isn't reliable yet")
 	// LOCATION=southcentralus
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
@@ -1276,15 +1279,18 @@ func Test_AzureLinuxV2_AMDGPU_V710(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NV4ads_V710_v5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
+				nbc.EnableAMD = true
 				//nbc.ConfigGPUDriverIfNeeded = true
 				//nbc.EnableGPUDevicePluginIfNeeded = false
 				//nbc.EnableNvidia = true // TODO: delete me
+
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV4ads_V710_v5")
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128) // drivers and gpu images are huge, give us some headroom
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidatePodUsingAMDGPU(ctx, s)
+				ValidateAMDGPU(ctx, s)
 			},
 		},
 	})

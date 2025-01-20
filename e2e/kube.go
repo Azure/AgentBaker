@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -162,15 +163,18 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 
 	for event := range watcher.ResultChan() {
 		if event.Type != watch.Added && event.Type != watch.Modified {
+			err = errors.New("could not find node")
 			continue
 		}
 		node := event.Object.(*corev1.Node)
 
 		if !strings.HasPrefix(node.Name, vmssName) {
+			err = errors.New("could not find node")
 			continue
 		}
 		nodeStatus = node.Status
 		if len(node.Spec.Taints) > 0 {
+			err = errors.New("node is tainted")
 			continue
 		}
 
@@ -182,7 +186,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 		}
 	}
 
-	t.Fatalf("failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
+	t.Fatalf("failed to find or wait for %q to be ready %+v: %s", vmssName, nodeStatus, err)
 	return ""
 }
 
@@ -286,26 +290,23 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool) error {
-	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
-	err := k.CreateDaemonset(ctx, ds)
+	ds := daemonsetDebug(hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+	err := k.CreateDaemonset(ctx, t, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
-	err = k.CreateDaemonset(ctx, nonHostDS)
+	nonHostDS := daemonsetDebug(podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	err = k.CreateDaemonset(ctx, t, nonHostDS)
 	if err != nil {
 		return err
 	}
 
-	err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) error {
+func (k *Kubeclient) CreateDaemonset(ctx context.Context, t *testing.T, ds *appsv1.DaemonSet) error {
+	t.Logf("creating or updating daemonset %s with image %s", ds.Name, ds.Spec.Template.Spec.Containers[0].Image)
 	desired := ds.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, ds, func() error {
 		ds = desired
@@ -317,12 +318,11 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", config.PrivateACRName)
 	}
-	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -610,11 +610,14 @@ func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 func podEnableAMDGPUResource(s *Scenario) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-enable-amd-gpu-device-plugin", s.Runtime.KubeNodeName),
+			Name:      fmt.Sprintf("%s-amdgpu-device-plugin", s.Runtime.KubeNodeName),
 			Namespace: defaultNamespace,
 		},
 		Spec: corev1.PodSpec{
 			PriorityClassName: "system-node-critical",
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  "amdgpu-device-plugin-container",

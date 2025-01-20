@@ -150,23 +150,25 @@ fi
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
+
 installGPUDriversAMD() {
+    if [ "${GPU_ENABLE_AMD}" != "true" ]; then
+        echo "GPU_ENABLE_AMD is not set to true. Skipping AMD GPU driver installation."
+        return 0
+    fi
+
     echo "Installing AMD GPU drivers"
-    set -e
-    wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
-    sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.1/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.3 jammy main" | sudo tee /etc/apt/sources.list.d/rocm.list
+    set -o
 
-
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.1/ubuntu jammy main" | sudo tee /etc/apt/sources.list.d/amdgpu.list
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.3.1 jammy main" | sudo tee --append /etc/apt/sources.list.d/rocm.list
-    echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | sudo tee /etc/apt/preferences.d/rocm-pin-600
-
+    # delete amdgpu module from blacklist
+    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
+    sudo apt-get update
+    wget https://repo.radeon.com/amdgpu-install/6.3.1/ubuntu/jammy/amdgpu-install_6.3.60301-1_all.deb
+    sudo apt-get install -y ./amdgpu-install_6.3.60301-1_all.deb
     sudo apt-get update
     sudo apt-get install -y amdgpu-dkms
+
     REBOOTREQUIRED=true
-    set +e
     echo "AMD GPU drivers installed"
 }
 

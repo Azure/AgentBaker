@@ -463,16 +463,18 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (
 }
 
 func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
-	attempt := 0
+	t.Logf("creating VMSS %s in resource group %s", vmssName, resourceGroupName)
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
-		return errors.As(err, &respErr) && respErr.StatusCode == 409 && respErr.ErrorCode == "AllocationFailed"
+		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 	}
+	attempt := 0
 	for {
 		attempt++
 		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
 		if err == nil {
+			t.Logf("created VMSS %s in resource group %s", vmssName, resourceGroupName)
 			return vmss, nil
 		}
 
@@ -485,13 +487,14 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
 		}
 
-		t.Logf("failed to create VMSS: %v, retrying in %v", err, delay)
+		t.Logf("failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
 		select {
 		case <-ctx.Done():
 			return nil, err
 		case <-time.After(delay):
 		}
 	}
+
 }
 
 func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {

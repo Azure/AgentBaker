@@ -36,7 +36,6 @@ const (
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
-	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
@@ -65,10 +64,13 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
 	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	s.T.Cleanup(func() {
+		// put a breakpoint here to debug the test
 		cleanupVMSS(ctx, s)
 	})
+	skipTestIfSKUNotAvailableErr(s.T, err)
+	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+
 	logSSHInstructions(ctx, s) // we want to log instruction earliest possible, and on test failures as well
 	return vmss
 }

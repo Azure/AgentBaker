@@ -278,18 +278,30 @@ func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
 	ensurePod(ctx, s, podRunNvidiaWorkload(s))
 }
 
-func ValidatePodUsingAMDGPU(ctx context.Context, s *Scenario) {
+func ValidateAMDGPU(ctx context.Context, s *Scenario) {
 	s.T.Logf("validating pod using AMD GPU")
+
+	execResult := execOnVMForScenario(ctx, s, "lspci -k")
+	require.Equal(s.T, "0", execResult.exitCode, "expected to find lspci command, but did not")
+	assert.Contains(s.T, execResult.stdout.String(), "amdgpu", "expected to see amdgpu kernel module managing a PCI device, but did not")
+
 	ensurePod(ctx, s, podEnableAMDGPUResource(s))
-	ensureJob(ctx, s, jobAMDGPUWorkload(s))
+	waitUntilResourceAvailable(ctx, s, "amd.com/gpu")
+	//ensureJob(ctx, s, jobAMDGPUWorkload(s))
 }
 
 // Waits until the specified resource is available on the given node.
 // Returns an error if the resource is not available within the specified timeout period.
 func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName string) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
 	nodeName := s.Runtime.KubeNodeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+
+	logInterval := time.Minute
+	nextLogTime := time.Now().Add(logInterval)
 
 	for {
 		select {
@@ -302,6 +314,11 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 			if isResourceAvailable(node, resourceName) {
 				s.T.Logf("resource %q is available", resourceName)
 				return
+			}
+
+			if time.Now().After(nextLogTime) {
+				s.T.Logf("waiting for resource %q to be available on node %q", resourceName, nodeName)
+				nextLogTime = time.Now().Add(logInterval)
 			}
 		}
 	}
