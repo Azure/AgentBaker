@@ -1,0 +1,15 @@
+Release notes for security patch 20250110T000003Z timestamp
+Package difference between 20250105T000000Z and 20250110T000003Z
+Upgrade: linux-libc-dev:amd64 (5.15.0-127.137, 5.15.0-130.140)
+Upgrade: librados2:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), python3-ceph-common:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), librbd1:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), ceph-common:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), python3-cephfs:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), libcephfs2:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), libradosstriper1:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), python3-rbd:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), python3-ceph-argparse:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2), python3-rados:amd64 (17.2.7-0ubuntu0.22.04.1, 17.2.7-0ubuntu0.22.04.2)
+Upgrade: linux-image-azure-lts-22.04:amd64 (5.15.0.1075.73, 5.15.0.1078.76)
+Upgrade: linux-cloud-tools-azure-lts-22.04:amd64 (5.15.0.1075.73, 5.15.0.1078.76)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-127.137, 5.15.0-130.140)
+Upgrade: linux-tools-azure-lts-22.04:amd64 (5.15.0.1075.73, 5.15.0.1078.76)
+Upgrade: linux-headers-azure-lts-22.04:amd64 (5.15.0.1075.73, 5.15.0.1078.76)
+Upgrade: linux-tools-common:amd64 (5.15.0-127.137, 5.15.0-130.140)
+Install: linux-modules-5.15.0-1078-azure:amd64 (5.15.0-1078.87, automatic), linux-image-5.15.0-1078-azure:amd64 (5.15.0-1078.87, automatic)
+Install: linux-cloud-tools-5.15.0-1078-azure:amd64 (5.15.0-1078.87, automatic), linux-azure-cloud-tools-5.15.0-1078:amd64 (5.15.0-1078.87, automatic)
+Install: linux-azure-tools-5.15.0-1078:amd64 (5.15.0-1078.87, automatic), linux-tools-5.15.0-1078-azure:amd64 (5.15.0-1078.87, automatic)
+Install: linux-headers-5.15.0-1078-azure:amd64 (5.15.0-1078.87, automatic), linux-azure-headers-5.15.0-1078:amd64 (5.15.0-1078.87, automatic)
+
