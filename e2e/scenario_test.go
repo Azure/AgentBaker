@@ -112,7 +112,6 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 
@@ -364,7 +363,6 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 
