@@ -39,11 +39,8 @@ type ClusterParams struct {
 	ClientKey      []byte
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
-	pod, err := kube.GetHostNetworkDebugPod(ctx, t)
-	require.NoError(t, err)
-
-	execResult, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /var/lib/kubelet/bootstrap-kubeconfig")
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient, debugPod *corev1.Pod) *ClusterParams {
+	execResult, err := execOnPrivilegedPod(ctx, kube, debugPod.Namespace, debugPod.Name, "cat /var/lib/kubelet/bootstrap-kubeconfig")
 	require.NoError(t, err)
 
 	bootstrapConfig := execResult.stdout.Bytes()
@@ -56,13 +53,13 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	}
 	fqdn := tokens[1][2:]
 
-	caCert, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/ca.crt")
+	caCert, err := execOnPrivilegedPod(ctx, kube, debugPod.Namespace, debugPod.Name, "cat /etc/kubernetes/certs/ca.crt")
 	require.NoError(t, err)
 
-	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/apiserver.crt")
+	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, debugPod.Namespace, debugPod.Name, "cat /etc/kubernetes/certs/apiserver.crt")
 	require.NoError(t, err)
 
-	clientKey, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/client.key")
+	clientKey, err := execOnPrivilegedPod(ctx, kube, debugPod.Namespace, debugPod.Name, "cat /etc/kubernetes/certs/client.key")
 	require.NoError(t, err)
 
 	return &ClusterParams{
@@ -100,9 +97,24 @@ func sshString(vmPrivateIP string) string {
 	return fmt.Sprintf(`ssh -i %s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`, sshKeyName(vmPrivateIP), vmPrivateIP)
 }
 
-func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s && %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP))
-	sshCommand = sshCommand + " sudo"
+func uploadSSHKey(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey []byte) error {
+	cmd := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP))
+	res, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, cmd)
+	if err != nil {
+		return fmt.Errorf("error uploading ssh key to VM: %w", err)
+	}
+	if res.exitCode != "0" {
+		return fmt.Errorf("error uploading ssh key to VM: %s", res.String())
+	}
+	return nil
+}
+
+func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey []byte, command string) (*podExecResult, error) {
+	err := uploadSSHKey(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	sshCommand := sshString(vmPrivateIP) + " sudo"
 	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
@@ -186,15 +198,25 @@ func unprivilegedCommandArray() []string {
 	}
 }
 
-func logSSHInstructions(s *Scenario) {
-	result := "SSH Instructions:"
+func logSSHInstructions(ctx context.Context, s *Scenario) {
+	privateIP, err := getVMPrivateIPAddress(ctx, s)
+	if err != nil {
+		s.T.Logf("error getting VM private IP: %v", err)
+		return
+	}
+	err = uploadSSHKey(ctx, s.Runtime.Cluster.Kube, privateIP, s.Runtime.Cluster.DebugPod.Name, s.Runtime.SSHKeyPrivate)
+	if err != nil {
+		s.T.Logf("error uploading SSH key to VM: %v", err)
+		return
+	}
+	result := "SSH Instructions. It may take some time for the VM to be ready for SSH."
 	if !config.Config.KeepVMSS {
-		result += fmt.Sprintf(" (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)")
+		result += fmt.Sprintf(" VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes.")
 	}
 	result += fmt.Sprintf("\n========================\n")
 	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
 	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
-	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.DebugHostPod, sshString(s.Runtime.VMPrivateIP))
+	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(privateIP))
 	s.T.Log(result)
 	//runtime.Breakpoint() // uncomment to pause the test
 }

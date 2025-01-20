@@ -36,7 +36,6 @@ const (
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
-	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
@@ -64,23 +63,16 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
 
-	operation, err := config.Azure.VMSS.BeginCreateOrUpdate(
-		ctx,
-		*cluster.Model.Properties.NodeResourceGroup,
-		s.Runtime.VMSSName,
-		model,
-		nil,
-	)
-	skipTestIfSKUNotAvailableErr(s.T, err)
-	require.NoError(s.T, err)
+	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
 	s.T.Cleanup(func() {
+		// put a breakpoint here to debug the test
 		cleanupVMSS(ctx, s)
 	})
-
-	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
-	// fail test, but continue to extract debug information
+	skipTestIfSKUNotAvailableErr(s.T, err)
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
-	return &vmssResp.VirtualMachineScaleSet
+
+	logSSHInstructions(ctx, s) // we want to log instruction earliest possible, and on test failures as well
+	return vmss
 }
 
 func skipTestIfSKUNotAvailableErr(t *testing.T, err error) {
@@ -122,14 +114,11 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"aks-node-controller.log":          "cat /var/log/azure/aks-node-controller.log",
 	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	if err != nil {
-		require.NoError(s.T, err)
-	}
+	pod := s.Runtime.Cluster.DebugPod
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, s.Runtime.SSHKeyPrivate, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -138,6 +127,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
+	s.T.Logf("logs collected to %s", testDir(s.T))
 }
 
 const uploadLogsPowershellScript = `

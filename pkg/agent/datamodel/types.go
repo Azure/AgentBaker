@@ -1721,6 +1721,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
+	EnableAMD                     bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
 	EnableArtifactStreaming       bool

@@ -146,7 +146,32 @@ fi
 # By default, never reboot new nodes.
 REBOOTREQUIRED=false
 
+
+installGPUDriversAMD() {
+    if [ "${GPU_ENABLE_AMD}" != "true" ]; then
+        echo "GPU_ENABLE_AMD is not set to true. Skipping AMD GPU driver installation."
+        return 0
+    fi
+
+    echo "Installing AMD GPU drivers"
+    set -o
+
+    # delete amdgpu module from blacklist
+    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
+    sudo apt-get update
+    wget https://repo.radeon.com/amdgpu-install/6.3.1/ubuntu/jammy/amdgpu-install_6.3.60301-1_all.deb
+    sudo apt-get install -y ./amdgpu-install_6.3.60301-1_all.deb
+    sudo apt-get update
+    sudo apt-get install -y amdgpu-dkms
+
+    REBOOTREQUIRED=true
+    echo "AMD GPU drivers installed"
+}
+
+
+
 echo $(date),$(hostname), "Start configuring GPU drivers"
+installGPUDriversAMD
 if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
@@ -156,7 +181,7 @@ if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]
 [Service]
 Environment="MIG_STRATEGY=--mig-strategy single"
 ExecStart=
-ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
+ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY
 EOF
         fi
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
@@ -188,7 +213,7 @@ EOF
         # while commands such as `nvidia-smi -q` will show mismatched current/pending mig mode.
         # this will not be required per nvidia for next gen H100.
         REBOOTREQUIRED=true
-        
+
         # this service applies the partitioning scheme with nvidia-smi.
         # we should consider moving to mig-parted which is simpler/newer.
         # we couldn't because of old drivers but that has long been fixed.

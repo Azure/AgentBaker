@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -161,15 +163,18 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 
 	for event := range watcher.ResultChan() {
 		if event.Type != watch.Added && event.Type != watch.Modified {
+			err = errors.New("could not find node")
 			continue
 		}
 		node := event.Object.(*corev1.Node)
 
 		if !strings.HasPrefix(node.Name, vmssName) {
+			err = errors.New("could not find node")
 			continue
 		}
 		nodeStatus = node.Status
 		if len(node.Spec.Taints) > 0 {
+			err = errors.New("node is tainted")
 			continue
 		}
 
@@ -181,7 +186,7 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 		}
 	}
 
-	t.Fatalf("failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
+	t.Fatalf("failed to find or wait for %q to be ready %+v: %s", vmssName, nodeStatus, err)
 	return ""
 }
 
@@ -285,26 +290,23 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
 func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool) error {
-	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
-	err := k.CreateDaemonset(ctx, ds)
+	ds := daemonsetDebug(hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+	err := k.CreateDaemonset(ctx, t, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
-	err = k.CreateDaemonset(ctx, nonHostDS)
+	nonHostDS := daemonsetDebug(podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	err = k.CreateDaemonset(ctx, t, nonHostDS)
 	if err != nil {
 		return err
 	}
 
-	err = k.CreateDaemonset(ctx, nvidiaDevicePluginDaemonSet())
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) error {
+func (k *Kubeclient) CreateDaemonset(ctx context.Context, t *testing.T, ds *appsv1.DaemonSet) error {
+	t.Logf("creating or updating daemonset %s with image %s", ds.Name, ds.Spec.Template.Spec.Containers[0].Image)
 	desired := ds.DeepCopy()
 	_, err := controllerutil.CreateOrUpdate(ctx, k.Dynamic, ds, func() error {
 		ds = desired
@@ -316,12 +318,11 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func daemonsetDebug(deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", config.PrivateACRName)
 	}
-	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
 
 	return &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -512,6 +513,32 @@ func podRunNvidiaWorkload(s *Scenario) *corev1.Pod {
 	}
 }
 
+func podAMDGPUWorkload(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-validation-pod", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "gpu-validation-container",
+					Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+					Args: []string{
+						"--max-steps", "1",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							"amd.com/gpu": resource.MustParse("1"),
+						},
+					},
+				},
+			},
+			RestartPolicy: corev1.RestartPolicyNever,
+		},
+	}
+}
+
 func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 	return &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -576,6 +603,86 @@ func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 					},
 				},
 			},
+		},
+	}
+}
+
+func podEnableAMDGPUResource(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-amdgpu-device-plugin", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			PriorityClassName: "system-node-critical",
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "amdgpu-device-plugin-container",
+					Image: "rocm/k8s-device-plugin",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
+						{
+							Name:      "sys",
+							MountPath: "/sys",
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+				{
+					Name: "sys",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/sys",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func jobAMDGPUWorkload(s *Scenario) *batchv1.Job {
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-gpu-validation-job", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "gpu-validation-container",
+							Image: "mcr.microsoft.com/azuredocs/samples-tf-mnist-demo:gpu",
+							Args: []string{
+								"--max-steps", "1",
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									"amd.com/gpu": resource.MustParse("1"),
+								},
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyNever,
+				},
+			},
+			BackoffLimit: to.Ptr(int32(0)), // No retries, fail immediately if something goes wrong
 		},
 	}
 }

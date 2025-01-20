@@ -52,6 +52,7 @@ downloadGPUDrivers() {
     fi
 }
 
+
 createNvidiaSymlinkToAllDeviceNodes() {
     NVIDIA_DEV_CHAR="/lib/udev/rules.d/71-nvidia-dev-char.rules"
     touch "${NVIDIA_DEV_CHAR}"

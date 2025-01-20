@@ -10,6 +10,7 @@ removeContainerd() {
     apt_get_purge 10 5 300 moby-containerd
 }
 
+
 installDeps() {
     if [[ $(isARM64) == 1 ]]; then
         wait_for_apt_locks
