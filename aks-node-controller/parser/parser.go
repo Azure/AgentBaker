@@ -29,6 +29,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
+//nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	env := map[string]string{
 		"PROVISION_OUTPUT":                               "/var/log/azure/cluster-provision.log",
