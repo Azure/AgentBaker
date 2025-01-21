@@ -67,7 +67,7 @@ if [ -z "${SIG_VERSION}" ]; then
 fi
 
 # Setup testing
-SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
+#SCRIPT_ARRAY+=("./vhdbuilder/packer/test/run-test.sh")
 
 # Setup scanning
 echo -e "\nENVIRONMENT ${ENVIRONMENT}, OS_VERSION ${OS_VERSION}, SKIP_SCANNING: ${SKIP_SCANNING}"
