@@ -72,6 +72,12 @@
     ],
     "provisioners": [
         {
+            "type": "file",
+            "direction": "upload",
+            "source": "parts/linux/cloud-init/artifacts/components.json",
+            "destination": "vhdbuilder/packer/components.json"
+        },
+        {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
