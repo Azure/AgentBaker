@@ -3,3 +3,6 @@
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright
 nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright
+
+# Code owners for the security patch release notes
+release-notes/security-patch/* @yagmurbaydogan @yewmsft
