@@ -238,7 +238,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.4.5"
+          "latestVersion": "v1.4.7",
+          "previousLatestVersion": "v1.4.5"
         }
       ]
     },
@@ -248,7 +249,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.5.3"
+          "latestVersion": "v1.6.2",
+          "previousLatestVersion": "v1.5.3"
         }
       ]
     },
