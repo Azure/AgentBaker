@@ -4,7 +4,7 @@ on:
     paths:
       - '.github/workflows/validate-windows-binary-signature.yaml'
       - 'vhdbuilder/packer/test/windows-files-check.ps1'
-      - 'vhdbuilder/packer/generate-windows-vhd-configuration.ps1'
+      - 'vhdbuilder/packer/windows-vhd-configuration.ps1'
       - 'parts/linux/cloud-init/artifacts/components.json'
 
 jobs:
@@ -14,10 +14,6 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
-      - name: Geneate windows vhd configuration
-        shell: powershell
-        run: |
-          ./vhdbuilder/packer/generate-windows-vhd-configuration.ps1
       - name: Run check script for 2019-containerd
         shell: powershell
         run: |
@@ -28,10 +24,6 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
-      - name: Geneate windows vhd configuration
-        shell: powershell
-        run: |
-          ./vhdbuilder/packer/generate-windows-vhd-configuration.ps1
       - name: Run check script for 2022-containerd
         shell: powershell
         run: |

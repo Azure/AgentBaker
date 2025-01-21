@@ -78,6 +78,12 @@
             "destination": "vhdbuilder/packer/components.json"
         },
         {
+            "type": "file",
+            "direction": "upload",
+            "source": "parts/windows/components_json_helpers.ps1",
+            "destination": "vhdbuilder/packer/components_json_helpers.ps1"
+        },
+        {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
@@ -87,7 +93,6 @@
             ],
             "type": "powershell",
             "scripts": [
-                "vhdbuilder/packer/generate-windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/configure-windows-vhd.ps1"
             ]
         },

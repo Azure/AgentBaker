@@ -1,4 +1,4 @@
-function GetComponentsFromComponentsJson2
+function GetComponentsFromComponentsJson
 {
     Param(
         [Parameter(Mandatory = $true)][Object]

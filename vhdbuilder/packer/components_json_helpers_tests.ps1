@@ -19,7 +19,7 @@ Describe 'Gets The Versions' {
     It 'given there are no container images, it returns an empty array' {
         $componentsJson.ContainerImages = @()
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -Be @()
     }
@@ -27,7 +27,7 @@ Describe 'Gets The Versions' {
     It 'given there are no windows versions, it returns an empty array' {
         $componentsJson.ContainerImages[0].windowsVersions = @()
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -Be @()
     }
@@ -39,7 +39,7 @@ Describe 'Gets The Versions' {
             }
         )
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
@@ -61,7 +61,7 @@ Describe 'Gets The Versions' {
             }
         )
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 2
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
@@ -81,7 +81,7 @@ Describe 'Gets The Versions' {
             }
         )
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 2
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
@@ -102,7 +102,7 @@ Describe 'Gets The Versions' {
             }
         )
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
@@ -111,7 +111,7 @@ Describe 'Gets The Versions' {
     it 'can parse components.json' {
         $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
 
-        $components = GetComponentsFromComponentsJson2 $componentsJson
+        $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
 
