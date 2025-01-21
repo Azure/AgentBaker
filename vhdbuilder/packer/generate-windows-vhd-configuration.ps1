@@ -95,56 +95,56 @@ switch -Regex ($windowsSku) {
 }
 
 $global:imagesToPull += @(
-    "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
+#    "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
 
     # This is for test purpose only to reduce the test duration.
-    "mcr.microsoft.com/windows/servercore/iis:latest",
+#    "mcr.microsoft.com/windows/servercore/iis:latest",
 
     # CSI. Owner: andyzhangx (Andy Zhang)
-    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0", # for k8s 1.30+
+#    "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0", # for k8s 1.30+
 
-    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0", # for k8s 1.30+
+#    "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0", # for k8s 1.30+
 
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10-windows-hp", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.12-windows-hp", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5-windows-hp", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.7-windows-hp", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.2-windows-hp", # for k8s 1.31.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10-windows-hp", # for k8s 1.28.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.12-windows-hp", # for k8s 1.28.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5-windows-hp", # for k8s 1.30.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.7-windows-hp", # for k8s 1.30.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.2-windows-hp", # for k8s 1.31.x
 
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10-windows-hp", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7-windows-hp", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.2-windows-hp", # for k8s 1.31.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp", # for k8s 1.28.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10-windows-hp", # for k8s 1.28.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7-windows-hp", # for k8s 1.29.x
+#    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.2-windows-hp", # for k8s 1.31.x
 
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
-    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",
-    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
+#    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",
+#    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
 
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21-windows-hpc", # for k8s 1.27.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13-windows-hpc", # for k8s 1.28.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11-windows-hpc", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7-windows-hpc", # for k8s 1.30.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1", # for k8s 1.31.x
-    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1-windows-hpc", # for k8s 1.31.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21", # for k8s 1.27.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21-windows-hpc", # for k8s 1.27.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13", # for k8s 1.28.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13-windows-hpc", # for k8s 1.28.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11", # for k8s 1.29.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11-windows-hpc", # for k8s 1.29.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7", # for k8s 1.30.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.7-windows-hpc", # for k8s 1.30.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1", # for k8s 1.31.x
+#    "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.1-windows-hpc", # for k8s 1.31.x
 
     # OMS-Agent (Azure monitor). Owner: ganga1980 (Ganga Mahesh Siddem)
-    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24",
+#    "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24",
 
     # CNS (Container Networking Service) Owner: evanbaker
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.58",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
-    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
-
+#    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.58",
+#    "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
+#    "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
+#
     # CNI installer for azure-vnet. Owner: evanbaker
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
-    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.18"
+#    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
+#    "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
+#    "mcr.microsoft.com/containernetworking/azure-cni:v1.6.18"
 )
 
 $global:map = @{
