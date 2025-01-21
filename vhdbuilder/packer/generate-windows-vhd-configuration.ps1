@@ -115,11 +115,13 @@ $global:imagesToPull += @(
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10-windows-hp", # for k8s 1.28.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp", # for k8s 1.29.x
     "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7-windows-hp", # for k8s 1.29.x
-    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.1-windows-hp", # for k8s 1.31.x
+    "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.2-windows-hp", # for k8s 1.31.x
 
     # Addon of Azure secrets store. Owner: jiashun0011 (Jiashun Liu)
     "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5",
+    "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.7",
     "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
+    "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2",
 
     # Azure cloud node manager. Owner: nilo19 (Qi Ni), lzhecheng (Zhecheng Li)
     "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21", # for k8s 1.27.x
@@ -195,15 +197,15 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.13/windowszip/v1.28.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.14/windowszip/v1.28.14-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.9/windowszip/v1.29.9-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.10/windowszip/v1.29.10-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.5/windowszip/v1.30.5-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.6/windowszip/v1.30.6-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.12/windowszip/v1.29.12-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.29.13/windowszip/v1.29.13-1int.zip",
         "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.1/windowszip/v1.31.1-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.2/windowszip/v1.31.2-1int.zip"
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.8/windowszip/v1.30.8-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.30.9/windowszip/v1.30.9-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.4/windowszip/v1.31.4-1int.zip",
+        "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip"
     );
     "c:\akse-cache\win-vnet-cni\" = @(
         # Azure CNI v1 (legacy)
