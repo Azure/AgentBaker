@@ -345,7 +345,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
-			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 
@@ -378,7 +378,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
-			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCseInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE

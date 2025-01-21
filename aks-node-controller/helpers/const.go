@@ -1,10 +1,6 @@
 package helpers
 
 const (
-	contractVersion = "v0"
-)
-
-const (
 	VMTypeStandard       = "standard"
 	VMTypeVmss           = "vmss"
 	NetworkPluginAzure   = "azure"

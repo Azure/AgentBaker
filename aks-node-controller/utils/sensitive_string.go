@@ -22,7 +22,6 @@ func (s SensitiveString) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
-//nolint:unparam // this is an interface implementation
 func (s SensitiveString) MarshalYAML() (interface{}, error) {
 	return s.String(), nil
 }
