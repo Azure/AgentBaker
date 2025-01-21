@@ -534,10 +534,9 @@ func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
-			Name:       config.VHDUbuntu2404Gen2Containerd.Name,
-			OS:         string(config.VHDUbuntu2404Gen2Containerd.OS),
-			Arch:       config.VHDUbuntu2404Gen2Containerd.Arch,
-			Scriptless: true,
+			Name: config.VHDUbuntu2404Gen2Containerd.Name,
+			OS:   string(config.VHDUbuntu2404Gen2Containerd.OS),
+			Arch: config.VHDUbuntu2404Gen2Containerd.Arch,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
