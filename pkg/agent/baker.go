@@ -199,11 +199,13 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	// TODO: GetParameterPropertyLower
 	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
-			if v["value"].(paramsMap)[p] == nil {
+			//nolint:errcheck // this code been writen before linter was added
+			param := v["value"].(paramsMap)[p]
+			if param == nil {
 				// return empty string so we don't get <no value> from go template
 				return ""
 			}
-			return v["value"].(paramsMap)[p]
+			return param
 		}
 		return ""
 	}
