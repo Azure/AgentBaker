@@ -13,11 +13,19 @@ package components
 	downloadURL: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
+	windowsVersions:   [...#WindowsVersion]
 }
 
 #GPUContainerImage: {
 	downloadURL: string
 	gpuVersion:   #VersionV2
+}
+
+#WindowsVersion: {
+	k8sVersion?:             string
+	renovateTag?:            string
+	latestVersion:           string
+	previousLatestVersion?:  string
 }
 
 #Images: [...#ContainerImage]
