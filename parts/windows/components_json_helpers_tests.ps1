@@ -107,4 +107,15 @@ Describe 'Gets The Versions' {
         $components | Should -HaveCount 1
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
     }
+
+    it 'can parse components.json' {
+        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+
+        $components = GetComponentsFromComponentsJson2 $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
+    }
 }
