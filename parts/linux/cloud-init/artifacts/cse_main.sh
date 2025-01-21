@@ -148,8 +148,8 @@ REBOOTREQUIRED=false
 
 
 installGPUDriversAMD() {
-    if [ "${GPU_ENABLE_AMD}" != "true" ]; then
-        echo "GPU_ENABLE_AMD is not set to true. Skipping AMD GPU driver installation."
+    if [ "${GPU_INSTALL_AMD_DRIVER}" != "true" ]; then
+        echo "GPU_INSTALL_AMD_DRIVER is not set to true. Skipping AMD GPU driver installation."
         return 0
     fi
 
@@ -158,6 +158,8 @@ installGPUDriversAMD() {
 
     # delete amdgpu module from blacklist
     sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
+
+    # temporary solution, until the driver is available in MCR
     sudo apt-get update
     wget https://repo.radeon.com/amdgpu-install/6.3.1/ubuntu/jammy/amdgpu-install_6.3.60301-1_all.deb
     sudo apt-get install -y ./amdgpu-install_6.3.60301-1_all.deb

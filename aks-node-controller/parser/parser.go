@@ -164,6 +164,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER":    config.GetBootstrapProfileContainerRegistryServer(),
 		"ENABLE_IMDS_RESTRICTION":                        fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetEnableImdsRestriction()),
 		"INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE":   fmt.Sprintf("%v", config.GetImdsRestrictionConfig().GetInsertImdsRestrictionRuleToMangleTable()),
+		"GPU_INSTALL_AMD_DRIVER":                         fmt.Sprintf("%v", config.GetGpuConfig().GetGpuInstallAmdDriver()),
 	}
 
 	for i, cert := range config.CustomCaCerts {

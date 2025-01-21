@@ -16,4 +16,6 @@ message GpuConfig {
 
   // Represents the GPU instance profile.
   string gpu_instance_profile = 4;
+
+  bool gpu_install_amd_driver = 5;
 }

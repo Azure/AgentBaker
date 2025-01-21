@@ -379,8 +379,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetGPUInstanceProfile": func() string {
 			return config.GPUInstanceProfile
 		},
-		"GetGPUEnableAMD": func() bool {
-			return config.EnableAMD
+		"GetGPUInstallAmdDriver": func() bool {
+			return config.GPUInstallAMDDriver
 		},
 		"IsMIGEnabledNode": func() bool {
 			return config.GPUInstanceProfile != ""
