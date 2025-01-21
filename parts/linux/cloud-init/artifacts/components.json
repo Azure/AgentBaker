@@ -51,7 +51,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.4.58",
+          "latestVersion": "v1.4.59",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -102,7 +102,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.58",
+          "latestVersion": "v1.4.59",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -403,11 +403,17 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.23.9"
+          "latestVersion": "v1.23.10",
+          "previousLatestVersion": "v1.23.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.5"
+          "latestVersion": "v1.24.6",
+          "previousLatestVersion": "v1.24.5"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.25.1"
         }
       ]
     },
@@ -703,7 +709,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.1"
+                "latestVersion": "1.6.2"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
@@ -720,7 +726,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.56"
+                "latestVersion": "1.4.59"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
