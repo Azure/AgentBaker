@@ -112,6 +112,10 @@ if [[ "$ret" != "0" ]]; then
     exit $ERR_CLEANUP_CONTAINER_IMAGES
 fi
 
+if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    logs_to_events "AKS.CSE.ensureOrasLogin" ensureOrasLogin || exit $?
+fi
+
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else

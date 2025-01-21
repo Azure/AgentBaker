@@ -115,9 +115,9 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_NETWORK_ACCESS=210 # Error pulling artifact with oras from registry with connection issue
+ERR_ORAS_PULL_INCORRECT_CACHE=211 # Error pulling artifact with oras from registry with incorrect acr cache setting
+ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
@@ -286,6 +286,36 @@ retrycmd_curl_file() {
             sleep $wait_sleep
         fi
     done
+}
+retrycmd_acr_access_check() {
+    access_retries=$1; wait_sleep=$2;
+    local acr_url=$3
+
+    echo "${access_retries} retries for acr access check"
+    sample_image="$acr_url/mcr/hello-world:latest"
+    for i in $(seq 1 $access_retries); do
+        oras_out=$(timeout 60 oras pull $sample_image --registry-config ${ORAS_REGISTRY_CONFIG_FILE} 2>&1)
+        if [[ $? == 0]]; then 
+            echo "acr access check succeeded"
+            return 0
+        fi
+
+        echo "acr access check failed"
+        error_output=$(echo $oras_out)
+        case "$error_output" in
+            *"not found"*)
+                echo "Error: Image '$sample_image' not found, please check acr cache is correctly set"
+                return $ERR_ORAS_PULL_INCORRECT_CACHE
+                ;;
+            *"unauthorized"*)
+                return $ERR_ORAS_PULL_UNAUTHORIZED
+                ;;
+        esac
+        sleep $wait_sleep
+    done
+
+    echo "acr access check failed after $access_retries retries"
+    return $ERR_ORAS_PULL_NETWORK_ACCESS
 }
 wait_for_file() {
     retries=$1; wait_sleep=$2; filepath=$3
@@ -681,6 +711,43 @@ removeKubeletFlag() {
     elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
         KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
+}
+
+oras_login_with_identity() {
+    local acr_url=$1
+    local client_id=$2
+    local tenant_id=$3
+
+    set +x
+    ACCESS_TOKEN=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s | jq .access_token -r)
+    if [ -z "$ACCESS_TOKEN" ]; then
+        echo "Failed to retrieve kubelet token"
+        set -x
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    ACR_TOKEN=$(curl -X POST "https://$acr_url/oauth2/exchange" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" -s | jq -r '.refresh_token')
+
+    if [ -z "$ACR_TOKEN" ]; then
+        echo "Failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
+        set -x
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}
+    set -x
+    ret=$?
+    if [ $ret -ne 0 ]; then
+        echo "Failed to login to acr '$acr_url' with identity token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+}
+
+testHelperFunction() {
+    local arg1="$1"
+    echo "I am a test helper function with an argument: $arg1"
 }
 
 #HELPERSEOF
