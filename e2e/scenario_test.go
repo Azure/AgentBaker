@@ -1346,12 +1346,11 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd, //TODO: add support for older
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				// kubectl create -f https://raw.githubusercontent.com/ROCm/k8s-device-plugin/master/k8s-ds-amdgpu-dp.yaml
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_ND96isr_MI300X_v5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_ND96isr_MI300X_v5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-				nbc.EnableAMD = true
+				nbc.GPUInstallAMDDriver = true
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND96isr_MI300X_v5")
@@ -1381,10 +1380,7 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
 				nbc.AgentPoolProfile.VMSize = "Standard_NV4ads_V710_v5"
 				nbc.AgentPoolProfile.Distro = "aks-cblmariner-v2-gen2"
-				nbc.EnableAMD = true
-				//nbc.ConfigGPUDriverIfNeeded = true
-				//nbc.EnableGPUDevicePluginIfNeeded = false
-				//nbc.EnableNvidia = true // TODO: delete me
+				nbc.GPUInstallAMDDriver = true
 
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
