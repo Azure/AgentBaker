@@ -140,11 +140,13 @@ $global:imagesToPull += @(
 
     # CNS (Container Networking Service) Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cns:v1.4.58",
+    "mcr.microsoft.com/containernetworking/azure-cns:v1.4.59",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13",
 
     # CNI installer for azure-vnet. Owner: evanbaker
     "mcr.microsoft.com/containernetworking/azure-cni:v1.4.58",
+    "mcr.microsoft.com/containernetworking/azure-cni:v1.4.59",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38",
     "mcr.microsoft.com/containernetworking/azure-cni:v1.6.18"
 )
@@ -211,8 +213,10 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip",
         # Azure CNI v2 (pod subnet)
         "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.59.zip",
         # Azure CNI for Overlay
-        "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip",
+        "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.59.zip"
     );
     "c:\akse-cache\calico\" = @(
         "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
