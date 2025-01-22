@@ -81,7 +81,7 @@ switch -Regex ($windowsSku) {
     }
 }
 
-$componentsJson = Get-Content './components.json' | Out-String | ConvertFrom-Json
+$componentsJson = Get-Content 'c:/components.json' | Out-String | ConvertFrom-Json
 $components = GetComponentsFromComponentsJson $componentsJson
 $global:imagesToPull += $components
 
