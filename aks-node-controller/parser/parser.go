@@ -144,6 +144,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"GPU_DRIVER_VERSION":                             getGpuDriverVersion(config.GetVmSize()),
 		"GPU_IMAGE_SHA":                                  getGpuImageSha(config.GetVmSize()),
 		"GPU_INSTANCE_PROFILE":                           config.GetGpuConfig().GetGpuInstanceProfile(),
+		"GPU_DRIVER_TYPE":                                getGpuDriverType(config.GetVmSize()),
 		"CUSTOM_SEARCH_DOMAIN_NAME":                      config.GetCustomSearchDomainConfig().GetDomainName(),
 		"CUSTOM_SEARCH_REALM_USER":                       config.GetCustomSearchDomainConfig().GetRealmUser(),
 		"CUSTOM_SEARCH_REALM_PASSWORD":                   config.GetCustomSearchDomainConfig().GetRealmPassword(),
