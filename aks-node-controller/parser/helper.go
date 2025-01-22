@@ -495,6 +495,10 @@ func getGpuImageSha(vmSize string) string {
 	return agent.GetAKSGPUImageSHA(vmSize)
 }
 
+func getGpuDriverType(vmSize string) string {
+	return agent.GetGPUDriverType(vmSize)
+}
+
 func getGpuDriverVersion(vmSize string) string {
 	return agent.GetGPUDriverVersion(vmSize)
 }

@@ -927,7 +927,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetAKSGPUImageSHA(profile.VMSize)
 		},
 		"GPUDriverType": func() string {
-			return getGPUDriverType(profile.VMSize)
+			return GetGPUDriverType(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -1066,7 +1066,7 @@ func GetAKSGPUImageSHA(size string) string {
 	return datamodel.AKSGPUCudaVersionSuffix
 }
 
-func getGPUDriverType(size string) string {
+func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
 	}
