@@ -33,7 +33,7 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
-    condition: eq('${{ parameters.build }}', True)
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
