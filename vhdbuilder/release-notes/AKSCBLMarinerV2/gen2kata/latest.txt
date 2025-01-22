@@ -1,26 +1,26 @@
-Starting build on  Tue Jan 21 19:54:47 UTC 2025
+Starting build on  Sun Jan 12 09:08:13 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
-  - CNI plugin version 1.6.2
-  - Azure CNI version 1.4.59
+  - CNI plugin version 1.4.1
+  - Azure CNI version 1.4.56
   - Azure CNI version 1.5.38
-  - Azure CNI version 1.6.18
-  - Azure CNI version 1.5.35
   - Azure CNI version 1.6.13
+  - Azure CNI version 1.5.35
+  - Azure CNI version 1.6.7
   - crictl version 1.31.1
-  - kubernetes-binaries version v1.27.101-akslts
-  - kubernetes-binaries version v1.28.15
-  - kubernetes-binaries version v1.29.13
-  - kubernetes-binaries version v1.30.9
-  - kubernetes-binaries version v1.31.5
-  - kubernetes-binaries version v1.27.100-akslts
-  - kubernetes-binaries version v1.28.14
-  - kubernetes-binaries version v1.29.12
-  - kubernetes-binaries version v1.30.8
-  - kubernetes-binaries version v1.31.4
-  - azure-acr-credential-provider version v1.30.0
-  - azure-acr-credential-provider version v1.29.2
-  - containerd-wasm-shims version v0.3.0 v0.5.1 v0.8.0
+  - kubernetes-binaries version 1.27.101-akslts
+  - kubernetes-binaries version 1.28.15
+  - kubernetes-binaries version 1.29.11
+  - kubernetes-binaries version 1.30.7
+  - kubernetes-binaries version 1.31.3
+  - kubernetes-binaries version 1.27.100-akslts
+  - kubernetes-binaries version 1.28.14
+  - kubernetes-binaries version 1.29.10
+  - kubernetes-binaries version 1.30.6
+  - kubernetes-binaries version 1.31.2
+  - azure-acr-credential-provider version 1.30.0
+  - azure-acr-credential-provider version 1.29.2
+  - containerd-wasm-shims version 0.3.0 0.5.1 0.8.0
   - spinkube version 0.15.1
   - runc version 1.1.9
   - bpftrace v0.16.0
@@ -29,31 +29,25 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.20
   - mcr.microsoft.com/oss/kubernetes/pause:3.6
   - mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240704
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-4
-  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.9.4-4
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.4.59
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-2
+  - mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.9.4-2
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.4.56
   - mcr.microsoft.com/containernetworking/azure-cni:v1.5.38
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.18
-  - mcr.microsoft.com/containernetworking/azure-cni:v1.5.35
   - mcr.microsoft.com/containernetworking/azure-cni:v1.6.13
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.59
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.5.35
+  - mcr.microsoft.com/containernetworking/azure-cni:v1.6.7
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.4.56
   - mcr.microsoft.com/containernetworking/azure-cns:v1.5.38
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.18
-  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.35
   - mcr.microsoft.com/containernetworking/azure-cns:v1.6.13
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.5.35
+  - mcr.microsoft.com/containernetworking/azure-cns:v1.6.7
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7
   - mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0
   - mcr.microsoft.com/containernetworking/cni-dropgz:v0.0.20
   - mcr.microsoft.com/containernetworking/azure-npm:v1.5.34
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.5-250110
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.15-241024
-  - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.2-241024
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.1.6-hotfix.20240116
   - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.30.3-hotfix.20240819
-  - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.7
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.5
-  - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod:3.1.24
   - mcr.microsoft.com/aks/msi/addon-token-adapter:master.221118.2
@@ -64,6 +58,10 @@ containerd images pre-pulled:
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.9.1-main-08-28-2024-f33aacb5-targetallocator
   - mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:6.9.1-main-08-28-2024-f33aacb5-cfg
   - mcr.microsoft.com/oss/kubernetes/kube-state-metrics:v2.11.0
+  - mcr.microsoft.com/oss/cilium/cilium:1.13.13-4
+  - mcr.microsoft.com/oss/cilium/cilium:1.14.10-2
+  - mcr.microsoft.com/oss/cilium/cilium:1.13.13-3
+  - mcr.microsoft.com/oss/cilium/cilium:1.14.10-1
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.13
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.11
@@ -75,27 +73,35 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.5
   - mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.0
   - mcr.microsoft.com/oss/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.9
-  - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.15
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.14
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.12
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.7
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.2
+  - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.13
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.11
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.10
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.6
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7
-  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.2
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.5
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.0
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.28.10
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.9
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.4
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.13
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.23.10
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.6
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.1
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.0
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.28.12
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.8
+  - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.5
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.23.9
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.5
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.0
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.23.7
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.3
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0
+  - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.12.0
+  - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.1
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0
-  - mcr.microsoft.com/oss/v2/open-policy-agent/gatekeeper:v3.17.1-5
+  - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.10.1
+  - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.11.1
   - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.17.1
+  - mcr.microsoft.com/oss/open-policy-agent/gatekeeper:v3.16.3
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.9.1
   - mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:1.8.0
   - mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:1.9.1
@@ -104,52 +110,53 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:v0.7.1
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.101-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.15
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.13
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.9
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.5
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.11
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.7
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.3
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.27.100-akslts
   - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.28.14
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.12
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.8
-  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.4
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.29.10
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.30.6
+  - mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.31.2
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root    38693345 Aug 13 10:41 /usr/local/bin/crictl
--rwxr-xr-x 1 root root   110649604 Sep 12 23:20 /usr/local/bin/kubelet-v1.28.14
--rwxr-xr-x 1 root root    49623192 Sep 12 23:20 /usr/local/bin/kubectl-v1.28.14
--rwxr-xr-x 1 root root   108712196 Oct 17 06:39 /usr/local/bin/kubelet-v1.27.100-akslts
--rwxr-xr-x 1 root root    49066136 Oct 17 06:39 /usr/local/bin/kubectl-v1.27.100-akslts
--rwxr-xr-x 1 root root   110649604 Oct 23 16:18 /usr/local/bin/kubelet-v1.28.15
--rwxr-xr-x 1 root root    49623192 Oct 23 16:18 /usr/local/bin/kubectl-v1.28.15
--rwxr-xr-x 1 root root   108712196 Oct 31 21:40 /usr/local/bin/kubelet-v1.27.101-akslts
--rwxr-xr-x 1 root root    49066136 Oct 31 21:40 /usr/local/bin/kubectl-v1.27.101-akslts
+-rwxr-xr-x 1 root root   110649604 Sep 12 23:20 /usr/local/bin/kubelet-1.28.14
+-rwxr-xr-x 1 root root    49623192 Sep 12 23:20 /usr/local/bin/kubectl-1.28.14
+-rwxr-xr-x 1 root root   108712196 Oct 17 06:39 /usr/local/bin/kubelet-1.27.100-akslts
+-rwxr-xr-x 1 root root    49066136 Oct 17 06:39 /usr/local/bin/kubectl-1.27.100-akslts
+-rwxr-xr-x 1 root root    76902744 Oct 23 15:59 /usr/local/bin/kubelet-1.31.2
+-rwxr-xr-x 1 root root    56381592 Oct 23 15:59 /usr/local/bin/kubectl-1.31.2
+-rwxr-xr-x 1 root root   100161976 Oct 23 16:03 /usr/local/bin/kubelet-1.30.6
+-rwxr-xr-x 1 root root    51454104 Oct 23 16:03 /usr/local/bin/kubectl-1.30.6
+-rwxr-xr-x 1 root root   110649604 Oct 23 16:18 /usr/local/bin/kubelet-1.28.15
+-rwxr-xr-x 1 root root    49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
+-rwxr-xr-x 1 root root   112603396 Oct 23 16:24 /usr/local/bin/kubelet-1.29.10
+-rwxr-xr-x 1 root root    50225304 Oct 23 16:24 /usr/local/bin/kubectl-1.29.10
+-rwxr-xr-x 1 root root   108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
+-rwxr-xr-x 1 root root    49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
+-rwxr-xr-x 1 root root    76902744 Dec  2 23:49 /usr/local/bin/kubelet-1.31.3
+-rwxr-xr-x 1 root root    56381592 Dec  2 23:49 /usr/local/bin/kubectl-1.31.3
+-rwxr-xr-x 1 root root   100161976 Dec  2 23:52 /usr/local/bin/kubelet-1.30.7
+-rwxr-xr-x 1 root root    51454104 Dec  2 23:52 /usr/local/bin/kubectl-1.30.7
+-rwxr-xr-x 1 root root   112603396 Dec  3 00:08 /usr/local/bin/kubelet-1.29.11
+-rwxr-xr-x 1 root root    50225304 Dec  3 00:08 /usr/local/bin/kubectl-1.29.11
 lrwxrwxrwx 1 root root          21 Dec  3 20:17 /usr/local/bin/kata-runtime -> /usr/bin/kata-runtime
 lrwxrwxrwx 1 root root          21 Dec  3 20:17 /usr/local/bin/kata-monitor -> /usr/bin/kata-monitor
 lrwxrwxrwx 1 root root          32 Dec  3 20:17 /usr/local/bin/containerd-shim-kata-v2 -> /usr/bin/containerd-shim-kata-v2
 -rwxr-xr-x 1 root root    49345112 Dec  3 20:19 /usr/local/bin/containerd-shim-kata-cc-v2
--rwxr-xr-x 1 root root    76902744 Dec 13 17:25 /usr/local/bin/kubelet-v1.31.4
--rwxr-xr-x 1 root root    56381592 Dec 13 17:25 /usr/local/bin/kubectl-v1.31.4
--rwxr-xr-x 1 root root   112603396 Dec 13 17:43 /usr/local/bin/kubelet-v1.29.12
--rwxr-xr-x 1 root root    50225304 Dec 13 17:43 /usr/local/bin/kubectl-v1.29.12
--rwxr-xr-x 1 root root   100161976 Dec 13 21:23 /usr/local/bin/kubelet-v1.30.8
--rwxr-xr-x 1 root root    51454104 Dec 13 21:23 /usr/local/bin/kubectl-v1.30.8
 -rwxr-xr-x 1 1001 docker  10334343 Dec 17 09:51 /usr/local/bin/oras
 -rw-r--r-- 1 1001 docker     11343 Dec 19 08:28 /usr/local/bin/LICENSE
--rwxr-xr-x 1 root root    76910936 Jan 16 19:23 /usr/local/bin/kubelet-v1.31.5
--rwxr-xr-x 1 root root    56381592 Jan 16 19:23 /usr/local/bin/kubectl-v1.31.5
--rwxr-xr-x 1 root root   100161976 Jan 16 19:24 /usr/local/bin/kubelet-v1.30.9
--rwxr-xr-x 1 root root    51454104 Jan 16 19:24 /usr/local/bin/kubectl-v1.30.9
--rwxr-xr-x 1 root root   112611588 Jan 16 19:43 /usr/local/bin/kubelet-v1.29.13
--rwxr-xr-x 1 root root    50225304 Jan 16 19:43 /usr/local/bin/kubectl-v1.29.13
--rwxr-xr-x 1 root root         705 Jan 21 19:55 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root        9825 Jan 21 20:01 /usr/local/bin/containerd-shim-spin-vv0-3-0-v1
--rwxr-xr-x 1 root root        9825 Jan 21 20:01 /usr/local/bin/containerd-shim-slight-vv0-5-1-v1
--rwxr-xr-x 1 root root        9825 Jan 21 20:01 /usr/local/bin/containerd-shim-slight-vv0-8-0-v1
--rwxr-xr-x 1 root root        9825 Jan 21 20:01 /usr/local/bin/containerd-shim-spin-vv0-5-1-v1
--rwxr-xr-x 1 root root        9825 Jan 21 20:01 /usr/local/bin/containerd-shim-slight-vv0-3-0-v1
--rwxr-xr-x 1 root root        9825 Jan 21 20:01 /usr/local/bin/containerd-shim-spin-vv0-8-0-v1
--rwxr-xr-x 1 root root    63515504 Jan 21 20:01 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root         705 Jan 12 09:08 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root    60175432 Jan 12 09:13 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root    39369104 Jan 12 09:14 /usr/local/bin/containerd-shim-wws-v0-8-0-v1
+-rwxr-xr-x 1 root root    53775024 Jan 12 09:14 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root    52232184 Jan 12 09:14 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root    36014944 Jan 12 09:14 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root    47622592 Jan 12 09:14 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root    45334640 Jan 12 09:14 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root    63515504 Jan 12 09:14 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 filesystem-1.1-20.cm2.x86_64
 glibc-2.35-7.cm2.x86_64
@@ -329,6 +336,7 @@ wget-1.21.2-4.cm2.x86_64
 python3-six-1.16.0-2.cm2.noarch
 python3-markupsafe-2.1.0-1.cm2.x86_64
 python3-idna-3.7-1.cm2.noarch
+python3-jinja2-3.0.3-4.cm2.noarch
 python3-configobj-5.0.6-7.cm2.noarch
 PyYAML-5.4.1-1.cm2.x86_64
 python3-jsonschema-2.6.0-6.cm2.noarch
@@ -599,7 +607,6 @@ gpg-pubkey-be1229cf-5631588c
 oniguruma-6.9.7.1-2.cm2.x86_64
 jq-1.6-2.cm2.x86_64
 inotify-tools-3.22.1.0-1.cm2.x86_64
-python3-jinja2-3.0.3-5.cm2.noarch
 python3-dbus-1.2.16-3.cm2.x86_64
 python3-dateutil-2.7.3-5.cm2.noarch
 python3-dnf-plugins-core-4.0.24-3.cm2.noarch
@@ -627,7 +634,7 @@ perl-YAML-1.30-2.cm2.noarch
 perl-DBI-1.643-2.cm2.x86_64
 perl-CGI-4.54-3.cm2.noarch
 less-590-4.cm2.x86_64
-git-2.40.4-1.cm2.x86_64
+git-2.39.4-1.cm2.x86_64
 iotop-0.6-10.cm2.noarch
 ipset-7.15-2.cm2.x86_64
 kernel-devel-5.15.173.1-1.cm2.x86_64
@@ -692,9 +699,9 @@ Disk usage:
 Filesystem      Size  Used Avail Use% Mounted on
 devtmpfs        4.0M     0  4.0M   0% /dev
 tmpfs            32G     0   32G   0% /dev/shm
-tmpfs            13G  672K   13G   1% /run
+tmpfs            13G  668K   13G   1% /run
 tmpfs           4.0M     0  4.0M   0% /sys/fs/cgroup
-/dev/sda3        29G   25G  3.6G  88% /
+/dev/sda3        29G   25G  3.7G  87% /
 tmpfs            32G  4.0K   32G   1% /tmp
 /dev/sda2       452M   62M  356M  15% /boot
 /dev/sda1        64M   34M   31M  53% /boot/efi
@@ -713,10 +720,10 @@ SUPPORT_URL="https://aka.ms/cbl-mariner"
 === os-release End
 Using kernel:
 Linux version 5.15.157.mshv1-1.cm2 (root@CBL-Mariner) (gcc (GCC) 11.2.0, GNU ld (GNU Binutils) 2.37) #1 SMP Sun Jun 9 18:32:35 UTC 2024
-Install completed successfully on  Tue Jan 21 20:12:59 UTC 2025
-VSTS Build NUMBER: 20250121.1_master_113044126
-VSTS Build ID: 113044126
-Commit: 326b8624af6f91fd907d45b5869a94f9f8b15012
+Install completed successfully on  Sun Jan 12 09:23:41 UTC 2025
+VSTS Build NUMBER: 20250112.1_master_112294401
+VSTS Build ID: 112294401
+Commit: f255e5ef5701ed79b68faf127c2b2cb900f27364
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: kata
