@@ -5,4 +5,5 @@ cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright
 nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright
 
 # Code owners for the security patch release notes
-/release-notes/security-patch/ @yagmurbaydogan @yewmsft
+/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @UtheMan @ganeshkumarashok @anujmaheshwari1 @AlisonB319 @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @jason1028kr @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+
