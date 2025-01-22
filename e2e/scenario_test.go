@@ -803,8 +803,8 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
 					},
 					UlimitConfig: &aksnodeconfigv1.UlimitConfig{
-						MaxLockedMemory: to.Ptr("75000"),
-						NoFile:          to.Ptr("1048"),
+						MaxLockedMemory: to.Ptr(customContainerdUlimits["LimitMEMLOCK"]),
+						NoFile:          to.Ptr(customContainerdUlimits["LimitNOFILE"]),
 					},
 				}
 				config.CustomLinuxOsConfig = customLinuxOsConfig
