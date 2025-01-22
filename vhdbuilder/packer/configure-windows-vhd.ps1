@@ -79,7 +79,10 @@ function Download-FileWithAzCopy {
         $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
         $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
 
-        rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        mkdir -Force $env:AZCOPY_LOG_LOCATION
+        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log" ) {
+            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        }
 
          Write-Log "Logging in to AzCopy"
         # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
