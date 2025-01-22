@@ -33,11 +33,11 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
+    condition: eq('${{ parameters.build }}', True)
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
         dependsOn: []
-        condition: eq('${{ parameters.build }}', True)
         timeoutInMinutes: 180
         steps:
           - bash: |
