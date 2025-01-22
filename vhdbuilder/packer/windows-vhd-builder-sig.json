@@ -75,19 +75,19 @@
             "type": "file",
             "direction": "upload",
             "source": "parts/linux/cloud-init/artifacts/components.json",
-            "destination": "vhdbuilder/packer/components.json"
+            "destination": "c:/components.json"
         },
         {
             "type": "file",
             "direction": "upload",
             "source": "vhdbuilder/packer/windows-vhd-configuration.ps1",
-            "destination": "vhdbuilder/packer/windows-vhd-configuration.ps1"
+            "destination": "c:/windows-vhd-configuration.ps1"
         },
         {
             "type": "file",
             "direction": "upload",
             "source": "parts/windows/components_json_helpers.ps1",
-            "destination": "vhdbuilder/packer/components_json_helpers.ps1"
+            "destination": "c:/components_json_helpers.ps1"
         },
         {
             "elevated_user": "packer",
