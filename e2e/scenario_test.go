@@ -818,7 +818,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 	})
 }
 
-func Test_Ubuntu2204_GPUA10_ScriptlessInstaller(t *testing.T) {
+func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
