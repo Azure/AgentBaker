@@ -89,7 +89,7 @@ function Download-FileWithAzCopy {
         .\azcopy.exe login --login-type=MSI
 
         Write-Log "Copying $URL to $Dest"
-        .\azcopy.exe copy $URL $Dest
+        .\azcopy.exe copy "$URL" "$Dest"
 
         Write-Log "--- START AzCopy Log"
         Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
