@@ -25,6 +25,7 @@ pr:
     - vhdbuilder/packer/windows-vhd-builder-sig.json
     exclude:
     - vhdbuilder/release-notes
+    - /**/*.md
 
 pool:
   name: $(AZURE_POOL_NAME)
