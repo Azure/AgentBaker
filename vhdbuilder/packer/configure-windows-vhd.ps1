@@ -933,7 +933,7 @@ try{
         }
         "3" {
             Register-ExpandVolumeTask
-            Remove-Item -Path c:\windows-vhd-configuration.ps1
+#            Remove-Item -Path c:\windows-vhd-configuration.ps1
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize

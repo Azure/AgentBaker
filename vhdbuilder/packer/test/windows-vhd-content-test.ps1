@@ -13,7 +13,7 @@ param (
 # We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-. c:\windows-vhd-configuration.ps1
+. .\windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
@@ -506,4 +506,4 @@ Test-ExcludeUDPSourcePort
 Test-WindowsDefenderPlatformUpdate
 Test-ToolsToCacheOnVHD
 Test-ExpandVolumeTask
-Remove-Item -Path c:\windows-vhd-configuration.ps1
+#Remove-Item -Path c:\windows-vhd-configuration.ps1
