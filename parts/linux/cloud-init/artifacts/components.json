@@ -13,7 +13,7 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/windows/servercore/iis:latest:*",
+      "downloadURL": "mcr.microsoft.com/windows/servercore/iis:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
       "windowsVersions": [
