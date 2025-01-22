@@ -345,7 +345,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
-			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 
@@ -378,7 +378,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
-			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCseInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
@@ -2181,18 +2181,18 @@ var _ = Describe("GetGPUDriverVersion", func() {
 	})
 })
 
-var _ = Describe("getGPUDriverType", func() {
+var _ = Describe("GetGPUDriverType", func() {
 
 	It("should use cuda with nc v3", func() {
-		Expect(getGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(getGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
-		Expect(getGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(getGPUDriverType("standard_nv6")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
 	})
 })
 

@@ -533,6 +533,11 @@ func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
 func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Name: config.VHDUbuntu2404Gen2Containerd.Name,
+			OS:   string(config.VHDUbuntu2404Gen2Containerd.OS),
+			Arch: config.VHDUbuntu2404Gen2Containerd.Arch,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2404Gen2Containerd,
@@ -808,6 +813,34 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
+				ValidateNvidiaModProbeInstalled(ctx, s)
+				ValidateKubeletHasNotStopped(ctx, s)
+				ValidateServicesDoNotRestartKubelet(ctx, s)
+			},
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NV6ads_A10_v5"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
 		},
 	})

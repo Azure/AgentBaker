@@ -403,11 +403,17 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.23.9"
+          "latestVersion": "v1.23.10",
+          "previousLatestVersion": "v1.23.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.5"
+          "latestVersion": "v1.24.6",
+          "previousLatestVersion": "v1.24.5"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
+          "latestVersion": "v1.25.1"
         }
       ]
     },
@@ -607,7 +613,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=24.04",
-                "latestVersion": "1.2.3-ubuntu24.04u1"
+                "latestVersion": "1.2.4-ubuntu24.04u1"
               }
             ]
           }
@@ -623,7 +629,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.1-ubuntu24.04u1"
+                "latestVersion": "2.0.2-ubuntu24.04u1"
               }
             ]
           },
@@ -631,7 +637,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.24-ubuntu22.04u1"
+                "latestVersion": "1.7.25-ubuntu22.04u1"
               }
             ]
           },
@@ -639,7 +645,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.24-ubuntu20.04u1"
+                "latestVersion": "1.7.25-ubuntu20.04u1"
               }
             ]
           },
@@ -703,7 +709,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.4.1"
+                "latestVersion": "1.6.2"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
