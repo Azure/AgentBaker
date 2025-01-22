@@ -80,6 +80,12 @@
         {
             "type": "file",
             "direction": "upload",
+            "source": "vhdbuilder/packer/windows-vhd-configuration.ps1",
+            "destination": "vhdbuilder/packer/windows-vhd-configuration.ps1"
+        },
+        {
+            "type": "file",
+            "direction": "upload",
             "source": "parts/windows/components_json_helpers.ps1",
             "destination": "vhdbuilder/packer/components_json_helpers.ps1"
         },
