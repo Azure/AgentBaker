@@ -195,11 +195,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.14.18-250107"
+          "latestVersion": "v1.14.18-250107",
+          "previousLatestVersion": "v1.14.15-241024"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.5-250110"
+          "latestVersion": "v1.16.5-250110",
+          "previousLatestVersion": "v1.16.2-241024"
         }
       ]
     },
@@ -464,7 +466,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.9.1"
+          "latestVersion": "1.9.1",
+          "previousLatestVersion": "1.8.0"
         }
       ]
     },
