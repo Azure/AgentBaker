@@ -29,7 +29,7 @@ if (![string]::IsNullOrEmpty($customizedDiskSizeParam)) {
 
 $ErrorActionPreference = "Stop"
 
-. ./windows-vhd-configuration.ps1
+. vhdbuilder/packer/windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
