@@ -6,7 +6,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "1.8.22"
+          "latestVersion": "1.8.22",
+          "previousLatestVersion": "1.8.20"
         }
       ]
     },
@@ -295,11 +296,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.27.21"
+          "latestVersion": "v1.27.21",
+          "previousLatestVersion": "v1.27.20"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.28.13"
+          "latestVersion": "v1.28.13",
+          "previousLatestVersion": "v1.28.11"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
