@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -16,6 +17,9 @@ func Test_Windows2019Containerd(t *testing.T) {
 			VHD:                    config.VHDWindows2019Containerd,
 			VMConfigMutator:        func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContentWindows(ctx, s, "c:/k/kubelet", "--rotate-server-certificates=true")
+			},
 		},
 	})
 }
@@ -42,7 +46,6 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 			VHD:             config.VHDWindows2022ContainerdGen2,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-
 			},
 		},
 	})

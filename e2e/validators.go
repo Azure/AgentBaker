@@ -64,7 +64,7 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 		fmt.Sprintf("(sudo cat %[1]s | grep -q -F -e %[2]q)", fileName, contents),
 	}
 
-	command := makeExecutableCommand(steps)
+	command := makeExecutableBashCommand(steps)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 }
 
@@ -77,7 +77,7 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 		fmt.Sprintf("sudo cat %[1]s", fileName),
 		fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
 	}
-	command := makeExecutableCommand(steps)
+	command := makeExecutableBashCommand(steps)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
@@ -86,7 +86,7 @@ func cleanse(str string) string {
 	return strings.Replace(str, "'", "", -1)
 }
 
-func makeExecutableCommand(steps []string) string {
+func makeExecutableBashCommand(steps []string) string {
 	stepsWithEchos := make([]string, len(steps)*2)
 
 	for i, s := range steps {
@@ -131,7 +131,7 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
 	}
 
-	command := makeExecutableCommand(steps)
+	command := makeExecutableBashCommand(steps)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "command to restart service failed")
 }
 
