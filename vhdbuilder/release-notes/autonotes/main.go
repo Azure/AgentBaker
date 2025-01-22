@@ -332,4 +332,5 @@ var artifactToPath = map[string]string{
 	"azurelinuxv3-gen1-fips":               filepath.Join("AKSAzureLinuxV3", "gen1fips"),
 	"azurelinuxv3-gen2-fips":               filepath.Join("AKSAzureLinuxV3", "gen2fips"),
 	"azurelinuxv3-gen2-arm64":              filepath.Join("AKSAzureLinuxV3", "gen2arm64"),
+	"azurelinuxv3-gen2-trustedlaunch":      filepath.Join("AKSAzureLinuxV3", "gen2tl"),
 }
