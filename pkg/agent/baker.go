@@ -199,11 +199,13 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	// TODO: GetParameterPropertyLower
 	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
-			if v["value"].(paramsMap)[p] == nil {
+			//nolint:errcheck // this code been writen before linter was added
+			param := v["value"].(paramsMap)[p]
+			if param == nil {
 				// return empty string so we don't get <no value> from go template
 				return ""
 			}
-			return v["value"].(paramsMap)[p]
+			return param
 		}
 		return ""
 	}
@@ -925,7 +927,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetAKSGPUImageSHA(profile.VMSize)
 		},
 		"GPUDriverType": func() string {
-			return getGPUDriverType(profile.VMSize)
+			return GetGPUDriverType(profile.VMSize)
 		},
 		"GetHnsRemediatorIntervalInMinutes": func() uint32 {
 			// Only need to enable HNSRemediator for Windows 2019
@@ -1064,7 +1066,7 @@ func GetAKSGPUImageSHA(size string) string {
 	return datamodel.AKSGPUCudaVersionSuffix
 }
 
-func getGPUDriverType(size string) string {
+func GetGPUDriverType(size string) string {
 	if useGridDrivers(size) {
 		return "grid"
 	}
