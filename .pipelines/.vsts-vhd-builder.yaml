@@ -15,6 +15,7 @@ pr:
     - .pipelines/templates/e2e-template.yaml
     - parts/linux/*
     - packer.mk
+    - aks-node-controller
     exclude:
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
