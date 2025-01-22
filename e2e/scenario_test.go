@@ -777,6 +777,46 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
+	customSysctls := map[string]string{
+		"net.ipv4.ip_local_port_range":       "32768 65535",
+		"net.netfilter.nf_conntrack_max":     "2097152",
+		"net.netfilter.nf_conntrack_buckets": "524288",
+		"net.ipv4.tcp_keepalive_intvl":       "90",
+		"net.ipv4.ip_local_reserved_ports":   "65330",
+	}
+	customContainerdUlimits := map[string]string{
+		"LimitMEMLOCK": "75000",
+		"LimitNOFILE":  "1048",
+	}
+	RunScenario(t, &Scenario{
+		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				customLinuxOsConfig := &aksnodeconfigv1.CustomLinuxOsConfig{
+					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
+						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
+						NetNetfilterNfConntrackBuckets: to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_buckets"])),
+						NetIpv4IpLocalPortRange:        to.Ptr(customSysctls["net.ipv4.ip_local_port_range"]),
+						NetIpv4TcpkeepaliveIntvl:       to.Ptr(toolkit.StrToInt32(customSysctls["net.ipv4.tcp_keepalive_intvl"])),
+					},
+					UlimitConfig: &aksnodeconfigv1.UlimitConfig{
+						MaxLockedMemory: to.Ptr("75000"),
+						NoFile:          to.Ptr("1048"),
+					},
+				}
+				config.CustomLinuxOsConfig = customLinuxOsConfig
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
+				ValidateSysctlConfig(ctx, s, customSysctls)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_GPUNC(t *testing.T) {
 	runScenarioUbuntu2204GPU(t, "Standard_NC6s_v3")
 }
