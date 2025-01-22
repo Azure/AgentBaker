@@ -22,7 +22,7 @@ pr:
     - vhdbuilder/packer/**/*.ps1
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
-    - *.md
+    - /**/*.md
 
 pool:
   name: $(POOL_NAME)
