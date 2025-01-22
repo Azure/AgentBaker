@@ -67,7 +67,7 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [[ "${OS_TYPE}" == "Linux" && ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+if [ "${OS_TYPE}" == "Linux" ] && [ ${IMG_SKU} == "20_04-lts-cvm" ]; then
     VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
