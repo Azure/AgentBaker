@@ -71,8 +71,8 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	exit 1
 fi
 
-if [ "$MODE" == "linuxVhdMode" ] && [ -z "${CVM_PACKER_BUILD_LOCATION}" ]; then
-	CVM_PACKER_BUILD_LOCATION=$PACKER_BUILD_LOCATION
+if [ "${IMG_SKU}" == "20_04-lts-cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
+	PACKER_BUILD_LOCATION=$CVM_PACKER_BUILD_LOCATION
 fi
 
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
@@ -89,11 +89,7 @@ if [ -z "${VNET_RG_NAME}" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
 		else
-			if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
-				VNET_RG_NAME="nodesig-${ENVIRONMENT}-${CVM_PACKER_BUILD_LOCATION}-packer-vnet-rg"
-			else
-				VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
-			fi
+			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
@@ -111,11 +107,7 @@ if [ -z "${VNET_NAME}" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 		else
-			if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
-				VNET_NAME="nodesig-packer-vnet-${CVM_PACKER_BUILD_LOCATION}"
-			else
-				VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
-			fi
+			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
@@ -180,7 +172,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
-		elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
+		elif [[ "${IMG_SKU,,}" == "20_04-lts-cvm" ]]; then
       SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
@@ -540,7 +532,6 @@ fi
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
-	"cvm_packer_build_location": "${CVM_PACKER_BUILD_LOCATION}",
   "subscription_id":  "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
