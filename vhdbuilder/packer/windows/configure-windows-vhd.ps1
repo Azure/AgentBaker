@@ -214,7 +214,7 @@ function Disable-WindowsUpdates {
 }
 
 function Get-ContainerImages {
-    Write-Log "Pulling images for windows server $windowsSKU:" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
     foreach ($image in $imagesToPull) {
         Write-Output "* $image"
     }
