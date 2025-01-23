@@ -25,7 +25,6 @@ type Tags struct {
 	GPU                    bool
 	WASM                   bool
 	ServerTLSBootstrapping bool
-	Scriptless             bool
 	KubeletCustomConfig    bool
 }
 
