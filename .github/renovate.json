@@ -70,7 +70,6 @@
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "extractVersion": "^v?(?<version>.+)$",
       "matchUpdateTypes": [
         "patch"
       ],
@@ -103,6 +102,10 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+    },
+    {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "extractVersion": "^v?(?<version>.+)$"
     },
     {      
       "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
