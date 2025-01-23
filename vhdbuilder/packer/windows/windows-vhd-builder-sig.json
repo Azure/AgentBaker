@@ -88,7 +88,9 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "ComponentsJsonFile=c:/build/components.json",
+                "HelpersFile=c:/build/components_json_helpers.ps1"
             ],
             "type": "powershell",
             "scripts": [
@@ -108,7 +110,9 @@
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
                 "WindowsServerCoreImageURL={{user `core_image_url`}}",
-                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}"
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}",
+                "ComponentsJsonFile=c:/build/components.json",
+                "HelpersFile=c:/build/components_json_helpers.ps1"
             ],
             "type": "powershell",
             "scripts": [
@@ -124,7 +128,9 @@
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=3",
-                "WindowsSKU={{user `windows_sku`}}"
+                "WindowsSKU={{user `windows_sku`}}",
+                "ComponentsJsonFile=c:/build/components.json",
+                "HelpersFile=c:/build/components_json_helpers.ps1"
             ],
             "type": "powershell",
             "scripts": [

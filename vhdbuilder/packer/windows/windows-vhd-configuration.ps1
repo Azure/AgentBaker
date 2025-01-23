@@ -81,9 +81,9 @@ switch -Regex ($windowsSku) {
     }
 }
 
-. c:\build\components_json_helpers.ps1
+. $HelpersFile
 
-$componentsJson = Get-Content 'c:/components.json' | Out-String | ConvertFrom-Json
+$componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $components = GetComponentsFromComponentsJson $componentsJson
 $global:imagesToPull += $components
 
