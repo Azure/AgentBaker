@@ -218,7 +218,7 @@ Describe 'cse_config.sh'
             The stdout should include "Checking access to ACR with anonymous pull"
             The stdout should include "bootstarp acr '' access check passed"
         End
-        It 'should return unqiue error if anonymous login fails with anything other than unauthorized'
+        It 'should return unique error if anonymous login fails with anything other than unauthorized'
             logs_to_events() {
                 case "$1" in
                     "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
