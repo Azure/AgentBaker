@@ -63,14 +63,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/dropgz"
               ]
@@ -114,14 +108,8 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.38",
-          "previousLatestVersion": "v1.5.35",
           "containerImagePrefetch": {
             "latestVersion": {
-              "binaries": [
-                "/usr/local/bin/azure-cns"
-              ]
-            },
-            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
@@ -280,18 +268,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.10.0-main-09-16-2024-85a71678",
-          "previousLatestVersion": "6.9.1-main-08-28-2024-f33aacb5"
+          "latestVersion": "6.10.0-main-09-16-2024-85a71678"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.10.0-main-09-16-2024-85a71678-targetallocator",
-          "previousLatestVersion": "6.9.1-main-08-28-2024-f33aacb5-targetallocator"
+          "latestVersion": "6.10.0-main-09-16-2024-85a71678-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.10.0-main-09-16-2024-85a71678-cfg",
-          "previousLatestVersion": "6.9.1-main-08-28-2024-f33aacb5-cfg"
+          "latestVersion": "6.10.0-main-09-16-2024-85a71678-cfg"
         }
       ]
     },
