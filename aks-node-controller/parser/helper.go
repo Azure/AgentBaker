@@ -411,7 +411,7 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(header + createSortedKeyValuePairs(m, " ")))
+	return header + createSortedKeyValuePairs(m, " ")
 }
 
 // getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".
