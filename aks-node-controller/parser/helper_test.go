@@ -96,8 +96,7 @@ func Test_getUlimitContent(t *testing.T) {
 			args: args{
 				u: &aksnodeconfigv1.UlimitConfig{},
 			},
-			want: base64.StdEncoding.EncodeToString(
-				[]byte("[Service]\n")),
+			want: "[Service]\n",
 		},
 		{
 			name: "UlimitConfig with custom values",
@@ -107,8 +106,7 @@ func Test_getUlimitContent(t *testing.T) {
 					MaxLockedMemory: &str9999,
 				},
 			},
-			want: base64.StdEncoding.EncodeToString(
-				[]byte("[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999")),
+			want: "[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999",
 		},
 	}
 	for _, tt := range tests {
