@@ -27,7 +27,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
   fi
-  AZURE_LOCATION=$PACKER_BUILD_LOCATION
+  AZURE_LOCATION=${PACKER_BUILD_LOCATION}
 fi
 
 if [ "${OS_TYPE,,}" == "linux" ]; then

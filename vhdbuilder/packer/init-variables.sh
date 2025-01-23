@@ -72,7 +72,7 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 fi
 
 if [ "${IMG_SKU,,}" == "20_04-lts-cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
-	PACKER_BUILD_LOCATION=$CVM_PACKER_BUILD_LOCATION
+	PACKER_BUILD_LOCATION=${CVM_PACKER_BUILD_LOCATION}
 	# Must persist new value of PACKER_BUILD_LOCATION for future pipeline steps, bash variable assignment is only scoped to this script
 	echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${CVM_PACKER_BUILD_LOCATION}"
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
