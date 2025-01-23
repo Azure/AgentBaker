@@ -288,10 +288,10 @@ retrycmd_curl_file() {
     done
 }
 retrycmd_acr_access_check() {
-    access_retries=$1; wait_sleep=$2;
+    local access_retries=$1
+    local wait_sleep=$2
     local acr_url=$3
 
-    echo "${access_retries} retries for acr access check"
     sample_image="$acr_url/mcr/hello-world:latest"
     for i in $(seq 1 $access_retries); do
         oras_out=$(timeout 60 oras pull $sample_image --registry-config ${ORAS_REGISTRY_CONFIG_FILE} 2>&1)
@@ -714,7 +714,7 @@ removeKubeletFlag() {
     fi
 }
 
-oras_login_with_identity() {
+oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
     local tenant_id=$3

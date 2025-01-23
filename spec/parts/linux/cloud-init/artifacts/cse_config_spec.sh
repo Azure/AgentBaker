@@ -234,13 +234,13 @@ Describe 'cse_config.sh'
             The stdout should include "Checking access to ACR with anonymous pull"
             The stdout should include "retrycmd_acr_access_check failed with something other than unauthorized"
         End
-        It 'should fail if oras_login_with_identity fails'
+        It 'should fail if oras_login_with_kubelet_identity fails'
             logs_to_events() {
                 case "$1" in
                     "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
                         return $ERR_ORAS_PULL_UNAUTHORIZED
                         ;;
-                    "AKS.CSE.orasLogin.oras_login_with_identity")
+                    "AKS.CSE.orasLogin.oras_login_with_kubelet_identity")
                         return 1
                         ;;
                     *)
@@ -260,7 +260,7 @@ Describe 'cse_config.sh'
                     "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
                         return $ERR_ORAS_PULL_UNAUTHORIZED
                         ;;
-                    "AKS.CSE.orasLogin.oras_login_with_identity")
+                    "AKS.CSE.orasLogin.oras_login_with_kubelet_identity")
                         return 0
                         ;;
                     "AKS.CSE.orasLogin.retrycmd_acr_access_check_non_anon")
@@ -283,7 +283,7 @@ Describe 'cse_config.sh'
                     "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
                         return $ERR_ORAS_PULL_UNAUTHORIZED
                         ;;
-                    "AKS.CSE.orasLogin.oras_login_with_identity")
+                    "AKS.CSE.orasLogin.oras_login_with_kubelet_identity")
                         return 0
                         ;;
                     "AKS.CSE.orasLogin.retrycmd_acr_access_check_non_anon")

@@ -209,7 +209,6 @@ EOF
 
             When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
             The status should be success
-            The stdout should include "$access_retries retries for acr access check"
             The stdout should include "acr access check succeeded"
         End
 
@@ -219,7 +218,6 @@ EOF
             local acr_url="notfound.azurecr.io"
             When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
             The status should be failure
-            The stdout should include "$access_retries retries for acr access check"
             The stdout should include "acr access check failed"
             The stdout should include "image could not be found in acr. Error: image not found"
         End
@@ -229,7 +227,6 @@ EOF
             local acr_url="unauthorized.azurecr.io"
             When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
             The status should be failure
-            The stdout should include "$access_retries retries for acr access check"
             The stdout should include "acr access check failed"
             The stdout should include "unauthorized to access acr. Error: unauthorized"
         End
@@ -239,12 +236,11 @@ EOF
             local acr_url="nomessage.azurecr.io"
             When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
             The status should be failure
-            The stdout should include "$access_retries retries for acr access check"
             The stdout should include "acr access check failed"
             The stdout should include "acr access check failed after $access_retries retries"
         End
     End  
-    Describe 'oras_login_with_identity'
+    Describe 'oras_login_with_kubelet_identity'
         BeforeAll 'setup_mock_oras' 'setup_mock_curl'
         AfterAll 'cleanup_mock_oras' 'cleanup_mock_curl'
 
@@ -314,7 +310,7 @@ EOF
             local acr_url="unneeded.azurecr.io"
             local client_id="failureID"
             local tenant_id="mytenantID"
-            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve kubelet token"
         End
@@ -322,7 +318,7 @@ EOF
             local acr_url="unneeded.azurecr.io"
             local client_id="myclientID"
             local tenant_id="failureID"
-            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
         End  
@@ -330,7 +326,7 @@ EOF
             local acr_url="failed.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
-            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End  
@@ -338,7 +334,7 @@ EOF
             local acr_url="success.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
-            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be success
             The stdout should include "successfully logged in to acr '$acr_url' with identity token"
         End  

@@ -422,16 +422,16 @@ orasLogin() {
     # we cannot support anonymous pull until kubelet identity exists on the vmss. This should not be hit until the feature becomes available
     echo "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
     acr_login_server="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
-    logs_to_events "AKS.CSE.orasLogin.oras_login_with_identity" oras_login_with_identity $acr_login_server $USER_ASSIGNED_IDENTITY_ID $TENANT_ID
+    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity $acr_login_server $USER_ASSIGNED_IDENTITY_ID $TENANT_ID
     ret_login=$?
-    if [[ "$ret_login" != 0 ]]; then
+    if [ $ret_login -ne 0 ]; then  
         echo "Failed to login to oras with kubelet identity"
         exit $ret_login
     fi
 
     logs_to_events "AKS.CSE.orasLogin.retrycmd_acr_access_check_non_anon" retrycmd_acr_access_check 10 1 "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"
     ret_check_after_login=$?
-    if [[ "$ret_check_after_login" != 0 ]]; then
+    if [ $ret_check_after_login -ne 0 ]; then
         echo "Failed to access ACR after oras login"
         exit $ret_check_after_login
     fi
