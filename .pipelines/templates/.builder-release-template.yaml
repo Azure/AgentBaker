@@ -114,6 +114,8 @@ steps:
   
   - bash: make -f packer.mk az-login && make -f packer.mk init-packer
     displayName: Initialize Variables
+    env:
+      UA_TOKEN: $(ua-token)
 
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
