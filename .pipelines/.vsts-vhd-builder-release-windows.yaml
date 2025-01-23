@@ -91,7 +91,7 @@ stages:
       imageName: windows-2022-containerd
       windowsSku: 2022-containerd
       hyperVGeneration: V1
-      build: $[ and(isNotPR, parameters.build2022containerd) ]
+      build: and(eq(parameters.build2022containerd, true), eq(variables.isNotPR, true))
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
@@ -113,7 +113,7 @@ stages:
       imageName: windows-23H2
       windowsSku: 23H2
       hyperVGeneration: V1
-      build: $[ and(isNotPR, parameters.build23H2) ]
+      build: and(eq(parameters.build23H2, true), eq(variables.isNotPR, true))
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
