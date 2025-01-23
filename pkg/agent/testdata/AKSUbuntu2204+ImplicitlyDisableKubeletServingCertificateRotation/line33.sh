@@ -63,7 +63,7 @@ fi
 
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
-    configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
+    logs_to_events "AKS.CSE.setUpCustomCATrust" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
