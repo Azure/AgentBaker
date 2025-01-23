@@ -75,6 +75,15 @@ Combining these 2 package rules together is actually asking Renovate not to upda
 
 We configured auto-merge patch version for components `moby-runc` and `moby-containerd`. Please search `"matchPackageNames": ["moby-runc", "moby-containerd"]` in `renovate.json` for an example.
 
+As of 01/23/2025, the PR merging policy is as follows.
+| Components       | Major  | Minor  | Patch  |
+| --------         | ------ | ------ | ------ |
+| Runc, Containerd | Manual | Manual | Auto   |
+| Others           | Manual | Manual | Manual |
+
+The update of `Runc` and `Containerd` is owned by Node SIG and we have sufficient confidence to auto-merge it with our tests and PR gates. Thus it's set to `auto-merge`.
+For other components, we are still relying on the owner teams to approve and merge. If there is a need to auto-merge a component, it's always configurable.
+
 ---
 
 For more context to anyone who is interested, let's walk through a real example. Feel free to skip reading this if it has nothing to do with your task.
