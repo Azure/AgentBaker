@@ -73,6 +73,7 @@ fi
 
 if [ "${IMG_SKU,,}" == "20_04-lts-cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
 	# Must persist new value of PACKER_BUILD_LOCATION for future pipeline steps, bash variable assignment is only scoped to this script
+	echo "CVM: PACKER_BUILD_LOCATION is set to ${CVM_PACKER_BUILD_LOCATION}"
 	echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${CVM_PACKER_BUILD_LOCATION}"
 fi
 
