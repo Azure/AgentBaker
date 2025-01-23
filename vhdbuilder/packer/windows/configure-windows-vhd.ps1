@@ -36,10 +36,6 @@ function Write-Log($Message) {
     Write-Output $msg
 }
 
-Write-Log "Loading windows VHD configuration"
-Write-Log "Components JSON: $ComponentsJsonFile"
-Write-Log "Helpers Ps1: $HelpersFile"
-
 . c:/build/windows-vhd-configuration.ps1
 
 function Download-File {
@@ -937,7 +933,6 @@ try{
         }
         "3" {
             Register-ExpandVolumeTask
-            Remove-Item -Force -Path c:\build
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize

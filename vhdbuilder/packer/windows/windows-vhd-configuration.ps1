@@ -81,6 +81,12 @@ switch -Regex ($windowsSku) {
     }
 }
 
+$HelpersFile = $HelpersFile ?? "c:/build/components_json_helpers.ps1"
+$ComponentsJsonFile = $ComponentsJsonFile ?? "c:/build/components.json"
+
+Write-Output "Components JSON: $ComponentsJsonFile"
+Write-Output "Helpers Ps1: $HelpersFile"
+
 . $HelpersFile
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json

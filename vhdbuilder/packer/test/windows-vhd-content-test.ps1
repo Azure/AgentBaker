@@ -506,4 +506,3 @@ Test-ExcludeUDPSourcePort
 Test-WindowsDefenderPlatformUpdate
 Test-ToolsToCacheOnVHD
 Test-ExpandVolumeTask
-Remove-Item -Force -Path c:\build
