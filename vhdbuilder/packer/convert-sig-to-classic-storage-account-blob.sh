@@ -31,11 +31,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
   fi
-  if [ "${ENVIRONMENT,,}" == "test" ] && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
-    LOCATION=$CVM_PACKER_BUILD_LOCATION
-  else
-    LOCATION=$PACKER_BUILD_LOCATION
-  fi
+  LOCATION=$PACKER_BUILD_LOCATION
 fi
 
 # Default to this hard-coded value for Linux does not pass this environment variable into here
@@ -71,7 +67,7 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
       } \
     } \
   }"
-elif [ "${OS_TYPE}" == "Linux" ]  && [ "${IMG_SKU}" == "20_04-lts-cvm" ]; then
+elif [ "${OS_TYPE}" == "Linux" ]  && [ "${IMG_SKU,,}" == "20_04-lts-cvm" ]; then
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
