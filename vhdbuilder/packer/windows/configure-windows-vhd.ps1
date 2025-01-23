@@ -214,7 +214,11 @@ function Disable-WindowsUpdates {
 }
 
 function Get-ContainerImages {
-    Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    Write-Log "Pulling images for windows server $windowsSKU:" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    foreach ($image in $imagesToPull) {
+        Write-Output "* $image"
+    }
+
     foreach ($image in $imagesToPull) {
         $imagePrefix = $image.Split(":")[0]
         if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
