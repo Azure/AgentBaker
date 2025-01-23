@@ -81,7 +81,7 @@ switch -Regex ($windowsSku) {
     }
 }
 
-. c:\components_json_helpers.ps1
+. c:\build\components_json_helpers.ps1
 
 $componentsJson = Get-Content 'c:/components.json' | Out-String | ConvertFrom-Json
 $components = GetComponentsFromComponentsJson $componentsJson

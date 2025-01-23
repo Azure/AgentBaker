@@ -9,10 +9,10 @@ param (
     $windowsSKU
 )
 
-# We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
+# We use parameters for test script so we set environment variables before importing c:\build\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-. c:\windows-vhd-configuration.ps1
+. c:\build\windows-vhd-configuration.ps1
 
 # We skip the signature validation of following scripts for known issues
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip

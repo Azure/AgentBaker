@@ -29,7 +29,7 @@ if (![string]::IsNullOrEmpty($customizedDiskSizeParam)) {
 
 $ErrorActionPreference = "Stop"
 
-. c:/windows-vhd-configuration.ps1
+. c:/build/windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
@@ -78,7 +78,7 @@ function Download-FileWithAzCopy {
     pushd "$global:aksTempDir"
         $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
         $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
-        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
         .\azcopy.exe login --login-type=MSI
         .\azcopy.exe copy $URL $Dest
     popd
@@ -593,7 +593,7 @@ function Enable-WindowsFixInPath {
 }
 
 # If you need to add registry key in this function,
-# please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/write-release-notes-windows.ps1 at the same time
+# please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/windows/write-release-notes-windows.ps1 at the same time
 function Update-Registry {
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
@@ -933,7 +933,7 @@ try{
         }
         "3" {
             Register-ExpandVolumeTask
-#            Remove-Item -Path c:\windows-vhd-configuration.ps1
+            Remove-Item -Force -Path c:\build
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize
