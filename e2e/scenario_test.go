@@ -956,6 +956,20 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_PrivateKubePkg_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubernetesVersion = "1.25.6"
+				config.KubeBinaryConfig.PrivateKubeBinaryUrl = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.g"
+			},
+		},
+	})
+}
+
 // These tests were created to verify that the apt-get call in downloadContainerdFromVersion is not executed.
 // The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress
 // calls are made would be beneficial for airgap testing.
