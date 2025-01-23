@@ -301,7 +301,10 @@ function Test-PullImages {
 
     Write-Output "Test-PullImages."
    
-    Write-Output "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    Write-Output "Test pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    foreach ($image in $imagesToPull) {
+        Write-Output "* $image"
+    }
     foreach ($image in $imagesToPull) {
         Write-Output "Pulling image $image"
         Retry-Command -ScriptBlock {
