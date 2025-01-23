@@ -46,7 +46,7 @@ parameters:
 - name: build2022containerd
   displayName: Build 2022 containerd
   type: boolean
-  default: ${isNotPR}
+  default: True
 - name: build2022containerdgen2
   displayName: Build 2022 containerd Gen 2
   type: boolean
@@ -54,7 +54,7 @@ parameters:
 - name: build23H2
   displayName: Build 23H2
   type: boolean
-  default: ${isNotPR}
+  default: True
 - name: build23H2gen2
   displayName: Build 23H2 Gen 2
   type: boolean
@@ -91,7 +91,7 @@ stages:
       imageName: windows-2022-containerd
       windowsSku: 2022-containerd
       hyperVGeneration: V1
-      build: ${{ parameters.build2022containerd }}
+      build: $[ and(isNotPr, parameters.build2022containerd) ]
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
@@ -113,7 +113,7 @@ stages:
       imageName: windows-23H2
       windowsSku: 23H2
       hyperVGeneration: V1
-      build: ${{ parameters.build23H2 }}
+      build: $[ and(isNotPr, parameters.build23H2) ]
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
