@@ -884,6 +884,42 @@ func Test_getTargetEnvironment(t *testing.T) {
 			},
 			want: helpers.AksCustomCloudName,
 		},
+		{
+			name: "China location cluster config",
+			args: args{
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+						Location: "china",
+					},
+				},
+			},
+			want: "AzureChinaCloud",
+		},
+		{
+			name: "Germany location cluster config",
+			args: args{
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+						Location: "germanynortheast",
+					},
+				},
+			},
+			want: "AzureGermanCloud",
+		},
+		{
+			name: "usgov location cluster config",
+			args: args{
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+						Location: "usdod",
+					},
+				},
+			},
+			want: "AzureUSGovernmentCloud",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
