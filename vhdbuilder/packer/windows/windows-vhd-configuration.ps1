@@ -87,7 +87,7 @@ $ComponentsJsonFile = $ComponentsJsonFile ?? "c:/build/components.json"
 Write-Output "Components JSON: $ComponentsJsonFile"
 Write-Output "Helpers Ps1: $HelpersFile"
 
-. $HelpersFile
+. "$HelpersFile"
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $components = GetComponentsFromComponentsJson $componentsJson
