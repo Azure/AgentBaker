@@ -12,8 +12,8 @@ param (
 # We use parameters for test script so we set environment variables before importing c:\build\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-ComponentsJsonFile = "parts/linux/cloud-init/artifacts/components.json"
-HelpersFile = "vhdbuilder/packer/windows/components_json_helpers.ps1"
+$ComponentsJsonFile = "parts/linux/cloud-init/artifacts/components.json"
+$HelpersFile = "vhdbuilder/packer/windows/components_json_helpers.ps1"
 
 . vhdbuilder/packer/windows/windows-vhd-configuration.ps1
 
