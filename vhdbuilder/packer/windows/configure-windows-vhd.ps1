@@ -29,6 +29,10 @@ if (![string]::IsNullOrEmpty($customizedDiskSizeParam)) {
 
 $ErrorActionPreference = "Stop"
 
+Write-Log "Loading windows VHD configuration"
+Write-Log "Components JSON: $ComponentsJsonFile"
+Write-Log "Helpers Ps1: $HelpersFile"
+
 . c:/build/windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
