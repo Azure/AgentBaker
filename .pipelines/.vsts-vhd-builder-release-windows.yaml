@@ -8,7 +8,9 @@ pr:
   paths:
     include:
     - .pipelines/.vsts-vhd-builder-release-windows.yaml
+    - .pipelines/templates/.build-and-test-windows-vhd-template.yaml
     - .pipelines/templates/.builder-release-template-windows.yaml
+    - .pipelines/templates/e2e-template.yaml
     - packer.mk
     - vhdbuilder/packer/packer-plugin.pkr.hcl
     - vhdbuilder/packer/*.ps1
@@ -23,9 +25,18 @@ pr:
     - vhdbuilder/packer/windows-vhd-builder-sig.json
     exclude:
     - vhdbuilder/release-notes
+    - /**/*.md
 
 pool:
   name: $(AZURE_POOL_NAME)
+
+# Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
+variables:
+  VHD_BUILD_ID: $(Build.BuildId)
+  LOCATION: $(PACKER_BUILD_LOCATION)
+  POOL_NAME: $(AZURE_POOL_NAME)
+  isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
+  isNotPR: $[ne(variables['Build.Reason'], 'PullRequest')]
 
 parameters:
 - name: build2019containerd
@@ -57,12 +68,6 @@ parameters:
   type: boolean
   default: False
 
-# Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
-variables:
-  VHD_BUILD_ID: $(Build.BuildId)
-  LOCATION: $(PACKER_BUILD_LOCATION)
-  POOL_NAME: $(AZURE_POOL_NAME)
-
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
@@ -86,7 +91,7 @@ stages:
       imageName: windows-2022-containerd
       windowsSku: 2022-containerd
       hyperVGeneration: V1
-      build: ${{ parameters.build2022containerd }}
+      build: ${{ and(eq(parameters.build2022containerd, true), eq(variables.isNotPR, true)) }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
@@ -108,7 +113,7 @@ stages:
       imageName: windows-23H2
       windowsSku: 23H2
       hyperVGeneration: V1
-      build: ${{ parameters.build23H2 }}
+      build: ${{ and(eq(parameters.build23H2, true), eq(variables.isNotPR, true)) }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 

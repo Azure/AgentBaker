@@ -33,11 +33,11 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
         dependsOn: []
-        condition: eq('${{ parameters.build }}', True)
         timeoutInMinutes: 180
         steps:
           - bash: |
@@ -57,8 +57,8 @@ stages:
 
   - stage: e2e_${{ parameters.stageName }}
     dependsOn: build_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
-      POOL_NAME: $(AZURE_POOL_NAME)
     jobs:
       - template: ./e2e-template.yaml
