@@ -87,6 +87,10 @@ if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
+if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    logs_to_events "AKS.CSE.orasLogin" orasLogin || exit $?
+fi
+
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
 ret=$?
@@ -110,10 +114,6 @@ ret=$?
 if [[ "$ret" != "0" ]]; then
     echo "Failed to get the install mode and cleanup container images"
     exit $ERR_CLEANUP_CONTAINER_IMAGES
-fi
-
-if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    logs_to_events "AKS.CSE.ensureOrasLogin" ensureOrasLogin || exit $?
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then

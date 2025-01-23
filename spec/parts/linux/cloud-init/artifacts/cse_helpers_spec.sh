@@ -168,4 +168,179 @@ Describe 'cse_helpers.sh'
             The variable KUBELET_NODE_LABELS should equal ''
         End
     End
+
+    Describe 'retrycmd_acr_access_check'
+        BeforeAll 'setup_mock_oras'
+        AfterAll 'cleanup_mock_oras'
+        setup_mock_oras() {
+            MOCK_BIN_DIR=$(mktemp -d)
+            cat <<-EOF >"$MOCK_BIN_DIR/oras"
+            #!/bin/bash
+
+            case "\$2" in
+                success.azurecr.io/*)
+                    exit 0
+                    ;;
+                notfound.azurecr.io/*)
+                    echo "Error: image not found"
+                    exit 1
+                    ;;
+                unauthorized.azurecr.io/*)
+                    echo "Error: unauthorized"
+                    exit 1
+                    ;;
+                *)
+                    exit 1
+                    ;;
+            esac
+EOF
+            chmod +x "$MOCK_BIN_DIR/oras"
+            export PATH="$MOCK_BIN_DIR:$PATH"
+        }
+        cleanup_mock_oras() {
+            rm -rf "$MOCK_BIN_DIR"
+            unset MOCK_BIN_DIR
+        }
+
+        It 'should pass if oras pull is successful'
+            local access_retries=2
+            local wait_sleep=1
+            local acr_url="success.azurecr.io"
+
+            When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
+            The status should be success
+            The stdout should include "$access_retries retries for acr access check"
+            The stdout should include "acr access check succeeded"
+        End
+
+        It 'should fail if the image is not found'
+            local access_retries=2
+            local wait_sleep=1
+            local acr_url="notfound.azurecr.io"
+            When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
+            The status should be failure
+            The stdout should include "$access_retries retries for acr access check"
+            The stdout should include "acr access check failed"
+            The stdout should include "image could not be found in acr. Error: image not found"
+        End
+        It 'should fail if oras pull is unautorized '
+            local access_retries=2
+            local wait_sleep=1
+            local acr_url="unauthorized.azurecr.io"
+            When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
+            The status should be failure
+            The stdout should include "$access_retries retries for acr access check"
+            The stdout should include "acr access check failed"
+            The stdout should include "unauthorized to access acr. Error: unauthorized"
+        End
+        It 'should fail if oras pull does not succeed and uses all retries'
+            local access_retries=2
+            local wait_sleep=.01 # set small to not slow down shellspec
+            local acr_url="nomessage.azurecr.io"
+            When call retrycmd_acr_access_check $access_retries $wait_sleep $acr_url
+            The status should be failure
+            The stdout should include "$access_retries retries for acr access check"
+            The stdout should include "acr access check failed"
+            The stdout should include "acr access check failed after $access_retries retries"
+        End
+    End  
+    Describe 'oras_login_with_identity'
+        BeforeAll 'setup_mock_oras' 'setup_mock_curl'
+        AfterAll 'cleanup_mock_oras' 'cleanup_mock_curl'
+
+        setup_mock_oras() {
+            MOCK_BIN_DIR=$(mktemp -d)
+            cat <<-EOF >"$MOCK_BIN_DIR/oras"
+            #!/bin/bash
+            echo "mock oras calling with \$2"
+            case "\$2" in
+                success.azurecr.io)
+                    exit 0
+                    ;;
+                failed.azurecr.io)
+                    echo "Error: image not found"
+                    exit 1
+                    ;;
+                *)
+                    exit "-1"
+                    ;;
+            esac
+EOF
+            chmod +x "$MOCK_BIN_DIR/oras"
+            export PATH="$MOCK_BIN_DIR:$PATH"
+        }
+
+        cleanup_mock_oras() {
+            rm -rf "$MOCK_BIN_DIR"
+            unset MOCK_BIN_DIR
+        }
+
+        setup_mock_curl() {
+            MOCK_BIN_DIR_CURL=$(mktemp -d)
+            cat <<-'EOF' >"$MOCK_BIN_DIR_CURL/curl"
+            #!/bin/bash
+            if [[ "$1" == http* ]]; then
+                if [[ "$1" == *failureID* ]]; then
+                    echo ""  
+                    exit 0 
+                elif [[ "$1" == *myclientID* ]]; then
+                    echo '{"access_token": "mytoken"}'
+                    exit 0
+                fi
+            fi
+
+            if [[ "$3" == http* ]]; then
+                if [[ "$7" == *failureID* ]]; then
+                    echo "" 
+                    exit 0
+                elif [[ "$7" == *mytenantID* ]]; then
+                    echo '{"refresh_token": "mytoken"}'
+                    exit 0
+                fi
+            fi
+            echo -1
+EOF
+
+            chmod +x "$MOCK_BIN_DIR_CURL/curl"
+            export PATH="$MOCK_BIN_DIR_CURL:$PATH"
+        }
+
+        cleanup_mock_curl() {
+            rm -rf "$MOCK_BIN_DIR_CURL"
+            unset MOCK_BIN_DIR_CURL
+        }
+
+        It 'should fail if kubelet token is unable to be retrieved'
+            local acr_url="unneeded.azurecr.io"
+            local client_id="failureID"
+            local tenant_id="mytenantID"
+            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve kubelet token"
+        End
+        It 'should fail if ACR token is empty'
+            local acr_url="unneeded.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="failureID"
+            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
+        End  
+        It 'should fail if oras cannot login'
+            local acr_url="failed.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to login to acr '$acr_url' with identity token"
+        End  
+        It 'should succeed if oras can login'
+            local acr_url="success.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When call oras_login_with_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+        End  
+    End
 End
