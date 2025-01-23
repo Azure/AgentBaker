@@ -81,8 +81,18 @@ switch -Regex ($windowsSku) {
     }
 }
 
-$HelpersFile = $HelpersFile ?? "c:/build/components_json_helpers.ps1"
-$ComponentsJsonFile = $ComponentsJsonFile ?? "c:/build/components.json"
+
+$HelpersFile = "c:/build/components_json_helpers.ps1"
+$ComponentsJsonFile = "c:/build/components.json"
+
+# fallback in case we're running in a test pipeline or locally
+if (!(Test-Path $HelpersFile)) {
+    $HelpersFile = "vhdbuilder/packer/windows/components_json_helpers.ps1"
+}
+
+if (!(Test-Path $ComponentsJsonFile)) {
+    $ComponentsJsonFile = "parts/linux/cloud-init/artifacts/components.json"
+}
 
 Write-Output "Components JSON: $ComponentsJsonFile"
 Write-Output "Helpers Ps1: $HelpersFile"
