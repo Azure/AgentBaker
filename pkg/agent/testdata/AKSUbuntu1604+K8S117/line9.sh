@@ -676,6 +676,9 @@ oras_login_with_kubelet_identity() {
     local client_id=$2
     local tenant_id=$3
 
+    #set +x 
+    #trap 'set -x' RETURN 
+
     raw_access_token=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s)
     if [ -z "$raw_access_token" ]; then
         echo "failed to retrieve kubelet token"
@@ -700,9 +703,7 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
-    oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}
-    ret=$?
-    if [ $ret -ne 0 ]; then
+    if ! oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
