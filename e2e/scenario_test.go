@@ -942,6 +942,35 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Tags = map[string]*string{
+					// deliberately case mismatched to agentbaker logic to check case insensitivity
+					"SkipGPUDriverInstall": to.Ptr("true"),
+				}
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaSMINotInstalled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
