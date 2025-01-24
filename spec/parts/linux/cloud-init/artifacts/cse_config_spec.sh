@@ -201,104 +201,27 @@ Describe 'cse_config.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
         End
     End
-    Describe 'orasLogin'        
-        It 'should return 0 if anonymous login in successful'
-            logs_to_events() {
-                case "$1" in
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
-                        return 0
-                        ;;
-                    *)
-                        return -1
-                        ;;
-                esac
+
+    Describe 'configureContainerdRegistryHost'
+        It 'should configure registry host correctly'
+            mkdir() {
+                echo "mkdir $@"
             }
-            When run orasLogin
-            The status should be success
-            The stdout should include "Checking access to ACR with anonymous pull"
-            The stdout should include "bootstarp acr '' access check passed"
-        End
-        It 'should return unique error if anonymous login fails with anything other than unauthorized'
-            logs_to_events() {
-                case "$1" in
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
-                        return $99999
-                        ;;
-                    *)
-                        return -1
-                        ;;
-                esac
+            touch() {
+                echo "touch $@"
             }
-            When run orasLogin
-            The status should be failure
-            The stdout should include "Checking access to ACR with anonymous pull"
-            The stdout should include "retrycmd_acr_access_check failed with something other than unauthorized"
-        End
-        It 'should fail if oras_login_with_kubelet_identity fails'
-            logs_to_events() {
-                case "$1" in
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
-                        return $ERR_ORAS_PULL_UNAUTHORIZED
-                        ;;
-                    "AKS.CSE.orasLogin.oras_login_with_kubelet_identity")
-                        return 1
-                        ;;
-                    *)
-                        return -1
-                        ;;
-                esac
+            chmod() {
+                echo "chmod $@"
             }
-            When run orasLogin
-            The status should be failure
-            The stdout should include "Checking access to ACR with anonymous pull"
-            The stdout should include "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
-            The stdout should include "Failed to login to oras with kubelet identity"
-        End
-        It 'should fail to login if retrycmd_acr_access_check_non_anon fails'
-            logs_to_events() {
-                case "$1" in
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
-                        return $ERR_ORAS_PULL_UNAUTHORIZED
-                        ;;
-                    "AKS.CSE.orasLogin.oras_login_with_kubelet_identity")
-                        return 0
-                        ;;
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_non_anon")
-                        return 1 
-                        ;;
-                    *)
-                        return -1
-                        ;;
-                esac
+            tee() {
+                echo "tee $@"
             }
-            When run orasLogin
-            The status should be failure
-            The stdout should include "Checking access to ACR with anonymous pull"
-            The stdout should include "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
-            The stdout should include "Failed to access ACR after oras login"
-        End
-        It 'should pass if retrycmd_acr_access_check_non_anon succeeds'
-            logs_to_events() {
-                case "$1" in
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_anon")
-                        return $ERR_ORAS_PULL_UNAUTHORIZED
-                        ;;
-                    "AKS.CSE.orasLogin.oras_login_with_kubelet_identity")
-                        return 0
-                        ;;
-                    "AKS.CSE.orasLogin.retrycmd_acr_access_check_non_anon")
-                        return 0
-                        ;;
-                    *)
-                        return -1
-                        ;;
-                esac
-            }
-            When run orasLogin
-            The status should be success
-            The stdout should include "Checking access to ACR with anonymous pull"
-            The stdout should include "Failed to access ACR with anonymous pull, will try use kubelet identity for non-anonymous pull"
-            The stdout should include "bootstarp acr '' access check passed"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should not include "tee"
         End
     End
 End

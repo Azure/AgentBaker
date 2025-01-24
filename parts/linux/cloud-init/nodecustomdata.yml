@@ -422,13 +422,3 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{- if (ne GetBootstrapProfileContainerRegistryServer "") }}
-# TODO(binxi): need to update for sovereign cloud.
-- path: /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
-      capabilities = ["pull", "resolve"]
-{{- end}}
