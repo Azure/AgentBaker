@@ -64,6 +64,7 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
 fi
 
 if [ "${OS_TYPE}" == "Linux" ] && [ ${IMG_SKU} == "20_04-lts-cvm" ]; then
+    # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
     VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
