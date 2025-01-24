@@ -19,7 +19,7 @@ required_env_vars=(
   "VHD_ARTIFACT_NAME"
   "DRY_RUN"
 )
-
+echo "PACKER BUILD LOCATION is ${PACKER_BUILD_LOCATION}"
 for v in "${required_env_vars[@]}"; do
   if [ -z "${!v}" ]; then
     echo "$v was not set!"
