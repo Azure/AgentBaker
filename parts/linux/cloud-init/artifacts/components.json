@@ -120,12 +120,12 @@
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
-            }
-          },
-          "previousLatestVersion": {
+            },
+            "previousLatestVersion": {
               "binaries": [
                 "/usr/local/bin/azure-cns"
               ]
+            }
           }
         },
         {
