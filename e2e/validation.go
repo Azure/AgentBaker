@@ -10,12 +10,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func ValidatePodRunning(ctx context.Context, s *Scenario) {
+func ValidatePodRunning(ctx context.Context, s *Scenario, privateACRName string) {
 	testPod := func() *corev1.Pod {
 		if s.VHD.OS == config.OSWindows {
 			return podHTTPServerWindows(s)
 		}
-		return podHTTPServerLinux(s)
+		return podHTTPServerLinux(s, privateACRName)
 	}()
 	ensurePod(ctx, s, testPod)
 	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)

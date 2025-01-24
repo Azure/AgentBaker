@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	Config            = mustLoadConfig()
-	Azure             = mustNewAzureClient()
-	ResourceGroupName = "abe2e-" + Config.Location
-	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2e" + Config.Location + "dev" // TODO (alburgess): remove dev once CCOA is over
+	Config                = mustLoadConfig()
+	Azure                 = mustNewAzureClient()
+	ResourceGroupName     = "abe2e-" + Config.Location + "alison-testing3"
+	VMIdentityName        = "abe2e-vm-identity"
+	PrivateACRNameNotAnon = "privateace2e" + Config.Location + "alisontest" + "noanonpull" // will have anonymous pull enabled
+	PrivateACRName        = "privateacre2e" + Config.Location + "alisontest"               // will not have anonymous pull enabled
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -28,7 +29,7 @@ type Configuration struct {
 	AirgapNSGName                          string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
 	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
+	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2ealison2"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`

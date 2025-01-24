@@ -275,19 +275,20 @@ EOF
             MOCK_BIN_DIR_CURL=$(mktemp -d)
             cat <<-'EOF' >"$MOCK_BIN_DIR_CURL/curl"
             #!/bin/bash
-            if [[ "$1" == http* ]]; then
-                if [[ "$1" == *failureID* ]]; then
-                    echo ""  
+            if [[ "$6" == http* ]]; then
+                if [[ "$1" == *failureID ]]; then
+                    echo ""
                     exit 0 
-                elif [[ "$1" == *myclientID* ]]; then
+                elif [[ "$6" == *myclientID ]]; then
                     echo '{"access_token": "mytoken"}'
                     exit 0
                 fi
+                echo "$@"
             fi
 
-            if [[ "$3" == http* ]]; then
+            if [[ "$3" == POST ]]; then
                 if [[ "$7" == *failureID* ]]; then
-                    echo "" 
+                    echo '{"refresh_token": ""}'
                     exit 0
                 elif [[ "$7" == *mytenantID* ]]; then
                     echo '{"refresh_token": "mytoken"}'
@@ -306,13 +307,13 @@ EOF
             unset MOCK_BIN_DIR_CURL
         }
 
-        It 'should fail if kubelet token is unable to be retrieved'
+        It 'should fail if access token is unable to be retrieved'
             local acr_url="unneeded.azurecr.io"
             local client_id="failureID"
             local tenant_id="mytenantID"
             When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve kubelet token"
+            The stdout should include "failed to parse access token"
         End
         It 'should fail if ACR token is empty'
             local acr_url="unneeded.azurecr.io"
@@ -320,7 +321,7 @@ EOF
             local tenant_id="failureID"
             When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
+            The stdout should include "failed to parse acr token"
         End  
         It 'should fail if oras cannot login'
             local acr_url="failed.azurecr.io"

@@ -97,7 +97,14 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	prepareAKSNode(ctx, s)
-	validateVM(ctx, s)
+
+	// todo (alburgess) remove the privateACRName once we depreciate anonymous pull
+	privateACRName := config.PrivateACRName
+	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
+	if nbc.TenantID != "" {
+		privateACRName = config.PrivateACRNameNotAnon
+	}
+	validateVM(ctx, s, privateACRName)
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) {
@@ -123,7 +130,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
 	require.NoError(s.T, err)
-	createVMSS(ctx, s)
+
+	attachVMIdenetity := false
+	if nbc.TenantID != "" {
+		attachVMIdenetity = true
+	}
+	createVMSS(ctx, s, attachVMIdenetity)
+
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
@@ -174,8 +187,8 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
-func validateVM(ctx context.Context, s *Scenario) {
-	ValidatePodRunning(ctx, s)
+func validateVM(ctx context.Context, s *Scenario, privateACRName string) {
+	ValidatePodRunning(ctx, s, privateACRName)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate

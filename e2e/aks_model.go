@@ -66,7 +66,7 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 	}
 }
 
-func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *armcontainerservice.ManagedCluster) error {
+func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *armcontainerservice.ManagedCluster, privateACRName string) error {
 	t.Logf("Adding network settings for airgap cluster %s in rg %s", *clusterModel.Name, *clusterModel.Properties.NodeResourceGroup)
 
 	vnet, err := getClusterVNet(ctx, *clusterModel.Properties.NodeResourceGroup)
@@ -98,7 +98,7 @@ func addAirgapNetworkSettings(ctx context.Context, t *testing.T, clusterModel *a
 		return err
 	}
 
-	err = addPrivateEndpointForACR(ctx, t, *clusterModel.Properties.NodeResourceGroup, vnet)
+	err = addPrivateEndpointForACR(ctx, t, *clusterModel.Properties.NodeResourceGroup, privateACRName, vnet)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func airGapSecurityGroup(location, clusterFQDN string) (armnetwork.SecurityGroup
 	}, nil
 }
 
-func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup string, vnet VNet) error {
+func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGroup, privateACRName string, vnet VNet) error {
 	t.Logf("Checking if private endpoint for private container registry is in rg %s", nodeResourceGroup)
 
 	var err error
@@ -165,7 +165,7 @@ func addPrivateEndpointForACR(ctx context.Context, t *testing.T, nodeResourceGro
 	}
 
 	var peResp armnetwork.PrivateEndpointsClientCreateOrUpdateResponse
-	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, config.PrivateACRName, vnet); err != nil {
+	if peResp, err = createPrivateEndpoint(ctx, t, nodeResourceGroup, privateEndpointName, privateACRName, vnet); err != nil {
 		return err
 	}
 
@@ -201,7 +201,7 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string) error {
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string, anonymousPull bool) error {
 	t.Logf("Creating private Azure Container Registry in rg %s", resourceGroup)
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
@@ -239,7 +239,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 		},
 		Properties: &armcontainerregistry.RegistryProperties{
 			AdminUserEnabled:     to.Ptr(false),
-			AnonymousPullEnabled: to.Ptr(true), // required to pull images from the private ACR without authentication
+			AnonymousPullEnabled: to.Ptr(anonymousPull), // required to pull images from the private ACR without authentication
 		},
 	}
 	pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
@@ -258,7 +258,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	}
 
 	t.Logf("Private Azure Container Registry created")
-	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, config.PrivateACRName); err != nil {
+	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
 	return nil
@@ -324,9 +324,9 @@ func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testin
 	return nil
 }
 
-func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, acrName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
+func createPrivateEndpoint(ctx context.Context, t *testing.T, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet) (armnetwork.PrivateEndpointsClientCreateOrUpdateResponse, error) {
 	t.Logf("Creating Private Endpoint in rg %s", nodeResourceGroup)
-	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, acrName)
+	acrID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
 
 	peParams := armnetwork.PrivateEndpoint{
 		Location: to.Ptr(config.Config.Location),
