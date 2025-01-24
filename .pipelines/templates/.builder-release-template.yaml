@@ -134,6 +134,8 @@ steps:
       PACKER_VNET_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_NAME]${PACKER_VNET_NAME}" && \
       echo "##vso[task.setvariable variable=VHD_NAME]${CAPTURED_SIG_VERSION}.vhd" && \
