@@ -99,6 +99,13 @@ TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 
 # Extract date, revision from build number
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
+
+# set image version locally, if it is not set in environment variable
+if [ -z "${IMAGE_VERSION:-}" ]; then
+    IMAGE_VERSION=$(date +%Y%m.%d.0)
+    echo "IMAGE_VERSION was not set, setting it to ${IMAGE_VERSION} for trivy scan and Kusto ingestion"
+fi
+
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $SCAN_VM_NAME \
@@ -131,7 +138,8 @@ az vm run-command invoke \
         "BUILD_SOURCEVERSION"=${BUILD_SOURCEVERSION} \
         "SYSTEM_COLLECTIONURI"=${SYSTEM_COLLECTIONURI} \
         "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
-        "BUILDID"=${BUILD_ID}
+        "BUILDID"=${BUILD_ID} \
+        "IMAGE_VERSION"=${IMAGE_VERSION}
 
 capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
 
