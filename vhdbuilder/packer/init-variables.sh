@@ -530,8 +530,6 @@ else
 	UA_TOKEN="notused"
 fi
 
-echo "PACKER BUILD LOCATION is ${PACKER_BUILD_LOCATION}"
-
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
