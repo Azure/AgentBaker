@@ -1007,6 +1007,22 @@ func Test_Ubuntu2204_ContainerdURL(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_ContainerdURL_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.ContainerdConfig.ContainerdPackageUrl = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a node using an Ubuntu2204 VHD and the ContainerdVersion override bootstraps with the correct components.json containerd version and ignores the override",
