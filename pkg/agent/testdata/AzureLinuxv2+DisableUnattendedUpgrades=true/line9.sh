@@ -679,27 +679,30 @@ oras_login_with_kubelet_identity() {
     #set +x 
     #trap 'set -x' RETURN 
 
-    raw_access_token=$(curl "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F&client_id=$client_id" -H Metadata:true -s)
-    if [ -z "$raw_access_token" ]; then
-        echo "failed to retrieve kubelet token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -e .access_token -r 2>/dev/null)
-    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-        echo "failed to parse access token"
+    #raw_access_token=$(curl -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id")
+    #if [ -z "$raw_access_token" ]; then
+    #fi
+    #ACCESS_TOKEN=$(echo "$raw_access_token" | jq -e .access_token -r 2>/dev/null)
+    #if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+    #fi
+
+    #raw_acr_token=$(curl -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" https://$acr_url/oauth2/exchange)
+    #if [ $? -ne 0 ] || [ -z "$raw_acr_token" ]; then
+    #fi
+    #ACR_TOKEN=$(echo "$raw_acr_token" | jq -e -r '.refresh_token // empty' 2>/dev/null)
+    #if [ -z "$ACR_TOKEN" ] || [ "$ACR_TOKEN" = "null" ]; then
+    #fi
+
+    ACCESS_TOKEN=$(curl -v -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id" | jq -r .access_token)
+    if [ -z "$ACCESS_TOKEN" ]; then
+        echo "failed to retrieve access token"
+        failure_message=$(echo "$raw_access_token" | jq -e .error -r 2>/dev/null)
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
-    raw_acr_token=$(curl -X POST "https://$acr_url/oauth2/exchange" \
-        -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" -s)
-    if [ -z "$raw_acr_token" ]; then
+    ACR_TOKEN=$(curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" https://$acr_url/oauth2/exchange | jq -r .refresh_token)
+    if [ -z "$ACR_TOKEN" ]; then
         echo "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
-    ACR_TOKEN=$(echo "$raw_acr_token" | jq -e .refresh_token -r 2>/dev/null)
-    if [ -z "$ACR_TOKEN" ] || [ "$ACR_TOKEN" = "null" ]; then
-        echo "failed to parse acr token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
