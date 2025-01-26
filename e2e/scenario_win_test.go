@@ -90,7 +90,7 @@ func makeExecutablePowershellCommand(steps []string) string {
 	}
 
 	// quote " quotes and $ vars
-	joinedCommand := strings.Join(stepsWithEchos, " && ")
+	joinedCommand := strings.Join(stepsWithEchos, " & ")
 	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
 
 	command := fmt.Sprintf("pwsh -C '%s'", quotedCommand)
