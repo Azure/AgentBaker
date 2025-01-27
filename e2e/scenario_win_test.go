@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 
@@ -20,7 +21,8 @@ func Test_Windows2019Containerd(t *testing.T) {
 			VMConfigMutator:        func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContentWindows(ctx, s, "/k/config", "--rotate-server-certificates=true")
+				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
 			},
 		},
 	})
@@ -34,7 +36,10 @@ func Test_Windows2022Containerd(t *testing.T) {
 			VHD:             config.VHDWindows2022Containerd,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
 			},
 		},
 	})
@@ -49,6 +54,10 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
+			},
 		},
 	})
 }
@@ -61,7 +70,10 @@ func Test_Windows23H2(t *testing.T) {
 			VHD:             config.VHDWindows23H2,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
 			},
 		},
 	})
@@ -75,7 +87,10 @@ func Test_Windows23H2Gen2(t *testing.T) {
 			VHD:             config.VHDWindows23H2Gen2,
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
 			},
 		},
 	})
@@ -90,7 +105,7 @@ func makeExecutablePowershellCommand(steps []string) string {
 	}
 
 	// quote " quotes and $ vars
-	joinedCommand := strings.Join(steps, " & ")
+	joinedCommand := strings.Join(steps, " ; ")
 	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
 
 	command := fmt.Sprintf("powershell -c '%s'", quotedCommand)
@@ -107,6 +122,20 @@ func ValidateFileHasContentWindows(ctx context.Context, s *Scenario, fileName st
 
 	command := makeExecutablePowershellCommand(steps)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
-	//podExecResult :=
-	//require.Contains(s.T, podExecResult.stdout.String(), contents)
+}
+
+func ValidateProcessHasCliWindows(ctx context.Context, s *Scenario, processName string, arguments []string) {
+	steps := []string{
+		fmt.Sprintf("Get-CimInstance Win32_Process -Filter \"name = '%[1]s'\" | Select CommandLine ", processName),
+	}
+
+	command := makeExecutablePowershellCommand(steps)
+	podExecResult := execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+
+	actualArgs := strings.Split(podExecResult.stdout.String(), " ")
+
+	for i := 0; i < len(arguments); i++ {
+		expectedArgument := arguments[i]
+		require.Contains(s.T, actualArgs, expectedArgument)
+	}
 }
