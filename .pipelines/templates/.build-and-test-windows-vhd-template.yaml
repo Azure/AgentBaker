@@ -34,7 +34,7 @@ parameters:
 stages:
   - stage: build_${{ parameters.stageName }}
     # Put the artifact name first so it doesn't get truncated as much in ADO
-    displayName: ${{ parameters.artifactName }} - Build
+    displayName: Build (${{ parameters.artifactName }})
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: [ ]
     jobs:
@@ -58,8 +58,7 @@ stages:
               artifactName: ${{ parameters.artifactName }}
 
   - stage: e2e_${{ parameters.stageName }}
-    # Put e2e first as we have the artifactName shown in the build step.
-    displayName: E2E - ${{ parameters.artifactName }}
+    displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
