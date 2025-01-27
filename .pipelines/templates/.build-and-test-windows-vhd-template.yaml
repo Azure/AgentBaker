@@ -33,6 +33,7 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
+    displayName: Build ${{ parameters.imageName }}
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: [ ]
     jobs:
@@ -56,6 +57,7 @@ stages:
               artifactName: ${{ parameters.artifactName }}
 
   - stage: e2e_${{ parameters.stageName }}
+    displayName: E2E tests of ${{ parameters.imageName }}
     dependsOn: build_${{ parameters.stageName }}
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
