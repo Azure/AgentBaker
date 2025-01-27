@@ -256,7 +256,66 @@ func Test_getContainerdConfig(t *testing.T) {
 		want string
 	}{
 		{
-			name: "Default Configuration",
+			name: "Default Containerd Configurations",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: ToPtr(true),
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd Configurations with Nvidia GPU enabled",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: ToPtr(true),
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: ToPtr(true),
+					},
+				},
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = 0
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd Configurations with Nvidia GPU disabled",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: ToPtr(true),
@@ -286,7 +345,7 @@ oom_score = 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfig(tt.args.aksnodeconfig); got != tt.want {
+			if got := getContainerdConfig(tt.args.aksnodeconfig, true); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})

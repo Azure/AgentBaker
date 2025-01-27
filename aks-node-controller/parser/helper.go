@@ -48,6 +48,11 @@ var (
 	containerdConfigTemplate = template.Must(
 		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
 	)
+	//go:embed  templates/containerd_no_GPU.toml.gtpl
+	containerdConfigNoGPUTemplateText string
+	containerdConfigNoGPUTemplate     = template.Must(
+		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
+	)
 )
 
 func getFuncMap() template.FuncMap {
@@ -139,12 +144,13 @@ func getKubenetTemplate() string {
 	return base64.StdEncoding.EncodeToString(kubenetTemplateContent)
 }
 
-func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// getContainerdConfig returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration, isGPU bool) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, isGPU)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -152,13 +158,19 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, isGPU bool) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
+	// the containerd config template is different based on whether the node is with GPU or not.
+	_template := containerdConfigTemplate
+	if !isGPU {
+		_template = containerdConfigNoGPUTemplate
+	}
+
 	var buffer bytes.Buffer
-	if err := containerdConfigTemplate.Execute(&buffer, aksnodeconfig); err != nil {
+	if err := _template.Execute(&buffer, aksnodeconfig); err != nil {
 		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
