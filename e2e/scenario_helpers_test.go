@@ -123,6 +123,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
 	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
+	if s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys == nil {
+		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{}
+	}
 	s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	require.NoError(s.T, err)
 	createVMSS(ctx, s)
