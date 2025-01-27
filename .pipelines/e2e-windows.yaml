@@ -1,7 +1,6 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
 variables:
   TAGS_TO_RUN: "os=windows"
-  TAGS_TO_SKIP: ""
   SKIP_E2E_TESTS: false
 trigger:
   branches:
