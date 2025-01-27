@@ -60,5 +60,6 @@ stages:
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      TAGS_TO_SKIP: ""
     jobs:
       - template: ./e2e-template.yaml
