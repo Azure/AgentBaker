@@ -123,8 +123,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
 	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
-	if s.Runtime.NBC.ContainerService.Properties == nil {
-		s.Runtime.NBC.ContainerService.Properties = &datamodel.Properties{}
+
+	// check it all.
+	if s.Runtime.NBC == nil {
+		s.Runtime.NBC = &datamodel.NodeBootstrappingConfiguration{}
+	}
+	if s.Runtime.NBC.ContainerService == nil {
+		s.Runtime.NBC.ContainerService = &datamodel.ContainerService{}
 	}
 	if s.Runtime.NBC.ContainerService == nil {
 		s.Runtime.NBC.ContainerService = &datamodel.ContainerService{}
