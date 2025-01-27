@@ -100,6 +100,10 @@ func sshString(vmPrivateIP string) string {
 	return fmt.Sprintf(`ssh -i %s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`, sshKeyName(vmPrivateIP), vmPrivateIP)
 }
 
+func quoteForBash(command string) string {
+	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
+}
+
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
 	/*
 			This works in an interesting way:
@@ -111,7 +115,7 @@ func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName
 
 			It does mean we get into quoting complexity as we have to quote to run the command on the pod, and quote again to pass the command through ssh.
 	*/
-	commandToExecute := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s && %s %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP), command)
+	commandToExecute := fmt.Sprintf(`set -x && echo '%s' > %[2]s && chmod 0600 %[2]s && %s %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP), quoteForBash(command))
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
