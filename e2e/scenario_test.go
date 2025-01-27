@@ -30,6 +30,21 @@ func Test_AzureLinuxV2(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
