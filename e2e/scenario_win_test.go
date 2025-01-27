@@ -20,7 +20,7 @@ func Test_Windows2019Containerd(t *testing.T) {
 			VMConfigMutator:        func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateFileHasContentWindows(ctx, s, "c:/k/kubelet", "--rotate-server-certificates=true")
+				ValidateFileHasContentWindows(ctx, s, "/k/config", "--rotate-server-certificates=true")
 			},
 		},
 	})
@@ -90,10 +90,10 @@ func makeExecutablePowershellCommand(steps []string) string {
 	}
 
 	// quote " quotes and $ vars
-	joinedCommand := strings.Join(stepsWithEchos, " & ")
+	joinedCommand := strings.Join(steps, " & ")
 	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
 
-	command := fmt.Sprintf("pwsh -C '%s'", quotedCommand)
+	command := fmt.Sprintf("powershell -c '%s'", quotedCommand)
 
 	return command
 }
@@ -102,9 +102,11 @@ func ValidateFileHasContentWindows(ctx context.Context, s *Scenario, fileName st
 	steps := []string{
 		fmt.Sprintf("dir %[1]s", fileName),
 		fmt.Sprintf("Get-Content %[1]s", fileName),
-		fmt.Sprintf("if (Select-String -Path .%s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
+		fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
 	}
 
 	command := makeExecutablePowershellCommand(steps)
 	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
+	//podExecResult :=
+	//require.Contains(s.T, podExecResult.stdout.String(), contents)
 }

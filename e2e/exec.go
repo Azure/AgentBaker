@@ -101,9 +101,17 @@ func sshString(vmPrivateIP string) string {
 }
 
 func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	sshCommand := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s && %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP))
-	sshCommand = sshCommand + " sudo"
-	commandToExecute := fmt.Sprintf("%s %s", sshCommand, command)
+	/*
+			This works in an interesting way:
+			* We create a linux pod on a different node.
+			* On that pod, we add the ssh private key and then run the command on that node using ssh
+
+			This means we can run commands on the node even if they have failed to join to the cluster - as
+		    we're not relying on anything on the node under test, except for the ssh server.
+
+			It does mean we get into quoting complexity as we have to quote to run the command on the pod, and quote again to pass the command through ssh.
+	*/
+	commandToExecute := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s && %s %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP), command)
 
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
 	if err != nil {
