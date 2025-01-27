@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/status"
 	"log"
 	"os"
 	"os/signal"
@@ -125,22 +126,13 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
 
 	// check it all.
-	if s.Runtime.NBC == nil {
-		s.Runtime.NBC = &datamodel.NodeBootstrappingConfiguration{}
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile == nil {
+		if s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys == nil {
+			s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{}
+		}
+		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	}
-	if s.Runtime.NBC.ContainerService == nil {
-		s.Runtime.NBC.ContainerService = &datamodel.ContainerService{}
-	}
-	if s.Runtime.NBC.ContainerService.Properties == nil {
-		s.Runtime.NBC.ContainerService.Properties = &datamodel.Properties{}
-	}
-	if s.Runtime.NBC.ContainerService.Properties.LinuxProfile == nil {
-		s.Runtime.NBC.ContainerService.Properties.LinuxProfile = &datamodel.LinuxProfile{}
-	}
-	if s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys == nil {
-		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{}
-	}
-	s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
+
 	require.NoError(s.T, err)
 	createVMSS(ctx, s)
 	err = getCustomScriptExtensionStatus(ctx, s)
@@ -198,7 +190,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
 		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
