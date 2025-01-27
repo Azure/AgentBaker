@@ -8,6 +8,11 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show -o json --query="id" | tr 
 CREATE_TIME="$(date +%s)"
 STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 
+
+echo "TESTING AGENT IMAGE START ============================================================="
+ls /home/cloudtest/
+ls /home/cloudtest/.azcopy
+echo "TESTING AGENT IMAGE END ============================================================="
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
 
