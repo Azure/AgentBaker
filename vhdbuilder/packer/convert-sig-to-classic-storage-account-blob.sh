@@ -67,6 +67,21 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
       } \
     } \
   }"
+elif [ "${OS_TYPE}" == "Linux" ]  && [ "${IMG_SKU,,}" == "20_04-lts-cvm" ]; then
+  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+    \"properties\": { \
+      \"osType\": \"$OS_TYPE\", \
+      \"securityProfile\": { \
+        \"securityType\": \"ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey\" \
+      }, \
+      \"creationData\": { \
+        \"createOption\": \"FromImage\", \
+        \"galleryImageReference\": { \
+          \"id\": \"${sig_resource_id}\" \
+        } \
+      } \
+    } \
+  }"
 else
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
