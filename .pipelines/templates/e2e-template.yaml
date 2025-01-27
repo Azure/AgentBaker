@@ -1,3 +1,9 @@
+parameters:
+  - name: name
+    type: string
+    displayName: Additional name for the pipeline step
+    default: ""
+
 jobs:
   - job: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
@@ -6,7 +12,7 @@ jobs:
     pool:
       name: $(E2E_POOL_NAME)
     timeoutInMinutes: 90
-    displayName: Run AgentBaker E2E TAGS_TO_RUN="$(variables.TAGS_TO_RUN)" TAGS_TO_SKIP="$(variables.TAGS_TO_SKIP)"
+    displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
       - bash: |
           set -ex
