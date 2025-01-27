@@ -6,7 +6,7 @@ jobs:
     pool:
       name: $(E2E_POOL_NAME)
     timeoutInMinutes: 90
-    displayName: Run AgentBaker E2E TAGS_TO_RUN="${{TAGS_TO_RUN}}" TAGS_TO_SKIP="${{TAGS_TO_SKIP}}" VHD_BUILD_ID="${{VHD_BUILD_ID}}"
+    displayName: Run AgentBaker E2E TAGS_TO_RUN="$(TAGS_TO_RUN)" TAGS_TO_SKIP="$(TAGS_TO_SKIP)" VHD_BUILD_ID="$(VHD_BUILD_ID)"
     steps:
       - bash: |
           set -ex
