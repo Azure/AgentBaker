@@ -100,10 +100,6 @@ func sshString(vmPrivateIP string) string {
 	return fmt.Sprintf(`ssh -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%[2]s`, sshKeyName(vmPrivateIP), vmPrivateIP)
 }
 
-func scpCommandAsString(vmPrivateIP string, localFileName string, remoteFileName string) string {
-	return fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, localFileName, remoteFileName)
-}
-
 func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
@@ -146,7 +142,7 @@ func execScriptOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxP
 		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(strings.Join(script, "\n")), scriptFileName),
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
-		scpCommandAsString(vmPrivateIP, scriptFileName, remoteScriptFileName),
+		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
 		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
 	}
 
