@@ -129,6 +129,8 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 		if s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys == nil {
 			s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{}
 		}
+		// Windows fetches SSH keys from the linux profile and replaces any existing SSH keys with these. So we have to set
+		// the Linux SSH keys for Windows SSH to work. Yeah. I find it odd too.
 		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
 	}
 

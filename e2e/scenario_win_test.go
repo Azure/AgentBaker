@@ -2,9 +2,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
-	"github.com/stretchr/testify/require"
-	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -22,7 +19,7 @@ func Test_Windows2019Containerd(t *testing.T) {
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				//ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--address=0.0.0.0", "--anonymous-auth=false"})
 			},
 		},
 	})
@@ -94,53 +91,4 @@ func Test_Windows23H2Gen2(t *testing.T) {
 			},
 		},
 	})
-}
-
-func makeExecutablePowershellCommand(steps []string) string {
-	stepsWithEchos := make([]string, len(steps)*2)
-
-	for i, s := range steps {
-		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
-		stepsWithEchos[i*2+1] = s
-	}
-
-	// quote " quotes and $ vars
-	joinedCommand := strings.Join(steps, " ; ")
-	// powershell quoting is to double the quote.
-	quotedCommand := strings.Replace(
-		strings.Replace(
-			joinedCommand,
-			"'", "''", -1),
-		"\"", "\"\"", -1)
-
-	command := fmt.Sprintf("powershell -c '%s'", quotedCommand)
-
-	return command
-}
-
-func ValidateFileHasContentWindows(ctx context.Context, s *Scenario, fileName string, contents string) {
-	steps := []string{
-		fmt.Sprintf("dir %[1]s", fileName),
-		fmt.Sprintf("Get-Content %[1]s", fileName),
-		fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
-	}
-
-	command := makeExecutablePowershellCommand(steps)
-	execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
-}
-
-func ValidateProcessHasCliWindows(ctx context.Context, s *Scenario, processName string, arguments []string) {
-	steps := []string{
-		fmt.Sprintf("Get-CimInstance Win32_Process -Filter \"name='%[1]s'\" | Select CommandLine ", processName),
-	}
-
-	command := makeExecutablePowershellCommand(steps)
-	podExecResult := execOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-
-	actualArgs := strings.Split(podExecResult.stdout.String(), " ")
-
-	for i := 0; i < len(arguments); i++ {
-		expectedArgument := arguments[i]
-		require.Contains(s.T, actualArgs, expectedArgument)
-	}
 }

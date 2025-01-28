@@ -20,6 +20,13 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
+type CommandInterpreter string
+
+const (
+	Powershell CommandInterpreter = "powershell"
+	Bash       CommandInterpreter = "bash"
+)
+
 func (r podExecResult) String() string {
 	return fmt.Sprintf(`exit code: %s
 ----------------------------------- begin stderr -----------------------------------
@@ -97,14 +104,35 @@ func sshKeyName(vmPrivateIP string) string {
 }
 
 func sshString(vmPrivateIP string) string {
-	return fmt.Sprintf(`ssh -i %s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%s`, sshKeyName(vmPrivateIP), vmPrivateIP)
+	return fmt.Sprintf(`ssh -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 azureuser@%[2]s`, sshKeyName(vmPrivateIP), vmPrivateIP)
+}
+
+func scpCommandAsString(vmPrivateIP string, localFileName string, remoteFileName string) string {
+	return fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, localFileName, remoteFileName)
 }
 
 func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
 
-func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+func execCommandOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+	steps := []string{
+		"set -x",
+		fmt.Sprintf("echo '%s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("%s %s", sshString(vmPrivateIP), quoteForBash(command)),
+	}
+	commandToExecute := strings.Join(steps, " && ")
+
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
+	if err != nil {
+		return nil, fmt.Errorf("error executing command on pod: %w", err)
+	}
+
+	return execResult, nil
+}
+
+func execScriptOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, script string, scriptInterpreter CommandInterpreter) (*podExecResult, error) {
 	/*
 			This works in an interesting way:
 			* We create a linux pod on a different node.
@@ -115,9 +143,32 @@ func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName
 
 			It does mean we get into quoting complexity as we have to quote to run the command on the pod, and quote again to pass the command through ssh.
 	*/
-	commandToExecute := fmt.Sprintf(`set -x && echo '%s' > %[2]s && chmod 0600 %[2]s && %s %s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP), quoteForBash(command))
+	scriptFileName := "script_file.sh"
+	if scriptInterpreter == Powershell {
+		scriptFileName = "script_file.ps1"
+	}
+	interpreter := "bash"
+	switch scriptInterpreter {
+	case Powershell:
+		interpreter = "powershell"
+		break
+	case Bash:
+		interpreter = "bash"
+		break
+	}
+	remoteScriptFileName := fmt.Sprintf("c:/%s", scriptFileName)
+	steps := []string{
+		fmt.Sprintf("echo '%[1]s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
+		"set -x",
+		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script), scriptFileName),
+		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
+		fmt.Sprintf("chmod 0755 %s", scriptFileName),
+		scpCommandAsString(vmPrivateIP, scriptFileName, remoteScriptFileName),
+		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
+	}
 
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
+	joinedSteps := strings.Join(steps, " && ")
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
 	if err != nil {
 		return nil, fmt.Errorf("error executing command on pod: %w", err)
 	}
@@ -125,13 +176,13 @@ func execOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName
 	return execResult, nil
 }
 
-func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podName string, command string) (*podExecResult, error) {
-	privilegedCommand := append(privelegedCommandArray(), command)
+func execOnPrivilegedPod(ctx context.Context, kube *Kubeclient, namespace string, podName string, bashCommand string) (*podExecResult, error) {
+	privilegedCommand := append(privilegedCommandArray(), bashCommand)
 	return execOnPod(ctx, kube, namespace, podName, privilegedCommand)
 }
 
-func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace, podName, command string) (*podExecResult, error) {
-	nonPrivilegedCommand := append(unprivilegedCommandArray(), command)
+func execOnUnprivilegedPod(ctx context.Context, kube *Kubeclient, namespace string, podName string, bashCommand string) (*podExecResult, error) {
+	nonPrivilegedCommand := append(unprivilegedCommandArray(), bashCommand)
 	return execOnPod(ctx, kube, namespace, podName, nonPrivilegedCommand)
 }
 
@@ -182,7 +233,7 @@ func execOnPod(ctx context.Context, kube *Kubeclient, namespace, podName string,
 	}, nil
 }
 
-func privelegedCommandArray() []string {
+func privilegedCommandArray() []string {
 	return []string{
 		"chroot",
 		"/proc/1/root",

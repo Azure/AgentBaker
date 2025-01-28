@@ -34,11 +34,11 @@ func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
-	execResult := execOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	execResult := execCommandOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
 	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet")
 
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
-	// which happens as a side-effect of execOnVMForScenario, it's ugly but works.
+	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
 	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
 	logSSHInstructions(s)
 
@@ -61,7 +61,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		//"cloud-config.txt", // file with UserData
 	})
 
-	execResult = execOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
+	execResult = execCommandOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
