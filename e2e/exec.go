@@ -117,14 +117,11 @@ func execBashCommandOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jum
 
 func execScriptOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script []string, os *config.Image) (*podExecResult, error) {
 	/*
-			This works in an interesting way:
-			* We create a linux pod on a different node.
-			* On that pod, we add the ssh private key and then run the command on that node using ssh
-
-			This means we can run commands on the node even if they have failed to join to the cluster - as
-		    we're not relying on anything on the node under test, except for the ssh server.
-
-			It does mean we get into quoting complexity as we have to quote to run the command on the pod, and quote again to pass the command through ssh.
+		This works in a way that doesn't rely on the node having joined the cluster:
+		* We create a linux pod on a different node.
+		* on that pod, we create a script file containing the script passed into this method.
+		* Then we scp the script to the node under test.
+		* Then we execute the script using an interpreter (powershell or bash) based on the OS of the node.
 	*/
 	scriptFileName := "script_file.sh"
 	remoteScriptFileName := scriptFileName
