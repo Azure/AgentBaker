@@ -268,13 +268,12 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	t.Logf("Private Azure Container Registry created")
 
 	if isNonAnonymousPull {
+		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
 		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
 		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
 			t.Logf("failed to fetch kubeconfig: %v", err)
 			return err
 		}
-
-		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
 		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
 		if err != nil {
 			t.Logf("failed to get private ACR credentials: %v", err)

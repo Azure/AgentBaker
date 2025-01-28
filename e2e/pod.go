@@ -17,7 +17,6 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 		s.T.Logf("truncated pod name to %q", pod.Name)
 	}
 	s.T.Logf("creating pod %q", pod.Name)
-
 	_, err := kube.Typed.CoreV1().Pods(pod.Namespace).Create(ctx, pod, metav1.CreateOptions{})
 	require.NoErrorf(s.T, err, "failed to create pod %q", pod.Name)
 	s.T.Cleanup(func() {

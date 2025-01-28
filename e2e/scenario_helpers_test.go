@@ -131,7 +131,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	attachVMIdenetity := false
-	if nbc.TenantID != "" {
+	if s.Tags.NonAnonymous {
 		attachVMIdenetity = true
 	}
 	createVMSS(ctx, s, attachVMIdenetity)

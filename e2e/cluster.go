@@ -132,15 +132,16 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	if isAirgap {
-		if err := assignACRPullToKubeletIdentity(ctx, t, privateACRName, *cluster.Properties.IdentityProfile["kubeletidentity"].ClientID); err != nil {
+	if isNonAnonymousPull {
+		t.Logf("Assigning ACR-Pull to the cluster identity and vm identity")
+		if err := assignACRPullToIdentity(ctx, t, privateACRName, *cluster.Properties.IdentityProfile["kubeletidentity"].ClientID); err != nil {
 			return nil, fmt.Errorf("assign acr pull to the cluster identity: %w", err)
 		}
 		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
 		if err != nil {
 			t.Fatalf("failed to get VM identity: %v", err)
 		}
-		if err := assignACRPullToKubeletIdentity(ctx, t, privateACRName, *identity.Properties.PrincipalID); err != nil {
+		if err := assignACRPullToIdentity(ctx, t, privateACRName, *identity.Properties.PrincipalID); err != nil {
 			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
 		}
 	}
@@ -164,7 +165,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}, nil
 }
 
-func assignACRPullToKubeletIdentity(ctx context.Context, t *testing.T, privateACRName, principalID string) error {
+func assignACRPullToIdentity(ctx context.Context, t *testing.T, privateACRName, principalID string) error {
 	t.Logf("assigning ACR-Pull role to %s", principalID)
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
 
