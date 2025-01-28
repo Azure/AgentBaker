@@ -1,0 +1,5 @@
+Release notes for security patch 20250117T000003Z timestamp
+Package difference between 20250115T000000Z and 20250117T000003Z
+Reboot required
+Upgrade: rsync:amd64 (3.2.7-0ubuntu0.22.04.3, 3.2.7-0ubuntu0.22.04.4)
+
