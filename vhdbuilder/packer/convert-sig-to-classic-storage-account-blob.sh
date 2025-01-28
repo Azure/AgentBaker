@@ -67,6 +67,21 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
       } \
     } \
   }"
+elif [ "${OS_TYPE}" == "Linux" ]  && [ "${IMG_SKU,,}" == "20_04-lts-cvm" ]; then
+  az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
+    \"properties\": { \
+      \"osType\": \"$OS_TYPE\", \
+      \"securityProfile\": { \
+        \"securityType\": \"ConfidentialVM_VMGuestStateOnlyEncryptedWithPlatformKey\" \
+      }, \
+      \"creationData\": { \
+        \"createOption\": \"FromImage\", \
+        \"galleryImageReference\": { \
+          \"id\": \"${sig_resource_id}\" \
+        } \
+      } \
+    } \
+  }"
 else
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
@@ -85,7 +100,7 @@ capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 
 echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
-sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
+sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSAS] -o tsv)
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
