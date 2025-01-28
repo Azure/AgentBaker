@@ -53,6 +53,10 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"packageUpdateServiceMariner":  getBase64EncodedGzippedCustomScript(packageUpdateSystemdServiceMariner, config),
 			"packageUpdateTimerMariner":    getBase64EncodedGzippedCustomScript(packageUpdateSystemdTimerMariner, config),
 			"componentManifestFile":        getBase64EncodedGzippedCustomScript(componentManifestFile, config),
+			"aksLocalDnsScript":            getBase64EncodedGzippedCustomScript(aksLocalDnsScript, config),
+			"aksLocalDnsSystemdService":    getBase64EncodedGzippedCustomScript(aksLocalDnsSystemdService, config),
+			"aksLocalDnsSlice":             getBase64EncodedGzippedCustomScript(aksLocalDnsSlice, config),
+			"aksLocalDnsResolvedConf":      getBase64EncodedGzippedCustomScript(aksLocalDnsResolvedConf, config),
 		},
 	}
 
