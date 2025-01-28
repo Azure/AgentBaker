@@ -210,7 +210,7 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 }
 
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string, isNonAnonymousPull bool) error {
-	t.Logf("Creating private Azure Container Registry in rg %s", resourceGroup)
+	t.Logf("Creating private Azure Container Registry %s in rg %s", privateACRName, resourceGroup)
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {

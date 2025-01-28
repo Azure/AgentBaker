@@ -18,7 +18,7 @@ var (
 	ResourceGroupName     = "abe2e-" + Config.Location + "alison-testing4"
 	VMIdentityName        = "abe2e-vm-identity"
 	PrivateACRNameNotAnon = "privateace2e" + Config.Location + "alisontest" + "noanonpull2" // will have anonymous pull enabled
-	PrivateACRName        = "privateacre2e" + Config.Location + "alisontest"                // will not have anonymous pull enabled
+	PrivateACRName        = "privateacre2e" + Config.Location + "alisontest12"              // will not have anonymous pull enabled
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
