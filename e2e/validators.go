@@ -81,13 +81,13 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 	require.NotEqual(s.T, "", contents, "Test setup failure: Can't validate that a file excludes an empty string. Filename: %s", fileName)
 
 	steps := []string{
+		"set -ex",
 		fmt.Sprintf("test -f %[1]s || exit 0", fileName),
 		fmt.Sprintf("ls -la %[1]s", fileName),
 		fmt.Sprintf("sudo cat %[1]s", fileName),
 		fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
 	}
-	command := makeExecutableBashCommand(steps)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, steps, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
 // this function is just used to remove some bash specific tokens so we can echo the command to stdout.
@@ -95,25 +95,9 @@ func cleanse(str string) string {
 	return strings.Replace(str, "'", "", -1)
 }
 
-func makeExecutableBashCommand(steps []string) string {
-	stepsWithEchos := make([]string, len(steps)*2)
-
-	for i, s := range steps {
-		stepsWithEchos[i*2] = fmt.Sprintf("echo '%s'", cleanse(s))
-		stepsWithEchos[i*2+1] = s
-	}
-
-	// quote " quotes and $ vars
-	joinedCommand := strings.Join(stepsWithEchos, " && ")
-	quotedCommand := strings.Replace(joinedCommand, "'", "'\"'\"'", -1)
-
-	command := fmt.Sprintf("bash -c '%s'", quotedCommand)
-
-	return command
-}
-
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
 	steps := []string{
+		"set -ex",
 		// Verify the service is active - print the state then verify so we have logs
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
@@ -140,8 +124,7 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 		"if [[ \"$INITIAL_PID\" == \"$POST_PID\" ]]; then echo PID did not change after restart, failing validator. ; exit 1; fi",
 	}
 
-	command := makeExecutableBashCommand(steps)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "command to restart service failed")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, steps, 0, "command to restart service failed")
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
