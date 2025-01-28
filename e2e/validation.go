@@ -35,7 +35,8 @@ func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{"sudo cat /etc/default/kubelet"}, 0, "could not read kubelet config")
-	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet")
+	stdout := execResult.stdout.String()
+	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
 	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.

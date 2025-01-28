@@ -18,8 +18,11 @@ import (
 )
 
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
-	command := fmt.Sprintf("sudo ls -la %s", path)
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "could not get directory contents")
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("sudo ls -la %s", path),
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not get directory contents")
 	stdout := execResult.stdout.String()
 	for _, file := range files {
 		require.Contains(s.T, stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, stdout)
@@ -31,7 +34,11 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 	for k := range customSysctls {
 		keysToCheck = append(keysToCheck, k)
 	}
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " "))}, 0, "systmctl command failed")
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " ")),
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "systmctl command failed")
 	stdout := execResult.stdout.String()
 	for name, value := range customSysctls {
 		require.Contains(s.T, stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, stdout)
@@ -39,25 +46,34 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
-	command := "sudo nvidia-smi"
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 1, "")
+	command := []string{
+		"set -ex",
+		"sudo nvidia-smi",
+	}
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 1, "")
 	stderr := execResult.stderr.String()
 	require.Contains(s.T, stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", stderr)
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
-	command := "sudo nvidia-smi"
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "could not execute nvidia-smi command")
+	command := []string{"set -ex", "sudo nvidia-smi"}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not execute nvidia-smi command")
 }
 
 func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
-	command := "sudo nvidia-modprobe"
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "cound not execute nvidia-modprobe command")
+	command := []string{
+		"set -ex",
+		"sudo nvidia-modprobe",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "cound not execute nvidia-modprobe command")
 }
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
-	command := fmt.Sprintf("sudo ls -1q %s | grep -q '^.*$' && true || false", dirName)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "either could not find expected file, or something went wrong")
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("sudo ls -1q %s | grep -q '^.*$' && true || false", dirName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "either could not find expected file, or something went wrong")
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
@@ -71,6 +87,7 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, steps, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 	} else {
 		steps := []string{
+			"set -ex",
 			fmt.Sprintf("ls -la %[1]s", fileName),
 			fmt.Sprintf("sudo cat %[1]s", fileName),
 			fmt.Sprintf("(sudo cat %[1]s | grep -q -F -e %[2]q)", fileName, contents),
@@ -91,11 +108,6 @@ func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName stri
 		fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
 	}
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, steps, 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
-}
-
-// this function is just used to remove some bash specific tokens so we can echo the command to stdout.
-func cleanse(str string) string {
-	return strings.Replace(str, "'", "", -1)
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
@@ -153,7 +165,7 @@ func execOnVMForScenarioOnUnprivilegedPod(ctx context.Context, s *Scenario, cmd 
 }
 
 func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd []string) *podExecResult {
-	result, err := execScriptOnVm(ctx, s.Runtime.Cluster.Kube, s.Runtime.VMPrivateIP, s.Runtime.DebugHostPod, string(s.Runtime.SSHKeyPrivate), cmd, s.VHD)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.DebugHostPod, string(s.Runtime.SSHKeyPrivate), cmd, s.VHD)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
