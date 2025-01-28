@@ -50,7 +50,8 @@ var (
 	)
 	//go:embed  templates/containerd_no_GPU.toml.gtpl
 	containerdConfigNoGPUTemplateText string
-	containerdConfigNoGPUTemplate     = template.Must(
+	//nolint:gochecknoglobals
+	containerdConfigNoGPUTemplate = template.Must(
 		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
 )
