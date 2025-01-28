@@ -20,8 +20,9 @@ import (
 func ValidateDirectoryContent(ctx context.Context, s *Scenario, path string, files []string) {
 	command := fmt.Sprintf("sudo ls -la %s", path)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 0, "could not get directory contents")
+	stdout := execResult.stdout.String()
 	for _, file := range files {
-		require.Contains(s.T, execResult.stdout.String(), file, "expected to find file %s within directory %s, but did not", file, path)
+		require.Contains(s.T, stdout, file, "expected to find file %s within directory %s, but did not.\nDirectory contents:\n%s", file, path, stdout)
 	}
 }
 
@@ -31,15 +32,17 @@ func ValidateSysctlConfig(ctx context.Context, s *Scenario, customSysctls map[st
 		keysToCheck = append(keysToCheck, k)
 	}
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{fmt.Sprintf("sudo sysctl %s | sed -E 's/([0-9])\\s+([0-9])/\\1 \\2/g'", strings.Join(keysToCheck, " "))}, 0, "systmctl command failed")
+	stdout := execResult.stdout.String()
 	for name, value := range customSysctls {
-		require.Contains(s.T, execResult.stdout.String(), fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not", name, value)
+		require.Contains(s.T, stdout, fmt.Sprintf("%s = %v", name, value), "expected to find %s set to %v, but was not.\nStdout:\n%s", name, value, stdout)
 	}
 }
 
 func ValidateNvidiaSMINotInstalled(ctx context.Context, s *Scenario) {
 	command := "sudo nvidia-smi"
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{command}, 1, "")
-	require.Contains(s.T, execResult.stderr.String(), "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", execResult.stderr.String())
+	stderr := execResult.stderr.String()
+	require.Contains(s.T, stderr, "nvidia-smi: command not found", "expected stderr to contain 'nvidia-smi: command not found', but got %q", stderr)
 }
 
 func ValidateNvidiaSMIInstalled(ctx context.Context, s *Scenario) {
