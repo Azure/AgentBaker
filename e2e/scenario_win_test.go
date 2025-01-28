@@ -19,7 +19,7 @@ func Test_Windows2019Containerd(t *testing.T) {
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\\\k\\\\ca.crt"})
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 			},
 		},
 	})
@@ -36,7 +36,7 @@ func Test_Windows2022Containerd(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\\\k\\\\ca.crt"})
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 			},
 		},
 	})
@@ -53,7 +53,7 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\\\k\\\\ca.crt"})
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 			},
 		},
 	})
@@ -70,7 +70,7 @@ func Test_Windows23H2(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContentWindows(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\\\k\\\\ca.crt"})
+				ValidateProcessHasCliWindows(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 			},
 		},
 	})
