@@ -72,14 +72,14 @@ func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true, true)
+		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true, false)
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
 
 func ClusterKubenetAirgapNonAnon(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap-nonanonpull"), true, false)
+		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap-nonanonpull"), true, true)
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
@@ -91,7 +91,7 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
-func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isAnonymousPull bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
@@ -112,13 +112,13 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	privateACRName := config.PrivateACRName
-	if !isAnonymousPull {
+	if isNonAnonymousPull {
 		privateACRName = config.PrivateACRNameNotAnon
 	}
-	t.Logf("using private acr %q isAnonyomusPull %v", privateACRName, isAnonymousPull)
+	t.Logf("using private acr %q isAnonyomusPull %v", privateACRName, isNonAnonymousPull)
 	if isAirgap {
 		// private acr must be created before we add the debug daemonsets
-		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, config.ResourceGroupName, privateACRName, isAnonymousPull); err != nil {
+		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, config.ResourceGroupName, privateACRName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
 

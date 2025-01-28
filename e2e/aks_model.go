@@ -209,25 +209,8 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 	return false, nil
 }
 
-func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string, anonymousPull bool) error {
+func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string, isNonAnonymousPull bool) error {
 	t.Logf("Creating private Azure Container Registry in rg %s", resourceGroup)
-
-	if !anonymousPull {
-		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
-		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
-			t.Fatalf("failed to fetch kubeconfig: %v", err)
-		}
-
-		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
-		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
-		if err != nil {
-			return fmt.Errorf("failed to get private ACR credentials: %w", err)
-		}
-		//   func createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
-		if err := createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
-			return fmt.Errorf("failed to create Kubernetes secret: %w", err)
-		}
-	}
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
@@ -263,8 +246,8 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
 		},
 		Properties: &armcontainerregistry.RegistryProperties{
-			AdminUserEnabled:     to.Ptr(!anonymousPull), // if non-anonymous pull is enabled, admin user must be enabled to be able to set credentials for the debug pods
-			AnonymousPullEnabled: to.Ptr(anonymousPull),  // required to pull images from the private ACR without authentication
+			AdminUserEnabled:     to.Ptr(isNonAnonymousPull),  // if non-anonymous pull is enabled, admin user must be enabled to be able to set credentials for the debug pods
+			AnonymousPullEnabled: to.Ptr(!isNonAnonymousPull), // required to pull images from the private ACR without authentication
 		},
 	}
 	pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
@@ -283,6 +266,26 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	}
 
 	t.Logf("Private Azure Container Registry created")
+
+	if isNonAnonymousPull {
+		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
+		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+			t.Logf("failed to fetch kubeconfig: %v", err)
+			return err
+		}
+
+		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
+		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			t.Logf("failed to get private ACR credentials: %v", err)
+			return err
+		}
+		if err := createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+			t.Logf("failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+
 	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
