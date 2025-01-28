@@ -68,6 +68,32 @@ var _ = Describe("Windows CSE variables check", func() {
 		Expect(vars["subnetName"]).To(Equal("aks-subnet"))
 	})
 
+	It("sets nsgName", func() {
+		config.ContainerService.Properties.ClusterID = "36873793"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["nsgName"]).To(Equal("aks-agentpool-36873793-nsg"))
+	})
+
+	It("sets virtualNetworkName for custom subnet", func() {
+		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/testVnetName/subnet/testSubnetName"
+
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["virtualNetworkName"]).To(Equal("testVnetName"))
+	})
+
+	It("sets virtualNetworkName for regular subnet", func() {
+		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = ""
+		config.ContainerService.Properties.ClusterID = "36873793"
+
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["virtualNetworkName"]).To(Equal("aks-vnet-36873793"))
+	})
+
+	It("sets routeTableName", func() {
+		config.ContainerService.Properties.ClusterID = "36873793"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["routeTableName"]).To(Equal("aks-agentpool-36873793-routetable"))
+	})
 })
 
 func getDefaultNBC() *datamodel.NodeBootstrappingConfiguration {
@@ -75,6 +101,7 @@ func getDefaultNBC() *datamodel.NodeBootstrappingConfiguration {
 		Location: "southcentralus",
 		Type:     "Microsoft.ContainerService/ManagedClusters",
 		Properties: &datamodel.Properties{
+			ClusterID: "36873792",
 			OrchestratorProfile: &datamodel.OrchestratorProfile{
 				OrchestratorType:    datamodel.Kubernetes,
 				OrchestratorVersion: "1.16.15",
