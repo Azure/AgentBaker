@@ -134,9 +134,6 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 
 	if isNonAnonymousPull {
 		t.Logf("Assigning ACR-Pull to the cluster identity and vm identity")
-		if err := assignACRPullToIdentity(ctx, t, privateACRName, *cluster.Properties.IdentityProfile["kubeletidentity"].ClientID); err != nil {
-			return nil, fmt.Errorf("assign acr pull to the cluster identity: %w", err)
-		}
 		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
 		if err != nil {
 			t.Fatalf("failed to get VM identity: %v", err)

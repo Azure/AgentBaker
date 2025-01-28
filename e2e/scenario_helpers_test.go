@@ -99,7 +99,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	prepareAKSNode(ctx, s)
 
 	privateACRName := config.PrivateACRName
-	if s.Tags.NonAnonymous {
+	if s.Tags.NonAnonymousACR {
 		privateACRName = config.PrivateACRNameNotAnon
 	}
 	t.Logf("Choosing the private ACR %q for the vm validation", privateACRName)
@@ -131,7 +131,7 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	attachVMIdenetity := false
-	if s.Tags.NonAnonymous {
+	if s.Tags.NonAnonymousACR {
 		attachVMIdenetity = true
 	}
 	createVMSS(ctx, s, attachVMIdenetity)
