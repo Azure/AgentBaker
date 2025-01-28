@@ -193,20 +193,21 @@ func ValidateInstalledPackageVersion(ctx context.Context, s *Scenario, component
 }
 
 func ValidateKubeletNodeIP(ctx context.Context, s *Scenario) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{"sudo cat /etc/default/kubelet"}, 0, "could lot read kubelet config")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, []string{"sudo cat /etc/default/kubelet"}, 0, "could not read kubelet config")
+	stdout := execResult.stdout.String()
 
 	// Search for "--node-ip" flag and its value.
-	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(execResult.stdout.String())
-	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip")
-	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip")
+	matches := regexp.MustCompile(`--node-ip=([a-zA-Z0-9.,]*)`).FindStringSubmatch(stdout)
+	require.NotNil(s.T, matches, "could not find kubelet flag --node-ip\nStdout: \n%s", stdout)
+	require.GreaterOrEqual(s.T, len(matches), 2, "could not find kubelet flag --node-ip.\nStdout: \n%s", stdout)
 
 	ipAddresses := strings.Split(matches[1], ",") // Could be multiple for dual-stack.
-	require.GreaterOrEqual(s.T, len(ipAddresses), 1, "expected at least one --node-ip address, but got none")
-	require.LessOrEqual(s.T, len(ipAddresses), 2, "expected at most two --node-ip addresses, but got %d", len(ipAddresses))
+	require.GreaterOrEqual(s.T, len(ipAddresses), 1, "expected at least one --node-ip address, but got none\nStdout: \n%s", stdout)
+	require.LessOrEqual(s.T, len(ipAddresses), 2, "expected at most two --node-ip addresses, but got %d\nStdout: \n%s", len(ipAddresses), stdout)
 
 	// Check that each IP is a valid address.
 	for _, ipAddress := range ipAddresses {
-		require.NotNil(s.T, net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address", ipAddress)
+		require.NotNil(s.T, net.ParseIP(ipAddress), "--node-ip value %q is not a valid IP address\nStdout: \n%s", ipAddress, stdout)
 	}
 }
 
