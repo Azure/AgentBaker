@@ -67,7 +67,6 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 
 		command := makeExecutablePowershellScript(steps)
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong", Powershell)
-
 	} else {
 		steps := []string{
 			fmt.Sprintf("ls -la %[1]s", fileName),
@@ -78,7 +77,6 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 		command := makeExecutableBashCommand(steps)
 		execCommandOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 	}
-
 }
 
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
