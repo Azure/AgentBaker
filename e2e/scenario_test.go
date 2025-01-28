@@ -973,10 +973,6 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 				config.GpuConfig.EnableNvidia = to.Ptr(true)
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.Tags = map[string]*string{
-					// deliberately case mismatched to agentbaker logic to check case insensitivity
-					"SkipGPUDriverInstall": to.Ptr("true"),
-				}
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
