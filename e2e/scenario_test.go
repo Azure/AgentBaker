@@ -667,7 +667,8 @@ func Test_Ubuntu2204_AirGap_NonAnonymous(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
 		Tags: Tags{
-			Airgap: true,
+			Airgap:       true,
+			NonAnonymous: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenetAirgapNonAnon,

@@ -22,6 +22,7 @@ type Tags struct {
 	OS                     string
 	Arch                   string
 	Airgap                 bool
+	NonAnonymous           bool
 	GPU                    bool
 	WASM                   bool
 	ServerTLSBootstrapping bool

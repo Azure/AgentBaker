@@ -2,9 +2,12 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,6 +18,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
+	v1 "k8s.io/api/core/v1"
+	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func getKubenetClusterModel(name string) *armcontainerservice.ManagedCluster {
@@ -204,6 +212,23 @@ func privateEndpointExists(ctx context.Context, t *testing.T, nodeResourceGroup,
 func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, resourceGroup, privateACRName string, anonymousPull bool) error {
 	t.Logf("Creating private Azure Container Registry in rg %s", resourceGroup)
 
+	if !anonymousPull {
+		kubeconfigPath := os.Getenv("HOME") + "/.kube/config"
+		if err := fetchAndSaveKubeconfig(ctx, t, resourceGroup, *cluster.Name, kubeconfigPath); err != nil {
+			t.Fatalf("failed to fetch kubeconfig: %v", err)
+		}
+
+		t.Logf("Creating the secret for non-anonymous pull ACR for the e2e debug pods")
+		username, password, err := getAzureContainerRegistryCredentials(ctx, t, resourceGroup, privateACRName)
+		if err != nil {
+			return fmt.Errorf("failed to get private ACR credentials: %w", err)
+		}
+		//   func createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
+		if err := createKubernetesSecret(ctx, t, "default", kubeconfigPath, config.Config.ACRSecretName, privateACRName, username, password); err != nil {
+			return fmt.Errorf("failed to create Kubernetes secret: %w", err)
+		}
+	}
+
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
 		err, recreateACR := shouldRecreateACR(ctx, t, resourceGroup, privateACRName)
@@ -238,8 +263,8 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 			Name: to.Ptr(armcontainerregistry.SKUNamePremium),
 		},
 		Properties: &armcontainerregistry.RegistryProperties{
-			AdminUserEnabled:     to.Ptr(false),
-			AnonymousPullEnabled: to.Ptr(anonymousPull), // required to pull images from the private ACR without authentication
+			AdminUserEnabled:     to.Ptr(!anonymousPull), // if non-anonymous pull is enabled, admin user must be enabled to be able to set credentials for the debug pods
+			AnonymousPullEnabled: to.Ptr(anonymousPull),  // required to pull images from the private ACR without authentication
 		},
 	}
 	pollerResp, err := config.Azure.RegistriesClient.BeginCreate(
@@ -261,6 +286,84 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
+
+	return nil
+}
+
+func createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
+	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	if err != nil {
+		t.Logf("failed to build Kubernetes config: %w", err)
+		return err
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		t.Logf("failed to create Kubernetes client: %w", err)
+		return err
+	}
+
+	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	dockerConfigJSON := fmt.Sprintf(`{
+		"auths": {
+			"%s.azurecr.io": {
+				"username": "%s",
+				"password": "%s",
+				"auth": "%s"
+			}
+		}
+	}`, registryName, username, password, auth)
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			v1.DockerConfigJsonKey: []byte(dockerConfigJSON),
+		},
+	}
+	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		if !errorsk8s.IsAlreadyExists(err) {
+			t.Logf("failed to create Kubernetes secret: %w", err)
+			return err
+		}
+	}
+	t.Logf("Kubernetes secret created")
+	return nil
+}
+
+func getAzureContainerRegistryCredentials(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) (string, string, error) {
+	t.Logf("Getting credentials for private Azure Container Registry in rg %s", resourceGroup)
+	acrCreds, err := config.Azure.RegistriesClient.ListCredentials(ctx, resourceGroup, privateACRName, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get private ACR credentials: %w", err)
+	}
+	username := *acrCreds.Username
+	password := *acrCreds.Passwords[0].Value
+	t.Logf("Private Azure Container Registry credentials retrieved")
+	return username, password, nil
+}
+
+func fetchAndSaveKubeconfig(ctx context.Context, t *testing.T, resourceGroup, clusterName, kubeconfigPath string) error {
+	adminCredentials, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, resourceGroup, clusterName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get cluster admin credentials: %w", err)
+	}
+	if len(adminCredentials.Kubeconfigs) == 0 {
+		return fmt.Errorf("no kubeconfig returned for cluster %s", clusterName)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(kubeconfigPath), 0700); err != nil {
+		return fmt.Errorf("failed to create kubeconfig directory: %w", err)
+	}
+	if err := os.WriteFile(kubeconfigPath, adminCredentials.Kubeconfigs[0].Value, 0600); err != nil {
+		return fmt.Errorf("failed to save kubeconfig to %s: %w", kubeconfigPath, err)
+	}
+	t.Logf("Kubeconfig successfully saved to %s", kubeconfigPath)
 	return nil
 }
 

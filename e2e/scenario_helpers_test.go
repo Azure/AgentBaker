@@ -98,12 +98,11 @@ func RunScenario(t *testing.T, s *Scenario) {
 	defer cancel()
 	prepareAKSNode(ctx, s)
 
-	// todo (alburgess) remove the privateACRName once we depreciate anonymous pull
 	privateACRName := config.PrivateACRName
-	nbc := getBaseNBC(s.T, s.Runtime.Cluster, s.VHD)
-	if nbc.TenantID != "" {
+	if s.Tags.NonAnonymous {
 		privateACRName = config.PrivateACRNameNotAnon
 	}
+	t.Logf("Choosing the private ACR %q for the vm validation", privateACRName)
 	validateVM(ctx, s, privateACRName)
 }
 

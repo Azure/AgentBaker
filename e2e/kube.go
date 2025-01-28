@@ -318,8 +318,10 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 
 func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
+	secretName := ""
 	if isAirgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
+		secretName = config.Config.ACRSecretName
 	}
 	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
 
@@ -351,6 +353,11 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 					HostNetwork: isHostNetwork,
 					NodeSelector: map[string]string{
 						"kubernetes.azure.com/agentpool": targetNodeLabel,
+					},
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{
+							Name: secretName,
+						},
 					},
 					HostPID: true,
 					Containers: []corev1.Container{
@@ -391,8 +398,10 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 
 func podHTTPServerLinux(s *Scenario, privateACRName string) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	secretName := ""
 	if s.Tags.Airgap {
 		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", privateACRName)
+		secretName = config.Config.ACRSecretName
 	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -417,6 +426,11 @@ func podHTTPServerLinux(s *Scenario, privateACRName string) *corev1.Pod {
 			},
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			ImagePullSecrets: []corev1.LocalObjectReference{
+				{
+					Name: secretName,
+				},
 			},
 		},
 	}

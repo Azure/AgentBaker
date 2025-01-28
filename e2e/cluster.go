@@ -133,9 +133,15 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	if isAirgap {
-		err := assignACRPullToKubeletIdentity(ctx, t, cluster, privateACRName)
+		if err := assignACRPullToKubeletIdentity(ctx, t, privateACRName, *cluster.Properties.IdentityProfile["kubeletidentity"].ClientID); err != nil {
+			return nil, fmt.Errorf("assign acr pull to the cluster identity: %w", err)
+		}
+		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
 		if err != nil {
-			return nil, fmt.Errorf("assign acr pull to vm identity: %w", err)
+			t.Fatalf("failed to get VM identity: %v", err)
+		}
+		if err := assignACRPullToKubeletIdentity(ctx, t, privateACRName, *identity.Properties.PrincipalID); err != nil {
+			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
 		}
 	}
 
@@ -158,13 +164,14 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}, nil
 }
 
-func assignACRPullToKubeletIdentity(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, privateACRName string) error {
+func assignACRPullToKubeletIdentity(ctx context.Context, t *testing.T, privateACRName, principalID string) error {
+	t.Logf("assigning ACR-Pull role to %s", principalID)
 	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
 
 	uid := uuid.New().String()
 	_, err := config.Azure.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
 		Properties: &armauthorization.RoleAssignmentProperties{
-			PrincipalID: cluster.Properties.IdentityProfile["kubeletidentity"].ClientID,
+			PrincipalID: to.Ptr(principalID),
 			// ACR-Pull role definition ID
 			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"),
 			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
