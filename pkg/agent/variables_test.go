@@ -55,7 +55,8 @@ var _ = Describe("Windows CSE variables check", func() {
 	})
 
 	It("sets subnetName for custom subnet", func() {
-		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/testSubnetName"
+		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID =
+			"/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/testSubnetName"
 
 		vars := getWindowsCustomDataVariables(config)
 		Expect(vars["subnetName"]).To(Equal("testSubnetName"))
@@ -75,7 +76,8 @@ var _ = Describe("Windows CSE variables check", func() {
 	})
 
 	It("sets virtualNetworkName for custom subnet", func() {
-		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/testVnetName/subnet/testSubnetName"
+		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID =
+			"/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/testVnetName/subnet/testSubnetName"
 
 		vars := getWindowsCustomDataVariables(config)
 		Expect(vars["virtualNetworkName"]).To(Equal("testVnetName"))
