@@ -82,7 +82,7 @@ apt_get_dist_upgrade() {
     dpkg --configure -a --force-confdef
     apt-get -f -y install
     apt-mark showhold
-    ! (apt-get -o Debug::pkgProblemResolver=true -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([Ee][Rr][Rr][Oo][Rr].*)$") && \
+    ! (apt-get -o Acquire::Retries=10 -o Acquire::http::Timeout=60 -o Debug::pkgProblemResolver=true -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then
