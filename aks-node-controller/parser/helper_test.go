@@ -348,7 +348,7 @@ oom_score = 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfig(tt.args.aksnodeconfig, tt.args.noGpu); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})

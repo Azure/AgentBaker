@@ -46,13 +46,13 @@ var (
 	containerdConfigTemplateText string
 	//nolint:gochecknoglobals
 	containerdConfigTemplate = template.Must(
-		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
+		template.New("containerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
 	)
 	//go:embed  templates/containerd_no_GPU.toml.gtpl
 	containerdConfigNoGPUTemplateText string
 	//nolint:gochecknoglobals
 	containerdConfigNoGPUTemplate = template.Must(
-		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
+		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
 )
 
@@ -145,15 +145,29 @@ func getKubenetTemplate() string {
 	return base64.StdEncoding.EncodeToString(kubenetTemplateContent)
 }
 
-// getContainerdConfig returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) string {
+// getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, noGPU)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
+}
+
+// getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig == nil {
+		return ""
+	}
+
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true)
+	if err != nil {
+		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
 	}
 
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
