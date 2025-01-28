@@ -20,11 +20,54 @@ var _ = Describe("Windows CSE variables check", func() {
 
 	It("sets tenantId", func() {
 		config.TenantID = "test tenant id"
-
 		vars := getWindowsCustomDataVariables(config)
-
 		Expect(vars["tenantID"]).To(Equal("test tenant id"))
 	})
+
+	It("sets subscriptionId", func() {
+		config.SubscriptionID = "test sub id"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["subscriptionId"]).To(Equal("test sub id"))
+	})
+
+	It("sets resourceGroup", func() {
+		config.ResourceGroupName = "test rg"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["resourceGroup"]).To(Equal("test rg"))
+	})
+
+	It("sets location", func() {
+		config.ContainerService.Location = "test loc"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["location"]).To(Equal("test loc"))
+	})
+
+	It("sets vmType for vmss", func() {
+		config.ContainerService.Properties.AgentPoolProfiles[0].AvailabilityProfile = datamodel.VirtualMachineScaleSets
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["vmType"]).To(Equal("vmss"))
+	})
+
+	It("sets vmType for vmas", func() {
+		config.ContainerService.Properties.AgentPoolProfiles[0].AvailabilityProfile = datamodel.AvailabilitySet
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["vmType"]).To(Equal("standard"))
+	})
+
+	It("sets subnetName for custom subnet", func() {
+		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/testSubnetName"
+
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["subnetName"]).To(Equal("testSubnetName"))
+	})
+
+	It("sets subnetName for regular subnet", func() {
+		config.ContainerService.Properties.AgentPoolProfiles[0].VnetSubnetID = ""
+
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["subnetName"]).To(Equal("aks-subnet"))
+	})
+
 })
 
 func getDefaultNBC() *datamodel.NodeBootstrappingConfiguration {
