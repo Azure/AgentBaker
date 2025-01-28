@@ -58,7 +58,7 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
-	if s.VHD.OS == "OSWindows" {
+	if s.VHD.OS == config.OSWindows {
 		steps := []string{
 			fmt.Sprintf("dir %[1]s", fileName),
 			fmt.Sprintf("Get-Content %[1]s", fileName),
