@@ -145,12 +145,12 @@ func getKubenetTemplate() string {
 }
 
 // getContainerdConfig returns the base64 encoded containerd config depending on whether the node is with GPU or not.
-func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration, isGPU bool) string {
+func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, isGPU)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, noGPU)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -158,14 +158,14 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration, isGPU boo
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, isGPU bool) (string, error) {
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
 	// the containerd config template is different based on whether the node is with GPU or not.
 	_template := containerdConfigTemplate
-	if !isGPU {
+	if noGPU {
 		_template = containerdConfigNoGPUTemplate
 	}
 

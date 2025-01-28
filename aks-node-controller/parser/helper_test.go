@@ -249,6 +249,7 @@ func Test_createSortedKeyValueInt32Pairs(t *testing.T) {
 func Test_getContainerdConfig(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
+		noGpu         bool
 	}
 	tests := []struct {
 		name string
@@ -284,7 +285,7 @@ oom_score = 0
 `)),
 		},
 		{
-			name: "Containerd Configurations with Nvidia GPU enabled",
+			name: "Containerd Configurations with bool noGpu set to false",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: ToPtr(true),
@@ -292,6 +293,7 @@ oom_score = 0
 						EnableNvidia: ToPtr(true),
 					},
 				},
+				noGpu: false,
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
 oom_score = 0
@@ -315,11 +317,12 @@ oom_score = 0
 `)),
 		},
 		{
-			name: "Containerd Configurations with Nvidia GPU disabled",
+			name: "Containerd Configurations with bool noGpu set to true",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: ToPtr(true),
 				},
+				noGpu: true,
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
 oom_score = 0
@@ -345,7 +348,7 @@ oom_score = 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfig(tt.args.aksnodeconfig, true); got != tt.want {
+			if got := getContainerdConfig(tt.args.aksnodeconfig, tt.args.noGpu); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
