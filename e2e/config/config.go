@@ -15,10 +15,10 @@ import (
 var (
 	Config                = mustLoadConfig()
 	Azure                 = mustNewAzureClient()
-	ResourceGroupName     = "abe2e-" + Config.Location + "alison-testing3"
+	ResourceGroupName     = "abe2e-" + Config.Location + "alison-testing4"
 	VMIdentityName        = "abe2e-vm-identity"
-	PrivateACRNameNotAnon = "privateace2e" + Config.Location + "alisontest" + "noanonpull" // will have anonymous pull enabled
-	PrivateACRName        = "privateacre2e" + Config.Location + "alisontest"               // will not have anonymous pull enabled
+	PrivateACRNameNotAnon = "privateace2e" + Config.Location + "alisontest" + "noanonpull2" // will have anonymous pull enabled
+	PrivateACRName        = "privateacre2e" + Config.Location + "alisontest"                // will not have anonymous pull enabled
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -30,7 +30,7 @@ type Configuration struct {
 	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
 	ACRSecretName                          string        `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2ealison2"`
+	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2ealison4"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`

@@ -296,13 +296,13 @@ func createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeco
 	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
-		t.Logf("failed to build Kubernetes config: %w", err)
+		t.Logf("failed to build Kubernetes config: %v", err)
 		return err
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		t.Logf("failed to create Kubernetes client: %w", err)
+		t.Logf("failed to create Kubernetes client: %v", err)
 		return err
 	}
 
@@ -330,7 +330,7 @@ func createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeco
 	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
 	if err != nil {
 		if !errorsk8s.IsAlreadyExists(err) {
-			t.Logf("failed to create Kubernetes secret: %w", err)
+			t.Logf("failed to create Kubernetes secret: %v", err)
 			return err
 		}
 	}
