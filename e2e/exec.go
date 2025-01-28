@@ -117,8 +117,8 @@ func quoteForBash(command string) string {
 
 func execCommandOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
 	steps := []string{
-		"set -x",
 		fmt.Sprintf("echo '%s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
+		"set -x",
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("%s %s", sshString(vmPrivateIP), quoteForBash(command)),
 	}
