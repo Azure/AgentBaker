@@ -58,14 +58,27 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 }
 
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
-	steps := []string{
-		fmt.Sprintf("ls -la %[1]s", fileName),
-		fmt.Sprintf("sudo cat %[1]s", fileName),
-		fmt.Sprintf("(sudo cat %[1]s | grep -q -F -e %[2]q)", fileName, contents),
+	if s.VHD.OS == "OSWindows" {
+		steps := []string{
+			fmt.Sprintf("dir %[1]s", fileName),
+			fmt.Sprintf("Get-Content %[1]s", fileName),
+			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
+		}
+
+		command := makeExecutablePowershellScript(steps)
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong", Powershell)
+
+	} else {
+		steps := []string{
+			fmt.Sprintf("ls -la %[1]s", fileName),
+			fmt.Sprintf("sudo cat %[1]s", fileName),
+			fmt.Sprintf("(sudo cat %[1]s | grep -q -F -e %[2]q)", fileName, contents),
+		}
+
+		command := makeExecutableBashCommand(steps)
+		execCommandOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 	}
 
-	command := makeExecutableBashCommand(steps)
-	execCommandOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
 }
 
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
@@ -386,18 +399,7 @@ func makeExecutablePowershellScript(steps []string) string {
 	return strings.Join(steps, "\n")
 }
 
-func ValidateFileHasContentWindows(ctx context.Context, s *Scenario, fileName string, contents string) {
-	steps := []string{
-		fmt.Sprintf("dir %[1]s", fileName),
-		fmt.Sprintf("Get-Content %[1]s", fileName),
-		fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
-	}
-
-	command := makeExecutablePowershellScript(steps)
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong", Powershell)
-}
-
-func ValidateProcessHasCliWindows(ctx context.Context, s *Scenario, processName string, arguments []string) {
+func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
 	}
