@@ -105,14 +105,19 @@ func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
 
-func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	image := &config.Image{
-		OS: config.OSUbuntu,
-	}
-	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, []string{command}, image)
+type Interpreter string
+
+const (
+	Powershell Interpreter = "powershell"
+	Bash       Interpreter = "bash"
+)
+
+type Script struct {
+	script      string
+	interpreter Interpreter
 }
 
-func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script []string, os *config.Image) (*podExecResult, error) {
+func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script Script) (*podExecResult, error) {
 	/*
 		This works in a way that doesn't rely on the node having joined the cluster:
 		* We create a linux pod on a different node.
@@ -121,31 +126,25 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 		* Then we execute the script using an interpreter (powershell or bash) based on the OS of the node.
 	*/
 	identifier := uuid.New().String()
+	var scriptFileName, remoteScriptFileName, interpreter string
 
-	var scriptFileName, remoteScriptFileName string
-	if os.OS == config.OSWindows {
+	switch script.interpreter {
+	case Powershell:
+		interpreter = "powershell"
 		scriptFileName = fmt.Sprintf("script_file_%s.ps1", identifier)
 		remoteScriptFileName = fmt.Sprintf("c:/%s", scriptFileName)
-	} else {
-		scriptFileName = fmt.Sprintf("script_file_%s.sh", identifier)
-		remoteScriptFileName = scriptFileName
-	}
-
-	var interpreter string
-	switch os.OS {
-	case config.OSWindows:
-		interpreter = "powershell"
 		break
 	default:
 		interpreter = "bash"
+		scriptFileName = fmt.Sprintf("script_file_%s.sh", identifier)
+		remoteScriptFileName = scriptFileName
 		break
 	}
 
-	scriptWithLineBreaks := strings.Join(script, "\n")
 	steps := []string{
 		fmt.Sprintf("echo '%[1]s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
 		"set -x",
-		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(scriptWithLineBreaks), scriptFileName),
+		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
@@ -154,7 +153,7 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 
 	joinedSteps := strings.Join(steps, " && ")
 
-	s.T.Log(fmt.Sprintf("Executing script %s:\n---START-SCRIPT---\n%s\n---END-SCRIPT---\n", scriptFileName, scriptWithLineBreaks))
+	s.T.Log(fmt.Sprintf("Executing script %s:\n---START-SCRIPT---\n%s\n---END-SCRIPT---\n", scriptFileName, script))
 
 	kube := s.Runtime.Cluster.Kube
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
