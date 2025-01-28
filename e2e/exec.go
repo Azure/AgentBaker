@@ -20,13 +20,6 @@ type podExecResult struct {
 	stderr, stdout *bytes.Buffer
 }
 
-type CommandInterpreter string
-
-const (
-	Powershell CommandInterpreter = "powershell"
-	Bash       CommandInterpreter = "bash"
-)
-
 func (r podExecResult) String() string {
 	return fmt.Sprintf(`exit code: %s
 ----------------------------------- begin stderr -----------------------------------
@@ -115,24 +108,14 @@ func quoteForBash(command string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(command, "'", "'\"'\"'"))
 }
 
-func execCommandOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
-	steps := []string{
-		fmt.Sprintf("echo '%s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
-		"set -x",
-		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
-		fmt.Sprintf("%s %s", sshString(vmPrivateIP), quoteForBash(command)),
+func execBashCommandOnVM(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+	image := &config.Image{
+		OS: config.OSUbuntu,
 	}
-	commandToExecute := strings.Join(steps, " && ")
-
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, commandToExecute)
-	if err != nil {
-		return nil, fmt.Errorf("error executing command on pod: %w", err)
-	}
-
-	return execResult, nil
+	return execScriptOnVm(ctx, kube, vmPrivateIP, jumpboxPodName, sshPrivateKey, []string{command}, image)
 }
 
-func execScriptOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey, script string, scriptInterpreter CommandInterpreter) (*podExecResult, error) {
+func execScriptOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script []string, os *config.Image) (*podExecResult, error) {
 	/*
 			This works in an interesting way:
 			* We create a linux pod on a different node.
@@ -144,23 +127,26 @@ func execScriptOnVm(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxP
 			It does mean we get into quoting complexity as we have to quote to run the command on the pod, and quote again to pass the command through ssh.
 	*/
 	scriptFileName := "script_file.sh"
-	if scriptInterpreter == Powershell {
+	remoteScriptFileName := scriptFileName
+	if os.OS == config.OSWindows {
 		scriptFileName = "script_file.ps1"
+		remoteScriptFileName = fmt.Sprintf("c:/%s", scriptFileName)
 	}
-	interpreter := "bash"
-	switch scriptInterpreter {
-	case Powershell:
+
+	var interpreter string
+	switch os.OS {
+	case config.OSWindows:
 		interpreter = "powershell"
 		break
-	case Bash:
+	default:
 		interpreter = "bash"
 		break
 	}
-	remoteScriptFileName := fmt.Sprintf("c:/%s", scriptFileName)
+
 	steps := []string{
 		fmt.Sprintf("echo '%[1]s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
 		"set -x",
-		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script), scriptFileName),
+		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(strings.Join(script, "\n")), scriptFileName),
 		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		scpCommandAsString(vmPrivateIP, scriptFileName, remoteScriptFileName),
