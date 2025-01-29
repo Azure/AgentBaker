@@ -5,46 +5,45 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("GetAllMaintainedLinuxSIGImageConfigTemplates", func() {
+var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 	It("should return the correct value", func() {
-		expected := []SigImageConfigTemplate{
-			SIGUbuntuContainerd1804ImageConfigTemplate,
-			SIGUbuntuContainerd1804Gen2ImageConfigTemplate,
-			SIGUbuntuFipsContainerd1804ImageConfigTemplate,
-			SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate,
-			SIGUbuntuFipsContainerd2004ImageConfigTemplate,
-			SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate,
-			SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate,
-			SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate,
-			SIGUbuntuContainerd2204ImageConfigTemplate,
-			SIGUbuntuContainerd2204Gen2ImageConfigTemplate,
-			SIGUbuntuContainerd2204TLGen2ImageConfigTemplate,
-			SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate,
-			SIGUbuntuContainerd2404ImageConfigTemplate,
-			SIGUbuntuContainerd2404Gen2ImageConfigTemplate,
-			SIGCBLMarinerV2Gen1ImageConfigTemplate,
-			SIGAzureLinuxV2Gen1ImageConfigTemplate,
-			SIGAzureLinuxV3Gen1ImageConfigTemplate,
-			SIGCBLMarinerV2Gen2ImageConfigTemplate,
-			SIGAzureLinuxV2Gen2ImageConfigTemplate,
-			SIGAzureLinuxV3Gen2ImageConfigTemplate,
-			SIGCBLMarinerV2Gen1FIPSImageConfigTemplate,
-			SIGAzureLinuxV2Gen1FIPSImageConfigTemplate,
-			SIGAzureLinuxV3Gen1FIPSImageConfigTemplate,
-			SIGCBLMarinerV2Gen2FIPSImageConfigTemplate,
-			SIGAzureLinuxV2Gen2FIPSImageConfigTemplate,
-			SIGAzureLinuxV3Gen2FIPSImageConfigTemplate,
-			SIGCBLMarinerV2KataImageConfigTemplate,
-			SIGAzureLinuxV2KataImageConfigTemplate,
-			SIGCBLMarinerV2Arm64ImageConfigTemplate,
-			SIGAzureLinuxV2Arm64ImageConfigTemplate,
-			SIGAzureLinuxV3Arm64ImageConfigTemplate,
-			SIGCBLMarinerV2TLImageConfigTemplate,
-			SIGAzureLinuxV2TLImageConfigTemplate,
-			SIGAzureLinuxV3TLImageConfigTemplate,
+		expected := map[Distro]SigImageConfig{
+			AKSUbuntuContainerd1804:          SIGUbuntuContainerd1804ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd1804Gen2:      SIGUbuntuContainerd1804Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd1804:      SIGUbuntuFipsContainerd1804ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd1804Gen2:  SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd2004:      SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd2004Gen2:  SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuArm64Containerd2204Gen2: SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuArm64Containerd2404Gen2: SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2204:          SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2204Gen2:      SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2204TLGen2:    SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2004CVMGen2:   SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404:          SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404Gen2:      SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2:                  SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2:                  SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3:                  SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2:              SIGCBLMarinerV2Gen2ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2:              SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2:              SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2FIPS:              SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2FIPS:              SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3FIPS:              SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2FIPS:          SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2FIPS:          SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2FIPS:          SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2Kata:          SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2Kata:          SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Arm64Gen2:         SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Arm64Gen2:         SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Arm64Gen2:         SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2TL:            SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2TL:            SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
 		}
-		actual := GetAllMaintainedLinuxSIGImageConfigTemplates()
-		Expect(actual).To(Equal(expected))
+		Expect(GetMaintainedLinuxSIGImageConfigMap()).To(Equal(expected))
 	})
 })
 
