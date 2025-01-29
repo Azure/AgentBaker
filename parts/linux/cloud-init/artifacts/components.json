@@ -594,7 +594,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=20.04",
-                "latestVersion": "1.1.15-ubuntu20.04u1"
+                "latestVersion": "1.2.4-ubuntu20.04u1"
               }
             ]
           },
@@ -602,7 +602,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=22.04",
-                "latestVersion": "1.1.15-ubuntu22.04u1"
+                "latestVersion": "1.2.4-ubuntu22.04u1"
               }
             ]
           },
