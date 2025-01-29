@@ -986,6 +986,25 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
+		"IsAKSLocalDNSEnabled": func() bool {
+			return profile.IsAKSLocalDNSEnabled()
+		},
+		"GetAKSLocalDNSGeneratedCoreFile": func() string {
+			output, err := AKSLocalDNSGenerateCoreFile(config, profile, akslocalDNSCoreFileTemplateString)
+			if err != nil {
+				panic(err)
+			}
+			return output
+		},
+		"GetAKSLocalDNSImageUrl": func() string {
+			return profile.GetAKSLocalDNSImageUrl()
+		},
+		"GetAKSLocalDNSNodeListenerIP": func() string {
+			return profile.GetAKSLocalDNSNodeListenerIP()
+		},
+		"GetAKSLocalDNSClusterListenerIP": func() string {
+			return profile.GetAKSLocalDNSClusterListenerIP()
+		},
 	}
 }
 
@@ -1490,3 +1509,143 @@ func containerdConfigFromTemplate(
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
+
+// Parse and generate aks-local-dns Corefile from template and AksLocalDnsProfile.
+func AKSLocalDNSGenerateCoreFile(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+	funcMap := template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}
+	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Funcs(funcMap).Parse(tmpl))
+
+	var b bytes.Buffer
+	if err := localDNSCorefileTemplate.Execute(&b, profile.AksLocalDnsProfile); err != nil {
+		return "", fmt.Errorf("failed to execute local dns corefile template: %w", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}
+
+// Template to create corefile that will be used by aks-local-dns service.
+const akslocalDNSCoreFileTemplateString = `
+# whoami (used for health check of DNS)
+health-check.aks-local-dns.local:53 {
+    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    whoami
+}
+# VNET DNS traffic (Traffic from pods with dnsPolicy:default or kubelet)
+{{- range $domain, $override := $.VnetDnsOverrides}}
+{{$domain}}:53 {
+    {{$override.QueryLogging}}
+    bind {{$.NodeListenerIP}}
+	{{- if eq $domain "." }}
+    forward cluster.local {{$.CoreDnsServiceIP}} {
+        force_tcp
+    }
+	{{- end}}
+	{{- if hasSuffix $domain "cluster.local" }}
+    forward . {{$.CoreDnsServiceIP}} {
+	{{- else}}
+	forward . /etc/resolv.conf {
+	{{- end}}
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.NodeListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disabled"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid aks-local-dns
+	{{- if eq $domain "."}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+# Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
+{{- range $domain, $override := $.KubeDnsOverrides}}
+{{- if eq $domain "."}}
+in-addr.arpa:53 {
+    errors
+    bind {{$.ClusterListenerIP}}
+    forward . {{$.CoreDnsServiceIP}} {
+        force_tcp
+    }
+    cache 30
+    loop
+    nsid aks-local-dns-pod
+}
+ip6.arpa:53 {
+    errors
+    bind {{$.ClusterListenerIP}}
+    forward . {{$.CoreDnsServiceIP}} {
+        force_tcp
+    }
+    cache 30
+    loop
+    nsid aks-local-dns-pod
+}
+{{- end}}
+{{$domain}}:53 {
+    {{$override.QueryLogging}}
+    bind {{$.ClusterListenerIP}}
+	{{- if and (eq $domain ".") (not $.ForwardPodExternalQueriesToCoreDNS) }}
+    forward cluster.local {{$.CoreDnsServiceIP}} {
+        force_tcp
+    }
+	{{- end}}
+	{{- if or $.ForwardPodExternalQueriesToCoreDNS (hasSuffix $domain "cluster.local") }}
+    forward . {{$.CoreDnsServiceIP}} {
+	{{- else}}
+	forward . /etc/resolv.conf {
+	{{- end}}
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disabled"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid aks-local-dns-pod
+	{{- if eq $domain "."}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+`
