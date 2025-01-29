@@ -153,16 +153,8 @@ if [ ! -s "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
   exit 1
 fi
 
-# Print the Corefile for debugging
-echo "Validating Corefile..."
+echo "Generated corefile..."
 cat "${LOCAL_DNS_CORE_FILE_PATH}"
-
-# Validate the Corefile using the coredns command
-VALIDATION_CMD="/opt/azure/aks-local-dns/coredns -conf ${LOCAL_DNS_CORE_FILE_PATH} -dns.port=0"
-if ! ${VALIDATION_CMD}; then
-  echo "Error: Corefile validation failed!"
-  exit 1
-fi
 
 # Build the coredns command
 COREDNS_COMMAND="/opt/azure/aks-local-dns/coredns -conf ${LOCAL_DNS_CORE_FILE_PATH} -pidfile ${PID_FILE}"
