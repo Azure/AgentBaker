@@ -657,6 +657,8 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 	})
 }
 
+// TODO: refactor NonAnonynous tests to use the same cluster as Anonymous airgap
+// or deprecate anonymous ACR airgap tests once it is unsupported
 func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	ctx := newTestCtx(t)
 	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
@@ -667,7 +669,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
 		Tags: Tags{
-			Airgap:       true,
+			Airgap:          true,
 			NonAnonymousACR: true,
 		},
 		Config: Config{

@@ -285,7 +285,7 @@ func createPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, clus
 		}
 	}
 
-	if err := addCacheRuelsToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
+	if err := addCacheRulesToPrivateAzureContainerRegistry(ctx, t, config.ResourceGroupName, privateACRName); err != nil {
 		return fmt.Errorf("failed to add cache rules to private acr: %w", err)
 	}
 
@@ -400,7 +400,7 @@ func shouldRecreateACR(ctx context.Context, t *testing.T, resourceGroup, private
 	return nil, false
 }
 
-func addCacheRuelsToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
+func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, t *testing.T, resourceGroup, privateACRName string) error {
 	t.Logf("Adding cache rules to private Azure Container Registry in rg %s", resourceGroup)
 
 	cacheParams := armcontainerregistry.CacheRule{

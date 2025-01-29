@@ -693,9 +693,6 @@ oras_login_with_kubelet_identity() {
         return 
     fi
 
-    #set +x 
-    #trap 'set -x' RETURN # set -x before the return 
-
     ACCESS_TOKEN=$(curl -v -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id" | jq -r .access_token)
     if [ -z "$ACCESS_TOKEN" ]; then
         echo "failed to retrieve access token"
@@ -703,16 +700,16 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
-    ACR_TOKEN=$(curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" https://$acr_url/oauth2/exchange | jq -r .refresh_token)
-    if [ -z "$ACR_TOKEN" ]; then
-        echo "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
+    #ACR_TOKEN=$(curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" https://$acr_url/oauth2/exchange | jq -r .refresh_token)
+    #if [ -z "$ACR_TOKEN" ]; then
+    #    echo "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
+    #    return $ERR_ORAS_PULL_UNAUTHORIZED
+    #fi
 
-    if ! oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
-        echo "failed to login to acr '$acr_url' with identity token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
-    fi
+    #if ! oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
+    #    echo "failed to login to acr '$acr_url' with identity token"
+    #    return $ERR_ORAS_PULL_UNAUTHORIZED
+    #fi
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 

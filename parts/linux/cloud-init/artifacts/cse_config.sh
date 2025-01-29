@@ -421,15 +421,6 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
-#orasLogin() {
-#    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID
-#    ret_login=$?
-#    if [ $ret_login -ne 0 ]; then  
-#        echo "Failed to login to oras with kubelet identity"
-#        exit $ret_login
-#    fi
-#}
-
 generateSelfSignedKubeletServingCertificate() {
     mkdir -p "/etc/kubernetes/certs"
     

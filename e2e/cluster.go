@@ -133,7 +133,8 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}
 
 	if isNonAnonymousPull {
-		t.Logf("Assigning ACR-Pull to the cluster identity and vm identity")
+		// TODO: refactor cluster and ACR creation so that we can use `az aks create --attach-acr` over adding permissions to the identity
+		// https://learn.microsoft.com/en-us/azure/aks/cluster-container-registry-integration?tabs=azure-cli#create-a-new-aks-cluster-and-integrate-with-an-existing-acr
 		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
 		if err != nil {
 			t.Fatalf("failed to get VM identity: %v", err)

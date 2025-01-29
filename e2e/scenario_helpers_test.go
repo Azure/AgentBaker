@@ -142,11 +142,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	require.NoError(s.T, err)
 
-	attachVMIdenetity := false
+	attachVMIdentity := false
 	if s.Tags.NonAnonymousACR {
-		attachVMIdenetity = true
+		attachVMIdentity = true
 	}
-	createVMSS(ctx, s, attachVMIdenetity)
+	createVMSS(ctx, s, attachVMIdentity)
 
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
