@@ -1519,7 +1519,10 @@ func AKSLocalDNSGenerateCoreFile(
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
-	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Parse(tmpl))
+	funcMap := template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}
+	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Funcs(funcMap).Parse(tmpl))
 
 	var b bytes.Buffer
 	if err := localDNSCorefileTemplate.Execute(&b, profile.AksLocalDnsProfile); err != nil {
@@ -1541,10 +1544,16 @@ health-check.aks-local-dns.local:53 {
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.NodeListenerIP}}
+	{{- if eq $domain "." }}
     forward cluster.local {{$.CoreDnsServiceIP}} {
         force_tcp
     }
-    forward . /etc/resolv.conf {
+	{{- end}}
+	{{- if hasSuffix $domain "cluster.local" }}
+    forward . {{$.CoreDnsServiceIP}} {
+	{{- else}}
+	forward . /etc/resolv.conf {
+	{{- end}}
         {{- if $override.ForceTCP}}
         force_tcp
         {{- end}}
@@ -1602,10 +1611,12 @@ ip6.arpa:53 {
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.ClusterListenerIP}}
+	{{- if and (eq $domain ".") (not $.ForwardPodExternalQueriesToCoreDNS) }}
     forward cluster.local {{$.CoreDnsServiceIP}} {
         force_tcp
     }
-	{{- if $.ForwardPodExternalQueriesToCoreDNS}}
+	{{- end}}
+	{{- if or $.ForwardPodExternalQueriesToCoreDNS (hasSuffix $domain "cluster.local") }}
     forward . {{$.CoreDnsServiceIP}} {
 	{{- else}}
 	forward . /etc/resolv.conf {
