@@ -811,8 +811,7 @@ var (
 // GetMaintainedLinuxSIGImageConfigMap returns a set of Distro -> SigImageConfig mappings
 // for ALL Linux distros that are currently built and maintained by AKS Node SIG (Version == LinuxSIGImageVersion).
 // Note that each distro's SigImageConfig SubscriptionID field will be empty.
-// This can be used downstream to make sure that all expected images have been properly replicated before
-// releasing new versions of agentbakersvc.
+// This can be used downstream to make sure that all expected images have been properly replicated.
 func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
 	// no opts means subscriptionID will be empty in the corresponding image configs
 	imageConfigMaps := []map[Distro]SigImageConfig{
