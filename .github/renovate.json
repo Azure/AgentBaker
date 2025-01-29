@@ -70,6 +70,11 @@
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "enabled": true,
       "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
       "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
@@ -94,13 +99,13 @@
       "reviewers": ["mainred"]
     },
     {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "extractVersion": "^v?(?<version>.+)$"
-    },
-    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
+    },
+    {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "extractVersion": "^v?(?<version>.+)$"
     },
     {      
       "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      

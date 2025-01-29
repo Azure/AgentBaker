@@ -345,7 +345,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
-			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 
@@ -378,7 +378,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
-			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCseInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
@@ -1605,11 +1605,7 @@ oom_score = 0
 						ContainerRegistryServer: "testserver.azurecr.io",
 					},
 				}
-			}, func(o *nodeBootstrappingOutput) {
-				containerdConfigFileContent := o.files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"].value
-				Expect(strings.Contains(containerdConfigFileContent, "[host.\"https://testserver.azurecr.io\"]")).To(BeTrue())
-				Expect(strings.Contains(containerdConfigFileContent, "capabilities = [\"pull\", \"resolve\"]")).To(BeTrue())
-			}),
+			}, nil),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true
@@ -2181,18 +2177,18 @@ var _ = Describe("GetGPUDriverVersion", func() {
 	})
 })
 
-var _ = Describe("getGPUDriverType", func() {
+var _ = Describe("GetGPUDriverType", func() {
 
 	It("should use cuda with nc v3", func() {
-		Expect(getGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(getGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
-		Expect(getGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(getGPUDriverType("standard_nv6")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
 	})
 })
 

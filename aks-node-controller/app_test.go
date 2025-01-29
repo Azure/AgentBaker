@@ -176,8 +176,8 @@ func TestApp_ProvisionWait(t *testing.T) {
 				// Run the test in a goroutine to simulate file creation after some delay
 				go func() {
 					time.Sleep(200 * time.Millisecond) // Simulate file creation delay
-					os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
-					os.Create(provisionStatusFiles.ProvisionCompleteFile)
+					_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+					_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 				}()
 			},
 		},
@@ -185,8 +185,8 @@ func TestApp_ProvisionWait(t *testing.T) {
 			name:     "wait for provision completion",
 			wantsErr: false,
 			setup: func(provisionStatusFiles ProvisionStatusFiles) {
-				os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
-				os.Create(provisionStatusFiles.ProvisionCompleteFile)
+				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 			},
 		},
 		{

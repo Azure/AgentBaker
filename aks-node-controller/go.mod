@@ -7,9 +7,9 @@ toolchain go1.23.0
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/stretchr/testify v1.9.0
 	google.golang.org/protobuf v1.35.2
-	gopkg.in/fsnotify.v1 v1.4.7
 )
 
 require (
