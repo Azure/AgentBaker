@@ -42,6 +42,8 @@ func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBo
 	}
 }
 
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
+// { "customData": "<customData string>" }.
 func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
 	parameters := getParameters(config)
