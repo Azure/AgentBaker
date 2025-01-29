@@ -688,28 +688,40 @@ oras_login_with_kubelet_identity() {
     local client_id=$2
     local tenant_id=$3
 
-    if [[ -z "$client_id" || -z "$tenant_id" ]]; then
+    if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
         echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonynous pull"
         return 
     fi
 
-    ACCESS_TOKEN=$(curl -v -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id" | jq -r .access_token)
-    if [ -z "$ACCESS_TOKEN" ]; then
+    raw_access_token=$(curl -v -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id")
+    if [ -z "$raw_access_token" ] || [[ "$raw_access_token" == *"error"* ]]; then
         echo "failed to retrieve access token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
+    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
+        echo "failed to parse access token"
         failure_message=$(echo "$raw_access_token" | jq -e .error -r 2>/dev/null)
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
-    #ACR_TOKEN=$(curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" https://$acr_url/oauth2/exchange | jq -r .refresh_token)
-    #if [ -z "$ACR_TOKEN" ]; then
-    #    echo "failed to retrieve access token to acr '$acr_url', please check the kubelet identity access to acr"
-    #    return $ERR_ORAS_PULL_UNAUTHORIZED
-    #fi
+    raw_refresh_token=$(curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
+    https://$acr_url/oauth2/exchange)
+    if [ -z "$raw_refresh_token" ] || [[ "$raw_refresh_token" == *"error"* ]]; then
+        echo "failed to retrieve refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
+    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" == "null" ]; then
+        echo "failed to parse refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
 
-    #if ! oras login $acr_url --identity-token $ACR_TOKEN --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
-    #    echo "failed to login to acr '$acr_url' with identity token"
-    #    return $ERR_ORAS_PULL_UNAUTHORIZED
-    #fi
+    if ! echo "$REFRESH_TOKEN" | oras login $acr_url --identity-token-stdin --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
+        echo "failed to login to acr '$acr_url' with identity token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 

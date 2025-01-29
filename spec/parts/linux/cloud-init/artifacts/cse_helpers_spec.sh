@@ -203,25 +203,27 @@ EOF
             MOCK_BIN_DIR_CURL=$(mktemp -d)
             cat <<-'EOF' >"$MOCK_BIN_DIR_CURL/curl"
             #!/bin/bash
-            if [[ "$6" == http* ]]; then
-                if [[ "$1" == *failureClient ]]; then
-                    echo ""
+            
+            if [[ "$7" == http* ]]; then
+                if [[ "$7" == *failureClient ]]; then
+                    echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve an access token."}'
                     exit 0 
-                elif [[ "$6" == *myclientID ]]; then
+                elif [[ "$7" == *myclientID ]]; then
                     echo '{"access_token": "mytoken"}'
                     exit 0
                 fi
-                echo "$@"
+                echo "NOT FOUND"
             fi
 
-            if [[ "$3" == POST ]]; then
-                if [[ "$7" == *failureID* ]]; then
-                    echo '{"refresh_token": ""}'
+            if [[ "$4" == POST ]]; then
+                if [[ "$8" == *failureID* ]]; then
+                    echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve a refresh token."}'
                     exit 0
-                elif [[ "$7" == *mytenantID* ]]; then
+                elif [[ "$8" == *mytenantID* ]]; then
                     echo '{"refresh_token": "mytoken"}'
                     exit 0
                 fi
+                echo "NOT FOUND"
             fi
             echo -1
 EOF
@@ -243,7 +245,7 @@ EOF
             The status should be success
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonynous pull"
         End
-        It 'should fail if ACR token is empty'
+        It 'should fail if access token is an error'
             local acr_url="unneeded.azurecr.io"
             local client_id="failureClient"
             local tenant_id="mytenantID"
@@ -251,21 +253,29 @@ EOF
             The status should be failure
             The stdout should include "failed to retrieve access token"
         End  
-        #It 'should fail if oras cannot login'
-        #    local acr_url="failed.azurecr.io"
-        #    local client_id="myclientID"
-        #    local tenant_id="mytenantID"
-        #    When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
-        #    The status should be failure
-        #    The stdout should include "failed to login to acr '$acr_url' with identity token"
-        #End  
-        #It 'should succeed if oras can login'
-        #    local acr_url="success.azurecr.io"
-        #    local client_id="myclientID"
-        #    local tenant_id="mytenantID"
-        #    When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
-        #    The status should be success
-        #    The stdout should include "successfully logged in to acr '$acr_url' with identity token"
-        #End  
+        It 'should fail if refresh token is an error'
+            local acr_url="unneeded.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="failureID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve refresh token"
+        End  
+        It 'should fail if oras cannot login'
+            local acr_url="failed.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to login to acr '$acr_url' with identity token"
+        End  
+        It 'should succeed if oras can login'
+            local acr_url="success.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+        End  
     End
 End
