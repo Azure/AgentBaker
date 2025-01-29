@@ -59,6 +59,8 @@ fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 sleep 5
 capture_benchmark "${SCRIPT_NAME}_random_sleep"
+sleep 5
+capture_benchmark "${SCRIPT_NAME}_random_sleep2"
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
