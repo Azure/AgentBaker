@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -79,7 +80,18 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 	// fail test, but continue to extract debug information
-	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+
+	decodedCustomData := customData
+	if err != nil {
+		if s.Runtime.NBC.AgentPoolProfile.IsWindows() {
+			decoded, decodingError := base64.StdEncoding.DecodeString(customData)
+			if decodingError != nil {
+				decodedCustomData = string(decoded)
+			}
+		}
+	}
+
+	require.NoError(s.T, err, "create vmss %q, check %s for vm logs\nCSE:\n---START-CSE-CMD---\n%s\n---END-CSE-CMD---\n\n---START-CUSTOM_SCRIPT---\n%s\n---END_CUSTOM_SCRIPT---", s.Runtime.VMSSName, testDir(s.T), cse, decodedCustomData)
 	return &vmssResp.VirtualMachineScaleSet
 }
 

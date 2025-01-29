@@ -13,6 +13,7 @@ func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 with Containerd",
 		Config: Config{
+
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2019Containerd,
 			VMConfigMutator:        func(vmss *armcompute.VirtualMachineScaleSet) {},

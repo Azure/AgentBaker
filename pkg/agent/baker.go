@@ -32,21 +32,15 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	var customData string
 	if config.AgentPoolProfile.IsWindows() {
-		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
-	} else {
-		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-	}
-
-	if config.AgentPoolProfile.IsWindows() {
+		customData = t.getWindowsNodeCustomData(config)
 		return base64.StdEncoding.EncodeToString([]byte(customData))
+	} else {
+		customData = t.getLinuxNodeCustomData(config)
+		return getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
-
-	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getLinuxNodeCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
 	// get parameters
 	parameters := getParameters(config)
 	// get variable cloudInit
@@ -57,12 +51,12 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 		panic(e)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	return str
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
 // { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+func (t *TemplateGenerator) getWindowsNodeCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
 	// get parameters
@@ -76,13 +70,11 @@ func (t *TemplateGenerator) getWindowsNodeCustomDataJSONObject(config *datamodel
 	}
 
 	preprovisionCmd := ""
-
 	if profile.PreprovisionExtension != nil {
 		preprovisionCmd = makeAgentExtensionScriptCommands(cs, profile)
 	}
 
-	str = strings.ReplaceAll(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)))
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	return strings.ReplaceAll(str, "PREPROVISION_EXTENSION", escapeSingleLine(strings.TrimSpace(preprovisionCmd)))
 }
 
 // GetNodeBootstrappingCmd get node bootstrapping cmd.
