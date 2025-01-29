@@ -150,6 +150,14 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 }
 
+func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+	script := Script{
+		interpreter: Bash,
+		script:      command,
+	}
+	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, script)
+}
+
 const uploadLogsPowershellScript = `
 param(
     [string]$arg1,
