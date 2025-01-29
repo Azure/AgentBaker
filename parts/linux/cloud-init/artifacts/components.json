@@ -517,8 +517,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.27.101-akslts",
-          "previousLatestVersion": "v1.27.100-akslts"
+          "latestVersion": "v1.27.102-akslts",
+          "previousLatestVersion": "v1.27.101-akslts"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
