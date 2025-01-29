@@ -814,7 +814,7 @@ var (
 // This can be used downstream to make sure that all expected images have been properly replicated before
 // releasing new versions of agentbakersvc.
 func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
-	// nil opts means subscriptionID will be empty in the corresponding image configs
+	// no opts means subscriptionID will be empty in the corresponding image configs
 	imageConfigMaps := []map[Distro]SigImageConfig{
 		getSigUbuntuImageConfigMapWithOpts(),
 		getSigCBLMarinerImageConfigMapWithOpts(),
