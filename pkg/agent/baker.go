@@ -1544,16 +1544,16 @@ health-check.aks-local-dns.local:53 {
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.NodeListenerIP}}
-	{{- if eq $domain "." }}
+    {{- if eq $domain "." }}
     forward cluster.local {{$.CoreDnsServiceIP}} {
         force_tcp
     }
-	{{- end}}
-	{{- if hasSuffix $domain "cluster.local" }}
+    {{- end}}
+    {{- if hasSuffix $domain "cluster.local" }}
     forward . {{$.CoreDnsServiceIP}} {
-	{{- else}}
-	forward . /etc/resolv.conf {
-	{{- end}}
+    {{- else}}
+    forward . /etc/resolv.conf {
+    {{- end}}
         {{- if $override.ForceTCP}}
         force_tcp
         {{- end}}
@@ -1571,7 +1571,7 @@ health-check.aks-local-dns.local:53 {
     }
     loop
     nsid aks-local-dns
-	{{- if eq $domain "."}}
+    {{- if eq $domain "."}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
@@ -1610,16 +1610,16 @@ ip6.arpa:53 {
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.ClusterListenerIP}}
-	{{- if and (eq $domain ".") (not $.ForwardPodExternalQueriesToCoreDNS) }}
+    {{- if and (eq $domain ".") (not $.ForwardPodExternalQueriesToCoreDNS) }}
     forward cluster.local {{$.CoreDnsServiceIP}} {
         force_tcp
     }
-	{{- end}}
-	{{- if or $.ForwardPodExternalQueriesToCoreDNS (hasSuffix $domain "cluster.local") }}
+    {{- end}}
+    {{- if or $.ForwardPodExternalQueriesToCoreDNS (hasSuffix $domain "cluster.local") }}
     forward . {{$.CoreDnsServiceIP}} {
-	{{- else}}
-	forward . /etc/resolv.conf {
-	{{- end}}
+    {{- else}}
+    forward . /etc/resolv.conf {
+    {{- end}}
         {{- if $override.ForceTCP}}
         force_tcp
         {{- end}}
@@ -1636,7 +1636,7 @@ ip6.arpa:53 {
     }
     loop
     nsid aks-local-dns-pod
-	{{- if eq $domain "."}}
+    {{- if eq $domain "."}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
