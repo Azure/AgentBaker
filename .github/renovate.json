@@ -92,6 +92,11 @@
       "reviewers": ["mainred"]
     },
     {
+      "matchPackageNames": ["oss/kubernetes-csi/*"],
+      "assignees": ["andyzhangx"],
+      "reviewers": ["andyzhangx"]
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
