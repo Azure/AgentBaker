@@ -7,7 +7,7 @@
   - [Package rules](#package-rules)
     - [Disable `minor` update](#disable-minor-update)
     - [Enable `patch`, `pin` and `digest` update](#enable-patch-pin-and-digest-update)
-    - [(Optional context) Why not updating minor?](#optional-context-why-not-updating-minor)
+    - [(Optional context) To update minor or not](#optional-context-to-update-minor-or-not)
     - [Assigning specific component to specific person](#assigning-specific-component-to-specific-person)
     - [Additional string operation to specific component](#additional-string-operation-to-specific-component)
   - [Custom managers](#custom-managers)
@@ -88,7 +88,7 @@ For other components, we are still relying on the owner teams to approve and mer
 
 For more context to anyone who is interested, let's walk through a real example. Feel free to skip reading this if it has nothing to do with your task.
 
-### (Optional context) Why not updating minor?
+### (Optional context) To update minor or not
 Using azure-cni as an example, if we enable auto updating `minor`, we will see the following PRs created by Renovate automatically at of Sep 12, 2024.
 - PR1: containernetworking/azure-cni minor v1.5.32 -> v1.6.6
 - PR2: containernetworking/azure-cni patch v1.6.3 -> v1.6.6
@@ -96,17 +96,15 @@ Using azure-cni as an example, if we enable auto updating `minor`, we will see t
 
 PR2 and PR3 are what we need because we want to auto-update the patch version.
 By enabling the `minor` package rule, PR1 will also be created.
-This will be a noise PR to the assignee because now he/she needs to manually check if the 2 latest versions of v1.5.x are still kept in the components.json if this PR is merged. And usually it's not. Thus the assignee will cancel this PR manually every time.
-If a new minor version needs to be added, the owner should update the components.json.
+Depending on use case, for some components this could be a helpful reminder that there are updated versions but for others this could become noisy if it's intended not to update minor version but only patch version.
 
-If there is only 1 component then it should be fine as it won't have too many noisy PRs.
-But in components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
+In components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
 ![Renovate Minor Enabled](./images/Renovate_minor_enabled.png)
-On the left side, there is no minor being updated. On the right side, it added many PRs for updating the minor but most of them should be just noise.
+On the left side, there is no `minor` being updated. On the right side, it added many PRs for updating the `minor` too.
 
-That's why we ended up disabling `minor` auto-update to avoid the noisy PRs.
+We enabled auto-updating `minor` versions as default configuration for now we can revise if it ends up being too noisy. We can also turn on/off updating `minor` version for specific components.
 
-p.s. To allow disable `minor` update but enable `patch`, `pin`, `digest` update, at root level `separateMinorPatch` needs to be `true`.
+p.s. To allow disable `minor` update but enable `patch` update, at root level `separateMinorPatch` needs to be `true`, though it's no harm to turn it on even we are also updating `minor`.
 
 ### Assigning specific component to specific person
 We can use `matchPackageNames` to achieve this purpose.

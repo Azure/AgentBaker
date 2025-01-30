@@ -8,6 +8,7 @@
   "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
   "separateMinorPatch": true,
+  "recreateWhen": "never",
   "labels": ["renovate"],
   "logLevelRemap": [
     {
@@ -16,14 +17,6 @@
     }
   ],
   "packageRules": [
-    {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
-      "matchUpdateTypes": [
-        "minor"
-      ],
-      "automerge": false,
-      "enabled": false
-    },
     {
       "matchDatasources": ["docker"],
       "matchUpdateTypes": [
@@ -110,7 +103,7 @@
     {      
       "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": false,      
+      "automerge": true,      
       "enabled": true,
       "ignoreUnstable": false
     }
