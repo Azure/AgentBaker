@@ -225,7 +225,7 @@ EOF
                 fi
                 echo "NOT FOUND"
             fi
-            echo -1
+            echo "$@"
 EOF
 
             chmod +x "$MOCK_BIN_DIR_CURL/curl"
