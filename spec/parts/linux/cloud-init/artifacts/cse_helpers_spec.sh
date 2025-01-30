@@ -204,28 +204,38 @@ EOF
             cat <<-'EOF' >"$MOCK_BIN_DIR_CURL/curl"
             #!/bin/bash
             
-            if [[ "$7" == http* ]]; then
-                if [[ "$7" == *failureClient ]]; then
-                    echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve an access token."}'
-                    exit 0 
-                elif [[ "$7" == *myclientID ]]; then
-                    echo '{"access_token": "mytoken"}'
-                    exit 0
-                fi
-                echo "NOT FOUND"
-            fi
+            case "$7" in
+                http*)
+                    case "$7" in
+                        *failureClient)
+                            echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve an access token."}'
+                            exit 0
+                            ;;
+                        *myclientID)
+                            echo '{"access_token": "mytoken"}'
+                            exit 0
+                            ;;
+                    esac
+                    echo -1
+                    exit 1
+                    ;;
+            esac
 
-            if [[ "$4" == POST ]]; then
-                if [[ "$8" == *failureID* ]]; then
-                    echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve a refresh token."}'
-                    exit 0
-                elif [[ "$8" == *mytenantID* ]]; then
-                    echo '{"refresh_token": "mytoken"}'
-                    exit 0
-                fi
-                echo "NOT FOUND"
+            # Check if method ($4) is "POST"
+            if [ "$4" = "POST" ]; then
+                case "$8" in
+                    *failureID*)
+                        echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve a refresh token."}'
+                        exit 0
+                        ;;
+                    *mytenantID*)
+                        echo '{"refresh_token": "mytoken"}'
+                        exit 0
+                        ;;
+                esac
+                echo -1
+                exit 1
             fi
-            echo "$@"
 EOF
 
             chmod +x "$MOCK_BIN_DIR_CURL/curl"
@@ -251,8 +261,7 @@ EOF
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            # The stdout should include "failed to retrieve access token"
-            The stdout should include "failed to parse access token"
+            The stdout should include "failed to retrieve access token"
         End  
         It 'should fail if refresh token is an error'
             local acr_url="unneeded.azurecr.io"
@@ -260,8 +269,7 @@ EOF
             local tenant_id="failureID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            # The stdout should include "failed to retrieve refresh token"
-            The stdout should include "failed to parse refresh token"
+            The stdout should include "failed to retrieve refresh token"
         End  
         It 'should fail if oras cannot login'
             local acr_url="failed.azurecr.io"
