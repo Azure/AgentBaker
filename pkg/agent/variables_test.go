@@ -175,6 +175,81 @@ var _ = Describe("Windows custom data variables check", func() {
 		Expect(vars["windowsEnableCSIProxy"]).To(Equal(false))
 	})
 
+	It("sets windowsCSIProxyURL", func() {
+		config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "csi proxy url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsCSIProxyURL"]).To(Equal("csi proxy url"))
+	})
+
+	It("sets windowsProvisioningScriptsPackageURL", func() {
+		config.ContainerService.Properties.WindowsProfile.ProvisioningScriptsPackageURL = "prov script url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsProvisioningScriptsPackageURL"]).To(Equal("prov script url"))
+	})
+
+	It("sets windowsPauseImageURL", func() {
+		config.ContainerService.Properties.WindowsProfile.WindowsPauseImageURL = "pause image url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsPauseImageURL"]).To(Equal("pause image url"))
+	})
+
+	It("sets alwaysPullWindowsPauseImage to true when true", func() {
+		value := true
+		config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["alwaysPullWindowsPauseImage"]).To(Equal("true"))
+	})
+
+	It("sets alwaysPullWindowsPauseImage to false when false", func() {
+		value := false
+		config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["alwaysPullWindowsPauseImage"]).To(Equal("false"))
+	})
+
+	It("sets alwaysPullWindowsPauseImage to false when nil", func() {
+		config.ContainerService.Properties.WindowsProfile.AlwaysPullWindowsPauseImage = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["alwaysPullWindowsPauseImage"]).To(Equal("false"))
+	})
+
+	It("sets windowsCalicoPackageURL", func() {
+		config.ContainerService.Properties.WindowsProfile.WindowsCalicoPackageURL = "calico package url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsCalicoPackageURL"]).To(Equal("calico package url"))
+	})
+
+	It("sets configGPUDriverIfNeeded to true", func() {
+		config.ConfigGPUDriverIfNeeded = true
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["configGPUDriverIfNeeded"]).To(Equal(true))
+	})
+
+	It("sets configGPUDriverIfNeeded to false", func() {
+		config.ConfigGPUDriverIfNeeded = false
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["configGPUDriverIfNeeded"]).To(Equal(false))
+	})
+
+	It("sets windowsSecureTlsEnabled to true", func() {
+		value := true
+		config.ContainerService.Properties.WindowsProfile.WindowsSecureTlsEnabled = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsSecureTlsEnabled"]).To(Equal(true))
+	})
+
+	It("sets windowsSecureTlsEnabled to false", func() {
+		value := false
+		config.ContainerService.Properties.WindowsProfile.WindowsSecureTlsEnabled = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsSecureTlsEnabled"]).To(Equal(false))
+	})
+
+	It("sets windowsSecureTlsEnabled to false when nil", func() {
+		config.ContainerService.Properties.WindowsProfile.WindowsSecureTlsEnabled = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsSecureTlsEnabled"]).To(Equal(false))
+	})
 })
 
 var _ = Describe("Windows CSE variables check", func() {
