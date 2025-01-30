@@ -32,9 +32,9 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeBootstrappingPayload(config)
-	} else {
-		return t.getLinuxNodeBootstrappingPayload(config)
 	}
+
+	return t.getLinuxNodeBootstrappingPayload(config)
 }
 
 func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
