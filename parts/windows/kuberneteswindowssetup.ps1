@@ -25,11 +25,11 @@ param(
 #  - Some customers use this file to check if CSE is done
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $CSEResultFilePath
+    $CSEResultFilePath,
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientSecret, # base64
+    $AADClientSecret # base64
 )
 
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.

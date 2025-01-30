@@ -77,6 +77,8 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		cleanupVMSS(ctx, s)
 	})
 
+	s.T.Logf("CSE: \n---START-CSE---\n%s\n---END-CSE", cse)
+
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
 
 	// fail test, but continue to extract debug information
