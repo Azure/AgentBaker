@@ -36,7 +36,7 @@ $KubeDnsServiceIp="10.0.0.10"
 $MasterFQDNPrefix="uttestdom"
 $Location="southcentralus"
 
-$UserAssignedClientID=""
+$UserAssignedClientID="userAssignedID"
 
 $TargetEnvironment="AzurePublicCloud"
 $AgentKey=""

@@ -77,12 +77,22 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 }
 
 // getWindowsCustomDataVariables returns custom data for Windows.
-/* TODO(qinhao): combine this function with `getCSECommandVariables` after we support passing variables
-from cse command to customdata. */
 func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
+	return getCSECommandVariables(config)
+}
+
+func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
-	// these variables is subet of.
-	customData := map[string]interface{}{
+	profile := config.AgentPoolProfile
+
+	// this method is called for both windows and linux. If there's no windows profile, then let's just
+	// use a blank one.
+	windowsProfile := cs.Properties.WindowsProfile
+	if windowsProfile == nil {
+		windowsProfile = &datamodel.WindowsProfile{}
+	}
+
+	return map[string]interface{}{
 		"tenantID":                             config.TenantID,
 		"subscriptionId":                       config.SubscriptionID,
 		"resourceGroup":                        config.ResourceGroupName,
@@ -91,6 +101,7 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"subnetName":                           cs.Properties.GetSubnetName(),
 		"nsgName":                              cs.Properties.GetNSGName(),
 		"virtualNetworkName":                   cs.Properties.GetVirtualNetworkName(),
+		"virtualNetworkResourceGroupName":      cs.Properties.GetVNetResourceGroupName(),
 		"routeTableName":                       cs.Properties.GetRouteTableName(),
 		"primaryAvailabilitySetName":           cs.Properties.GetPrimaryAvailabilitySetName(),
 		"primaryScaleSetName":                  config.PrimaryScaleSetName,
@@ -98,59 +109,15 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 		"useInstanceMetadata":                  useInstanceMetadata(cs),
 		"loadBalancerSku":                      cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
 		"excludeMasterFromStandardLB":          true,
-		"windowsEnableCSIProxy":                cs.Properties.WindowsProfile.IsCSIProxyEnabled(),
-		"windowsCSIProxyURL":                   cs.Properties.WindowsProfile.CSIProxyURL,
-		"windowsProvisioningScriptsPackageURL": cs.Properties.WindowsProfile.ProvisioningScriptsPackageURL,
-		"windowsPauseImageURL":                 cs.Properties.WindowsProfile.WindowsPauseImageURL,
-		"alwaysPullWindowsPauseImage":          strconv.FormatBool(cs.Properties.WindowsProfile.IsAlwaysPullWindowsPauseImage()),
-		"windowsCalicoPackageURL":              cs.Properties.WindowsProfile.WindowsCalicoPackageURL,
+		"maximumLoadBalancerRuleCount":         getMaximumLoadBalancerRuleCount(cs),
+		"userAssignedIdentityID":               config.UserAssignedIdentityClientID,
+		"isVHD":                                isVHD(profile),
+		"gpuNode":                              strconv.FormatBool(config.EnableNvidia),
+		"sgxNode":                              strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
 		"configGPUDriverIfNeeded":              config.ConfigGPUDriverIfNeeded,
-		"windowsSecureTlsEnabled":              cs.Properties.WindowsProfile.IsWindowsSecureTlsEnabled(),
-		"windowsGmsaPackageUrl":                cs.Properties.WindowsProfile.WindowsGmsaPackageUrl,
-		"windowsGpuDriverURL":                  cs.Properties.WindowsProfile.GpuDriverURL,
-		"windowsCSEScriptsPackageURL":          cs.Properties.WindowsProfile.CseScriptsPackageURL,
-		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
-		"isSkipCleanupNetwork":                 strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
-	}
-
-	return customData
-}
-
-func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
-	cs := config.ContainerService
-	profile := config.AgentPoolProfile
-	windowsProfile := cs.Properties.WindowsProfile
-	if windowsProfile == nil {
-		windowsProfile = &datamodel.WindowsProfile{}
-	}
-
-	return map[string]interface{}{
-		"tenantID":                        config.TenantID,
-		"subscriptionId":                  config.SubscriptionID,
-		"resourceGroup":                   config.ResourceGroupName,
-		"location":                        cs.Location,
-		"vmType":                          cs.Properties.GetVMType(),
-		"subnetName":                      cs.Properties.GetSubnetName(),
-		"nsgName":                         cs.Properties.GetNSGName(),
-		"virtualNetworkName":              cs.Properties.GetVirtualNetworkName(),
-		"virtualNetworkResourceGroupName": cs.Properties.GetVNetResourceGroupName(),
-		"routeTableName":                  cs.Properties.GetRouteTableName(),
-		"primaryAvailabilitySetName":      cs.Properties.GetPrimaryAvailabilitySetName(),
-		"primaryScaleSetName":             config.PrimaryScaleSetName,
-		"useManagedIdentityExtension":     useManagedIdentity(cs),
-		"useInstanceMetadata":             useInstanceMetadata(cs),
-		"loadBalancerSku":                 cs.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku,
-		"excludeMasterFromStandardLB":     true,
-		"maximumLoadBalancerRuleCount":    getMaximumLoadBalancerRuleCount(cs),
-		"userAssignedIdentityID":          config.UserAssignedIdentityClientID,
-		"isVHD":                           isVHD(profile),
-		"gpuNode":                         strconv.FormatBool(config.EnableNvidia),
-		"sgxNode":                         strconv.FormatBool(datamodel.IsSgxEnabledSKU(profile.VMSize)),
-		"configGPUDriverIfNeeded":         config.ConfigGPUDriverIfNeeded,
-		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
-		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
-		"gpuInstanceProfile":              config.GPUInstanceProfile,
-
+		"enableGPUDevicePluginIfNeeded":        config.EnableGPUDevicePluginIfNeeded,
+		"migNode":                              strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
+		"gpuInstanceProfile":                   config.GPUInstanceProfile,
 		"windowsEnableCSIProxy":                windowsProfile.IsCSIProxyEnabled(),
 		"windowsPauseImageURL":                 windowsProfile.WindowsPauseImageURL,
 		"windowsCSIProxyURL":                   windowsProfile.CSIProxyURL,
