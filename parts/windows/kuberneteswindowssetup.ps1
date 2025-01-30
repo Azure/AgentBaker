@@ -19,17 +19,17 @@
 #>
 [CmdletBinding(DefaultParameterSetName="Standard")]
 param(
-# C:\AzureData\provision.complete
-# MUST keep generating this file when CSE is done and do not change the name
-#  - It is used to avoid running CSE multiple times
-#  - Some customers use this file to check if CSE is done
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $CSEResultFilePath,
+    $AADClientSecret, # base64
 
+    # C:\AzureData\provision.complete
+    # MUST keep generating this file when CSE is done and do not change the name
+    #  - It is used to avoid running CSE multiple times
+    #  - Some customers use this file to check if CSE is done
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientSecret # base64
+    $CSEResultFilePath
 )
 
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.

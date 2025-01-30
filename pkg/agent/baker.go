@@ -140,7 +140,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 	if e != nil {
 		panic(e)
 	}
-	/* NOTE(qinahao): windows cse cmd uses esapced \" to quote Powershell command in
+	/* NOTE(qinahao): windows cse cmd uses escaped \" to quote Powershell command in
 	[csecmd.p1](https://github.com/Azure/AgentBaker/blob/master/parts/windows/csecmd.ps1). */
 	// to not break go template parsing. We switch \" back to " otherwise Azure ARM template will escape \ to be \\\"
 	str = strings.ReplaceAll(str, `\"`, `"`)
