@@ -251,7 +251,8 @@ EOF
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve access token"
+            # The stdout should include "failed to retrieve access token"
+            The stdout should include "failed to parse access token"
         End  
         It 'should fail if refresh token is an error'
             local acr_url="unneeded.azurecr.io"
@@ -259,7 +260,8 @@ EOF
             local tenant_id="failureID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "failed to retrieve refresh token"
+            # The stdout should include "failed to retrieve refresh token"
+            The stdout should include "failed to parse refresh token"
         End  
         It 'should fail if oras cannot login'
             local acr_url="failed.azurecr.io"

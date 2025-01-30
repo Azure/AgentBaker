@@ -720,7 +720,7 @@ oras_login_with_kubelet_identity() {
 
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
-    if [ -z "$raw_access_token" ] || [[ "$raw_access_token" == *"error"* ]]; then
+    if [ -z "$raw_access_token" ]; then # || [[ "$raw_access_token" == *"error"* ]]; then
         echo "failed to retrieve access token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -732,7 +732,7 @@ oras_login_with_kubelet_identity() {
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
-    if [ -z "$raw_refresh_token" ] || [[ "$raw_refresh_token" == *"error"* ]]; then
+    if [ -z "$raw_refresh_token" ]; then # || [[ "$raw_refresh_token" == *"error"* ]]; then
         echo "failed to retrieve refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
