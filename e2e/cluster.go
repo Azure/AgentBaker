@@ -84,7 +84,7 @@ func ClusterKubenetAirgapNonAnon(ctx context.Context, t *testing.T) (*Cluster, e
 	clusterKubenetNonAnonAirgapOnce.Do(func() {
 		clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap"), true, true)
 	})
-	return clusterKubenetNonAnonAirgap, clusterKubenetAirgapError
+	return clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError
 }
 
 func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
