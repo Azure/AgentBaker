@@ -8,6 +8,7 @@
   "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
   "separateMinorPatch": true,
+  "recreateWhen": "never",
   "labels": ["renovate"],
   "logLevelRemap": [
     {
