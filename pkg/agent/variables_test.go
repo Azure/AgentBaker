@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Windows CSE variables check", func() {
+var _ = Describe("Windows custom data variables check", func() {
 	var (
 		config *datamodel.NodeBootstrappingConfiguration
 	)
@@ -95,6 +95,107 @@ var _ = Describe("Windows CSE variables check", func() {
 		config.ContainerService.Properties.ClusterID = "36873793"
 		vars := getWindowsCustomDataVariables(config)
 		Expect(vars["routeTableName"]).To(Equal("aks-agentpool-36873793-routetable"))
+	})
+
+	It("sets primaryAvailabilitySetName to nothing when no availability set", func() {
+		config.ContainerService.Properties.ClusterID = "36873793"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["primaryAvailabilitySetName"]).To(Equal(""))
+	})
+
+	It("sets primaryAvailabilitySetName when there is an availability set", func() {
+		config.ContainerService.Properties.ClusterID = "36873793"
+		config.ContainerService.Properties.AgentPoolProfiles[0].Name = "agentpoolname"
+		config.ContainerService.Properties.AgentPoolProfiles[0].AvailabilityProfile = datamodel.AvailabilitySet
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["primaryAvailabilitySetName"]).To(Equal("agentpoolname-availabilitySet-36873793"))
+	})
+
+	It("sets primaryScaleSetName", func() {
+		config.PrimaryScaleSetName = "primary ss name"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["primaryScaleSetName"]).To(Equal("primary ss name"))
+	})
+
+	It("sets useManagedIdentityExtension to true when using managed identity", func() {
+		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["useManagedIdentityExtension"]).To(Equal("true"))
+	})
+
+	It("sets useManagedIdentityExtension to false when not using managed identity", func() {
+		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = false
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["useManagedIdentityExtension"]).To(Equal("false"))
+	})
+
+	It("sets useInstanceMetadata to true when using instance metadata", func() {
+		val := true
+		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata = &val
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["useInstanceMetadata"]).To(Equal("true"))
+	})
+
+	It("sets useInstanceMetadata to false when not using instance metadata", func() {
+		val := false
+		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.UseInstanceMetadata = &val
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["useInstanceMetadata"]).To(Equal("false"))
+	})
+
+	It("sets loadBalancerSku ", func() {
+		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.LoadBalancerSku = "load balencer sku"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["loadBalancerSku"]).To(Equal("load balencer sku"))
+	})
+
+	It("sets excludeMasterFromStandardLB", func() {
+		// at the time of writing this test, this variable was hard coded to true
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["excludeMasterFromStandardLB"]).To(Equal(true))
+	})
+
+	It("sets windowsEnableCSIProxy to true", func() {
+		value := true
+		config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsEnableCSIProxy"]).To(Equal(true))
+	})
+
+	It("sets windowsEnableCSIProxy to false", func() {
+		value := false
+		config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsEnableCSIProxy"]).To(Equal(false))
+	})
+
+	It("sets windowsEnableCSIProxy to the default when no proxy set", func() {
+		config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsEnableCSIProxy"]).To(Equal(false))
+	})
+
+})
+
+var _ = Describe("Windows CSE variables check", func() {
+	var (
+		config *datamodel.NodeBootstrappingConfiguration
+	)
+
+	BeforeEach(func() {
+		config = getDefaultNBC()
+	})
+
+	It("sets maximumLoadBalancerRuleCount", func() {
+		config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.MaximumLoadBalancerRuleCount = 5
+		vars := getCSECommandVariables(config)
+		Expect(vars["maximumLoadBalancerRuleCount"]).To(Equal(5))
+	})
+
+	It("sets userAssignedIdentityID", func() {
+		config.UserAssignedIdentityClientID = "the identity id"
+		vars := getCSECommandVariables(config)
+		Expect(vars["userAssignedIdentityID"]).To(Equal("the identity id"))
 	})
 })
 
