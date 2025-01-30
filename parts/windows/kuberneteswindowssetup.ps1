@@ -26,6 +26,10 @@ param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $CSEResultFilePath
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    $AADClientSecret, # base64
 )
 
 # In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
@@ -41,7 +45,6 @@ $UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
 $TargetEnvironment="{{ GetTargetEnvironment }}"
 $AgentKey="{{ GetParameter "clientPrivateKey" }}"
 $AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
-$AADClientSecret="{{ GetParameter "encodedServicePrincipalClientSecret" }}"
 $NetworkAPIVersion="2018-08-01"
 
 # Do not parse the start time from $LogFile to simplify the logic
