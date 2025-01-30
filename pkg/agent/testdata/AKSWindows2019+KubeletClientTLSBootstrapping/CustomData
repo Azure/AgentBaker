@@ -21,6 +21,10 @@
 param(
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
+    $AgentKey,
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
     $AADClientSecret, # base64
 
     # C:\AzureData\provision.complete
