@@ -24,17 +24,20 @@ import (
 )
 
 var (
-	clusterKubenet       *Cluster
-	clusterKubenetAirgap *Cluster
-	clusterAzureNetwork  *Cluster
+	clusterKubenet              *Cluster
+	clusterKubenetAirgap        *Cluster
+	clusterKubenetNonAnonAirgap *Cluster
+	clusterAzureNetwork         *Cluster
 
-	clusterKubenetError       error
-	clusterKubenetAirgapError error
-	clusterAzureNetworkError  error
+	clusterKubenetError              error
+	clusterKubenetAirgapError        error
+	clusterKubenetNonAnonAirgapError error
+	clusterAzureNetworkError         error
 
-	clusterKubenetOnce       sync.Once
-	clusterKubenetAirgapOnce sync.Once
-	clusterAzureNetworkOnce  sync.Once
+	clusterKubenetOnce              sync.Once
+	clusterKubenetAirgapOnce        sync.Once
+	clusterKubenetNonAnonAirgapOnce sync.Once
+	clusterAzureNetworkOnce         sync.Once
 )
 
 type Cluster struct {
@@ -78,8 +81,8 @@ func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func ClusterKubenetAirgapNonAnon(ctx context.Context, t *testing.T) (*Cluster, error) {
-	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap"), true, true)
+	clusterKubenetNonAnonAirgapOnce.Do(func() {
+		clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap"), true, true)
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
