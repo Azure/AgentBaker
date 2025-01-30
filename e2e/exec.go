@@ -153,7 +153,7 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 
 	joinedSteps := strings.Join(steps, " && ")
 
-	s.T.Log(fmt.Sprintf("Executing script %s:\n---START-SCRIPT---\n%s\n---END-SCRIPT---\n", scriptFileName, script))
+	s.T.Log(fmt.Sprintf("Executing script %[1]s with intrepreter %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script))
 
 	kube := s.Runtime.Cluster.Kube
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
