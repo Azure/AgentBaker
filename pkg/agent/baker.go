@@ -30,16 +30,25 @@ func InitializeTemplateGenerator() *TemplateGenerator {
 // GetNodeBootstrappingPayload get node bootstrapping data.
 // This function only can be called after the validation of the input NodeBootstrappingConfiguration.
 func (t *TemplateGenerator) getNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	var customData string
+	if config.AgentPoolProfile.IsWindows() {
+		return t.getWindowsNodeBootstrappingPayload(config)
+	} else {
+		return t.getLinuxNodeBootstrappingPayload(config)
+	}
+}
+
+func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
-	if config.AgentPoolProfile.IsWindows() {
-		customData = getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
-		return base64.StdEncoding.EncodeToString([]byte(customData))
-	} else {
-		customData = getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-		return getBase64EncodedGzippedCustomScriptFromStr(customData)
-	}
+	customData := getCustomDataFromJSON(t.getWindowsNodeCustomDataJSONObject(config))
+	return base64.StdEncoding.EncodeToString([]byte(customData))
+}
+
+func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
+	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
+	// lots of tests fail.
+	customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	return getBase64EncodedGzippedCustomScriptFromStr(customData)
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
