@@ -250,6 +250,70 @@ var _ = Describe("Windows custom data variables check", func() {
 		vars := getWindowsCustomDataVariables(config)
 		Expect(vars["windowsSecureTlsEnabled"]).To(Equal(false))
 	})
+
+	It("sets windowsGmsaPackageUrl", func() {
+		config.ContainerService.Properties.WindowsProfile.WindowsGmsaPackageUrl = "gsma package url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsGmsaPackageUrl"]).To(Equal("gsma package url"))
+	})
+
+	It("sets windowsGpuDriverURL", func() {
+		config.ContainerService.Properties.WindowsProfile.GpuDriverURL = "gpu driver url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsGpuDriverURL"]).To(Equal("gpu driver url"))
+	})
+
+	It("sets windowsCSEScriptsPackageURL", func() {
+		config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = "cse scripts url"
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["windowsCSEScriptsPackageURL"]).To(Equal("cse scripts url"))
+	})
+
+	It("sets isDisableWindowsOutboundNat to true", func() {
+		value := true
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			DisableOutboundNat: &value,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["isDisableWindowsOutboundNat"]).To(Equal("true"))
+	})
+
+	It("sets isDisableWindowsOutboundNat to false", func() {
+		value := false
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			DisableOutboundNat: &value,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["isDisableWindowsOutboundNat"]).To(Equal("false"))
+	})
+
+	It("sets isDisableWindowsOutboundNat to false when nil", func() {
+		config.AgentPoolProfile.AgentPoolWindowsProfile = &datamodel.AgentPoolWindowsProfile{
+			DisableOutboundNat: nil,
+		}
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["isDisableWindowsOutboundNat"]).To(Equal("false"))
+	})
+
+	It("sets isSkipCleanupNetwork to true", func() {
+		value := true
+		config.AgentPoolProfile.NotRebootWindowsNode = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["isSkipCleanupNetwork"]).To(Equal("true"))
+	})
+
+	It("sets isSkipCleanupNetwork to false", func() {
+		value := false
+		config.AgentPoolProfile.NotRebootWindowsNode = &value
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["isSkipCleanupNetwork"]).To(Equal("false"))
+	})
+	It("sets isSkipCleanupNetwork to false when nil", func() {
+		config.AgentPoolProfile.NotRebootWindowsNode = nil
+		vars := getWindowsCustomDataVariables(config)
+		Expect(vars["isSkipCleanupNetwork"]).To(Equal("false"))
+	})
+
 })
 
 var _ = Describe("Windows CSE variables check", func() {
