@@ -119,6 +119,11 @@ func getWindowsCustomDataVariables(config *datamodel.NodeBootstrappingConfigurat
 func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) paramsMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
+	windowsProfile := cs.Properties.WindowsProfile
+	if windowsProfile == nil {
+		windowsProfile = &datamodel.WindowsProfile{}
+	}
+
 	return map[string]interface{}{
 		"tenantID":                        config.TenantID,
 		"subscriptionId":                  config.SubscriptionID,
@@ -145,6 +150,19 @@ func getCSECommandVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 		"enableGPUDevicePluginIfNeeded":   config.EnableGPUDevicePluginIfNeeded,
 		"migNode":                         strconv.FormatBool(datamodel.IsMIGNode(config.GPUInstanceProfile)),
 		"gpuInstanceProfile":              config.GPUInstanceProfile,
+
+		"windowsEnableCSIProxy":                windowsProfile.IsCSIProxyEnabled(),
+		"windowsPauseImageURL":                 windowsProfile.WindowsPauseImageURL,
+		"windowsCSIProxyURL":                   windowsProfile.CSIProxyURL,
+		"windowsProvisioningScriptsPackageURL": windowsProfile.ProvisioningScriptsPackageURL,
+		"alwaysPullWindowsPauseImage":          strconv.FormatBool(windowsProfile.IsAlwaysPullWindowsPauseImage()),
+		"windowsCalicoPackageURL":              windowsProfile.WindowsCalicoPackageURL,
+		"windowsSecureTlsEnabled":              windowsProfile.IsWindowsSecureTlsEnabled(),
+		"windowsGmsaPackageUrl":                windowsProfile.WindowsGmsaPackageUrl,
+		"windowsGpuDriverURL":                  windowsProfile.GpuDriverURL,
+		"windowsCSEScriptsPackageURL":          windowsProfile.CseScriptsPackageURL,
+		"isDisableWindowsOutboundNat":          strconv.FormatBool(config.AgentPoolProfile.IsDisableWindowsOutboundNat()),
+		"isSkipCleanupNetwork":                 strconv.FormatBool(config.AgentPoolProfile.IsSkipCleanupNetwork()),
 	}
 }
 
