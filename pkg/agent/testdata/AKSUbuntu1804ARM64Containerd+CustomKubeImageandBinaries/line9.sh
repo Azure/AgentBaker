@@ -231,6 +231,32 @@ retrycmd_get_tarball_from_registry_with_oras() {
         fi
     done
 }
+retrycmd_get_access_token_for_oras() {
+    retries=$1; wait_sleep=$2; url=$3
+    for i in $(seq 1 $retries); do
+        ACCESS_TOKEN_OUTPUT=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url")
+        if [[ -n "$ACCESS_TOKEN_OUTPUT" ]]; then
+            echo "$ACCESS_TOKEN_OUTPUT"
+            return 0
+        fi
+        sleep $wait_sleep
+    done
+    return 1
+}
+retrycmd_get_refresh_token_for_oras() {
+    retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
+    for i in $(seq 1 $retries); do
+        REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
+            https://$acr_url/oauth2/exchange)
+        if [[ -n "$REFRESH_TOKEN_OUTPUT" ]]; then
+            echo "$REFRESH_TOKEN_OUTPUT"
+            return 0
+        fi
+        sleep $wait_sleep
+    done
+    return 1
+}
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
@@ -650,7 +676,8 @@ oras_login_with_kubelet_identity() {
         return 
     fi
 
-    raw_access_token=$(curl -v -s -H "Metadata:true" --noproxy "*" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id")
+    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
+    raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
     if [ -z "$raw_access_token" ] || [[ "$raw_access_token" == *"error"* ]]; then
         echo "failed to retrieve access token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
@@ -662,9 +689,7 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
-    raw_refresh_token=$(curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
-    https://$acr_url/oauth2/exchange)
+    raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
     if [ -z "$raw_refresh_token" ] || [[ "$raw_refresh_token" == *"error"* ]]; then
         echo "failed to retrieve refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
