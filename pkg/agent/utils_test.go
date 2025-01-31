@@ -673,6 +673,33 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
+
+	It("should remove unsupported flags for Kubernetes version 1.31.0", func() {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+				"--keep-terminated-pod-volumes":  "true",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location: "southcentralus",
+				Type:     "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{
+					OrchestratorProfile: &datamodel.OrchestratorProfile{
+						OrchestratorType:    "Kubernetes",
+						OrchestratorVersion: "1.31.0",
+					},
+				},
+			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
+		}
+		expectedStr := "--event-qps=0 --image-gc-high-threshold=85 --node-status-report-frequency=5m0s --node-status-update-frequency=10s "
+		actualStr := GetOrderedKubeletConfigFlagString(config)
+		Expect(expectedStr).To(Equal(actualStr))
+	})
 })
 
 var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", func() {
