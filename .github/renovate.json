@@ -8,6 +8,7 @@
   "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
   "separateMinorPatch": true,
+  "recreateWhen": "never",
   "labels": ["renovate"],
   "logLevelRemap": [
     {
@@ -16,14 +17,6 @@
     }
   ],
   "packageRules": [
-    {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
-      "matchUpdateTypes": [
-        "minor"
-      ],
-      "automerge": false,
-      "enabled": false
-    },
     {
       "matchDatasources": ["docker"],
       "matchUpdateTypes": [
@@ -70,37 +63,57 @@
     },
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "enabled": true,
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
     {
       "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns", "containernetworking/cilium/cilium"],
-      "assignees": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"]
+      "assignees": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"],
+      "reviewers": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"]
     },
     {
       "matchPackageNames": ["aks/aks-node-ca-watcher"],
-      "assignees": ["UtheMan"]
+      "assignees": ["UtheMan"],
+      "reviewers": ["UtheMan"]
     },
     {
       "matchPackageNames": ["oss/kubernetes/coredns", "oss/v2/kubernetes/coredns"],
-      "assignees": ["SriHarsha001"]
+      "assignees": ["SriHarsha001"],
+      "reviewers": ["SriHarsha001"]
     },
     {
       "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
-      "assignees": ["mainred"]
+      "assignees": ["mainred"],
+      "reviewers": ["mainred"]
     },
     {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "extractVersion": "^v?(?<version>.+)$"
+      "matchPackageNames": ["oss/kubernetes-csi/*"],
+      "assignees": ["andyzhangx"],
+      "reviewers": ["andyzhangx"]
+    },
+    {
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "assignees": ["haitch", "wenhug", "gaopenghigh"],
+      "reviewers": ["haitch", "wenhug", "gaopenghigh"]
     },
     {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
+    {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "extractVersion": "^v?(?<version>.+)$"
+    },
     {      
       "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": false,      
+      "automerge": true,      
       "enabled": true,
       "ignoreUnstable": false
     }

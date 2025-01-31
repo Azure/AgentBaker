@@ -63,6 +63,11 @@ if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+if [ "${OS_TYPE}" == "Linux" ] && [ ${IMG_SKU} == "20_04-lts-cvm" ]; then
+    # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
+    VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+fi
+
 SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning$(date +%s)${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
 if [ -z "$SCANNING_NIC_ID" ]; then
     echo "unable to create new NIC for scanning VM"
@@ -95,6 +100,13 @@ TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 
 # Extract date, revision from build number
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
+
+# set image version locally, if it is not set in environment variable
+if [ -z "${IMAGE_VERSION:-}" ]; then
+    IMAGE_VERSION=$(date +%Y%m.%d.0)
+    echo "IMAGE_VERSION was not set, setting it to ${IMAGE_VERSION} for trivy scan and Kusto ingestion"
+fi
+
 az vm run-command invoke \
     --command-id RunShellScript \
     --name $SCAN_VM_NAME \
@@ -127,7 +139,8 @@ az vm run-command invoke \
         "BUILD_SOURCEVERSION"=${BUILD_SOURCEVERSION} \
         "SYSTEM_COLLECTIONURI"=${SYSTEM_COLLECTIONURI} \
         "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
-        "BUILDID"=${BUILD_ID}
+        "BUILDID"=${BUILD_ID} \
+        "IMAGE_VERSION"=${IMAGE_VERSION}
 
 capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
 

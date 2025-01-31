@@ -7,7 +7,7 @@
   - [Package rules](#package-rules)
     - [Disable `minor` update](#disable-minor-update)
     - [Enable `patch`, `pin` and `digest` update](#enable-patch-pin-and-digest-update)
-    - [(Optional context) Why not updating minor?](#optional-context-why-not-updating-minor)
+    - [(Optional context) To update minor or not](#optional-context-to-update-minor-or-not)
     - [Assigning specific component to specific person](#assigning-specific-component-to-specific-person)
     - [Additional string operation to specific component](#additional-string-operation-to-specific-component)
   - [Custom managers](#custom-managers)
@@ -73,8 +73,22 @@ In summary, this package rule is saying it will apply auto-update without `autom
 
 Combining these 2 package rules together is actually asking Renovate not to update `major` and `minor`, but just `patch`, `pin` and `digest`.
 
+We configured auto-merge patch version for components `moby-runc` and `moby-containerd`. Please search `"matchPackageNames": ["moby-runc", "moby-containerd"]` in `renovate.json` for an example.
+
+As of 01/23/2025, the PR merging policy is as follows.
+| Components       | Major  | Minor  | Patch  |
+| --------         | ------ | ------ | ------ |
+| Runc, Containerd | Manual | Manual | Auto   |
+| Others           | Manual | Manual | Manual |
+
+The update of `Runc` and `Containerd` is owned by Node SIG and we have sufficient confidence to auto-merge it with our tests and PR gates. Thus it's set to `auto-merge`.
+For other components, we are still relying on the owner teams to approve and merge. If there is a need to auto-merge a component, it's always configurable.
+
+---
+
 For more context to anyone who is interested, let's walk through a real example. Feel free to skip reading this if it has nothing to do with your task.
-### (Optional context) Why not updating minor?
+
+### (Optional context) To update minor or not
 Using azure-cni as an example, if we enable auto updating `minor`, we will see the following PRs created by Renovate automatically at of Sep 12, 2024.
 - PR1: containernetworking/azure-cni minor v1.5.32 -> v1.6.6
 - PR2: containernetworking/azure-cni patch v1.6.3 -> v1.6.6
@@ -82,17 +96,15 @@ Using azure-cni as an example, if we enable auto updating `minor`, we will see t
 
 PR2 and PR3 are what we need because we want to auto-update the patch version.
 By enabling the `minor` package rule, PR1 will also be created.
-This will be a noise PR to the assignee because now he/she needs to manually check if the 2 latest versions of v1.5.x are still kept in the components.json if this PR is merged. And usually it's not. Thus the assignee will cancel this PR manually every time.
-If a new minor version needs to be added, the owner should update the components.json.
+Depending on use case, for some components this could be a helpful reminder that there are updated versions but for others this could become noisy if it's intended not to update minor version but only patch version.
 
-If there is only 1 component then it should be fine as it won't have too many noisy PRs.
-But in components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
+In components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
 ![Renovate Minor Enabled](./images/Renovate_minor_enabled.png)
-On the left side, there is no minor being updated. On the right side, it added many PRs for updating the minor but most of them should be just noise.
+On the left side, there is no `minor` being updated. On the right side, it added many PRs for updating the `minor` too.
 
-That's why we ended up disabling `minor` auto-update to avoid the noisy PRs.
+We enabled auto-updating `minor` versions as default configuration for now we can revise if it ends up being too noisy. We can also turn on/off updating `minor` version for specific components.
 
-p.s. To allow disable `minor` update but enable `patch`, `pin`, `digest` update, at root level `separateMinorPatch` needs to be `true`.
+p.s. To allow disable `minor` update but enable `patch` update, at root level `separateMinorPatch` needs to be `true`, though it's no harm to turn it on even we are also updating `minor`.
 
 ### Assigning specific component to specific person
 We can use `matchPackageNames` to achieve this purpose.
@@ -101,9 +113,10 @@ For example,
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
       "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
 ```
-In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs.
+In this block, it is saying that if the package name, that a PR is updating, is one of the defined values, then assign this PR to these Github IDs. The values in `reviewers` are the same group of people to allow them to self-approve the PR. Unfortunately JSON doesn't support variable in value so we have to provide the value strings twice for both `assignees` and `reviewers`
 
 ### Additional string operation to specific component
 ```
@@ -293,7 +306,7 @@ Depending on what kind of component you are going to onboard.
       ]
     }
   ```
-  Please make sure you set the `renovateTag` correctly, where `registry` is always `https://mcr.microsoft.com` now, and the `name` doesn't have a leading slash `/`. As of Sept 2024, The container Images in `components.json` are all hosted in MCR and MCR is the only registry enabled in the current Renovate configuration file `renovate.json`. If there is demand for other container images registry, it will be necessary to double check if it will just work.
+  Please make sure you set the `renovateTag` correctly, where `registry` is always `https://mcr.microsoft.com` now, and the `name` doesn't have a leading slash `/`. As of Jan 2025, The container Images in `components.json` are all hosted in MCR and MCR is the only registry enabled in the current Renovate configuration file `renovate.json`. If there is demand for other container images registry, it will be necessary to double check if it will just work.
 
   Fore more details, you can refer to Readme-components linked at the beginning of this document.
 
@@ -324,9 +337,10 @@ There is an example for packages `moby-runc` and `moby-containred`
     {
       "matchPackageNames": ["moby-runc", "moby-containerd"],
       "assignees": ["devinwong"]
+      "reviewers": ["devinwong"]
     },
 ```
-You can follow this example to create a block and fill in the matchPackageNames with your **GitHub ID** to assign to yourself, assuming you are the owner. Note that the packageName here must be the exact name that you can find in your datasource. For example, in the datasource PMC which hosts `moby-runc` and `moby-containerd`, we are running `apt-get install moby-runc moby-containerd`. So this is the correct package name.
+You can follow this example to create a block and fill in the matchPackageNames with your **GitHub ID** to assign and set reviewer to yourself, assuming you are the owner. Note that the packageName here must be the exact name that you can find in your datasource. For example, in the datasource PMC which hosts `moby-runc` and `moby-containerd`, we are running `apt-get install moby-runc moby-containerd`. So this is the correct package name.
 
 Another example is for a container image `mcr.microsoft.com/oss/kubernetes/kube-proxy`. In this case you should fill in the matchPackageNames with packageName `oss/kubernetes/kube-proxy`. Note there is no leading slash `/`.
 
@@ -343,9 +357,9 @@ If your GitHub ID is placed in the `assignees` array, you are responsible for th
 ## What components are onboarded to Renovate for auto-update and what are not yet?
 In general, if a component has the `"renovateTag": "<DO_NOT_UPDATE>"`, it means it's not monitored by Renovate and won't be updated automatically.
 
-As of 11/12/2024,
+As of 01/23/2025,
 - All the container images are onboarded to Renovate for auto-update.
-- PMC hosted packages, namely `runc` and `containerd`, are onboarded for auto-update.
+- PMC hosted packages, namely `runc` and `containerd`, are configured as auto-merge patch version.
 - OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries`, `azure-acr-credential-provider` and `containerd-wasm-shims` are onboarded for auto-update.
 - Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, etc., are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
 

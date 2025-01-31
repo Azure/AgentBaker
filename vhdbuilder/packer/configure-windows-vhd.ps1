@@ -78,9 +78,22 @@ function Download-FileWithAzCopy {
     pushd "$global:aksTempDir"
         $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
         $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+
+        mkdir -Force $env:AZCOPY_LOG_LOCATION
+        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log" ) {
+            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        }
+
+         Write-Log "Logging in to AzCopy"
         # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
         .\azcopy.exe login --login-type=MSI
-        .\azcopy.exe copy $URL $Dest
+
+        Write-Log "Copying $URL to $Dest"
+        .\azcopy.exe copy "$URL" "$Dest"
+
+        Write-Log "--- START AzCopy Log"
+        Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
+        Write-Log "--- END AzCopy Log"
     popd
 }
 
@@ -388,12 +401,22 @@ function Install-ContainerD {
 
 function Install-OpenSSH {
     Write-Log "Installing OpenSSH Server"
+
+    # Somehow openssh client got added to Windows 2019 base image.
+    if ($env:WindowsSKU -Like '2019*')
+    {
+        Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+    }
+
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
 
     # It’s by design that files within the C:\Windows\System32\ folder are not modifiable. 
     # When the OpenSSH Server starts, it copies C:\windows\system32\openssh\sshd_config_default to C:\programdata\ssh\sshd_config, if the file does not already exist.
     $OriginalConfigPath = "C:\windows\system32\OpenSSH\sshd_config_default"
-    $ConfigPath = "C:\programdata\ssh\sshd_config"
+    $ConfigDirectory = "C:\programdata\ssh"
+    New-Item -ItemType Directory -Force -Path $ConfigDirectory
+    $ConfigPath = $ConfigDirectory + "\sshd_config"
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
         | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
@@ -427,6 +450,11 @@ function Install-WindowsPatches {
                     }
                     3010 {
                         WRite-Log "Finished install of $fileName. Reboot required"
+                    }
+                    2359302 {
+                        # https://learn.microsoft.com/en-gb/windows/win32/wua_sdk/wua-success-and-error-codes-?redirectedfrom=MSDN
+                        # this number is 0x00240006 and means already installed
+                        Write-Log "The update was already installed. Ignoring $fileName"
                     }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
@@ -874,7 +902,7 @@ function Log-ReofferUpdate {
             Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
         }
     } catch {
-        Write-Log "ReofferUpdate does not exist"
+        Write-Log "ReofferUpdate registry setting does not exist"
     }
 }
 

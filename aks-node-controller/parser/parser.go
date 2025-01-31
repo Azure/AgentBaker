@@ -29,6 +29,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
+//nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	env := map[string]string{
 		"PROVISION_OUTPUT":                               "/var/log/azure/cluster-provision.log",
@@ -143,6 +144,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"GPU_DRIVER_VERSION":                             getGpuDriverVersion(config.GetVmSize()),
 		"GPU_IMAGE_SHA":                                  getGpuImageSha(config.GetVmSize()),
 		"GPU_INSTANCE_PROFILE":                           config.GetGpuConfig().GetGpuInstanceProfile(),
+		"GPU_DRIVER_TYPE":                                getGpuDriverType(config.GetVmSize()),
 		"CUSTOM_SEARCH_DOMAIN_NAME":                      config.GetCustomSearchDomainConfig().GetDomainName(),
 		"CUSTOM_SEARCH_REALM_USER":                       config.GetCustomSearchDomainConfig().GetRealmUser(),
 		"CUSTOM_SEARCH_REALM_PASSWORD":                   config.GetCustomSearchDomainConfig().GetRealmPassword(),
@@ -156,7 +158,8 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"AZURE_ENVIRONMENT_FILEPATH":                     getAzureEnvironmentFilepath(config),
 		"KUBE_CA_CRT":                                    config.GetKubernetesCaCert(),
 		"KUBENET_TEMPLATE":                               getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                      getContainerdConfig(config),
+		"CONTAINERD_CONFIG_CONTENT":                      getContainerdConfigBase64(config),
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":               getNoGPUContainerdConfigBase64(config),
 		"IS_KATA":                                        fmt.Sprintf("%v", config.GetIsKata()),
 		"ARTIFACT_STREAMING_ENABLED":                     fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
 		"SYSCTL_CONTENT":                                 getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),

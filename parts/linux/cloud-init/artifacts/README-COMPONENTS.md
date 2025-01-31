@@ -245,3 +245,13 @@ please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md#what
 
 ## Were `mariner` and `azurelinux` intentionally removed from package `runc`?
 In components.json, `mariner` and `azurelinux` were intentionally removed from package `runc`. It is because for `mariner` and `azurelinux`, `runc` is not installed independently but is installed along with `containerd`. Ubuntu does install `runc` independently so you will find the version config there.
+
+## When should we merge `runc` and `containerd` automated update PRs created by Renovate? 
+
+
+In short, as long as the PR gates pass, we are good to merge the automated PRs for `runc` and `containerd`.
+
+For more context. For each PR, there are serveral PR gates designed to ensure the correctness of code modifications. For example, for Linux we have `Agentbaker E2E`, `AKS Linux VHD Build - PR check-in gate` and for windows we have `Agentbaker Windows E2E`, `AKS Windows VHD Build - PR check-in gate`. On the other hand, the current configurations of Renovate for these components only update patch versions. Therefore it should give us sufficient confidence to merge the automated update PRs as long as all the PR gates pass. 
+
+There is also a plan to enable other downstream components tests such as `AKS-RP` to run as PR gates for some critical changes in `AgentBaker`. Once that is available, we will have even more confidence in merging this kind of automated update PRs.
+

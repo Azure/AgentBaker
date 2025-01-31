@@ -46,7 +46,13 @@ var (
 	containerdConfigTemplateText string
 	//nolint:gochecknoglobals
 	containerdConfigTemplate = template.Must(
-		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
+		template.New("containerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
+	)
+	//go:embed  templates/containerd_no_GPU.toml.gtpl
+	containerdConfigNoGPUTemplateText string
+	//nolint:gochecknoglobals
+	containerdConfigNoGPUTemplate = template.Must(
+		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
 )
 
@@ -139,12 +145,13 @@ func getKubenetTemplate() string {
 	return base64.StdEncoding.EncodeToString(kubenetTemplateContent)
 }
 
-func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -152,13 +159,33 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+// getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig == nil {
+		return ""
+	}
+
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true)
+	if err != nil {
+		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
+}
+
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
+	// the containerd config template is different based on whether the node is with GPU or not.
+	_template := containerdConfigTemplate
+	if noGPU {
+		_template = containerdConfigNoGPUTemplate
+	}
+
 	var buffer bytes.Buffer
-	if err := containerdConfigTemplate.Execute(&buffer, aksnodeconfig); err != nil {
+	if err := _template.Execute(&buffer, aksnodeconfig); err != nil {
 		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
@@ -411,7 +438,7 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(header + createSortedKeyValuePairs(m, " ")))
+	return header + createSortedKeyValuePairs(m, " ")
 }
 
 // getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".
@@ -493,6 +520,10 @@ func getMaxLBRuleCount(lb *aksnodeconfigv1.LoadBalancerConfig) int32 {
 
 func getGpuImageSha(vmSize string) string {
 	return agent.GetAKSGPUImageSHA(vmSize)
+}
+
+func getGpuDriverType(vmSize string) string {
+	return agent.GetGPUDriverType(vmSize)
 }
 
 func getGpuDriverVersion(vmSize string) string {

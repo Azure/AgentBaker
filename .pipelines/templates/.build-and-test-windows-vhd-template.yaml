@@ -33,11 +33,13 @@ parameters:
 
 stages:
   - stage: build_${{ parameters.stageName }}
+    # Put the artifact name first so it doesn't get truncated as much in ADO
+    displayName: Build (${{ parameters.artifactName }})
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
         dependsOn: []
-        condition: eq('${{ parameters.build }}', True)
         timeoutInMinutes: 180
         steps:
           - bash: |
@@ -56,8 +58,13 @@ stages:
               artifactName: ${{ parameters.artifactName }}
 
   - stage: e2e_${{ parameters.stageName }}
+    displayName: E2E (${{ parameters.artifactName }})
     dependsOn: build_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
     jobs:
       - template: ./e2e-template.yaml
+        parameters:
+          name: For image ${{ parameters.imageName }}
+
