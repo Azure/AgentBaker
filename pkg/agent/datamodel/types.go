@@ -171,6 +171,7 @@ const (
 	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
@@ -255,6 +256,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
+	AKSAzureLinuxV3Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
@@ -620,6 +622,23 @@ type KubernetesAddon struct {
 	Data       string                    `json:"data,omitempty"`
 }
 
+// EbpfDataplane controls the eBPF networking dataplane.
+type EbpfDataplane int32
+
+//nolint:stylecheck // underscores in constant names are used for clarity in this context
+const (
+	// none means don't install an eBPF dataplane.
+	EbpfDataplane_none EbpfDataplane = 0
+	// cilium means use Cilium as the eBPF dataplane.
+	EbpfDataplane_cilium EbpfDataplane = 1
+	// unspecified means the cx didn't provide a value.
+	// This is used only during validation / defaulting, never written to the database.
+	EbpfDataplane_unspecified EbpfDataplane = 3
+	// invalid means the cx provided a value that isn't an enum in the API version.
+	// This will always be rejected by validation (and therefore never written to the database).
+	EbpfDataplane_invalid EbpfDataplane = 4
+)
+
 // KubernetesConfig contains the Kubernetes config structure, containing Kubernetes specific configuration.
 type KubernetesConfig struct {
 	KubernetesImageBase               string            `json:"kubernetesImageBase,omitempty"`
@@ -676,6 +695,7 @@ type KubernetesConfig struct {
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
+	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
 }
 
 /*

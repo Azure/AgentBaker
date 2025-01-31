@@ -8,7 +8,7 @@ parameters:
 - name: PRTargetBranch
   displayName: PR Target Branch
   type: string
-  default: dev
+  default: master
 - name: ImageBump
   displayName: Image Bump + Create Official Branch
   type: boolean

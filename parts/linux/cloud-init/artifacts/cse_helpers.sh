@@ -122,6 +122,9 @@ ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registr
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
+# Error either getting the install mode or cleaning up container images
+ERR_CLEANUP_CONTAINER_IMAGES=214
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -483,7 +486,18 @@ should_disable_kubelet_serving_certificate_rotation() {
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "$should_disable"
+    echo "${should_disable,,}"
+}
+
+should_skip_binary_cleanup() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
+    echo "${should_skip,,}"
 }
 
 isMarinerOrAzureLinux() {
@@ -654,6 +668,18 @@ removeKubeletNodeLabel() {
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
     elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+# removes the specified FLAG_STRING (which should be in the form of 'key=value') from KUBELET_FLAGS
+removeKubeletFlag() {
+    local FLAG_STRING=$1
+    if grep -e ",${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/,${FLAG_STRING}/}"
+    elif grep -e "${FLAG_STRING}," <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING},/}"
+    elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
 }
 
