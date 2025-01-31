@@ -253,7 +253,7 @@ EOF
             local tenant_id=""
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be success
-            The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonynous pull"
+            The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
         It 'should fail if access token is an error'
             local acr_url="unneeded.azurecr.io"

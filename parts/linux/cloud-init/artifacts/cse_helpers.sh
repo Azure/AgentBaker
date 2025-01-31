@@ -714,7 +714,7 @@ oras_login_with_kubelet_identity() {
     local tenant_id=$3
 
     if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
-        echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonynous pull"
+        echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         return 
     fi
 

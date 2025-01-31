@@ -674,7 +674,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 	})
 }
 
-// TODO: refactor NonAnonynous tests to use the same cluster as Anonymous airgap
+// TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
 // or deprecate anonymous ACR airgap tests once it is unsupported
 func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 	ctx := newTestCtx(t)
