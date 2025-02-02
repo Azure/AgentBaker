@@ -1,7 +1,7 @@
 powershell.exe -ExecutionPolicy Unrestricted -command \"
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
-if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |C:\AzureData\CustomData.bin  does not exist.|' };
+if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |$inputFile does not exist.|' };
 Copy-Item $inputFile $outputFile -Force;
 PowerShell
 -File $outputFile
