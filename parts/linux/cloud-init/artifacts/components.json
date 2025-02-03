@@ -760,7 +760,7 @@
     {
       "name": "windows scripts",
       "downloadLocation": "c:\\akse-cache\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -778,7 +778,7 @@
     {
       "name": "windows-gmsa-ccgakvplugin",
       "downloadLocation": "c:\\akse-cache\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -795,7 +795,7 @@
     {
       "name": "windows csi proxy",
       "downloadLocation": "c:\\akse-cache\\csi-proxy\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -812,7 +812,7 @@
     {
       "name": "windows credential provider",
       "downloadLocation": "c:\\akse-cache\\credential-provider\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -830,7 +830,7 @@
     {
       "name": "windows calico",
       "downloadLocation": "c:\\akse-cache\\calico\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -847,7 +847,7 @@
     {
       "name": "azure-vnet-cni-windows",
       "downloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -865,7 +865,7 @@
     {
       "name": "azure-vnet-cni-swift-windows",
       "downloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -883,7 +883,7 @@
     {
       "name": "azure-vnet-cni-overlay-windows",
       "downloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
-      "downloadUris": {
+      "downloadURIs": {
         "windows": {
           "current": {
             "versionsV2": [
@@ -1136,7 +1136,7 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
-            "windowsDownloadUrl": "https://acs-mirror.azureedge.net/kubernetes/[version]/windowszip/[version]-1int.zip"
+            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/[version]/windowszip/[version]-1int.zip"
           }
         }
       }

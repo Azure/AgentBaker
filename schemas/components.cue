@@ -11,7 +11,6 @@ package components
 
 #ContainerImage: {
 	downloadURL: string
-	windowsDownloadUrl: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
 	windowsVersions?:   [...#WindowsVersion]
@@ -44,6 +43,7 @@ package components
 #ReleaseDownloadURI: {
 	versionsV2:   [...#VersionV2]
 	downloadURL?:  string
+	windowsDownloadURL?: string
 }
 
 #UbuntuOSDistro: {
@@ -83,7 +83,7 @@ package components
 #Package: {
 	name:              string
 	downloadLocation:  string
-	windowsDownloadLocation:  string
+	windowsDownloadLocation?:  string
 	downloadURIs:      #DownloadURIs
 }
 
