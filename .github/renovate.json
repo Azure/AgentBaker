@@ -92,6 +92,16 @@
       "reviewers": ["mainred"]
     },
     {
+      "matchPackageNames": ["oss/kubernetes-csi/*"],
+      "assignees": ["andyzhangx"],
+      "reviewers": ["andyzhangx"]
+    },
+    {
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "assignees": ["haitch", "wenhug", "gaopenghigh"],
+      "reviewers": ["haitch", "wenhug", "gaopenghigh"]
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
