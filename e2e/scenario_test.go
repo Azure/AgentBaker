@@ -30,6 +30,21 @@ func Test_AzureLinuxV2(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -62,6 +77,23 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeBinaryConfig.CustomKubeBinaryUrl = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				config.VmSize = "Standard_D2pds_V5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
@@ -942,6 +974,36 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				// this vmss tag is needed since there is a logic in cse_main.sh otherwise the test will fail
+				vmss.Tags = map[string]*string{
+					// deliberately case mismatched to agentbaker logic to check case insensitivity
+					"SkipGPUDriverInstall": to.Ptr("true"),
+				}
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNvidiaSMINotInstalled(ctx, s)
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD that was built with private kube packages can be properly bootstrapped with the specified kube version",
@@ -968,6 +1030,22 @@ func Test_Ubuntu2204_ContainerdURL(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ContainerdURL_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.ContainerdConfig.ContainerdPackageUrl = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")

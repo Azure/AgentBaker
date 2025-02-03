@@ -71,6 +71,11 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	exit 1
 fi
 
+if [ "${IMG_SKU,,}" == "20_04-lts-cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
+	PACKER_BUILD_LOCATION="${CVM_PACKER_BUILD_LOCATION}"
+	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
+fi
+
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
@@ -167,6 +172,8 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
+		elif [[ "${IMG_SKU,,}" == "20_04-lts-cvm" ]]; then
+      SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -259,7 +266,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
         TARGET_COMMAND_STRING+="--architecture Arm64"
       elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
+        TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
       fi
 
       az sig image-definition create \

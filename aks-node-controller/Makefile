@@ -13,4 +13,4 @@ proto-generate:
 .PHONY: proto-lint
 proto-lint:
 	@($(BUF) lint)
-	@($(BUF) breaking --against '../.git#branch=dev,subdir=aks-node-controller') # TODO: change to master
+	@($(BUF) breaking --against '../.git#branch=master,subdir=aks-node-controller')

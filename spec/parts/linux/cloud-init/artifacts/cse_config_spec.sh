@@ -201,4 +201,27 @@ Describe 'cse_config.sh'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0,kubernetes.azure.com/kubelet-serving-ca=cluster'
         End
     End
+
+    Describe 'configureContainerdRegistryHost'
+        It 'should configure registry host correctly'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should not include "tee"
+        End
+    End
 End

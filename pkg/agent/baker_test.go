@@ -1052,6 +1052,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		},
 			func(o *nodeBootstrappingOutput) {
+				Expect(o).ShouldNot(BeNil())
+				Expect(o.files["/opt/azure/containers/provision.sh"]).ShouldNot(BeNil())
 				Expect(o.files["/opt/azure/containers/provision.sh"].encoding).To(Equal(cseVariableEncodingGzip))
 				cseMain := o.files["/opt/azure/containers/provision.sh"].value
 				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
@@ -1605,11 +1607,7 @@ oom_score = 0
 						ContainerRegistryServer: "testserver.azurecr.io",
 					},
 				}
-			}, func(o *nodeBootstrappingOutput) {
-				containerdConfigFileContent := o.files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"].value
-				Expect(strings.Contains(containerdConfigFileContent, "[host.\"https://testserver.azurecr.io\"]")).To(BeTrue())
-				Expect(strings.Contains(containerdConfigFileContent, "capabilities = [\"pull\", \"resolve\"]")).To(BeTrue())
-			}),
+			}, nil),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true

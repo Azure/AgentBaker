@@ -78,9 +78,22 @@ function Download-FileWithAzCopy {
     pushd "$global:aksTempDir"
         $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
         $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+
+        mkdir -Force $env:AZCOPY_LOG_LOCATION
+        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log" ) {
+            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+        }
+
+         Write-Log "Logging in to AzCopy"
         # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
         .\azcopy.exe login --login-type=MSI
-        .\azcopy.exe copy $URL $Dest
+
+        Write-Log "Copying $URL to $Dest"
+        .\azcopy.exe copy "$URL" "$Dest"
+
+        Write-Log "--- START AzCopy Log"
+        Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
+        Write-Log "--- END AzCopy Log"
     popd
 }
 
@@ -441,6 +454,11 @@ function Install-WindowsPatches {
                     }
                     3010 {
                         WRite-Log "Finished install of $fileName. Reboot required"
+                    }
+                    2359302 {
+                        # https://learn.microsoft.com/en-gb/windows/win32/wua_sdk/wua-success-and-error-codes-?redirectedfrom=MSDN
+                        # this number is 0x00240006 and means already installed
+                        Write-Log "The update was already installed. Ignoring $fileName"
                     }
                     default {
                         Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"

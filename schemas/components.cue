@@ -13,7 +13,7 @@ package components
 	downloadURL: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
-	windowsVersions:   [...#WindowsVersion]
+	windowsVersions?:   [...#WindowsVersion]
 }
 
 #GPUContainerImage: {
