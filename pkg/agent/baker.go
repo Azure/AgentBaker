@@ -16,6 +16,8 @@ import (
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
+	butane "github.com/coreos/butane/config"
+	butanecommon "github.com/coreos/butane/config/common"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -85,9 +87,20 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 	if e != nil {
 		panic(e)
 	}
-	// TODO: compile butane yaml to -> ignition json
+	ignc, report, e := butane.TranslateBytes([]byte(str), butanecommon.TranslateBytesOptions{})
+	if e != nil {
+		panic(fmt.Errorf("butane -> ignition: error: %w", e))
+	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	if report.IsFatal() {
+		panic(fmt.Errorf("butane -> ignition: report: %s", report.String()))
+	}
+
+	if len(report.Entries) > 0 {
+		panic(fmt.Errorf("butane -> ignition: warning: %s", report.String()))
+	}
+
+	return fmt.Sprintf("{\"customData\": \"%s\"}", string(ignc))
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
