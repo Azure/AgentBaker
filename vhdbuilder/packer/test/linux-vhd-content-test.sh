@@ -1,4 +1,6 @@
 #!/bin/bash
+set -ex
+
 COMPONENTS_FILEPATH=/opt/azure/components.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -135,6 +137,9 @@ testPackagesInstalled() {
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
+    if [[ ""$(downloadLocation)"" == "" ]]; then
+      continue
+    fi
     if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
       OS=$MARINER_OS_NAME
     elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
@@ -146,14 +151,14 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ ${name} == "kubernetes-binaries" ]; then
+    if [ "${name}" == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
       continue
     fi
-    if [ ${name} == "azure-acr-credential-provider" ]; then
+    if [ "${name}" == "azure-acr-credential-provider" ]; then
       # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled $PACKAGE_DOWNLOAD_URL "${PACKAGE_VERSIONS[@]}" 
+      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
@@ -178,7 +183,7 @@ testPackagesInstalled() {
 
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
       # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
-      if [ -d $extractedPackageDir ]; then
+      if [ -d "$extractedPackageDir" ]; then
         echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
       fi
@@ -204,7 +209,8 @@ testPackagesInstalled() {
       
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
-      validateDownloadPackage $downloadURL $downloadedPackage
+      # shellcheck disable=SC2086
+      validateDownloadPackage "$downloadURL" $downloadedPackage
       if [[ $? -ne 0 ]]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
@@ -214,7 +220,7 @@ testPackagesInstalled() {
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
         mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
         echo "Validating: $mcURL"
-        isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+        isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
         if [[ "$isExist" == "404" ]]; then
           err "$mcURL is invalid"
           continue
