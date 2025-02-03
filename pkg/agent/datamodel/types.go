@@ -154,6 +154,9 @@ const (
 	AKSUbuntuContainerd1804Gen2         Distro = "aks-ubuntu-containerd-18.04-gen2"
 	AKSUbuntuGPUContainerd1804          Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
+	AKSFlatcarGen2                      Distro = "aks-flatcar-gen2"
+	AKSFlatcarArm64Gen2                 Distro = "aks-flatcar-arm64-gen"
+	AKSFlatcarGen2TL                    Distro = "aks-flatcar-gen2-tl"
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
@@ -341,6 +344,10 @@ func (d Distro) IsAzureLinuxCgroupV2VHDDistro() bool {
 
 func (d Distro) IsKataDistro() bool {
 	return d == AKSCBLMarinerV2Gen2Kata || d == AKSAzureLinuxV2Gen2Kata || d == AKSCBLMarinerV2KataGen2TL || d == CustomizedImageKata
+}
+
+func (d Distro) IsFlatcar() bool {
+	return d == AKSFlatcarGen2 || d == AKSFlatcarArm64Gen2 || d == AKSFlatcarGen2TL
 }
 
 /*
@@ -1201,6 +1208,9 @@ func (a *AgentPoolProfile) IsCustomVNET() bool {
 // IsWindows returns true if the agent pool is windows.
 func (a *AgentPoolProfile) IsWindows() bool {
 	return strings.EqualFold(string(a.OSType), string(Windows))
+}
+func (a *AgentPoolProfile) IsFlatcar() bool {
+	return a.Distro.IsFlatcar()
 }
 
 // IsSkipCleanupNetwork returns true if AKS-RP sets the field NotRebootWindowsNode to true.

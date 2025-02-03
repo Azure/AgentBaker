@@ -47,8 +47,15 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
 	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
 	// lots of tests fail.
-	customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
-	return getBase64EncodedGzippedCustomScriptFromStr(customData)
+	var encoded string
+	if config.AgentPoolProfile.IsFlatcar() {
+		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
+		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
+	} else {
+		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
+	}
+	return encoded
 }
 
 // GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
@@ -63,6 +70,22 @@ func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.N
 	if e != nil {
 		panic(e)
 	}
+
+	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+}
+
+// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
+// { "customData": "<customData string>" }.
+func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
+	// get parameters
+	parameters := getParameters(config)
+	// get variable cloudInit
+	variables := getCustomDataVariables(config)
+	str, e := t.getSingleLineForTemplate(kubernetesFlatcarNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
+	if e != nil {
+		panic(e)
+	}
+	// TODO: compile butane yaml to -> ignition json
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
 }
@@ -1118,6 +1141,9 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner || osSku == datamodel.OSSKUAzureLinux
+}
+func isFlatcar(osSku string) bool {
+	return osSku == datamodel.OSSKUFlatcar
 }
 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
