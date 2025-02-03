@@ -191,7 +191,7 @@ zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|
 collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
 
 # Collect system information
-collectToZip collect/blkid.txt blkid
+collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
 collectToZip collect/du_bytes.txt df -al
 collectToZip collect/du_inodes.txt df -ail
 collectToZip collect/diskinfo.txt lsblk
