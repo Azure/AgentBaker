@@ -80,6 +80,7 @@ Write-Output "Helpers Ps1: $HelpersFile"
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
+$global:map = GetPackagesFromComponentsJson $componentsJson
 
 $global:map = @{
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
@@ -92,34 +93,5 @@ $global:map = @{
         "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
         "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
     );
-    # When to remove depracted Kubernetes Windows packages:
-    # There are 30 days grace period before a depracted Kubernetes version is out of supported
-    # xref: https://docs.microsoft.com/en-us/azure/aks/supported-kubernetes-versions
-    #
-    # NOTE: Please cleanup old k8s versions when adding new k8s versions to save the VHD build time
-    #
-    # Principle to add/delete cached k8s versions
-    # 1. For unsupported minor versions: Keep two patch versions for the latest unsupported minor version
-    # 2. For supported minor versions: Keep 4 patch versions
-    # 3. For new hotfix versions: Keep one old version in case that we need to release VHD as a hotfix but without changing k8s version in AKS RP
-    #
-    # For example, AKS RP supports 1.18, 1.19, 1.20.
-    #    1. Keep 1.17.13 and 1.17.16 until 1.18 is not supported
-    #    2. Keep 1.18.10, 1.18.14, 1.18.17, 1.18.18
-    #    3. Keep v1.18.17-hotfix.20210322 when adding v1.18.17-hotfix.20210505
-    "c:\akse-cache\win-k8s\"      = @(
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.27.102-akslts/windowszip/v1.27.102-akslts-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.28.100-akslts/windowszip/v1.28.100-akslts-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.12/windowszip/v1.29.12-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.29.13/windowszip/v1.29.13-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.8/windowszip/v1.30.8-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.30.9/windowszip/v1.30.9-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.4/windowszip/v1.31.4-1int.zip",
-        "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip"
-    );
+
 }
