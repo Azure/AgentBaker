@@ -24,7 +24,8 @@ import (
 )
 
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	nbc := baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+	var nbc *datamodel.NodeBootstrappingConfiguration
+
 	if vhd.Distro.IsWindowsDistro() {
 		nbc = baseTemplateWindows(t, config.Config.Location)
 		cert := cluster.Kube.clientCertificate()
@@ -35,7 +36,10 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 		nbc.TenantID = *cluster.Model.Identity.TenantID
+	} else {
+		nbc = baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
+
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
@@ -464,6 +468,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 		ResourceGroupName: "resourcegroup",
 
 		ContainerService: &datamodel.ContainerService{
+			Location: location,
 			Properties: &datamodel.Properties{
 				HostedMasterProfile: &datamodel.HostedMasterProfile{},
 				CertificateProfile:  &datamodel.CertificateProfile{},
