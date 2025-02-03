@@ -19,41 +19,13 @@
 #>
 [CmdletBinding(DefaultParameterSetName="Standard")]
 param(
-    [string]
-    [ValidateNotNullOrEmpty()]
-    $MasterIP,
-
-    [parameter()]
-    [ValidateNotNullOrEmpty()]
-    $KubeDnsServiceIp,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $MasterFQDNPrefix,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $Location,
-
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
     $AgentKey,
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AADClientId,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
     $AADClientSecret, # base64
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $NetworkAPIVersion,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $TargetEnvironment,
 
     # C:\AzureData\provision.complete
     # MUST keep generating this file when CSE is done and do not change the name
@@ -61,11 +33,24 @@ param(
     #  - Some customers use this file to check if CSE is done
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $CSEResultFilePath,
-
-    [string]
-    $UserAssignedClientID
+    $CSEResultFilePath
 )
+
+# In an ideal world, all these values would be passed to this script in parameters. However, we don't live in an ideal world.
+# https://learn.microsoft.com/en-gb/troubleshoot/windows-client/shell-experience/command-line-string-limitation
+
+$MasterIP = "{{ GetKubernetesEndpoint }}"
+$KubeDnsServiceIp="{{ GetParameter "kubeDNSServiceIP" }}"
+$MasterFQDNPrefix="{{ GetParameter "masterEndpointDNSNamePrefix" }}"
+$Location="{{ GetVariable "location" }}"
+{{if UserAssignedIDEnabled}}
+$UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
+{{ end }}
+$TargetEnvironment="{{ GetTargetEnvironment }}"
+$AgentKey="{{ GetParameter "clientPrivateKey" }}"
+$AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
+$NetworkAPIVersion="2018-08-01"
+
 # Do not parse the start time from $LogFile to simplify the logic
 $StartTime=Get-Date
 $global:ExitCode=0
