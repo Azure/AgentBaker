@@ -1456,10 +1456,10 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-  [plugins."io.containerd.grpc.v1.cri".cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
+  [plugins.'io.containerd.cri.v1.runtime'.cni]
+    bin_dir = '/opt/cni/bin'
+    conf_dir = '/etc/cni/net.d'
+		conf_template = "/etc/containerd/kubenet_template.conf"
   {{- end}}
   {{- if IsKubernetesVersionGe "1.22.0"}}
   [plugins."io.containerd.grpc.v1.cri".registry]
@@ -1563,10 +1563,10 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-  [plugins."io.containerd.grpc.v1.cri".cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
+  [plugins.'io.containerd.cri.v1.runtime'.cni]
+    bin_dir = '/opt/cni/bin'
+    conf_dir = '/etc/cni/net.d'
+		conf_template = "/etc/containerd/kubenet_template.conf"
   {{- end}}
   {{- if IsKubernetesVersionGe "1.22.0"}}
   [plugins."io.containerd.grpc.v1.cri".registry]
