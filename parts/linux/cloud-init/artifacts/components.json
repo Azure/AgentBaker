@@ -44,7 +44,6 @@
         }
       ]
     },
-    ,
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
@@ -540,7 +539,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.3-windows"
+          "latestVersion": "v1.31.2"
         }
       ]
     },
