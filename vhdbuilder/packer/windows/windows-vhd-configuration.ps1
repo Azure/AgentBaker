@@ -82,12 +82,6 @@ $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Jso
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 
 $global:map = @{
-    "c:\akse-cache\"              = @(
-        "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.46.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip",
-        "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
-    );
     # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
     # during building the Windows VHD to cache container images.
     # We use the latest containerd package to start containerd then cache images, and the latest one is expected to be

@@ -808,7 +808,8 @@
           }
         }
       }
-    }, {
+    },
+    {
       "name": "windows credential provider",
       "downloadLocation": "c:\\akse-cache\\credential-provider\\",
       "downloadUris": {
@@ -822,6 +823,23 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cloud-provider-azure/v[version]/binaries/azure-acr-credential-provider-windows-amd64-v[version].tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows calico",
+      "downloadLocation": "c:\\akse-cache\\calico\\",
+      "downloadUris": {
+        "windows": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "3.24.0"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/calico-node/v[version]/binaries/calico-windows-v[version].zip"
           }
         }
       }
