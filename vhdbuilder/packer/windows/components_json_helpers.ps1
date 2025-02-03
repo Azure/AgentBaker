@@ -11,13 +11,17 @@ function GetComponentsFromComponentsJson
     {
         foreach ($windowsVersion in $containerImage.windowsVersions)
         {
-            $url = $containerImage.downloadUrl.replace("*", $windowsVersion.latestVersion)
-            $output += $url
-
-            if ( -not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion) )
+            $skuMatch = $windowsVersion.windowsSkuMatch
+            if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch )
             {
-                $url = $containerImage.downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
+                $url = $containerImage.downloadUrl.replace("*", $windowsVersion.latestVersion)
                 $output += $url
+
+                if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+                {
+                    $url = $containerImage.downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
+                    $output += $url
+                }
             }
         }
     }

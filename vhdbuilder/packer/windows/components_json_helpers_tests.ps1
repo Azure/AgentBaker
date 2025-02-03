@@ -108,6 +108,45 @@ Describe 'Gets The Versions' {
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
     }
 
+    It 'given there is a sku match that matches the current sku, it returns the version' {
+        $componentsJson.ContainerImages = @(
+            [PSCustomObject]@{
+                downloadUrl = "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*"
+                windowsVersions = @(
+                    [PSCustomObject]@{
+                        latestVersion = "1.8.22"
+                        windowsSkuMatch = "2022-containerd*"
+                    }
+                )
+            }
+        )
+
+        $windowsSKU = "2022-containerd-gen2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:1.8.22"
+    }
+
+    It 'given there is a sku match that does not matches the current sku, it returns the version' {
+        $componentsJson.ContainerImages = @(
+            [PSCustomObject]@{
+                downloadUrl = "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*"
+                windowsVersions = @(
+                    [PSCustomObject]@{
+                        latestVersion = "1.8.22"
+                        windowsSkuMatch = "2022-containerd*"
+                    }
+                )
+            }
+        )
+
+        $windowsSKU = "2019-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Be @()
+    }
+
     it 'can parse components.json' {
         $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
 
@@ -117,5 +156,75 @@ Describe 'Gets The Versions' {
 
         # Pause image shouldn't change too often, so let's check that is in there.
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
+    }
+
+    It 'has specific WS2019 containers' {
+        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+
+        $windowsSKU = "2019-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2019"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:1809"
+    }
+
+    It 'has specific WS2022 containers' {
+        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+
+        $windowsSKU = "2022-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
+    }
+
+    It 'has specific WS2022-gen2 containers' {
+        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+
+        $windowsSKU = "2022-containerd-gen2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
+    }
+
+
+    It 'has specific WS23H2-gen2 containers' {
+        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+
+        $windowsSKU = "23H2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
+    }
+
+    It 'has specific WS23H2-gen2 containers' {
+        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+
+        $windowsSKU = "23H2-gen2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
     }
 }

@@ -50,34 +50,15 @@ switch -Regex ($windowsSku) {
         $global:patchUrls = @()
         $global:patchIDs = @()
 
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2019",
-            "mcr.microsoft.com/windows/nanoserver:1809"
-        )
     }
     "2022-containerd*" {
         $global:patchUrls = @()
         $global:patchIDs = @()
 
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2022",
-            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
-
-            # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
-        )
     }
     "23H2*" {
         $global:patchUrls = @()
         $global:patchIDs = @()
-
-        $global:imagesToPull = @(
-            "mcr.microsoft.com/windows/servercore:ltsc2022",
-            "mcr.microsoft.com/windows/nanoserver:ltsc2022",
-
-            # NPM (Network Policy Manager) Owner: jaer-tsun (Jaeryn)
-            "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
-        )
     }
 }
 
@@ -100,8 +81,7 @@ Write-Output "Helpers Ps1: $HelpersFile"
 . "$HelpersFile"
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
-$components = GetComponentsFromComponentsJson $componentsJson
-$global:imagesToPull += $components
+$global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 
 $global:map = @{
     "c:\akse-cache\"              = @(

@@ -26,6 +26,7 @@ package components
 	renovateTag?:            string
 	latestVersion:           string
 	previousLatestVersion?:  string
+	windowsSkuMatch?:        string
 }
 
 #Images: [...#ContainerImage]

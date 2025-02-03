@@ -1,6 +1,68 @@
 {
   "ContainerImages": [
     {
+      "downloadURL": "mcr.microsoft.com/windows/servercore:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2019",
+          "windowsSkuMatch": "2019-containerd"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/windows/nanoserver:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1809",
+          "windowsSkuMatch": "2019-containerd"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    },
+    ,
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.5",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.5",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
