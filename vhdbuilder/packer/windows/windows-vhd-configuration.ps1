@@ -1,6 +1,7 @@
 $global:windowsSKU = $env:WindowsSKU
 $validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
-if (-not ($validSKU -contains $windowsSKU)) {
+if (-not ($validSKU -contains $windowsSKU))
+{
     throw "Unsupported windows image SKU: $windowsSKU"
 }
 
@@ -27,7 +28,8 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
 # defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
 # Add cache for another containerd version which is not installed by default
 $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
-if ($windowsSKU -Like "23H2*") {
+if ($windowsSKU -Like "23H2*")
+{
     $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
 }
 
@@ -45,7 +47,8 @@ $global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch
 # defenderUpdateInfoUrl refers to the info of latest windows defender platform update
 $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
 
-switch -Regex ($windowsSku) {
+switch -Regex ($windowsSku)
+{
     "2019-containerd" {
         $global:patchUrls = @()
         $global:patchIDs = @()
@@ -65,11 +68,13 @@ $HelpersFile = "c:/build/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/build/components.json"
 
 # fallback in case we're running in a test pipeline or locally
-if (!(Test-Path $HelpersFile)) {
+if (!(Test-Path $HelpersFile))
+{
     $HelpersFile = "vhdbuilder/packer/windows/components_json_helpers.ps1"
 }
 
-if (!(Test-Path $ComponentsJsonFile)) {
+if (!(Test-Path $ComponentsJsonFile))
+{
     $ComponentsJsonFile = "parts/linux/cloud-init/artifacts/components.json"
 }
 
@@ -82,16 +87,14 @@ $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Jso
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 
-$global:map = @{
-    # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
-    # during building the Windows VHD to cache container images.
-    # We use the latest containerd package to start containerd then cache images, and the latest one is expected to be
-    # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
-    # versions synced.
-    "c:\akse-cache\containerd\"   = @(
-        $defaultContainerdPackageUrl,
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
-        "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-    );
+# Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
+# during building the Windows VHD to cache container images.
+# We use the latest containerd package to start containerd then cache images, and the latest one is expected to be
+# specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
+# versions synced.
+$global:map["c:\akse-cache\containerd\"] = @(
+    $defaultContainerdPackageUrl,
+    "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
+    "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+);
 
-}
