@@ -305,6 +305,16 @@ Describe 'Tests of components.json' {
         $packages["c:\akse-cache\calico\"] | Should -Contain "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
     }
 
+    it 'has vnet-cni' {
+        $packages = GetPackagesFromComponentsJson $componentsJson
+        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain  "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip"
+        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip"
+        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip"
+        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.59.zip"
+        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
+        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.59.zip"
+    }
+
     It 'has specific WS2019 containers' {
         $windowsSKU = "2019-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
