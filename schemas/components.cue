@@ -66,12 +66,17 @@ package components
 	current?: #ReleaseDownloadURI
 }
 
+#WindowsOsDistro: {
+	current?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
 	default?:      #DefaultOSDistro
 	ubuntu?:       #UbuntuOSDistro
 	mariner?:      #MarinerOSDistro
 	marinerkata?:  #MarinerOSDistro
 	azurelinux?:   #AzureLinuxOSDistro
+	windows?:      #WindowsOsDistro
 }
 
 #Package: {

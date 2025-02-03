@@ -28,3 +28,43 @@ function GetComponentsFromComponentsJson
 
     return $output
 }
+
+function GetPackagesFromComponentsJson
+{
+
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+    $output = @{}
+
+    foreach ($package in $componentsJsonContent.Packages)
+    {
+
+        $thisList = $output[$package.downloadLocation]
+        if ($thisList -eq $null) {
+            $thisList = New-Object System.Collections.ArrayList
+        }
+        $downloadUrl = $package.downloadUris.windows.current.downloadUrl
+
+        foreach ($windowsVersion in $package.downloadUris.windows.current.versionsV2)
+        {
+
+            $url = $downloadUrl.replace("[version]", $windowsVersion.latestVersion)
+            $thisList += $url
+
+            if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
+            {
+                $url = $downloadUrl.replace("[version]", $windowsVersion.previousLatestVersion)
+                $thisList += $url
+            }
+        }
+
+        if ($thisList.Length -gt 0)
+        {
+            $output[$package.downloadLocation] = $thisList
+        }
+    }
+
+    return $output
+}

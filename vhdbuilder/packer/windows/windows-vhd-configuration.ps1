@@ -49,12 +49,10 @@ switch -Regex ($windowsSku) {
     "2019-containerd" {
         $global:patchUrls = @()
         $global:patchIDs = @()
-
     }
     "2022-containerd*" {
         $global:patchUrls = @()
         $global:patchIDs = @()
-
     }
     "23H2*" {
         $global:patchUrls = @()
