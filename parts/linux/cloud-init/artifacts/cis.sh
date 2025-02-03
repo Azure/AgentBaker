@@ -185,7 +185,7 @@ function maskNfsServer() {
     # Note that on ubuntu systems, it isn't installed but on mariner/azurelinux we need it
     # due to a dependency, but disable it by default.
     if systemctl list-unit-files nfs-server.service >/dev/null; then
-        systemctl --now mask nfs-server || $ERR_SYSTEMCTL_MASK_FAIL
+        systemctl --now mask nfs-server || exit $ERR_SYSTEMCTL_MASK_FAIL
     fi
 }
 
