@@ -284,12 +284,21 @@ Describe 'Tests of components.json' {
 
         $packages.Length | Should -BeGreaterThan 0
 
-        #        $packages | ConvertTo-Json | Should -Be "nothing"
-
-        # Pause image shouldn't change too often, so let's check that is in there.
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
+    }
+
+    it 'has csi proxy' {
+        $packages = GetPackagesFromComponentsJson $componentsJson
+        $packages["c:\akse-cache\csi-proxy\"] | Should -Contain "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
+    }
+
+    it 'has credential provider' {
+        $packages = GetPackagesFromComponentsJson $componentsJson
+        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-windows-amd64-v1.30.0.tar.gz"
+
     }
 
     It 'has specific WS2019 containers' {
