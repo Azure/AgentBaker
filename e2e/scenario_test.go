@@ -253,6 +253,32 @@ func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_WASM(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new AzureLinuxV2 (CgroupV2) node using krustlet can be properly bootstrapped",
@@ -1442,6 +1468,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
 			},
 		},
 	})

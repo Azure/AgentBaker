@@ -367,13 +367,19 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	require.Truef(s.T, strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0])
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
-	// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
-	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath")
 	// assert that containerd.server service file does not contain LimitNOFILE
 	// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
 	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE")
+}
+
+func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 	// nri plugin is enabled by default
 	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
+	// cri plugin has deprecated properties
+	// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
+	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath")
+	// level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key=sandbox_image plugin=io.containerd.grpc.v1.cri
+	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "sandbox_image")
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {

@@ -1645,6 +1645,28 @@ oom_score = 0
 				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
 				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
 			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated features", "AKSUbuntu2404", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedContainerdV2CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  [plugins.'io.containerd.cri.v1.images'.pinned_images]
+    sandbox = ""
+`
+				deprecatedContainerdV1CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2CriConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
+			}),
 	)
 })
 
