@@ -337,6 +337,12 @@ Describe 'Tests of components.json' {
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
     }
 
+    it 'has the right version of ciprod' {
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
