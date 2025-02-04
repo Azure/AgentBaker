@@ -1034,12 +1034,12 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.7.17-azure.1",
-                "previousLatestVersion": "v1.7.20-azure.1"
+                "latestVersion": "v1.6.35-azure.1"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.6.35-azure.1"
+                "latestVersion": "v1.7.20-azure.1",
+                "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
@@ -1048,12 +1048,12 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.7.17-azure.1",
-                "previousLatestVersion": "v1.7.20-azure.1"
+                "latestVersion": "v1.6.35-azure.1"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.6.35-azure.1"
+                "latestVersion": "v1.7.20-azure.1",
+                "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
@@ -1062,8 +1062,8 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "v1.7.17-azure.1",
-                "previousLatestVersion": "v1.7.20-azure.1"
+                "latestVersion": "v1.7.20-azure.1",
+                "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"

@@ -109,3 +109,15 @@ function GetPackagesFromComponentsJson
 
     return $output
 }
+
+function GetDefaultContainerDFromComponentsJson
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent
+    )
+
+    $packages = GetPackagesFromComponentsJson($componentsJsonContent)
+    $containerDPackages = $packages["c:\akse-cache\containerd\"]
+    return $containerDPackages[0]
+}
