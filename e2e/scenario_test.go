@@ -1367,6 +1367,23 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
