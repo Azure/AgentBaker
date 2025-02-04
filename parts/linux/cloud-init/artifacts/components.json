@@ -386,7 +386,7 @@
       "windowsVersions": [
         {
           "renovateTag": "<DO_NOT_UPDATE>",
-          "latestVersion": "win-3.1.24"
+          "latestVersion": "win-3.1.25"
         }
       ]
     },
