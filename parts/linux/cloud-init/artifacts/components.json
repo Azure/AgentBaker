@@ -747,7 +747,8 @@
           "latestVersion": "v1.31.5",
           "previousLatestVersion": "v1.31.4"
         }
-      ]
+      ],
+      "windowsVersions": []
     }
   ],
   "GPUContainerImages": [
