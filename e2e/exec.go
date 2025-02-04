@@ -5,16 +5,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -32,49 +27,6 @@ func (r podExecResult) String() string {
 %s
 ----------------------------------- end stdout ------------------------------------
 `, r.exitCode, r.stderr.String(), r.stdout.String())
-}
-
-type ClusterParams struct {
-	CACert         []byte
-	BootstrapToken string
-	FQDN           string
-}
-
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
-	resp, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, config.ResourceGroupName, *cluster.Name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("listing cluster admin credentials: %w", err)
-	}
-	kubeconfig, err := clientcmd.Load(resp.Kubeconfigs[0].Value)
-	if err != nil {
-		return nil, fmt.Errorf("loading decoded cluster kubeconfig as Config: %w", err)
-	}
-	clusterConfig, ok := kubeconfig.Clusters[*cluster.Name]
-	if !ok {
-		return nil, fmt.Errorf("kubeconfig missing cluster info for %s", *cluster.Name)
-	}
-	return &ClusterParams{
-		CACert:         clusterConfig.CertificateAuthorityData,
-		BootstrapToken: getBootstrapToken(ctx, t, kube),
-		FQDN:           *cluster.Properties.Fqdn,
-	}, nil
-}
-
-func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {
-	secrets, err := kube.Typed.CoreV1().Secrets("kube-system").List(ctx, metav1.ListOptions{})
-	require.NoError(t, err)
-	secret := func() *corev1.Secret {
-		for _, secret := range secrets.Items {
-			if strings.HasPrefix(secret.Name, "bootstrap-token-") {
-				return &secret
-			}
-		}
-		t.Fatal("could not find secret with bootstrap-token- prefix")
-		return nil
-	}()
-	id := secret.Data["token-id"]
-	token := secret.Data["token-secret"]
-	return fmt.Sprintf("%s.%s", id, token)
 }
 
 func sshKeyName(vmPrivateIP string) string {
@@ -138,7 +90,7 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 
 	joinedSteps := strings.Join(steps, " && ")
 
-	s.T.Log(fmt.Sprintf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script))
+	s.T.Logf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script)
 
 	kube := s.Runtime.Cluster.Kube
 	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
@@ -225,9 +177,9 @@ func unprivilegedCommandArray() []string {
 func logSSHInstructions(s *Scenario) {
 	result := "SSH Instructions:"
 	if !config.Config.KeepVMSS {
-		result += fmt.Sprintf(" (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)")
+		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
 	}
-	result += fmt.Sprintf("\n========================\n")
+	result += "\n========================\n"
 	result += fmt.Sprintf("az account set --subscription %s\n", config.Config.SubscriptionID)
 	result += fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --overwrite-existing\n", config.ResourceGroupName, *s.Runtime.Cluster.Model.Name)
 	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.DebugHostPod, sshString(s.Runtime.VMPrivateIP))

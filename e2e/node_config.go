@@ -28,7 +28,7 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 
 	if vhd.Distro.IsWindowsDistro() {
 		nbc = baseTemplateWindows(t, config.Config.Location)
-		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expected non-empty values
+		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
 		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "none"
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
@@ -37,6 +37,9 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc.TenantID = *cluster.Model.Identity.TenantID
 	} else {
 		nbc = baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
+		// this isn't needed since we already have the cluster CA certificate, though we still pass in a dummy value to be sure provisioning doesn't fail
+		// TODO(cameissner): remove this once we remove APIServerCertificate from CertificateProfile
+		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = base64.StdEncoding.EncodeToString([]byte("none"))
 	}
 
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
