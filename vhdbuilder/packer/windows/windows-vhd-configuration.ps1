@@ -25,14 +25,6 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
     "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
 )
 
-# defaultContainerdPackageUrl refers to the stable containerd package used to pull and cache container images
-# Add cache for another containerd version which is not installed by default
-$global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
-if ($windowsSKU -Like "23H2*")
-{
-    $global:defaultContainerdPackageUrl = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-}
-
 # Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
 # Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
 # Windows Server 23H2 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248
@@ -84,6 +76,7 @@ Write-Output "Helpers Ps1: $HelpersFile"
 . "$HelpersFile"
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
+
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 
@@ -92,4 +85,4 @@ $global:map = GetPackagesFromComponentsJson $componentsJson
 # We use the latest containerd package to start containerd then cache images, and the latest one is expected to be
 # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
 # versions synced.
-$global:map["c:\akse-cache\containerd\"]  += $defaultContainerdPackageUrl
+$global:defaultContainerdPackageUrl = GetDefaultContainerDFromComponentsJson $componentsJson
