@@ -159,11 +159,11 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	}
 	kubeconfig, err := clientcmd.Load(resp.Kubeconfigs[0].Value)
 	if err != nil {
-		return nil, fmt.Errorf("loading decoded cluster kubeconfig as Config: %w", err)
+		return nil, fmt.Errorf("loading cluster kubeconfig: %w", err)
 	}
-	clusterConfig, ok := kubeconfig.Clusters[*cluster.Name]
-	if !ok {
-		return nil, fmt.Errorf("kubeconfig missing cluster info for %s", *cluster.Name)
+	clusterConfig := kubeconfig.Clusters[*cluster.Name]
+	if clusterConfig == nil {
+		return nil, fmt.Errorf("cluster kubeconfig missing configuration for %s", *cluster.Name)
 	}
 	return &ClusterParams{
 		CACert:         clusterConfig.CertificateAuthorityData,
