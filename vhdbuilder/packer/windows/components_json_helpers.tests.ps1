@@ -37,6 +37,14 @@ Describe 'Gets the Binaries' {
         $packages | ConvertTo-Json -Compress | Should -Be "{}"
     }
 
+    It 'given the windows block is missing, it returns an empty array' {
+        $componentsJson.Packages[0].downloadUris.windows = $null
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages | ConvertTo-Json -Compress | Should -Be "{}"
+    }
+
     It 'given there are no windows versions, it returns an empty array' {
         $componentsJson.Packages[0].downloadUris.windows = @()
 
@@ -200,6 +208,14 @@ Describe 'Gets The Versions' {
 
     It 'given there are no windows versions, it returns an empty array' {
         $componentsJson.ContainerImages[0].windowsVersions = @()
+
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Be @()
+    }
+
+    It 'given the windowsVersions block is missing, it returns an empty array' {
+        $componentsJson.ContainerImages[0].windowsVersions = $null
 
         $components = GetComponentsFromComponentsJson $componentsJson
 
