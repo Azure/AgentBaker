@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/vincent-petithory/dataurl"
 	"gopkg.in/yaml.v3"
 )
 
@@ -2711,6 +2712,87 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 })
 
+type IgnitionFileContents struct {
+	Compression string `json:"compression"`
+	Source      string `json:"source"`
+}
+type IgnitionFile struct {
+	Path     string               `json:"path"`
+	Contents IgnitionFileContents `json:"contents"`
+}
+type IgnitionStorage struct {
+	Files []IgnitionFile `json:"files"`
+}
+type Ignition struct {
+	Storage IgnitionStorage `json:"storage"`
+}
+
+func convertJsonToLines(folder string) error {
+	// Iterate over files in folder and remove those that start match lineXX.sh
+	files, err := os.ReadDir(folder)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if strings.HasPrefix(file.Name(), "line") {
+			err := os.Remove(fmt.Sprintf("%s/%s", folder, file.Name()))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	ignitionpath := fmt.Sprintf("%s/CustomData", folder)
+	// Read ignition file and marshall it to an indented string
+	ignitionFile, err := os.ReadFile(ignitionpath)
+	if err != nil {
+		return err
+	}
+	ignitionJson := json.RawMessage(ignitionFile)
+	ignitionIndented, err := json.MarshalIndent(ignitionJson, "", "  ")
+	if err != nil {
+		return err
+	}
+	// Split the string into lines. If a line starts with "path":, extract the path and line number.
+	// Store the path and line number in a map[string]int
+	lines := strings.Split(string(ignitionIndented), "\n")
+	pathToLineNumber := make(map[string]int)
+	for i, line := range lines {
+		if strings.Contains(line, "path") {
+			path := strings.Split(line, ":")[1]
+			path = strings.Trim(path, " \",")
+			pathToLineNumber[path] = i + 1
+		}
+	}
+	var ignition Ignition
+	err = json.Unmarshal(ignitionFile, &ignition)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("unmarshalled")
+	for _, file := range ignition.Storage.Files {
+		linenumber := pathToLineNumber[file.Path]
+		fileName := fmt.Sprintf("%s/line%d.sh", folder, linenumber)
+		// Decode data url format
+		decodeddata, err := dataurl.DecodeString(file.Contents.Source)
+		if err != nil {
+			return err
+		}
+		contents := decodeddata.Data
+		if file.Contents.Compression == "gzip" {
+			contents, err = getGzipDecodedValue(contents)
+			if err != nil {
+				return err
+			}
+		}
+		err = os.WriteFile(fileName, contents, 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func backfillCustomData(folder, customData string) {
 	if _, err := os.Stat(fmt.Sprintf("./testdata/%s", folder)); os.IsNotExist(err) {
 		e := os.MkdirAll(fmt.Sprintf("./testdata/%s", folder), 0755)
@@ -2719,6 +2801,11 @@ func backfillCustomData(folder, customData string) {
 	writeFileError := os.WriteFile(fmt.Sprintf("./testdata/%s/CustomData", folder), []byte(customData), 0644)
 	Expect(writeFileError).To(BeNil())
 	if strings.Contains(folder, "AKSWindows") {
+		return
+	}
+	if strings.Contains(folder, "Flatcar") {
+		err := convertJsonToLines(fmt.Sprintf("testdata/%s", folder))
+		Expect(err).To(BeNil())
 		return
 	}
 	err := exec.Command("/bin/sh", "-c", fmt.Sprintf("./testdata/convert.sh testdata/%s", folder)).Run()
