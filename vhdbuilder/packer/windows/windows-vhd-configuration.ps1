@@ -92,9 +92,4 @@ $global:map = GetPackagesFromComponentsJson $componentsJson
 # We use the latest containerd package to start containerd then cache images, and the latest one is expected to be
 # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
 # versions synced.
-$global:map["c:\akse-cache\containerd\"] = @(
-    $defaultContainerdPackageUrl,
-    "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz",
-    "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-);
-
+$global:map["c:\akse-cache\containerd\"]  += $defaultContainerdPackageUrl

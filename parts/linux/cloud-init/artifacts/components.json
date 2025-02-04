@@ -958,6 +958,7 @@
     {
       "name": "containerd",
       "downloadLocation": "/opt/containerd/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd\\",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
@@ -1023,6 +1024,19 @@
             ]
           }
         },
+        "windows": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.7.17-azure.1",
+                "previousLatestVersion": "v1.7.20-azure.1"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
+          }
+        },
+
         "default": {
           "current": {
             "versionsV2": [

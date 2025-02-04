@@ -297,10 +297,16 @@ Describe 'Tests of components.json' {
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
     }
 
+    It 'has containerd versions' {
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+    }
+
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages.Length | Should -BeGreaterThan 0
 
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
