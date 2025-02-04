@@ -1,0 +1,1 @@
+/opt/azure/containers/provision_redact_cloud_config.py

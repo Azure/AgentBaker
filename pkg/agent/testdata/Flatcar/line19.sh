@@ -1,0 +1,1 @@
+/opt/azure/containers/provision_source_distro.sh

@@ -1,0 +1,1 @@
+/etc/kubernetes/certs/ca.crt

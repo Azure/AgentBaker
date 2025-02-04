@@ -1,0 +1,1 @@
+/opt/azure/containers/ubuntu-snapshot-update.sh

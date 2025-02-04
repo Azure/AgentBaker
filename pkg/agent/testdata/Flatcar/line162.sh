@@ -1,0 +1,1 @@
+/opt/azure/containers/mig-partition.sh

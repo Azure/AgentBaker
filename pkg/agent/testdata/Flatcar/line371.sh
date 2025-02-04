@@ -1,0 +1,1 @@
+/opt/azure/containers/ensure_imds_restriction.sh

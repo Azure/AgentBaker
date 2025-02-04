@@ -1,0 +1,1 @@
+/opt/azure/containers/provision_configs.sh

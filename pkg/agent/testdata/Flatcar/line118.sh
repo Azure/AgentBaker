@@ -1,0 +1,1 @@
+/opt/azure/containers/reconcilePrivateHosts.sh

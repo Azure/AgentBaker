@@ -1,0 +1,1 @@
+/opt/azure/containers/bind-mount.sh

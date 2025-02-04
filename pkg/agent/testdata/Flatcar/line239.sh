@@ -1,0 +1,1 @@
+/opt/azure/containers/enable-dhcpv6.sh

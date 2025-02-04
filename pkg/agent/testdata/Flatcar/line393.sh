@@ -1,0 +1,1 @@
+/opt/azure/containers/setup-custom-search-domains.sh
