@@ -24,7 +24,7 @@ Describe 'Gets the Binaries' {
           }
         }
       }
-    },
+    }
 ]}'
         $componentsJson = echo $testString | ConvertFrom-Json
     }
@@ -127,7 +127,7 @@ Describe 'Gets the Binaries' {
           }
         }
       }
-    },
+    }
 ]}'
         $componentsJson = echo $testString | ConvertFrom-Json
 
@@ -164,7 +164,7 @@ Describe 'Gets the Binaries' {
           }
         }
       }
-    },
+    }
 ]}'
         $componentsJson = echo $testString | ConvertFrom-Json
         $windowsSku = "2022-containerd-gen2"
@@ -183,8 +183,8 @@ Describe 'Gets The Versions' {
 {
 "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
 "amd64OnlyVersions": [],
-"windowsVersions": [],
-},]}'
+"windowsVersions": []
+}]}'
         $componentsJson = echo $testString | ConvertFrom-Json
     }
 
