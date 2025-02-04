@@ -115,8 +115,8 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
-ERR_ORAS_PULL_NETWORK_ACCESS=210 # Error pulling artifact with oras from registry with connection issue
-ERR_ORAS_PULL_INCORRECT_CACHE=211 # Error pulling artifact with oras from registry with incorrect acr cache setting
+ERR_ORAS_PULL_FAIL_RESERVE_2=210 # Error pulling artifact with oras from registry with incorrect acr cache setting
+ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
@@ -258,7 +258,7 @@ retrycmd_get_access_token_for_oras() {
         fi
         sleep $wait_sleep
     done
-    return 1
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
@@ -272,7 +272,7 @@ retrycmd_get_refresh_token_for_oras() {
         fi
         sleep $wait_sleep
     done
-    return 1
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
@@ -720,6 +720,10 @@ oras_login_with_kubelet_identity() {
 
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
+    ret_code=$? 
+    if [ $ret_code -ne 0 ]; then
+        return $ret_code
+    fi
     if [ -z "$raw_access_token" ] || [[ "$raw_access_token" == *"error"* ]]; then
         echo "failed to retrieve access token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
@@ -732,6 +736,10 @@ oras_login_with_kubelet_identity() {
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
+    ret_code=$? 
+    if [ $ret_code -ne 0 ]; then
+        return $ret_code
+    fi
     if [ -z "$raw_refresh_token" ] || [[ "$raw_refresh_token" == *"error"* ]]; then
         echo "failed to retrieve refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
