@@ -1,6 +1,4 @@
 #!/bin/bash
-set -ex
-
 COMPONENTS_FILEPATH=/opt/azure/components.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete

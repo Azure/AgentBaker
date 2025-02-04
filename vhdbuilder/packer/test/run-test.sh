@@ -148,7 +148,7 @@ if [ "$OS_TYPE" == "Linux" ]; then
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
   errMsg=$(echo -e "$(echo "$ret" | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")')")
-  echo "$errMsg"
+  echo "extracted error message: $errMsg"
   if [ "$errMsg" != '' ]; then
     echo "Tests failed. Test output is: "
     echo "$ret"
