@@ -8,6 +8,11 @@
   1. Run unit test:
     - `Invoke-Pester parts/windows/*.tests.ps1 -Passthru`
     - `Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru`
+    - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru`
+  1. You can invoke the tests if you're using WSL by doing something like this in powershell:
+    - ` cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
+    - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru`
+  1. Watch different powershell versions. Sometimes JSON parsing works differently in your local powershell and in the pipeline. Which is annoying.
 
 # Test with AKS RP
 1. Run below commands to build a test package
