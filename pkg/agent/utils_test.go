@@ -673,7 +673,6 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
-
 })
 
 var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", func() {
