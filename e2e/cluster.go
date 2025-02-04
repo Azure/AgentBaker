@@ -127,12 +127,17 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
+	clusterParams, err := extractClusterParameters(ctx, t, kube, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
+	}
+
 	return &Cluster{
 		Model:         cluster,
 		Kube:          kube,
 		SubnetID:      subnetID,
 		Maintenance:   maintenance,
-		ClusterParams: extractClusterParameters(ctx, t, kube),
+		ClusterParams: clusterParams,
 	}, nil
 }
 

@@ -3,16 +3,19 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -36,43 +39,30 @@ type ClusterParams struct {
 	CACert         []byte
 	BootstrapToken string
 	FQDN           string
-	APIServerCert  []byte
-	ClientKey      []byte
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient) *ClusterParams {
-	pod, err := kube.GetHostNetworkDebugPod(ctx, t)
-	require.NoError(t, err)
-
-	execResult, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /var/lib/kubelet/bootstrap-kubeconfig")
-	require.NoError(t, err)
-
-	bootstrapConfig := execResult.stdout.Bytes()
-
-	server, err := extractKeyValuePair("server", string(bootstrapConfig))
-	require.NoError(t, err)
-	tokens := strings.Split(server, ":")
-	if len(tokens) != 3 {
-		t.Fatalf("expected 3 tokens from fqdn %q, got %d", server, len(tokens))
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
+	resp, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, config.ResourceGroupName, *cluster.Name, nil)
+	if err != nil {
+		return nil, fmt.Errorf("listing cluster admin credentials: %w", err)
 	}
-	fqdn := tokens[1][2:]
-
-	caCert, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/ca.crt")
-	require.NoError(t, err)
-
-	cmdAPIServer, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/apiserver.crt")
-	require.NoError(t, err)
-
-	clientKey, err := execOnPrivilegedPod(ctx, kube, pod.Namespace, pod.Name, "cat /etc/kubernetes/certs/client.key")
-	require.NoError(t, err)
-
+	decodedConfigString, err := base64.StdEncoding.DecodeString(string(resp.Kubeconfigs[0].Value))
+	if err != nil {
+		return nil, fmt.Errorf("decoding cluster kubeconfig: %w", err)
+	}
+	config, err := clientcmd.Load([]byte(decodedConfigString))
+	if err != nil {
+		return nil, fmt.Errorf("loading decoded cluster kubeconfig as Config: %w", err)
+	}
+	defaultCluster, ok := config.Clusters["default"]
+	if !ok {
+		return nil, fmt.Errorf("cluster kubeconfig is missing default cluster info")
+	}
 	return &ClusterParams{
-		CACert:         caCert.stdout.Bytes(),
+		CACert:         defaultCluster.CertificateAuthorityData,
 		BootstrapToken: getBootstrapToken(ctx, t, kube),
-		FQDN:           fqdn,
-		APIServerCert:  cmdAPIServer.stdout.Bytes(),
-		ClientKey:      clientKey.stdout.Bytes(),
-	}
+		FQDN:           *cluster.Properties.Fqdn,
+	}, nil
 }
 
 func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {

@@ -30,8 +30,8 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 		nbc = baseTemplateWindows(t, config.Config.Location)
 		cert := cluster.Kube.clientCertificate()
 		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
-		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
-		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = string(cluster.ClusterParams.ClientKey)
+		// nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
+		// nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = string(cluster.ClusterParams.ClientKey)
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
