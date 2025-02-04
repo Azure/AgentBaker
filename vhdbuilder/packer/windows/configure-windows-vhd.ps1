@@ -29,14 +29,14 @@ if (![string]::IsNullOrEmpty($customizedDiskSizeParam)) {
 
 $ErrorActionPreference = "Stop"
 
-. c:\windows-vhd-configuration.ps1
-
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
 function Write-Log($Message) {
     $msg = $message | Timestamp
     Write-Output $msg
 }
+
+. c:/k/windows-vhd-configuration.ps1
 
 function Download-File {
     param (
@@ -85,7 +85,7 @@ function Download-FileWithAzCopy {
         }
 
          Write-Log "Logging in to AzCopy"
-        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows-vhd-builder-sig.json
+        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
         .\azcopy.exe login --login-type=MSI
 
         Write-Log "Copying $URL to $Dest"
@@ -228,6 +228,10 @@ function Disable-WindowsUpdates {
 
 function Get-ContainerImages {
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    foreach ($image in $imagesToPull) {
+        Write-Output "* $image"
+    }
+
     foreach ($image in $imagesToPull) {
         $imagePrefix = $image.Split(":")[0]
         if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
@@ -611,7 +615,7 @@ function Enable-WindowsFixInPath {
 }
 
 # If you need to add registry key in this function,
-# please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/write-release-notes-windows.ps1 at the same time
+# please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/windows/write-release-notes-windows.ps1 at the same time
 function Update-Registry {
     # Enables DNS resolution of SMB shares for containerD
     # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
@@ -951,7 +955,6 @@ try{
         }
         "3" {
             Register-ExpandVolumeTask
-            Remove-Item -Path c:\windows-vhd-configuration.ps1
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
             Validate-VHDFreeSize
