@@ -1660,7 +1660,7 @@ oom_score = 0
 				Expect(err).To(BeNil())
 				expectedContainerdV2CriConfig := `
 [plugins."io.containerd.grpc.v1.cri"]
-  [plugins.'io.containerd.cri.v1.images'.pinned_images]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
     sandbox = ""
 `
 				deprecatedContainerdV1CriConfig := `
@@ -1671,9 +1671,9 @@ oom_score = 0
 				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
 
 				expectedCniV2Config := `
-  [plugins.'io.containerd.cri.v1.runtime'.cni]
-    bin_dir = '/opt/cni/bin'
-    conf_dir = '/etc/cni/net.d'
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
 `
 				deprecatedCniV1Config := `

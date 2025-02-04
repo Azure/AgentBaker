@@ -1391,7 +1391,7 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = 0{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
-  [plugins.'io.containerd.cri.v1.images'.pinned_images]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
     sandbox = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
@@ -1456,9 +1456,9 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-  [plugins.'io.containerd.cri.v1.runtime'.cni]
-    bin_dir = '/opt/cni/bin'
-    conf_dir = '/etc/cni/net.d'
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
   {{- end}}
   {{- if IsKubernetesVersionGe "1.22.0"}}
@@ -1513,7 +1513,7 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = 0{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
-  [plugins.'io.containerd.cri.v1.images'.pinned_images]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
     sandbox = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if TeleportEnabled }}
@@ -1563,9 +1563,9 @@ root = "{{GetDataDir}}"{{- end}}
       runtime_type = "io.containerd.spin.v2"
     {{- end}}
   {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-  [plugins.'io.containerd.cri.v1.runtime'.cni]
-    bin_dir = '/opt/cni/bin'
-    conf_dir = '/etc/cni/net.d'
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
     conf_template = "/etc/containerd/kubenet_template.conf"
   {{- end}}
   {{- if IsKubernetesVersionGe "1.22.0"}}
