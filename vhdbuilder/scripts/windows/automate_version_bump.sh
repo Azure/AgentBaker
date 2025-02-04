@@ -33,20 +33,20 @@ find_latest_image_version() {
 
 # This function replaces the old Windows 2019 & Windows 2022 (gen1/gen2) base image version with the latest version found by az vm image show in windows-image.env
 update_image_version() {
-    line=$(grep "WINDOWS_2019_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows-image.env)
-    sed -i "s/$line/WINDOWS_2019_BASE_IMAGE_VERSION=$latest_image_version_2019/g" vhdbuilder/packer/windows-image.env
+    line=$(grep "WINDOWS_2019_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows/windows-image.env)
+    sed -i "s/$line/WINDOWS_2019_BASE_IMAGE_VERSION=$latest_image_version_2019/g" vhdbuilder/packer/windows/windows-image.env
 
-    line=$(grep "WINDOWS_2022_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows-image.env)
-    sed -i "s/$line/WINDOWS_2022_BASE_IMAGE_VERSION=$latest_image_version_2022/g" vhdbuilder/packer/windows-image.env
+    line=$(grep "WINDOWS_2022_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows/windows-image.env)
+    sed -i "s/$line/WINDOWS_2022_BASE_IMAGE_VERSION=$latest_image_version_2022/g" vhdbuilder/packer/windows/windows-image.env
 
-    line=$(grep "WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows-image.env)
-    sed -i "s/$line/WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=$latest_image_version_2022_g2/g" vhdbuilder/packer/windows-image.env
+    line=$(grep "WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows/windows-image.env)
+    sed -i "s/$line/WINDOWS_2022_GEN2_BASE_IMAGE_VERSION=$latest_image_version_2022_g2/g" vhdbuilder/packer/windows/windows-image.env
 
-    line=$(grep "WINDOWS_23H2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows-image.env)
-    sed -i "s/$line/WINDOWS_23H2_BASE_IMAGE_VERSION=$latest_image_version_23H2/g" vhdbuilder/packer/windows-image.env
+    line=$(grep "WINDOWS_23H2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows/windows-image.env)
+    sed -i "s/$line/WINDOWS_23H2_BASE_IMAGE_VERSION=$latest_image_version_23H2/g" vhdbuilder/packer/windows/windows-image.env
 
-    line=$(grep "WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows-image.env)
-    sed -i "s/$line/WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION=$latest_image_version_23H2_g2/g" vhdbuilder/packer/windows-image.env
+    line=$(grep "WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION=" vhdbuilder/packer/windows/windows-image.env)
+    sed -i "s/$line/WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION=$latest_image_version_23H2_g2/g" vhdbuilder/packer/windows/windows-image.env
 }
 
 cherry_pick() {

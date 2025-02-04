@@ -21,8 +21,7 @@ pr:
     - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
     - vhdbuilder/packer/generate-vhd-publishing-info.sh
     - vhdbuilder/packer/init-variables.sh
-    - vhdbuilder/packer/windows-image.env
-    - vhdbuilder/packer/windows-vhd-builder-sig.json
+    - vhdbuilder/packer/windows/
     exclude:
     - vhdbuilder/release-notes
     - /**/*.md

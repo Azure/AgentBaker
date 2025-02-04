@@ -37,6 +37,7 @@
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
               "gallery_name": "{{user `windows_sigmode_source_gallery_name`}}",
+
               "image_name": "{{user `windows_sigmode_source_image_name`}}",
               "image_version": "{{user `windows_sigmode_source_image_version`}}"
             },
@@ -72,6 +73,16 @@
     ],
     "provisioners": [
         {
+            "type": "file",
+            "direction": "upload",
+            "sources": [
+                "parts/linux/cloud-init/artifacts/components.json",
+                "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
+                "vhdbuilder/packer/windows/components_json_helpers.ps1"
+            ],
+            "destination": "c:/k/"
+        },
+        {
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
@@ -81,8 +92,7 @@
             ],
             "type": "powershell",
             "scripts": [
-                "vhdbuilder/packer/generate-windows-vhd-configuration.ps1",
-                "vhdbuilder/packer/configure-windows-vhd.ps1"
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
         },
         {
@@ -102,7 +112,7 @@
             ],
             "type": "powershell",
             "scripts": [
-                "vhdbuilder/packer/configure-windows-vhd.ps1"
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
         },
         {
@@ -118,7 +128,7 @@
             ],
             "type": "powershell",
             "scripts": [
-                "vhdbuilder/packer/configure-windows-vhd.ps1"
+                "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
         },
         {
@@ -138,7 +148,7 @@
                 "BUILD_REPO={{user `build_repo`}}"
             ],
             "type": "powershell",
-            "script": "vhdbuilder/packer/write-release-notes-windows.ps1"
+            "script": "vhdbuilder/packer/windows/write-release-notes-windows.ps1"
         },
         {
             "elevated_user": "packer",
@@ -148,7 +158,7 @@
                 "BuildDate={{user `build_date`}}"
             ],
             "type": "powershell",
-            "script": "vhdbuilder/packer/list-images.ps1"
+            "script": "vhdbuilder/packer/windows/list-images.ps1"
         },
         {
             "type": "file",
@@ -166,7 +176,7 @@
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "type": "powershell",
-            "script": "vhdbuilder/packer/sysprep.ps1"
+            "script": "vhdbuilder/packer/windows/sysprep.ps1"
         }
     ]
 }

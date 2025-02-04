@@ -8,6 +8,7 @@
   "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
   "separateMinorPatch": true,
+  "recreateWhen": "never",
   "labels": ["renovate"],
   "logLevelRemap": [
     {
@@ -89,6 +90,16 @@
       "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
       "assignees": ["mainred"],
       "reviewers": ["mainred"]
+    },
+    {
+      "matchPackageNames": ["oss/kubernetes-csi/*"],
+      "assignees": ["andyzhangx"],
+      "reviewers": ["andyzhangx"]
+    },
+    {
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "assignees": ["haitch", "wenhug", "gaopenghigh"],
+      "reviewers": ["haitch", "wenhug", "gaopenghigh"]
     },
     {
       "matchDatasources": ["docker"],
