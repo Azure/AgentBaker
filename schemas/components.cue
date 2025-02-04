@@ -68,7 +68,10 @@ package components
 }
 
 #WindowsOsDistro: {
-	current?: #ReleaseDownloadURI
+	default?: #ReleaseDownloadURI
+	ws2019?: #ReleaseDownloadURI
+	ws2022?: #ReleaseDownloadURI
+	ws23h2?: #ReleaseDownloadURI
 }
 
 #DownloadURIs: {
@@ -82,7 +85,7 @@ package components
 
 #Package: {
 	name:              string
-	downloadLocation:  string
+	downloadLocation?:  string
 	windowsDownloadLocation?:  string
 	downloadURIs:      #DownloadURIs
 }

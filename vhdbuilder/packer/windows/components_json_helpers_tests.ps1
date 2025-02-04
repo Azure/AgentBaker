@@ -8,11 +8,11 @@ Describe 'Gets the Binaries' {
         $testString = '{
   "Packages": [
     {
-      "downloadLocation": "c:\\akse-cache\\",
-      "windowsDownloadLocation": null,
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "downloadLocation": null,
       "downloadUris": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -46,14 +46,14 @@ Describe 'Gets the Binaries' {
     }
 
     It 'given there is a latest version and previousLatestVersion, it returns both version' {
-        $componentsJson.Packages[0].downloadUris.windows.current.versionsV2 = @(
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
             [PSCustomObject]@{
                 latestVersion = "1.8.22"
                 previousLatestVersion = "1.8.21"
             }
         )
-        $componentsJson.Packages[0].downloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.current.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].windowsDownloadLocation = "location"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -61,31 +61,32 @@ Describe 'Gets the Binaries' {
         $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
     }
 
-    It 'uses windowsDownloadLocation when available' {
-        $componentsJson.Packages[0].windowsDownloadLocation = "other_location"
-        $componentsJson.Packages[0].downloadUris.windows.current.versionsV2 = @(
+    It 'skips a package if windowsDownloadLocation is not set' {
+        $componentsJson.Packages[0].downloadLocation = "linuxLocation"
+        $componentsJson.Packages[0].windowsDownloadLocation = $null
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
             [PSCustomObject]@{
                 latestVersion = "1.8.22"
                 previousLatestVersion = "1.8.21"
             }
         )
-        $componentsJson.Packages[0].downloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.current.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].windowsDownloadLocation = "location"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["other_location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
-        $packages["other_location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
+        $packages["other_location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.22.zip"
+        $packages["other_location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v1.8.21.zip"
     }
 
     It 'given there is a latest version, it returns that version' {
-        $componentsJson.Packages[0].downloadUris.windows.current.versionsV2 = @(
+        $componentsJson.Packages[0].downloadUris.windows.default.versionsV2 = @(
             [PSCustomObject]@{
                 latestVersion = "1.8.22"
             }
         )
-        $componentsJson.Packages[0].downloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.current.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].windowsDownloadLocation = "location"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -96,10 +97,10 @@ Describe 'Gets the Binaries' {
         $testString = '{
   "Packages": [
     {
-      "downloadLocation": "location",
+      "windowsDownloadLocation": "location",
       "downloadUris": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -112,10 +113,10 @@ Describe 'Gets the Binaries' {
       }
     },
      {
-      "downloadLocation": "location",
+      "windowsDownloadLocation": "location",
       "downloadUris": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -136,6 +137,43 @@ Describe 'Gets the Binaries' {
         $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
     }
 
+    It 'given there is an override for ws2022 and ws2022 sku is being built, it uses the override' {
+        $testString = '{
+  "Packages": [
+    {
+      "windowsDownloadLocation": "location",
+      "downloadUris": {
+        "windows": {
+          "ws2022": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.0.49",
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+          },
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.0.48",
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+          }
+        }
+      }
+    },
+]}'
+        $componentsJson = echo $testString | ConvertFrom-Json
+        $windowsSku = "2022-containerd-gen2"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["location"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.49.zip"
+        $packages["location"] | Should -Not -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+    }
 }
 
 Describe 'Gets The Versions' {
@@ -255,7 +293,7 @@ Describe 'Gets The Versions' {
             }
         )
 
-        $windowsSKU = "2022-containerd-gen2"
+        $windowsSku = "2022-containerd-gen2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1
@@ -275,7 +313,7 @@ Describe 'Gets The Versions' {
             }
         )
 
-        $windowsSKU = "2019-containerd"
+        $windowsSku = "2019-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -Be @()
@@ -297,11 +335,53 @@ Describe 'Tests of components.json' {
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
     }
 
-    It 'has containerd versions' {
+    It 'has containerd versions for 2019' {
+        $windowsSku = "2019-containerd"
         $packages = GetPackagesFromComponentsJson $componentsJson
 
         $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
         $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
+    It 'has containerd versions for 2022' {
+        $windowsSku = "2022-containerd"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
+    It 'has containerd versions for 2022-gen2' {
+        $windowsSku = "2022-containerd-gen2"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
+    It 'has containerd versions for 23H2' {
+        $windowsSku = "23H2"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
+    It 'has containerd versions for 23H2-gen2' {
+        $windowsSku = "23H2-gen2"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
@@ -358,7 +438,7 @@ Describe 'Tests of components.json' {
     }
 
     It 'has specific WS2019 containers' {
-        $windowsSKU = "2019-containerd"
+        $windowsSku = "2019-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
@@ -369,7 +449,7 @@ Describe 'Tests of components.json' {
     }
 
     It 'has specific WS2022 containers' {
-        $windowsSKU = "2022-containerd"
+        $windowsSku = "2022-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
@@ -381,7 +461,7 @@ Describe 'Tests of components.json' {
     }
 
     It 'has specific WS2022-gen2 containers' {
-        $windowsSKU = "2022-containerd-gen2"
+        $windowsSku = "2022-containerd-gen2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
@@ -394,7 +474,7 @@ Describe 'Tests of components.json' {
 
 
     It 'has specific WS23H2-gen2 containers' {
-        $windowsSKU = "23H2"
+        $windowsSku = "23H2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
@@ -406,7 +486,7 @@ Describe 'Tests of components.json' {
     }
 
     It 'has specific WS23H2-gen2 containers' {
-        $windowsSKU = "23H2-gen2"
+        $windowsSku = "23H2-gen2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0

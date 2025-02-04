@@ -12,7 +12,7 @@ function GetComponentsFromComponentsJson
         foreach ($windowsVersion in $containerImage.windowsVersions)
         {
             $skuMatch = $windowsVersion.windowsSkuMatch
-            if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch )
+            if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
             {
                 $url = $containerImage.downloadUrl.replace("*", $windowsVersion.latestVersion)
                 $output += $url
@@ -36,26 +36,57 @@ function GetPackagesFromComponentsJson
         [Parameter(Mandatory = $true)][Object]
         $componentsJsonContent
     )
-    $output = @{}
+    $output = @{ }
 
     foreach ($package in $componentsJsonContent.Packages)
     {
         $downloadLocation = $package.windowsDownloadLocation
-        if ($downloadLocation -eq $null -or $downloadLocation -eq "" ) {
-            $downloadLocation = $package.downloadLocation
+        if ($downloadLocation -eq $null -or $downloadLocation -eq "")
+        {
+           continue
         }
 
         $thisList = $output[$downloadLocation]
-        if ($thisList -eq $null) {
+        if ($thisList -eq $null)
+        {
             $thisList = New-Object System.Collections.ArrayList
         }
-        $downloadUrl = $package.downloadUris.default.current.windowsDownloadUrl
-        $items = $package.downloadUris.default.current.versionsV2
+
+        $downloadUrls = $package.downloadURIs.windows
+        if ($downloadUrls -eq $null)
+        {
+            $part = $package.downloadURIs.default.current
+        }
+        else
+        {
+            $part = $downloadUrls.default
+            switch -Regex ($windowsSku)
+            {
+                "2019-containerd" {
+                    $part = $downloadUrls.ws2019
+                }
+                "2022-containerd*" {
+                    $part = $downloadUrls.ws2022
+                }
+                "23H2*" {
+                    $part = $downloadUrls.ws32h2
+                }
+            }
+
+            if ($part -eq $null)
+            {
+                $part = $downloadUrls.default
+            }
+
+        }
+
+        $downloadUrl = $part.windowsDownloadUrl
+        $items = $part.versionsV2
 
         # no specific windows download url means fall back to regular windows spots.
-        if ($downloadUrl -eq $null -or $downloadUrl -eq "" ) {
-            $downloadUrl = $package.downloadUris.windows.current.downloadUrl
-            $items = $package.downloadUris.windows.current.versionsV2
+        if ($downloadUrl -eq $null -or $downloadUrl -eq "")
+        {
+            $downloadUrl = $part.downloadUrl
         }
 
         foreach ($windowsVersion in $items)

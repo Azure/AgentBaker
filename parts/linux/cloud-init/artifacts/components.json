@@ -759,10 +759,10 @@
   "Packages": [
     {
       "name": "windows scripts",
-      "downloadLocation": "c:\\akse-cache\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -777,10 +777,10 @@
     },
     {
       "name": "windows-gmsa-ccgakvplugin",
-      "downloadLocation": "c:\\akse-cache\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -794,10 +794,10 @@
     },
     {
       "name": "windows csi proxy",
-      "downloadLocation": "c:\\akse-cache\\csi-proxy\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\csi-proxy\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -811,10 +811,10 @@
     },
     {
       "name": "windows credential provider",
-      "downloadLocation": "c:\\akse-cache\\credential-provider\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\credential-provider\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -829,10 +829,10 @@
     },
     {
       "name": "windows calico",
-      "downloadLocation": "c:\\akse-cache\\calico\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\calico\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -846,10 +846,10 @@
     },
     {
       "name": "azure-vnet-cni-windows",
-      "downloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -864,10 +864,10 @@
     },
     {
       "name": "azure-vnet-cni-swift-windows",
-      "downloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -882,10 +882,10 @@
     },
     {
       "name": "azure-vnet-cni-overlay-windows",
-      "downloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
       "downloadURIs": {
         "windows": {
-          "current": {
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -919,6 +919,11 @@
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "ubuntu": {
           "r1804": {
             "versionsV2": [
@@ -1025,7 +1030,35 @@
           }
         },
         "windows": {
-          "current": {
+          "ws2019": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.7.17-azure.1",
+                "previousLatestVersion": "v1.7.20-azure.1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.6.35-azure.1"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
+          },
+          "ws2022": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.7.17-azure.1",
+                "previousLatestVersion": "v1.7.20-azure.1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.6.35-azure.1"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
+          },
+          "default": {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
@@ -1036,7 +1069,6 @@
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
           }
         },
-
         "default": {
           "current": {
             "versionsV2": [
@@ -1053,6 +1085,11 @@
       "name": "cni-plugins",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -1070,6 +1107,11 @@
       "name": "azure-cni",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -1097,6 +1139,11 @@
       "name": "cri-tools",
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -1159,6 +1206,11 @@
       "name": "azure-acr-credential-provider",
       "downloadLocation": "/opt/credentialprovider/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -1182,6 +1234,11 @@
       "name": "containerd-wasm-shims",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -1207,6 +1264,11 @@
       "name": "spinkube",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -1224,6 +1286,11 @@
       "name": "nvidia-container-toolkit",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "azurelinux": {
           "current": {
             "versionsV2": [
