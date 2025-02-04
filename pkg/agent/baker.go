@@ -83,7 +83,7 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 	parameters := getParameters(config)
 	// get variable cloudInit
 	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesFlatcarNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
+	str, e := t.getSingleLine(kubernetesFlatcarNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
 	if e != nil {
 		panic(e)
 	}
@@ -99,8 +99,9 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 	if len(report.Entries) > 0 {
 		panic(fmt.Errorf("butane -> ignition: warning: %s", report.String()))
 	}
+	escstr := escapeSingleLine(string(ignc))
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", string(ignc))
+	return fmt.Sprintf("{\"customData\": \"%s\"}", escstr)
 }
 
 // GetWindowsNodeCustomDataJSONObject returns Windows customData JSON object in the form.
