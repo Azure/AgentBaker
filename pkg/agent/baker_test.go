@@ -1674,7 +1674,7 @@ oom_score = 0
   [plugins.'io.containerd.cri.v1.runtime'.cni]
     bin_dir = '/opt/cni/bin'
     conf_dir = '/etc/cni/net.d'
-		conf_template = "/etc/containerd/kubenet_template.conf"
+    conf_template = "/etc/containerd/kubenet_template.conf"
 `
 				deprecatedCniV1Config := `
   [plugins."io.containerd.grpc.v1.cri".cni]
