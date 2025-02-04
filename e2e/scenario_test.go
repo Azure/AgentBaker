@@ -1468,6 +1468,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
 			},
 		},
 	})
