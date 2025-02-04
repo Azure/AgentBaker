@@ -9,10 +9,10 @@ param (
     $windowsSKU
 )
 
-# We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
+# We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-. c:\windows-vhd-configuration.ps1
+. vhdbuilder/packer/windows/windows-vhd-configuration.ps1
 
 # We skip the signature validation of following scripts for known issues
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
@@ -301,7 +301,10 @@ function Test-PullImages {
 
     Write-Output "Test-PullImages."
    
-    Write-Output "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    Write-Output "Test pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
+    foreach ($image in $imagesToPull) {
+        Write-Output "* $image"
+    }
     foreach ($image in $imagesToPull) {
         Write-Output "Pulling image $image"
         Retry-Command -ScriptBlock {
