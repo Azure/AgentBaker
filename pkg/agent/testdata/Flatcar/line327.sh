@@ -1,1 +1,10 @@
-/etc/systemd/system/nvidia-modprobe.service
+[Unit]
+Description=Installs and loads Nvidia GPU kernel module
+Before=kubelet.service
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+[Install]
+WantedBy=multi-user.target kubelet.service

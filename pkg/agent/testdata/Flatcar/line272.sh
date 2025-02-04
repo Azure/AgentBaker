@@ -1,1 +1,3 @@
-/etc/systemd/system/containerd.service.d/exec_start.conf
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+#EOF
