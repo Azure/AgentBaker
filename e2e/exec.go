@@ -70,12 +70,10 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 		interpreter = "powershell"
 		scriptFileName = fmt.Sprintf("script_file_%s.ps1", identifier)
 		remoteScriptFileName = fmt.Sprintf("c:/%s", scriptFileName)
-		break
 	default:
 		interpreter = "bash"
 		scriptFileName = fmt.Sprintf("script_file_%s.sh", identifier)
 		remoteScriptFileName = scriptFileName
-		break
 	}
 
 	steps := []string{
