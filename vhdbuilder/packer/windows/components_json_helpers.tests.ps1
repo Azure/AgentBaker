@@ -34,7 +34,7 @@ Describe 'Gets the Binaries' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages | ConvertTo-Json | Should -Be "{}"
+        $packages | ConvertTo-Json -Compress | Should -Be "{}"
     }
 
     It 'given there are no windows versions, it returns an empty array' {
@@ -42,7 +42,7 @@ Describe 'Gets the Binaries' {
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages | ConvertTo-Json | Should -Be "{}"
+        $packages | ConvertTo-Json -Compress | Should -Be "{}"
     }
 
     It 'given there is a latest version and previousLatestVersion, it returns both version' {
@@ -104,7 +104,7 @@ Describe 'Gets the Binaries' {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.48",
+                "latestVersion": "0.0.48"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
@@ -112,7 +112,7 @@ Describe 'Gets the Binaries' {
         }
       }
     },
-     {
+    {
       "windowsDownloadLocation": "location",
       "downloadUris": {
         "windows": {
@@ -120,7 +120,7 @@ Describe 'Gets the Binaries' {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.49",
+                "latestVersion": "0.0.49"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
@@ -128,7 +128,8 @@ Describe 'Gets the Binaries' {
         }
       }
     }
-]}'
+  ]
+}'
         $componentsJson = echo $testString | ConvertFrom-Json
 
         $packages = GetPackagesFromComponentsJson $componentsJson
@@ -148,7 +149,7 @@ Describe 'Gets the Binaries' {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.49",
+                "latestVersion": "0.0.49"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
@@ -157,7 +158,7 @@ Describe 'Gets the Binaries' {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.48",
+                "latestVersion": "0.0.48"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
@@ -165,7 +166,8 @@ Describe 'Gets the Binaries' {
         }
       }
     }
-]}'
+  ]
+}'
         $componentsJson = echo $testString | ConvertFrom-Json
         $windowsSku = "2022-containerd-gen2"
 
