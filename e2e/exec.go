@@ -3,7 +3,6 @@ package e2e
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"strings"
 	"testing"
@@ -46,22 +45,18 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	if err != nil {
 		return nil, fmt.Errorf("listing cluster admin credentials: %w", err)
 	}
-	decodedConfigString, err := base64.StdEncoding.DecodeString(string(resp.Kubeconfigs[0].Value))
-	if err != nil {
-		return nil, fmt.Errorf("decoding cluster kubeconfig: %w", err)
-	}
-	config, err := clientcmd.Load([]byte(decodedConfigString))
+	kubeconfig, err := clientcmd.Load(resp.Kubeconfigs[0].Value)
 	if err != nil {
 		return nil, fmt.Errorf("loading decoded cluster kubeconfig as Config: %w", err)
 	}
-	defaultCluster, ok := config.Clusters["default"]
+	clusterConfig, ok := kubeconfig.Clusters[*cluster.Name]
 	if !ok {
-		return nil, fmt.Errorf("cluster kubeconfig is missing default cluster info")
+		return nil, fmt.Errorf("kubeconfig missing cluster info for %s", *cluster.Name)
 	}
 	return &ClusterParams{
-		CACert:         defaultCluster.CertificateAuthorityData,
+		CACert:         clusterConfig.CertificateAuthorityData,
 		BootstrapToken: getBootstrapToken(ctx, t, kube),
-		FQDN:           *cluster.Properties.Fqdn,
+		FQDN:           fmt.Sprintf("https://%s:443", *cluster.Properties.Fqdn),
 	}, nil
 }
 
