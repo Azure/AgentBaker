@@ -63,7 +63,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(13))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(14))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
