@@ -22,6 +22,7 @@ pr:
     - vhdbuilder/packer/generate-vhd-publishing-info.sh
     - vhdbuilder/packer/init-variables.sh
     - vhdbuilder/packer/windows/
+    - parts/linux/cloud-init/artifacts/components.json
     exclude:
     - vhdbuilder/release-notes
     - /**/*.md
