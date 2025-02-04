@@ -1,558 +1,424 @@
 variant: flatcar
 version: 1.0.0
-storage:
-  files:
-    - path: {{GetCSEHelpersScriptFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionSource"}}
-      user:
-        id: 0
-      group:
-        id: 0
+write_files:
+- path: {{GetCSEHelpersScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSource"}}
 
-    {{if IsMariner}}
-    - path: {{GetCSEHelpersScriptDistroFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{- else}}
-    - path: {{GetCSEHelpersScriptDistroFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{end}}
 
-    {{ if not IsCustomImage -}}
-    - path: /opt/azure/containers/provision_start.sh
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionStartScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{- end }}
+{{if IsMariner}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceMariner"}}
+{{- else}}
+- path: {{GetCSEHelpersScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSourceUbuntu"}}
+{{end}}
 
-    - path: /opt/azure/containers/provision.sh
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+{{ if not IsCustomImage -}}
+- path: /opt/azure/containers/provision_start.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionStartScript"}}
+{{- end }}
 
-    - path: {{GetCSEInstallScriptFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionInstalls"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/provision.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionScript"}}
 
-    - path: /opt/azure/containers/provision_redact_cloud_config.py
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: {{GetCSEInstallScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstalls"}}
 
-    - path: /opt/azure/containers/provision_send_logs.py
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/provision_redact_cloud_config.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionRedactCloudConfig"}}
 
-    {{if IsMariner}}
-    - path: {{GetCSEInstallScriptDistroFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{- else}}
-    - path: {{GetCSEInstallScriptDistroFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{end}}
+- path: /opt/azure/containers/provision_send_logs.py
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionSendLogs"}}
 
-    - path: {{GetCSEConfigScriptFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "provisionConfigs"}}
-      user:
-        id: 0
-      group:
-        id: 0
+{{if IsMariner}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsMariner"}}
+{{- else}}
+- path: {{GetCSEInstallScriptDistroFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionInstallsUbuntu"}}
+{{end}}
 
-    - path: /opt/azure/manifest.json
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "componentManifestFile"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: {{GetCSEConfigScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "provisionConfigs"}}
 
-    - path: {{GetInitAKSCustomCloudFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/manifest.json
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "componentManifestFile"}}
 
-    - path: /opt/azure/containers/reconcilePrivateHosts.sh
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "reconcilePrivateHostsScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: {{GetInitAKSCustomCloudFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "initAKSCustomCloud"}}
 
-    - path: /etc/systemd/system/reconcile-private-hosts.service
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/reconcilePrivateHosts.sh
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsScript"}}
 
-    - path: /etc/systemd/system/kubelet.service
-      mode: 0600
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/reconcile-private-hosts.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "reconcilePrivateHostsService"}}
 
-    - path: /etc/systemd/system/mig-partition.service
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/kubelet.service
+  permissions: "0600"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "kubeletSystemdService"}}
 
-    - path: /opt/azure/containers/mig-partition.sh
-      mode: 0544
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "migPartitionScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/mig-partition.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionSystemdService"}}
 
-    {{if IsMariner}}
-    - path: /opt/azure/containers/mariner-package-update.sh
-      mode: 0544
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "packageUpdateScriptMariner"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/mig-partition.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "migPartitionScript"}}
 
-    - path: /etc/systemd/system/snapshot-update.service
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "packageUpdateServiceMariner"}}
-      user:
-        id: 0
-      group:
-        id: 0
+{{if IsMariner}}
+- path: /opt/azure/containers/mariner-package-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateScriptMariner"}}
 
-    - path: /etc/systemd/system/snapshot-update.timer
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{- else}}
-    - path: /opt/azure/containers/ubuntu-snapshot-update.sh
-      mode: 0544
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateServiceMariner"}}
 
-    - path: /etc/systemd/system/snapshot-update.service
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "snapshotUpdateService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "packageUpdateTimerMariner"}}
+{{- else}}
+- path: /opt/azure/containers/ubuntu-snapshot-update.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateScript"}}
 
-    - path: /etc/systemd/system/snapshot-update.timer
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
-      user:
-        id: 0
-      group:
-        id: 0
-    {{end}}
+- path: /etc/systemd/system/snapshot-update.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateService"}}
 
-    - path: /opt/azure/containers/bind-mount.sh
-      mode: 0544
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "bindMountScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/snapshot-update.timer
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "snapshotUpdateTimer"}}
+{{end}}
 
-    - path: /etc/systemd/system/bind-mount.service
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/bind-mount.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountScript"}}
 
-    - path: {{GetDHCPv6ServiceCSEScriptFilepath}}
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/bind-mount.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "bindMountSystemdService"}}
 
-    - path: /opt/azure/containers/enable-dhcpv6.sh
-      mode: 0544
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: {{GetDHCPv6ServiceCSEScriptFilepath}}
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dhcpv6SystemdService"}}
 
-    - path: /etc/systemd/system/docker.service.d/exec_start.conf
-      mode: 0644
-      contents:
-        inline: |
-          [Service]
-          ExecStart=
-          ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip={{GetParameter "dockerBridgeCidr"}}
-          ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-          #EOF
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/enable-dhcpv6.sh
+  permissions: "0544"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "dhcpv6ConfigurationScript"}}
 
-    - path: /etc/docker/daemon.json
-      mode: 0644
-      contents:
-        inline: |
-          {
-            "live-restore": true,
-            "log-driver": "json-file",
-            "log-opts":  {
-               "max-size": "50m",
-               "max-file": "5"
-            }{{if IsNSeriesSKU}}
-            ,"default-runtime": "nvidia",
-            "runtimes": {
-               "nvidia": {
-                   "path": "/usr/bin/nvidia-container-runtime",
-                   "runtimeArgs": []
-              }
-            }{{end}}{{if HasDataDir}},
-            "data-root": "{{GetDataDir}}"{{- end}}
-          }
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/docker.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStart=
+    ExecStart=/usr/bin/dockerd -H fd:// --storage-driver=overlay2 --bip={{GetParameter "dockerBridgeCidr"}}
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
 
-    - path: /etc/systemd/system/containerd.service.d/exec_start.conf
-      mode: 0644
-      contents:
-        inline: |
-          [Service]
-          ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
-          #EOF
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/docker/daemon.json
+  permissions: "0644"
+  owner: root
+  content: |
+    {
+      "live-restore": true,
+      "log-driver": "json-file",
+      "log-opts":  {
+         "max-size": "50m",
+         "max-file": "5"
+      }{{if IsNSeriesSKU}}
+      ,"default-runtime": "nvidia",
+      "runtimes": {
+         "nvidia": {
+             "path": "/usr/bin/nvidia-container-runtime",
+             "runtimeArgs": []
+        }
+      }{{end}}{{if HasDataDir}},
+      "data-root": "{{GetDataDir}}"{{- end}}
+    }
 
-    - path: /etc/crictl.yaml
-      mode: 0644
-      contents:
-        inline: |
-          runtime-endpoint: unix:///run/containerd/containerd.sock
-          #EOF
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/containerd.service.d/exec_start.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+    #EOF
 
-    - path: /etc/systemd/system/ensure-no-dup.service
-      mode: 0644
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/crictl.yaml
+  permissions: "0644"
+  owner: root
+  content: |
+    runtime-endpoint: unix:///run/containerd/containerd.sock
+    #EOF
 
-    - path: /opt/azure/containers/ensure-no-dup.sh
-      mode: 0755
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/ensure-no-dup.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesService"}}
 
-    - path: /etc/systemd/system/teleportd.service
-      mode: 0644
-      contents:
-        inline: |
-          [Unit]
-          Description=teleportd teleport runtime
-          After=network.target
-          [Service]
-          ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-          Delegate=yes
-          KillMode=process
-          Restart=always
-          LimitNPROC=infinity
-          LimitCORE=infinity
-          LimitNOFILE=1048576
-          TasksMax=infinity
-          [Install]
-          WantedBy=multi-user.target
-          #EOF
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /opt/azure/containers/ensure-no-dup.sh
+  permissions: "0755"
+  owner: root
+  encoding: gzip
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureNoDupEbtablesScript"}}
 
-    - path: /etc/systemd/system/nvidia-modprobe.service
-      mode: 0644
-      contents:
-        inline: |
-          [Unit]
-          Description=Installs and loads Nvidia GPU kernel module
-          Before=kubelet.service
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-          ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-          [Install]
-          WantedBy=multi-user.target kubelet.service
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/systemd/system/teleportd.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=teleportd teleport runtime
+    After=network.target
+    [Service]
+    ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+    Delegate=yes
+    KillMode=process
+    Restart=always
+    LimitNPROC=infinity
+    LimitCORE=infinity
+    LimitNOFILE=1048576
+    TasksMax=infinity
+    [Install]
+    WantedBy=multi-user.target
+    #EOF
 
-    - path: /etc/default/kubelet
-      mode: 0644
-      contents:
-        inline: |
-          KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
-          KUBELET_REGISTER_SCHEDULABLE=true
-          NETWORK_POLICY={{GetParameter "networkPolicy"}}
-          {{- if not (IsKubernetesVersionGe "1.17.0")}}
-          KUBELET_IMAGE={{GetHyperkubeImageReference}}
-          {{- end}}
-          {{- if IsKubernetesVersionGe "1.16.0"}}
-          KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
+- path: /etc/systemd/system/nvidia-modprobe.service
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Installs and loads Nvidia GPU kernel module
+    Before=kubelet.service
+    [Service]
+    Type=oneshot
+    RemainAfterExit=true
+    ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+    [Install]
+    WantedBy=multi-user.target kubelet.service
+
+- path: /etc/default/kubelet
+  permissions: "0644"
+  owner: root
+  content: |
+    KUBELET_FLAGS={{GetKubeletConfigKeyVals}}
+    KUBELET_REGISTER_SCHEDULABLE=true
+    NETWORK_POLICY={{GetParameter "networkPolicy"}}
+{{- if not (IsKubernetesVersionGe "1.17.0")}}
+    KUBELET_IMAGE={{GetHyperkubeImageReference}}
+{{- end}}
+{{- if IsKubernetesVersionGe "1.16.0"}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabels . }}
+{{- else}}
+    KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
+{{- end}}
+{{- if IsAKSCustomCloud}}
+    AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
+{{- end}}
+
+{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
+- path: /var/lib/kubelet/bootstrap-kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: kubelet-bootstrap
+      user:
+      {{- if EnableSecureTLSBootstrapping }}
+        exec:
+          apiVersion: client.authentication.k8s.io/v1
+          command: /opt/azure/tlsbootstrap/tls-bootstrap-client
+          args:
+          - bootstrap
+          - --next-proto=aks-tls-bootstrap
+          {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
+          - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
           {{- else}}
-          KUBELET_NODE_LABELS={{GetAgentKubernetesLabelsDeprecated . }}
+          - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
           {{- end}}
-          {{- if IsAKSCustomCloud}}
-          AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
-          {{- end}}
+          interactiveMode: Never
+          provideClusterInfo: true
+      {{- else }}
+        token: "{{GetTLSBootstrapTokenForKubeConfig}}"
+      {{- end }}
+    contexts:
+    - context:
+        cluster: localcluster
+        user: kubelet-bootstrap
+      name: bootstrap-context
+    current-context: bootstrap-context
+{{else -}}
+- path: /var/lib/kubelet/kubeconfig
+  permissions: "0644"
+  owner: root
+  content: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: localcluster
+      cluster:
+        certificate-authority: /etc/kubernetes/certs/ca.crt
+        server: https://{{GetKubernetesEndpoint}}:443
+    users:
+    - name: client
       user:
-        id: 0
-      group:
-        id: 0
+        client-certificate: /etc/kubernetes/certs/client.crt
+        client-key: /etc/kubernetes/certs/client.key
+    contexts:
+    - context:
+        cluster: localcluster
+        user: client
+      name: localclustercontext
+    current-context: localclustercontext
+{{- end}}
 
-    {{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
-    - path: /var/lib/kubelet/bootstrap-kubeconfig
-      mode: 0644
-      contents:
-        inline: |
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - name: localcluster
-            cluster:
-              certificate-authority: /etc/kubernetes/certs/ca.crt
-              server: https://{{GetKubernetesEndpoint}}:443
-          users:
-          - name: kubelet-bootstrap
-            user:
-            {{- if EnableSecureTLSBootstrapping }}
-              exec:
-                apiVersion: client.authentication.k8s.io/v1
-                command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-                args:
-                - bootstrap
-                - --next-proto=aks-tls-bootstrap
-                {{- if GetCustomSecureTLSBootstrapAADServerAppID}}
-                - --aad-resource={{GetCustomSecureTLSBootstrapAADServerAppID}}
-                {{- else}}
-                - --aad-resource=6dae42f8-4368-4678-94ff-3960e28e3630
-                {{- end}}
-                interactiveMode: Never
-                provideClusterInfo: true
-            {{- else }}
-              token: "{{GetTLSBootstrapTokenForKubeConfig}}"
-            {{- end }}
-          contexts:
-          - context:
-              cluster: localcluster
-              user: kubelet-bootstrap
-            name: bootstrap-context
-          current-context: bootstrap-context
-      user:
-        id: 0
-      group:
-        id: 0
-    {{else -}}
-    - path: /var/lib/kubelet/kubeconfig
-      mode: 0644
-      contents:
-        inline: |
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - name: localcluster
-            cluster:
-              certificate-authority: /etc/kubernetes/certs/ca.crt
-              server: https://{{GetKubernetesEndpoint}}:443
-          users:
-          - name: client
-            user:
-              client-certificate: /etc/kubernetes/certs/client.crt
-              client-key: /etc/kubernetes/certs/client.key
-          contexts:
-          - context:
-              cluster: localcluster
-              user: client
-            name: localclustercontext
-          current-context: localclustercontext
-      user:
-        id: 0
-      group:
-        id: 0
-    {{- end}}
+- path: /opt/azure/containers/kubelet.sh
+  permissions: "0755"
+  owner: root
+  content: |
+    #!/bin/bash
+    # Disallow container from reaching out to the special IP address 168.63.129.16
+    # for TCP protocol (which http uses)
+    #
+    # 168.63.129.16 contains protected settings that have priviledged info.
+    # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.  
+    # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
+    #
+    # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
+    #
+    # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
+    # for DNS.
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+    iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
 
-    - path: /opt/azure/containers/kubelet.sh
-      mode: 0755
-      contents:
-        inline: |
-          #!/bin/bash
-          # Disallow container from reaching out to the special IP address 168.63.129.16
-          # for TCP protocol (which http uses)
-          #
-          # 168.63.129.16 contains protected settings that have priviledged info.
-          # HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.  
-          # IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
-          #
-          # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
-          #
-          # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
-          # for DNS.
-          iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
-          iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+- path: /opt/azure/containers/ensure_imds_restriction.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
-    - path: /opt/azure/containers/ensure_imds_restriction.sh
-      mode: 0755
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: /etc/kubernetes/certs/ca.crt
+  permissions: "0600"
+  encoding: base64
+  owner: root
+  content: |
+    {{GetParameter "caCertificate"}}
 
-    - path: /etc/kubernetes/certs/ca.crt
-      mode: 0600
-      contents:
-        source: data:;base64,{{GetParameter "caCertificate"}}
-      user:
-        id: 0
-      group:
-        id: 0
-
-    - path: {{GetCustomSearchDomainsCSEScriptFilepath}}
-      mode: 0744
-      contents:
-        compression: gzip
-        source: data:;base64,{{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-      user:
-        id: 0
-      group:
-        id: 0
+- path: {{GetCustomSearchDomainsCSEScriptFilepath}}
+  permissions: "0744"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
