@@ -43,7 +43,7 @@ function GetPackagesFromComponentsJson
         $downloadLocation = $package.windowsDownloadLocation
         if ($downloadLocation -eq $null -or $downloadLocation -eq "")
         {
-           continue
+            continue
         }
 
         $thisList = $output[$downloadLocation]
@@ -77,7 +77,6 @@ function GetPackagesFromComponentsJson
             {
                 $part = $downloadUrls.default
             }
-
         }
 
         $downloadUrl = $part.windowsDownloadUrl
