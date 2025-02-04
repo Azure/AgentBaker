@@ -56,7 +56,7 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 	return &ClusterParams{
 		CACert:         clusterConfig.CertificateAuthorityData,
 		BootstrapToken: getBootstrapToken(ctx, t, kube),
-		FQDN:           fmt.Sprintf("https://%s:443", *cluster.Properties.Fqdn),
+		FQDN:           *cluster.Properties.Fqdn,
 	}, nil
 }
 
