@@ -64,8 +64,8 @@ switch -Regex ($windowsSku)
 }
 
 
-$HelpersFile = "c:/build/components_json_helpers.ps1"
-$ComponentsJsonFile = "c:/build/components.json"
+$HelpersFile = "c:/k/components_json_helpers.ps1"
+$ComponentsJsonFile = "c:/k/components.json"
 
 # fallback in case we're running in a test pipeline or locally
 if (!(Test-Path $HelpersFile))

@@ -9,7 +9,7 @@ param (
     $windowsSKU
 )
 
-# We use parameters for test script so we set environment variables before importing c:\build\windows-vhd-configuration.ps1 to reuse it
+# We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
 . vhdbuilder/packer/windows/windows-vhd-configuration.ps1

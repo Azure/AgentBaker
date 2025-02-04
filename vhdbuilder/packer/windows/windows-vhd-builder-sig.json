@@ -80,7 +80,7 @@
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
             ],
-            "destination": "c:/build/"
+            "destination": "c:/k/"
         },
         {
             "elevated_user": "packer",

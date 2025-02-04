@@ -36,7 +36,7 @@ function Write-Log($Message) {
     Write-Output $msg
 }
 
-. c:/build/windows-vhd-configuration.ps1
+. c:/k/windows-vhd-configuration.ps1
 
 function Download-File {
     param (
