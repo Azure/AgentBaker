@@ -140,7 +140,7 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
-	nodeStatus := corev1.NodeStatus{}
+	var node *corev1.Node = nil
 	t.Logf("waiting for node %s to be ready", vmssName)
 
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
@@ -151,13 +151,17 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 		if event.Type != watch.Added && event.Type != watch.Modified {
 			continue
 		}
-		node := event.Object.(*corev1.Node)
 
-		if !strings.HasPrefix(node.Name, vmssName) {
+		castNode := event.Object.(*corev1.Node)
+		if !strings.HasPrefix(castNode.Name, vmssName) {
 			continue
 		}
-		nodeStatus = node.Status
+
+		// found the right node. Use it!
+		node = castNode
 		if len(node.Spec.Taints) > 0 {
+			nodeTaints, _ := json.Marshal(node.Spec.Taints)
+			t.Logf("node %s is tainted, continuing: %s", node.Name, string(nodeTaints))
 			continue
 		}
 
@@ -167,10 +171,19 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 				return node.Name
 			}
 		}
+
+		nodeConditions, _ := json.Marshal(node.Status.Conditions)
+		t.Logf("no nodeready condition for node %s in status: %s", node.Name, string(nodeConditions))
 	}
 
-	t.Fatalf("failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
-	return ""
+	if node == nil {
+		t.Fatalf("failed to find wait for %q to appear in the API server", vmssName)
+		return ""
+	}
+
+	nodeString, _ := json.Marshal(node.Status)
+	t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, node.Name, node.Status, string(nodeString))
+	return node.Name
 }
 
 // GetHostNetworkDebugPod returns a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.

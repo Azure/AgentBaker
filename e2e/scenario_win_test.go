@@ -98,7 +98,9 @@ func Test_Windows23H2Gen2(t *testing.T) {
 	})
 }
 
-func Test_Windows23H2_Cilium(t *testing.T) {
+// TODO: enable this test once production AKS supports Cilium Windows
+/*
+func Test_Windows23H2_Cilium2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd",
 		Config: Config{
@@ -117,5 +119,5 @@ func Test_Windows23H2_Cilium(t *testing.T) {
 			},
 		},
 	})
-
 }
+*/
