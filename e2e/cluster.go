@@ -125,7 +125,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 
 	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
 	if err != nil {
-		return nil, fmt.Errorf("get kube client with kubeconfig bytes: %w", err)
+		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
 	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap); err != nil {
