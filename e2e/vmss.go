@@ -88,6 +88,7 @@ func createVMSS(ctx context.Context, s *Scenario, attachVMIdentity bool) *armcom
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	return &vmssResp.VirtualMachineScaleSet
@@ -206,7 +207,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	client := config.Azure.VMSSVMRunCommands
 
 	// Invoke the RunCommand on the VMSS instance
-	s.T.Log("uploading windows logs to blob storage, may take a few minutes")
+	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
 	pollerResp, err := client.BeginCreateOrUpdate(
 		ctx,

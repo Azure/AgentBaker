@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/yaml"
 )
 
 type Kubeclient struct {
@@ -40,16 +38,6 @@ const (
 	hostNetworkDebugAppLabel = "debug-mariner"
 	podNetworkDebugAppLabel  = "debugnonhost-mariner"
 )
-
-func (k *Kubeclient) clientCertificate() string {
-	var kc map[string]any
-	if err := yaml.Unmarshal(k.KubeConfig, &kc); err != nil {
-		return ""
-	}
-	encoded := kc["users"].([]interface{})[0].(map[string]any)["user"].(map[string]any)["client-certificate-data"].(string)
-	cert, _ := base64.URLEncoding.DecodeString(encoded)
-	return string(cert)
-}
 
 func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
 	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
@@ -152,7 +140,7 @@ func (k *Kubeclient) WaitUntilPodRunning(ctx context.Context, t *testing.T, name
 }
 
 func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssName string) string {
-	nodeStatus := corev1.NodeStatus{}
+	var node *corev1.Node = nil
 	t.Logf("waiting for node %s to be ready", vmssName)
 
 	watcher, err := k.Typed.CoreV1().Nodes().Watch(ctx, metav1.ListOptions{})
@@ -163,26 +151,39 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 		if event.Type != watch.Added && event.Type != watch.Modified {
 			continue
 		}
-		node := event.Object.(*corev1.Node)
 
-		if !strings.HasPrefix(node.Name, vmssName) {
+		castNode := event.Object.(*corev1.Node)
+		if !strings.HasPrefix(castNode.Name, vmssName) {
 			continue
 		}
-		nodeStatus = node.Status
+
+		// found the right node. Use it!
+		node = castNode
+		nodeTaints, _ := json.Marshal(node.Spec.Taints)
+		nodeConditions, _ := json.Marshal(node.Status.Conditions)
 		if len(node.Spec.Taints) > 0 {
+			t.Logf("node %s is tainted. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 			continue
 		}
 
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready", node.Name)
+				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 				return node.Name
 			}
 		}
+
+		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 	}
 
-	t.Fatalf("failed to find or wait for %q to be ready %+v", vmssName, nodeStatus)
-	return ""
+	if node == nil {
+		t.Fatalf("failed to find wait for %q to appear in the API server", vmssName)
+		return ""
+	}
+
+	nodeString, _ := json.Marshal(node)
+	t.Fatalf("failed to wait for %q (%s) to be ready %+v. Detail: %s", vmssName, node.Name, node.Status, string(nodeString))
+	return node.Name
 }
 
 // GetHostNetworkDebugPod returns a pod that's a member of the 'debug' daemonset, running on an aks-nodepool node.
