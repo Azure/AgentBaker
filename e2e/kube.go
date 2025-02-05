@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/yaml"
 )
 
 type Kubeclient struct {
@@ -41,17 +39,12 @@ const (
 	podNetworkDebugAppLabel  = "debugnonhost-mariner"
 )
 
-func (k *Kubeclient) clientCertificate() string {
-	var kc map[string]any
-	if err := yaml.Unmarshal(k.KubeConfig, &kc); err != nil {
-		return ""
+func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
+	kubeconfigBytes, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster kubeconfig bytes for %q: %w", clusterName, err)
 	}
-	encoded := kc["users"].([]interface{})[0].(map[string]any)["user"].(map[string]any)["client-certificate-data"].(string)
-	cert, _ := base64.URLEncoding.DecodeString(encoded)
-	return string(cert)
-}
 
-func getClusterKubeClient(ctx context.Context, kubeconfigBytes []byte) (*Kubeclient, error) {
 	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
@@ -81,7 +74,7 @@ func getClusterKubeClient(ctx context.Context, kubeconfigBytes []byte) (*Kubecli
 		Dynamic:    dynamic,
 		Typed:      typed,
 		RESTConfig: config,
-		KubeConfig: data,
+		KubeConfig: kubeconfigBytes,
 	}, nil
 }
 

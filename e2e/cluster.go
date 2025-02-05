@@ -123,12 +123,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		}
 	}
 
-	kubeconfigBytes, err := getClusterKubeconfigBytes(ctx, config.ResourceGroupName, *cluster.Name)
-	if err != nil {
-		return nil, fmt.Errorf("getting cluster kubeconfig bytes for %q: %w", *cluster.Name, err)
-	}
-
-	kube, err := getClusterKubeClient(ctx, kubeconfigBytes)
+	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get kube client with kubeconfig bytes: %w", err)
 	}
@@ -143,7 +138,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
-	clusterParams, err := extractClusterParameters(ctx, t, kubeconfigBytes, kube, cluster)
+	clusterParams, err := extractClusterParameters(ctx, t, kube, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
 	}
@@ -157,8 +152,8 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 	}, nil
 }
 
-func extractClusterParameters(ctx context.Context, t *testing.T, kubeconfigBytes []byte, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
-	kubeconfig, err := clientcmd.Load(kubeconfigBytes)
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
+	kubeconfig, err := clientcmd.Load(kube.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("loading cluster kubeconfig: %w", err)
 	}
