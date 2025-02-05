@@ -40,12 +40,12 @@ const (
 )
 
 func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
-	kubeconfigBytes, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
+	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
 	if err != nil {
-		return nil, fmt.Errorf("getting cluster kubeconfig bytes for %q: %w", clusterName, err)
+		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
 	}
 
-	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfigBytes)
+	config, err := clientcmd.RESTConfigFromKubeConfig(data)
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
@@ -74,7 +74,7 @@ func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName st
 		Dynamic:    dynamic,
 		Typed:      typed,
 		RESTConfig: config,
-		KubeConfig: kubeconfigBytes,
+		KubeConfig: data,
 	}, nil
 }
 
