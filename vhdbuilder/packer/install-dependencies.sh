@@ -62,6 +62,7 @@ capture_benchmark "${SCRIPT_NAME}_random_sleep"
 sleep 5
 capture_benchmark "${SCRIPT_NAME}_random_sleep2"
 capture_benchmark "${SCRIPT_NAME}_auto_ingest_test"
+capture_benchmark "${SCRIPT_NAME}_second_auto_ingest_test"
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
@@ -129,7 +130,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_new_section"
 capture_benchmark "${SCRIPT_NAME}_virginia"
 capture_benchmark "${SCRIPT_NAME}_northcarolina"
-
+capture_benchmark "${SCRIPT_NAME}_other_auto_ingest_test"
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
 if ! isMarinerOrAzureLinux "$OS"; then
