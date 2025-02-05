@@ -61,6 +61,7 @@ sleep 5
 capture_benchmark "${SCRIPT_NAME}_random_sleep"
 sleep 5
 capture_benchmark "${SCRIPT_NAME}_random_sleep2"
+capture_benchmark "${SCRIPT_NAME}_auto_ingest_test"
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
