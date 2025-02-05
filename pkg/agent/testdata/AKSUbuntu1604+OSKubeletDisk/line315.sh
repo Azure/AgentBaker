@@ -82,13 +82,18 @@ if [ ! -x ${SCRIPT_PATH}/coredns ]; then
     }
     trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
+    if ! ctr -n k8s.io images ls | grep -q ${COREDNS_IMAGE}; then
+        printf "Image not found locally, pulling: ${COREDNS_IMAGE}\n"
+        ctr -n k8s.io images pull ${COREDNS_IMAGE}
+    fi
+        
     ctr -n k8s.io images mount ${COREDNS_IMAGE} ${CTR_TEMP} >/dev/null
 
     cp ${CTR_TEMP}/coredns ${SCRIPT_PATH}/coredns
 
     ctr -n k8s.io images unmount ${CTR_TEMP} >/dev/null
     rm -rf "${CTR_TEMP}"
-
+    
     trap - EXIT ABRT ERR INT PIPE QUIT TERM
 fi
 

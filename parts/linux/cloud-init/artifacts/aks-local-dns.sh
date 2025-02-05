@@ -91,6 +91,7 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
+# source "/opt/azure/containers/provision_source.sh"
 
 # coredns: extract from image
 # -------------------------------------------------------------------------------------------
@@ -108,6 +109,11 @@ if [ ! -x ${SCRIPT_PATH}/coredns ]; then
     }
     trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
+    if ! ctr -n k8s.io images ls | grep -q ${COREDNS_IMAGE}; then
+        printf "Image not found locally, pulling: ${COREDNS_IMAGE}\n"
+        ctr -n k8s.io images pull ${COREDNS_IMAGE}
+    fi
+        
     # Mount the coredns image to the temporary directory
     ctr -n k8s.io images mount ${COREDNS_IMAGE} ${CTR_TEMP} >/dev/null
 
@@ -117,7 +123,7 @@ if [ ! -x ${SCRIPT_PATH}/coredns ]; then
     # Umount and clean up the temporary directory
     ctr -n k8s.io images unmount ${CTR_TEMP} >/dev/null
     rm -rf "${CTR_TEMP}"
-
+    
     # Clear the trap
     trap - EXIT ABRT ERR INT PIPE QUIT TERM
 fi
