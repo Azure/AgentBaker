@@ -270,7 +270,7 @@ function Get-ContainerImages {
     $images | ForEach-Object -Parallel {
         param ($image)
         # Simulate some work with Start-Sleep
-        Get-ContainerImage $image
+        Get-ContainerImage -image $image
     } -ThrottleLimit 4
 
     # before stopping containerd, let's echo the cached images and their sizes.
