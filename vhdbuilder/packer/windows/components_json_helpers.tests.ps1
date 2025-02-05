@@ -356,7 +356,6 @@ Describe 'Tests of components.json' {
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
