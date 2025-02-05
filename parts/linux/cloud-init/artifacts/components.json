@@ -774,7 +774,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.48",
+                "latestVersion": "0.0.51",
                 "previousLatestVersion": "0.0.50"
               }
             ],
