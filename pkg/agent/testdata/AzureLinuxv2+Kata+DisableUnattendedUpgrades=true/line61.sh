@@ -43,10 +43,11 @@ installKataDeps() {
 downloadGPUDrivers() {
     #
     #
+    #
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_VERSION="*_${KERNEL_VERSION}*"
+    CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
-    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
+    if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }

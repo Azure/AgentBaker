@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,7 +18,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -33,6 +38,12 @@ var (
 	clusterKubenetAirgapOnce sync.Once
 	clusterAzureNetworkOnce  sync.Once
 )
+
+type ClusterParams struct {
+	CACert         []byte
+	BootstrapToken string
+	FQDN           string
+}
 
 type Cluster struct {
 	Model         *armcontainerservice.ManagedCluster
@@ -127,13 +138,51 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("collect garbage vmss: %w", err)
 	}
 
+	clusterParams, err := extractClusterParameters(ctx, t, kube, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
+	}
+
 	return &Cluster{
 		Model:         cluster,
 		Kube:          kube,
 		SubnetID:      subnetID,
 		Maintenance:   maintenance,
-		ClusterParams: extractClusterParameters(ctx, t, kube),
+		ClusterParams: clusterParams,
 	}, nil
+}
+
+func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
+	kubeconfig, err := clientcmd.Load(kube.KubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("loading cluster kubeconfig: %w", err)
+	}
+	clusterConfig := kubeconfig.Clusters[*cluster.Name]
+	if clusterConfig == nil {
+		return nil, fmt.Errorf("cluster kubeconfig missing configuration for %s", *cluster.Name)
+	}
+	return &ClusterParams{
+		CACert:         clusterConfig.CertificateAuthorityData,
+		BootstrapToken: getBootstrapToken(ctx, t, kube),
+		FQDN:           *cluster.Properties.Fqdn,
+	}, nil
+}
+
+func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {
+	secrets, err := kube.Typed.CoreV1().Secrets("kube-system").List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	secret := func() *corev1.Secret {
+		for _, secret := range secrets.Items {
+			if strings.HasPrefix(secret.Name, "bootstrap-token-") {
+				return &secret
+			}
+		}
+		t.Fatal("could not find secret with bootstrap-token- prefix")
+		return nil
+	}()
+	id := secret.Data["token-id"]
+	token := secret.Data["token-secret"]
+	return fmt.Sprintf("%s.%s", id, token)
 }
 
 func hash(cluster *armcontainerservice.ManagedCluster) string {
