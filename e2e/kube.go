@@ -51,13 +51,8 @@ func (k *Kubeclient) clientCertificate() string {
 	return string(cert)
 }
 
-func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
-	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
-	if err != nil {
-		return nil, fmt.Errorf("get cluster kubeconfig bytes: %w", err)
-	}
-
-	config, err := clientcmd.RESTConfigFromKubeConfig(data)
+func getClusterKubeClient(ctx context.Context, kubeconifgBytes []byte) (*Kubeclient, error) {
+	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconifgBytes)
 	if err != nil {
 		return nil, fmt.Errorf("convert kubeconfig bytes to rest config: %w", err)
 	}
