@@ -28,10 +28,11 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 
 	if vhd.Distro.IsWindowsDistro() {
 		nbc = baseTemplateWindows(t, config.Config.Location)
-		cert := cluster.Kube.clientCertificate()
-		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
-		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
-		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = string(cluster.ClusterParams.ClientKey)
+
+		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
+		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
+		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "none"
+
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
@@ -41,7 +42,6 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 	}
 
 	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
-
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
