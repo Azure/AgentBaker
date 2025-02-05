@@ -261,6 +261,10 @@ function Get-ContainerImages {
             } -ErrorMessage "Failed to pull image $image"
         }
     }
+
+    # before stopping containerd, let's echo the cached images and their sizes.
+    crictl images show
+
     Stop-Job  -Name containerd
     Remove-Job -Name containerd
 }
