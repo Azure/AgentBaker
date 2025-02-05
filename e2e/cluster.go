@@ -153,11 +153,7 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 }
 
 func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclient, cluster *armcontainerservice.ManagedCluster) (*ClusterParams, error) {
-	resp, err := config.Azure.AKS.ListClusterAdminCredentials(ctx, config.ResourceGroupName, *cluster.Name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("listing cluster admin credentials: %w", err)
-	}
-	kubeconfig, err := clientcmd.Load(resp.Kubeconfigs[0].Value)
+	kubeconfig, err := clientcmd.Load(kube.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("loading cluster kubeconfig: %w", err)
 	}

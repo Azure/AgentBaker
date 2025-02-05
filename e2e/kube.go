@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/yaml"
 )
 
 type Kubeclient struct {
@@ -40,16 +38,6 @@ const (
 	hostNetworkDebugAppLabel = "debug-mariner"
 	podNetworkDebugAppLabel  = "debugnonhost-mariner"
 )
-
-func (k *Kubeclient) clientCertificate() string {
-	var kc map[string]any
-	if err := yaml.Unmarshal(k.KubeConfig, &kc); err != nil {
-		return ""
-	}
-	encoded := kc["users"].([]interface{})[0].(map[string]any)["user"].(map[string]any)["client-certificate-data"].(string)
-	cert, _ := base64.URLEncoding.DecodeString(encoded)
-	return string(cert)
-}
 
 func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
 	data, err := getClusterKubeconfigBytes(ctx, resourceGroupName, clusterName)
