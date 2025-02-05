@@ -403,3 +403,30 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 		require.Contains(s.T, actualArgs, expectedArgument)
 	}
 }
+
+func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
+	ValidateJsonFileHasField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
+}
+
+func ValidateCiliumIsNotRunningWindows(ctx context.Context, s *Scenario) {
+	ValidateJsonFileDoesNotHaveField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
+}
+
+func ValidateJsonFileHasField(ctx context.Context, s *Scenario, fileName string, jsonPath string, expectedValue string) {
+	require.Equal(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), expectedValue)
+}
+
+func ValidateJsonFileDoesNotHaveField(ctx context.Context, s *Scenario, fileName string, jsonPath string, valueNotToBe string) {
+	require.NotEqual(s.T, GetFieldFromJsonObjectOnNode(ctx, s, fileName, jsonPath), valueNotToBe)
+}
+
+func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName string, jsonPath string) string {
+	steps := []string{
+		fmt.Sprintf("Get-Content %[1]s", fileName),
+		fmt.Sprintf("$content.%s", jsonPath),
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+
+	return podExecResult.stdout.String()
+}
