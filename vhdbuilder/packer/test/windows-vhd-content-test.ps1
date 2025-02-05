@@ -12,10 +12,10 @@ param (
 
 Set-PSDebug -Trace 1
 
-# We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
+# We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-. c:\windows-vhd-configuration.ps1
+. c:\k\windows-vhd-configuration.ps1
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
@@ -567,5 +567,3 @@ Test-ToolsToCacheOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask
-
-Remove-Item -Path c:\windows-vhd-configuration.ps1

@@ -4,10 +4,15 @@
   1. Please install [pester](https://github.com/pester/Pester) with the command `Install-Module -Name pester -SkipPublisherCheck -Force`.
     - Doc: https://pester.dev/docs/quick-start
     - Courses: https://docs.microsoft.com/en-us/shows/testing-powershell-with-pester/
-  1. You need to run unit tests on Windows. NOTE: WSL does not work.
-  1. Run unit test:
+  1. You need to run unit tests on Windows.
+  1. If your git repo is stored in WSL, you can invoke the tests by doing something like this in powershell from windows (not from a WSL shell itself):
+     - ` cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
+     - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru` (or whatever pester test you want to run)
+ 1. Run unit test:
     - `Invoke-Pester parts/windows/*.tests.ps1 -Passthru`
     - `Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru`
+    - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru`
+  1. Watch out different powershell versions. Sometimes JSON parsing works differently in your local powershell and in the pipeline. Which is annoying.
 
 # Test with AKS RP
 1. Run below commands to build a test package

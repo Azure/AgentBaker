@@ -2,6 +2,7 @@
 
 # Table of Contents
 
+- [Table of Contents](#table-of-contents)
 - [TL;DR](#tldr)
 - [Renovate configurations](#renovate-configurations)
   - [Package rules](#package-rules)
@@ -15,12 +16,13 @@
     - [Auto update packages for OS ubuntu xx.xx in components.json](#auto-update-packages-for-os-ubuntu-xxxx-in-componentsjson)
     - [(Optional context) How to ensure a single component will not be updated by 2 multiple custom managers?](#optional-context-how-to-ensure-a-single-component-will-not-be-updated-by-2-multiple-custom-managers)
   - [Custom data sources](#custom-data-sources)
-    - [(Optional context) Please read this section if you are going to config your own transformTemplates](#optional-context-please-read-this-section-if-you-are-going-to-config-your-own-transformtemplates)
+    - [(Optional context) Please read this section if you are going to config your own transformTemplates.](#optional-context-please-read-this-section-if-you-are-going-to-config-your-own-transformtemplates)
 - [Hands-on guide and FAQ](#hands-on-guide-and-faq)
   - [Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.](#okay-i-just-have-5-minutes-please-just-tell-me-how-to-onboard-a-new-packagecontainer-now-to-renovatejson-for-auto-update)
   - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
+  - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
@@ -405,3 +407,25 @@ And next you will see
 where 
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
+
+## How to enable auto-merge for a component's patch version update?
+This is a common scenarior where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
+
+```
+   {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "enabled": true,
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+    },
+```
+The config includes:
+- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/linux/cloud-init/artifacts/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
+- `matchUpdateTypes`: The type of version updates (`patch`) to which this rule applies.
+- `automerge`: Set to `true` to automatically merge PRs created by this rule. Default is `false`.
+- `enabled`: Set to `true` to enable this rule.
+- `assignees` and `reviewers`: The same group of GitHub IDs who will be assigned to and can review and approve the automatically created PRs.
