@@ -1025,7 +1025,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData
+			return !config.DisableCustomData && config.OSSKU != datamodel.OSSKUFlatcar
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
