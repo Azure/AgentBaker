@@ -545,6 +545,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
 			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
 		},
+		"IsFlatcar": func() bool {
+			return isFlatcar(config.OSSKU)
+		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
 		},
@@ -1290,6 +1293,18 @@ vm.swappiness={{$s.VMSwappiness}}
 vm.vfs_cache_pressure={{$s.VMVfsCachePressure}}
 {{- end}}
 {{- end}}
+{{- end}}
+{{- if .IsFlatcar }}
+# refer to https://github.com/kubernetes/kubernetes/blob/75d45bdfc9eeda15fb550e00da662c12d7d37985/pkg/kubelet/cm/container_manager_linux.go#L359-L397
+vm.overcommit_memory = 1
+kernel.panic = 10
+kernel.panic_on_oops = 1
+# to ensure node stability, we set this to the PID_MAX_LIMIT on 64-bit systems: refer to https://kubernetes.io/docs/concepts/policy/pid-limiting/
+kernel.pid_max = 4194304
+# https://github.com/Azure/AKS/issues/772
+fs.inotify.max_user_watches = 1048576
+# Ubuntu 22.04 has inotify_max_user_instances set to 128, where as Ubuntu 18.04 had 1024.
+fs.inotify.max_user_instances = 1024
 {{- end}}
 `
 
