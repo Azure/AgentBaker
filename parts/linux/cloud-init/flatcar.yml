@@ -510,7 +510,24 @@ storage:
       inline: !!binary |
         {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
 
+  - path: /etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+    mode: 0644
+    contents:
+      inline: |
+        ID=flatcar
+        SYSEXT_LEVEL=1.0
+
+  links:
+  - path: /etc/extensions/aks-sysext/usr/local/bin
+    target: /opt/bin
+    hard: false
+
   directories:
+  - path: /opt/bin
+    mode: 0755
+    user:
+      name: root
+
   - path: /opt/cni/downloads
     mode: 0755
     user:

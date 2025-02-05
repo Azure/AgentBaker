@@ -1,0 +1,2 @@
+ID=flatcar
+SYSEXT_LEVEL=1.0
