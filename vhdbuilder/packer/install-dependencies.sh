@@ -125,6 +125,10 @@ if [[ $(isARM64) == 1 ]]; then
   fi
 fi
 
+capture_benchmark "${SCRIPT_NAME}_new_section"
+capture_benchmark "${SCRIPT_NAME}_virginia"
+capture_benchmark "${SCRIPT_NAME}_northcarolina"
+
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
 if ! isMarinerOrAzureLinux "$OS"; then
