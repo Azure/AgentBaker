@@ -605,7 +605,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.15.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
