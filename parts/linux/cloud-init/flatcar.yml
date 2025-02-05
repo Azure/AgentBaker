@@ -509,3 +509,13 @@ storage:
       compression: gzip
       inline: !!binary |
         {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+  directories:
+  - path: /opt/cni/downloads
+    mode: 0755
+    user:
+      name: root
+  - path: /var/log/azure
+    mode: 0755
+    user:
+      name: root
