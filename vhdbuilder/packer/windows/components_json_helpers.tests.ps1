@@ -340,7 +340,7 @@ Describe 'Tests of components.json' {
     it 'has the right version of ciprod' {
         $components = GetComponentsFromComponentsJson $componentsJson
 
-        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24"
     }
 
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
