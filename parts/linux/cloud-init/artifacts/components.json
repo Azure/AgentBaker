@@ -606,6 +606,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
           "latestVersion": "v2.14.0"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
+          "latestVersion": "v2.15.0"
         }
       ],
       "windowsVersions": [
@@ -622,6 +626,10 @@
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
           "latestVersion": "v2.12.0"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
+          "latestVersion": "v2.13.0"
         }
       ],
       "windowsVersions": [
