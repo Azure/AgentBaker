@@ -296,6 +296,22 @@ retrycmd_get_binary_from_registry_with_oras() {
         fi
     done
 }
+retrycmd_can_oras_discover_acr() {
+    retries=$1; wait_sleep=$2; url=$3
+    retries=1
+    repo_name="${url%:*}"  # Removes ":latest" or any other tag
+    for i in $(seq 1 $retries); do
+        output=$(timeout 60 oras discover "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        if [[ "$output" == *"$repo_name@sha256:"* ]]; then
+            echo "acr is reachable: $output"
+            return 0
+        elif [[ "$output" == *"unauthorized: authentication required"* ]]; then
+            echo "acr is not reachable: $output"
+            return 1
+        fi
+    done
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+}
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
@@ -718,6 +734,17 @@ oras_login_with_kubelet_identity() {
         return 
     fi
 
+    test_image="/mcr/hello-world:latest"
+    retrycmd_can_oras_discover_acr 10 5 $acr_url$test_image
+    ret_code=$? 
+    if [[ $ret_code == 0 ]]; then
+        echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
+        return
+    elif [[ $ret_code != 1 ]]; then
+        echo "failed with an error other than unauthorized, exiting.."
+        return $?
+    fi
+
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
     ret_code=$? 
@@ -749,9 +776,14 @@ oras_login_with_kubelet_identity() {
         echo "failed to parse refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
-
     if ! echo "$REFRESH_TOKEN" | oras login $acr_url --identity-token-stdin --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
         echo "failed to login to acr '$acr_url' with identity token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    retrycmd_can_oras_discover_acr 10 5 $acr_url$test_image
+    if [[ $? != 0 ]]; then
+        echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
     echo "successfully logged in to acr '$acr_url' with identity token"

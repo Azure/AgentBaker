@@ -256,6 +256,10 @@ EOF
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
         It 'should fail if access token is an error'
+            retrycmd_can_oras_discover_acr() {
+                return 1
+            }
+
             local acr_url="unneeded.azurecr.io"
             local client_id="failureClient"
             local tenant_id="mytenantID"
@@ -264,6 +268,9 @@ EOF
             The stdout should include "failed to retrieve access token"
         End  
         It 'should fail if refresh token is an error'
+            retrycmd_can_oras_discover_acr() {
+                return 1
+            }
             local acr_url="unneeded.azurecr.io"
             local client_id="myclientID"
             local tenant_id="failureID"
@@ -272,6 +279,9 @@ EOF
             The stdout should include "failed to retrieve refresh token"
         End  
         It 'should fail if oras cannot login'
+            retrycmd_can_oras_discover_acr() {
+                return 1
+            }
             local acr_url="failed.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
@@ -280,6 +290,19 @@ EOF
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End  
         It 'should succeed if oras can login'
+            mock_retrycmd_can_oras_discover_acr_counter=0
+            retrycmd_can_oras_discover_acr() {
+                ((mock_retrycmd_can_oras_discover_acr_counter++)) 
+                echo $mock_retrycmd_can_oras_discover_acr_counter
+                if [[ $mock_retrycmd_can_oras_discover_acr_counter -eq 1 ]]; then
+                    echo "acr is not reachable: unauthorized"
+                    return 1
+                else
+                    echo "success.azurecr.io@sha256:1234567890"
+                    return 0
+                fi
+            }
+
             local acr_url="success.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"

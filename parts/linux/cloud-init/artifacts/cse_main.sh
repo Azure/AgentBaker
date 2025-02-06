@@ -88,7 +88,7 @@ if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
 fi
 
 if [[ ! -z ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    set +x 
+    set +x
     logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
     set -x
 fi
