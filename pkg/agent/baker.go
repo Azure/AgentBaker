@@ -545,9 +545,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
 			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
 		},
-		"IsFlatcar": func() bool {
-			return isFlatcar(config.OSSKU)
-		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
 		},
@@ -1028,7 +1025,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 		},
 		"ShouldEnableCustomData": func() bool {
-			return !config.DisableCustomData && config.OSSKU != datamodel.OSSKUFlatcar
+			return !config.DisableCustomData && !profile.IsFlatcar()
 		},
 		"GetPrivateEgressProxyAddress": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetProxyAddress()
@@ -1164,9 +1161,6 @@ func areCustomCATrustCertsPopulated(config datamodel.NodeBootstrappingConfigurat
 
 func isMariner(osSku string) bool {
 	return osSku == datamodel.OSSKUCBLMariner || osSku == datamodel.OSSKUMariner || osSku == datamodel.OSSKUAzureLinux
-}
-func isFlatcar(osSku string) bool {
-	return osSku == datamodel.OSSKUFlatcar
 }
 
 const sysctlTemplateString = `# This is a partial workaround to this upstream Kubernetes issue:
