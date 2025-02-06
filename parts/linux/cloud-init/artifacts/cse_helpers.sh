@@ -298,7 +298,6 @@ retrycmd_get_binary_from_registry_with_oras() {
 }
 retrycmd_can_oras_discover_acr() {
     retries=$1; wait_sleep=$2; url=$3
-    retries=1
     repo_name="${url%:*}"  # Removes ":latest" or any other tag
     for i in $(seq 1 $retries); do
         output=$(timeout 60 oras discover "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
@@ -737,18 +736,20 @@ oras_login_with_kubelet_identity() {
     test_image="/mcr/hello-world:latest"
     retrycmd_can_oras_discover_acr 10 5 $acr_url$test_image
     ret_code=$? 
-    if [[ $ret_code == 0 ]]; then
+    if [[ $ret_code -eq 0 ]]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
-    elif [[ $ret_code != 1 ]]; then
+    elif [[ $ret_code -ne 1 ]]; then
         echo "failed with an error other than unauthorized, exiting.."
-        return $?
+        return $ret_code
     fi
 
+    set +x 
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
     ret_code=$? 
     if [ $ret_code -ne 0 ]; then
+        echo "failed to retrieve access token: $ret_code"
         return $ret_code
     fi
     if [ -z "$raw_access_token" ] || [[ "$raw_access_token" == *"error"* ]]; then
@@ -758,13 +759,13 @@ oras_login_with_kubelet_identity() {
     ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
     if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
         echo "failed to parse access token"
-        failure_message=$(echo "$raw_access_token" | jq -e .error -r 2>/dev/null)
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
     ret_code=$? 
     if [ $ret_code -ne 0 ]; then
+        echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
     fi
     if [ -z "$raw_refresh_token" ] || [[ "$raw_refresh_token" == *"error"* ]]; then
@@ -776,17 +777,23 @@ oras_login_with_kubelet_identity() {
         echo "failed to parse refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
-    if ! echo "$REFRESH_TOKEN" | oras login $acr_url --identity-token-stdin --registry-config ${ORAS_REGISTRY_CONFIG_FILE}; then
+    oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN"
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
+    unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
+    set -x
 
     retrycmd_can_oras_discover_acr 10 5 $acr_url$test_image
-    if [[ $? != 0 ]]; then
+    if [[ $? -ne 0 ]]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
+
     echo "successfully logged in to acr '$acr_url' with identity token"
+    return
 }
 
 #HELPERSEOF

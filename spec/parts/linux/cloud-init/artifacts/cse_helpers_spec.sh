@@ -285,30 +285,30 @@ EOF
             local acr_url="failed.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
-            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End  
         It 'should succeed if oras can login'
             mock_retrycmd_can_oras_discover_acr_counter=0
             retrycmd_can_oras_discover_acr() {
-                ((mock_retrycmd_can_oras_discover_acr_counter++)) 
-                echo $mock_retrycmd_can_oras_discover_acr_counter
+                response_var=-1
+                ((mock_retrycmd_can_oras_discover_acr_counter++))
                 if [[ $mock_retrycmd_can_oras_discover_acr_counter -eq 1 ]]; then
-                    echo "acr is not reachable: unauthorized"
-                    return 1
+                    response_var=1
                 else
-                    echo "success.azurecr.io@sha256:1234567890"
-                    return 0
+                    response_var=0
                 fi
+                return $response_var
             }
 
             local acr_url="success.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
-            When call oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be success
             The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
         End  
     End
 End
