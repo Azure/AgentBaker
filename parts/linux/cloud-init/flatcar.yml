@@ -517,6 +517,13 @@ storage:
         ID=flatcar
         SYSEXT_LEVEL=1.0
 
+  - path: /etc/flatcar/update.conf
+    overwrite: true
+    mode: 0644
+    contents:
+      inline: |
+        SERVER=disabled
+
   links:
   - path: /etc/extensions/aks-sysext/usr/local/bin
     target: /opt/bin
@@ -532,7 +539,17 @@ storage:
     mode: 0755
     user:
       name: root
+
   - path: /var/log/azure
     mode: 0755
     user:
       name: root
+
+systemd:
+  units:
+  - name: containerd.service
+    dropins:
+    - name: 50-default-config.conf
+      contents: |
+        [Service]
+        Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
