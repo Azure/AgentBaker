@@ -74,7 +74,7 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && ([ "${IMG_SKU}" == "20_04-lts-cvm" ] || [ "${IMG_SKU}" == "cvm" ]); then
+if [ "${OS_TYPE}" == "Linux" ] && [[ "${IMG_SKU}" == "20_04-lts-cvm" ] || [ "${IMG_SKU}" == "cvm" ]]; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
