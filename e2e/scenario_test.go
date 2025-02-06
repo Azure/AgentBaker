@@ -415,6 +415,23 @@ func Test_MarinerV2_ChronyRestarts(t *testing.T) {
 	})
 }
 
+func Test_MarinerV2_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
 func Test_MarinerV2_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 62535",
