@@ -18,6 +18,9 @@ required_env_vars=(
   "BUILD_RUN_NUMBER"
   "VHD_ARTIFACT_NAME"
   "DRY_RUN"
+  "UMSI_RESOURCE_ID_TME"
+  "UMSI_PRINCIPAL_ID_TME"
+  "UMSI_CLIENT_ID_TME"
 )
 
 for v in "${required_env_vars[@]}"; do

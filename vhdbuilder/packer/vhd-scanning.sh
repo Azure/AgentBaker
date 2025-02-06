@@ -51,7 +51,7 @@ function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
     az group delete --name $RESOURCE_GROUP_NAME --yes --no-wait
 }
-trap cleanup EXIT
+#trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_OPTIONS="--size Standard_D8ds_v5"
@@ -82,7 +82,7 @@ az vm create --resource-group $RESOURCE_GROUP_NAME \
     --admin-password $SCAN_VM_ADMIN_PASSWORD \
     --os-disk-size-gb 50 \
     ${VM_OPTIONS} \
-    --assign-identity "${UMSI_RESOURCE_ID}"
+    --assign-identity "${UMSI_RESOURCE_ID_TME}"
     
 capture_benchmark "${SCRIPT_NAME}_create_scan_vm"
 set +x
@@ -130,8 +130,8 @@ az vm run-command invoke \
         "BLOB_URL"=${BLOB_URL} \
         "SEVERITY"=${SEVERITY} \
         "MODULE_VERSION"=${MODULE_VERSION} \
-        "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID} \
-        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID} \
+        "UMSI_PRINCIPAL_ID"=${UMSI_PRINCIPAL_ID_TME} \
+        "UMSI_CLIENT_ID"=${UMSI_CLIENT_ID_TME} \
         "AZURE_MSI_RESOURCE_STRING"=${AZURE_MSI_RESOURCE_STRING} \
         "BUILD_RUN_NUMBER"=${BUILD_RUN_NUMBER} \
         "BUILD_REPOSITORY_NAME"=${BUILD_REPOSITORY_NAME} \
