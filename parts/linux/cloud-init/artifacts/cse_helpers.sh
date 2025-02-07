@@ -317,7 +317,7 @@ retrycmd_can_oras_ls_acr() {
             echo "ACR is not reachable: $output"
             return 1
         elif [[ -n "$output" ]]; then
-            echo "ACR is reachable: $output"
+            echo "ACR is reachable"
             return 0
         fi
     done
