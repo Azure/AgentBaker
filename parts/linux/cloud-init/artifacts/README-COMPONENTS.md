@@ -2,6 +2,7 @@
 
 # Table of Contents
 
+- [Table of Contents](#table-of-contents)
 - [TL;DR](#tldr)
 - [Components management](#components-management)
   - [Schema of components.json](#schema-of-componentsjson)
@@ -9,13 +10,15 @@
     - [Packages](#packages)
 - [Hands-on guide and FAQ](#hands-on-guide-and-faq)
   - [How to ask Renovate to auto-update an existing component in `components.json` to a new version?](#how-to-ask-renovate-to-auto-update-an-existing-component-in-componentsjson-to-a-new-version)
-  - [How to ask Renovate not to auto-update a component version?](#how-to-ask-renovate-to-auto-update-an-existing-component-in-componentsjson-to-a-new-version)
+  - [How to ask Renovate not to auto-update a component version?](#how-to-ask-renovate-not-to-auto-update-a-component-version)
   - [How to keep 2 patch versions for a minor version?](#how-to-keep-2-patch-versions-for-a-minor-version)
   - [How to keep multiple minor versions?](#how-to-keep-multiple-minor-versions)
-  - [Can I keep only 1 patch version](#can-i-keep-only-1-patch-version)
-  - [Can I avoid repeating a single version for all OS distros/releases](#can-i-avoid-repeating-a-single-version-for-all-os-distrosreleases)
+  - [Can I keep only 1 patch version?](#can-i-keep-only-1-patch-version)
+  - [Can I avoid repeating a single version for all OS distros/releases?](#can-i-avoid-repeating-a-single-version-for-all-os-distrosreleases)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
-- [Were mariner and azurelinux intentionally removed from package runc?](#were-mariner-and-azurelinux-intentionally-removed-from-package-runc)
+  - [Were `mariner` and `azurelinux` intentionally removed from package `runc`?](#were-mariner-and-azurelinux-intentionally-removed-from-package-runc)
+  - [When should we merge `runc` and `containerd` automated update PRs created by Renovate?](#when-should-we-merge-runc-and-containerd-automated-update-prs-created-by-renovate)
+  - [Encountering warning "This branch is out-of-date with the base branch" in an automated PR](#encountering-warning-this-branch-is-out-of-date-with-the-base-branch-in-an-automated-pr)
 
 # TL;DR
 This doc explains the organization of `components.json`, and how Renovate uses it to automatically update components. If you want to onboard your component, which is already in components.json, to Renovate for automatic updates, please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md).
@@ -247,11 +250,14 @@ please refer to [Readme-Renovate.md](../../../../.github/README-RENOVATE.md#what
 In components.json, `mariner` and `azurelinux` were intentionally removed from package `runc`. It is because for `mariner` and `azurelinux`, `runc` is not installed independently but is installed along with `containerd`. Ubuntu does install `runc` independently so you will find the version config there.
 
 ## When should we merge `runc` and `containerd` automated update PRs created by Renovate? 
-
-
-In short, as long as the PR gates pass, we are good to merge the automated PRs for `runc` and `containerd`.
+In short, as long as the PR gates pass, we are good to merge the automated PRs for `runc` and `containerd`. Now `runc`, `containerd` and more and more components are configured as auto-merge.
 
 For more context. For each PR, there are serveral PR gates designed to ensure the correctness of code modifications. For example, for Linux we have `Agentbaker E2E`, `AKS Linux VHD Build - PR check-in gate` and for windows we have `Agentbaker Windows E2E`, `AKS Windows VHD Build - PR check-in gate`. On the other hand, the current configurations of Renovate for these components only update patch versions. Therefore it should give us sufficient confidence to merge the automated update PRs as long as all the PR gates pass. 
 
 There is also a plan to enable other downstream components tests such as `AKS-RP` to run as PR gates for some critical changes in `AgentBaker`. Once that is available, we will have even more confidence in merging this kind of automated update PRs.
 
+## Encountering warning "This branch is out-of-date with the base branch" in an automated PR
+The PR created by Renovate should be rebasing with latest Master branch by itself automatically. However, if somehow you have approved the automated PR created by Renovate to update your component, and all PR gate tests have passed, but you encounter a warning "This branch is out-of-date with the base branch", there are two ways to resolve this:
+1. **(Suggested)** In the description of the PR, there is a checkbox with a statement `If you want to rebase/retry this PR, check this box`. By checking this checkbox and waiting for a few minutes, Renovate will rebase the branch with the lastest master branch and update this PR for you. After a few minutes if you refresh the PR webpage, you will see the checkbox is gone and the warning should be resolved too. You still need to wait for a new round of PR gates tests passed though.
+
+2. Manually update the branch by clicking on the button `Update branch` and then `Update with rebase`. This will rebase the branch with lastest Master branch. However, Renovate will consider that you have taken over this branch so it will no longer update this PR for you. This won't prevent you from checking in your changes, but unless you have a specific reason, we suggest using the first approach.

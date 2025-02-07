@@ -15,7 +15,7 @@ pr:
     - .pipelines/templates/e2e-template.yaml
     - parts/linux/*
     - packer.mk
-    - aks-node-controller/*
+    - aks-node-controller/**
     exclude:
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
@@ -23,6 +23,7 @@ pr:
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
     - /**/*.md
+    - .github/**
 
 pool:
   name: $(POOL_NAME)
