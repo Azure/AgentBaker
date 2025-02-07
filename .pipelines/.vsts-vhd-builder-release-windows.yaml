@@ -26,6 +26,7 @@ pr:
     exclude:
     - vhdbuilder/release-notes
     - /**/*.md
+    - .github/**
 
 pool:
   name: $(AZURE_POOL_NAME)
