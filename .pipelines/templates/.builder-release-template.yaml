@@ -238,12 +238,13 @@ steps:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
   
   - task: DownloadPipelineArtifact@2
+    displayName: Download Build Performance Program
     inputs:
       source: "specific"
-      project: $(SOURCE_PROJECT)
+      project: $(System.TeamProject)
       pipeline: $(SOURCE_PIPELINE) 
       runVersion: "latest"
-      artifactName: $(BUILD_PERFORMANCE_ARTIFACT_NAME)
+      artifactName: $(BUILD_PERFORMANCE_BINARY)
       downloadPath: "vhdbuilder/packer/buildperformance"
 
   - bash: make -f packer.mk evaluate-build-performance
