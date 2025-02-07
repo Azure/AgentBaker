@@ -1267,7 +1267,7 @@ type ContainerdConfigTemplate string
 // they're identical except for GPU runtime class.
 const (
 	containerdV1ConfigTemplate ContainerdConfigTemplate = `version = 2
-oom_score = 0{{if HasDataDir }}
+oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
@@ -1388,7 +1388,7 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 `
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
-oom_score = 0{{if HasDataDir }}
+oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -1510,7 +1510,7 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 `
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
-oom_score = 0{{if HasDataDir }}
+oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -1617,7 +1617,7 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 `
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
-oom_score = 0{{if HasDataDir }}
+oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
