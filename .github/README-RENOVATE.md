@@ -2,12 +2,13 @@
 
 # Table of Contents
 
+- [Table of Contents](#table-of-contents)
 - [TL;DR](#tldr)
 - [Renovate configurations](#renovate-configurations)
   - [Package rules](#package-rules)
     - [Disable `minor` update](#disable-minor-update)
     - [Enable `patch`, `pin` and `digest` update](#enable-patch-pin-and-digest-update)
-    - [(Optional context) Why not updating minor?](#optional-context-why-not-updating-minor)
+    - [(Optional context) To update minor or not](#optional-context-to-update-minor-or-not)
     - [Assigning specific component to specific person](#assigning-specific-component-to-specific-person)
     - [Additional string operation to specific component](#additional-string-operation-to-specific-component)
   - [Custom managers](#custom-managers)
@@ -15,12 +16,13 @@
     - [Auto update packages for OS ubuntu xx.xx in components.json](#auto-update-packages-for-os-ubuntu-xxxx-in-componentsjson)
     - [(Optional context) How to ensure a single component will not be updated by 2 multiple custom managers?](#optional-context-how-to-ensure-a-single-component-will-not-be-updated-by-2-multiple-custom-managers)
   - [Custom data sources](#custom-data-sources)
-    - [(Optional context) Please read this section if you are going to config your own transformTemplates](#optional-context-please-read-this-section-if-you-are-going-to-config-your-own-transformtemplates)
+    - [(Optional context) Please read this section if you are going to config your own transformTemplates.](#optional-context-please-read-this-section-if-you-are-going-to-config-your-own-transformtemplates)
 - [Hands-on guide and FAQ](#hands-on-guide-and-faq)
   - [Okay, I just have 5 minutes. Please just tell me how to onboard a new package/container now to Renovate.json for auto-update.](#okay-i-just-have-5-minutes-please-just-tell-me-how-to-onboard-a-new-packagecontainer-now-to-renovatejson-for-auto-update)
   - [What is the responsibility of a PR assignee?](#what-is-the-responsibility-of-a-pr-assignee)
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
+  - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
@@ -88,7 +90,7 @@ For other components, we are still relying on the owner teams to approve and mer
 
 For more context to anyone who is interested, let's walk through a real example. Feel free to skip reading this if it has nothing to do with your task.
 
-### (Optional context) Why not updating minor?
+### (Optional context) To update minor or not
 Using azure-cni as an example, if we enable auto updating `minor`, we will see the following PRs created by Renovate automatically at of Sep 12, 2024.
 - PR1: containernetworking/azure-cni minor v1.5.32 -> v1.6.6
 - PR2: containernetworking/azure-cni patch v1.6.3 -> v1.6.6
@@ -96,17 +98,15 @@ Using azure-cni as an example, if we enable auto updating `minor`, we will see t
 
 PR2 and PR3 are what we need because we want to auto-update the patch version.
 By enabling the `minor` package rule, PR1 will also be created.
-This will be a noise PR to the assignee because now he/she needs to manually check if the 2 latest versions of v1.5.x are still kept in the components.json if this PR is merged. And usually it's not. Thus the assignee will cancel this PR manually every time.
-If a new minor version needs to be added, the owner should update the components.json.
+Depending on use case, for some components this could be a helpful reminder that there are updated versions but for others this could become noisy if it's intended not to update minor version but only patch version.
 
-If there is only 1 component then it should be fine as it won't have too many noisy PRs.
-But in components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
+In components.json, it's managing 50+ components. So with `minor` package rule enabled, it will look like this screenshot.
 ![Renovate Minor Enabled](./images/Renovate_minor_enabled.png)
-On the left side, there is no minor being updated. On the right side, it added many PRs for updating the minor but most of them should be just noise.
+On the left side, there is no `minor` being updated. On the right side, it added many PRs for updating the `minor` too.
 
-That's why we ended up disabling `minor` auto-update to avoid the noisy PRs.
+We enabled auto-updating `minor` versions as default configuration for now we can revise if it ends up being too noisy. We can also turn on/off updating `minor` version for specific components.
 
-p.s. To allow disable `minor` update but enable `patch`, `pin`, `digest` update, at root level `separateMinorPatch` needs to be `true`.
+p.s. To allow disable `minor` update but enable `patch` update, at root level `separateMinorPatch` needs to be `true`, though it's no harm to turn it on even we are also updating `minor`.
 
 ### Assigning specific component to specific person
 We can use `matchPackageNames` to achieve this purpose.
@@ -407,3 +407,25 @@ And next you will see
 where 
 - `${version}` will be resolved at runtime with the `latestVersion` and `previousLatestVersion` defined above.
 - `${CPU_ARCH}` will be resolved at runtime depending on the CPU architecture of the Node (VM) under provisioning.
+
+## How to enable auto-merge for a component's patch version update?
+This is a common scenarior where we want the PR to be merged automatically when a PR is created for a patch version update. You can refer to `moby-runc` and `moby-containerd` in `AgentBaker/.github/renovate.json` as an example. 
+
+```
+   {
+      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "enabled": true,
+      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
+      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+    },
+```
+The config includes:
+- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/linux/cloud-init/artifacts/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
+- `matchUpdateTypes`: The type of version updates (`patch`) to which this rule applies.
+- `automerge`: Set to `true` to automatically merge PRs created by this rule. Default is `false`.
+- `enabled`: Set to `true` to enable this rule.
+- `assignees` and `reviewers`: The same group of GitHub IDs who will be assigned to and can review and approve the automatically created PRs.

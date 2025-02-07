@@ -8,6 +8,7 @@
   "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
   "separateMinorPatch": true,
+  "recreateWhen": "never",
   "labels": ["renovate"],
   "logLevelRemap": [
     {
@@ -16,14 +17,6 @@
     }
   ],
   "packageRules": [
-    {
-      "matchDatasources": ["docker", "custom.deb1804", "custom.deb2004", "custom.deb2204", "custom.deb2404"],
-      "matchUpdateTypes": [
-        "minor"
-      ],
-      "automerge": false,
-      "enabled": false
-    },
     {
       "matchDatasources": ["docker"],
       "matchUpdateTypes": [
@@ -99,6 +92,16 @@
       "reviewers": ["mainred"]
     },
     {
+      "matchPackageNames": ["oss/kubernetes-csi/*"],
+      "assignees": ["andyzhangx"],
+      "reviewers": ["andyzhangx"]
+    },
+    {
+      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "assignees": ["haitch", "wenhug", "gaopenghigh"],
+      "reviewers": ["haitch", "wenhug", "gaopenghigh"]
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
@@ -110,7 +113,7 @@
     {      
       "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": false,      
+      "automerge": true,      
       "enabled": true,
       "ignoreUnstable": false
     }

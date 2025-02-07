@@ -380,9 +380,11 @@ const (
 
 	// DO NOT MODIFY: 1804GPUContainerd Gen1 & Gen2 pinned to the last image build as
 	// GPU Dedicated preview image is being deprecated and image builds have stopped.
-	Frozen1804GPUContainerdSIGImageVersionForDeprecation string = "202501.05.0"
-
+	Frozen1804GPUContainerdSIGImageVersionForDeprecation     string = "202501.05.0"
 	Frozen1804Gen2GPUContainerdSIGImageVersionForDeprecation string = "202501.05.0"
+
+	// DO NOT MODIFY: used for freezing MarinerV2KataGen2TL.
+	FrozenCBLMarinerV2KataGen2TLSIGImageVersion = "2022.12.15"
 
 	// We do not use AKS Windows image versions in AgentBaker. These fake values are only used for unit tests.
 	Windows2019SIGImageVersion string = "17763.2019.221114"
@@ -391,36 +393,28 @@ const (
 )
 
 type sigVersion struct {
-	OSType  string `json:"ostype"`
 	Version string `json:"version"`
 }
 
 //go:embed linux_sig_version.json
-var linuxVersionJSONContentsEmbedded string
-
-//go:embed mariner_v2_kata_gen2_tl_sig_version.json
-var marinerV2KataGen2TLJSONContentsEmbedded string
+var linuxSIGVersionJSONContent []byte
 
 //nolint:gochecknoglobals
-var LinuxSIGImageVersion = getSIGVersionFromEmbeddedString(linuxVersionJSONContentsEmbedded)
+var LinuxSIGImageVersion = mustGetSIGVersionFromJSONContent(linuxSIGVersionJSONContent)
 
-//nolint:gochecknoglobals
-var CBLMarinerV2KataGen2TLSIGImageVersion = getSIGVersionFromEmbeddedString(marinerV2KataGen2TLJSONContentsEmbedded)
-
-func getSIGVersionFromEmbeddedString(contents string) string {
+// mustGetSIGVersionFromJSONContent returns the SIG image version from within the specified SON content string.
+// This is used to populate LinuxSIGImageVersion from linux_sig_version.json.
+func mustGetSIGVersionFromJSONContent(contents []byte) string {
 	if len(contents) == 0 {
-		panic("SIG version is empty")
+		panic("linux_sig_Version.json content is empty")
 	}
 
-	var sigImageStruct sigVersion
-	err := json.Unmarshal([]byte(contents), &sigImageStruct)
-
-	if err != nil {
+	var v sigVersion
+	if err := json.Unmarshal(contents, &v); err != nil {
 		panic(err)
 	}
 
-	sigImageVersion := sigImageStruct.Version
-	return sigImageVersion
+	return v.Version
 }
 
 // SIG config Template.
@@ -762,7 +756,7 @@ var (
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
 		Definition:    "V2katagen2TL",
-		Version:       CBLMarinerV2KataGen2TLSIGImageVersion,
+		Version:       FrozenCBLMarinerV2KataGen2TLSIGImageVersion,
 	}
 
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{

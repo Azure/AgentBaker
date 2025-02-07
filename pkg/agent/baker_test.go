@@ -1052,6 +1052,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		},
 			func(o *nodeBootstrappingOutput) {
+				Expect(o).ShouldNot(BeNil())
+				Expect(o.files["/opt/azure/containers/provision.sh"]).ShouldNot(BeNil())
 				Expect(o.files["/opt/azure/containers/provision.sh"].encoding).To(Equal(cseVariableEncodingGzip))
 				cseMain := o.files["/opt/azure/containers/provision.sh"].value
 				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
@@ -1168,7 +1170,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1219,7 +1221,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedOverlaybdConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1342,7 +1344,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1385,7 +1387,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1642,6 +1644,47 @@ oom_score = 0
 				containerdUlimitContent := o.vars["CONTAINERD_ULIMITS"]
 				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
 				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
+			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated features", "AKSUbuntu2404", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				// to have cni plugin non-default
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = NetworkPolicyAntrea
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedContainerdV2CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  [plugins."io.containerd.cri.v1.images".pinned_images]
+    sandbox = ""
+`
+				deprecatedContainerdV1CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2CriConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
+
+				expectedCniV2Config := `
+  [plugins."io.containerd.cri.v1.runtime".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+`
+				deprecatedCniV1Config := `
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+`
+				Expect(expectedCniV2Config).NotTo(Equal(deprecatedCniV1Config))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedCniV2Config))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedCniV1Config))
 			}),
 	)
 })

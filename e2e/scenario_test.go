@@ -85,6 +85,23 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeBinaryConfig.CustomKubeBinaryUrl = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				config.VmSize = "Standard_D2pds_V5"
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
@@ -236,6 +253,32 @@ func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_WASM(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new AzureLinuxV2 (CgroupV2) node using krustlet can be properly bootstrapped",
@@ -362,6 +405,23 @@ func Test_MarinerV2_ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_MarinerV2_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -1324,6 +1384,23 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -1425,6 +1502,7 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
 			},
 		},
 	})
