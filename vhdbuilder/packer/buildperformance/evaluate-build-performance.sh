@@ -62,15 +62,10 @@ if [ "${ENVIRONMENT,,}" != "prod" ]; then
   mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
   pushd vhdbuilder/packer/buildperformance || exit 0
     echo -e "\nRunning build performance evaluation program...\n"
-    az storage blob download --account-name ${STORAGE_ACCOUNT_NAME} \
-      --container-name ${BUILD_PERFORMANCE_CONTAINER_NAME} \
-      --file ${BUILD_PERFORMANCE_BINARY} \
-      --name ${BUILD_PERFORMANCE_BINARY} \
-      --auth-mode login
-
     chmod +x ${BUILD_PERFORMANCE_BINARY}
     ./${BUILD_PERFORMANCE_BINARY}
     rm ${SIG_IMAGE_NAME}-build-performance.json
+    rm ${BUILD_PERFORMANCE_BINARY}
   popd || exit 0
 else
   rm ${SIG_IMAGE_NAME}-build-performance.json
