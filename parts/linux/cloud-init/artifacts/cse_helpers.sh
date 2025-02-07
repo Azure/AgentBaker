@@ -309,17 +309,16 @@ retrycmd_get_binary_from_registry_with_oras() {
         fi
     done
 }
-retrycmd_can_oras_discover_acr() {
+retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
-    repo_name="${url%:*}"  # Removes ":latest" or any other tag
     for i in $(seq 1 $retries); do
-        output=$(timeout 60 oras discover "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
-        if [[ "$output" == *"$repo_name@sha256:"* ]]; then
-            echo "acr is reachable: $output"
-            return 0
-        elif [[ "$output" == *"unauthorized: authentication required"* ]]; then
-            echo "acr is not reachable: $output"
+        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        if [[ "$output" == *"unauthorized: authentication required"* ]]; then
+            echo "ACR is not reachable: $output"
             return 1
+        elif [[ -n "$output" ]]; then
+            echo "ACR is reachable: $output"
+            return 0
         fi
     done
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
@@ -746,8 +745,7 @@ oras_login_with_kubelet_identity() {
         return 
     fi
 
-    test_image="/mcr/hello-world:latest"
-    retrycmd_can_oras_discover_acr 10 5 $acr_url$test_image
+    retrycmd_can_oras_ls_acr 10 5 $acr_url
     ret_code=$? 
     if [[ $ret_code -eq 0 ]]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
@@ -799,7 +797,7 @@ oras_login_with_kubelet_identity() {
     unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
     set -x
 
-    retrycmd_can_oras_discover_acr 10 5 $acr_url$test_image
+    retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
     if [[ $? -ne 0 ]]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED

@@ -178,7 +178,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
         End
         It 'should fail if access token is an error'
-            retrycmd_can_oras_discover_acr() {
+            retrycmd_can_oras_ls_acr() {
                 return 1
             }
             retrycmd_get_access_token_for_oras(){
@@ -193,7 +193,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "failed to retrieve access token"
         End  
         It 'should fail if refresh token is an error'
-            retrycmd_can_oras_discover_acr() {
+            retrycmd_can_oras_ls_acr() {
                 return 1
             }
             retrycmd_get_access_token_for_oras(){
@@ -210,7 +210,7 @@ Describe 'cse_helpers.sh'
             The stdout should include "failed to retrieve refresh token"
         End  
         It 'should fail if oras cannot login'
-            retrycmd_can_oras_discover_acr() {
+            retrycmd_can_oras_ls_acr() {
                 return 1
             }
             retrycmd_get_access_token_for_oras(){
@@ -239,11 +239,11 @@ Describe 'cse_helpers.sh'
             retrycmd_oras_login(){
                 return 0
             }
-            mock_retrycmd_can_oras_discover_acr_counter=0
-            retrycmd_can_oras_discover_acr() {
+            mock_retrycmd_can_oras_ls_acr_counter=0
+            retrycmd_can_oras_ls_acr() {
                 response_var=-1
-                ((mock_retrycmd_can_oras_discover_acr_counter++))
-                if [[ $mock_retrycmd_can_oras_discover_acr_counter -eq 1 ]]; then
+                ((mock_retrycmd_can_oras_ls_acr_counter++))
+                if [[ $mock_retrycmd_can_oras_ls_acr_counter -eq 1 ]]; then
                     response_var=1
                 else
                     response_var=0
