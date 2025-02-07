@@ -18,7 +18,7 @@ var (
 	ResourceGroupName     = "abe2e-" + Config.Location
 	VMIdentityName        = "abe2e-vm-identity"
 	PrivateACRNameNotAnon = "privateace2enonanonpull" + Config.Location // will have anonymous pull enabled
-	PrivateACRName        = "privateacre2e" + Config.Location           // will not have anonymous pull enabled
+	PrivateACRName        = "privateacre2ealison" + Config.Location     // will not have anonymous pull enabled
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,

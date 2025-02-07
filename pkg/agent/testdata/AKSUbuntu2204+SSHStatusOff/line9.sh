@@ -257,6 +257,19 @@ retrycmd_get_refresh_token_for_oras() {
     done
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
+retrycmd_oras_login() {
+    retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
+    for i in $(seq 1 $retries); do
+        ORAS_LOGIN_OUTPUT=$(oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
+        exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
+            echo "$ORAS_LOGIN_OUTPUT"
+            return 0
+        fi
+        sleep "$wait_sleep"
+    done
+    return $exit_code
+}
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
@@ -710,7 +723,7 @@ oras_login_with_kubelet_identity() {
         echo "failed to retrieve access token: $ret_code"
         return $ret_code
     fi
-    if [ -z "$raw_access_token" ] || [[ "$raw_access_token" == *"error"* ]]; then
+    if [[ "$raw_access_token" == *"error"* ]]; then
         echo "failed to retrieve access token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -726,7 +739,7 @@ oras_login_with_kubelet_identity() {
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
     fi
-    if [ -z "$raw_refresh_token" ] || [[ "$raw_refresh_token" == *"error"* ]]; then
+    if [[ "$raw_refresh_token" == *"error"* ]]; then
         echo "failed to retrieve refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -735,9 +748,9 @@ oras_login_with_kubelet_identity() {
         echo "failed to parse refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
-    oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN"
-    exit_code=$?
-    if [ $exit_code -ne 0 ]; then
+
+    retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
+    if [ $? -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -751,7 +764,6 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
-    return
 }
 
 #HELPERSEOF

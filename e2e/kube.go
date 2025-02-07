@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -314,6 +317,46 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
+	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
+	if err != nil {
+		t.Logf("failed to create Kubernetes client: %v", err)
+		return err
+	}
+
+	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	dockerConfigJSON := fmt.Sprintf(`{
+		"auths": {
+			"%s.azurecr.io": {
+				"username": "%s",
+				"password": "%s",
+				"auth": "%s"
+			}
+		}
+	}`, registryName, username, password, auth)
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			v1.DockerConfigJsonKey: []byte(dockerConfigJSON),
+		},
+	}
+	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		if !errorsk8s.IsAlreadyExists(err) {
+			t.Logf("failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+	t.Logf("Kubernetes secret %s created", secretName)
 	return nil
 }
 

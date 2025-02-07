@@ -34,7 +34,7 @@ const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
 )
 
-func createVMSS(ctx context.Context, s *Scenario, attachVMIdentity bool) *armcompute.VirtualMachineScaleSet {
+func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
 	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
@@ -53,7 +53,7 @@ func createVMSS(ctx context.Context, s *Scenario, attachVMIdentity bool) *armcom
 	}
 
 	model := getBaseVMSSModel(s, customData, cse)
-	if attachVMIdentity {
+	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
 		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName)
 		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{

@@ -169,84 +169,6 @@ Describe 'cse_helpers.sh'
         End
     End
     Describe 'oras_login_with_kubelet_identity'
-        BeforeAll 'setup_mock_oras' 'setup_mock_curl'
-        AfterAll 'cleanup_mock_oras' 'cleanup_mock_curl'
-
-        setup_mock_oras() {
-            MOCK_BIN_DIR=$(mktemp -d)
-            cat <<-EOF >"$MOCK_BIN_DIR/oras"
-            #!/bin/bash
-            echo "mock oras calling with \$2"
-            case "\$2" in
-                success.azurecr.io)
-                    exit 0
-                    ;;
-                failed.azurecr.io)
-                    echo "Error: image not found"
-                    exit 1
-                    ;;
-                *)
-                    exit "-1"
-                    ;;
-            esac
-EOF
-            chmod +x "$MOCK_BIN_DIR/oras"
-            export PATH="$MOCK_BIN_DIR:$PATH"
-        }
-
-        cleanup_mock_oras() {
-            rm -rf "$MOCK_BIN_DIR"
-            unset MOCK_BIN_DIR
-        }
-
-        setup_mock_curl() {
-            MOCK_BIN_DIR_CURL=$(mktemp -d)
-            cat <<-'EOF' >"$MOCK_BIN_DIR_CURL/curl"
-            #!/bin/bash
-            
-            case "$7" in
-                http*)
-                    case "$7" in
-                        *failureClient)
-                            echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve an access token."}'
-                            exit 0
-                            ;;
-                        *myclientID)
-                            echo '{"access_token": "mytoken"}'
-                            exit 0
-                            ;;
-                    esac
-                    echo -1
-                    exit 1
-                    ;;
-            esac
-
-            # Check if method ($4) is "POST"
-            if [ "$4" = "POST" ]; then
-                case "$8" in
-                    *failureID*)
-                        echo '{"error": "unauthorized_client", "error_description": "The client is not authorized to retrieve a refresh token."}'
-                        exit 0
-                        ;;
-                    *mytenantID*)
-                        echo '{"refresh_token": "mytoken"}'
-                        exit 0
-                        ;;
-                esac
-                echo -1
-                exit 1
-            fi
-EOF
-
-            chmod +x "$MOCK_BIN_DIR_CURL/curl"
-            export PATH="$MOCK_BIN_DIR_CURL:$PATH"
-        }
-
-        cleanup_mock_curl() {
-            rm -rf "$MOCK_BIN_DIR_CURL"
-            unset MOCK_BIN_DIR_CURL
-        }
-
         It 'should return if client_id or tenant_id is empty'
             local acr_url="unneeded.azurecr.io"
             local client_id=""
@@ -258,6 +180,9 @@ EOF
         It 'should fail if access token is an error'
             retrycmd_can_oras_discover_acr() {
                 return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
             }
 
             local acr_url="unneeded.azurecr.io"
@@ -271,6 +196,12 @@ EOF
             retrycmd_can_oras_discover_acr() {
                 return 1
             }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+            }
             local acr_url="unneeded.azurecr.io"
             local client_id="myclientID"
             local tenant_id="failureID"
@@ -282,6 +213,15 @@ EOF
             retrycmd_can_oras_discover_acr() {
                 return 1
             }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 1
+            }
             local acr_url="failed.azurecr.io"
             local client_id="myclientID"
             local tenant_id="mytenantID"
@@ -290,6 +230,15 @@ EOF
             The stdout should include "failed to login to acr '$acr_url' with identity token"
         End  
         It 'should succeed if oras can login'
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
             mock_retrycmd_can_oras_discover_acr_counter=0
             retrycmd_can_oras_discover_acr() {
                 response_var=-1
