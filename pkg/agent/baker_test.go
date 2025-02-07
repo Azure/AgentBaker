@@ -1170,7 +1170,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1221,7 +1221,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedOverlaybdConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1344,7 +1344,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1387,7 +1387,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
