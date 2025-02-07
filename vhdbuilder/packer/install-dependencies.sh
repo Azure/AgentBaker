@@ -542,6 +542,7 @@ DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${
 pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
 fi
 capture_benchmark "${SCRIPT_NAME}_download_gpu_device_plugin"
+capture_benchmark "extra_section_for_test"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
