@@ -71,12 +71,7 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	exit 1
 fi
 
-if [ "${IMG_SKU,,}" == "20_04-lts-cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
-	PACKER_BUILD_LOCATION="${CVM_PACKER_BUILD_LOCATION}"
-	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
-fi
-
-if [ "${IMG_SKU,,}" == "cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
+if [[ "${IMG_SKU,,}" == "20_04-lts-cvm" || "${IMG_SKU,,}" == "cvm"  ]] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
 	PACKER_BUILD_LOCATION="${CVM_PACKER_BUILD_LOCATION}"
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
