@@ -98,12 +98,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	defer cancel()
 	prepareAKSNode(ctx, s)
 
-	privateACRName := config.PrivateACRName
-	if s.Tags.NonAnonymousACR {
-		privateACRName = config.PrivateACRNameNotAnon
-	}
-	t.Logf("Choosing the private ACR %q for the vm validation", privateACRName)
-	validateVM(ctx, s, privateACRName)
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+	validateVM(ctx, s)
 }
 
 func prepareAKSNode(ctx context.Context, s *Scenario) {
@@ -194,8 +190,8 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
-func validateVM(ctx context.Context, s *Scenario, privateACRName string) {
-	ValidatePodRunning(ctx, s, privateACRName)
+func validateVM(ctx context.Context, s *Scenario) {
+	ValidatePodRunning(ctx, s)
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate

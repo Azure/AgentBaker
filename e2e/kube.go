@@ -440,11 +440,11 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 	return "", fmt.Errorf("failed to find aks vnet")
 }
 
-func podHTTPServerLinux(s *Scenario, privateACRName string) *corev1.Pod {
+func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
 	secretName := ""
 	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", privateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 		secretName = config.Config.ACRSecretName
 	}
 	return &corev1.Pod{

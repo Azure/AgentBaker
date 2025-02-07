@@ -130,18 +130,14 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	privateACRName := config.PrivateACRName
-	if isNonAnonymousPull {
-		privateACRName = config.PrivateACRNameNotAnon
-	}
-	t.Logf("using private acr %q isAnonyomusPull %v", privateACRName, isNonAnonymousPull)
+	t.Logf("using private acr %q isAnonyomusPull %v", config.GetPrivateACRName(isNonAnonymousPull), isNonAnonymousPull)
 	if isAirgap {
 		// private acr must be created before we add the debug daemonsets
-		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, config.ResourceGroupName, privateACRName, isNonAnonymousPull); err != nil {
+		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
 			return nil, fmt.Errorf("failed to create private acr: %w", err)
 		}
 
-		if err := addAirgapNetworkSettings(ctx, t, cluster, privateACRName); err != nil {
+		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
 			return nil, fmt.Errorf("add airgap network settings: %w", err)
 		}
 	}
@@ -151,12 +147,12 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		if err != nil {
 			t.Fatalf("failed to get VM identity: %v", err)
 		}
-		if err := assignACRPullToIdentity(ctx, t, privateACRName, *identity.Properties.PrincipalID); err != nil {
+		if err := assignACRPullToIdentity(ctx, t, config.GetPrivateACRName(isNonAnonymousPull), *identity.Properties.PrincipalID); err != nil {
 			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
 		}
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, privateACRName); err != nil {
+	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
