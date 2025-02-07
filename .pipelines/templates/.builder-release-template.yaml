@@ -241,11 +241,11 @@ steps:
     displayName: Download Build Performance Program
     inputs:
       source: "specific"
+      downloadPath: "vhdbuilder/packer/buildperformance"
+      runVersion: "latest"
       project: $(System.TeamProject)
       pipeline: $(SOURCE_PIPELINE) 
-      runVersion: "latest"
       artifactName: $(BUILD_PERFORMANCE_BINARY)
-      downloadPath: "vhdbuilder/packer/buildperformance"
 
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()
