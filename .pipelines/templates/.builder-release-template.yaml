@@ -236,6 +236,15 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+  
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      source: "specific"
+      project: $(SOURCE_PROJECT)
+      pipeline: $(SOURCE_PIPELINE) 
+      runVersion: "latest"
+      artifactName: "drop_build_stage_test_and_build" 
+      downloadPath: "vhdbuilder/packer/buildperformance"
 
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()
