@@ -740,8 +740,8 @@ removeKubeletFlag() {
 }
 
 verify_DNS_health(){
-    local dns_domain=$1
-    if [ -z "$dns_domain" ]; then
+    local domain_name=$1
+    if [ -z "$domain_name" ]; then
         echo "DNS domain is empty"
         return $ERR_DNS_HEALTH_FAIL
     fi
@@ -752,10 +752,10 @@ verify_DNS_health(){
         return $ERR_DNS_HEALTH_FAIL
     fi
 
-    dig_check_domain=$(dig +tries=5 +timeout=5 +short $dns_domain)
+    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
     ret_code=$?
     if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
-        echo "Failed to resolve domain $dns_domain return code: $ret_code"
+        echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
     fi
     echo "DNS health check passed"
