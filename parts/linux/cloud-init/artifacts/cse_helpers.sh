@@ -313,14 +313,16 @@ retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo "acr is reachable"
+            return 0
+        fi
         if [[ "$output" == *"unauthorized: authentication required"* ]]; then
             echo "ACR is not reachable: $output"
             return 1
-        elif [[ -n "$output" ]]; then
-            echo "ACR is reachable"
-            return 0
         fi
     done
+    echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
 retrycmd_curl_file() {
