@@ -367,7 +367,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				CPULimit:                           2,
 				MemoryLimitInMB:                    128,
 				ForwardPodExternalQueriesToCoreDNS: true,
-				CoreDnsImageUrl:                    "mcr.microsoft.com/oss/kubernetes/coredns:v1.9.4-hotfix.20240704",
+				CoreDnsImageUrl:                    "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-4",
 				VnetDnsOverrides: map[string]datamodel.DnsOverride{
 					".": {
 						QueryLogging:                "errors",
