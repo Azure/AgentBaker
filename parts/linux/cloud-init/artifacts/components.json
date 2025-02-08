@@ -722,8 +722,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.27.102-akslts",
-          "previousLatestVersion": "v1.27.101-akslts"
+          "latestVersion": "v1.28.100-akslts",
+          "previousLatestVersion": "v1.27.102-akslts"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
@@ -732,18 +732,18 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.29.13",
-          "previousLatestVersion": "v1.29.12"
+          "latestVersion": "v1.32.1",
+          "previousLatestVersion": "v1.29.13"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.30.9",
-          "previousLatestVersion": "v1.30.8"
+          "latestVersion": "v1.32.1",
+          "previousLatestVersion": "v1.30.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-proxy",
-          "latestVersion": "v1.31.5",
-          "previousLatestVersion": "v1.31.4"
+          "latestVersion": "v1.32.1",
+          "previousLatestVersion": "v1.31.5"
         }
       ]
     }
