@@ -168,4 +168,96 @@ Describe 'cse_helpers.sh'
             The variable KUBELET_NODE_LABELS should equal ''
         End
     End
+    Describe 'oras_login_with_kubelet_identity'
+        It 'should return if client_id or tenant_id is empty'
+            local acr_url="unneeded.azurecr.io"
+            local client_id=""
+            local tenant_id=""
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
+        End
+        It 'should fail if access token is an error'
+            retrycmd_can_oras_ls_acr() {
+                return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+            }
+
+            local acr_url="unneeded.azurecr.io"
+            local client_id="failureClient"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve access token"
+        End  
+        It 'should fail if refresh token is an error'
+            retrycmd_can_oras_ls_acr() {
+                return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+            }
+            local acr_url="unneeded.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="failureID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve refresh token"
+        End  
+        It 'should fail if oras cannot login'
+            retrycmd_can_oras_ls_acr() {
+                return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 1
+            }
+            local acr_url="failed.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to login to acr '$acr_url' with identity token"
+        End  
+        It 'should succeed if oras can login'
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            mock_retrycmd_can_oras_ls_acr_counter=0
+            retrycmd_can_oras_ls_acr() {
+                response_var=-1
+                ((mock_retrycmd_can_oras_ls_acr_counter++))
+                if [[ $mock_retrycmd_can_oras_ls_acr_counter -eq 1 ]]; then
+                    response_var=1
+                else
+                    response_var=0
+                fi
+                return $response_var
+            }
+
+            local acr_url="success.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
+        End  
+    End
 End

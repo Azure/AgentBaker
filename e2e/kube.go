@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	errorsk8s "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -285,14 +288,14 @@ func getClusterKubeconfigBytes(ctx context.Context, resourceGroupName, clusterNa
 }
 
 // this is a bit ugly, but we don't want to execute this piece concurrently with other tests
-func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool) error {
-	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", true, isAirgap)
+func (k *Kubeclient) EnsureDebugDaemonsets(ctx context.Context, t *testing.T, isAirgap bool, privateACRName string) error {
+	ds := daemonsetDebug(t, hostNetworkDebugAppLabel, "nodepool1", privateACRName, true, isAirgap)
 	err := k.CreateDaemonset(ctx, ds)
 	if err != nil {
 		return err
 	}
 
-	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", false, isAirgap)
+	nonHostDS := daemonsetDebug(t, podNetworkDebugAppLabel, "nodepool2", privateACRName, false, isAirgap)
 	err = k.CreateDaemonset(ctx, nonHostDS)
 	if err != nil {
 		return err
@@ -317,10 +320,52 @@ func (k *Kubeclient) CreateDaemonset(ctx context.Context, ds *appsv1.DaemonSet) 
 	return nil
 }
 
-func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
+func (k *Kubeclient) createKubernetesSecret(ctx context.Context, t *testing.T, namespace, kubeconfigPath, secretName, registryName, username, password string) error {
+	t.Logf("Creating Kubernetes secret %s in namespace %s", secretName, namespace)
+	clientset, err := kubernetes.NewForConfig(k.RESTConfig)
+	if err != nil {
+		t.Logf("failed to create Kubernetes client: %v", err)
+		return err
+	}
+
+	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	dockerConfigJSON := fmt.Sprintf(`{
+		"auths": {
+			"%s.azurecr.io": {
+				"username": "%s",
+				"password": "%s",
+				"auth": "%s"
+			}
+		}
+	}`, registryName, username, password, auth)
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			v1.DockerConfigJsonKey: []byte(dockerConfigJSON),
+		},
+	}
+	_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		if !errorsk8s.IsAlreadyExists(err) {
+			t.Logf("failed to create Kubernetes secret: %v", err)
+			return err
+		}
+	}
+	t.Logf("Kubernetes secret %s created", secretName)
+	return nil
+}
+
+func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRName string, isHostNetwork, isAirgap bool) *appsv1.DaemonSet {
 	image := "mcr.microsoft.com/cbl-mariner/base/core:2.0"
+	secretName := ""
 	if isAirgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", config.PrivateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/base/core:2.0", privateACRName)
+		secretName = config.Config.ACRSecretName
 	}
 	t.Logf("Creating daemonset %s with image %s", deploymentName, image)
 
@@ -352,6 +397,11 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel string, isHost
 					HostNetwork: isHostNetwork,
 					NodeSelector: map[string]string{
 						"kubernetes.azure.com/agentpool": targetNodeLabel,
+					},
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{
+							Name: secretName,
+						},
 					},
 					HostPID: true,
 					Containers: []corev1.Container{
@@ -392,8 +442,10 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
+	secretName := ""
 	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.PrivateACRName)
+		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+		secretName = config.Config.ACRSecretName
 	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -418,6 +470,11 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			},
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			ImagePullSecrets: []corev1.LocalObjectReference{
+				{
+					Name: secretName,
+				},
 			},
 		},
 	}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -15,28 +16,33 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
-	clusterKubenet       *Cluster
-	clusterKubenetAirgap *Cluster
-	clusterAzureNetwork  *Cluster
+	clusterKubenet              *Cluster
+	clusterKubenetAirgap        *Cluster
+	clusterKubenetNonAnonAirgap *Cluster
+	clusterAzureNetwork         *Cluster
 
-	clusterKubenetError       error
-	clusterKubenetAirgapError error
-	clusterAzureNetworkError  error
+	clusterKubenetError              error
+	clusterKubenetAirgapError        error
+	clusterKubenetNonAnonAirgapError error
+	clusterAzureNetworkError         error
 
-	clusterKubenetOnce       sync.Once
-	clusterKubenetAirgapOnce sync.Once
-	clusterAzureNetworkOnce  sync.Once
+	clusterKubenetOnce              sync.Once
+	clusterKubenetAirgapOnce        sync.Once
+	clusterKubenetNonAnonAirgapOnce sync.Once
+	clusterAzureNetworkOnce         sync.Once
 )
 
 type ClusterParams struct {
@@ -73,26 +79,33 @@ func (c *Cluster) MaxPodsPerNode() (int, error) {
 // sync.Once is used to ensure that only one cluster for the set of tests is created
 func ClusterKubenet(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetOnce.Do(func() {
-		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"), false)
+		clusterKubenet, clusterKubenetError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet"), false, false)
 	})
 	return clusterKubenet, clusterKubenetError
 }
 
 func ClusterKubenetAirgap(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterKubenetAirgapOnce.Do(func() {
-		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap-dev"), true) // TODO (alburgess): remove -dev once CCOA is over
+		clusterKubenetAirgap, clusterKubenetAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-airgap"), true, false)
 	})
 	return clusterKubenetAirgap, clusterKubenetAirgapError
 }
 
+func ClusterKubenetAirgapNonAnon(ctx context.Context, t *testing.T) (*Cluster, error) {
+	clusterKubenetNonAnonAirgapOnce.Do(func() {
+		clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError = prepareCluster(ctx, t, getKubenetClusterModel("abe2e-kubenet-nonanonpull-airgap"), true, true)
+	})
+	return clusterKubenetNonAnonAirgap, clusterKubenetNonAnonAirgapError
+}
+
 func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 	clusterAzureNetworkOnce.Do(func() {
-		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"), false)
+		clusterAzureNetwork, clusterAzureNetworkError = prepareCluster(ctx, t, getAzureNetworkClusterModel("abe2e-azure-network"), false, false)
 	})
 	return clusterAzureNetwork, clusterAzureNetworkError
 }
 
-func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap bool) (*Cluster, error) {
+func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))
@@ -112,23 +125,34 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get cluster subnet: %w", err)
 	}
 
-	if isAirgap {
-		// private acr must be created before we add the debug daemonsets
-		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, config.ResourceGroupName, config.PrivateACRName); err != nil {
-			return nil, fmt.Errorf("failed to create private acr: %w", err)
-		}
-
-		if err := addAirgapNetworkSettings(ctx, t, cluster); err != nil {
-			return nil, fmt.Errorf("add airgap network settings: %w", err)
-		}
-	}
-
 	kube, err := getClusterKubeClient(ctx, config.ResourceGroupName, *cluster.Name)
 	if err != nil {
 		return nil, fmt.Errorf("get kube client using cluster %q: %w", *cluster.Name, err)
 	}
 
-	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap); err != nil {
+	t.Logf("using private acr %q isAnonyomusPull %v", config.GetPrivateACRName(isNonAnonymousPull), isNonAnonymousPull)
+	if isAirgap {
+		// private acr must be created before we add the debug daemonsets
+		if err := createPrivateAzureContainerRegistry(ctx, t, cluster, kube, config.ResourceGroupName, isNonAnonymousPull); err != nil {
+			return nil, fmt.Errorf("failed to create private acr: %w", err)
+		}
+
+		if err := addAirgapNetworkSettings(ctx, t, cluster, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
+			return nil, fmt.Errorf("add airgap network settings: %w", err)
+		}
+	}
+
+	if isNonAnonymousPull {
+		identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
+		if err != nil {
+			t.Fatalf("failed to get VM identity: %v", err)
+		}
+		if err := assignACRPullToIdentity(ctx, t, config.GetPrivateACRName(isNonAnonymousPull), *identity.Properties.PrincipalID); err != nil {
+			return nil, fmt.Errorf("assign acr pull to the managed identity: %w", err)
+		}
+	}
+
+	if err := kube.EnsureDebugDaemonsets(ctx, t, isAirgap, config.GetPrivateACRName(isNonAnonymousPull)); err != nil {
 		return nil, fmt.Errorf("ensure debug daemonsets for %q: %w", *cluster.Name, err)
 	}
 
@@ -166,6 +190,31 @@ func extractClusterParameters(ctx context.Context, t *testing.T, kube *Kubeclien
 		BootstrapToken: getBootstrapToken(ctx, t, kube),
 		FQDN:           *cluster.Properties.Fqdn,
 	}, nil
+}
+
+func assignACRPullToIdentity(ctx context.Context, t *testing.T, privateACRName, principalID string) error {
+	t.Logf("assigning ACR-Pull role to %s", principalID)
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ContainerRegistry/registries/%s", config.Config.SubscriptionID, config.ResourceGroupName, privateACRName)
+
+	uid := uuid.New().String()
+	_, err := config.Azure.RoleAssignments.Create(ctx, scope, uid, armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			PrincipalID: to.Ptr(principalID),
+			// ACR-Pull role definition ID
+			RoleDefinitionID: to.Ptr("/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d"),
+			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
+		},
+	}, nil)
+	var respError *azcore.ResponseError
+	if err != nil {
+		// if the role assignment already exists, ignore the error
+		if errors.As(err, &respError) && respError.StatusCode == http.StatusConflict {
+			return nil
+		}
+		t.Logf("failed to assign ACR-Pull role to identity %s, error: %v", config.VMIdentityName, err)
+		return err
+	}
+	return nil
 }
 
 func getBootstrapToken(ctx context.Context, t *testing.T, kube *Kubeclient) string {
