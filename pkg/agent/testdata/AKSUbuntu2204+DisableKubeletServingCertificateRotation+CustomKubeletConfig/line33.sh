@@ -66,6 +66,12 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
+dns_domain="mcr.microsoft.com"
+if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    dns_domain="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+fi
+verify_DNS_health $dns_domain || exit $ERR_DNS_HEALTH_FAIL
+
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
         eval $PROXY_VARS
