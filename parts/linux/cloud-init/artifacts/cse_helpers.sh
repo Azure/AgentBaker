@@ -125,6 +125,8 @@ ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 # Error either getting the install mode or cleaning up container images
 ERR_CLEANUP_CONTAINER_IMAGES=214
 
+ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -735,6 +737,28 @@ removeKubeletFlag() {
     elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
         KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
+}
+
+verify_DNS_health(){
+    local dns_domain=$1
+    if [ -z "$dns_domain" ]; then
+        echo "DNS domain is empty"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
+    if [ $? -ne 0 ]; then
+        echo "Failed to resolve root domain '.'"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_domain=$(dig +tries=5 +timeout=5 +short $dns_domain)
+    ret_code=$?
+    if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+        echo "Failed to resolve domain $dns_domain return code: $ret_code"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+    echo "DNS health check passed"
 }
 
 oras_login_with_kubelet_identity() {
