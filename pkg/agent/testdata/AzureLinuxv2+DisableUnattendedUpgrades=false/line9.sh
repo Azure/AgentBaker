@@ -117,6 +117,8 @@ ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 
 ERR_CLEANUP_CONTAINER_IMAGES=214
 
+ERR_DNS_HEALTH_FAIL=215 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -693,6 +695,28 @@ removeKubeletFlag() {
     elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
         KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
     fi
+}
+
+verify_DNS_health(){
+    local domain_name=$1
+    if [ -z "$domain_name" ]; then
+        echo "DNS domain is empty"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
+    if [ $? -ne 0 ]; then
+        echo "Failed to resolve root domain '.'"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
+    ret_code=$?
+    if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+        echo "Failed to resolve domain $domain_name return code: $ret_code"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+    echo "DNS health check passed"
 }
 
 oras_login_with_kubelet_identity() {
