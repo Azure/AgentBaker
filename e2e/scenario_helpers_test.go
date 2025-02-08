@@ -97,6 +97,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	prepareAKSNode(ctx, s)
+
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 	validateVM(ctx, s)
 }
 
@@ -135,7 +137,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 
 	require.NoError(s.T, err)
+
 	createVMSS(ctx, s)
+
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
