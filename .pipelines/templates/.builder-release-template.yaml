@@ -113,14 +113,14 @@ steps:
     displayName: Set SKU Name
   
   - task: DownloadPipelineArtifact@2
-  displayName: Download Build Performance Program
-  inputs:
-    source: "specific"
-    downloadPath: "vhdbuilder/packer/buildperformance"
-    runVersion: "latest"
-    project: $(System.TeamProject)
-    pipeline: $(SOURCE_PIPELINE) 
-    artifactName: $(BUILD_PERFORMANCE_BINARY)
+    displayName: Download Build Performance Program
+    inputs:
+      source: "specific"
+      downloadPath: "vhdbuilder/packer/buildperformance"
+      runVersion: "latest"
+      project: $(System.TeamProject)
+      pipeline: $(SOURCE_PIPELINE) 
+      artifactName: $(BUILD_PERFORMANCE_BINARY)
   
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
