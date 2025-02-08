@@ -15,6 +15,7 @@
     "after 10pm and before 5am every weekday",
     "every weekend"
   ],
+  "updateNotScheduled": false,
   "timezone": "America/Los_Angeles",
   "logLevelRemap": [
     {
