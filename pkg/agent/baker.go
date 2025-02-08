@@ -1390,32 +1390,43 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
-[plugins."io.containerd.cri.v1.images".pinned_images]
-	sandbox = "{{GetPodInfraContainerSpec}}"
-[plugins."io.containerd.cri.v1.runtime".containerd]
+[plugins.'io.containerd.cri.v1.images']
 {{- if TeleportEnabled }}
 	snapshotter = "teleportd"
 	disable_snapshot_annotations = false
 {{- else}}
-{{- if IsKata }}
+	{{- if IsKata }}
 	disable_snapshot_annotations = false
-{{- end}}
+	{{- end}}
 {{- end}}
 {{- if IsArtifactStreamingEnabled }}
 	snapshotter = "overlaybd"
 	disable_snapshot_annotations = false
 {{- end}}
+	
+[plugins."io.containerd.cri.v1.images".pinned_images]
+	sandbox = "{{GetPodInfraContainerSpec}}"
+
+[plugins."io.containerd.cri.v1.runtime".containerd]
 {{- if IsNSeriesSKU }}
 	default_runtime_name = "nvidia-container-runtime"
 	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
 		runtime_type = "io.containerd.runc.v2"
 	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
 		BinaryName = "/usr/bin/nvidia-container-runtime"
+	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+		runtime_type = "io.containerd.runc.v2"
+	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+		BinaryName = "/usr/bin/nvidia-container-runtime"
 {{- else}}
 	default_runtime_name = "runc"
 	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
 		runtime_type = "io.containerd.runc.v2"
 	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+		BinaryName = "/usr/bin/runc"
+	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+		runtime_type = "io.containerd.runc.v2"
+	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
 		BinaryName = "/usr/bin/runc"
 {{- end}}
 {{- if IsKrustlet }}
@@ -1431,7 +1442,7 @@ root = "{{GetDataDir}}"{{- end}}
 		runtime_type = "io.containerd.spin-v0-5-1.v1"
 	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
 		runtime_type = "io.containerd.slight-v0-5-1.v1"
-	[plugins."iio.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
+	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
 		runtime_type = "io.containerd.spin-v0-8-0.v1"
 	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
 		runtime_type = "io.containerd.slight-v0-8-0.v1"
@@ -1446,13 +1457,12 @@ root = "{{GetDataDir}}"{{- end}}
 	conf_dir = "/etc/cni/net.d"
 	conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-[plugins."io.containerd.grpc.v1.cri"]
 {{- if IsKubernetesVersionGe "1.22.0"}}
-	[plugins."io.containerd.grpc.v1.cri".registry]
-		config_path = "/etc/containerd/certs.d"
-	{{- end}}
-  [plugins."io.containerd.grpc.v1.cri".registry.headers]
-    X-Meta-Source-Client = ["azure/aks"]
+[plugins."io.containerd.cri.v1.images".registry]
+	config_path = "/etc/containerd/certs.d"
+{{- end}}
+[plugins."io.containerd.cri.v1.images".registry.headers]
+	X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
 {{- if TeleportEnabled }}
@@ -1496,22 +1506,24 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
+[plugins.'io.containerd.cri.v1.images']
+{{- if TeleportEnabled }}
+	snapshotter = "teleportd"
+	disable_snapshot_annotations = false
+{{- else}}
+	{{- if IsKata }}
+	disable_snapshot_annotations = false
+	{{- end}}
+{{- end}}
+{{- if IsArtifactStreamingEnabled }}
+	snapshotter = "overlaybd"
+	disable_snapshot_annotations = false
+{{- end}}
+    
 [plugins.'io.containerd.cri.v1.images'.pinned_images]
 	sandbox = "{{GetPodInfraContainerSpec}}"
 [plugins."io.containerd.grpc.v1.cri"]
-  [plugins."io.containerd.grpc.v1.cri".containerd]
-    {{- if TeleportEnabled }}
-    snapshotter = "teleportd"
-    disable_snapshot_annotations = false
-    {{- else}}
-      {{- if IsKata }}
-      disable_snapshot_annotations = false
-      {{- end}}
-    {{- end}}
-    {{- if IsArtifactStreamingEnabled }}
-    snapshotter = "overlaybd"
-    disable_snapshot_annotations = false
-    {{- end}}
+  [plugins."io.containerd.cri.v1.runtime".containerd]
     default_runtime_name = "runc"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
       runtime_type = "io.containerd.runc.v2"
