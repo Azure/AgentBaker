@@ -1669,7 +1669,7 @@ oom_score = -999
 				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
 
 				expectedSnapshotterConfig := `
-[plugins.'io.containerd.cri.v1.images']
+[plugins."io.containerd.cri.v1.images"]
 	snapshotter = "teleportd"
 	disable_snapshot_annotations = false
 `

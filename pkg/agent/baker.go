@@ -1390,7 +1390,7 @@ root = "{{GetDataDir}}"{{- end}}
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
-[plugins.'io.containerd.cri.v1.images']
+[plugins."io.containerd.cri.v1.images"]
 {{- if TeleportEnabled }}
 	snapshotter = "teleportd"
 	disable_snapshot_annotations = false
@@ -1504,7 +1504,7 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 
-[plugins.'io.containerd.cri.v1.images']
+[plugins."io.containerd.cri.v1.images""]
 {{- if TeleportEnabled }}
 	snapshotter = "teleportd"
 	disable_snapshot_annotations = false
@@ -1514,7 +1514,7 @@ root = "{{GetDataDir}}"{{- end}}
 	disable_snapshot_annotations = false
 {{- end}}
     
-[plugins.'io.containerd.cri.v1.images'.pinned_images]
+[plugins."io.containerd.cri.v1.images".pinned_images]
 	sandbox = "{{GetPodInfraContainerSpec}}"
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
