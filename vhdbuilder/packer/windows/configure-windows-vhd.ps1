@@ -543,8 +543,14 @@ function Update-Registry {
 
     foreach ($key in $global:keysToSet)
     {
-        Write-Log "Setting ${key.Path}/${key.Name} to ${key.Value}: ${key.Comment}"
-        Enable-WindowsFixInPath -Path $key.Path -Name $key.Name -Value $key.Value -Type $key.Type
+        $keyPath = $key.Path
+        $keyName = $key.Name
+        $keyValue = $key.Value
+        $keyType = $key.Type
+        $keyComment = $key.Comment
+
+        Write-Log "Setting $keyPath - $keyName to $keyValue ($keyType): $keyComment"
+        Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
     }
 
     # this was too complex to put in the config file so leaving it here.
