@@ -415,6 +415,23 @@ func Test_MarinerV2_ChronyRestarts(t *testing.T) {
 	})
 }
 
+func Test_MarinerV2_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
 func Test_MarinerV2_CustomSysctls(t *testing.T) {
 	customSysctls := map[string]string{
 		"net.ipv4.ip_local_port_range":       "32768 62535",
@@ -693,6 +710,40 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 					PrivateEgress: &datamodel.PrivateEgress{
 						Enabled:                 true,
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
+					},
+				}
+			},
+		},
+	})
+}
+
+// TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
+// or deprecate anonymous ACR airgap tests once it is unsupported
+func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
+	ctx := newTestCtx(t)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
+	if err != nil {
+		t.Fatalf("failed to get identity: %v", err)
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.TenantID = *identity.Properties.TenantID
+				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
+
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon),
 					},
 				}
 			},

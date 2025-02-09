@@ -1,4 +1,3 @@
-time="2025-01-30T07:26:22Z" level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key=cni        plugin=io.containerd.grpc.v1.cri
 time="2025-01-30T07:26:22Z" level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key=containerd plugin=io.containerd.grpc.v1.cri
 time="2025-01-30T07:26:22Z" level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key="containerd runtimes" plugin=io.containerd.grpc.v1.cri
 time="2025-01-30T07:26:22Z" level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key="containerd runtimes runc" plugin=io.containerd.grpc.v1.cri
