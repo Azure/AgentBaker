@@ -23,13 +23,98 @@ Describe 'tests of windows_settings' {
         $windowsSku = "2019-containerd-gen2"
         $keys = GetRegKeysToApply $windowsSettings
         $keys.Length | Should -Be 1
-
     }
+
     It 'given windows sku does not match, it does not returns the key' {
         $windowsSku = "2022-containerd-gen2"
         $keys = GetRegKeysToApply $windowsSettings
         $keys.Length | Should -Be 0
     }
+
+    It 'given two windows keys match, it returns both' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+    }, {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1",
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $windowsSku = "2019-containerd-gen2"
+        $keys = GetRegKeysToApply $windowsSettings
+        $keys.Length | Should -Be 2
+    }
+}
+
+
+Describe "Gets the paths and names for release notes" {
+    BeforeEach {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given windows sku matches, it returns the key' {
+        $windowsSku = "2019-containerd-gen2"
+        $items = GetKeyMapForReleaseNotes $windowsSettings
+        $namesForKey = $items["pathpath"]
+        $namesForKey.Length | Should -Be 1
+        $namesForKey | Should -Contain "EnableCertPaddingCheck"
+    }
+
+    It 'given windows sku does not match, it does not returns the key' {
+        $windowsSku = "2022-containerd-gen2"
+        $items = GetKeyMapForReleaseNotes $windowsSettings
+        $namesForKey = $items["pathpath"]
+        $namesForKey | Should -Be $null
+    }
+
+    It 'given two items with the same path match, it combines them' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+    }, {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1",
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $windowsSku = "2019-containerd-gen2"
+        $items = GetKeyMapForReleaseNotes $windowsSettings
+        $namesForKey = $items["pathpath"]
+        $namesForKey.Length | Should -Be 2
+        $namesForKey | Should -Contain "EnableCertPaddingCheck"
+        $namesForKey | Should -Contain "EnableCertPaddingCheck2"
+    }
+
 }
 
 
@@ -433,13 +518,13 @@ Describe 'Tests of components.json ' {
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.28.100-akslts/windowszip/v1.28.100-akslts-1int.zip"
-#        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip"
+        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.12/windowszip/v1.29.12-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.13/windowszip/v1.29.13-1int.zip"
-#        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip"
+        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.8/windowszip/v1.30.8-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.9/windowszip/v1.30.9-1int.zip"
-#        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
+        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.4/windowszip/v1.31.4-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip"
     }

@@ -71,6 +71,8 @@ foreach ($update in $updates) {
 }
 Log ""
 
+. c:/k/windows-vhd-configuration.ps1
+
 Log "Windows Update Registry Settings"
 Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings"
 
@@ -178,6 +180,7 @@ foreach ($key in $wuRegistryKeys) {
         }
     }
 }
+
 Log ""
 
 Log "ContainerD Info"

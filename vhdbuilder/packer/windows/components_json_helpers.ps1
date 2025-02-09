@@ -144,8 +144,37 @@ function GetRegKeysToApply
 
     foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
     {
-        if ($windowsSku -Like $key.WindowsSkuMatch) {
+        if ($windowsSku -Like $key.WindowsSkuMatch)
+        {
             $output += $key
+        }
+    }
+
+    return $output;
+}
+
+function GetKeyMapForReleaseNotes
+{
+
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $output = @{ }
+
+    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
+    {
+        if ($windowsSku -Like $key.WindowsSkuMatch)
+        {
+            $path = $key.Path
+            $name = $key.Name
+            $arr = $output[$path]
+            if ($output[$path] -eq $null)
+            {
+                $output[$path] = New-Object System.Collections.ArrayList
+            }
+            $output[$path] += $name
         }
     }
 
