@@ -1645,7 +1645,7 @@ oom_score = -999
 				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
 				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
 			}),
-		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should have rename containerd runtime name", "AKSUbuntu2404", ">=1.32.x",
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should have rename containerd runtime name", "AKSUbuntu2404+Teleport", ">=1.32.x",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
@@ -1703,7 +1703,7 @@ oom_score = -999
 				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedRuncConfig))
 
 			}),
-		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated cni features", "AKSUbuntu2404", ">=1.32.x",
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated cni features", "AKSUbuntu2404+NetworkPolicy", ">=1.32.x",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
