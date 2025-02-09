@@ -1670,13 +1670,13 @@ oom_score = -999
 
 				expectedSnapshotterConfig := `
 [plugins."io.containerd.cri.v1.images"]
-	snapshotter = "teleportd"
-	disable_snapshot_annotations = false
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
 `
 				deprecatedSnapshotterConfig := `
 [plugins."io.containerd.grpc.v1.cri".containerd]
-	snapshotter = "teleportd"
-	disable_snapshot_annotations = false
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
 `
 				Expect(expectedSnapshotterConfig).NotTo(Equal(deprecatedSnapshotterConfig))
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedSnapshotterConfig))
@@ -1692,10 +1692,10 @@ oom_score = -999
 `
 				deprecatedRuncConfig := `
 [plugins."io.containerd.grpc.v1.cri".containerd]
-	default_runtime_name = "runc"
+  default_runtime_name = "runc"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
     runtime_type = "io.containerd.runc.v2"
-		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
 `
 				Expect(expectedRuncConfig).NotTo(Equal(deprecatedRuncConfig))

@@ -1392,12 +1392,12 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images"]
 {{- if TeleportEnabled }}
-	snapshotter = "teleportd"
-	disable_snapshot_annotations = false
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
 {{- end}}
 {{- if IsArtifactStreamingEnabled }}
-	snapshotter = "overlaybd"
-	disable_snapshot_annotations = false
+  snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
 {{- end}}
 
 [plugins."io.containerd.cri.v1.images".pinned_images]
@@ -1405,47 +1405,47 @@ root = "{{GetDataDir}}"{{- end}}
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
 {{- if IsNSeriesSKU }}
-	default_runtime_name = "nvidia-container-runtime"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
-		runtime_type = "io.containerd.runc.v2"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-		BinaryName = "/usr/bin/nvidia-container-runtime"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-		runtime_type = "io.containerd.runc.v2"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-		BinaryName = "/usr/bin/nvidia-container-runtime"
+  default_runtime_name = "nvidia-container-runtime"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+    runtime_type = "io.containerd.runc.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+    BinaryName = "/usr/bin/nvidia-container-runtime"
 {{- else}}
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-	  runtime_type = "io.containerd.runc.v2"
-		[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-		  BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
 {{- end}}
 {{- if IsKrustlet }}
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-		runtime_type = "io.containerd.spin.v2"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-		runtime_type = "io.containerd.slight-v0-3-0.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-		runtime_type = "io.containerd.spin-v0-3-0.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-		runtime_type = "io.containerd.slight-v0-3-0.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-		runtime_type = "io.containerd.spin-v0-5-1.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-		runtime_type = "io.containerd.slight-v0-5-1.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-		runtime_type = "io.containerd.spin-v0-8-0.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-		runtime_type = "io.containerd.slight-v0-8-0.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-		runtime_type = "io.containerd.wws-v0-8-0.v1"
-	[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-		runtime_type = "io.containerd.spin.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
+    runtime_type = "io.containerd.spin.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
+    runtime_type = "io.containerd.slight-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
+    runtime_type = "io.containerd.spin-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
+    runtime_type = "io.containerd.slight-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
+    runtime_type = "io.containerd.spin-v0-5-1.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
+    runtime_type = "io.containerd.slight-v0-5-1.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
+    runtime_type = "io.containerd.spin-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
+    runtime_type = "io.containerd.slight-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
+    runtime_type = "io.containerd.wws-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
+    runtime_type = "io.containerd.spin.v2"
 {{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
@@ -1455,10 +1455,10 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 {{- if IsKubernetesVersionGe "1.22.0"}}
 [plugins."io.containerd.cri.v1.images".registry]
-	config_path = "/etc/containerd/certs.d"
+  config_path = "/etc/containerd/certs.d"
 {{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
-	X-Meta-Source-Client = ["azure/aks"]
+  X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
 {{- if TeleportEnabled }}
@@ -1477,7 +1477,7 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
   snapshotter = "tardev"
-	disable_snapshot_annotations = false
+  disable_snapshot_annotations = false
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
@@ -1506,16 +1506,16 @@ root = "{{GetDataDir}}"{{- end}}
 
 [plugins."io.containerd.cri.v1.images""]
 {{- if TeleportEnabled }}
-	snapshotter = "teleportd"
-	disable_snapshot_annotations = false
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
 {{- end}}
 {{- if IsArtifactStreamingEnabled }}
-	snapshotter = "overlaybd"
-	disable_snapshot_annotations = false
+  snapshotter = "overlaybd"
+  disable_snapshot_annotations = false
 {{- end}}
     
 [plugins."io.containerd.cri.v1.images".pinned_images]
-	sandbox = "{{GetPodInfraContainerSpec}}"
+  sandbox = "{{GetPodInfraContainerSpec}}"
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
@@ -1596,7 +1596,7 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/containerd/tardev-snapshotter.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
-	disable_snapshot_annotations = false
+  disable_snapshot_annotations = false
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
