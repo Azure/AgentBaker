@@ -14,31 +14,39 @@ param(
     [string]
     $customizedDiskSizeParam
 )
-if (![string]::IsNullOrEmpty($windowsSKUParam)) {
+if (![string]::IsNullOrEmpty($windowsSKUParam))
+{
     Write-Log "Setting Windows SKU to $windowsSKUParam"
     $env:WindowsSKU = $windowsSKUParam
 }
-if (![string]::IsNullOrEmpty($provisioningPhaseParam)) {
+if (![string]::IsNullOrEmpty($provisioningPhaseParam))
+{
     Write-Log "Setting Provisioning Phase to $provisioningPhaseParam"
     $env:ProvisioningPhase = $provisioningPhaseParam
 }
-if (![string]::IsNullOrEmpty($customizedDiskSizeParam)) {
+if (![string]::IsNullOrEmpty($customizedDiskSizeParam))
+{
     Write-Log "Setting Customized Disk Size to $customizedDiskSizeParam"
     $env:CustomizedDiskSize = $customizedDiskSizeParam
 }
 
 $ErrorActionPreference = "Stop"
 
-filter Timestamp { "$(Get-Date -Format o): $_" }
+filter Timestamp
+{
+    "$( Get-Date -Format o ): $_"
+}
 
-function Write-Log($Message) {
+function Write-Log($Message)
+{
     $msg = $message | Timestamp
     Write-Output $msg
 }
 
 . c:/k/windows-vhd-configuration.ps1
 
-function Download-File {
+function Download-File
+{
     param (
         $URL,
         $Dest,
@@ -47,28 +55,33 @@ function Download-File {
         [Switch]$redactUrl = $false
     )
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE) {
+    if ($LASTEXITCODE)
+    {
         $logURL = $URL
-        if ($redactUrl) {
+        if ($redactUrl)
+        {
             $logURL = $logURL.Split("?")[0]
         }
         throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
     }
 }
 
-function Download-FileWithAzCopy {
+function Download-FileWithAzCopy
+{
     param (
         $URL,
         $Dest
     )
 
 
-    if (!(Test-Path -Path $global:aksTempDir)) {
+    if (!(Test-Path -Path $global:aksTempDir))
+    {
         Write-Log "Creating temp dir for tools of building vhd"
         New-Item -ItemType Directory $global:aksTempDir -Force
     }
 
-    if (!(Test-Path -Path "$global:aksTempDir\azcopy.exe")) {
+    if (!(Test-Path -Path "$global:aksTempDir\azcopy.exe"))
+    {
         Write-Log "Downloading azcopy"
         Invoke-WebRequest -UseBasicParsing "https://aka.ms/downloadazcopy-v10-windows" -OutFile "$global:aksTempDir\azcopy.zip"
         Expand-Archive -Path "$global:aksTempDir\azcopy.zip" -DestinationPath "$global:aksTempDir\tmp" -Force
@@ -76,46 +89,50 @@ function Download-FileWithAzCopy {
     }
 
     pushd "$global:aksTempDir"
-        $env:AZCOPY_JOB_PLAN_LOCATION="$global:aksTempDir\azcopy"
-        $env:AZCOPY_LOG_LOCATION="$global:aksTempDir\azcopy"
+    $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
+    $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
 
-        mkdir -Force $env:AZCOPY_LOG_LOCATION
-        if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log" ) {
-            rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
-        }
+    mkdir -Force $env:AZCOPY_LOG_LOCATION
+    if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
+    {
+        rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
+    }
 
-         Write-Log "Logging in to AzCopy"
-        # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-        .\azcopy.exe login --login-type=MSI
+    Write-Log "Logging in to AzCopy"
+    # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+    .\azcopy.exe login --login-type=MSI
 
-        Write-Log "Copying $URL to $Dest"
-        .\azcopy.exe copy "$URL" "$Dest"
+    Write-Log "Copying $URL to $Dest"
+    .\azcopy.exe copy "$URL" "$Dest"
 
-        Write-Log "--- START AzCopy Log"
-        Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
-        Write-Log "--- END AzCopy Log"
+    Write-Log "--- START AzCopy Log"
+    Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
+    Write-Log "--- END AzCopy Log"
     popd
 }
 
-function Cleanup-TemporaryFiles {
-    if (Test-Path -Path $global:aksTempDir) {
+function Cleanup-TemporaryFiles
+{
+    if (Test-Path -Path $global:aksTempDir)
+    {
         Remove-Item -Path $global:aksTempDir -Force -Recurse
     }
 }
 
-function Retry-Command {
+function Retry-Command
+{
     [CmdletBinding()]
     Param(
-        [Parameter(Position=0, Mandatory=$true)]
+        [Parameter(Position = 0, Mandatory = $true)]
         [scriptblock]$ScriptBlock,
 
-        [Parameter(Position=1, Mandatory=$true)]
+        [Parameter(Position = 1, Mandatory = $true)]
         [string]$ErrorMessage,
 
-        [Parameter(Position=2, Mandatory=$false)]
+        [Parameter(Position = 2, Mandatory = $false)]
         [int]$Maximum = 5,
 
-        [Parameter(Position=3, Mandatory=$false)]
+        [Parameter(Position = 3, Mandatory = $false)]
         [int]$Delay = 10
     )
 
@@ -124,21 +141,28 @@ function Retry-Command {
     }
 
     Process {
-        do {
+        do
+        {
             $cnt++
-            try {
+            try
+            {
                 $ScriptBlock.Invoke()
-                if ($LASTEXITCODE) {
+                if ($LASTEXITCODE)
+                {
                     throw "Retry $cnt : $ErrorMessage"
                 }
                 return
-            } catch {
+            }
+            catch
+            {
                 Write-Log $_.Exception.InnerException.Message
-                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk.")) {
+                if ( $_.Exception.InnerException.Message.Contains("There is not enough space on the disk."))
+                {
                     Write-Error "Exit retry since there is not enough space on the disk"
                     break
                 }
-                if ($_.Exception.InnerException.Message.Contains("The device is not connected.: unknown.")) {
+                if ( $_.Exception.InnerException.Message.Contains("The device is not connected.: unknown."))
+                {
                     Write-Error "Exit retry since drive disconnected (usually means that disk is out of space)"
                     break
                 }
@@ -153,7 +177,8 @@ function Retry-Command {
     }
 }
 
-function Invoke-Executable {
+function Invoke-Executable
+{
     Param(
         [string]
         $Executable,
@@ -168,12 +193,14 @@ function Invoke-Executable {
     for ($i = 0; $i -le $Retries; $i++) {
         Write-Log "$i - Running $Executable $ArgList ..."
         & $Executable $ArgList
-        if ($LASTEXITCODE) {
+        if ($LASTEXITCODE)
+        {
             Write-Log "$Executable returned unsuccessfully with exit code $LASTEXITCODE"
             Start-Sleep -Seconds $RetryDelaySeconds
             continue
         }
-        else {
+        else
+        {
             Write-Log "$Executable returned successfully"
             return
         }
@@ -183,33 +210,42 @@ function Invoke-Executable {
     throw "Exhausted retries for $Executable $ArgList"
 }
 
-function Expand-OS-Partition {
+function Expand-OS-Partition
+{
     $customizedDiskSize = $env:CustomizedDiskSize
-    if ([string]::IsNullOrEmpty($customizedDiskSize)) {
+    if ( [string]::IsNullOrEmpty($customizedDiskSize))
+    {
         Write-Log "No need to expand the OS partition size"
         return
     }
 
     Write-Log "Customized OS disk size is $customizedDiskSize GB"
     [Int32]$osPartitionSize = 0
-    if ([Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize)) {
+    if ( [Int32]::TryParse($customizedDiskSize, [ref]$osPartitionSize))
+    {
         # The supportedMaxSize less than the customizedDiskSize because some system usages will occupy disks (about 500M).
         $supportedMaxSize = (Get-PartitionSupportedSize -DriveLetter C).sizeMax
         $currentSize = (Get-Partition -DriveLetter C).Size
-        if ($supportedMaxSize -gt $currentSize) {
+        if ($supportedMaxSize -gt $currentSize)
+        {
             Write-Log "Resizing the OS partition size from $currentSize to $supportedMaxSize"
             Resize-Partition -DriveLetter C -Size $supportedMaxSize
             Get-Disk
             Get-Partition
-        } else {
+        }
+        else
+        {
             Write-Log "The current size is the max size $currentSize"
         }
-    } else {
+    }
+    else
+    {
         Throw "$customizedDiskSize is not a valid customized OS disk size"
     }
 }
 
-function Disable-WindowsUpdates {
+function Disable-WindowsUpdates
+{
     # See https://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settings
     # for additional information on WU related registry settings
 
@@ -217,7 +253,8 @@ function Disable-WindowsUpdates {
     $WindowsUpdatePath = "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
     $AutoUpdatePath = "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
 
-    if (Test-Path -Path $WindowsUpdatePath) {
+    if (Test-Path -Path $WindowsUpdatePath)
+    {
         Remove-Item -Path $WindowsUpdatePath -Recurse
     }
 
@@ -226,21 +263,28 @@ function Disable-WindowsUpdates {
     Set-ItemProperty -Path $AutoUpdatePath -Name NoAutoUpdate -Value 1 | Out-Null
 }
 
-function Get-ContainerImages {
+function Get-ContainerImages
+{
     Write-Log "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
-    foreach ($image in $imagesToPull) {
+    foreach ($image in $imagesToPull)
+    {
         Write-Output "* $image"
     }
 
-    foreach ($image in $imagesToPull) {
+    foreach ($image in $imagesToPull)
+    {
         $imagePrefix = $image.Split(":")[0]
         if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-            ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL))) {
-            $url=""
-            if ($image.Contains("mcr.microsoft.com/windows/servercore")) {
-                $url=$env:WindowsServerCoreImageURL
-            } elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver")) {
-                $url=$env:WindowsNanoServerImageURL
+                ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL)))
+        {
+            $url = ""
+            if ( $image.Contains("mcr.microsoft.com/windows/servercore"))
+            {
+                $url = $env:WindowsServerCoreImageURL
+            }
+            elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver"))
+            {
+                $url = $env:WindowsNanoServerImageURL
             }
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
             $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
@@ -254,7 +298,9 @@ function Get-ContainerImages {
 
             Write-Log "Removing tmp tar file $tmpDest"
             Remove-Item -Path $tmpDest
-        } else {
+        }
+        else
+        {
             Write-Log "Pulling image $image"
             Retry-Command -ScriptBlock {
                 & crictl.exe pull $image
@@ -269,13 +315,16 @@ function Get-ContainerImages {
     Remove-Job -Name containerd
 }
 
-function Get-FilesToCacheOnVHD {
+function Get-FilesToCacheOnVHD
+{
     Write-Log "Caching misc files on VHD"
 
-    foreach ($dir in $map.Keys) {
+    foreach ($dir in $map.Keys)
+    {
         New-Item -ItemType Directory $dir -Force | Out-Null
 
-        foreach ($URL in $map[$dir]) {
+        foreach ($URL in $map[$dir])
+        {
             $fileName = [IO.Path]::GetFileName($URL)
             $dest = [IO.Path]::Combine($dir, $fileName)
 
@@ -285,8 +334,10 @@ function Get-FilesToCacheOnVHD {
     }
 }
 
-function Get-ToolsToVHD {
-    if (!(Test-Path -Path $global:aksToolsDir)) {
+function Get-ToolsToVHD
+{
+    if (!(Test-Path -Path $global:aksToolsDir))
+    {
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
@@ -296,8 +347,10 @@ function Get-ToolsToVHD {
     Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
 }
 
-function Register-ExpandVolumeTask {
-    if (!(Test-Path -Path $global:aksToolsDir)) {
+function Register-ExpandVolumeTask
+{
+    if (!(Test-Path -Path $global:aksToolsDir))
+    {
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
@@ -324,10 +377,12 @@ function Register-ExpandVolumeTask {
     Write-Log "Task script content: $scriptContent"
 
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
-    if (-not $action) {
+    if (-not $action)
+    {
         Write-Log "action is null or empty. taskScriptPath: $taskScriptPath. Recreating it"
         $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$taskScriptPath`""
-        if (-not $action) {
+        if (-not $action)
+        {
             Write-Log "action is still null"
             exit 1
         }
@@ -339,17 +394,20 @@ function Register-ExpandVolumeTask {
     Write-Log "Registered ScheduledTask aks-expand-volume"
 }
 
-function Get-PrivatePackagesToCacheOnVHD {
-    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL)) {
+function Get-PrivatePackagesToCacheOnVHD
+{
+    if (![string]::IsNullOrEmpty($env:WindowsPrivatePackagesURL))
+    {
         Write-Log "Caching private packages on VHD"
-    
+
         $dir = "c:\akse-cache\private-packages"
         New-Item -ItemType Directory $dir -Force | Out-Null
 
         $mappingFile = "c:\akse-cache\private-packages\mapping.json"
-        $content = @{}
+        $content = @{ }
         $urls = $env:WindowsPrivatePackagesURL.Split(",")
-        foreach ($url in $urls) {
+        foreach ($url in $urls)
+        {
             $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
             $dest = [IO.Path]::Combine($dir, $fileName)
 
@@ -367,7 +425,8 @@ function Get-PrivatePackagesToCacheOnVHD {
     }
 }
 
-function Install-ContainerD {
+function Install-ContainerD
+{
     # installing containerd during VHD building is to cache container images into the VHD,
     # and the containerd to managed customer containers after provisioning the vm is not necessary
     # the one used here, considering containerd version/package is configurable, and the first one
@@ -378,13 +437,16 @@ function Install-ContainerD {
     Write-Log "Installing containerd to $installDir"
     New-Item -ItemType Directory $installDir -Force | Out-Null
 
-    $containerdFilename=[IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
+    $containerdFilename = [IO.Path]::GetFileName($global:defaultContainerdPackageUrl)
     $containerdTmpDest = [IO.Path]::Combine($installDir, $containerdFilename)
     Download-File -URL $global:defaultContainerdPackageUrl -Dest $containerdTmpDest
     # The released containerd package format is either zip or tar.gz
-    if ($containerdFilename.endswith(".zip")) {
+    if ( $containerdFilename.endswith(".zip"))
+    {
         Expand-Archive -path $containerdTmpDest -DestinationPath $installDir -Force
-    } else {
+    }
+    else
+    {
         tar -xzf $containerdTmpDest -C $installDir
         mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force -Recurse
@@ -398,7 +460,7 @@ function Install-ContainerD {
     $containerdConfigPath = [Io.Path]::Combine($installDir, "config.toml")
     # enabling discard_unpacked_layers allows GC to remove layers from the content store after
     # successfully unpacking these layers to the snapshotter to reduce the disk space caching Windows containerd images
-    (containerd config default)  | %{$_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true"}  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
+    (containerd config default)  | %{ $_ -replace "discard_unpacked_layers = false", "discard_unpacked_layers = true" }  | Out-File  -FilePath $containerdConfigPath -Encoding ascii
 
     Get-Content $containerdConfigPath
 
@@ -407,7 +469,8 @@ function Install-ContainerD {
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
-function Install-OpenSSH {
+function Install-OpenSSH
+{
     Write-Log "Installing OpenSSH Server"
 
     # Somehow openssh client got added to Windows 2019 base image.
@@ -427,7 +490,7 @@ function Install-OpenSSH {
     $ConfigPath = $ConfigDirectory + "\sshd_config"
     Write-Log "Updating $ConfigPath for CVE-2023-48795"
     $ModifiedConfigContents = Get-Content $OriginalConfigPath `
-        | %{$_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n"}
+        | %{ $_ -replace "#RekeyLimit default none", "$&`r`n# Disable cipher to mitigate CVE-2023-48795`r`nCiphers -chacha20-poly1305@openssh.com`r`nMacs -*-etm@openssh.com`r`n" }
     Write-Log "Updating $ConfigPath for CVE-2006-5051"
     $ModifiedConfigContents = $ModifiedConfigContents.Replace("#LoginGraceTime 2m", "LoginGraceTime 0")
     Stop-Service sshd
@@ -436,23 +499,27 @@ function Install-OpenSSH {
     Write-Log "Updated $ConfigPath for CVEs"
 }
 
-function Install-WindowsPatches {
+function Install-WindowsPatches
+{
     Write-Log "Installing Windows patches"
-    Write-Log "The length of patchUrls is $($patchUrls.Length)"
-    foreach ($patchUrl in $patchUrls) {
+    Write-Log "The length of patchUrls is $( $patchUrls.Length )"
+    foreach ($patchUrl in $patchUrls)
+    {
         $pathOnly = $patchUrl.Split("?")[0]
         $fileName = Split-Path $pathOnly -Leaf
         $fileExtension = [IO.Path]::GetExtension($fileName)
         $fullPath = [IO.Path]::Combine($env:TEMP, $fileName)
 
-        switch ($fileExtension) {
+        switch ($fileExtension)
+        {
             ".msu" {
                 Write-Log "Downloading windows patch from $pathOnly to $fullPath"
                 Download-File -URL $patchUrl -Dest $fullPath -redactUrl
                 Write-Log "Starting install of $fileName"
                 $proc = Start-Process -Passthru -FilePath wusa.exe -ArgumentList "$fullPath /quiet /norestart"
                 Wait-Process -InputObject $proc
-                switch ($proc.ExitCode) {
+                switch ($proc.ExitCode)
+                {
                     0 {
                         Write-Log "Finished install of $fileName"
                     }
@@ -465,8 +532,8 @@ function Install-WindowsPatches {
                         Write-Log "The update was already installed. Ignoring $fileName"
                     }
                     default {
-                        Write-Log "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
-                        throw "Error during install of $fileName. ExitCode: $($proc.ExitCode)"
+                        Write-Log "Error during install of $fileName. ExitCode: $( $proc.ExitCode )"
+                        throw "Error during install of $fileName. ExitCode: $( $proc.ExitCode )"
                     }
                 }
             }
@@ -478,12 +545,14 @@ function Install-WindowsPatches {
     }
 }
 
-function Set-WinRmServiceAutoStart {
+function Set-WinRmServiceAutoStart
+{
     Write-Log "Setting WinRM service start to auto"
     sc.exe config winrm start=auto
 }
 
-function Set-WinRmServiceDelayedStart {
+function Set-WinRmServiceDelayedStart
+{
     # Hyper-V messes with networking components on startup after the feature is enabled
     # causing issues with communication over winrm and setting winrm to delayed start
     # gives Hyper-V enough time to finish configuration before having packer continue.
@@ -495,43 +564,50 @@ function Set-WinRmServiceDelayedStart {
 # This can fail if there is already a signature
 # update running which means we will get them anyways
 # Also at the time the VM is provisioned Defender will trigger any required updates
-function Update-DefenderSignatures {
+function Update-DefenderSignatures
+{
     Write-Log "Updating windows defender signatures."
     $service = Get-Service "Windefend"
-    $service.WaitForStatus("Running","00:5:00")
+    $service.WaitForStatus("Running", "00:5:00")
     Update-MpSignature
 }
 
-function Update-WindowsFeatures {
+function Update-WindowsFeatures
+{
     $featuresToEnable = @(
         "Containers",
         "Hyper-V",
         "Hyper-V-PowerShell")
 
-    foreach ($feature in $featuresToEnable) {
+    foreach ($feature in $featuresToEnable)
+    {
         Write-Log "Enabling Windows feature: $feature"
         Install-WindowsFeature $feature
     }
 }
 
-function Enable-WindowsFixInPath {
+function Enable-WindowsFixInPath
+{
     Param(
-      [Parameter(Mandatory = $true)][string]
-      $Path,
-      [Parameter(Mandatory = $true)][string]
-      $Name,
-      [Parameter(Mandatory = $false)][string]
-      $Value = "1",
-      [Parameter(Mandatory = $false)][string]
-      $Type = "DWORD"
+        [Parameter(Mandatory = $true)][string]
+        $Path,
+        [Parameter(Mandatory = $true)][string]
+        $Name,
+        [Parameter(Mandatory = $false)][string]
+        $Value = "1",
+        [Parameter(Mandatory = $false)][string]
+        $Type = "DWORD"
     )
-    $regPath=(Get-Item -Path $Path -ErrorAction Ignore)
-    if (!$regPath) {
+    $regPath = (Get-Item -Path $Path -ErrorAction Ignore)
+    if (!$regPath)
+    {
         Write-Log "Creating $Path"
-        New-Item -Force -Path $Path
+        # assigning to a variable stops logs of logging of successful creations.
+        $newRegDir = New-Item -Force -Path $Path
     }
-    $currentValue=(Get-ItemProperty -Path $Path -Name $Name -ErrorAction Ignore)
-    if (![string]::IsNullOrEmpty($currentValue)) {
+    $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction Ignore)
+    if (![string]::IsNullOrEmpty($currentValue))
+    {
         Write-Log "The current value of $Name in $Path is $currentValue"
     }
     Set-ItemProperty -Path $Path -Name $Name $Value -Type $Type
@@ -539,7 +615,8 @@ function Enable-WindowsFixInPath {
 
 # If you need to add registry key in this function,
 # please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/windows/write-release-notes-windows.ps1 at the same time
-function Update-Registry {
+function Update-Registry
+{
 
     foreach ($key in $global:keysToSet)
     {
@@ -554,28 +631,33 @@ function Update-Registry {
     }
 
     # this was too complex to put in the config file so leaving it here.
-    if ($env:WindowsSKU -Like '2019*') {
+    if ($env:WindowsSKU -Like '2019*')
+    {
         Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
-        $hnsControlFlag=0x10
-        $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue)) {
+        $hnsControlFlag = 0x10
+        $currentValue = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
+        if (![string]::IsNullOrEmpty($currentValue))
+        {
             Write-Log "The current value of HNSControlFlag is $currentValue"
-            $hnsControlFlag=([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
+            $hnsControlFlag = ([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
         }
         Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value $hnsControlFlag
     }
 }
 
-function Clear-TempFolder {
+function Clear-TempFolder
+{
     $tempFolders = @()
     $tempFolders += [System.Environment]::GetFolderPath('LocalApplicationData') + '\Temp'
     $tempFolders += [System.Environment]::GetFolderPath('InternetCache')
     $tempFolders += [System.Environment]::GetFolderPath('Windows') + '\Temp'
 
     # Iterate over each temporary folder
-    foreach ($folder in $tempFolders) {
+    foreach ($folder in $tempFolders)
+    {
         # Check if the folder exists
-        if (-not (Test-Path -Path $folder -PathType Container)) {
+        if (-not (Test-Path -Path $folder -PathType Container))
+        {
             Write-Host "The folder '$folder' does not exist."
             continue
         }
@@ -584,16 +666,21 @@ function Clear-TempFolder {
         $tempFiles = Get-ChildItem -Path $folder -File -Force
 
         # Delete each file in the temporary folder
-        foreach ($file in $tempFiles) {
+        foreach ($file in $tempFiles)
+        {
             # skip file if the file name contains "packer"
-            if ($file.Name -like "*packer*") {
+            if ($file.Name -like "*packer*")
+            {
                 continue
             }
 
-            try {
+            try
+            {
                 Remove-Item -Path $file.FullName -Force
-            } catch {
-                Write-Host "Failed to remove file: $($file.FullName)"
+            }
+            catch
+            {
+                Write-Host "Failed to remove file: $( $file.FullName )"
                 continue
             }
         }
@@ -607,32 +694,40 @@ function Clear-TempFolder {
 }
 
 
-function Get-SystemDriveDiskInfo {
+function Get-SystemDriveDiskInfo
+{
     Clear-TempFolder
     Write-Log "Get Disk info"
-    $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
-    foreach($disk in $disksInfo) {
-        if ($disk.DeviceID -eq "C:") {
-            Write-Log "Disk C: Free space: $($disk.FreeSpace), Total size: $($disk.Size)"
+    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach ($disk in $disksInfo)
+    {
+        if ($disk.DeviceID -eq "C:")
+        {
+            Write-Log "Disk C: Free space: $( $disk.FreeSpace ), Total size: $( $disk.Size )"
         }
     }
 }
 
-function Validate-VHDFreeSize {
+function Validate-VHDFreeSize
+{
     Clear-TempFolder
     Write-Log "Get Disk info"
-    $disksInfo=Get-CimInstance -ClassName Win32_LogicalDisk
-    foreach($disk in $disksInfo) {
-        if ($disk.DeviceID -eq "C:") {
-            if ($disk.FreeSpace -lt $global:lowestFreeSpace) {
-                Write-Log "Disk C: Free space $($disk.FreeSpace) is less than $($global:lowestFreeSpace)"
+    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach ($disk in $disksInfo)
+    {
+        if ($disk.DeviceID -eq "C:")
+        {
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
+            {
+                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
             }
             break
         }
     }
 }
 
-function Get-DefenderPreferenceInfo {
+function Get-DefenderPreferenceInfo
+{
     Write-Log "Get preferences for the Windows Defender scans and updates"
     Write-Log(Get-MpPreference | Format-List | Out-String)
 }
@@ -647,58 +742,72 @@ function Exclude-ReservedUDPSourcePort()
     Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "udp", "65330", "1", "persistent")
 }
 
-function Get-LatestWindowsDefenderPlatformUpdate {
+function Get-LatestWindowsDefenderPlatformUpdate
+{
     $downloadFilePath = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), "Mpupdate.exe")
- 
+
     $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
     $doc = New-Object xml
     $doc.Load("$global:defenderUpdateInfoUrl")
     $latestDefenderProductVersion = $doc.versions.platform
- 
-    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+
+    if ($latestDefenderProductVersion -gt $currentDefenderProductVersion)
+    {
         Write-Log "Update started. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         Download-File -URL $global:defenderUpdateUrl -Dest $downloadFilePath
         $proc = Start-Process -PassThru -FilePath $downloadFilePath -Wait
         Start-Sleep -Seconds 10
-        switch ($proc.ExitCode) {
+        switch ($proc.ExitCode)
+        {
             0 {
                 Write-Log "Finished update of $downloadFilePath"
             }
             default {
-                Write-Log "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
-                throw "Error during update of $downloadFilePath. ExitCode: $($proc.ExitCode)"
+                Write-Log "Error during update of $downloadFilePath. ExitCode: $( $proc.ExitCode )"
+                throw "Error during update of $downloadFilePath. ExitCode: $( $proc.ExitCode )"
             }
         }
         $currentDefenderProductVersion = (Get-MpComputerStatus).AMProductVersion
-        if ($latestDefenderProductVersion -gt $currentDefenderProductVersion) {
+        if ($latestDefenderProductVersion -gt $currentDefenderProductVersion)
+        {
             throw "Update failed. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         }
-        else {
+        else
+        {
             Write-Log "Update succeeded. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
         }
     }
-    else {
+    else
+    {
         Write-Log "Update not required. Current MPVersion: $currentDefenderProductVersion, Expected Version: $latestDefenderProductVersion"
     }
 }
 
-function Log-ReofferUpdate {
-    try {
-        $result=(Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate)
-        if ($result) {
-            Write-Log "ReofferUpdate is $($result.ReofferUpdate)"
+function Log-ReofferUpdate
+{
+    try
+    {
+        $result = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Update\TargetingInfo\Installed\Server.OS.amd64" -Name ReofferUpdate)
+        if ($result)
+        {
+            Write-Log "ReofferUpdate is $( $result.ReofferUpdate )"
         }
-    } catch {
+    }
+    catch
+    {
         Write-Log "ReofferUpdate registry setting does not exist"
     }
 }
 
-function Test-AzureExtensions {
+function Test-AzureExtensions
+{
     # Expect the Windows VHD without any other extensions
-    if (Test-Path "C:\Packages\Plugins") {
+    if (Test-Path "C:\Packages\Plugins")
+    {
         $actualExtensions = (Get-ChildItem "C:\Packages\Plugins").Name
-        if ($actualExtensions.Length -gt 0) {
-            Write-Log "Azure extensions are not expected. Details: $($actualExtensions | Out-String)"
+        if ($actualExtensions.Length -gt 0)
+        {
+            Write-Log "Azure extensions are not expected. Details: $( $actualExtensions | Out-String )"
             exit 1
         }
     }
@@ -708,8 +817,10 @@ function Test-AzureExtensions {
 # Disable progress writers for this session to greatly speed up operations such as Invoke-WebRequest
 $ProgressPreference = 'SilentlyContinue'
 
-try{
-    switch ($env:ProvisioningPhase) {
+try
+{
+    switch ($env:ProvisioningPhase)
+    {
         "1" {
             Write-Log "Performing actions for provisioning phase 1"
             Expand-OS-Partition
@@ -749,7 +860,8 @@ try{
         }
     }
 }
-finally {
+finally
+{
     Get-SystemDriveDiskInfo
     Get-DefenderPreferenceInfo
 }
