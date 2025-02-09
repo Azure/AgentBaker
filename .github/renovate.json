@@ -94,6 +94,7 @@
     },
     {
       "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
+      "groupName": "acr-credential-provider",
       "assignees": ["mainred"],
       "reviewers": ["mainred"]
     },
@@ -105,8 +106,13 @@
     },
     {
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "groupName": "kube-components",
       "assignees": ["haitch", "wenhug", "gaopenghigh"],
       "reviewers": ["haitch", "wenhug", "gaopenghigh"]
+    },
+    {
+      "matchPackageNames": ["containernetworking/azure-ipam"],
+      "groupName": "azure-ipam"
     },
     {
       "matchDatasources": ["docker"],
