@@ -514,87 +514,6 @@ function Update-WindowsFeatures {
     }
 }
 
-function Enable-WindowsFixInFeatureManagement {
-    Param(
-      [Parameter(Mandatory = $true)][string]
-      $Name,
-      [Parameter(Mandatory = $false)][string]
-      $Value = "1",
-      [Parameter(Mandatory = $false)][string]
-      $Type = "DWORD"
-    )
-
-    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft" -ErrorAction Ignore)
-    if (!$regPath) {
-        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
-        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft"
-    }
-
-    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement" -ErrorAction Ignore)
-    if (!$regPath) {
-        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
-        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement"
-    }
-
-    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ErrorAction Ignore)
-    if (!$regPath) {
-        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
-        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
-    }
-
-    $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name $Name -ErrorAction Ignore)
-    if (![string]::IsNullOrEmpty($currentValue)) {
-        Write-Log "The current value of $Name in FeatureManagement\Overrides is $currentValue"
-    }
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -Name $Name -Value $Value -Type $Type
-}
-
-function Enable-WindowsFixInHnsState {
-    Param(
-      [Parameter(Mandatory = $true)][string]
-      $Name,
-      [Parameter(Mandatory = $false)][string]
-      $Value = "1",
-      [Parameter(Mandatory = $false)][string]
-      $Type = "DWORD"
-    )
-
-    $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name $Name -ErrorAction Ignore)
-    if (![string]::IsNullOrEmpty($currentValue)) {
-        Write-Log "The current value of $Name in hns\State is $currentValue"
-    }
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name $Name -Value $Value -Type $Type
-}
-
-function Enable-WindowsFixInVfpExtParameters {
-    Param(
-      [Parameter(Mandatory = $true)][string]
-      $Name,
-      [Parameter(Mandatory = $false)][string]
-      $Value = "1",
-      [Parameter(Mandatory = $false)][string]
-      $Type = "DWORD"
-    )
-
-    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt" -ErrorAction Ignore)
-    if (!$regPath) {
-        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
-        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt"
-    }
-
-    $regPath=(Get-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -ErrorAction Ignore)
-    if (!$regPath) {
-        Write-Log "Creating HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
-        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters"
-    }
-
-    $currentValue=(Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name $Name -ErrorAction Ignore)
-    if (![string]::IsNullOrEmpty($currentValue)) {
-        Write-Log "The current value of $Name in VfpExt\Parameters is $currentValue"
-    }
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters" -Name $Name $Value -Type $Type
-}
-
 function Enable-WindowsFixInPath {
     Param(
       [Parameter(Mandatory = $true)][string]
@@ -628,6 +547,7 @@ function Update-Registry {
         Enable-WindowsFixInPath -Path $key.Path -Name $key.Name -Value $key.Value -Type $key.Type
     }
 
+    # this was too complex to put in the config file so leaving it here.
     if ($env:WindowsSKU -Like '2019*') {
         Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
         $hnsControlFlag=0x10
@@ -636,105 +556,7 @@ function Update-Registry {
             Write-Log "The current value of HNSControlFlag is $currentValue"
             $hnsControlFlag=([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
         }
-        Enable-WindowsFixInHnsState -Name HNSControlFlag -Value $hnsControlFlag
-    }
-
-    if ($env:WindowsSKU -Like '2022*') {
-        Write-Log "Enable a WCIFS fix in 2022-10B"
-        Enable-WindowsFixInFeatureManagement -Name 2629306509
-
-        Write-Log "Enable 4 fixes in 2023-04B"
-        Enable-WindowsFixInHnsState -Name HnsPolicyUpdateChange
-        Enable-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
-        Enable-WindowsFixInHnsState -Name HnsAclUpdateChange
-        Enable-WindowsFixInFeatureManagement -Name 3508525708
-
-        Write-Log "Enable 4 fixes in 2023-05B"
-        Enable-WindowsFixInHnsState -Name HnsNpmRefresh
-        Enable-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
-        Enable-WindowsFixInFeatureManagement -Name 1995963020
-        Enable-WindowsFixInFeatureManagement -Name 189519500
-
-        Write-Log "Enable 1 fix in 2023-06B"
-        Enable-WindowsFixInFeatureManagement -Name 3398685324
-
-        Write-Log "Enable 4 fixes in 2023-07B"
-        Enable-WindowsFixInHnsState -Name HnsNodeToClusterIpv6
-        Enable-WindowsFixInHnsState -Name HNSNpmIpsetLimitChange
-        Enable-WindowsFixInHnsState -Name HNSLbNatDupRuleChange
-        Enable-WindowsFixInVfpExtParameters -Name VfpIpv6DipsPrintingIsEnabled
-
-        Write-Log "Enable 3 fixes in 2023-08B"
-        Enable-WindowsFixInHnsState -Name HNSUpdatePolicyForEndpointChange
-        Enable-WindowsFixInHnsState -Name HNSFixExtensionUponRehydration
-        Enable-WindowsFixInFeatureManagement -Name 87798413
-
-        Write-Log "Enable 4 fixes in 2023-09B"
-        Enable-WindowsFixInHnsState -Name RemoveSourcePortPreservationForRest
-        Enable-WindowsFixInFeatureManagement -Name 4289201804
-        Enable-WindowsFixInFeatureManagement -Name 1355135117
-        Enable-WindowsFixInFeatureManagement -Name 2214038156
-
-        Write-Log "Enable 3 fixes in 2023-10B"
-        Enable-WindowsFixInHnsState -Name FwPerfImprovementChange
-        Enable-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
-        Enable-WindowsFixInFeatureManagement -Name 1673770637
-
-        Write-Log "Enable 4 fixes in 2023-11B"
-        Enable-WindowsFixInHnsState -Name CleanupReservedPorts
-
-        Enable-WindowsFixInFeatureManagement -Name 527922829
-        # Then based on 527922829 to set DeltaHivePolicy=2: use delta hives, and stop generating rollups
-        Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers" -Name DeltaHivePolicy -Value 2
-
-        Enable-WindowsFixInFeatureManagement -Name 2193453709
-        Enable-WindowsFixInFeatureManagement -Name 3331554445
-
-        Write-Log "Enable 1 fix in 2024-02B"
-        Enable-WindowsFixInFeatureManagement -Name 1327590028
-
-        Write-Log "Enable 4 fixes in 2024-03B"
-        Enable-WindowsFixInHnsState -Name HnsPreallocatePortRange
-        Enable-WindowsFixInFeatureManagement -Name 1114842764
-        Enable-WindowsFixInFeatureManagement -Name 4154935436
-        Enable-WindowsFixInFeatureManagement -Name 124082829
-
-        Write-Log "Enable 11 fixes in 2024-04B"
-        Enable-WindowsFixInFeatureManagement -Name 3744292492
-        Enable-WindowsFixInFeatureManagement -Name 3838270605
-        Enable-WindowsFixInFeatureManagement -Name 851795084
-        Enable-WindowsFixInFeatureManagement -Name 26691724
-        Enable-WindowsFixInFeatureManagement -Name 3834988172
-        Enable-WindowsFixInFeatureManagement -Name 1535854221
-        Enable-WindowsFixInFeatureManagement -Name 3632636556
-        Enable-WindowsFixInFeatureManagement -Name 1552261773
-        Enable-WindowsFixInFeatureManagement -Name 4186914956
-        Enable-WindowsFixInFeatureManagement -Name 3173070476
-        Enable-WindowsFixInFeatureManagement -Name 3958450316
-
-        Write-Log "Enable 3 fixes in 2024-06B"
-        Enable-WindowsFixInFeatureManagement -Name 2540111500
-        Enable-WindowsFixInFeatureManagement -Name 50261647
-        Enable-WindowsFixInFeatureManagement -Name 1475968140
-
-        Write-Log "Enable 1 fix in 2024-07B"
-        Enable-WindowsFixInFeatureManagement -Name 747051149
-
-        Write-Log "Enable 1 fix in 2024-08B"
-        Enable-WindowsFixInFeatureManagement -Name 260097166
-
-        Write-Log "Enable 1 fix in 2024-09B"
-        Enable-WindowsFixInFeatureManagement -Name 4288867982
-
-        Write-Log "Enable 3 fixes in 2024-11B"
-        Enable-WindowsFixInFeatureManagement -Name 1825620622
-        Enable-WindowsFixInFeatureManagement -Name 684111502
-        Enable-WindowsFixInFeatureManagement -Name 1455863438
-
-        Write-Log "CVE-2013-3900 Fixs"
-        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
-        Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
-        Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value $hnsControlFlag
     }
 }
 
