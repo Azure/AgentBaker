@@ -613,8 +613,6 @@ function Enable-WindowsFixInPath
     Set-ItemProperty -Path $Path -Name $Name $Value -Type $Type
 }
 
-# If you need to add registry key in this function,
-# please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/windows/write-release-notes-windows.ps1 at the same time
 function Update-Registry
 {
 
@@ -626,7 +624,7 @@ function Update-Registry
         $keyType = $key.Type
         $keyComment = $key.Comment
 
-        Write-Log "Setting $keyPath - $keyName to $keyValue ($keyType): $keyComment"
+        Write-Log "$keyPath/$keyName = $keyValue : $keyComment"
         Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
     }
 
