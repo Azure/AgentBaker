@@ -621,10 +621,12 @@ function Enable-WindowsFixInPath {
 # If you need to add registry key in this function,
 # please update $wuRegistryKeys and $wuRegistryNames in vhdbuilder/packer/windows/write-release-notes-windows.ps1 at the same time
 function Update-Registry {
-    # Enables DNS resolution of SMB shares for containerD
-    # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945
-    Write-Log "Apply SMB Resolution Fix for containerD"
-    Enable-WindowsFixInHnsState -Name EnableCompartmentNamespace
+
+    foreach ($key in $global:keysToSet)
+    {
+        Write-Log "Setting ${key.Path}/${key.Name} to ${key.Value}: ${key.Comment}"
+        Enable-WindowsFixInPath -Path $key.Path -Name $key.Name -Value $key.Value -Type $key.Type
+    }
 
     if ($env:WindowsSKU -Like '2019*') {
         Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
@@ -771,19 +773,6 @@ function Update-Registry {
         # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
         Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
         Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
-    }
-
-    if ($env:WindowsSKU -Like '23H2*') {
-        Write-Log "Disable port exclusion change in 23H2"
-        Enable-WindowsFixInHnsState -Name PortExclusionChange -Value 0
-
-        Write-Log "Enable 1 fix in 2024-08B"
-        Enable-WindowsFixInFeatureManagement -Name 1800977551
-
-        Write-Log "Enable 3 fixes in 2024-11B"
-        Enable-WindowsFixInFeatureManagement -Name 3197800078
-        Enable-WindowsFixInFeatureManagement -Name 340036751
-        Enable-WindowsFixInFeatureManagement -Name 2020509326
     }
 }
 

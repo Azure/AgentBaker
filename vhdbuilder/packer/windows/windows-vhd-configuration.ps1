@@ -58,11 +58,17 @@ switch -Regex ($windowsSku)
 
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
+$WindowsSettingsFile = "c:/k/windows_settings.json"
 
 # fallback in case we're running in a test pipeline or locally
 if (!(Test-Path $HelpersFile))
 {
     $HelpersFile = "vhdbuilder/packer/windows/components_json_helpers.ps1"
+}
+
+if (!(Test-Path $WindowsSettingsFile))
+{
+    $HelpersFile = "vhdbuilder/packer/windows/windows_settings.json"
 }
 
 if (!(Test-Path $ComponentsJsonFile))
@@ -72,12 +78,15 @@ if (!(Test-Path $ComponentsJsonFile))
 
 Write-Output "Components JSON: $ComponentsJsonFile"
 Write-Output "Helpers Ps1: $HelpersFile"
+Write-Output "WindowsSettingsFile: $WindowsSettingsFile"
 
 . "$HelpersFile"
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
+$windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
 
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
+$global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 
 # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed

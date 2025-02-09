@@ -1,10 +1,58 @@
 {
   "WindowsRegistryKeys": [
     {
+      "Comment": "Enables DNS resolution of SMB shares for containerD:  # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945",
+      "WindowsSkuMatch": "*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "EnableCompartmentNamespace",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2019*",
       "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
       "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Disable port exclusion change in 23H2",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "PortExclusionChange",
+      "Value": "0",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2024-08B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1800977551",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2024-08B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "3197800078",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2024-08B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "340036751",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2024-08B",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2020509326",
       "Value": "1",
       "Type": "DWORD"
     }

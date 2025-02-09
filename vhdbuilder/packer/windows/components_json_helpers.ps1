@@ -130,3 +130,24 @@ function GetDefaultContainerDFromComponentsJson
     $containerDPackages = $packages["c:\akse-cache\containerd\"]
     return $containerDPackages[0]
 }
+
+
+function GetRegKeysToApply
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $output = New-Object System.Collections.ArrayList
+
+
+    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
+    {
+        if ($windowsSku -Like $key.WindowsSkuMatch) {
+            $output += $key
+        }
+    }
+
+    return $output;
+}

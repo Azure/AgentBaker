@@ -1,11 +1,11 @@
 
 #WindowsRegistryKey: {
-	Comment:           	string
+	Comment:       	    string
 	WindowsSkuMatch:  	string
 	Path:           	 	string
 	Name:   						string
-	Value?:        			string  // defaults to "1"
-	Type?: 							string  // defaults to DWORD
+	Value:        			string
+	Type: 							string
 }
 
 #WindowsRegistryKeys: [...#WindowsRegistryKey]

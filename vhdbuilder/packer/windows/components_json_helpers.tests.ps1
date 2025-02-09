@@ -3,6 +3,37 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'tests of windows_settings' {
+    BeforeEach {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given windows sku matches, it returns the key' {
+        $windowsSku = "2019-containerd-gen2"
+        $keys = GetRegKeysToApply $windowsSettings
+        $keys.Length | Should -Be 1
+
+    }
+    It 'given windows sku does not match, it does not returns the key' {
+        $windowsSku = "2022-containerd-gen2"
+        $keys = GetRegKeysToApply $windowsSettings
+        $keys.Length | Should -Be 0
+    }
+}
+
+
+
 Describe 'Gets the Binaries' {
     BeforeEach {
         $testString = '{
@@ -339,7 +370,9 @@ Describe 'Gets The Versions' {
 
 }
 
-Describe 'Tests of components.json' {
+# note that we might remove some of these as we change the versions. Most of them were written to ensure current versions were
+# migrated successfully
+Describe 'Tests of components.json ' {
     BeforeEach {
         $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
     }
