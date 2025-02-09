@@ -159,7 +159,7 @@
       "Name": "1605443213",
       "Value": "1",
       "Type": "DWORD"
-    }
+    },
     {
       "Comment": "Disable port exclusion change in 23H2",
       "WindowsSkuMatch": "23H2*",

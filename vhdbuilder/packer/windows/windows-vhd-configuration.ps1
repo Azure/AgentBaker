@@ -88,6 +88,7 @@ $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFr
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
+$global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 
 # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
 # during building the Windows VHD to cache container images.

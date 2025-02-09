@@ -78,12 +78,7 @@ Log "`thttps://docs.microsoft.com/en-us/windows/deployment/update/waas-wu-settin
 
 $wuRegistryKeys = @(
     "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate",
-    "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs",
-    "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides",
-    "HKLM:\SYSTEM\CurrentControlSet\Services\VfpExt\Parameters",
-    "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers"
+    "HKLM:SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
 )
 
 $wuRegistryNames = @(
@@ -99,68 +94,7 @@ $wuRegistryNames = @(
     "HNSNpmIpsetLimitChange",
     "HNSLbNatDupRuleChange",
     "HNSUpdatePolicyForEndpointChange",
-    "WcifsSOPCountDisabled",
-    "3105872524",
-    "2629306509",
-    "3508525708",
-    "1995963020",
-    "189519500",
-    "VfpEvenPodDistributionIsEnabled",
-    "VfpIpv6DipsPrintingIsEnabled",
-    "3230913164",
-    "3398685324",
-    "87798413",
-    "4289201804",
-    "1355135117",
-    "RemoveSourcePortPreservationForRest",
-    "2214038156",
-    "VfpNotReuseTcpOneWayFlowIsEnabled",
-    "1673770637",
-    "FwPerfImprovementChange",
-    "CleanupReservedPorts",
-    "652313229",
-    "2059235981",
-    "3767762061",
-    "527922829",
-    "DeltaHivePolicy",
-    "2193453709",
-    "3331554445",
-    "1102009996",
-    "OverrideReceiveRoutingForLocalAddressesIpv4",
-    "OverrideReceiveRoutingForLocalAddressesIpv6",
-    "1327590028",
-    "1114842764",
-    "HnsPreallocatePortRange",
-    "4154935436",
-    "124082829",
-    "PortExclusionChange",
-    "2290715789",
-    "3152880268",
-    "3744292492",
-    "3838270605",
-    "851795084",
-    "26691724",
-    "3834988172",
-    "1535854221",
-    "3632636556",
-    "1552261773",
-    "4186914956",
-    "3173070476",
-    "3958450316",
-    "1605443213",
-    "2540111500",
-    "50261647",
-    "1475968140",
-    "747051149",
-    "260097166",
-    "1800977551",
-    "4288867982",
-    "1825620622",
-    "684111502",
-    "1455863438",
-    "3197800078",
-    "340036751",
-    "2020509326"
+    "WcifsSOPCountDisabled"
 )
 
 foreach ($key in $wuRegistryKeys) {
@@ -178,6 +112,21 @@ foreach ($key in $wuRegistryKeys) {
                 Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
             }
         }
+    }
+}
+
+foreach ($path in $global:releaseNotesToSet) {
+    $regPath=(Get-Item -Path $key -ErrorAction Ignore)
+    $keys = $global:releaseNotesToSet[$path]
+    if ($regPath) {
+        Log ("`t{0}" -f $key)
+        Get-Item -Path $key |
+                Select-Object -ExpandProperty property |
+                ForEach-Object {
+                    if ($keys -contains $_) {
+                        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+                    }
+                }
     }
 }
 
