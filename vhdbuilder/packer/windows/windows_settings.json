@@ -17,6 +17,142 @@
       "Type": "DWORD"
     },
     {
+      "Comment": "Enable a WCIFS fix in 2022-10B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\wcifs",
+      "Name": "WcifsSOPCountDisabled",
+      "Value": "0",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable HnsPolicyUpdateChange fix in 2023-04B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "HnsPolicyUpdateChange",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable HnsNatAllowRuleUpdateChange fix in 2023-04B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "HnsPolicyUpdateChange",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 3105872524 fix in 2023-04B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "3105872524",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2023-05B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
+      "Name": "VfpEvenPodDistributionIsEnabled",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2023-06B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "3230913164",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "Enable 1 fix in 2023-10B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
+      "Name": "VfpNotReuseTcpOneWayFlowIsEnabled",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2023-11B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "CleanupReservedPorts",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2023-11B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "652313229",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2023-11B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2059235981",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2023-11B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "3767762061",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2024-01B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1102009996",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2024-04B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "2290715789",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2024-04B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "3152880268",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2024-06B",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1605443213",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "CVE-2013-3900 - https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "CVE-2013-3900 - https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "HKLM:\\Software\\Wow6432Node\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
       "Comment": "Disable port exclusion change in 23H2",
       "WindowsSkuMatch": "23H2*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",

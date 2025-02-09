@@ -637,44 +637,6 @@ function Update-Registry {
             $hnsControlFlag=([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
         }
         Enable-WindowsFixInHnsState -Name HNSControlFlag -Value $hnsControlFlag
-
-        Write-Log "Enable a WCIFS fix in 2022-10B"
-        Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -Value 0
-
-        Write-Log "Enable 3 fixes in 2023-04B"
-        Enable-WindowsFixInHnsState -Name HnsPolicyUpdateChange
-        Enable-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
-        Enable-WindowsFixInFeatureManagement -Name 3105872524
-
-        Write-Log "Enable 1 fix in 2023-05B"
-        Enable-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
-
-        Write-Log "Enable 1 fix in 2023-06B"
-        Enable-WindowsFixInFeatureManagement -Name 3230913164
-
-        Write-Log "Enable 1 fix in 2023-10B"
-        Enable-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
-
-        Write-Log "Enable 4 fixes in 2023-11B"
-        Enable-WindowsFixInHnsState -Name CleanupReservedPorts
-        Enable-WindowsFixInFeatureManagement -Name 652313229
-        Enable-WindowsFixInFeatureManagement -Name 2059235981
-        Enable-WindowsFixInFeatureManagement -Name 3767762061
-
-        Write-Log "Enable 1 fix in 2024-01B"
-        Enable-WindowsFixInFeatureManagement -Name 1102009996
-
-        Write-Log "Enable 2 fixes in 2024-04B"
-        Enable-WindowsFixInFeatureManagement -Name 2290715789
-        Enable-WindowsFixInFeatureManagement -Name 3152880268
-
-        Write-Log "Enable 1 fix in 2024-06B"
-        Enable-WindowsFixInFeatureManagement -Name 1605443213
-
-        Write-Log "CVE-2013-3900 Fixs"
-        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
-        Enable-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
-        Enable-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
     }
 
     if ($env:WindowsSKU -Like '2022*') {
