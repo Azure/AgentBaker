@@ -15,6 +15,7 @@
     "after 10pm and before 5am every weekday",
     "every weekend"
   ],
+  "updateNotScheduled": false,
   "timezone": "America/Los_Angeles",
   "logLevelRemap": [
     {
@@ -36,7 +37,6 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      "additionalBranchPrefix": "deb1804-",
       "automerge": false,
       "enabled": true
     },
@@ -45,7 +45,6 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      "additionalBranchPrefix": "deb2004-",
       "automerge": false,
       "enabled": true
     },
@@ -54,7 +53,6 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      "additionalBranchPrefix": "deb2204-",
       "automerge": false,
       "enabled": true
     },
@@ -63,7 +61,6 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      "additionalBranchPrefix": "deb2404-",
       "automerge": false,
       "enabled": true
     },
@@ -74,11 +71,13 @@
       ],
       "automerge": true,
       "enabled": true,
+      "groupName" : "runc-containerd",
       "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
       "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
     },
     {
       "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns", "containernetworking/cilium/cilium"],
+      "groupName" : "azure-cni-cns-cilium",
       "assignees": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"],
       "reviewers": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"]
     },
@@ -89,23 +88,31 @@
     },
     {
       "matchPackageNames": ["oss/kubernetes/coredns", "oss/v2/kubernetes/coredns"],
+      "groupName" : "coredns",
       "assignees": ["SriHarsha001"],
       "reviewers": ["SriHarsha001"]
     },
     {
       "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
+      "groupName": "acr-credential-provider",
       "assignees": ["mainred"],
       "reviewers": ["mainred"]
     },
     {
       "matchPackageNames": ["oss/kubernetes-csi/*"],
+      "groupName" : "csi",
       "assignees": ["andyzhangx"],
       "reviewers": ["andyzhangx"]
     },
     {
       "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "groupName": "kube-components",
       "assignees": ["haitch", "wenhug", "gaopenghigh"],
       "reviewers": ["haitch", "wenhug", "gaopenghigh"]
+    },
+    {
+      "matchPackageNames": ["containernetworking/azure-ipam"],
+      "groupName": "azure-ipam"
     },
     {
       "matchDatasources": ["docker"],
@@ -117,7 +124,8 @@
       "extractVersion": "^v?(?<version>.+)$"
     },
     {      
-      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],      
+      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],  
+      "groupName" : "nvidia-gpu",    
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
       "automerge": true,      
       "enabled": true,
