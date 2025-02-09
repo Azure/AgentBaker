@@ -1252,11 +1252,11 @@
             "versionsV2": [
               {
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/deislabs/containerd-wasm-shims",
-                "latestVersion": "v0.3.0"
+                "latestVersion": "v0.8.0"
               },
               {
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/deislabs/containerd-wasm-shims",
-                "latestVersion": "v0.5.1"
+                "latestVersion": "v0.8.0"
               },
               {
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/deislabs/containerd-wasm-shims",
