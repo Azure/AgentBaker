@@ -513,13 +513,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.29.12",
-          "previousLatestVersion": "v1.29.10"
+          "latestVersion": "v1.31.3",
+          "previousLatestVersion": "v1.29.12"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.7",
-          "previousLatestVersion": "v1.30.6"
+          "latestVersion": "v1.31.3",
+          "previousLatestVersion": "v1.30.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
@@ -549,13 +549,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.29.10",
-          "previousLatestVersion": "v1.29.9"
+          "latestVersion": "v1.31.3",
+          "previousLatestVersion": "v1.29.10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.7",
-          "previousLatestVersion": "v1.30.6"
+          "latestVersion": "v1.31.3",
+          "previousLatestVersion": "v1.30.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
@@ -585,13 +585,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.23.10",
-          "previousLatestVersion": "v1.23.9"
+          "latestVersion": "v1.25.2",
+          "previousLatestVersion": "v1.23.10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.6",
-          "previousLatestVersion": "v1.24.5"
+          "latestVersion": "v1.25.2",
+          "previousLatestVersion": "v1.24.6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
@@ -605,7 +605,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.15.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
@@ -625,7 +625,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.12.0"
+          "latestVersion": "v2.13.0"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
