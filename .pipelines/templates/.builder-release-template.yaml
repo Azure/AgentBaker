@@ -106,7 +106,7 @@ steps:
       runVersion: "latest"
       project: $(System.TeamProject)
       pipeline: $(SOURCE_PIPELINE) 
-      artifactName: $(BUILD_PERFORMANCE_BINARY)
+      artifactName: $(BUILD_PERFORMANCE_ARTIFACT_NAME)
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
