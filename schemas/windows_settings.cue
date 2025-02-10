@@ -5,7 +5,7 @@
   Path:               string
   Name:               string
   Value:              string
-  Operation?:         string
+  Operation?:         string // default is "replace". Options are "bor" (bitwise or) and "replace".
   Type:               string
 }
 
