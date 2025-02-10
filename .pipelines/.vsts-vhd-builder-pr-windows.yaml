@@ -31,7 +31,6 @@ pr:
     - .github/**
     - e2e/scenario_test.go
 
-
 pool:
   name: $(AZURE_POOL_NAME)
 
@@ -48,7 +47,8 @@ variables:
 stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
-      vhddebug: ${{ parameters.vhddebug }}
+      vhddebug: False
+      dryrun: False
       build2019containerd: True
       build2022containerd: False
       build2022containerdgen2: True

@@ -48,6 +48,7 @@ stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
       vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
       build2019containerd: ${{ parameters.build2019containerd }}
       build2022containerd:  ${{ parameters.build2022containerd }}
       build2022containerdgen2:  ${{ parameters.build2022containerdgen2 }}
