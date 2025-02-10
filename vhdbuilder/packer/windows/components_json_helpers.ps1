@@ -138,7 +138,6 @@ function GetRegKeysToApply
         [Parameter(Mandatory = $true)][Object]
         $windowsSettingsContent
     )
-
     $output = New-Object System.Collections.ArrayList
 
     foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
