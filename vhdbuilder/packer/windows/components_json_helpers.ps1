@@ -9,17 +9,27 @@ function GetComponentsFromComponentsJson
 
     foreach ($containerImage in $componentsJsonContent.ContainerImages)
     {
-        foreach ($windowsVersion in $containerImage.windowsVersions)
+        $versions = $containerImage.windowsVersions
+        if ($versions -eq $null) {
+            $versions = $containerImage.multiArchVersionsV2
+        }
+
+        $downloadUrl = $containerImage.windowsDownloadUrl
+        if ($downloadUrl -eq $null) {
+            $downloadUrl = $containerImage.downloadUrl
+        }
+
+        foreach ($windowsVersion in $versions)
         {
             $skuMatch = $windowsVersion.windowsSkuMatch
             if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
             {
-                $url = $containerImage.downloadUrl.replace("*", $windowsVersion.latestVersion)
+                $url = $downloadUrl.replace("*", $windowsVersion.latestVersion)
                 $output += $url
 
                 if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
                 {
-                    $url = $containerImage.downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
+                    $url = $downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
                     $output += $url
                 }
             }

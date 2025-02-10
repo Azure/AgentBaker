@@ -53,6 +53,16 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	model := getBaseVMSSModel(s, customData, cse)
+	if s.Tags.NonAnonymousACR {
+		// add acr pull identity
+		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName)
+		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+				userAssignedIdentity: {},
+			},
+		}
+	}
 
 	isAzureCNI, err := cluster.IsAzureCNI()
 	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
