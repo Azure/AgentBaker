@@ -627,14 +627,13 @@ function Update-Registry
         Write-Log "$keyPath\$keyName = $keyValue : $keyComment"
         if ($keyOperation -eq "bor")
         {
-            Write-Log "Keep the fix ($keyValue) even though it is enabled by default. Windows are still using $keyName and may need it in the future."
             $currentValue = (Get-ItemProperty -Path $keyPath -Name $keyName -ErrorAction Ignore)
             if (![string]::IsNullOrEmpty($currentValue))
             {
                 Write-Log "The current value of $keyName is $currentValue"
                 $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
             }
-            Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue
+            Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
         }
         else
         {

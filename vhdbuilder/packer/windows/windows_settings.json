@@ -9,10 +9,10 @@
       "Type": "DWORD"
     },
     {
-      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900 - even tho this is turned on by default, we keep the fix in case windows wants to use it in future",
       "WindowsSkuMatch": "2019*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
-      "Name": "HNSControlFlag ",
+      "Name": "HNSControlFlag",
       "Value": "0x10",
       "Operation": "bor",
       "Type": "DWORD"

@@ -190,7 +190,6 @@ function LogReleaseNotesForWindowsRegistryKeys
     $logLines = New-Object System.Collections.ArrayList
     $releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsContent
 
-
     foreach ($key in $releaseNotesToSet.Keys)
     {
         $logLines += ("`t{0}" -f $key)
