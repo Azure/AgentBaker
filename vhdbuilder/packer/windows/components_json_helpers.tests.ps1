@@ -8,7 +8,7 @@ Describe 'tests of windows_settings' {
         $testString = '{
   "WindowsRegistryKeys": [
     {
-      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "Comment": "this is a comment",
       "WindowsSkuMatch": "2019*",
       "Path": "pathpath",
       "Name": "EnableCertPaddingCheck",

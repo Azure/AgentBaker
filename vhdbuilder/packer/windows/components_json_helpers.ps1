@@ -141,7 +141,6 @@ function GetRegKeysToApply
 
     $output = New-Object System.Collections.ArrayList
 
-
     foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
     {
         if ($windowsSku -Like $key.WindowsSkuMatch)
