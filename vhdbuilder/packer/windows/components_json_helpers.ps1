@@ -153,7 +153,6 @@ function GetRegKeysToApply
 
 function GetKeyMapForReleaseNotes
 {
-
     Param(
         [Parameter(Mandatory = $true)][Object]
         $windowsSettingsContent
@@ -177,4 +176,28 @@ function GetKeyMapForReleaseNotes
     }
 
     return $output;
+}
+
+function LogReleaseNotesForWindowsRegistryKeys
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $logLines = New-Object System.Collections.ArrayList
+    $releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsContent
+
+    foreach ($key in $releaseNotesToSet.Keys)
+    {
+        $logLines += ("`t{0}" -f $key)
+        $names = $releaseNotesToSet[$key]
+        foreach ($name in $names)
+        {
+            $value = (Get-ItemProperty -Path $key -Name $name).$name
+            $logLines += ("`t`t{0} : {1}" -f $name, $value)
+        }
+    }
+
+    return $logLines
 }

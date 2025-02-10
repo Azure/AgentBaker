@@ -3,6 +3,117 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'LogReleaseNotesForWindowsRegistryKeys' {
+    BeforeEach {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "this is a comment",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+
+    }
+
+    it "creates a line for the path" {
+        Mock Get-ItemProperty -MockWith { return @{ EnableCertPaddingCheck = "1" } }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines | Should -Contain ("`t{0}" -f "pathpath")
+    }
+
+    it "creates a line for the name" {
+        Mock Get-ItemProperty -MockWith { return @{ EnableCertPaddingCheck = "1" } }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck", "1")
+    }
+
+    it 'given two names in the different path, it logs each path' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath1",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    },
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath2",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1"
+    }
+  ]
+}'
+
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        Mock Get-ItemProperty -MockWith {
+            return @{
+                EnableCertPaddingCheck = "1"
+                EnableCertPaddingCheck2 = "2"
+            }
+        }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines.Length | Should -Be 4
+        $lines | Should -Contain ("`t{0}" -f "pathpath1")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck", "1")
+        $lines | Should -Contain ("`t{0}" -f "pathpath2")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck2", "2")
+    }
+
+    it 'given two names in the same path, it only logs the path once' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    },
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1"
+    }
+  ]
+}'
+
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        Mock Get-ItemProperty -MockWith {
+            return @{
+                EnableCertPaddingCheck = "1"
+                EnableCertPaddingCheck2 = "2"
+            }
+        }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines.Length | Should -Be 3
+        $lines | Should -Contain ("`t{0}" -f "pathpath")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck", "1")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck2", "2")
+    }
+}
+
 Describe 'tests of windows_settings' {
     BeforeEach {
         $testString = '{

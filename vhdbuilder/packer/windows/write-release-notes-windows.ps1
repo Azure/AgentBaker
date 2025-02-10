@@ -125,23 +125,7 @@ foreach ($key in $wuRegistryKeys)
     }
 }
 
-foreach ($key in $releaseNotesToSet.Keys)
-{
-    $regPath = (Get-Item -Path $key -ErrorAction Ignore)
-    Log ("`t{0}" -f $key)
-    if ($regPath)
-    {
-        $keys = $releaseNotesToSet[$key]
-        Get-Item -Path $key |
-                Select-Object -ExpandProperty property |
-                ForEach-Object {
-                    if ($keys -contains $_)
-                    {
-                        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
-                    }
-                }
-    }
-}
+LogReleaseNotes $windowsSettingsJson | ForEach-Object { Log $_ }
 
 Log ""
 
