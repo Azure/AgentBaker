@@ -131,7 +131,7 @@ foreach ($key in $releaseNotesToSet.Keys)
     Log ("`t{0}" -f $key)
     if ($regPath)
     {
-        $keys = $releaseNotesToSet[$path]
+        $keys = $releaseNotesToSet[$key]
         Get-Item -Path $key |
                 Select-Object -ExpandProperty property |
                 ForEach-Object {
