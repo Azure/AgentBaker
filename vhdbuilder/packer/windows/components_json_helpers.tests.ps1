@@ -74,7 +74,7 @@ Describe "Gets the paths and names for release notes" {
         $windowsSettings = echo $testString | ConvertFrom-Json
     }
 
-    It 'given windows sku matches, it returns the key' {
+    It 'given windows sku matches, the names for key should contain the name' {
         $windowsSku = "2019-containerd-gen2"
         $items = GetKeyMapForReleaseNotes $windowsSettings
         $namesForKey = $items["pathpath"]
@@ -82,7 +82,7 @@ Describe "Gets the paths and names for release notes" {
         $namesForKey | Should -Contain "EnableCertPaddingCheck"
     }
 
-    It 'given windows sku does not match, it does not returns the key' {
+    It 'given windows sku does not match, the names for key should not contain the name' {
         $windowsSku = "2022-containerd-gen2"
         $items = GetKeyMapForReleaseNotes $windowsSettings
         $namesForKey = $items["pathpath"]
