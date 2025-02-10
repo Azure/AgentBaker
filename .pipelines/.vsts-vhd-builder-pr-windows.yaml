@@ -1,4 +1,4 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+name: PR_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 pr:
   branches:
@@ -8,6 +8,8 @@ pr:
   paths:
     include:
     - .pipelines/.vsts-vhd-builder-release-windows.yaml
+    - .pipelines/.vsts-vhd-builder-pr-windows.yaml
+    - .pipelines/templates/.build-and-test-windows-vhds-template.yaml
     - .pipelines/templates/.build-and-test-windows-vhd-template.yaml
     - .pipelines/templates/.builder-release-template-windows.yaml
     - .pipelines/templates/e2e-template.yaml
