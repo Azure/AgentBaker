@@ -1410,9 +1410,7 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
       BinaryName = "/usr/bin/nvidia-container-runtime"
-      {{- if IsCgroupV2 }}
       SystemdCgroup = true
-      {{- end}}
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
@@ -1423,9 +1421,7 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
-      {{- if IsCgroupV2 }}
       SystemdCgroup = true
-      {{- end}}
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
@@ -1530,9 +1526,7 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
     BinaryName = "/usr/bin/runc"
-    {{- if IsCgroupV2 }}
     SystemdCgroup = true
-    {{- end}}
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
