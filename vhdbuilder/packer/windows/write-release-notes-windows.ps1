@@ -125,7 +125,7 @@ foreach ($key in $wuRegistryKeys)
     }
 }
 
-LogReleaseNotes $windowsSettingsJson | ForEach-Object { Log $_ }
+LogReleaseNotesForWindowsRegistryKeys $windowsSettingsJson | ForEach-Object { Log $_ }
 
 Log ""
 
