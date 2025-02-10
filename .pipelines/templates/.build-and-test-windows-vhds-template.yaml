@@ -29,7 +29,7 @@ parameters:
     default: False
 
 stages:
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2019_v1
       artifactName: 2019-containerd
@@ -40,7 +40,7 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1
       artifactName: 2022-containerd
@@ -51,7 +51,7 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v2
       artifactName: 2022-containerd-gen2
@@ -62,7 +62,7 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_23H2_v1
       artifactName: 23H2
@@ -73,7 +73,7 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
 
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_23H2_v2
       artifactName: 23H2-gen2
