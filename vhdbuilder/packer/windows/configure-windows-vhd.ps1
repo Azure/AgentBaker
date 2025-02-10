@@ -624,7 +624,7 @@ function Update-Registry
         $keyType = $key.Type
         $keyComment = $key.Comment
 
-        Write-Log "$keyPath/$keyName = $keyValue : $keyComment"
+        Write-Log "$keyPath\$keyName = $keyValue : $keyComment"
         Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
     }
 

@@ -60,7 +60,7 @@
       "Comment": "Enable HnsNatAllowRuleUpdateChange fix in 2023-04B",
       "WindowsSkuMatch": "2019*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
-      "Name": "HnsPolicyUpdateChange",
+      "Name": "HnsNatAllowRuleUpdateChange",
       "Value": "1",
       "Type": "DWORD"
     },
