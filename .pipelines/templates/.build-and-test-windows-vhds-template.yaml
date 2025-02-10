@@ -2,23 +2,18 @@ parameters:
   - name: build2019containerd
     displayName: Build 2019 containerd
     type: boolean
-    default: True
   - name: build2022containerd
     displayName: Build 2022 containerd
     type: boolean
-    default: False
   - name: build2022containerdgen2
     displayName: Build 2022 containerd Gen 2
     type: boolean
-    default: True
   - name: build23H2
     displayName: Build 23H2
     type: boolean
-    default: False
   - name: build23H2gen2
     displayName: Build 23H2 Gen 2
     type: boolean
-    default: True
   - name: dryrun
     displayName: Dry run
     type: boolean
