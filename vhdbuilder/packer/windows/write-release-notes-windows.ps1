@@ -125,7 +125,7 @@ foreach ($key in $wuRegistryKeys)
     }
 }
 
-foreach ($key in $releaseNotesToSet)
+foreach ($key in $releaseNotesToSet.Keys)
 {
     $regPath = (Get-Item -Path $key -ErrorAction Ignore)
     Log ("`t{0}" -f $key)
