@@ -417,10 +417,11 @@ function Test-RegistryAdded
 
         if ($keyOperation -eq "bor")
         {
-            $result = (Get-ItemProperty -Path $keyPath -Name $keyName)
-            if (($result.HNSControlFlag -band $keyValue) -ne $keyValue)
+            $result = Get-ItemProperty -Path $keyPath -Name $keyName
+            $actual = ($result.$keyName -band $keyValue)
+            if ( $actual -ne $keyValue)
             {
-                Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
+                Write-ErrorWithTimestamp "The registry for $keyName was incorrect. Actual: $result expected: $keyvalue after band: $actual"
                 exit 1
             }
             else
