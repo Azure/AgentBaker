@@ -1689,6 +1689,7 @@ oom_score = -999
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
 `
 				deprecatedRuncConfig := `
 [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1697,6 +1698,7 @@ oom_score = -999
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
 `
 				Expect(expectedRuncConfig).NotTo(Equal(deprecatedRuncConfig))
 				Expect(containerdConfigFileContent).To(ContainSubstring(expectedRuncConfig))
