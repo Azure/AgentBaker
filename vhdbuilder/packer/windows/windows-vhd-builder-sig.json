@@ -142,6 +142,7 @@
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
                 "BUILD_BRANCH={{user `build_branch`}}",
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
