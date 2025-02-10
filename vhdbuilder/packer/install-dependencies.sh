@@ -534,6 +534,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
+capture_benchmark "new_section_for_final_test"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
