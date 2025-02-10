@@ -268,8 +268,7 @@ function Get-ContainerImages {
     }
 
     $imagesToPull | ForEach-Object -Parallel {
-        param ($image)
-        Get-ContainerImage -image $image
+        Get-ContainerImage -image $_
     } -ThrottleLimit 4
 
     # before stopping containerd, let's echo the cached images and their sizes.
