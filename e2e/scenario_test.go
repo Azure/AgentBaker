@@ -814,6 +814,23 @@ func Test_Ubuntu2204_ChronyRestarts(t *testing.T) {
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
