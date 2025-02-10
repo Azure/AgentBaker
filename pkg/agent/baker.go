@@ -1504,7 +1504,7 @@ root = "{{GetDataDir}}"{{- end}}
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 
-[plugins."io.containerd.cri.v1.images""]
+[plugins."io.containerd.cri.v1.images"]
 {{- if TeleportEnabled }}
   snapshotter = "teleportd"
   disable_snapshot_annotations = false
