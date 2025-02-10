@@ -13,7 +13,7 @@ jobs:
         run: |
           Invoke-Pester parts/windows/*.tests.ps1 -Passthru
       - name: Perform a Pester test from the vhdbuilder/packer/windows/*.tests.ps1 file
-        shell: powershell
+        shell: pwsh
         run: |
           Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru
       - name: Perform a Pester test from the staging/cse/windows/*.tests.ps1 file
