@@ -615,7 +615,6 @@ function Enable-WindowsFixInPath
 
 function Update-Registry
 {
-
     foreach ($key in $global:keysToSet)
     {
         $keyPath = $key.Path
@@ -623,23 +622,24 @@ function Update-Registry
         $keyValue = $key.Value
         $keyType = $key.Type
         $keyComment = $key.Comment
+        $keyOperation = $key.Operation
 
         Write-Log "$keyPath\$keyName = $keyValue : $keyComment"
-        Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
-    }
-
-    # this was too complex to put in the config file so leaving it here.
-    if ($env:WindowsSKU -Like '2019*')
-    {
-        Write-Log "Keep the HNS fix (0x10) even though it is enabled by default. Windows are still using HNSControlFlag and may need it in the future."
-        $hnsControlFlag = 0x10
-        $currentValue = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -ErrorAction Ignore)
-        if (![string]::IsNullOrEmpty($currentValue))
+        if ($keyOperation -eq "bor")
         {
-            Write-Log "The current value of HNSControlFlag is $currentValue"
-            $hnsControlFlag = ([int]$currentValue.HNSControlFlag -bor $hnsControlFlag)
+            Write-Log "Keep the fix ($keyValue) even though it is enabled by default. Windows are still using $keyName and may need it in the future."
+            $currentValue = (Get-ItemProperty -Path $keyPath -Name $keyName -ErrorAction Ignore)
+            if (![string]::IsNullOrEmpty($currentValue))
+            {
+                Write-Log "The current value of $keyName is $currentValue"
+                $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
+            }
+            Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue
         }
-        Enable-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag -Value $hnsControlFlag
+        else
+        {
+            Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
+        }
     }
 }
 

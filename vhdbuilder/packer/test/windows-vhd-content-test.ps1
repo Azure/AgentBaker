@@ -413,8 +413,25 @@ function Test-RegistryAdded
         $keyValue = $key.Value
         $keyType = $key.Type
         $keyComment = $key.Comment
+        $keyOperation = $key.Operation
 
-        Validate-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue
+        if ($keyOperation -eq "bor")
+        {
+            $result = (Get-ItemProperty -Path $keyPath -Name $keyName)
+            if (($result.HNSControlFlag -band $keyValue) -ne $keyValue)
+            {
+                Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
+                exit 1
+            }
+            else
+            {
+                Write-OutputWithTimestamp "The registry for the two HNS fixes was added"
+            }
+        }
+        else
+        {
+            Validate-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue
+        }
     }
 
     if ($env:WindowsSKU -Like '2019*')

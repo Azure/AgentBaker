@@ -20,6 +20,16 @@ Describe 'LogReleaseNotesForWindowsRegistryKeys' {
 
     }
 
+    it 'ads HKLM:\SYSTEM\CurrentControlSet\Services\hns\State - HNSControlFlag ' {
+        Mock Get-ItemProperty -MockWith { return @{ HNSControlFlag  = "16" } }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines | Should -Contain ("`t{0}" -f "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "HNSControlFlag", "16")
+    }
+
     it "creates a line for the path" {
         Mock Get-ItemProperty -MockWith { return @{ EnableCertPaddingCheck = "1" } }
 

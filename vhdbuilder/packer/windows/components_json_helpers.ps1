@@ -10,12 +10,14 @@ function GetComponentsFromComponentsJson
     foreach ($containerImage in $componentsJsonContent.ContainerImages)
     {
         $versions = $containerImage.windowsVersions
-        if ($versions -eq $null) {
+        if ($versions -eq $null)
+        {
             $versions = $containerImage.multiArchVersionsV2
         }
 
         $downloadUrl = $containerImage.windowsDownloadUrl
-        if ($downloadUrl -eq $null) {
+        if ($downloadUrl -eq $null)
+        {
             $downloadUrl = $containerImage.downloadUrl
         }
 
@@ -175,6 +177,12 @@ function GetKeyMapForReleaseNotes
         }
     }
 
+    if ($output["HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"] -eq $null)
+    {
+        $output["HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"] = New-Object System.Collections.ArrayList
+    }
+    $output["HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"] += "HNSControlFlag"
+
     return $output;
 }
 
@@ -187,6 +195,7 @@ function LogReleaseNotesForWindowsRegistryKeys
 
     $logLines = New-Object System.Collections.ArrayList
     $releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsContent
+
 
     foreach ($key in $releaseNotesToSet.Keys)
     {
