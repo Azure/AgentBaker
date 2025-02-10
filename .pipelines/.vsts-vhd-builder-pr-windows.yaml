@@ -29,6 +29,8 @@ pr:
     - vhdbuilder/release-notes
     - /**/*.md
     - .github/**
+    - e2e/scenario_test.go
+
 
 pool:
   name: $(AZURE_POOL_NAME)
