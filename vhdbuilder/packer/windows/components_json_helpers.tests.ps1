@@ -21,14 +21,14 @@ Describe 'tests of windows_settings' {
 
     It 'given windows sku matches, it returns the key' {
         $windowsSku = "2019-containerd-gen2"
-        $regKeysToApply = GetRegKeysToApply $windowsSettings
-        $regKeysToApply.Length | Should -Be 1
+        $regKeysToApplyt1 = GetRegKeysToApply $windowsSettings
+        $regKeysToApplyt1.Length | Should -Be 1
     }
 
     It 'given windows sku does not match, it does not returns the key' {
         $windowsSku = "2022-containerd-gen2"
-        $regKeysToApply = GetRegKeysToApply $windowsSettings
-        $regKeysToApply.Length | Should -Be 0
+        $regKeysToApplyt2 = GetRegKeysToApply $windowsSettings
+        $regKeysToApplyt2.Length | Should -Be 0
     }
 
     It 'given two windows keys match, it returns both' {
@@ -52,8 +52,8 @@ Describe 'tests of windows_settings' {
 }'
         $windowsSettings = echo $testString | ConvertFrom-Json
         $windowsSku = "2019-containerd-gen2"
-        $regKeysToApply = GetRegKeysToApply $windowsSettings
-        $regKeysToApply.Length | Should -Be 2
+        $regKeysToApplyt3 = GetRegKeysToApply $windowsSettings
+        $regKeysToApplyt3.Length | Should -Be 2
     }
 }
 
