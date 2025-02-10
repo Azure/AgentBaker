@@ -1404,12 +1404,15 @@ root = "{{GetDataDir}}"{{- end}}
   sandbox = "{{GetPodInfraContainerSpec}}"
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
-{{- if IsNSeriesSKU }}
+  {{- if IsNSeriesSKU }}
   default_runtime_name = "nvidia-container-runtime"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
       BinaryName = "/usr/bin/nvidia-container-runtime"
+      {{- if IsCgroupV2 }}
+      SystemdCgroup = true
+      {{- end}}
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
@@ -1420,6 +1423,9 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
       BinaryName = "/usr/bin/runc"
+      {{- if IsCgroupV2 }}
+      SystemdCgroup = true
+      {{- end}}
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
     [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
@@ -1488,6 +1494,7 @@ root = "{{GetDataDir}}"{{- end}}
   IoGid = 0
   BinaryName = "/usr/bin/kata-runtime"
   Root = ""
+  SystemdCgroup = false
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1523,6 +1530,9 @@ root = "{{GetDataDir}}"{{- end}}
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
     BinaryName = "/usr/bin/runc"
+    {{- if IsCgroupV2 }}
+    SystemdCgroup = true
+    {{- end}}
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
     runtime_type = "io.containerd.runc.v2"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
@@ -1576,11 +1586,11 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
   NoPivotRoot = false
   NoNewKeyring = false
   ShimCgroup = ""
@@ -1588,19 +1598,18 @@ root = "{{GetDataDir}}"{{- end}}
   IoGid = 0
   BinaryName = "/usr/bin/kata-runtime"
   Root = ""
-  CriuPath = ""
   SystemdCgroup = false
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc]
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
   snapshotter = "tardev"
   disable_snapshot_annotations = false
   runtime_type = "io.containerd.kata-cc.v2"
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
