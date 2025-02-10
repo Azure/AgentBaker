@@ -37,117 +37,17 @@ variables:
   LOCATION: $(PACKER_BUILD_LOCATION)
   POOL_NAME: $(AZURE_POOL_NAME)
 
-parameters:
-- name: build2019containerd
-  displayName: Build 2019 containerd
-  type: boolean
-  default: True
-- name: build2022containerd
-  displayName: Build 2022 containerd
-  type: boolean
-  default: False
-- name: build2022containerdgen2
-  displayName: Build 2022 containerd Gen 2
-  type: boolean
-  default: True
-- name: build23H2
-  displayName: Build 23H2
-  type: boolean
-  default: False
-- name: build23H2gen2
-  displayName: Build 23H2 Gen 2
-  type: boolean
-  default: True
-- name: dryrun
-  displayName: Dry run
-  type: boolean
-  default: False
-- name: vhddebug
-  displayName: VHD Debug
-  type: boolean
-  default: False
-
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
-      stageName: win_2019_v1
-      artifactName: 2019-containerd
-      imageName: windows-2019-containerd
-      windowsSku: 2019-containerd
-      hyperVGeneration: V1
       build: ${{ parameters.build2019containerd }}
       vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_2022_v1
-      artifactName: 2022-containerd
-      imageName: windows-2022-containerd
-      windowsSku: 2022-containerd
-      hyperVGeneration: V1
-      build: ${{ and(eq(parameters.build2022containerd, true), eq(variables.isNotPR, true)) }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_2022_v2
-      artifactName: 2022-containerd-gen2
-      imageName: windows-2022-containerd-gen2
-      windowsSku: 2022-containerd-gen2
-      hyperVGeneration: V2
-      build: ${{ parameters.build2022containerdgen2 }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_23H2_v1
-      artifactName: 23H2
-      imageName: windows-23H2
-      windowsSku: 23H2
-      hyperVGeneration: V1
-      build: ${{ and(eq(parameters.build23H2, true), eq(variables.isNotPR, true)) }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_23H2_v2
-      artifactName: 23H2-gen2
-      imageName: windows-23H2-gen2
-      windowsSku: 23H2-gen2
-      hyperVGeneration: V2
-      build: ${{ parameters.build23H2gen2 }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - stage: backfill_cleanup_outdated_resources
-    dependsOn: []
-    condition: always()
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            m="windowsVhdMode"
-            echo "Set build mode to $m" && \
-            docker run --rm \
-            -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-            -w /go/src/github.com/Azure/AgentBaker \
-            -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-            -e PROD_SUBSCRIPTION_ID=${AZURE_PROD_SUBSCRIPTION_ID} \
-            -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
-            -e MODE=$m \
-            -e DRY_RUN=${DRY_RUN} \
-            -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-            -e OS_TYPE="Windows" \
-            ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
-          enabled: false
-          displayName: Backfill Clean Up Older Resources
-          condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
+      build2019containerd: True
+      build2022containerd: False
+      build2022containerdgen2: True
+      build23H2: False
+      build23H2gen2: True
