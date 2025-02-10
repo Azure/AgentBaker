@@ -10,7 +10,7 @@ Describe 'tests of windows_settings' {
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Path": "pathpath",
       "Name": "EnableCertPaddingCheck",
       "Value": "1"
     }
@@ -37,13 +37,14 @@ Describe 'tests of windows_settings' {
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Path": "pathpath",
       "Name": "EnableCertPaddingCheck",
       "Value": "1"
-    }, {
+    },
+    {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2019*",
-      "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+      "Path": "pathpath",
       "Name": "EnableCertPaddingCheck2",
       "Value": "1"
     }
@@ -96,8 +97,9 @@ Describe "Gets the paths and names for release notes" {
       "WindowsSkuMatch": "2019*",
       "Path": "pathpath",
       "Name": "EnableCertPaddingCheck",
-      "Value": "1",
-    }, {
+      "Value": "1"
+    },
+    {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
       "WindowsSkuMatch": "2019*",
       "Path": "pathpath",
@@ -114,10 +116,7 @@ Describe "Gets the paths and names for release notes" {
         $namesForKey | Should -Contain "EnableCertPaddingCheck"
         $namesForKey | Should -Contain "EnableCertPaddingCheck2"
     }
-
 }
-
-
 
 Describe 'Gets the Binaries' {
     BeforeEach {
