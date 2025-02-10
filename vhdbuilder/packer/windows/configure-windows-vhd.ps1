@@ -267,9 +267,8 @@ function Get-ContainerImages {
         Write-Output "* $image"
     }
 
-    $images | ForEach-Object -Parallel {
+    $imagesToPull | ForEach-Object -Parallel {
         param ($image)
-        # Simulate some work with Start-Sleep
         Get-ContainerImage -image $image
     } -ThrottleLimit 4
 
