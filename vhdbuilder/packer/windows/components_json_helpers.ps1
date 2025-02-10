@@ -177,12 +177,6 @@ function GetKeyMapForReleaseNotes
         }
     }
 
-    if ($output["HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"] -eq $null)
-    {
-        $output["HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"] = New-Object System.Collections.ArrayList
-    }
-    $output["HKLM:\SYSTEM\CurrentControlSet\Services\hns\State"] += "HNSControlFlag"
-
     return $output;
 }
 
