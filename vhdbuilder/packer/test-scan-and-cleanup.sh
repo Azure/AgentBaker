@@ -21,6 +21,7 @@ required_env_vars=(
   "UMSI_RESOURCE_ID_TME"
   "UMSI_PRINCIPAL_ID_TME"
   "UMSI_CLIENT_ID_TME"
+  "ACCOUNT_NAME_TME"
 )
 
 for v in "${required_env_vars[@]}"; do
