@@ -10,7 +10,8 @@ $ErrorActionPreference = "Stop"
 
 $releaseNotesFilePath = "c:\release-notes.txt"
 
-function Log($Message) {
+function Log($Message)
+{
     # Write-Output $Message
     $Message | Tee-Object -FilePath $releaseNotesFilePath -Append
 }
@@ -29,7 +30,7 @@ Log ""
 Log "System Info"
 $systemInfo = Get-ItemProperty -Path 'HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion'
 Log ("`t{0,-14} : {1}" -f "OS Name", $systemInfo.ProductName)
-Log ("`t{0,-14} : {1}" -f "OS Version", "$($systemInfo.CurrentBuildNumber).$($systemInfo.UBR)")
+Log ("`t{0,-14} : {1}" -f "OS Version", "$( $systemInfo.CurrentBuildNumber ).$( $systemInfo.UBR )")
 Log ("`t{0,-14} : {1}" -f "OS InstallType", $systemInfo.InstallationType)
 Log ""
 
@@ -38,10 +39,12 @@ Log "Allowed security protocols: $allowedSecurityProtocols"
 Log ""
 
 Log "Installed Features"
-if ($systemInfo.InstallationType -ne 'client') {
+if ($systemInfo.InstallationType -ne 'client')
+{
     Log (Get-WindowsFeature | Where-Object Installed)
 }
-else {
+else
+{
     Log "`t<Cannot enumerate installed features on client skus>"
 }
 Log ""
@@ -49,14 +52,16 @@ Log ""
 
 Log "Installed Packages"
 $packages = Get-WindowsCapability -Online | Where-Object { $_.State -eq 'Installed' }
-foreach ($package in $packages) {
+foreach ($package in $packages)
+{
     Log ("`t{0}" -f $package.Name)
 }
 Log ""
 
 Log "Installed QFEs"
 $qfes = Get-HotFix
-foreach ($qfe in $qfes) {
+foreach ($qfe in $qfes)
+{
     $link = "https://support.microsoft.com/kb/{0}" -f ($qfe.HotFixID.Replace("KB", ""))
     Log ("`t{0,-9} : {1, -15} : {2}" -f $qfe.HotFixID, $Qfe.Description, $link)
 }
@@ -66,7 +71,8 @@ Log "Installed Updates"
 $updateSession = New-Object -ComObject Microsoft.Update.Session
 $updateSearcher = $UpdateSession.CreateUpdateSearcher()
 $updates = $updateSearcher.Search("IsInstalled=1").Updates
-foreach ($update in $updates) {
+foreach ($update in $updates)
+{
     Log ("`t{0}" -f $update.Title)
 }
 Log ""
@@ -97,33 +103,40 @@ $wuRegistryNames = @(
     "WcifsSOPCountDisabled"
 )
 
-foreach ($key in $wuRegistryKeys) {
+foreach ($key in $wuRegistryKeys)
+{
     # Windows 2019 does not have the Windows Containers key
-    if ($($systemInfo.CurrentBuildNumber) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers") {
+    if ($( $systemInfo.CurrentBuildNumber ) -eq 17763 -and $key -eq "HKLM:\SYSTEM\CurrentControlSet\Control\Windows Containers")
+    {
         continue
     }
-    $regPath=(Get-Item -Path $key -ErrorAction Ignore)
-    if ($regPath) {
-        Log ("`t{0}" -f $key)
-        Get-Item -Path $key |
-        Select-Object -ExpandProperty property |
-        ForEach-Object {
-            if ($wuRegistryNames -contains $_) {
-                Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
-            }
-        }
-    }
-}
-
-foreach ($path in $global:releaseNotesToSet) {
-    $regPath=(Get-Item -Path $key -ErrorAction Ignore)
-    $keys = $global:releaseNotesToSet[$path]
-    if ($regPath) {
+    $regPath = (Get-Item -Path $key -ErrorAction Ignore)
+    if ($regPath)
+    {
         Log ("`t{0}" -f $key)
         Get-Item -Path $key |
                 Select-Object -ExpandProperty property |
                 ForEach-Object {
-                    if ($keys -contains $_) {
+                    if ($wuRegistryNames -contains $_)
+                    {
+                        Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
+                    }
+                }
+    }
+}
+
+foreach ($key in $releaseNotesToSet)
+{
+    $regPath = (Get-Item -Path $key -ErrorAction Ignore)
+    Log ("`t{0}" -f $key)
+    if ($regPath)
+    {
+        $keys = $releaseNotesToSet[$path]
+        Get-Item -Path $key |
+                Select-Object -ExpandProperty property |
+                ForEach-Object {
+                    if ($keys -contains $_)
+                    {
                         Log ("`t`t{0} : {1}" -f $_, (Get-ItemProperty -Path $key -Name $_).$_)
                     }
                 }
