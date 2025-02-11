@@ -7,7 +7,8 @@ az login --identity
 
 pr_purpose="VHDVersion Bumping"
 
-branch_name=""
+new_image_version=$(date +"%Y-%m")
+branch_name=imageBump/win-${new_image_version}b
 
 set +x
 github_access_token=$1
@@ -32,17 +33,17 @@ update_image_version() {
 cherry_pick() {
     if [ -n "$1" ]; then
         echo "Cherry-picked commit id is \"$1\""
-        git cherry-pick $1
+        git cherry-pick "$1"
     fi
 }
 
 create_image_bump_pr() {
-    if [ `git branch --list $branch_name` ]; then
+    if [ `git branch --list "$branch_name"` ]; then
         git checkout master
         git pull -p
-        git checkout $branch_name
+        git checkout "$branch_name"
     else
-        create_branch $branch_name
+        create_branch "$branch_name"
     fi
     if [[ -n "$cherry_pick_commit_id" ]]; then
         cherry_pick "$cherry_pick_commit_id"
@@ -50,7 +51,7 @@ create_image_bump_pr() {
     update_image_version
 
     set +x
-    create_pull_request $new_image_version $github_access_token $branch_name $pr_purpose
+    create_pull_request "$new_image_version" "$github_access_token" "$branch_name" "$pr_purpose"
     set -x
 }
 
