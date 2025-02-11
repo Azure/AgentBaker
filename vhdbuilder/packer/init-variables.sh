@@ -277,7 +277,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
         --offer ${SIG_GALLERY_NAME} \
         --sku ${SIG_IMAGE_NAME} \
         --os-type ${OS_TYPE} \
-		--storage-account-type Premium_ZRS \
+		--storage-account-type Standard_ZRS \
         --hyper-v-generation ${HYPERV_GENERATION} \
         --location ${AZURE_LOCATION} \
         ${TARGET_COMMAND_STRING}
@@ -292,7 +292,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
           --offer ${SIG_GALLERY_NAME} \
           --sku ${SIG_IMAGE_NAME} \
           --os-type ${OS_TYPE} \
-		  --storage-account-type Premium_ZRS \
+		  --storage-account-type Standard_ZRS \
           --hyper-v-generation ${HYPERV_GENERATION} \
           --location ${AZURE_LOCATION} \
           --features "DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunch"
@@ -306,7 +306,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
           --offer ${SIG_GALLERY_NAME} \
           --sku ${SIG_IMAGE_NAME} \
           --os-type ${OS_TYPE} \
-		  --storage-account-type Premium_ZRS \
+		  --storage-account-type Standard_ZRS \
           --hyper-v-generation ${HYPERV_GENERATION} \
           --location ${AZURE_LOCATION} \
           --features DiskControllerTypes=SCSI,NVMe
@@ -460,7 +460,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 			--publisher microsoft-aks \
 			--sku ${WINDOWS_SKU} \
 			--offer $IMPORTED_IMAGE_NAME \
-			--storage-account-type Premium_ZRS \
+			--storage-account-type Standard_ZRS \
 			--os-state generalized \
 			--description "Imported image for AKS Packer build"
 

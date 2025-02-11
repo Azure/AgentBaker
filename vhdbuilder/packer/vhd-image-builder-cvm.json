@@ -60,7 +60,7 @@
       "location": "{{user `location`}}",
       "vm_size": "{{user `vm_size`}}",
       "polling_duration_timeout": "1h",
-      "managed_image_storage_account_type": "Premium_ZRS",
+      "managed_image_storage_account_type": "Standard_ZRS",
       "secure_boot_enabled": true,
       "vtpm_enabled": true,
       "security_type": "ConfidentialVM",
