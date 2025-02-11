@@ -96,7 +96,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	}
 	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
 	// Disallow "v0" after some time (allow some time to update consumers)
-	if config.Version != "v0" || config.Version != "v1" {
+	if config.Version != "v0" && config.Version != "v1" {
 		return fmt.Errorf("unsupported version: %s", config.Version)
 	}
 
