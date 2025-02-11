@@ -361,7 +361,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
   echo "  OS_DISK_SIZE: ${OS_DISK_SIZE}"
   echo "  imported_windows_image_name: ${imported_windows_image_name}"
 
-	if [ -n "${WINDOWS_IMAGE_SKU}" ]; then
+	if [ "${WINDOWS_IMAGE_SKU}" = "null" ]; then
 		  		echo "unsupported windows sku: ${WINDOWS_SKU}"
       		exit 1
   fi
