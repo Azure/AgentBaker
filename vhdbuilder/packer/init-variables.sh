@@ -348,7 +348,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	WINDOWS_IMAGE_NAME=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name"`
 	OS_DISK_SIZE=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size"`
   if [ "null" = "${OS_DISK_SIZE}" ]; then
-    echo "Setting os_disk_size_gb to the value in windows-image.env for ${WINDOWS_SKU}: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+    echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
     os_disk_size_gb=${OS_DISK_SIZE}
   fi
 
@@ -366,7 +366,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
       		exit 1
   fi
 
-	# Create the sig image from the official images defined in windows-image.env by default
+	# Create the sig image from the official images defined in windows-settings.json by default
 	windows_sigmode_source_subscription_id=""
 	windows_sigmode_source_resource_group_name=""
 	windows_sigmode_source_gallery_name=""

@@ -16,7 +16,6 @@
   base_image_sku: string,
   base_image_version: string
   windows_image_name: string
-  version_update_command: string
 }
 
 #WindowsBaseVersions: {
