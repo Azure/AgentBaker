@@ -183,6 +183,24 @@ var (
 		Latest:  true,
 		Gallery: windowsGallery,
 	}
+
+	VHDWindows2025Containerd = &Image{
+		Name:    "windows-2025-containerd",
+		OS:      "windows",
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2025Containerd,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
+
+	VHDWindows2025ContainerdGen2 = &Image{
+		Name:    "windows-2025-containerd-gen2",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2025ContainerdGen2,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")

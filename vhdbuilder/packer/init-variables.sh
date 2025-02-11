@@ -343,7 +343,7 @@ fi
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 
-	echo "Set the base image sku and version from windows-settings.json"
+	echo "Set the base image sku and version from windows_settings.json"
 
 	WINDOWS_IMAGE_SKU=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" < $CDIR/windows/windows_settings.json`
 	WINDOWS_IMAGE_VERSION=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" < $CDIR/windows/windows_settings.json`

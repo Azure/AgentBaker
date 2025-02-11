@@ -103,6 +103,9 @@ function GetPackagesFromComponentsJson
                 "23H2*" {
                     $part = $downloadUrls.ws32h2
                 }
+                "2025-containerd*" {
+                    $part = $downloadUrls.ws2025
+                }
             }
 
             if ($part -eq $null)

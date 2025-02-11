@@ -74,6 +74,7 @@ package components
 	ws2019?: #ReleaseDownloadURI
 	ws2022?: #ReleaseDownloadURI
 	ws23h2?: #ReleaseDownloadURI
+	ws2025?: #ReleaseDownloadURI
 }
 
 #DownloadURIs: {

@@ -218,6 +218,10 @@ const (
 	AKSWindows23H2 Distro = "aks-windows-23H2"
 	// AKSWindows23H2Gen2 stands for distro for windows 23H2 Gen 2 SIG image.
 	AKSWindows23H2Gen2 Distro = "aks-windows-23H2-gen2"
+	// AKSWindows205Containerd stands for distro for windows server 2025 SIG image.
+	AKSWindows2025Containerd Distro = "aks-windows-2025-containerd"
+	// AKSWindowsContainerdGen2 stands for distro for windows server 2025 Gen 2 SIG image.
+	AKSWindows2025ContainerdGen2 Distro = "aks-windows-2025-containerd-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
