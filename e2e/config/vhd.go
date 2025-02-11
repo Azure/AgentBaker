@@ -33,6 +33,16 @@ var (
 		Version:           "latest",
 		Location:          Config.Location,
 	}
+	flatcarArm64NotGallery = &Gallery{
+		SubscriptionID:    Config.GallerySubscriptionIDLinux,
+		ResourceGroupName: "<not-a-gallery>",
+		Name:              "<not-a-gallery>",
+		Publisher:         "kinvolk",
+		Offer:             "flatcar-container-linux-corevm",
+		SKU:               "stable",
+		Version:           "latest",
+		Location:          Config.Location,
+	}
 )
 
 type Gallery struct {
@@ -63,6 +73,13 @@ var (
 		Arch:    "amd64",
 		Distro:  datamodel.AKSFlatcarGen2,
 		Gallery: flatcarNotGallery,
+	}
+	NoVHDFlatcarArm64 = &Image{
+		Name:    "flatcar",
+		OS:      OSFlatcar,
+		Arch:    "arm64",
+		Distro:  datamodel.AKSFlatcarArm64Gen2,
+		Gallery: flatcarArm64NotGallery,
 	}
 	VHDUbuntu1804Gen2Containerd = &Image{
 		Name:    "1804gen2containerd",

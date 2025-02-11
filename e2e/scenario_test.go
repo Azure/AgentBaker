@@ -28,6 +28,24 @@ func Test_Flatcar(t *testing.T) {
 		},
 	})
 }
+func Test_FlatcarArm64(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that an Flatcar node using ARM64 architecture can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.NoVHDFlatcarArm64,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				// This needs to be set based on current CSE implementation...
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+				nbc.IsARM64 = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+		},
+	})
+}
 
 func Test_AzureLinuxV2(t *testing.T) {
 	RunScenario(t, &Scenario{
