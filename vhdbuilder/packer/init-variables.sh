@@ -362,8 +362,8 @@ if [ "$OS_TYPE" == "Windows" ]; then
   echo "  imported_windows_image_name: ${imported_windows_image_name}"
 
 	if [ "${WINDOWS_IMAGE_SKU}" = "null" ]; then
-		  		echo "unsupported windows sku: ${WINDOWS_SKU}"
-      		exit 1
+    echo "unsupported windows sku: ${WINDOWS_SKU}"
+    exit 1
   fi
 
 	# Create the sig image from the official images defined in windows-settings.json by default
