@@ -30,6 +30,10 @@ parameters:
   - name: hyperVGeneration
     type: string
     displayName: V1 or V2.
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
 
 stages:
   - stage: build_${{ parameters.stageName }}
@@ -48,6 +52,7 @@ stages:
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]${{ parameters.hyperVGeneration }}'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]${{ parameters.buildVmSize }}'
               echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.windowsSku }}'
+              echo '##vso[task.setvariable variable=SKIP_EXTENSION_CHECK]${{ parameters.skipExtensionCheck }}'
               echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]$(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)'
               echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]$(WINDOWS_2022_NANO_IMAGE_URL)'
               echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]$(WINDOWS_2022_CORE_IMAGE_URL)'

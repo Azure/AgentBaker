@@ -640,6 +640,22 @@
       "Name": "1455863438",
       "Value": "1",
       "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-2B: [WS2022] Bug 55244346: [Fe] HNS lbnat rules not cleaned up after pod deletion",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1971481230",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-2b: [23H2] Bug 55723554: [Server OS 23H2 (Zn)] HNS lbnat rules not cleaned up after pod deletion",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1155685006",
+      "Value": "1",
+      "Type": "DWORD"
     }
   ]
 }
