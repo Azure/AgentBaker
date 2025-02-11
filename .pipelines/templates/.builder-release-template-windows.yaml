@@ -88,7 +88,7 @@ steps:
       -e BUILD_NUMBER=$(Build.BuildNumber) \
       -e WINDOWS_SKU=$(WINDOWS_SKU) \
       -e OS_TYPE="Windows" \
-      -e SKIP_EXTENSION_CHECK=${SKIP_EXTENSION_CHECK} \
+      -e SKIP_EXTENSION_CHECK=$(SKIP_EXTENSION_CHECK) \
       -e MODE=$(MODE) \
       -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
       -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
