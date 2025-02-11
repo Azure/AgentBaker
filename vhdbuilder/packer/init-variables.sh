@@ -262,12 +262,12 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
-		  TARGET_COMMAND_STRING=""
-		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-			TARGET_COMMAND_STRING+="--architecture Arm64"
-		  elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
-			TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
-		  fi
+			TARGET_COMMAND_STRING=""
+			if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+				TARGET_COMMAND_STRING+="--architecture Arm64"
+			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+			fi
 
       az sig image-definition create \
         --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
