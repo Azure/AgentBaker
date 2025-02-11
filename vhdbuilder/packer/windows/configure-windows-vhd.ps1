@@ -798,6 +798,12 @@ function Log-ReofferUpdate
 
 function Test-AzureExtensions
 {
+    if ($env:SKIP_EXTENSION_CHECK -eq "true")
+    {
+        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to true"
+        return
+    }
+
     # Expect the Windows VHD without any other extensions
     if (Test-Path "C:\Packages\Plugins")
     {
