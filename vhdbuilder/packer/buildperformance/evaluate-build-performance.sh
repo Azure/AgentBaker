@@ -65,6 +65,6 @@ else
   echo -e "Skipping build performance evaluation for prod"
 fi
 
-rm ${SIG_IMAGE_NAME}-build-performance.json
+rm vhdbuilder/packer/buildperformance/${SIG_IMAGE_NAME}-build-performance.json
 
 echo -e "\nBuild performance evaluation script completed."
