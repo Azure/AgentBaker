@@ -239,6 +239,7 @@ steps:
   
   - task: DownloadPipelineArtifact@2
     displayName: Download Build Performance Program
+    condition: and(succeeded(), eq(variables.ENVIRONMENT, 'test'))
     inputs:
       source: "specific"
       downloadPath: "vhdbuilder/packer/buildperformance"
