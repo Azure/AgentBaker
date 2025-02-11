@@ -17,13 +17,13 @@ cherry_pick_commit_id=$2
 
 # This function replaces the old Windows 2019 & Windows 2022 (gen1/gen2) base image version with the latest version found by az vm image show in windows_settings.json
 update_image_version() {
-  distros=`cat vhdbuilder/packer/windows/windows_settings.json | jq -r ".WindowsBaseVersions | keys  | join(\" \") "`
+  distros=`jq -r ".WindowsBaseVersions | keys  | join(\" \") " < vhdbuilder/packer/windows/windows_settings.json`
   for win_sku in $distros ; do
-	  command=`cat vhdbuilder/packer/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${win_sku}\".version_update_command"`
-	  base_image_sku=`cat vhdbuilder/packer/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${win_sku}\".base_image_sku"`
+	  command=`jq -r ".WindowsBaseVersions.\"${win_sku}\".version_update_command" < vhdbuilder/packer/windows/windows_settings.json`
+	  base_image_sku=` jq -r ".WindowsBaseVersions.\"${win_sku}\".base_image_sku" < vhdbuilder/packer/windows/windows_settings.json`
     newVersion=`az vm image show --urn MicrosoftWindowsServer:WindowsServer:${base_image_sku}:latest --query name -o tsv`
 
-    cat vhdbuilder/packer/windows/windows_settings.json | jq ".WindowsBaseVersions.\"${win_sku}\".base_image_version = \"${newVersion}\"" > vhdbuilder/packer/windows/windows_settings_temp.json
+    jq ".WindowsBaseVersions.\"${win_sku}\".base_image_version = \"${newVersion}\"" < vhdbuilder/packer/windows/windows_settings.json > vhdbuilder/packer/windows/windows_settings_temp.json
     mv vhdbuilder/packer/windows/windows_settings_temp.json vhdbuilder/packer/windows/windows_settings.json
     echo "Found version $newVersion for $base_image_sku"
   done
