@@ -1,4 +1,47 @@
 {
+  "WindowsBaseVersions": {
+    "2019": {
+      "version_update_command": "az vm image show --urn MicrosoftWindowsServer:WindowsServer:2019-Datacenter-Core-smalldisk:latest",
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "base_image_version": "17763.6775.250109",
+      "windows_image_name": "windows-2019"
+    },
+    "2019-containerd": {
+      "version_update_command": "az vm image show --urn MicrosoftWindowsServer:WindowsServer:2019-Datacenter-Core-smalldisk:latest",
+      "os_disk_size": "30",
+      "base_image_sku": "2022-Datacenter-Core-smalldisk",
+      "base_image_version": "20348.3091.250112",
+      "windows_image_name": "windows-2019-containerd"
+    },
+    "2022-containerd": {
+      "version_update_command": "az vm image show --urn MicrosoftWindowsServer:WindowsServer:2022-datacenter-core-smalldisk:latest",
+      "os_disk_size": "35",
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "base_image_version": "20348.3091.250112",
+      "windows_image_name": "windows-2022-containerd"
+    },
+    "2022-containerd-gen2": {
+      "version_update_command": "az vm image show --urn MicrosoftWindowsServer:WindowsServer:2022-datacenter-core-smalldisk-g2:latest",
+      "os_disk_size": "35",
+      "base_image_sku": "2022-datacenter-core-smalldisk-g2",
+      "base_image_version": "17763.6775.250109",
+      "windows_image_name": "windows-2022-containerd"
+    },
+    "23H2": {
+      "version_update_command": " az vm image show --urn MicrosoftWindowsServer:WindowsServer:23h2-datacenter-core:latest",
+      "os_disk_size": "35",
+      "base_image_sku": "23h2-datacenter-core",
+      "base_image_version": "25398.1369.250111",
+      "windows_image_name": "windows-23H2"
+    },
+    "23H2-gen2": {
+      "version_update_command": "az vm image show --urn MicrosoftWindowsServer:WindowsServer:23h2-datacenter-core-g2:latest",
+      "os_disk_size": "35",
+      "base_image_sku": "23h2-datacenter-core-g2",
+      "base_image_version": "25398.1369.250111",
+      "windows_image_name": "windows-23H2"
+    }
+  },
   "WindowsRegistryKeys": [
     {
       "Comment": "Enables DNS resolution of SMB shares for containerD:  # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945",
