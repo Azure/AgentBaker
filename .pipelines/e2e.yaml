@@ -27,6 +27,8 @@ pr:
       - parts/linux/cloud-init/artifacts/components.json # centralized components management file
       - staging/cse/windows/README
       - /**/*.md
+      - e2e/scenario_win_test.go
+
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
