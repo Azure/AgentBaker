@@ -102,6 +102,7 @@ steps:
       -e WINDOWS_PRIVATE_PACKAGES_URL=${WINDOWS_PRIVATE_PACKAGES_URL} \
       -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
       -e BUILD_DATE=${BUILD_DATE} \
+      -e SKIP_EXTENSION_CHECK=${SKIP_EXTENSION_CHECK} \
       ${AZURE_CONTAINER_IMAGE} make -f packer.mk run-packer-windows
     displayName: Building windows VHD
 
