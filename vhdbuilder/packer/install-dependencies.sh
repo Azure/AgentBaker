@@ -107,10 +107,6 @@ if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
 fi
 
 if [[ $(isARM64) == 1 ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" ]]; then
-    echo "No FIPS support on arm64, exiting..."
-    exit 1
-  fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
