@@ -155,7 +155,7 @@ const (
 	AKSUbuntuGPUContainerd1804          Distro = "aks-ubuntu-gpu-containerd-18.04"
 	AKSUbuntuGPUContainerd1804Gen2      Distro = "aks-ubuntu-gpu-containerd-18.04-gen2"
 	AKSFlatcarGen2                      Distro = "aks-flatcar-gen2"
-	AKSFlatcarArm64Gen2                 Distro = "aks-flatcar-arm64-gen"
+	AKSFlatcarArm64Gen2                 Distro = "aks-flatcar-arm64-gen2"
 	AKSFlatcarGen2TL                    Distro = "aks-flatcar-gen2-tl"
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
