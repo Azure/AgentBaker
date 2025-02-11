@@ -355,6 +355,17 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	}
 }
 
+func NeedsContainerd(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) bool {
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+		return profile.KubernetesConfig.NeedsContainerd()
+	}
+	return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+}
+
+func NeedsContainerdV2(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) bool {
+	return NeedsContainerd(profile, cs) && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.32.0")
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
@@ -648,10 +659,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.NeedsContainerd()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+			return NeedsContainerd(profile, cs)
+		},
+		"NeedsContainerdV2": func() bool {
+			return NeedsContainerdV2(profile, cs)
 		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
@@ -697,24 +708,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
+				if NeedsContainerdV2(profile, cs) {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
-			}(profile))
+			}(profile, cs))
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
+				if NeedsContainerdV2(profile, cs) {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
-			}(profile))
+			}(profile, cs))
 
 			if err != nil {
 				panic(err)
