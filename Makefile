@@ -228,5 +228,6 @@ unit-tests:
 .PHONY: validate-components
 validate-components:
 	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
+	@./hack/tools/bin/cue vet -c ./schemas/windows_settings.cue ./vhdbuilder/packer/windows/windows_settings.json
 
 include versioning.mk
