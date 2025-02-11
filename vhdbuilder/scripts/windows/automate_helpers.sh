@@ -125,7 +125,7 @@ create_pull_request() {
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     else
         sed -i "/What type of PR is this?/a\/kind feature" .github/PULL_REQUEST_TEMPLATE.md
-        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()\\n- Windows 23H2: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()\\n- Windows 23H2: [xxxxx]()\\n- Windows 2025: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     fi

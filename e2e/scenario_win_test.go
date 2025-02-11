@@ -9,14 +9,17 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
+func EmptyBootstrapConfigMutator(configuration *datamodel.NodeBootstrappingConfiguration) {}
+func EmptyVMConfigMutator(vmss *armcompute.VirtualMachineScaleSet)                        {}
+
 func Test_Windows2019Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2019 with Containerd",
 		Config: Config{
 			Cluster:                ClusterAzureNetwork,
 			VHD:                    config.VHDWindows2019Containerd,
-			VMConfigMutator:        func(vmss *armcompute.VirtualMachineScaleSet) {},
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
@@ -30,11 +33,10 @@ func Test_Windows2022Containerd(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2022Containerd,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-			},
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
@@ -48,11 +50,10 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 2022 with Containerd - hyperv gen 2",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows2022ContainerdGen2,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-			},
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2022ContainerdGen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
@@ -66,11 +67,10 @@ func Test_Windows23H2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Containerd",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
-			},
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows23H2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
@@ -84,11 +84,44 @@ func Test_Windows23H2Gen2(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Windows Server 23H2 with Containerd - hyperv gen2",
 		Config: Config{
-			Cluster:         ClusterAzureNetwork,
-			VHD:             config.VHDWindows23H2Gen2,
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {},
-			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows23H2Gen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
 			},
+		},
+	})
+}
+
+func Test_Windows2025Containerd(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 with Containerd",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2025Containerd,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+				ValidateCiliumIsNotRunningWindows(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Windows2025ContainerdGen2(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Windows Server 2025 with Containerd - hyperv gen 2",
+		Config: Config{
+			Cluster:                ClusterAzureNetwork,
+			VHD:                    config.VHDWindows2025ContainerdGen2,
+			VMConfigMutator:        EmptyVMConfigMutator,
+			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
