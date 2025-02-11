@@ -1442,7 +1442,7 @@ oom_score = -999
 			},
 		),
 
-		Entry("CustomizedImageKata VHD with k8s 1.32+ should have proper containerd config", "CustomizedImageKata", ">=1.32.x",
+		Entry("CustomizedImageKata VHD with k8s 1.32+ should have proper containerd config", "CustomizedImageKata+1.32", ">=1.32.x",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
 				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
