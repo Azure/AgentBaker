@@ -43,8 +43,7 @@ create_image_bump_pr() {
         git pull -p
         git checkout "$branch_name"
     else
-        git checkout -b "$branch_name"
-        # create_branch "$branch_name"
+        create_branch "$branch_name"
     fi
     if [[ -n "$cherry_pick_commit_id" ]]; then
         cherry_pick "$cherry_pick_commit_id"
