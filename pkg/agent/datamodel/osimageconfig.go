@@ -82,6 +82,13 @@ var (
 		ImageVersion:   "latest",
 	}
 
+	AKSFlatcarArm64OSImageConfig = AzureOSImageConfig{
+		ImageOffer:     "flatcar-container-linux-corevm",
+		ImageSku:       "stable",
+		ImagePublisher: "kinvolk",
+		ImageVersion:   "latest",
+	}
+
 	AzureCloudToOSImageMap = map[string]map[Distro]AzureOSImageConfig{
 		AzureChinaCloud: {
 			Ubuntu:            Ubuntu1604OSImageConfig,
@@ -129,6 +136,7 @@ var (
 			AKSUbuntuContainerd1804Gen2: AKSUbuntuContainerd1804Gen2OSImageConfig,
 			AKSWindows2019PIR:           AKSWindowsServer2019OSImageConfig,
 			AKSFlatcarGen2:              AKSFlatcarOSImageConfig,
+			AKSFlatcarArm64Gen2:         AKSFlatcarArm64OSImageConfig,
 		},
 		USNatCloud: {
 			Ubuntu:            Ubuntu1604OSImageConfig,
