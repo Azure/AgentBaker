@@ -347,8 +347,8 @@ if [ "$OS_TYPE" == "Windows" ]; then
 	WINDOWS_IMAGE_VERSION=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version"`
 	WINDOWS_IMAGE_NAME=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name"`
 	OS_DISK_SIZE=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size"`
-  if [ "null" = "${OS_DISK_SIZE}" ]; then
-    echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
+  if [ "null" != "${OS_DISK_SIZE}" ]; then
+    echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
     os_disk_size_gb=${OS_DISK_SIZE}
   fi
 
