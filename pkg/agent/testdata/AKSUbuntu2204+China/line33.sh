@@ -66,6 +66,12 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
+domain_name="mcr.microsoft.com"
+if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+fi
+verify_DNS_health $domain_name || exit $ERR_DNS_HEALTH_FAIL
+
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
         eval $PROXY_VARS
@@ -79,6 +85,10 @@ source /etc/os-release
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+fi
+
+if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
+    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
 export -f should_skip_nvidia_drivers

@@ -1,0 +1,27 @@
+version = 2
+oom_score = -999
+[plugins."io.containerd.cri.v1.images"]
+
+[plugins."io.containerd.cri.v1.images".pinned_images]
+sandbox = "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+
+[plugins."io.containerd.cri.v1.runtime".containerd]
+default_runtime_name = "runc"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+runtime_type = "io.containerd.runc.v2"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+BinaryName = "/usr/bin/runc"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+runtime_type = "io.containerd.runc.v2"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+BinaryName = "/usr/bin/runc"
+[plugins."io.containerd.cri.v1.runtime".cni]
+bin_dir = "/opt/cni/bin"
+conf_dir = "/etc/cni/net.d"
+conf_template = "/etc/containerd/kubenet_template.conf"
+[plugins."io.containerd.cri.v1.images".registry]
+config_path = "/etc/containerd/certs.d"
+[plugins."io.containerd.cri.v1.images".registry.headers]
+X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+address = "0.0.0.0:10257"
