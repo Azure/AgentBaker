@@ -70,6 +70,7 @@ steps:
     displayName: Get Build Mode
 
   - script: |
+      set -ex
       branch=$(Build.SourceBranch)
       branch=$(echo "${branch}" | sed 's/refs\/heads\///g')
       echo MODE=$(MODE) && \
