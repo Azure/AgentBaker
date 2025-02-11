@@ -277,6 +277,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
         --offer ${SIG_GALLERY_NAME} \
         --sku ${SIG_IMAGE_NAME} \
         --os-type ${OS_TYPE} \
+		--storage-account-type Premium_ZRS \
         --hyper-v-generation ${HYPERV_GENERATION} \
         --location ${AZURE_LOCATION} \
         ${TARGET_COMMAND_STRING}
