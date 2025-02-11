@@ -64,13 +64,12 @@ if [ "${ENVIRONMENT,,}" != "prod" ]; then
     echo -e "\nRunning build performance evaluation program...\n"
     chmod +x ${BUILD_PERFORMANCE_BINARY}
     ./${BUILD_PERFORMANCE_BINARY}
+    rm ${BUILD_PERFORMANCE_BINARY}
   popd || exit 0
 else
   echo -e "Skipping build performance evaluation for prod"
-  exit 0
 fi
 
 rm ${SIG_IMAGE_NAME}-build-performance.json
-rm ${BUILD_PERFORMANCE_BINARY}
 
 echo -e "\nBuild performance evaluation script completed."
