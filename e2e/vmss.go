@@ -53,6 +53,16 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	model := getBaseVMSSModel(s, customData, cse)
+	if s.Tags.NonAnonymousACR {
+		// add acr pull identity
+		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName)
+		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+				userAssignedIdentity: {},
+			},
+		}
+	}
 
 	isAzureCNI, err := cluster.IsAzureCNI()
 	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
@@ -78,6 +88,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	return &vmssResp.VirtualMachineScaleSet
@@ -196,7 +207,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	client := config.Azure.VMSSVMRunCommands
 
 	// Invoke the RunCommand on the VMSS instance
-	s.T.Log("uploading windows logs to blob storage, may take a few minutes")
+	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
 	pollerResp, err := client.BeginCreateOrUpdate(
 		ctx,

@@ -253,6 +253,32 @@ func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
+				config.VmSize = "Standard_NC6s_v3"
+				config.GpuConfig.ConfigGpuDriver = true
+				config.GpuConfig.GpuDevicePlugin = false
+				config.GpuConfig.EnableNvidia = to.Ptr(true)
+
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_WASM(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new AzureLinuxV2 (CgroupV2) node using krustlet can be properly bootstrapped",
@@ -379,6 +405,23 @@ func Test_MarinerV2_ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+			},
+		},
+	})
+}
+
+func Test_MarinerV2_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -674,6 +717,40 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 	})
 }
 
+// TODO: refactor NonAnonymous tests to use the same cluster as Anonymous airgap
+// or deprecate anonymous ACR airgap tests once it is unsupported
+func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
+	ctx := newTestCtx(t)
+	identity, err := config.Azure.UserAssignedIdentities.Get(ctx, config.ResourceGroupName, config.VMIdentityName, nil)
+	if err != nil {
+		t.Fatalf("failed to get identity: %v", err)
+	}
+
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using the Ubuntu 2204 VHD and is airgap can be properly bootstrapped",
+		Tags: Tags{
+			Airgap:          true,
+			NonAnonymousACR: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenetAirgapNonAnon,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.TenantID = *identity.Properties.TenantID
+				nbc.UserAssignedIdentityClientID = *identity.Properties.ClientID
+
+				nbc.OutboundType = datamodel.OutboundTypeBlock
+				nbc.ContainerService.Properties.SecurityProfile = &datamodel.SecurityProfile{
+					PrivateEgress: &datamodel.PrivateEgress{
+						Enabled:                 true,
+						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRNameNotAnon),
+					},
+				}
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD without k8s binary and is airgap can be properly bootstrapped",
@@ -738,6 +815,23 @@ func Test_Ubuntu2204_ChronyRestarts(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_ChronyRestarts_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the chrony service restarts if it is killed",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
@@ -1341,6 +1435,23 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 	})
 }
 
+func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
+				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -1440,6 +1551,41 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateContainerRuntimePlugins(ctx, s)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a GPU-enabled node using the Ubuntu 2404 VHD opting for skipping gpu driver installation can be properly bootstrapped",
+		Tags: Tags{
+			GPU: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.AgentPoolProfile.VMSize = "Standard_NC6s_v3"
+				nbc.ConfigGPUDriverIfNeeded = true
+				nbc.EnableGPUDevicePluginIfNeeded = false
+				nbc.EnableNvidia = true
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Tags = map[string]*string{
+					// deliberately case mismatched to agentbaker logic to check case insensitivity
+					"SkipGPUDriverInstall": to.Ptr("true"),
+				}
+				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+
+				ValidateNvidiaSMINotInstalled(ctx, s)
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 			},

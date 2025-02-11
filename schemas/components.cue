@@ -11,13 +11,23 @@ package components
 
 #ContainerImage: {
 	downloadURL: string
+	windowsDownloadURL?: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
+	windowsVersions?:   [...#WindowsVersion]
 }
 
 #GPUContainerImage: {
 	downloadURL: string
 	gpuVersion:   #VersionV2
+}
+
+#WindowsVersion: {
+	k8sVersion?:             string
+	renovateTag?:            string
+	latestVersion:           string
+	previousLatestVersion?:  string
+	windowsSkuMatch?:        string
 }
 
 #Images: [...#ContainerImage]
@@ -34,6 +44,7 @@ package components
 #ReleaseDownloadURI: {
 	versionsV2:   [...#VersionV2]
 	downloadURL?:  string
+	windowsDownloadURL?: string
 }
 
 #UbuntuOSDistro: {
@@ -57,17 +68,26 @@ package components
 	current?: #ReleaseDownloadURI
 }
 
+#WindowsOsDistro: {
+	default?: #ReleaseDownloadURI
+	ws2019?: #ReleaseDownloadURI
+	ws2022?: #ReleaseDownloadURI
+	ws23h2?: #ReleaseDownloadURI
+}
+
 #DownloadURIs: {
 	default?:      #DefaultOSDistro
 	ubuntu?:       #UbuntuOSDistro
 	mariner?:      #MarinerOSDistro
 	marinerkata?:  #MarinerOSDistro
 	azurelinux?:   #AzureLinuxOSDistro
+	windows?:      #WindowsOsDistro
 }
 
 #Package: {
 	name:              string
-	downloadLocation:  string
+	downloadLocation?:  string
+	windowsDownloadLocation?:  string
 	downloadURIs:      #DownloadURIs
 }
 

@@ -1,6 +1,67 @@
 {
   "ContainerImages": [
     {
+      "downloadURL": "mcr.microsoft.com/windows/servercore:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2019",
+          "windowsSkuMatch": "2019-containerd"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/windows/nanoserver:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1809",
+          "windowsSkuMatch": "2019-containerd"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2022",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.5",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.5",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -8,6 +69,18 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer",
           "latestVersion": "1.8.22",
           "previousLatestVersion": "1.8.20"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/windows/servercore/iis:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "latest"
         }
       ]
     },
@@ -19,6 +92,12 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
           "latestVersion": "3.6"
         }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "3.9"
+        }
       ]
     },
     {
@@ -29,7 +108,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/coredns",
           "latestVersion": "v1.9.4-hotfix.20240704"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/coredns:*",
@@ -43,11 +123,26 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
           "latestVersion": "v1.9.4-5"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cni:*",
       "amd64OnlyVersions": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.4.58"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.38"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.6.13"
+        }
+      ],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
@@ -99,6 +194,20 @@
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.4.58"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.38"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.6.13"
+        }
+      ],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -173,7 +282,8 @@
             }
           }
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
@@ -190,7 +300,8 @@
             }
           }
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
@@ -200,7 +311,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
           "latestVersion": "v1.5.34"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/containernetworking/cilium/cilium:*",
@@ -216,7 +328,8 @@
           "latestVersion": "v1.16.5-250110",
           "previousLatestVersion": "v1.16.2-241024"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
@@ -230,7 +343,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
           "latestVersion": "v0.30.3-hotfix.20240819"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:*",
@@ -252,10 +366,18 @@
           "latestVersion": "v1.6.2",
           "previousLatestVersion": "v1.5.3"
         }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.5.3",
+          "previousLatestVersion": "v1.6.2"
+        }
       ]
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:*",
+      "windowsDownloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
@@ -272,7 +394,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/msi/addon-token-adapter",
           "latestVersion": "master.221118.2"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
@@ -290,7 +413,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
           "latestVersion": "6.14.0-main-01-16-2025-8d52acfe-cfg"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
@@ -300,7 +424,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-state-metrics",
           "latestVersion": "v2.11.0"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:*",
@@ -331,6 +456,33 @@
           "latestVersion": "v1.31.1",
           "previousLatestVersion": "v1.30.0"
         }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.27.21-windows-hpc",
+          "previousLatestVersion": "v1.27.21"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.28.13-windows-hpc",
+          "previousLatestVersion": "v1.28.13"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.29.11-windows-hpc",
+          "previousLatestVersion": "v1.29.11"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.30.7-windows-hpc",
+          "previousLatestVersion": "v1.30.7"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.31.1-windows-hpc",
+          "previousLatestVersion": "v1.30.1"
+        }
       ]
     },
     {
@@ -341,7 +493,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
           "latestVersion": "v1.8.9"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/ip-masq-agent-v2:*",
@@ -352,7 +505,8 @@
           "latestVersion": "v0.1.15",
           "previousLatestVersion": "v0.1.14"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:*",
@@ -370,6 +524,22 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
+          "latestVersion": "v1.31.3"
+        }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.29.12",
+          "previousLatestVersion": "v1.29.10"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.30.7",
+          "previousLatestVersion": "v1.30.5"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "v1.31.2"
         }
       ]
@@ -392,6 +562,22 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.31.3"
         }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.29.10-windows-hp",
+          "previousLatestVersion": "v1.29.9-windows-hp"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.30.7-windows-hp",
+          "previousLatestVersion": "v1.30.6-windows-hp"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "v1.31.3-windows-hp"
+        }
       ]
     },
     {
@@ -410,9 +596,10 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.25.1"
+          "latestVersion": "v1.25.2"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
@@ -420,6 +607,16 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
+          "latestVersion": "v2.14.0"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
+          "latestVersion": "v2.15.0"
+        }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "v2.14.0"
         }
       ]
@@ -430,6 +627,16 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
+          "latestVersion": "v2.12.0"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
+          "latestVersion": "v2.13.0"
+        }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "v2.12.0"
         }
       ]
@@ -442,7 +649,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
           "latestVersion": "v3.17.1-5"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
@@ -452,17 +660,20 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
           "latestVersion": "v3.17.1"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
-      "multiArchVersionsV2": []
+      "multiArchVersionsV2": [],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
       "amd64OnlyVersions": [],
-      "multiArchVersionsV2": []
+      "multiArchVersionsV2": [],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
@@ -473,7 +684,8 @@
           "latestVersion": "1.9.1",
           "previousLatestVersion": "1.8.0"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-webhook:*",
@@ -484,7 +696,8 @@
           "latestVersion": "1.9.1",
           "previousLatestVersion": "1.8.0"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-application-gateway/kubernetes-ingress:*",
@@ -499,7 +712,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-node-ca-watcher",
           "latestVersion": "master.241021.1"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/windows-gmsa-webhook:*",
@@ -509,7 +723,8 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/windows-gmsa-webhook",
           "latestVersion": "v0.7.1"
         }
-      ]
+      ],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-proxy:*",
@@ -540,7 +755,8 @@
           "latestVersion": "v1.31.5",
           "previousLatestVersion": "v1.31.4"
         }
-      ]
+      ],
+      "windowsVersions": []
     }
   ],
   "GPUContainerImages": [
@@ -560,6 +776,147 @@
     }
   ],
   "Packages": [
+    {
+      "name": "windows scripts",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.0.51",
+                "previousLatestVersion": "0.0.50"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows-gmsa-ccgakvplugin",
+      "windowsDownloadLocation": "c:\\akse-cache\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.1.5"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v[version].zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows csi proxy",
+      "windowsDownloadLocation": "c:\\akse-cache\\csi-proxy\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.1.2-hotfix.20230807"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/csi-proxy/v[version]/binaries/csi-proxy-v[version].tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows credential provider",
+      "windowsDownloadLocation": "c:\\akse-cache\\credential-provider\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.29.2",
+                "previousLatestVersion": "1.30.0"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/cloud-provider-azure/v[version]/binaries/azure-acr-credential-provider-windows-amd64-v[version].tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows calico",
+      "windowsDownloadLocation": "c:\\akse-cache\\calico\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "3.24.0"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/calico-node/v[version]/binaries/calico-windows-v[version].zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "azure-vnet-cni-windows",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.6.18",
+                "previousLatestVersion": "1.5.38"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v[version]/binaries/azure-vnet-cni-windows-amd64-v[version].zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "azure-vnet-cni-swift-windows",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.4.59",
+                "previousLatestVersion": "1.4.58"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v[version]/binaries/azure-vnet-cni-swift-windows-amd64-v[version].zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "azure-vnet-cni-overlay-windows",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-vnet-cni\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.4.59",
+                "previousLatestVersion": "1.4.58"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v[version]/binaries/azure-vnet-cni-overlay-windows-amd64-v[version].zip"
+          }
+        }
+      }
+    },
     {
       "name": "oras",
       "downloadLocation": "/usr/local/bin",
@@ -581,6 +938,11 @@
       "name": "runc",
       "downloadLocation": "/opt/runc/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "ubuntu": {
           "r1804": {
             "versionsV2": [
@@ -620,6 +982,7 @@
     {
       "name": "containerd",
       "downloadLocation": "/opt/containerd/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd\\",
       "downloadURIs": {
         "ubuntu": {
           "r2404": {
@@ -685,6 +1048,46 @@
             ]
           }
         },
+        "windows": {
+          "ws2019": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.6.35-azure.1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.7.20-azure.1",
+                "previousLatestVersion": "v1.7.17-azure.1"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
+          },
+          "ws2022": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.6.35-azure.1"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.7.20-azure.1",
+                "previousLatestVersion": "v1.7.17-azure.1"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
+          },
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v1.7.20-azure.1",
+                "previousLatestVersion": "v1.7.17-azure.1"
+              }
+            ],
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/[version]/binaries/containerd-[version]-windows-amd64.tar.gz"
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -701,6 +1104,11 @@
       "name": "cni-plugins",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -718,6 +1126,11 @@
       "name": "azure-cni",
       "downloadLocation": "/opt/cni/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -745,6 +1158,11 @@
       "name": "cri-tools",
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -761,6 +1179,7 @@
     {
       "name": "kubernetes-binaries",
       "downloadLocation": "/opt/kubernetes/downloads",
+      "windowsDownloadLocation": "c:\\akse-cache\\win-k8s\\",
       "downloadURIs": {
         "default": {
           "current": {
@@ -796,7 +1215,8 @@
                 "previousLatestVersion": "v1.31.4"
               }
             ],
-            "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}"
+            "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
+            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/[version]/windowszip/[version]-1int.zip"
           }
         }
       }
@@ -805,18 +1225,23 @@
       "name": "azure-acr-credential-provider",
       "downloadLocation": "/opt/credentialprovider/downloads",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.30.0"
+                "latestVersion": "v1.30.7"
               },
               {
                 "k8sVersion": "1.29",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.29.2"
+                "latestVersion": "v1.29.11"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
@@ -828,6 +1253,11 @@
       "name": "containerd-wasm-shims",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -853,6 +1283,11 @@
       "name": "spinkube",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "default": {
           "current": {
             "versionsV2": [
@@ -870,6 +1305,11 @@
       "name": "nvidia-container-toolkit",
       "downloadLocation": "/usr/local/bin",
       "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": []
+          }
+        },
         "azurelinux": {
           "current": {
             "versionsV2": [

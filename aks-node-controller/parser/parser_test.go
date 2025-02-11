@@ -55,7 +55,7 @@ func TestBuildCSECmd(t *testing.T) {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				require.NoError(t, err)
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]

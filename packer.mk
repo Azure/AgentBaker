@@ -32,6 +32,9 @@ ifeq (${OS_SKU},Ubuntu)
 ifeq (${IMG_SKU},20_04-lts-cvm)
 	@echo "Using packer template file vhd-image-builder-cvm.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+else ifeq (${IMG_SKU},cvm)
+	@echo "Using packer template file vhd-image-builder-cvm.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
 else
 	@echo "Using packer template file vhd-image-builder-base.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
@@ -62,7 +65,7 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
 az-login:
