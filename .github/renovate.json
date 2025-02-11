@@ -25,6 +25,41 @@
   ],
   "packageRules": [
     {
+      "matchPackageNames": [
+        "oss/kubernetes/autoscaler/addon-resizer",
+        "oss/kubernetes/pause",
+        "oss/v2/kubernetes/coredns",
+        "containernetworking/azure-cni",
+        "containernetworking/azure-cns",
+        "containernetworking/azure-ipam",
+        "containernetworking/cilium/cilium",
+        "oss/kubernetes/apiserver-network-proxy/agent",
+        "oss/kubernetes-csi/secrets-store/driver",
+        "oss/azure/secrets-store/provider-azure",
+        "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
+        "oss/kubernetes/azure-cloud-node-manager",
+        "aks/ip-masq-agent-v2",
+        "oss/kubernetes-csi/azuredisk-csi",
+        "oss/kubernetes-csi/azurefile-csi",
+        "oss/kubernetes-csi/blob-csi",
+        "oss/kubernetes-csi/livenessprobe",
+        "oss/kubernetes-csi/csi-node-driver-registrar",
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod",
+        "azure-policy/policy-kubernetes-webhook",
+        "oss/kubernetes/kube-proxy",
+        "moby-runc",
+        "moby-containerd",
+        "oss/binaries/kubernetes/kubernetes-node",
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "oss/binaries/deislabs/containerd-wasm-shims"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
       "matchDatasources": ["docker"],
       "matchUpdateTypes": [
         "patch"
