@@ -11,6 +11,7 @@ package components
 
 #ContainerImage: {
 	downloadURL: string
+	windowsDownloadURL?: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
 	windowsVersions?:   [...#WindowsVersion]

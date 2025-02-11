@@ -9,17 +9,29 @@ function GetComponentsFromComponentsJson
 
     foreach ($containerImage in $componentsJsonContent.ContainerImages)
     {
-        foreach ($windowsVersion in $containerImage.windowsVersions)
+        $versions = $containerImage.windowsVersions
+        if ($versions -eq $null)
+        {
+            $versions = $containerImage.multiArchVersionsV2
+        }
+
+        $downloadUrl = $containerImage.windowsDownloadUrl
+        if ($downloadUrl -eq $null)
+        {
+            $downloadUrl = $containerImage.downloadUrl
+        }
+
+        foreach ($windowsVersion in $versions)
         {
             $skuMatch = $windowsVersion.windowsSkuMatch
             if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
             {
-                $url = $containerImage.downloadUrl.replace("*", $windowsVersion.latestVersion)
+                $url = $downloadUrl.replace("*", $windowsVersion.latestVersion)
                 $output += $url
 
                 if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
                 {
-                    $url = $containerImage.downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
+                    $url = $downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
                     $output += $url
                 }
             }
@@ -119,4 +131,75 @@ function GetDefaultContainerDFromComponentsJson
     $packages = GetPackagesFromComponentsJson($componentsJsonContent)
     $containerDPackages = $packages["c:\akse-cache\containerd\"]
     return $containerDPackages[0]
+}
+
+
+function GetRegKeysToApply
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+    $output = New-Object System.Collections.ArrayList
+
+    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
+    {
+        if ($windowsSku -Like $key.WindowsSkuMatch)
+        {
+            $output += $key
+        }
+    }
+
+    return $output;
+}
+
+function GetKeyMapForReleaseNotes
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $output = @{ }
+
+    foreach ($key in $windowsSettingsContent.WindowsRegistryKeys)
+    {
+        if ($windowsSku -Like $key.WindowsSkuMatch)
+        {
+            $path = $key.Path
+            $name = $key.Name
+            $arr = $output[$path]
+            if ($output[$path] -eq $null)
+            {
+                $output[$path] = New-Object System.Collections.ArrayList
+            }
+            $output[$path] += $name
+        }
+    }
+
+    return $output;
+}
+
+function LogReleaseNotesForWindowsRegistryKeys
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $logLines = New-Object System.Collections.ArrayList
+    $releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsContent
+
+    foreach ($key in $releaseNotesToSet.Keys)
+    {
+        $logLines += ("`t{0}" -f $key)
+        $names = $releaseNotesToSet[$key]
+        foreach ($name in $names)
+        {
+            $value = (Get-ItemProperty -Path $key -Name $name).$name
+            $logLines += ("`t`t{0} : {1}" -f $name, $value)
+        }
+    }
+
+    return $logLines
 }
