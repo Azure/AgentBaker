@@ -171,6 +171,18 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows23H2Gen2.Definition).To(Equal("windows-23H2-gen2"))
 		Expect(windows23H2Gen2.Version).To(Equal("25398.2022.221114"))
 
+		windows2025Containerd := sigConfig.SigWindowsImageConfig[AKSWindows2025Containerd]
+		Expect(windows2025Containerd.ResourceGroup).To(Equal("AKS-Windows"))
+		Expect(windows2025Containerd.Gallery).To(Equal("AKSWindows"))
+		Expect(windows2025Containerd.Definition).To(Equal("windows-2025-containerd"))
+		Expect(windows2025Containerd.Version).To(Equal("26100.2025.221114"))
+
+		windows2025ContainerdGen2 := sigConfig.SigWindowsImageConfig[AKSWindows2022ContainerdGen2]
+		Expect(windows2025ContainerdGen2.ResourceGroup).To(Equal("AKS-Windows"))
+		Expect(windows2025ContainerdGen2.Gallery).To(Equal("AKSWindows"))
+		Expect(windows2025ContainerdGen2.Definition).To(Equal("windows-2025-containerd-gen2"))
+		Expect(windows2025ContainerdGen2.Version).To(Equal("26100.2025.221114"))
+
 		aksUbuntuArm642204Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuArm64Containerd2204Gen2]
 		Expect(aksUbuntuArm642204Gen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(aksUbuntuArm642204Gen2.Gallery).To(Equal("aksubuntu"))
