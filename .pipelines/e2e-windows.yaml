@@ -29,6 +29,8 @@ pr:
       - staging/cse/windows/README
       - /**/*.md
       - .github/**
+      - e2e/scenario_test.go
+
 jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
