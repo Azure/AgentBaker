@@ -62,7 +62,7 @@
       "polling_duration_timeout": "1h",
       "managed_image_name": "{{user `sig_image_name`}}-{{user `captured_sig_version`}}",
       "managed_image_resource_group_name": "{{user `resource_group_name`}}",
-      "managed_image_storage_account_type": "Premium_LRS",
+      "managed_image_storage_account_type": "Premium_ZRS",
       "shared_image_gallery_destination": {
         "resource_group": "{{user `resource_group_name`}}",
         "gallery_name": "{{user `sig_gallery_name`}}",
