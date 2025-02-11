@@ -185,6 +185,14 @@ copyPackerFiles() {
     REF_INFO_SRC=/home/packer/reference-info-base64
     REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
     cpAndMode $REF_INFO_SRC $REF_INFO_DEST 0755
+
+    SET_KATA_CONFIG_SRC=/home/packer/set-kataconfig.service
+    SET_KATA_CONFIG_DEST=/etc/systemd/system/set-kataconfig.service
+    cpAndMode $SET_KATA_CONFIG_SRC $SET_KATA_CONFIG_DEST 0755
+    
+    SETUP_KATA_SRC=/home/packer/setupkata.sh
+    SETUP_KATA_DEST=/setupkata.sh
+    cpAndMode $SETUP_KATA_SRC $SETUP_KATA_DEST 0755
   fi
 
   MIG_PART_SRC=/home/packer/mig-partition.service

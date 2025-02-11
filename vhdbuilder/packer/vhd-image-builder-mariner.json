@@ -152,6 +152,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/setupkata.sh",
+      "destination": "/home/packer/setupkata.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_main.sh",
       "destination": "/home/packer/provision.sh"
     },
@@ -549,6 +554,11 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd.service",
       "destination": "/home/packer/containerd.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/mariner/set-kataconfig.service",
+      "destination": "/home/packer/set-kataconfig.service"
     },
     {
       "type": "file",

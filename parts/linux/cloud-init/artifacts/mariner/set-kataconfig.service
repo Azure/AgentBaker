@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply Kata Config once provisioning is complete
+After=containerd.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /setupkata.sh
+RemainAfterExit=no
+
+[Install]
+RequiredBy=kubelet.service
