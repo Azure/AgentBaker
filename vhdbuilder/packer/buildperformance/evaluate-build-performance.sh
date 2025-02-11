@@ -52,11 +52,6 @@ echo "##[group]Build Performance"
 jq . -C ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
-BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
-if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
-    STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
-fi
-
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
 if [ "${ENVIRONMENT,,}" != "prod" ]; then
   mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
