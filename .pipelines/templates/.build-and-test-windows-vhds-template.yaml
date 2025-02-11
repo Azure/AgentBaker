@@ -39,9 +39,9 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)'
-      windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)'
-      windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)'
+      windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)
 
   - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -54,9 +54,9 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)'
-      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)'
-      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)'
+      windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
 
   - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -69,9 +69,9 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)'
-      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)'
-      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)'
+      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
 
   - template:   ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -84,9 +84,9 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)'
-      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)'
-      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)'
+      windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
 
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
@@ -99,9 +99,9 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)'
-      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)'
-      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)'
+      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
 
   - stage: backfill_cleanup_outdated_resources
     dependsOn: []
