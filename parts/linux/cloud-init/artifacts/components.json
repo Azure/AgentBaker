@@ -67,8 +67,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/addon-resizer",
-          "latestVersion": "1.8.22",
-          "previousLatestVersion": "1.8.20"
+          "latestVersion": "1.18.15",
+          "previousLatestVersion": "1.8.22"
         }
       ],
       "windowsVersions": []
