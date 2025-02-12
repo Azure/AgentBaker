@@ -46,7 +46,7 @@ parameters:
 - name: buildVmSize
   displayName: Build VM Size
   type: string
-  default: Standard_D4_v3
+  default: Standard_D4ds_v5
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
