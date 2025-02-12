@@ -246,8 +246,8 @@
       "matchPackageNames": [
         "windows/nanoserver",
         "windows/servercore",
-        "containernetworking/azure-npm",
-        "windows/servercore/iis"
+        "windows/servercore/iis",
+        "oss/kubernetes/windows-gmsa-webhook"
       ],
       "groupName": "windowsbase",
       "assignees": [
