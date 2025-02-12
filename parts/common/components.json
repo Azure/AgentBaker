@@ -721,7 +721,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.10.0"
+          "latestVersion": "v0.12.1"
         }
       ],
       "windowsVersions": []
