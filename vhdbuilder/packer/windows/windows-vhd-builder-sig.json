@@ -125,7 +125,8 @@
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=3",
-                "WindowsSKU={{user `windows_sku`}}"
+                "WindowsSKU={{user `windows_sku`}}",
+                "SKIP_EXTENSION_CHECK={{ user `SKIP_EXTENSION_CHECK` }}"
             ],
             "type": "powershell",
             "scripts": [
