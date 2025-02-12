@@ -26,6 +26,9 @@ parameters:
     displayName: Skip Extension Check
     type: boolean
     default: False
+  - name: buildVmSize
+    displayName: Build VM Size
+    type: string
 
 stages:
   - template:   ./.build-and-test-windows-vhd-template.yaml
@@ -38,6 +41,7 @@ stages:
       build: ${{ parameters.build2019containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
@@ -53,6 +57,7 @@ stages:
       build: ${{ parameters.build2022containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
@@ -65,6 +70,7 @@ stages:
       imageName: windows-2022-containerd-gen2
       windowsSku: 2022-containerd-gen2
       hyperVGeneration: V2
+      buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build2022containerdgen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
@@ -80,6 +86,7 @@ stages:
       imageName: windows-23H2
       windowsSku: 23H2
       hyperVGeneration: V1
+      buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build23H2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
@@ -95,6 +102,7 @@ stages:
       imageName: windows-23H2-gen2
       windowsSku: 23H2-gen2
       hyperVGeneration: V2
+      buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build23H2gen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
