@@ -73,7 +73,7 @@ if (!(Test-Path $WindowsSettingsFile))
 
 if (!(Test-Path $ComponentsJsonFile))
 {
-    $ComponentsJsonFile = "parts/linux/cloud-init/artifacts/components.json"
+    $ComponentsJsonFile = "parts/common/components.json"
 }
 
 Write-Output "Components JSON: $ComponentsJsonFile"

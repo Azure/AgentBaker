@@ -139,7 +139,7 @@ There are some default managers in Renovate that one can use to monitor supporte
       "customType": "regex",
       "description": "auto update containerImages in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -173,7 +173,7 @@ Similar to containerImages described above, we have other custom manager for pac
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -425,7 +425,7 @@ This is a common scenarior where we want the PR to be merged automatically when 
     },
 ```
 The config includes:
-- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/linux/cloud-init/artifacts/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
+- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/common/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
 - `matchUpdateTypes`: The type of version updates (`patch`) to which this rule applies.
 - `automerge`: Set to `true` to automatically merge PRs created by this rule. Default is `false`.
 - `enabled`: Set to `true` to enable this rule.
