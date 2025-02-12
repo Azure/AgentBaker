@@ -71,7 +71,7 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	exit 1
 fi
 
-if [ "${IMG_SKU,,}" == "20_04-lts-cvm" ] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
+if [[ "${IMG_SKU,,}" == "20_04-lts-cvm" || "${IMG_SKU,,}" == "cvm"  ]] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
 	PACKER_BUILD_LOCATION="${CVM_PACKER_BUILD_LOCATION}"
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
@@ -172,8 +172,8 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
-		elif [[ "${IMG_SKU,,}" == "20_04-lts-cvm" ]]; then
-      SIG_IMAGE_NAME+="Specialized"
+		elif [[ "${IMG_SKU,,}" == "20_04-lts-cvm" || "${IMG_SKU,,}" == "cvm" ]]; then
+			SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -261,13 +261,13 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
-		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
+		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${IMG_SKU} == "cvm" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 		  TARGET_COMMAND_STRING=""
 		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-        TARGET_COMMAND_STRING+="--architecture Arm64"
-      elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
-      fi
+			TARGET_COMMAND_STRING+="--architecture Arm64"
+		  elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${IMG_SKU} == "cvm" ]]; then
+			TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+		  fi
 
       az sig image-definition create \
         --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -340,72 +340,33 @@ fi
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
-	imported_windows_image_name=""
-	source $CDIR/windows/windows-image.env
 
-	echo "Set the base image sku and version from windows-image.env"
-	case "${WINDOWS_SKU}" in
-	"2019")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
+	echo "Set the base image sku and version from windows-settings.json"
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2019-containerd")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2019-containerd-imported-${CREATE_TIME}-${RANDOM}"
+	WINDOWS_IMAGE_SKU=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku"`
+	WINDOWS_IMAGE_VERSION=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version"`
+	WINDOWS_IMAGE_NAME=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name"`
+	OS_DISK_SIZE=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size"`
+  if [ "null" != "${OS_DISK_SIZE}" ]; then
+    echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
+    os_disk_size_gb=${OS_DISK_SIZE}
+  fi
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2022-containerd" | "2022-containerd-gen2")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2022-containerd-imported-${CREATE_TIME}-${RANDOM}"
+  imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		# Default: read from the official MCR image
-		if [[ $HYPERV_GENERATION == "V2" ]]; then
-			WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
-			WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
-		fi
-		;;
-	"23H2" | "23H2-gen2")
-		WINDOWS_IMAGE_SKU=$WINDOWS_23H2_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-23H2-imported-${CREATE_TIME}-${RANDOM}"
+  echo "Got base image data: "
+  echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
+  echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
+  echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
+  echo "  OS_DISK_SIZE: ${OS_DISK_SIZE}"
+  echo "  imported_windows_image_name: ${imported_windows_image_name}"
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_23H2_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 23H2: ${WINDOWS_23H2_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_23H2_OS_DISK_SIZE_GB}
-		fi
-		# Default: read from the official MCR image
-		if [[ $HYPERV_GENERATION == "V2" ]]; then
-			WINDOWS_IMAGE_SKU=$WINDOWS_23H2_GEN2_BASE_IMAGE_SKU
-			WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION
-		fi
-		;;
-	*)
-		echo "unsupported windows sku: ${WINDOWS_SKU}"
-		exit 1
-		;;
-	esac
+	if [ "${WINDOWS_IMAGE_SKU}" = "null" ]; then
+    echo "unsupported windows sku: ${WINDOWS_SKU}"
+    exit 1
+  fi
 
-	# Create the sig image from the official images defined in windows-image.env by default
+	# Create the sig image from the official images defined in windows-settings.json by default
 	windows_sigmode_source_subscription_id=""
 	windows_sigmode_source_resource_group_name=""
 	windows_sigmode_source_gallery_name=""
@@ -539,6 +500,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
+  "SKIP_EXTENSION_CHECK": "${SKIP_EXTENSION_CHECK}",
   "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",

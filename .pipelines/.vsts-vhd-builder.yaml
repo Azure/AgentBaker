@@ -24,6 +24,7 @@ pr:
     - vhdbuilder/packer/**/*windows*
     - /**/*.md
     - .github/**
+    - e2e/scenario_win_test.go
 
 pool:
   name: $(POOL_NAME)
