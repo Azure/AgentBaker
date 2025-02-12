@@ -49,6 +49,7 @@ stages:
     parameters:
       vhddebug: False
       dryrun: False
+      buildVmSize: Standard_D16ds_v5
       build2019containerd: True
       build2022containerd: False
       build2022containerdgen2: True
