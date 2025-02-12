@@ -76,7 +76,7 @@
             "type": "file",
             "direction": "upload",
             "sources": [
-                "parts/linux/cloud-init/artifacts/components.json",
+                "parts/common/components.json",
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/windows/windows_settings.json",
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"

@@ -298,7 +298,7 @@
       "customType": "regex",
       "description": "auto update containerImages in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -311,7 +311,7 @@
       "customType": "regex",
       "description": "auto update OCI artifacts in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -324,7 +324,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 18.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -338,7 +338,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 20.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -352,7 +352,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -366,7 +366,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [

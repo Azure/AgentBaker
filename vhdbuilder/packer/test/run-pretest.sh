@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-components=$(jq .ContainerImages[] --monochrome-output --compact-output < parts/linux/cloud-init/artifacts/components.json)
+components=$(jq .ContainerImages[] --monochrome-output --compact-output < parts/common/components.json)
 i=0
 while IFS= read -r component; do
 	downloadURL=$(echo "${component}" | jq .downloadURL)
