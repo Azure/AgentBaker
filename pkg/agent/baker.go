@@ -1501,15 +1501,9 @@ root = "{{GetDataDir}}"{{- end}}
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
 
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-
-[plugins."io.containerd.cri.v1.images".registry.headers]
-  X-Meta-Source-Client = ["azure/aks"]
 [metrics]
   address = "0.0.0.0:10257"
+
 {{- if TeleportEnabled }}
 [proxy_plugins]
   [proxy_plugins.teleportd]
@@ -1549,6 +1543,12 @@ root = "{{GetDataDir}}"{{- end}}
     
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
+{{- if IsKubernetesVersionGe "1.22.0"}}
+[plugins."io.containerd.cri.v1.images".registry]
+  config_path = "/etc/containerd/certs.d"
+{{- end}}
+[plugins."io.containerd.cri.v1.images".registry.headers]
+  X-Meta-Source-Client = ["azure/aks"]
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
@@ -1612,22 +1612,18 @@ root = "{{GetDataDir}}"{{- end}}
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-[plugins."io.containerd.cri.v1.images".registry.headers]
-    X-Meta-Source-Client = ["azure/aks"]
+
 [metrics]
   address = "0.0.0.0:10257"
 
-[proxy_plugins]
 {{- if TeleportEnabled }}
+[proxy_plugins]
   [proxy_plugins.teleportd]
     type = "snapshot"
     address = "/run/teleportd/snapshotter.sock"
 {{- end}}
 {{- if IsArtifactStreamingEnabled }}
+[proxy_plugins]
   [proxy_plugins.overlaybd]
     type = "snapshot"
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
@@ -1637,7 +1633,6 @@ root = "{{GetDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-
 {{- end}}
 `
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
