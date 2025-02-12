@@ -48,7 +48,8 @@
                 "image_version": "{{user `sig_image_version`}}",
                 "replication_regions": [
                     "{{user `location`}}"
-                ]
+                ],
+                "storage_account_type": "Standard_ZRS"
             },
             "polling_duration_timeout": "1h",
             "communicator": "winrm",

@@ -67,7 +67,8 @@
         "image_version": "{{user `captured_sig_version`}}",
         "replication_regions": [
           "{{user `location`}}"
-        ]
+        ],
+        "storage_account_type": "Standard_ZRS"
       },
       "user_assigned_managed_identities": "{{user `msi_resource_strings`}}"
     }
