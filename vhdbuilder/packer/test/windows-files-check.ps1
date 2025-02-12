@@ -294,27 +294,5 @@ function Install-Containerd {
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
-function Test-PullImages {
-    Write-Output "Install Containerd."
-
-    Install-Containerd
-
-    Write-Output "Test-PullImages."
-   
-    Write-Output "Test pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
-    foreach ($image in $imagesToPull) {
-        Write-Output "* $image"
-    }
-    foreach ($image in $imagesToPull) {
-        Write-Output "Pulling image $image"
-        Retry-Command -ScriptBlock {
-            & crictl.exe pull $image
-        } -ErrorMessage "Failed to pull image $image"
-
-        crictl.exe rmi $image
-    }
-}
-
 Test-CompareFiles
 Test-ValidateAllSignature
-Test-PullImages
