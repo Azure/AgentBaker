@@ -700,6 +700,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3arm64gen2fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -888,7 +895,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV2Gen2Kata:      SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Arm64Gen2:     SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3Arm64Gen2:     SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3Arm64Gen2FIPS: SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Arm64Gen2FIPS: SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Gen2TL:        SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3Gen2TL:        SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
 	}
