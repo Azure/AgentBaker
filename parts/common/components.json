@@ -369,7 +369,7 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/azure/secrets-store/provider-azure",
           "latestVersion": "v1.5.3",
           "previousLatestVersion": "v1.6.2"
         }
@@ -459,27 +459,27 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.27.21-windows-hpc",
           "previousLatestVersion": "v1.27.21"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.28.13-windows-hpc",
           "previousLatestVersion": "v1.28.13"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.29.11-windows-hpc",
           "previousLatestVersion": "v1.29.11"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.30.7-windows-hpc",
           "previousLatestVersion": "v1.30.7"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
           "latestVersion": "v1.31.1-windows-hpc",
           "previousLatestVersion": "v1.30.1"
         }
@@ -529,17 +529,17 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
           "latestVersion": "v1.29.12",
           "previousLatestVersion": "v1.29.10"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
           "latestVersion": "v1.30.7",
           "previousLatestVersion": "v1.30.5"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
           "latestVersion": "v1.31.2"
         }
       ]
@@ -565,17 +565,17 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.29.10-windows-hp",
           "previousLatestVersion": "v1.29.9-windows-hp"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.30.7-windows-hp",
           "previousLatestVersion": "v1.30.6-windows-hp"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
           "latestVersion": "v1.31.3-windows-hp"
         }
       ]
@@ -636,7 +636,7 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/csi-node-driver-registrar",
           "latestVersion": "v2.12.0"
         }
       ]
@@ -721,7 +721,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/windows-gmsa-webhook",
-          "latestVersion": "v0.7.1"
+          "latestVersion": "v0.10.0"
         }
       ],
       "windowsVersions": []
