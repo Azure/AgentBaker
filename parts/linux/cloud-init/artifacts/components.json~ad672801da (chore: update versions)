@@ -29,7 +29,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
-          "latestVersion": "1809",
+          "latestVersion": "2009",
           "windowsSkuMatch": "2019-containerd"
         },
         {
