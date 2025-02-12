@@ -1,6 +1,6 @@
 package components
 
-// List represents a container image component list (e.g. parts/linux/cloud-init/artifacts/components.json).
+// List represents a container image component list (e.g. parts/common/components.json).
 type List struct {
 	Images []Image `json:"ContainerImages,omitempty"`
 }

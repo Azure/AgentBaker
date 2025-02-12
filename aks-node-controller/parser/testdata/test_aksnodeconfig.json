@@ -1,5 +1,5 @@
 {
-    "version": "v0",
+    "version": "v1",
     "bootstrapping_config": {
         "bootstrapping_auth_method": "BOOTSTRAPPING_AUTH_METHOD_BOOTSTRAP_TOKEN"
     },

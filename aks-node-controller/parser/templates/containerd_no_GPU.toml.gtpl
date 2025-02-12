@@ -1,5 +1,5 @@
 version = 2
-oom_score = 0{{if getHasDataDir .KubeletConfig}}
+oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"

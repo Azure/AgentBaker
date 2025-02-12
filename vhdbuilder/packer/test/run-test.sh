@@ -5,7 +5,6 @@ source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
-WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
@@ -75,7 +74,7 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && [ ${IMG_SKU} == "20_04-lts-cvm" ]; then
+if [ "${OS_TYPE}" == "Linux" ] && [[ "${IMG_SKU}" == "20_04-lts-cvm"  ||  "${IMG_SKU}" == "cvm" ]]; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
@@ -149,21 +148,14 @@ if [ "$OS_TYPE" == "Linux" ]; then
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
   errMsg=$(echo -e "$(echo "$ret" | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")')")
-  echo "$errMsg"
   if [ "$errMsg" != '' ]; then
-    echo "Tests failed. Test output is: "
+    echo "Tests failed."
+    echo "Extracted error message: $errMsg"
+    echo "Test output is: "
     echo "$ret"
     exit 1
   fi
 else
-  SCRIPT_PATH="$CDIR/../$WIN_CONFIGURATION_SCRIPT_PATH"
-  echo "Run $SCRIPT_PATH"
-  az vm run-command invoke --command-id RunPowerShellScript \
-    --name $VM_NAME \
-    --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
-    --scripts "@$SCRIPT_PATH" \
-    --output json
-
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \

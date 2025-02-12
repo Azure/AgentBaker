@@ -806,6 +806,30 @@ var (
 	}
 )
 
+// GetMaintainedLinuxSIGImageConfigMap returns a set of Distro -> SigImageConfig mappings
+// for ALL Linux distros that are currently built and maintained by AKS Node SIG (Version == LinuxSIGImageVersion).
+// Note that each distro's SigImageConfig SubscriptionID field will be empty.
+// This can be used downstream to make sure that all expected images have been properly replicated.
+func GetMaintainedLinuxSIGImageConfigMap() map[Distro]SigImageConfig {
+	// no opts means subscriptionID will be empty in the corresponding image configs
+	imageConfigMaps := []map[Distro]SigImageConfig{
+		getSigUbuntuImageConfigMapWithOpts(),
+		getSigCBLMarinerImageConfigMapWithOpts(),
+		getSigAzureLinuxImageConfigMapWithOpts(),
+	}
+
+	maintained := map[Distro]SigImageConfig{}
+	for _, m := range imageConfigMaps {
+		for distro, config := range m {
+			if config.Version == LinuxSIGImageVersion {
+				maintained[distro] = config
+			}
+		}
+	}
+
+	return maintained
+}
+
 func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSUbuntu1604:                      SIGUbuntu1604ImageConfigTemplate.WithOptions(opts...),

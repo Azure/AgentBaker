@@ -97,6 +97,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	prepareAKSNode(ctx, s)
+
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 	validateVM(ctx, s)
 }
 
@@ -135,7 +137,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 
 	require.NoError(s.T, err)
+
 	createVMSS(ctx, s)
+
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
@@ -215,7 +219,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../parts/linux/cloud-init/artifacts/components.json")
+	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {

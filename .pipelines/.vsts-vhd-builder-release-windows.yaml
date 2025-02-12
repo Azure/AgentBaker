@@ -1,31 +1,5 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+name: Release_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
-pr:
-  branches:
-    include:
-    - master
-    - dev
-  paths:
-    include:
-    - .pipelines/.vsts-vhd-builder-release-windows.yaml
-    - .pipelines/templates/.build-and-test-windows-vhd-template.yaml
-    - .pipelines/templates/.builder-release-template-windows.yaml
-    - .pipelines/templates/e2e-template.yaml
-    - packer.mk
-    - vhdbuilder/packer/packer-plugin.pkr.hcl
-    - vhdbuilder/packer/*.ps1
-    - vhdbuilder/packer/test/*.ps1
-    - vhdbuilder/packer/test/run-test.sh
-    - vhdbuilder/packer/backfill-cleanup.sh
-    - vhdbuilder/packer/cleanup.sh
-    - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
-    - vhdbuilder/packer/generate-vhd-publishing-info.sh
-    - vhdbuilder/packer/init-variables.sh
-    - vhdbuilder/packer/windows-image.env
-    - vhdbuilder/packer/windows-vhd-builder-sig.json
-    exclude:
-    - vhdbuilder/release-notes
-    - /**/*.md
 
 pool:
   name: $(AZURE_POOL_NAME)
@@ -35,8 +9,6 @@ variables:
   VHD_BUILD_ID: $(Build.BuildId)
   LOCATION: $(PACKER_BUILD_LOCATION)
   POOL_NAME: $(AZURE_POOL_NAME)
-  isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
-  isNotPR: $[ne(variables['Build.Reason'], 'PullRequest')]
 
 parameters:
 - name: build2019containerd
@@ -67,88 +39,28 @@ parameters:
   displayName: VHD Debug
   type: boolean
   default: False
+- name: skipExtensionCheck
+  displayName: Skip Extension Check
+  type: boolean
+  default: False
+- name: buildVmSize
+  displayName: Build VM Size
+  type: string
+  default: Standard_D4ds_v5
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
+  - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
-      stageName: win_2019_v1
-      artifactName: 2019-containerd
-      imageName: windows-2019-containerd
-      windowsSku: 2019-containerd
-      hyperVGeneration: V1
-      build: ${{ parameters.build2019containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_2022_v1
-      artifactName: 2022-containerd
-      imageName: windows-2022-containerd
-      windowsSku: 2022-containerd
-      hyperVGeneration: V1
-      build: ${{ and(eq(parameters.build2022containerd, true), eq(variables.isNotPR, true)) }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_2022_v2
-      artifactName: 2022-containerd-gen2
-      imageName: windows-2022-containerd-gen2
-      windowsSku: 2022-containerd-gen2
-      hyperVGeneration: V2
-      build: ${{ parameters.build2022containerdgen2 }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_23H2_v1
-      artifactName: 23H2
-      imageName: windows-23H2
-      windowsSku: 23H2
-      hyperVGeneration: V1
-      build: ${{ and(eq(parameters.build23H2, true), eq(variables.isNotPR, true)) }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - template: ./templates/.build-and-test-windows-vhd-template.yaml
-    parameters:
-      stageName: win_23H2_v2
-      artifactName: 23H2-gen2
-      imageName: windows-23H2-gen2
-      windowsSku: 23H2-gen2
-      hyperVGeneration: V2
-      build: ${{ parameters.build23H2gen2 }}
-      vhddebug: ${{ parameters.vhddebug }}
-      dryrun: ${{ parameters.dryrun }}
-
-  - stage: backfill_cleanup_outdated_resources
-    dependsOn: []
-    condition: always()
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            m="windowsVhdMode"
-            echo "Set build mode to $m" && \
-            docker run --rm \
-            -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-            -w /go/src/github.com/Azure/AgentBaker \
-            -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-            -e PROD_SUBSCRIPTION_ID=${AZURE_PROD_SUBSCRIPTION_ID} \
-            -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
-            -e MODE=$m \
-            -e DRY_RUN=${DRY_RUN} \
-            -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-            -e OS_TYPE="Windows" \
-            ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
-          enabled: false
-          displayName: Backfill Clean Up Older Resources
-          condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build2019containerd: ${{ parameters.build2019containerd }}
+      build2022containerd:  ${{ parameters.build2022containerd }}
+      build2022containerdgen2:  ${{ parameters.build2022containerdgen2 }}
+      build23H2:  ${{ parameters.build23H2 }}
+      build23H2gen2:  ${{ parameters.build23H2gen2 }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
