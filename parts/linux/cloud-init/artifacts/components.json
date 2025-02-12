@@ -6,17 +6,17 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "ltsc2019",
           "windowsSkuMatch": "2019-containerd"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "ltsc2022",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "ltsc2022",
           "windowsSkuMatch": "23H2*"
         }
@@ -28,17 +28,17 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "1809",
           "windowsSkuMatch": "2019-containerd"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2022",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2022",
           "windowsSkuMatch": "23H2*"
         }
@@ -50,12 +50,12 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
           "latestVersion": "v1.5.5",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
           "latestVersion": "v1.5.5",
           "windowsSkuMatch": "23H2*"
         }
@@ -79,7 +79,7 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
           "latestVersion": "latest"
         }
       ]
@@ -95,7 +95,7 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
           "latestVersion": "3.9"
         }
       ]
@@ -131,15 +131,15 @@
       "amd64OnlyVersions": [],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.4.58"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.5.38"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
           "latestVersion": "v1.6.13"
         }
       ],
@@ -196,15 +196,15 @@
       "amd64OnlyVersions": [],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.4.58"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.38"
         },
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.6.13"
         }
       ],
@@ -616,7 +616,7 @@
       ],
       "windowsVersions": [
         {
-          "renovateTag": "<DO_NOT_UPDATE>",
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
           "latestVersion": "v2.14.0"
         }
       ]
@@ -771,7 +771,7 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-          "latestVersion": "550.127.05-20250109210537"
+        "latestVersion": "550.127.05-20250109210537"
       }
     }
   ],
