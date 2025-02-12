@@ -79,7 +79,7 @@ systemctl enable aks-node-controller.service
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${ENABLE_FIPS,,}" == "true" && "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
