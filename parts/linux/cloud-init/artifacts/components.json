@@ -51,12 +51,12 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.5",
+          "latestVersion": "v1.6.20",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.5",
+          "latestVersion": "v1.6.20",
           "windowsSkuMatch": "23H2*"
         }
       ]
@@ -309,7 +309,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.34"
+          "latestVersion": "v1.6.20"
         }
       ],
       "windowsVersions": []
