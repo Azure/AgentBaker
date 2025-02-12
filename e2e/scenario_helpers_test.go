@@ -219,7 +219,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../parts/linux/cloud-init/artifacts/components.json")
+	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {
