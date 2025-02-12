@@ -244,6 +244,12 @@
     },
     {
       "matchPackageNames": [
+        "oss/kubernetes/azure-cloud-node-manager"
+      ],
+      "groupName": "azure-cloud-node-manager"
+    },
+    {
+      "matchPackageNames": [
         "windows/nanoserver",
         "windows/servercore",
         "windows/servercore/iis",
