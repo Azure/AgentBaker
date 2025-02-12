@@ -94,8 +94,14 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
-	if config.Version != "v0" {
+	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
+	// Disallow "v0" after some time (allow some time to update consumers)
+	if config.Version != "v0" && config.Version != "v1" {
 		return fmt.Errorf("unsupported version: %s", config.Version)
+	}
+
+	if config.Version == "v0" {
+		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
 	cmd, err := parser.BuildCSECmd(ctx, config)

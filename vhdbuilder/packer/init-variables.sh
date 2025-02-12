@@ -343,10 +343,10 @@ if [ "$OS_TYPE" == "Windows" ]; then
 
 	echo "Set the base image sku and version from windows-settings.json"
 
-	WINDOWS_IMAGE_SKU=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku"`
-	WINDOWS_IMAGE_VERSION=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version"`
-	WINDOWS_IMAGE_NAME=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name"`
-	OS_DISK_SIZE=`cat $CDIR/windows/windows_settings.json | jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size"`
+	WINDOWS_IMAGE_SKU=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" < $CDIR/windows/windows_settings.json`
+	WINDOWS_IMAGE_VERSION=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" < $CDIR/windows/windows_settings.json`
+	WINDOWS_IMAGE_NAME=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" < $CDIR/windows/windows_settings.json`
+	OS_DISK_SIZE=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" < $CDIR/windows/windows_settings.json`
   if [ "null" != "${OS_DISK_SIZE}" ]; then
     echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
     os_disk_size_gb=${OS_DISK_SIZE}
@@ -500,6 +500,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
+  "SKIP_EXTENSION_CHECK": "${SKIP_EXTENSION_CHECK}",
   "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
