@@ -25,7 +25,6 @@ parameters:
     default: True
   - name: buildVmSize
     type: string
-    default: Standard_D4s_v3
     displayName: VM SKU to build the VHD with. Has a sensible default
   - name: hyperVGeneration
     type: string
