@@ -443,8 +443,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.29.11",
-          "previousLatestVersion": "v1.29.9"
+          "latestVersion": "v1.29.12",
+          "previousLatestVersion": "v1.29.11"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
@@ -470,8 +470,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.29.11-windows-hpc",
-          "previousLatestVersion": "v1.29.11"
+          "latestVersion": "v1.29.12-windows-hpc",
+          "previousLatestVersion": "v1.29.11-windows-hpc"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
