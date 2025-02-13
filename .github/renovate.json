@@ -218,11 +218,13 @@
       "groupName": "acr-credential-provider",
       "assignees": [
         "mainred",
-        "MartinForReal"
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
         "mainred",
-        "MartinForReal"
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {
@@ -266,10 +268,14 @@
       ],
       "groupName": "azure-cloud-node-manager",
       "assignees": [
-        "MartinForReal"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
-        "MartinForReal"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {

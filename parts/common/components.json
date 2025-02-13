@@ -28,7 +28,8 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
+          "comment": "1809 gets patches every 6 months or so. The alternative is ltsc2019 which gets patches every couple of years. Most customers use 1809, so we keep that on the VHD",
+          "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "1809",
           "windowsSkuMatch": "2019-containerd"
         },
@@ -460,28 +461,43 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.27.21-windows-hpc",
-          "previousLatestVersion": "v1.27.21"
+          "latestVersion": "v1.27.21-windows-hpc"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.28.13-windows-hpc",
-          "previousLatestVersion": "v1.28.13"
+          "latestVersion": "v1.27.21"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.29.11-windows-hpc",
-          "previousLatestVersion": "v1.29.11"
+          "latestVersion": "v1.28.13-windows-hpc"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.30.7-windows-hpc",
-          "previousLatestVersion": "v1.30.7"
+          "latestVersion": "v1.28.13"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.1-windows-hpc",
-          "previousLatestVersion": "v1.30.1"
+          "latestVersion": "v1.29.11-windows-hpc"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.29.11"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.30.7-windows-hpc"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.30.7"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.1-windows-hpc"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.1"
         }
       ]
     },
@@ -1236,12 +1252,12 @@
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.30.7"
+                "latestVersion": "v1.30.8"
               },
               {
                 "k8sVersion": "1.29",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
-                "latestVersion": "v1.29.11"
+                "latestVersion": "v1.29.12"
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
