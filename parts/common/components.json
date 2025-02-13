@@ -385,6 +385,18 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
           "latestVersion": "3.1.24"
         }
+      ],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
+          "latestVersion": "3.1.25",
+          "windowsSkuMatch": "2022*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
+          "latestVersion": "3.1.25",
+          "windowsSkuMatch": "2019*"
+        }
       ]
     },
     {
