@@ -541,6 +541,25 @@ func Test_MarinerV2_WASM(t *testing.T) {
 	})
 }
 
+func Test_MarinerV2_WASM_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new marinerv2 node using krustlet can be properly bootstrapped",
+		Tags: Tags{
+			WASM: true,
+		},
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDCBLMarinerV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.WorkloadRuntime = aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateContainerdWASMShims(ctx, s)
+			},
+		},
+	})
+}
+
 // Returns config for the 'base' E2E scenario
 func Test_Ubuntu1804(t *testing.T) {
 	// for ubuntu1804 containerd version is frozen and its using outdated versioning style, hence this modification
