@@ -658,7 +658,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.18.2"
+          "latestVersion": "v3.17.1"
         }
       ],
       "windowsVersions": []
