@@ -47,15 +47,15 @@ func TestBuildCSECmd(t *testing.T) {
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
 				assert.Equal(t, "false", vars["GPU_NODE"])
-				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_CONTENT"])
+				assert.NotEmpty(t, vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"])
 				// Ensure the containerd config does not use the
 				// nvidia container runtime when skipping the
 				// GPU driver install, since it will fail to run even non-GPU
 				// pods, as it will not be installed.
-				containerdConfigFileContent, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_CONTENT"]))
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				require.NoError(t, err)
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]

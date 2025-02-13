@@ -36,7 +36,7 @@ capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+if [[ "${UBUNTU_RELEASE}" == "20.04" && "$IMG_SKU" == "20_04-lts-cvm" ]] || [[ "${UBUNTU_RELEASE}" == "24.04" &&  "$IMG_SKU" == "cvm" ]]; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
@@ -107,10 +107,6 @@ if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
 fi
 
 if [[ $(isARM64) == 1 ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" ]]; then
-    echo "No FIPS support on arm64, exiting..."
-    exit 1
-  fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1

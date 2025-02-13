@@ -12,14 +12,19 @@ pr:
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
     - .pipelines/templates/.builder-release-template.yaml
+    - .pipelines/templates/e2e-template.yaml
     - parts/linux/*
     - packer.mk
+    - aks-node-controller/**
     exclude:
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
+    - /**/*.md
+    - .github/**
+    - e2e/scenario_win_test.go
 
 pool:
   name: $(POOL_NAME)

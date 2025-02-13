@@ -5,6 +5,48 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
+	It("should return the correct value", func() {
+		expected := map[Distro]SigImageConfig{
+			AKSUbuntuContainerd1804:          SIGUbuntuContainerd1804ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd1804Gen2:      SIGUbuntuContainerd1804Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd1804:      SIGUbuntuFipsContainerd1804ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd1804Gen2:  SIGUbuntuFipsContainerd1804Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd2004:      SIGUbuntuFipsContainerd2004ImageConfigTemplate.WithOptions(),
+			AKSUbuntuFipsContainerd2004Gen2:  SIGUbuntuFipsContainerd2004Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuArm64Containerd2204Gen2: SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuArm64Containerd2404Gen2: SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2204:          SIGUbuntuContainerd2204ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2204Gen2:      SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2204TLGen2:    SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2004CVMGen2:   SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404:          SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404Gen2:      SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2:                  SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2:                  SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3:                  SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2:              SIGCBLMarinerV2Gen2ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2:              SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2:              SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2FIPS:              SIGCBLMarinerV2Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2FIPS:              SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3FIPS:              SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2FIPS:          SIGCBLMarinerV2Gen2FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2FIPS:          SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2FIPS:          SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2Kata:          SIGCBLMarinerV2KataImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2Kata:          SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Arm64Gen2:         SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Arm64Gen2:         SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Arm64Gen2:         SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
+			AKSCBLMarinerV2Gen2TL:            SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV2Gen2TL:            SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
+		}
+		Expect(GetMaintainedLinuxSIGImageConfigMap()).To(Equal(expected))
+	})
+})
+
 var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 	var (
 		config SIGConfig
@@ -229,7 +271,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(marinerV2KataGen2TL.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(marinerV2KataGen2TL.Gallery).To(Equal("akscblmariner"))
 		Expect(marinerV2KataGen2TL.Definition).To(Equal("V2katagen2TL"))
-		Expect(marinerV2KataGen2TL.Version).To(Equal(CBLMarinerV2KataGen2TLSIGImageVersion))
+		Expect(marinerV2KataGen2TL.Version).To(Equal(FrozenCBLMarinerV2KataGen2TLSIGImageVersion))
 
 		marinerV2FIPS := sigConfig.SigCBLMarinerImageConfig[AKSCBLMarinerV2FIPS]
 		Expect(marinerV2FIPS.ResourceGroup).To(Equal("resourcegroup"))

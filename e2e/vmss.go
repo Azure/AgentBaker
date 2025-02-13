@@ -53,6 +53,16 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	model := getBaseVMSSModel(s, customData, cse)
+	if s.Tags.NonAnonymousACR {
+		// add acr pull identity
+		userAssignedIdentity := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s", config.Config.SubscriptionID, config.ResourceGroupName, config.VMIdentityName)
+		model.Identity = &armcompute.VirtualMachineScaleSetIdentity{
+			Type: to.Ptr(armcompute.ResourceIdentityTypeSystemAssignedUserAssigned),
+			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+				userAssignedIdentity: {},
+			},
+		}
+	}
 
 	isAzureCNI, err := cluster.IsAzureCNI()
 	require.NoError(s.T, err, "checking if cluster is using Azure CNI")
@@ -78,6 +88,7 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	})
 
 	vmssResp, err := operation.PollUntilDone(ctx, config.DefaultPollUntilDoneOptions)
+
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
 	return &vmssResp.VirtualMachineScaleSet
@@ -115,11 +126,11 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	require.NoError(s.T, err)
 
 	commandList := map[string]string{
-		"cluster-provision.log":            "cat /var/log/azure/cluster-provision.log",
-		"kubelet.log":                      "journalctl -u kubelet",
-		"cluster-provision-cse-output.log": "cat /var/log/azure/cluster-provision-cse-output.log",
-		"sysctl-out.log":                   "sysctl -a",
-		"aks-node-controller.log":          "cat /var/log/azure/aks-node-controller.log",
+		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
+		"kubelet.log":                      "sudo journalctl -u kubelet",
+		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
+		"sysctl-out.log":                   "sudo sysctl -a",
+		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
@@ -129,7 +140,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execOnVM(ctx, s.Runtime.Cluster.Kube, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
@@ -138,6 +149,14 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 	err = dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
+}
+
+func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+	script := Script{
+		interpreter: Bash,
+		script:      command,
+	}
+	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, script)
 }
 
 const uploadLogsPowershellScript = `
@@ -188,7 +207,7 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 	client := config.Azure.VMSSVMRunCommands
 
 	// Invoke the RunCommand on the VMSS instance
-	s.T.Log("uploading windows logs to blob storage, may take a few minutes")
+	s.T.Logf("uploading windows logs to blob storage at %s, may take a few minutes", blobUrl)
 
 	pollerResp, err := client.BeginCreateOrUpdate(
 		ctx,

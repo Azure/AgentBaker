@@ -96,8 +96,7 @@ func Test_getUlimitContent(t *testing.T) {
 			args: args{
 				u: &aksnodeconfigv1.UlimitConfig{},
 			},
-			want: base64.StdEncoding.EncodeToString(
-				[]byte("[Service]\n")),
+			want: "[Service]\n",
 		},
 		{
 			name: "UlimitConfig with custom values",
@@ -107,8 +106,7 @@ func Test_getUlimitContent(t *testing.T) {
 					MaxLockedMemory: &str9999,
 				},
 			},
-			want: base64.StdEncoding.EncodeToString(
-				[]byte("[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999")),
+			want: "[Service]\nLimitMEMLOCK=9999 LimitNOFILE=9999",
 		},
 	}
 	for _, tt := range tests {
@@ -251,6 +249,7 @@ func Test_createSortedKeyValueInt32Pairs(t *testing.T) {
 func Test_getContainerdConfig(t *testing.T) {
 	type args struct {
 		aksnodeconfig *aksnodeconfigv1.Configuration
+		noGpu         bool
 	}
 	tests := []struct {
 		name string
@@ -258,14 +257,75 @@ func Test_getContainerdConfig(t *testing.T) {
 		want string
 	}{
 		{
-			name: "Default Configuration",
+			name: "Default Containerd Configurations",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					NeedsCgroupv2: ToPtr(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
-oom_score = 0
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "runc"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd Configurations with bool noGpu set to false",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: ToPtr(true),
+					GpuConfig: &aksnodeconfigv1.GpuConfig{
+						EnableNvidia: ToPtr(true),
+					},
+				},
+				noGpu: false,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    default_runtime_name = "nvidia-container-runtime"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+  [plugins."io.containerd.grpc.v1.cri".registry.headers]
+    X-Meta-Source-Client = ["azure/aks"]
+[metrics]
+  address = "0.0.0.0:10257"
+`)),
+		},
+		{
+			name: "Containerd Configurations with bool noGpu set to true",
+			args: args{
+				aksnodeconfig: &aksnodeconfigv1.Configuration{
+					NeedsCgroupv2: ToPtr(true),
+				},
+				noGpu: true,
+			},
+			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -288,7 +348,7 @@ oom_score = 0
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContainerdConfig(tt.args.aksnodeconfig); got != tt.want {
+			if got := getContainerdConfigBase64(tt.args.aksnodeconfig); got != tt.want {
 				t.Errorf("getContainerdConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -885,6 +945,42 @@ func Test_getTargetEnvironment(t *testing.T) {
 				},
 			},
 			want: helpers.AksCustomCloudName,
+		},
+		{
+			name: "China location cluster config",
+			args: args{
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+						Location: "china",
+					},
+				},
+			},
+			want: "AzureChinaCloud",
+		},
+		{
+			name: "Germany location cluster config",
+			args: args{
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+						Location: "germanynortheast",
+					},
+				},
+			},
+			want: "AzureGermanCloud",
+		},
+		{
+			name: "usgov location cluster config",
+			args: args{
+				v: &aksnodeconfigv1.Configuration{
+					CustomCloudConfig: &aksnodeconfigv1.CustomCloudConfig{},
+					ClusterConfig: &aksnodeconfigv1.ClusterConfig{
+						Location: "usdod",
+					},
+				},
+			},
+			want: "AzureUSGovernmentCloud",
 		},
 	}
 	for _, tt := range tests {

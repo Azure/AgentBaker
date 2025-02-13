@@ -345,7 +345,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
-			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 
@@ -378,7 +378,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
-			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCseInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
@@ -1052,6 +1052,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		},
 			func(o *nodeBootstrappingOutput) {
+				Expect(o).ShouldNot(BeNil())
+				Expect(o.files["/opt/azure/containers/provision.sh"]).ShouldNot(BeNil())
 				Expect(o.files["/opt/azure/containers/provision.sh"].encoding).To(Equal(cseVariableEncodingGzip))
 				cseMain := o.files["/opt/azure/containers/provision.sh"].value
 				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
@@ -1168,7 +1170,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1219,7 +1221,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedOverlaybdConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1342,7 +1344,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1385,7 +1387,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1437,6 +1439,30 @@ oom_score = 0
 				_, exist := o.files["/opt/azure/containers/provision_start.sh"]
 
 				Expect(exist).To(BeFalse())
+			},
+		),
+
+		Entry("CustomizedImageKata VHD with k8s 1.32+ should have proper containerd config", "CustomizedImageKata+1.32", ">=1.32.x",
+			func(c *datamodel.NodeBootstrappingConfiguration) {
+				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageKata
+				c.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+			}, func(o *nodeBootstrappingOutput) {
+				_, exist := o.files["/opt/azure/containers/provision_start.sh"]
+
+				Expect(exist).To(BeFalse())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedContainerdV2KataConfig := `
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+`
+				deprecatedContainerdV1KataConfig := `
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2KataConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1KataConfig))
 			},
 		),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -1605,11 +1631,7 @@ oom_score = 0
 						ContainerRegistryServer: "testserver.azurecr.io",
 					},
 				}
-			}, func(o *nodeBootstrappingOutput) {
-				containerdConfigFileContent := o.files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"].value
-				Expect(strings.Contains(containerdConfigFileContent, "[host.\"https://testserver.azurecr.io\"]")).To(BeTrue())
-				Expect(strings.Contains(containerdConfigFileContent, "capabilities = [\"pull\", \"resolve\"]")).To(BeTrue())
-			}),
+			}, nil),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true
@@ -1646,6 +1668,96 @@ oom_score = 0
 				containerdUlimitContent := o.vars["CONTAINERD_ULIMITS"]
 				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
 				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
+			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should have rename containerd runtime name", "AKSUbuntu2404+Teleport", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				// to have snapshotter features
+				config.EnableACRTeleportPlugin = true
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedContainerdV2CriConfig := `
+[plugins."io.containerd.cri.v1.images".pinned_images]
+  sandbox = ""
+`
+				deprecatedContainerdV1CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2CriConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
+
+				expectedSnapshotterConfig := `
+[plugins."io.containerd.cri.v1.images"]
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
+`
+				deprecatedSnapshotterConfig := `
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
+`
+				Expect(expectedSnapshotterConfig).NotTo(Equal(deprecatedSnapshotterConfig))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedSnapshotterConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedSnapshotterConfig))
+
+				expectedRuncConfig := `
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+        BinaryName = "/usr/bin/runc"
+        SystemdCgroup = true
+`
+				deprecatedRuncConfig := `
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+`
+				Expect(expectedRuncConfig).NotTo(Equal(deprecatedRuncConfig))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedRuncConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedRuncConfig))
+
+			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated cni features", "AKSUbuntu2404+NetworkPolicy", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				// to have cni plugin non-default
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = NetworkPolicyAntrea
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedCniV2Config := `
+[plugins."io.containerd.cri.v1.runtime".cni]
+  bin_dir = "/opt/cni/bin"
+  conf_dir = "/etc/cni/net.d"
+  conf_template = "/etc/containerd/kubenet_template.conf"
+`
+				deprecatedCniV1Config := `
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+`
+				Expect(expectedCniV2Config).NotTo(Equal(deprecatedCniV1Config))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedCniV2Config))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedCniV1Config))
 			}),
 	)
 })
@@ -2181,18 +2293,18 @@ var _ = Describe("GetGPUDriverVersion", func() {
 	})
 })
 
-var _ = Describe("getGPUDriverType", func() {
+var _ = Describe("GetGPUDriverType", func() {
 
 	It("should use cuda with nc v3", func() {
-		Expect(getGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(getGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
-		Expect(getGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(getGPUDriverType("standard_nv6")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
 	})
 })
 

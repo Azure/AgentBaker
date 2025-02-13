@@ -16,4 +16,7 @@ message GpuConfig {
 
   // Represents the GPU instance profile.
   string gpu_instance_profile = 4;
+
+  // Same as enable_nvidia, but for AMD GPUs.
+  optional bool enable_amd_gpu = 5;
 }

@@ -22,10 +22,10 @@ type Tags struct {
 	OS                     string
 	Arch                   string
 	Airgap                 bool
+	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
 	ServerTLSBootstrapping bool
-	Scriptless             bool
 	KubeletCustomConfig    bool
 }
 

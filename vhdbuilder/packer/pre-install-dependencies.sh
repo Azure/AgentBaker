@@ -79,7 +79,7 @@ systemctl enable aks-node-controller.service
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${ENABLE_FIPS,,}" == "true" && "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
@@ -92,32 +92,14 @@ else
     set -x
   fi
 
+  if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+    sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
+  fi
+
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
-
-  # CVM breaks on kernel image updates due to nullboot package post-install.
-  # it relies on boot measurements from real tpm hardware.
-  # building on a real CVM would solve this, but packer doesn't support it.
-  # we could make upstream changes but that takes time, and we are broken now.
-  # so we just hold the kernel image packages for now on CVM.
-  # this still allows us base image and package updates on a weekly cadence.
-  if [[ "$IMG_SKU" != "20_04-lts-cvm" ]]; then
-    # Canonical snapshot is only implemented for 20.04 LTS, 22.04 LTS and 23.10 and above
-    # For 20.04, the only SKUs we support are FIPS, and it reaches out to ESM to get the packages, ESM does not have canonical snapshot support
-    # Therefore keeping this to 22.04 only for now
-    if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
-      sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
-    fi
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  fi
-
-  if [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
-    # Can not currently update kernel in CVM builds due to nullboot post-installation failure when no TPM is present on the VM
-    # But we can at least update/install the below packages
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
-    apt-get -y install libpython3.8 python3.8-minimal libpython3.8-minimal libpython3.8-stdlib python3.8 libglib2.0-0 libglib2.0-data libglib2.0-bin python3-urllib3 libpython2.7-stdlib libpython2.7-stdlib python2.7-minimal libpython2.7-minimal nano libarchive13
-  fi
+  apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+  apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates

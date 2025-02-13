@@ -97,6 +97,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	prepareAKSNode(ctx, s)
+
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 	validateVM(ctx, s)
 }
 
@@ -122,8 +124,22 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
+	publicKeyData := datamodel.PublicKey{KeyData: string(s.Runtime.SSHKeyPublic)}
+
+	// check it all.
+	if s.Runtime.NBC != nil && s.Runtime.NBC.ContainerService != nil && s.Runtime.NBC.ContainerService.Properties != nil && s.Runtime.NBC.ContainerService.Properties.LinuxProfile != nil {
+		if s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys == nil {
+			s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = []datamodel.PublicKey{}
+		}
+		// Windows fetches SSH keys from the linux profile and replaces any existing SSH keys with these. So we have to set
+		// the Linux SSH keys for Windows SSH to work. Yeah. I find it odd too.
+		s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys = append(s.Runtime.NBC.ContainerService.Properties.LinuxProfile.SSH.PublicKeys, publicKeyData)
+	}
+
 	require.NoError(s.T, err)
+
 	createVMSS(ctx, s)
+
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
@@ -179,7 +195,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 
 	// skip when outbound type is block as the wasm will create pod from gcr, however, network isolated cluster scenario will block egress traffic of gcr.
 	// TODO(xinhl): add another way to validate
-	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
+	if s.Runtime.NBC != nil && s.Runtime.NBC.AgentPoolProfile != nil && s.Runtime.NBC.AgentPoolProfile.WorkloadRuntime == datamodel.WasmWasi && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeBlock && s.Runtime.NBC.OutboundType != datamodel.OutboundTypeNone {
 		ValidateWASM(ctx, s, s.Runtime.KubeNodeName)
 	}
 	if s.Runtime.AKSNodeConfig != nil && s.Runtime.AKSNodeConfig.WorkloadRuntime == aksnodeconfigv1.WorkloadRuntime_WORKLOAD_RUNTIME_WASM_WASI {
@@ -203,7 +219,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../parts/linux/cloud-init/artifacts/components.json")
+	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {

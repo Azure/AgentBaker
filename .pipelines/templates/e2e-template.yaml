@@ -1,17 +1,23 @@
+parameters:
+  - name: name
+    type: string
+    displayName: Additional name for the pipeline step
+    default: ""
+
 jobs:
   - job: e2e
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
-    pool:
-      name: $(POOL_NAME)
-    timeoutInMinutes: 90
-    displayName: Run AgentBaker E2E
     variables:
-      - group: ab-e2e
+      - group: ab-e2e # all variables prefixed with E2E_* come from this variable group
+    pool:
+      name: $(E2E_POOL_NAME)
+    timeoutInMinutes: 90
+    displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
       - bash: |
           set -ex
-          az login --identity
-          az account set -s $(SUBSCRIPTION_ID)
+          az login --identity --username $(E2E_AGENT_IDENTITY_ID)
+          az account set -s $(E2E_SUBSCRIPTION_ID)
         displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup go
@@ -45,7 +51,9 @@ jobs:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOGGING_DIR: $(LOGGING_DIR)
       # Without this step next step may fail on successful run
-      - bash: mkdir -p $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
+      - bash: |
+          set -ex
+          mkdir -p "$(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)"
         condition: always()
         displayName: Create folder for scenario logs
       - task: PublishTestResults@2

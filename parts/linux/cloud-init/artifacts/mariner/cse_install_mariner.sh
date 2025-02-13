@@ -11,6 +11,15 @@ removeContainerd() {
 }
 
 installDeps() {
+    # The nftables package turns on a service by default that tries to load config files,
+    # but the stock config files in the package have no uncommented lines and make the service
+    # fail to start. Masking it as it's not used, and the stop action of "flush tables" can
+    # result in rules getting cleared unexpectedly. Azure Linux 3 fixes this, so we only need
+    # this in 2.0.
+    if [[ $OS_VERSION == "2.0" ]]; then
+      systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+    
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
     for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils; do
@@ -41,13 +50,18 @@ installKataDeps() {
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
+    # 1. NVIDIA proprietary driver:
     # cuda-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
     #
+    # 2. NVIDIA OpenRM driver:
+    # cuda-open-%{nvidia gpu driver version}_%{kernel source version}.%{kernel release version}.{mariner rpm postfix}
+    #
+    # The proprietary driver will be used here in order to support older NVIDIA GPU SKUs like V100
     # Before installing cuda, check the active kernel version (uname -r) and use that to determine which cuda to install
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_VERSION="*_${KERNEL_VERSION}*"
+    CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
-    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
+    if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }

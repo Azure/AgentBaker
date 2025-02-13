@@ -28,7 +28,7 @@ steps:
       # Just copy components.json. If anything else is needed, then someone can modify the pipeline in an emergency.
       # we check for existence of both src and destination file because if neither of those exist then the override will fail.
       COMPONENT_JSON_SRC=$(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
-      COMPONENT_JSON_DEST=./parts/linux/cloud-init/artifacts/components.json
+      COMPONENT_JSON_DEST=./parts/common/components.json
       if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
         echo "destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}"
         exit 1
@@ -103,7 +103,7 @@ steps:
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ "${IMG_SKU}" == "20_04-lts-cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if [[ "${IMG_SKU}" == "20_04-lts-cvm" || "${IMG_SKU}" == "cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
@@ -111,6 +111,7 @@ steps:
       echo "##vso[task.setvariable variable=SKU_NAME]$SKU_NAME"
       echo "Set SKU_NAME to $SKU_NAME"
     displayName: Set SKU Name
+  
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
     retryCountOnTaskFailure: 3
@@ -128,6 +129,8 @@ steps:
       PACKER_VNET_NAME="$(cat vhdbuilder/packer/settings.json | grep "vnet_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_NAME]${PACKER_VNET_NAME}" && \
       echo "##vso[task.setvariable variable=VHD_NAME]${CAPTURED_SIG_VERSION}.vhd" && \
