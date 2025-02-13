@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
+set -x
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
