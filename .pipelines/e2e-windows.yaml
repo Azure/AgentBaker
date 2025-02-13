@@ -20,6 +20,7 @@ pr:
       - e2e
       - parts/windows
       - pkg/agent
+      - parts/common/components.json
       - staging/cse/windows/
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes

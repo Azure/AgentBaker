@@ -23,6 +23,7 @@ package components
 }
 
 #WindowsVersion: {
+	comment?:                string
 	k8sVersion?:             string
 	renovateTag?:            string
 	latestVersion:           string
