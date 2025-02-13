@@ -133,7 +133,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
   enableCgroupV2forAzureLinux
 fi
 
-if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
+if [[ "${OS}" == "${UBUNTU_OS_NAME}" && "${ENABLE_FIPS,,}" != "true" ]]; then
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
@@ -141,8 +141,8 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
   echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
 
-  # Install lts-22.04 kernel
-  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
+  # Install lts kernel
+  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-${UBUNTU_RELEASE} linux-cloud-tools-azure-lts-${UBUNTU_RELEASE} linux-headers-azure-lts-${UBUNTU_RELEASE} linux-modules-extra-azure-lts-${UBUNTU_RELEASE} linux-tools-azure-lts-${UBUNTU_RELEASE}
   echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
 
   update-grub
