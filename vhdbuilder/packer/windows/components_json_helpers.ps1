@@ -203,3 +203,30 @@ function LogReleaseNotesForWindowsRegistryKeys
 
     return $logLines
 }
+
+function GetPatchUrls
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSku,
+
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $output = New-Object System.Collections.ArrayList
+
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions.$windowsSku;
+
+    if ($baseVersionBlock = $null) {
+        return $output
+    }
+
+    $patchData = return $baseVersionBlock.patches_to_apply
+
+    foreach ($patchDatum in $patchData) {
+        $output += $patchDatum.patch_url
+    }
+
+    return $output
+}

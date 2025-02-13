@@ -39,23 +39,6 @@ $global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch
 # defenderUpdateInfoUrl refers to the info of latest windows defender platform update
 $global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
 
-switch -Regex ($windowsSku)
-{
-    "2019-containerd" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "2022-containerd*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "23H2*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-}
-
-
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
 $WindowsSettingsFile = "c:/k/windows_settings.json"
@@ -81,6 +64,22 @@ Write-Output "Helpers Ps1: $HelpersFile"
 Write-Output "WindowsSettingsFile: $WindowsSettingsFile"
 
 . "$HelpersFile"
+
+switch -Regex ($windowsSku)
+{
+    "2019-containerd" {
+        $global:patchUrls = @()
+        $global:patchIDs = @()
+    }
+    "2022-containerd*" {
+        $global:patchUrls = @()
+        $global:patchIDs = @()
+    }
+    "23H2*" {
+        $global:patchUrls = @()
+        $global:patchIDs = @()
+    }
+}
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
