@@ -28,6 +28,25 @@ Describe 'WindowsBaseVersions' {
         $patchurls | Should -Contain "patch_url"
         $patchurls.Length | Should -Be 1
     }
+
+    it "can extract two patch urls for windows 2019" {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url1"},{"id": "patchid", "url": "patch_url2"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $patchurls = GetPatchUrls "2019" $windowsSettings
+        $patchurls | Should -Contain "patch_url1"
+        $patchurls | Should -Contain "patch_url2"
+        $patchurls.Length | Should -Be 2
+    }
+
     it "can extract patch names for windows 2019" {}
 }
 

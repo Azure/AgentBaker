@@ -216,16 +216,16 @@ function GetPatchUrls
 
     $output = New-Object System.Collections.ArrayList
 
-    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions.$windowsSku;
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
 
-    if ($baseVersionBlock = $null) {
+    if ($baseVersionBlock -eq $null) {
         return $output
     }
 
-    $patchData = return $baseVersionBlock.patches_to_apply
+    $patchData = $baseVersionBlock.patches_to_apply
 
     foreach ($patchDatum in $patchData) {
-        $output += $patchDatum.patch_url
+        $output += $patchDatum.url
     }
 
     return $output
