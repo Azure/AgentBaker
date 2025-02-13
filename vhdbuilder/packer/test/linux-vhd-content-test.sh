@@ -404,6 +404,21 @@ testFips() {
   echo "$test:Finish"
 }
 
+#testLtsKernel() {
+#  test="testLtsKernel"
+#  echo "$test:Start"
+#  os_version=$1
+#  os_sku=$2
+#  enable_fips=$3
+#
+#  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
+#    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
+#    kernel=$(uname -r)
+#  else
+#    echo "OS is not Ubuntu, skip LTS kernel test"
+#  fi
+#}
+
 testCloudInit() {
   test="testCloudInit"
   echo "$test:Start"
