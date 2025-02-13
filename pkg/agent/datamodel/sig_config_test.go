@@ -39,6 +39,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSCBLMarinerV2Arm64Gen2:         SIGCBLMarinerV2Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Arm64Gen2:         SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Arm64Gen2:         SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3Arm64Gen2FIPS:     SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2Gen2TL:            SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2TL:            SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
@@ -105,7 +106,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(13))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(14))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -308,6 +309,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
 		Expect(azurelinuxV3Gen2FIPS.Definition).To(Equal("V3gen2fips"))
 		Expect(azurelinuxV3Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3Arm64Gen2FIPS := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3Arm64Gen2FIPS]
+		Expect(azurelinuxV3Arm64Gen2FIPS.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3Arm64Gen2FIPS.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3Arm64Gen2FIPS.Definition).To(Equal("V3gen2arm64fips"))
+		Expect(azurelinuxV3Arm64Gen2FIPS.Version).To(Equal(LinuxSIGImageVersion))
 
 		azurelinuxV2Gen2Kata := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2Gen2Kata]
 		Expect(azurelinuxV2Gen2Kata.ResourceGroup).To(Equal("resourcegroup"))
