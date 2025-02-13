@@ -116,16 +116,28 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
 fi
 
 if [[ "${OS}" == "${UBUNTU_OS_NAME}" && "${ENABLE_FIPS,,}" != "true" ]]; then
+  LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
+  LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
+  LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+  LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
+  LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
-  # Purge all current kernels and dependencies
-  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+  if apt-cache show "$LTS_KERNEL" &>/dev/null; then
+      echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
 
-  # Install lts kernel
-  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-${UBUNTU_RELEASE} linux-cloud-tools-azure-lts-${UBUNTU_RELEASE} linux-headers-azure-lts-${UBUNTU_RELEASE} linux-modules-extra-azure-lts-${UBUNTU_RELEASE} linux-tools-azure-lts-${UBUNTU_RELEASE}
-  echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
+      # Purge all current kernels and dependencies
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+
+      # Install LTS kernel
+      DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
+      echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+  else
+      echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
+  fi
 
   update-grub
 fi
