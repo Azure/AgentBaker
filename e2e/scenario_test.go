@@ -808,6 +808,22 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.EnableArtifactStreaming = true
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
