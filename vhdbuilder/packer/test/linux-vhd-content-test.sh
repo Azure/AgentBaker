@@ -408,20 +408,36 @@ testFips() {
   echo "$test:Finish"
 }
 
-#testLtsKernel() {
-#  test="testLtsKernel"
-#  echo "$test:Start"
-#  os_version=$1
-#  os_sku=$2
-#  enable_fips=$3
-#
-#  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
-#    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
-#    kernel=$(uname -r)
-#  else
-#    echo "OS is not Ubuntu, skip LTS kernel test"
-#  fi
-#}
+testLtsKernel() {
+  test="testLtsKernel"
+  echo "$test:Start"
+  os_version=$1
+  os_sku=$2
+  enable_fips=$3
+
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
+    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
+    # Check the Ubuntu version and set the expected kernel version
+    if [[ "$os_version" == "2204" ]]; then
+      expected_kernel="5.15"
+    elif [[ "$os_version" == "2404" ]]; then
+      expected_kernel="6.8"
+    else
+      echo "LTS kernel not installed for: $os_version"
+    fi
+
+    kernel=$(uname -r)
+    echo "Current kernel version: $kernel"
+    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+      echo "Kernel version is as expected ($expected_kernel)."
+    else
+      echo "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
+    fi
+  else
+    echo "OS is not Ubuntu, skip LTS kernel test"
+  fi
+
+}
 
 testCloudInit() {
   test="testCloudInit"
@@ -1176,3 +1192,4 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
+testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS

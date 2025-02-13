@@ -115,7 +115,7 @@ if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; 
   enableCgroupV2forAzureLinux
 fi
 
-if [[ "${OS}" == "${UBUNTU_OS_NAME}" && "${ENABLE_FIPS,,}" != "true" ]]; then
+if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
   LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
   LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
