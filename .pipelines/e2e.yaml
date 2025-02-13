@@ -19,6 +19,7 @@ pr:
       - .pipelines/templates/e2e-template.yaml
       - e2e
       - parts/linux
+      - parts/common/components.json
       - pkg/agent
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes

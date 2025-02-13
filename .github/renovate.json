@@ -201,10 +201,14 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {
@@ -241,6 +245,22 @@
         "containernetworking/azure-ipam"
       ],
       "groupName": "azure-ipam"
+    },
+    {
+      "matchPackageNames": [
+        "oss/kubernetes/azure-cloud-node-manager"
+      ],
+      "groupName": "azure-cloud-node-manager",
+      "assignees": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ]
     },
     {
       "matchPackageNames": [
