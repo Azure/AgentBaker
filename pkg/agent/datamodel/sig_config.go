@@ -703,7 +703,7 @@ var (
 	SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V3arm64gen2fips",
+		Definition:    "V3gen2arm64fips",
 		Version:       LinuxSIGImageVersion,
 	}
 
