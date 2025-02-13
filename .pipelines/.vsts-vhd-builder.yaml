@@ -16,6 +16,7 @@ pr:
     - parts/linux/*
     - packer.mk
     - aks-node-controller/**
+    - parts/common/components.json
     exclude:
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
