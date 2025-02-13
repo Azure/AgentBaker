@@ -28,8 +28,9 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
-          "latestVersion": "ltsc2019",
+          "comment": "1809 gets patches every 6 months or so. The alternative is ltsc2019 which gets patches every couple of years. Most customers use 1809, so we keep that on the VHD",
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "1809",
           "windowsSkuMatch": "2019-containerd"
         },
         {
