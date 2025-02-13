@@ -32,7 +32,7 @@
       "os_disk_size": "35",
       "base_image_sku": "23h2-datacenter-core-g2",
       "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1369.250111"
+      "base_image_version": "25398.1369.250112"
     }
   },
   "WindowsRegistryKeys": [
