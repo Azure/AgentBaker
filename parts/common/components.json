@@ -460,28 +460,43 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.27.21-windows-hpc",
-          "previousLatestVersion": "v1.27.21"
+          "latestVersion": "v1.27.21-windows-hpc"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.28.13-windows-hpc",
-          "previousLatestVersion": "v1.28.13"
+          "latestVersion": "v1.27.21"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.29.11-windows-hpc",
-          "previousLatestVersion": "v1.29.11"
+          "latestVersion": "v1.28.13-windows-hpc"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.30.7-windows-hpc",
-          "previousLatestVersion": "v1.30.7"
+          "latestVersion": "v1.28.13"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.1-windows-hpc",
-          "previousLatestVersion": "v1.30.1"
+          "latestVersion": "v1.29.11-windows-hpc"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.29.11"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.30.7-windows-hpc"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.30.7"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.1-windows-hpc"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
+          "latestVersion": "v1.31.1"
         }
       ]
     },
