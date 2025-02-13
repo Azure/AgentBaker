@@ -201,10 +201,12 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred"
+        "mainred",
+        "MartinForReal"
       ],
       "reviewers": [
-        "mainred"
+        "mainred",
+        "MartinForReal"
       ]
     },
     {
@@ -246,7 +248,13 @@
       "matchPackageNames": [
         "oss/kubernetes/azure-cloud-node-manager"
       ],
-      "groupName": "azure-cloud-node-manager"
+      "groupName": "azure-cloud-node-manager",
+      "assignees": [
+        "MartinForReal"
+      ],
+      "reviewers": [
+        "MartinForReal"
+      ]
     },
     {
       "matchPackageNames": [
