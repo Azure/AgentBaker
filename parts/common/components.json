@@ -383,16 +383,18 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.24"
+          "latestVersion": "3.1.25"
         }
       ],
       "windowsVersions": [
         {
+          "comment": "ciprod isn't supported on Win23H2 so is excluded as it makes the VHD too large",
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
           "latestVersion": "3.1.25",
           "windowsSkuMatch": "2022*"
         },
         {
+          "comment": "ciprod isn't supported on Win23H2 so is excluded as it makes the VHD too large",
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
           "latestVersion": "3.1.25",
           "windowsSkuMatch": "2019*"
