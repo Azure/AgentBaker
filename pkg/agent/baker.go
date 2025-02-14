@@ -1005,6 +1005,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetBootstrapProfileContainerRegistryServer": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
 		},
+		"GetMCRRepositoryBase": func() string {
+			return config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase
+		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
 		},
