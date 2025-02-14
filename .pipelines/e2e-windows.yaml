@@ -20,12 +20,13 @@ pr:
       - e2e
       - parts/windows
       - pkg/agent
+      - parts/common/components.json
       - staging/cse/windows/
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
       - pkg/agent/testdata/AKSWindows* # Windows test data
-      - parts/linux/cloud-init/artifacts/components.json # centralized components management file
+      - parts/common/components.json # centralized components management file
       - staging/cse/windows/README
       - /**/*.md
       - .github/**

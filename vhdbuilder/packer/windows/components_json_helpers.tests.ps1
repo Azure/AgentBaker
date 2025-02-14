@@ -569,7 +569,7 @@ Describe 'Gets The Versions' {
 # migrated successfully
 Describe 'Tests of components.json ' {
     BeforeEach {
-        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+        $componentsJson = Get-Content 'parts/common/components.json' | Out-String | ConvertFrom-Json
     }
 
     it 'can parse components.json' {
@@ -645,7 +645,7 @@ Describe 'Tests of components.json ' {
 
         $components.Length | Should -BeGreaterThan 0
 
-        # Pause image shouldn't change too often, so let's check that is in there.
+        # core images shouldn't change too often, so let's check that is in there.
         $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2019"
         $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:1809"
     }

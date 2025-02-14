@@ -157,6 +157,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
@@ -210,6 +211,7 @@ var AvailableGen2Distros = []Distro{
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
 }
 
 //nolint:gochecknoglobals
@@ -232,6 +234,7 @@ var AvailableAzureLinuxDistros = []Distro{
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
@@ -251,6 +254,7 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV2Gen2Kata,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
 }
@@ -696,6 +700,13 @@ var (
 		Version:       LinuxSIGImageVersion,
 	}
 
+	SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3gen2arm64fips",
+		Version:       LinuxSIGImageVersion,
+	}
+
 	SIGCBLMarinerV2KataImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSCBLMarinerResourceGroup,
 		Gallery:       AKSCBLMarinerGalleryName,
@@ -873,19 +884,20 @@ func getSigCBLMarinerImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 
 func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
-		AKSAzureLinuxV2:          SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3:          SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2:      SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3Gen2:      SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2FIPS:      SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3FIPS:      SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2FIPS:  SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3Gen2FIPS:  SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2Kata:  SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Arm64Gen2: SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3Arm64Gen2: SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV2Gen2TL:    SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
-		AKSAzureLinuxV3Gen2TL:    SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2:              SIGAzureLinuxV2Gen1ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3:              SIGAzureLinuxV3Gen1ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2:          SIGAzureLinuxV2Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Gen2:          SIGAzureLinuxV3Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2FIPS:          SIGAzureLinuxV2Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3FIPS:          SIGAzureLinuxV3Gen1FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2FIPS:      SIGAzureLinuxV2Gen2FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Gen2FIPS:      SIGAzureLinuxV3Gen2FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2Kata:      SIGAzureLinuxV2KataImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Arm64Gen2:     SIGAzureLinuxV2Arm64ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Arm64Gen2:     SIGAzureLinuxV3Arm64ImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Arm64Gen2FIPS: SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV2Gen2TL:        SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3Gen2TL:        SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

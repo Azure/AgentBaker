@@ -355,6 +355,17 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	}
 }
 
+func NeedsContainerd(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) bool {
+	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+		return profile.KubernetesConfig.NeedsContainerd()
+	}
+	return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+}
+
+func NeedsContainerdV2(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) bool {
+	return NeedsContainerd(profile, cs) && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.32.0")
+}
+
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
@@ -648,10 +659,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
-			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-				return profile.KubernetesConfig.NeedsContainerd()
-			}
-			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
+			return NeedsContainerd(profile, cs)
+		},
+		"NeedsContainerdV2": func() bool {
+			return NeedsContainerdV2(profile, cs)
 		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
@@ -697,24 +708,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
+				if NeedsContainerdV2(profile, cs) {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
-			}(profile))
+			}(profile, cs))
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
-				if profile.Is2404VHDDistro() {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
+				if NeedsContainerdV2(profile, cs) {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
-			}(profile))
+			}(profile, cs))
 
 			if err != nil {
 				panic(err)
@@ -1399,70 +1410,100 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
+{{- if IsKata }}
+  snapshotter = "tardev"
+  disable_snapshot_annotations = false
+{{- end}}
 
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
-
-[plugins."io.containerd.cri.v1.runtime".containerd]
-  {{- if IsNSeriesSKU }}
-  default_runtime_name = "nvidia-container-runtime"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
-    runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-      BinaryName = "/usr/bin/nvidia-container-runtime"
-      SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/nvidia-container-runtime"
-{{- else}}
-  default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-      BinaryName = "/usr/bin/runc"
-      SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-      BinaryName = "/usr/bin/runc"
-{{- end}}
-{{- if IsKrustlet }}
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-    runtime_type = "io.containerd.spin.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-    runtime_type = "io.containerd.spin-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-    runtime_type = "io.containerd.spin-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-    runtime_type = "io.containerd.slight-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-    runtime_type = "io.containerd.spin-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-    runtime_type = "io.containerd.slight-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-    runtime_type = "io.containerd.wws-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-    runtime_type = "io.containerd.spin.v2"
-{{- end}}
-{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
-[plugins."io.containerd.cri.v1.runtime".cni]
-  bin_dir = "/opt/cni/bin"
-  conf_dir = "/etc/cni/net.d"
-  conf_template = "/etc/containerd/kubenet_template.conf"
-{{- end}}
 {{- if IsKubernetesVersionGe "1.22.0"}}
 [plugins."io.containerd.cri.v1.images".registry]
   config_path = "/etc/containerd/certs.d"
 {{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
+
+[plugins."io.containerd.cri.v1.runtime".containerd]
+{{- if IsNSeriesSKU }}
+  default_runtime_name = "nvidia-container-runtime"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+      runtime_type = "io.containerd.runc.v2"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+        BinaryName = "/usr/bin/nvidia-container-runtime"
+        SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+{{- else}}
+  default_runtime_name = "runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+        BinaryName = "/usr/bin/runc"
+        SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+        BinaryName = "/usr/bin/runc"
+  {{- if IsKrustlet }}
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
+      runtime_type = "io.containerd.spin.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
+      runtime_type = "io.containerd.spin-v0-5-1.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
+      runtime_type = "io.containerd.spin-v0-8-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
+      runtime_type = "io.containerd.slight-v0-8-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
+      runtime_type = "io.containerd.wws-v0-8-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
+      runtime_type = "io.containerd.spin.v2"
+  {{- end}}
+  {{- if IsKata }}
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+      runtime_type = "io.containerd.kata.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
+      runtime_type = "io.containerd.runc.v1"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
+        NoPivotRoot = false
+        NoNewKeyring = false
+        ShimCgroup = ""
+        IoUid = 0
+        IoGid = 0
+        BinaryName = "/usr/bin/kata-runtime"
+        Root = ""
+        SystemdCgroup = false
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+      runtime_type = "io.containerd.kata-cc.v2"
+      privileged_without_host_devices = true
+      pod_annotations = ["io.katacontainers.*"]
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+        ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+  {{- end}}
+{{- end}}
+
+{{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
+[plugins."io.containerd.cri.v1.runtime".cni]
+  bin_dir = "/opt/cni/bin"
+  conf_dir = "/etc/cni/net.d"
+  conf_template = "/etc/containerd/kubenet_template.conf"
+{{- end}}
+
 [metrics]
   address = "0.0.0.0:10257"
+
 {{- if TeleportEnabled }}
 [proxy_plugins]
   [proxy_plugins.teleportd]
@@ -1476,31 +1517,10 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
-  runtime_type = "io.containerd.kata.v2"
-  snapshotter = "tardev"
-  disable_snapshot_annotations = false
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
-  runtime_type = "io.containerd.kata-cc.v2"
-  privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
-    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -1516,57 +1536,86 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
+{{- if IsKata }}
+  snapshotter = "tardev"
+  disable_snapshot_annotations = false
+{{- end}}
     
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
+{{- if IsKubernetesVersionGe "1.22.0"}}
+[plugins."io.containerd.cri.v1.images".registry]
+  config_path = "/etc/containerd/certs.d"
+{{- end}}
+[plugins."io.containerd.cri.v1.images".registry.headers]
+  X-Meta-Source-Client = ["azure/aks"]
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-    BinaryName = "/usr/bin/runc"
-    SystemdCgroup = true
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-    runtime_type = "io.containerd.runc.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-    BinaryName = "/usr/bin/runc"
-{{- if IsKrustlet }}
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-    runtime_type = "io.containerd.spin.v2"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-    runtime_type = "io.containerd.spin-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-    runtime_type = "io.containerd.slight-v0-3-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-    runtime_type = "io.containerd.spin-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-    runtime_type = "io.containerd.slight-v0-5-1.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-    runtime_type = "io.containerd.spin-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-    runtime_type = "io.containerd.slight-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-    runtime_type = "io.containerd.wws-v0-8-0.v1"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-    runtime_type = "io.containerd.spin.v2"
-{{- end}}
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+      runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
+  {{- if IsKrustlet }}
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
+      runtime_type = "io.containerd.spin.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
+      runtime_type = "io.containerd.spin-v0-3-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
+      runtime_type = "io.containerd.slight-v0-3-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
+      runtime_type = "io.containerd.spin-v0-5-1.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
+      runtime_type = "io.containerd.slight-v0-5-1.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
+      runtime_type = "io.containerd.spin-v0-8-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
+      runtime_type = "io.containerd.slight-v0-8-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
+      runtime_type = "io.containerd.wws-v0-8-0.v1"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
+      runtime_type = "io.containerd.spin.v2"
+  {{- end}}
+  {{- if IsKata }}
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+      runtime_type = "io.containerd.kata.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
+      runtime_type = "io.containerd.runc.v1"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
+        NoPivotRoot = false
+        NoNewKeyring = false
+        ShimCgroup = ""
+        IoUid = 0
+        IoGid = 0
+        BinaryName = "/usr/bin/kata-runtime"
+        Root = ""
+        SystemdCgroup = false
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+      runtime_type = "io.containerd.kata-cc.v2"
+      privileged_without_host_devices = true
+      pod_annotations = ["io.katacontainers.*"]
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+        ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+  {{- end}}
+
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
   conf_dir = "/etc/cni/net.d"
   conf_template = "/etc/containerd/kubenet_template.conf"
 {{- end}}
-{{- if IsKubernetesVersionGe "1.22.0"}}
-[plugins."io.containerd.cri.v1.images".registry]
-  config_path = "/etc/containerd/certs.d"
-{{- end}}
-[plugins."io.containerd.cri.v1.images".registry.headers]
-    X-Meta-Source-Client = ["azure/aks"]
+
 [metrics]
   address = "0.0.0.0:10257"
+
 {{- if TeleportEnabled }}
 [proxy_plugins]
   [proxy_plugins.teleportd]
@@ -1580,31 +1629,10 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
-  runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
-  snapshotter = "tardev"
-  disable_snapshot_annotations = false
-  runtime_type = "io.containerd.kata-cc.v2"
-  privileged_without_host_devices = true
-  pod_annotations = ["io.katacontainers.*"]
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
-    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2

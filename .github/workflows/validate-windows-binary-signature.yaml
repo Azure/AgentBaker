@@ -4,8 +4,11 @@ on:
     paths:
       - '.github/workflows/validate-windows-binary-signature.yaml'
       - 'vhdbuilder/packer/test/windows-files-check.ps1'
-      - '../../vhdbuilder/packer/windows'
-      - 'parts/linux/cloud-init/artifacts/components.json'
+      - 'parts/common/components.json'
+      - 'vhdbuilder/packer/windows/**'
+      - 'vhdbuilder/packer/windows/windows-vhd-configuration.ps1'
+      - 'vhdbuilder/packer/windows/windows_settings.json'
+      - 'vhdbuilder/packer/windows/components_json_helpers.ps1'
 
 jobs:
   check-files-for-ws2019:

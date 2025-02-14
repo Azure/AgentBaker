@@ -68,12 +68,12 @@ if (!(Test-Path $HelpersFile))
 
 if (!(Test-Path $WindowsSettingsFile))
 {
-    $HelpersFile = "vhdbuilder/packer/windows/windows_settings.json"
+    $WindowsSettingsFile = "vhdbuilder/packer/windows/windows_settings.json"
 }
 
 if (!(Test-Path $ComponentsJsonFile))
 {
-    $ComponentsJsonFile = "parts/linux/cloud-init/artifacts/components.json"
+    $ComponentsJsonFile = "parts/common/components.json"
 }
 
 Write-Output "Components JSON: $ComponentsJsonFile"

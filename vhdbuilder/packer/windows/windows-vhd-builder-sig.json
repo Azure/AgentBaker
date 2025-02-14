@@ -76,7 +76,7 @@
             "type": "file",
             "direction": "upload",
             "sources": [
-                "parts/linux/cloud-init/artifacts/components.json",
+                "parts/common/components.json",
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
                 "vhdbuilder/packer/windows/windows_settings.json",
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
@@ -125,7 +125,8 @@
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=3",
-                "WindowsSKU={{user `windows_sku`}}"
+                "WindowsSKU={{user `windows_sku`}}",
+                "SKIP_EXTENSION_CHECK={{ user `SKIP_EXTENSION_CHECK` }}"
             ],
             "type": "powershell",
             "scripts": [

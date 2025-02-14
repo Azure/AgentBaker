@@ -319,7 +319,7 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/components.json",
+      "source": "parts/common/components.json",
       "destination": "/home/packer/components.json"
     },
     {

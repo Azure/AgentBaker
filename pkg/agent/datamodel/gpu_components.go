@@ -34,7 +34,7 @@ type componentsConfig struct {
 
 func LoadConfig() error {
 	// Read the embedded components.json file
-	data, err := parts.Templates.ReadFile("linux/cloud-init/artifacts/components.json")
+	data, err := parts.Templates.ReadFile("common/components.json")
 	if err != nil {
 		return fmt.Errorf("failed to read components.json: %w", err)
 	}
