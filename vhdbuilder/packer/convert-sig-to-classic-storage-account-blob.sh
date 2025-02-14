@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-set -x
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
@@ -103,10 +102,16 @@ capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
-if [[ "$sas" == "" ]]; then
+if [[ "$sas" == "None" ]]; then
 # shellcheck disable=SC2102
  echo "sas token empty. Trying alternative query string"
  sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSAS] -o tsv)
+fi
+
+if [[ "$sas" == "None" ]]; then
+# shellcheck disable=SC2102
+ echo "sas token empty after trying both queries. Can't continue"
+ exit 1
 fi
 
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
