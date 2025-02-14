@@ -581,10 +581,27 @@ Describe 'Tests of components.json ' {
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
     }
 
-    it 'has the right version of ciprod' {
+    it 'has the right version of ciprod for win 2019' {
+        $windowsSku = "2019-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
 
-        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.24"
+        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
+
+    it 'has the right version of ciprod for win 2022' {
+        $windowsSku = "2022-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
+
+    it 'has the no version of ciprod for win 23H2' {
+        $windowsSku = "23H2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Not -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
     }
 
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
@@ -617,6 +634,7 @@ Describe 'Tests of components.json ' {
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip"
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip"
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.59.zip"
+
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.59.zip"
     }
