@@ -103,7 +103,7 @@ steps:
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ "${IMG_SKU}" == "20_04-lts-cvm" || "${IMG_SKU}" == "cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
