@@ -184,6 +184,20 @@
     },
     {
       "matchPackageNames": [
+        "oss/kubernetes/autoscaler/addon-resizer",
+        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler"
+      ],
+      "assignees": [
+        "nirnaymsft",
+        "SriHarsha001"
+      ],
+      "reviewers": [
+        "nirnaymsft",
+        "SriHarsha001"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "oss/v2/open-policy-agent/gatekeeper",
         "azure-policy/policy-kubernetes-addon-prod"
       ],
