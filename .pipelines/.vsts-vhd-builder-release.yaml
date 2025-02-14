@@ -160,7 +160,7 @@ parameters:
   - name: build2404cvmgen2containerd
     displayName: Build 2404 CVM Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404gen2containerd
     displayName: Build 2404 Gen2 Containerd
     type: boolean
