@@ -184,6 +184,22 @@
     },
     {
       "matchPackageNames": [
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod"
+      ],
+      "assignees": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ],
+      "reviewers": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "oss/kubernetes/coredns",
         "oss/v2/kubernetes/coredns"
       ],
@@ -201,10 +217,14 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {
@@ -246,7 +266,17 @@
       "matchPackageNames": [
         "oss/kubernetes/azure-cloud-node-manager"
       ],
-      "groupName": "azure-cloud-node-manager"
+      "groupName": "azure-cloud-node-manager",
+      "assignees": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ]
     },
     {
       "matchPackageNames": [
