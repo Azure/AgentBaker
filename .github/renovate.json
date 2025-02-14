@@ -184,6 +184,22 @@
     },
     {
       "matchPackageNames": [
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod"
+      ],
+      "assignees": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ],
+      "reviewers": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "oss/kubernetes/coredns",
         "oss/v2/kubernetes/coredns"
       ],
