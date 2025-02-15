@@ -128,7 +128,7 @@ func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Proper
 	}
 
 	if kubernetesConfig.CustomKubeBinaryURL != "" {
-		// kubernetesConfig.CustomKubeBinaryURL is ap level property, CustomKubeBinaryURL is
+		// nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL is ap level property, CustomKubeBinaryURL is
 		// set to different for amd64/arm64 ap in RP side.
 		addValue(parametersMap, "kubeBinaryURL", kubernetesConfig.CustomKubeBinaryURL)
 	}

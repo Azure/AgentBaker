@@ -11,6 +11,9 @@ STORAGE_ACCOUNT_NAME="aksimages${CREATE_TIME}$RANDOM"
 # This variable will only be set if a VHD build is triggered from an official branch
 VHD_BUILD_TIMESTAMP=""
 
+echo "bad"
+exit 1
+
 # Check if the file exists, if it does, the build is triggered from an official branch
 if [ -f "${PUBLISHER_BASE_IMAGE_VERSION_JSON}" ]; then
   # Ensure that the file is not empty, this will never happen since automation generates the file after each build but still have this check in place
