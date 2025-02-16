@@ -498,7 +498,8 @@ func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, res
 	delay := 5 * time.Second
 	retryOn := func(err error) bool {
 		var respErr *azcore.ResponseError
-		// AllocationFailed sometimes happens for GPU SKUs with limited availability, sometimes retrying helps
+		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+		// It's not a quota issue
 		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
 	}
 	attempt := 0
