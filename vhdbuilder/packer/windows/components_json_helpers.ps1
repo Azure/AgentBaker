@@ -230,3 +230,12 @@ function GetPatchInfo
     # returning lots of items. But there is usually only one patch to apply.
     return $patchData
 }
+
+function GetWindowsBaseVersions {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    return $windowsSettingsContent.WindowsBaseVersions.PSObject.Properties.Name
+}

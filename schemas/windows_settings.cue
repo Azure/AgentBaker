@@ -19,12 +19,16 @@
 #WindowsPatches: [...#WindowsPatch]
 
 #WindowsBaseVersion: {
+	comment?:           string
   os_disk_size?:      string
   base_image_sku:     string,
   base_image_version: string
   windows_image_name: string
   patches_to_apply:   #WindowsPatches
 }
+
+#WindowsComments: [...string]
+
 
 #WindowsBaseVersions: {
   "2019": #WindowsBaseVersion
@@ -36,6 +40,7 @@
 }
 
 #WindowsSettings: {
+	WindowsComments?:    #WindowsComments
   WindowsRegistryKeys: #WindowsRegistryKeys
   WindowsBaseVersions: #WindowsBaseVersions
 }

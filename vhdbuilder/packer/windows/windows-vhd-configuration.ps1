@@ -1,9 +1,4 @@
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
-if (-not ($validSKU -contains $windowsSKU))
-{
-    throw "Unsupported windows image SKU: $windowsSKU"
-}
 
 # We use the same temp dir for all temp tools that will be used for vhd build
 $global:aksTempDir = "c:\akstemp"
@@ -25,14 +20,6 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
     "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
 )
 
-# Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
-# Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
-# Windows Server 23H2 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248
-# then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
-#
-# IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
-# You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
-# SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
 
 # defenderUpdateUrl refers to the latest windows defender platform update
 $global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
@@ -75,6 +62,12 @@ $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
+
+$validSKU = GetWindowsBaseVersions $windowsSettingsJson
+if (-not ($validSKU -contains $windowsSKU))
+{
+    throw "Unsupported windows image SKU: $windowsSKU"
+}
 
 # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
 # during building the Windows VHD to cache container images.
