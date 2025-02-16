@@ -12,14 +12,14 @@
 #WindowsRegistryKeys: [...#WindowsRegistryKey]
 
 #WindowsPatch: {
-	id: string
-	url: string
+  id: string
+  url: string
 }
 
 #WindowsPatches: [...#WindowsPatch]
 
 #WindowsBaseVersion: {
-	comment?:           string
+  comment?:           string
   os_disk_size?:      string
   base_image_sku:     string,
   base_image_version: string
@@ -40,13 +40,13 @@
 }
 
 #WindowsDefenderInfo: {
-	DefenderUpdateUrl:     string,
-	DefenderUpdateInfoUrl: string
+  DefenderUpdateUrl:     string,
+  DefenderUpdateInfoUrl: string
 }
 
 #WindowsSettings: {
-	WindowsComments?:    #WindowsComments
-	WindowsDefenderInfo: #WindowsDefenderInfo
+  WindowsComments?:    #WindowsComments
+  WindowsDefenderInfo: #WindowsDefenderInfo
   WindowsRegistryKeys: #WindowsRegistryKeys
   WindowsBaseVersions: #WindowsBaseVersions
 }
