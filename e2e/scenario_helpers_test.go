@@ -44,7 +44,8 @@ func setupSignalHandler() context.Context {
 
 		// block until second signal is received
 		<-ch
-		fmt.Println(red("Received second cancellation signal, forcing exit. (You may need to manually delete created Azure resources)"))
+		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName)
+		fmt.Println(red(msg))
 		os.Exit(1)
 	}()
 	return ctx
