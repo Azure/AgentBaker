@@ -65,24 +65,11 @@ Write-Output "WindowsSettingsFile: $WindowsSettingsFile"
 
 . "$HelpersFile"
 
-switch -Regex ($windowsSku)
-{
-    "2019-containerd" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "2022-containerd*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "23H2*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-}
-
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
+$patch_data = GetPatchInfo $windowsSKU $windowsSettingsJson
+$global:patchUrls = $patch_data | % { $_.url }
+$global:patchIDs = $patch_data | % { $_.id }
 
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
