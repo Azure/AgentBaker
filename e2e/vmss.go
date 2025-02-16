@@ -79,8 +79,8 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		cleanupVMSS(ctx, s)
 	})
 	skipTestIfSKUNotAvailableErr(s.T, err)
-	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
+	logSSHInstructions(ctx, s)
 	return vmss
 }
 

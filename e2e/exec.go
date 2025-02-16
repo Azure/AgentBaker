@@ -171,8 +171,18 @@ func unprivilegedCommandArray() []string {
 	}
 }
 
-func logSSHInstructions(s *Scenario) {
-	result := "SSH Instructions:"
+func logSSHInstructions(ctx context.Context, s *Scenario) {
+	privateIP, err := getVMPrivateIPAddress(ctx, s)
+	if err != nil {
+		s.T.Logf("error getting VM private IP: %v", err)
+		return
+	}
+	err = uploadSSHKey(ctx, s.Runtime.Cluster.Kube, privateIP, s.Runtime.Cluster.DebugPod.Name, s.Runtime.SSHKeyPrivate)
+	if err != nil {
+		s.T.Logf("error uploading SSH key to VM: %v", err)
+		return
+	}
+	result := "SSH Instructions. It may take some time for the VM to be ready for SSH."
 	if !config.Config.KeepVMSS {
 		result += " (VM will be automatically deleted after the test finishes, set KEEP_VMSS=true to preserve it or pause the test with a breakpoint before the test finishes)"
 	}
@@ -182,4 +192,16 @@ func logSSHInstructions(s *Scenario) {
 	result += fmt.Sprintf(`kubectl exec -it %s -- bash -c "chroot /proc/1/root /bin/bash -c '%s'"`, s.Runtime.Cluster.DebugPod.Name, sshString(s.Runtime.VMPrivateIP))
 	s.T.Log(result)
 	//runtime.Breakpoint() // uncomment to pause the test
+}
+
+func uploadSSHKey(ctx context.Context, kube *Kubeclient, vmPrivateIP, jumpboxPodName string, sshPrivateKey []byte) error {
+	cmd := fmt.Sprintf(`echo '%s' > %[2]s && chmod 0600 %[2]s`, sshPrivateKey, sshKeyName(vmPrivateIP), sshString(vmPrivateIP))
+	res, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, cmd)
+	if err != nil {
+		return fmt.Errorf("error uploading ssh key to VM: %w", err)
+	}
+	if res.exitCode != "0" {
+		return fmt.Errorf("error uploading ssh key to VM: %s", res.String())
+	}
+	return nil
 }
