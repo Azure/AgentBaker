@@ -239,3 +239,22 @@ function GetWindowsBaseVersions {
 
     return $windowsSettingsContent.WindowsBaseVersions.PSObject.Properties.Name
 }
+
+function GetDefenderUpdateUrl {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    return $windowsSettingsContent.WindowsDefenderInfo.DefenderUpdateUrl
+}
+
+
+function GetDefenderUpdateInfoUrl {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    return $windowsSettingsContent.WindowsDefenderInfo.DefenderUpdateInfoUrl
+}

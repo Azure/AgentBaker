@@ -9,23 +9,6 @@ $global:aksToolsDir = "c:\aks-tools"
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 1*1024*1024*1024 # 1GB
 
-$global:excludeHashComparisionListInAzureChinaCloud = @(
-    "calico-windows",
-    "azure-vnet-cni-singletenancy-windows-amd64",
-    "azure-vnet-cni-singletenancy-swift-windows-amd64",
-    "azure-vnet-cni-singletenancy-overlay-windows-amd64",
-    # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
-    # so we can ignore the different hash values.
-    "v1.26.0-1int.zip",
-    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-)
-
-
-# defenderUpdateUrl refers to the latest windows defender platform update
-$global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
-# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
-$global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
-
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
 $WindowsSettingsFile = "c:/k/windows_settings.json"
@@ -75,3 +58,21 @@ if (-not ($validSKU -contains $windowsSKU))
 # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
 # versions synced.
 $global:defaultContainerdPackageUrl = GetDefaultContainerDFromComponentsJson $componentsJson
+
+# defenderUpdateUrl refers to the latest windows defender platform update
+$global:defenderUpdateUrl = GetDefenderUpdateUrl $windowsSettingsJson
+# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
+$global:defenderUpdateInfoUrl = GetDefenderUpdateInfoUrl $windowsSettingsJson
+
+# The following items still need to be migrated into the windows_settings file.
+$global:excludeHashComparisionListInAzureChinaCloud = @(
+    "calico-windows",
+    "azure-vnet-cni-singletenancy-windows-amd64",
+    "azure-vnet-cni-singletenancy-swift-windows-amd64",
+    "azure-vnet-cni-singletenancy-overlay-windows-amd64",
+    # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
+    # so we can ignore the different hash values.
+    "v1.26.0-1int.zip",
+    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+)
+

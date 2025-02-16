@@ -3,6 +3,27 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'GetWindowsDefenderInfo' {
+    BeforeEach {
+        $testString = '{
+   "WindowsDefenderInfo": {
+    "DefenderUpdateUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64",
+    "DefenderUpdateInfoUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+  },
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it 'returns the right info for GetDefenderUpdateUrl' {
+        GetDefenderUpdateUrl $windowsSettings | Should -Be "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+    }
+
+    it 'returns the right info for GetDefenderUpdateInfoUrl' {
+        GetDefenderUpdateInfoUrl $windowsSettings | Should -Be "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+    }
+
+}
+
 Describe 'GetWindowsBaseVersions' {
     BeforeEach {
         $testString = '{

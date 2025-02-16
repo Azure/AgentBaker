@@ -39,8 +39,14 @@
   "23H2-gen2": #WindowsBaseVersion
 }
 
+#WindowsDefenderInfo: {
+	DefenderUpdateUrl:     string,
+	DefenderUpdateInfoUrl: string
+}
+
 #WindowsSettings: {
 	WindowsComments?:    #WindowsComments
+	WindowsDefenderInfo: #WindowsDefenderInfo
   WindowsRegistryKeys: #WindowsRegistryKeys
   WindowsBaseVersions: #WindowsBaseVersions
 }
