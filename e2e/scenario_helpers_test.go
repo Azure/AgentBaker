@@ -149,9 +149,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
-	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
-	s.Runtime.DebugHostPod = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
