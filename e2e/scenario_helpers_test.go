@@ -39,12 +39,12 @@ func setupSignalHandler() context.Context {
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit."))
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
 		cancel()
 
 		// block until second signal is received
 		<-ch
-		fmt.Println(red("Received second cancellation signal, forcing exit."))
+		fmt.Println(red("Received second cancellation signal, forcing exit. (You may need to manually delete created Azure resources)"))
 		os.Exit(1)
 	}()
 	return ctx
