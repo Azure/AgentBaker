@@ -1,3 +1,7 @@
+# TODO - over time this file should contain less and less info, and really just source the json and helpers file. Then that logic can be moved into
+# the scripts that use this file and this file can be deleted.
+
+
 $global:windowsSKU = $env:WindowsSKU
 
 # We use the same temp dir for all temp tools that will be used for vhd build
