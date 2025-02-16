@@ -33,10 +33,11 @@ func ensurePod(ctx context.Context, s *Scenario, pod *corev1.Pod) {
 }
 
 func truncatePodName(t *testing.T, pod *corev1.Pod) {
+	name := pod.Name
 	if len(pod.Name) < 63 {
 		return
 	}
 	pod.Name = pod.Name[:63]
 	pod.Name = strings.TrimRight(pod.Name, "-")
-	t.Logf("truncated pod name to %q", pod.Name)
+	t.Logf("truncated pod name %q to %q", name, pod.Name)
 }
