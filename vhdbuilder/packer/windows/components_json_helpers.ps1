@@ -204,7 +204,7 @@ function LogReleaseNotesForWindowsRegistryKeys
     return $logLines
 }
 
-function GetPatchUrls
+function GetPatchInfo
 {
     Param(
         [Parameter(Mandatory = $true)][Object]
@@ -224,9 +224,9 @@ function GetPatchUrls
 
     $patchData = $baseVersionBlock.patches_to_apply
 
-    foreach ($patchDatum in $patchData) {
-        $output += $patchDatum.url
-    }
-
-    return $output
+    # I'd much rather have two functions here - one to return the ids and one to return the urls. But annoyingly
+    # powershell converts an array of strings of size 1 into a string. Which is super dumb. And means we can't trust
+    # the return value of the function to be an array. It's OK for some of the functions above as they'll always be
+    # returning lots of items. But there is usually only one patch to apply.
+    return $patchData
 }

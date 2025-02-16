@@ -19,13 +19,14 @@ Describe 'WindowsBaseVersions' {
     }
 
     it "returns an empty array for an unknown windows sku" {
-        $patchurls = GetPatchUrls "12345" $windowsSettings
+        $patchurls = GetPatchInfo "12345" $windowsSettings
         $patchurls.Length | Should -Be 0
     }
 
     it "can extract patch urls for windows 2019" {
-        $patchurls = GetPatchUrls "2019" $windowsSettings
-        $patchurls | Should -Contain "patch_url"
+        $patchurls = GetPatchInfo "2019" $windowsSettings
+        $patchurls[0].url | Should -Be "patch_url"
+        $patchurls[0].id | Should -Be "patchid"
         $patchurls.Length | Should -Be 1
     }
 
@@ -36,18 +37,18 @@ Describe 'WindowsBaseVersions' {
       "base_image_sku": "2019-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2019",
       "base_image_version": "17763.6893.250210",
-      "patches_to_apply": [{"id": "patchid", "url": "patch_url1"},{"id": "patchid", "url": "patch_url2"}]
+      "patches_to_apply": [{"id": "patchid1", "url": "patch_url1"},{"id": "patchid2", "url": "patch_url2"}]
     }
   }
 }'
         $windowsSettings = echo $testString | ConvertFrom-Json
-        $patchurls = GetPatchUrls "2019" $windowsSettings
-        $patchurls | Should -Contain "patch_url1"
-        $patchurls | Should -Contain "patch_url2"
+        $patchurls = GetPatchInfo "2019" $windowsSettings
+        $patchurls[0].url | Should -Be "patch_url1"
+        $patchurls[0].id | Should -Be "patchid1"
+        $patchurls[1].url | Should -Be "patch_url2"
+        $patchurls[1].id | Should -Be "patchid2"
         $patchurls.Length | Should -Be 2
     }
-
-    it "can extract patch names for windows 2019" {}
 }
 
 Describe 'LogReleaseNotesForWindowsRegistryKeys' {
