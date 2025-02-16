@@ -3,6 +3,104 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'GetWindowsDefenderInfo' {
+    BeforeEach {
+        $testString = '{
+   "WindowsDefenderInfo": {
+    "DefenderUpdateUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64",
+    "DefenderUpdateInfoUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+  },
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it 'returns the right info for GetDefenderUpdateUrl' {
+        GetDefenderUpdateUrl $windowsSettings | Should -Be "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+    }
+
+    it 'returns the right info for GetDefenderUpdateInfoUrl' {
+        GetDefenderUpdateInfoUrl $windowsSettings | Should -Be "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+    }
+
+}
+
+Describe 'GetWindowsBaseVersions' {
+    BeforeEach {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+    },
+     "23H2-gen2": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it "returns the bsae versions" {
+        $baseVersions = GetWindowsBaseVersions $windowsSettings
+        $baseVersions.Length | Should -Be 2
+        $baseVersions | Should -Contain "2019"
+        $baseVersions | Should -Contain "23H2-gen2"
+    }
+}
+
+Describe 'WindowsBaseVersions' {
+    BeforeEach {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it "returns an empty array for an unknown windows sku" {
+        $patchurls = GetPatchInfo "12345" $windowsSettings
+        $patchurls.Length | Should -Be 0
+    }
+
+    it "can extract patch urls for windows 2019" {
+        $patchurls = GetPatchInfo "2019" $windowsSettings
+        $patchurls[0].url | Should -Be "patch_url"
+        $patchurls[0].id | Should -Be "patchid"
+        $patchurls.Length | Should -Be 1
+    }
+
+    it "can extract two patch urls for windows 2019" {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid1", "url": "patch_url1"},{"id": "patchid2", "url": "patch_url2"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $patchurls = GetPatchInfo "2019" $windowsSettings
+        $patchurls[0].url | Should -Be "patch_url1"
+        $patchurls[0].id | Should -Be "patchid1"
+        $patchurls[1].url | Should -Be "patch_url2"
+        $patchurls[1].id | Should -Be "patchid2"
+        $patchurls.Length | Should -Be 2
+    }
+}
+
 Describe 'LogReleaseNotesForWindowsRegistryKeys' {
     BeforeEach {
         $testString = '{
