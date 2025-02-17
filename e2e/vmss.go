@@ -36,7 +36,6 @@ const (
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
 	cluster := s.Runtime.Cluster
-	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)

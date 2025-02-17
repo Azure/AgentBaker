@@ -208,6 +208,11 @@ fi
 
 if [[ "${AMD_GPU_NODE}" = true ]] && [[ "${skip_gpu_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureAMDGPUDrivers" ensureAMDGPUDrivers
+else
+    # delete cached amd gpu packages to save disk space
+    sudo rm /etc/apt/keyrings/rocm.gpg
+    sudo rm /etc/apt/sources.list.d/amdgpu.list
+    sudo rm -rf /var/cache/amdgpu-apt/*
 fi
 
 

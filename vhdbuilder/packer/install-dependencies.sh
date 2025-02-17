@@ -619,3 +619,36 @@ rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
+
+
+download_amdgpu_drivers() {
+  if [[ $OS != $UBUNTU_OS_NAME ]]; then
+    echo "Skipping AMD GPU driver setup: Unsupported OS (${OS})"
+    return
+  fi
+  echo "Downloading AMD GPU drivers for Ubuntu ${UBUNTU_RELEASE}"
+  # Determine the appropriate Ubuntu release
+  if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
+    DISTRO="jammy"
+  elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
+    DISTRO="noble"
+  else
+    echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
+    return
+  fi
+
+  sudo mkdir --parents --mode=0755 /etc/apt/keyrings
+  wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
+      gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
+  sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
+  echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.2/ubuntu ${DISTRO} main" \
+      | sudo tee /etc/apt/sources.list.d/amdgpu.list
+  sudo apt-get update
+
+  # Download to /var/cache/apt/archives/
+  sudo mkdir -p /var/cache/amdgpu-apt/
+  sudo chmod 777 /var/cache/amdgpu-apt/
+  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only -y amdgpu-dkms
+}
+
+download_amdgpu_drivers
