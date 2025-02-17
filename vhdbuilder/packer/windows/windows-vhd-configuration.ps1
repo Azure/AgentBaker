@@ -27,11 +27,10 @@ $CPU_ARCH = switch ($cpu.Architecture) {
 
 Write-Output ($cpu | ConvertTo-Json)
 
-if ([string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
+if ([string]::IsNullOrEmpty($CPU_ARCH)) {
     Write-Output "Unknown architecture for CPU ${cpu.Name} with arch ${cpu.Architecture}"
     throw "Unsupported architecture for SKU $windowsSKU for CPU ${cpu.Name} with arch ${cpu.Architecture}"
 }
-
 
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
