@@ -1,3 +1,19 @@
+
+function SafeReplaceString {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $stringToReplace
+    )
+
+    $stringToReplace = &{
+        Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
+        $executionContext.InvokeCommand.ExpandString($stringToReplace)
+    }
+
+    return $stringToReplace
+}
+
+
 function GetComponentsFromComponentsJson
 {
     Param(
@@ -27,14 +43,14 @@ function GetComponentsFromComponentsJson
             if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
             {
                 $version = $windowsVersion.latestVersion
-                $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
+                $url = SafeReplaceString($downloadUrl)
                 $url = $url.replace("*", $windowsVersion.latestVersion)
                 $output += $url
 
                 if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
                 {
                     $version = $windowsVersion.previousLatestVersion
-                    $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
+                    $url = SafeReplaceString($downloadUrl)
                     $url = $url.replace("*", $windowsVersion.previousLatestVersion)
                     $output += $url
                 }
@@ -107,13 +123,13 @@ function GetPackagesFromComponentsJson
         foreach ($windowsVersion in $items)
         {
             $version = $windowsVersion.latestVersion
-            $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
+            $url = SafeReplaceString($downloadUrl)
             $thisList += $url
 
             if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
             {
                 $version = $windowsVersion.previousLatestVersion
-                $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
+                $url = SafeReplaceString($downloadUrl)
                 $thisList += $url
             }
         }

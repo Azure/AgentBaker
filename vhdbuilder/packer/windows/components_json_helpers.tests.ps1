@@ -3,6 +3,36 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'SafeReplaceString' {
+    It 'given no vars are present, it returns the string' {
+        SafeReplaceString "this is a string" | Should -Be "this is a string"
+    }
+
+    It 'given version var is present, it replaces version' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is a `${version}` string"
+        $version = "versioned"
+        SafeReplaceString $str | Should -Be "this is a versioned string"
+    }
+
+    It 'given CPU_ARCH var is present, it replaces version' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is an `${CPU_ARCH}` string"
+        $CPU_ARCH = "architecture"
+        SafeReplaceString $str | Should -Be "this is an architecture string"
+    }
+
+    It 'given BOBBY var is present, it replaces with empty string' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is an `${BOBBY}` string"
+        $BOBBY = "architecture"
+        SafeReplaceString $str | Should -Be "this is an  string"
+    }
+
+}
+
+
+
 Describe 'GetWindowsDefenderInfo' {
     BeforeEach {
         $testString = '{
@@ -535,6 +565,21 @@ Describe 'Gets The Versions' {
 
         $components | Should -HaveCount 1
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/x86/addon-resizer:1.8.22"
+    }
+
+    It 'does not replace varvarvar in the string' {
+        $componentsJson.ContainerImages[0].windowsVersions = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+            }
+        )
+        $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${varvarvar}/addon-resizer:*"
+
+        $varvarvar="x86"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler//addon-resizer:1.8.22"
     }
 
     It 'given there are no container images, it returns an empty array' {
