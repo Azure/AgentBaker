@@ -22,12 +22,14 @@ $CPU_ARCH = switch ($cpu.Architecture) {
     5 { "arm64" } # ARM
     6 { "amd64" } # Itanium
     9 { "amd64" } # x64
-    default { "Unknown" }
+    default { "" }
 }
 
+Write-Output ($cpu | ConvertTo-Json)
+
 if ([string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
-    Write-Output "Unknown architecture for CPU $($cpu.Name) with arch $cpu.Architecture"
-    throw "Unsupported architecture for SKU $windowsSKU for CPU $($cpu.Name) with arch $cpu.Architecture"
+    Write-Output "Unknown architecture for CPU ${cpu.Name} with arch ${cpu.Architecture}"
+    throw "Unsupported architecture for SKU $windowsSKU for CPU ${cpu.Name} with arch ${cpu.Architecture}"
 }
 
 
