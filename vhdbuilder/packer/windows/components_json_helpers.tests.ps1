@@ -522,6 +522,21 @@ Describe 'Gets The Versions' {
         $componentsJson = echo $testString | ConvertFrom-Json
     }
 
+    It 'replaces CPU_ARCH in the string' {
+        $componentsJson.ContainerImages[0].windowsVersions = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+            }
+        )
+        $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${CPU_ARCH}/addon-resizer:*"
+
+        $CPU_ARCH="x86"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/x86/addon-resizer:1.8.22"
+    }
+
     It 'given there are no container images, it returns an empty array' {
         $componentsJson.ContainerImages = @()
 

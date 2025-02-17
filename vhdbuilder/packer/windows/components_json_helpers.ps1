@@ -26,12 +26,16 @@ function GetComponentsFromComponentsJson
             $skuMatch = $windowsVersion.windowsSkuMatch
             if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
             {
-                $url = $downloadUrl.replace("*", $windowsVersion.latestVersion)
+                $version = $windowsVersion.latestVersion
+                $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
+                $url = $url.replace("*", $windowsVersion.latestVersion)
                 $output += $url
 
                 if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
                 {
-                    $url = $downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
+                    $version = $windowsVersion.previousLatestVersion
+                    $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
+                    $url = $url.replace("*", $windowsVersion.previousLatestVersion)
                     $output += $url
                 }
             }
@@ -102,12 +106,14 @@ function GetPackagesFromComponentsJson
 
         foreach ($windowsVersion in $items)
         {
-            $url = $downloadUrl.replace("`${version}", $windowsVersion.latestVersion)
+            $version = $windowsVersion.latestVersion
+            $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
             $thisList += $url
 
             if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
             {
-                $url = $downloadUrl.replace("`${version}", $windowsVersion.previousLatestVersion)
+                $version = $windowsVersion.previousLatestVersion
+                $url = $executionContext.InvokeCommand.ExpandString($downloadUrl)
                 $thisList += $url
             }
         }
