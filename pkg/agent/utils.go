@@ -45,6 +45,7 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--eviction-hard":                     true,
 	"--node-status-update-frequency":      true,
 	"--node-status-report-frequency":      true,
+	"--pod-container-stats-cri":           true,
 	"--image-gc-high-threshold":           true,
 	"--image-gc-low-threshold":            true,
 	"--event-qps":                         true,

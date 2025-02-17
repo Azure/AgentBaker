@@ -1664,3 +1664,22 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204_MetricsFromCRI(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that a node on ubuntu 2204 bootstrapped with metrics from CRI enabled will still have kubelet metrics",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				if nbc.KubeletConfig == nil {
+					nbc.KubeletConfig = map[string]string{}
+				}
+				nbc.KubeletConfig["--pod-container-stats-cri"] = "true"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--feature-gates=PodAndContainerStatsFromCRI=true")
+			},
+		},
+	})
+}
