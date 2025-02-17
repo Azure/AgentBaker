@@ -444,6 +444,13 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
 }
 
+func IsKubeletCriMetricsEnabled(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil || config.KubeletConfig == nil {
+		return false
+	}
+	return config.KubeletConfig["--pod-container-stats-cri"] == "true"
+}
+
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
 	kubeletConfig := &datamodel.AKSKubeletConfiguration{
 		APIVersion:    "kubelet.config.k8s.io/v1beta1",

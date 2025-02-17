@@ -327,6 +327,12 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 		!IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.25.0") {
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "DisableAcceleratorUsageMetrics", false)
 	}
+
+	// https://kubernetes.io/docs/reference/instrumentation/cri-pod-container-metrics/
+	// use cri metrics instead of cAdvisor
+	if IsKubeletCriMetricsEnabled(config) {
+		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "PodAndContainerStatsFromCRI", true)
+	}
 }
 
 func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
