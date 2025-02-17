@@ -102,12 +102,12 @@ function GetPackagesFromComponentsJson
 
         foreach ($windowsVersion in $items)
         {
-            $url = $downloadUrl.replace("[version]", $windowsVersion.latestVersion)
+            $url = $downloadUrl.replace("`${version}", $windowsVersion.latestVersion)
             $thisList += $url
 
             if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
             {
-                $url = $downloadUrl.replace("[version]", $windowsVersion.previousLatestVersion)
+                $url = $downloadUrl.replace("`${version}", $windowsVersion.previousLatestVersion)
                 $thisList += $url
             }
         }

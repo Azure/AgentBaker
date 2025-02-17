@@ -344,7 +344,7 @@ Describe 'Gets the Binaries' {
                 "previousLatestVersion": "0.0.51"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -385,7 +385,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -403,7 +403,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -418,7 +418,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -439,7 +439,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -455,7 +455,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -484,7 +484,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           },
           "default": {
             "versionsV2": [
@@ -493,7 +493,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
