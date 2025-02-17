@@ -13,6 +13,24 @@ $global:aksToolsDir = "c:\aks-tools"
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 1*1024*1024*1024 # 1GB
 
+$cpu = Get-WmiObject -Class Win32_Processor
+$CPU_ARCH = switch ($cpu.Architecture) {
+    0 { "amd64" } # x86
+    1 { "" } # MIPS
+    2 { "" } # Alpha
+    3 { "" } # PowerPC
+    5 { "arm64" } # ARM
+    6 { "amd64" } # Itanium
+    9 { "amd64" } # x64
+    default { "Unknown" }
+}
+
+if ([string]::IsNullOrEmpty($windowsVersion.previousLatestVersion)) {
+    Write-Output "Unknown architecture for CPU $($cpu.Name) with arch $cpu.Architecture"
+    throw "Unsupported architecture for SKU $windowsSKU for CPU $($cpu.Name) with arch $cpu.Architecture"
+}
+
+
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
 $WindowsSettingsFile = "c:/k/windows_settings.json"
