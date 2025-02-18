@@ -97,7 +97,6 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
     "azure-vnet-cni-singletenancy-overlay-windows-amd64",
     # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
     # so we can ignore the different hash values.
-    "v1.26.0-1int.zip",
-    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+    "v1.26.0-1int.zip"
 )
 

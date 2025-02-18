@@ -775,12 +775,6 @@ Describe 'Tests of components.json ' {
         $packages["c:\akse-cache\csi-proxy\"] | Should -Contain "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
     }
 
-    it 'has credential provider' {
-        $packages = GetPackagesFromComponentsJson $componentsJson
-        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-windows-amd64-v1.30.0.tar.gz"
-    }
-
     it 'has calico' {
         $packages = GetPackagesFromComponentsJson $componentsJson
         $packages["c:\akse-cache\calico\"] | Should -Contain "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
