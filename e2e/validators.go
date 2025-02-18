@@ -334,7 +334,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 	nodeName := s.Runtime.KubeNodeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-
+	s.T.Logf("waiting for resource %q to be available on node %q", resourceName, nodeName)
 	for {
 		select {
 		case <-ctx.Done():

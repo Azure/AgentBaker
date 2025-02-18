@@ -648,7 +648,7 @@ download_amdgpu_drivers() {
   # Download to /var/cache/apt/archives/
   sudo mkdir -p /var/cache/amdgpu-apt/
   sudo chmod 777 /var/cache/amdgpu-apt/
-  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only -y amdgpu-dkms
+  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only -y amdgpu-dkms autoconf automake autotools-dev m4
 }
 
 download_amdgpu_drivers
