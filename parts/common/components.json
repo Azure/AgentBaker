@@ -868,8 +868,15 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.29.2",
-                "previousLatestVersion": "1.30.0"
+                "latestVersion": "1.31.2"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.30.8"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.29.12"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
@@ -1264,6 +1271,11 @@
         "default": {
           "current": {
             "versionsV2": [
+              {
+                "k8sVersion": "1.31",
+                "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
+                "latestVersion": "v1.31.2"
+              },
               {
                 "k8sVersion": "1.30",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
