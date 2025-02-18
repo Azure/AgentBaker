@@ -13,6 +13,27 @@ $global:aksToolsDir = "c:\aks-tools"
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 1*1024*1024*1024 # 1GB
 
+$cpu = Get-WmiObject -Class Win32_Processor
+$CPU_ARCH = switch ($cpu.Architecture) {
+    0 { "amd64" } # x86
+    1 { "" } # MIPS
+    2 { "" } # Alpha
+    3 { "" } # PowerPC
+    5 { "arm64" } # ARM
+    6 { "amd64" } # Itanium
+    9 { "amd64" } # x64
+    default { "" }
+}
+
+Write-Output ($cpu | ConvertTo-Json)
+
+if ([string]::IsNullOrEmpty($CPU_ARCH)) {
+    $cpuName = $cpu.Name
+    $cpuArch = $cpu.Architecture
+    Write-Output "Unknown architecture for CPU $cpuName with arch $cpuArch"
+    throw "Unsupported architecture for SKU $windowsSKU for CPU $cpuName with arch $cpuArch"
+}
+
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
 $WindowsSettingsFile = "c:/k/windows_settings.json"
@@ -76,7 +97,6 @@ $global:excludeHashComparisionListInAzureChinaCloud = @(
     "azure-vnet-cni-singletenancy-overlay-windows-amd64",
     # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
     # so we can ignore the different hash values.
-    "v1.26.0-1int.zip",
-    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
+    "v1.26.0-1int.zip"
 )
 
