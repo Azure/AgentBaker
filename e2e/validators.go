@@ -174,7 +174,7 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *po
 		script.interpreter = Bash
 	}
 
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
+	result, err := execScriptOnVm(ctx, s, script)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }

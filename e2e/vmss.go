@@ -111,9 +111,6 @@ func extractLogsFromVM(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
-	privateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err)
-
 	commandList := map[string]string{
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
@@ -122,30 +119,25 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	if err != nil {
-		require.NoError(s.T, err)
-	}
-
 	var logFiles = map[string]string{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
+		execResult, err := execBashCommandOnVM(ctx, s, sourceCmd)
 		if err != nil {
 			s.T.Logf("error executing %s: %s", sourceCmd, err)
 			continue
 		}
 		logFiles[file] = execResult.String()
 	}
-	err = dumpFileMapToDir(s.T, logFiles)
+	err := dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
 }
 
-func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+func execBashCommandOnVM(ctx context.Context, s *Scenario, command string) (*podExecResult, error) {
 	script := Script{
 		interpreter: Bash,
 		script:      command,
 	}
-	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, script)
+	return execScriptOnVm(ctx, s, script)
 }
 
 const uploadLogsPowershellScript = `
@@ -240,7 +232,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		return
 	}
 	s.T.Logf("run command executed successfully: %v", runCommandResp)
-
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
 	downloadBlob := func(blobSuffix string) {
