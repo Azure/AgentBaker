@@ -152,23 +152,29 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "azure-cns",
         "containernetworking/azure-cni",
-        "containernetworking/azure-cns",
-        "containernetworking/cilium/cilium"
+        "containernetworking/cilium/cilium",
+        "containernetworking/azure-ipam"
       ],
-      "groupName": "azure-cni-cns-cilium",
+      "groupName": "azure-cni-cilium-ipam",
       "assignees": [
-        "rbtr",
-        "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
+        "team:Azure/acn-cni-reviewers"
       ],
       "reviewers": [
-        "rbtr",
-        "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
+        "team:Azure/acn-cni-reviewers"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "azure-cns",
+        "containernetworking/azure-cns"
+      ],
+      "groupName": "azure-cns",
+      "assignees": [
+        "team:Azure/acn-cns-reviewers"
+      ],
+      "reviewers": [
+        "team:Azure/acn-cns-reviewers"
       ]
     },
     {
