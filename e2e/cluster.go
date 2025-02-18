@@ -20,10 +20,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -57,6 +57,7 @@ type Cluster struct {
 	SubnetID      string
 	ClusterParams *ClusterParams
 	Maintenance   *armcontainerservice.MaintenanceConfiguration
+	DebugPod      *corev1.Pod
 }
 
 // Returns true if the cluster is configured with Azure CNI
@@ -167,12 +168,18 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("extracting cluster parameters: %w", err)
 	}
 
+	hostPod, err := kube.GetHostNetworkDebugPod(ctx, t)
+	if err != nil {
+		return nil, fmt.Errorf("get host network debug pod: %w", err)
+	}
+
 	return &Cluster{
 		Model:         cluster,
 		Kube:          kube,
 		SubnetID:      subnetID,
 		Maintenance:   maintenance,
 		ClusterParams: clusterParams,
+		DebugPod:      hostPod,
 	}, nil
 }
 

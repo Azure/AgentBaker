@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -490,4 +491,60 @@ func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
 		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
 	}
 	return nil
+}
+
+func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	t.Logf("creating VMSS %s in resource group %s", vmssName, resourceGroupName)
+	delay := 5 * time.Second
+	retryOn := func(err error) bool {
+		var respErr *azcore.ResponseError
+		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+		// It's not a quota issue
+		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+	}
+	attempt := 0
+	for {
+		attempt++
+		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
+		if err == nil {
+			t.Logf("created VMSS %s in resource group %s", vmssName, resourceGroupName)
+			return vmss, nil
+		}
+
+		// not a retryable error
+		if !retryOn(err) {
+			return nil, err
+		}
+
+		if attempt >= 10 {
+			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
+		}
+
+		t.Logf("failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(delay):
+		}
+	}
+
+}
+
+func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	operation, err := a.VMSS.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		vmssName,
+		parameters,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	vmssResp, err := operation.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
+
 }

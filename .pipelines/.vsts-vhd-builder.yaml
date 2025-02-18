@@ -7,7 +7,7 @@ pr:
     - dev
   paths:
     include:
-    - schemas
+    - schemas/
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
@@ -18,9 +18,11 @@ pr:
     - aks-node-controller/**
     - parts/common/components.json
     exclude:
+    - schemas/windows_settings.cue
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1
+    - vhdbuilder/packer/windows/
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
     - /**/*.md
