@@ -648,7 +648,11 @@ download_amdgpu_drivers() {
   # Download to /var/cache/apt/archives/
   sudo mkdir -p /var/cache/amdgpu-apt/
   sudo chmod 777 /var/cache/amdgpu-apt/
-  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only -y m4 amdgpu-dkms autoconf automake autotools-dev
+  # Download all dependencies of the amdgpu-dkms package
+  # The --reinstall flag is used to ensure that the package is downloaded even if it is already installed
+  # Otherwise installation of some packages like "m4" is skipped because it is already installed
+  # "m4" seems to be deleted at the later stage, making the installation fail
+  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only --reinstall -y m4 amdgpu-dkms autoconf automake autotools-dev amdgpu-dkms-firmware
 }
 
 download_amdgpu_drivers

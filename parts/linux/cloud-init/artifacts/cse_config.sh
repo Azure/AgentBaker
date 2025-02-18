@@ -849,6 +849,7 @@ ensureAMDGPUDrivers() {
     echo "Installing AMD GPU drivers"
 
     pushd /var/cache/amdgpu-apt
+    ls -l
     sudo dpkg -i *.deb
     popd
 
