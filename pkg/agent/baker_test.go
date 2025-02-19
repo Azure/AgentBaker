@@ -820,17 +820,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(BeEmpty())
 
-				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
+				secureTLSBootstrapScript := o.files["/opt/azure/containers/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
 				secureTLSBootstrapService := o.files["/etc/systemd/system/secure-tls-bootstrap.service"]
 				Expect(secureTLSBootstrapService).ToNot(BeNil())
 				Expect(secureTLSBootstrapService.value).ToNot(BeEmpty())
-				secureTLSBootstrapConfigDropin := o.files["/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"]
-				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
-				Expect(secureTLSBootstrapConfigDropin.value).ToNot(BeEmpty())
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("AAD_RESOURCE=6dae42f8-4368-4678-94ff-3960e28e3630"))
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("API_SERVER_NAME=aks-hcp"))
 
 				// for now we also assert that bootstrap-kubeconfig content is available when performing secure TLS bootstrapping
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
@@ -847,17 +842,12 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(o.vars["ENABLE_SECURE_TLS_BOOTSTRAPPING"]).To(Equal("true"))
 				Expect(o.vars["CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"]).To(Equal("appID"))
 
-				secureTLSBootstrapScript := o.files["/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh"]
+				secureTLSBootstrapScript := o.files["/opt/azure/containers/secure-tls-bootstrap.sh"]
 				Expect(secureTLSBootstrapScript).ToNot(BeNil())
 				Expect(secureTLSBootstrapScript.value).ToNot(BeEmpty())
 				secureTLSBootstrapService := o.files["/etc/systemd/system/secure-tls-bootstrap.service"]
 				Expect(secureTLSBootstrapService).ToNot(BeNil())
 				Expect(secureTLSBootstrapService.value).ToNot(BeEmpty())
-				secureTLSBootstrapConfigDropin := o.files["/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"]
-				Expect(secureTLSBootstrapConfigDropin).ToNot(BeNil())
-				Expect(secureTLSBootstrapConfigDropin.value).ToNot(BeEmpty())
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("AAD_RESOURCE=appID"))
-				Expect(secureTLSBootstrapConfigDropin.value).To(ContainSubstring("API_SERVER_NAME=aks-hcp"))
 
 				// for now we also assert that bootstrap-kubeconfig content is available when performing secure TLS bootstrapping
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]

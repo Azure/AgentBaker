@@ -1,38 +1,21 @@
 #!/bin/bash
-
 set -uxo pipefail
 
-DEFAULT_CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
 EVENTS_LOGGING_DIR="/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events"
 NEXT_PROTO_VALUE="aks-tls-bootstrap"
 
 RETRY_PERIOD_SECONDS=180 
 RETRY_WAIT_SECONDS=5
 
-AAD_RESOURCE="${AAD_RESOURCE:-""}"
-API_SERVER_NAME="${API_SERVER_NAME:-""}"
-CLIENT_BINARY_DOWNLOAD_URL="${CLIENT_BINARY_DOWNLOAD_URL:-https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${DEFAULT_CLIENT_VERSION}/linux/amd64/tls-bootstrap-client}"
-CLIENT_BINARY_PATH="${CLIENT_BINARY_PATH:-/opt/azure/tlsbootstrap/tls-bootstrap-client}"
+AAD_RESOURCE="${AAD_RESOURCE:-}"
+API_SERVER_NAME="${API_SERVER_NAME:-}"
+CLIENT_BINARY_PATH="${CLIENT_BINARY_PATH:-/opt/azure/containers/aks-secure-tls-bootstrap-client}"
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 CLIENT_CERT_PATH="${CLIENT_CERT_PATH:-/etc/kubernetes/certs/client.crt}"
 CLIENT_KEY_PATH="${CLIENT_KEY_PATH:-/etc/kubernetes/certs/client.key}"
 AZURE_CONFIG_PATH="${AZURE_CONFIG_PATH:-/etc/kubernetes/azure.json}"
 CLUSTER_CA_FILE_PATH="${CLUSTER_CA_FILE_PATH:-/etc/kubernetes/certs/ca.crt}"
 LOG_FILE_PATH="${LOG_FILE_PATH:-/var/log/azure/aks/secure-tls-bootstrap.log}"
-
-retrycmd_if_failure() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-    echo Executed \"$@\" $i times;
-}
 
 logs_to_events() {
     local task=$1; shift
@@ -69,63 +52,37 @@ logs_to_events() {
     fi
 }
 
-downloadClient() {
-    [ -f "$CLIENT_BINARY_PATH" ] && return 0
-    DOWNLOAD_DIR=$(dirname $CLIENT_BINARY_PATH)
-
-    if ! retrycmd_if_failure 30 5 60 curl -fSL -o "$CLIENT_BINARY_PATH" "$CLIENT_BINARY_DOWNLOAD_URL"; then
-        echo "ERROR: unable to download secure TLS bootstrapping client binary from $CLIENT_BINARY_DOWNLOAD_URL"
-        return 1
-    fi
-    chown -R root:root "$DOWNLOAD_DIR"
-    chmod -R 755 "$DOWNLOAD_DIR"
-}
-
-bootstrap() {
-    if [ -z "$API_SERVER_NAME" ]; then
-        echo "ERROR: missing apiserver FQDN, cannot continue bootstrapping"
-        return 1
-    fi
-    if [ ! -f "$CLIENT_BINARY_PATH" ]; then
-        echo "ERROR: bootstrap client binary does not exist at path $CLIENT_BINARY_PATH"
-        return 1
-    fi
-
-    chmod +x $CLIENT_BINARY_PATH
-
-    deadline=$(($(date +%s) + RETRY_PERIOD_SECONDS))
-    while true; do
-        now=$(date +%s)
-        if [ $((now - deadline)) -ge 0 ]; then
-            echo "ERROR: bootstrapping deadline exceeded"
-            return 1
-        fi
-
-        $CLIENT_BINARY_PATH bootstrap \
-         --aad-resource="$AAD_RESOURCE" \
-         --apiserver-fqdn="$API_SERVER_NAME" \
-         --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
-         --azure-config="$AZURE_CONFIG_PATH" \
-         --cert-file="$CLIENT_CERT_PATH" \
-         --key-file="$CLIENT_KEY_PATH" \
-         --next-proto="$NEXT_PROTO_VALUE" \
-         --kubeconfig="$KUBECONFIG_PATH" \
-         --log-file="$LOG_FILE_PATH"
-
-        [ $? -eq 0 ] && break
-
-        sleep $RETRY_WAIT_SECONDS
-    done
-}
-
-SUB_COMMAND=$1
-if [ "${SUB_COMMAND,,}" == "download" ]; then
-    logs_to_events "AKS.downloadSecureTLSBootstrapClient" downloadClient
-elif [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
-    logs_to_events "AKS.performSecureTLSBootstrapping" bootstrap
-else
-    echo "ERROR: unknown subcommand $SUB_COMMAND for secure-tls-bootstrap.sh"
-    exit 1
+if [ -z "$API_SERVER_NAME" ]; then
+    echo "ERROR: missing apiserver FQDN, cannot continue bootstrapping"
+    return 1
 fi
+if [ ! -f "$CLIENT_BINARY_PATH" ]; then
+    echo "ERROR: bootstrap client binary does not exist at path $CLIENT_BINARY_PATH"
+    return 1
+fi
+
+deadline=$(($(date +%s) + RETRY_PERIOD_SECONDS))
+while true; do
+    now=$(date +%s)
+    if [ $((now - deadline)) -ge 0 ]; then
+        echo "ERROR: bootstrapping deadline exceeded"
+        return 1
+    fi
+
+    $CLIENT_BINARY_PATH \
+        --aad-resource="$AAD_RESOURCE" \
+        --apiserver-fqdn="$API_SERVER_NAME" \
+        --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
+        --azure-config="$AZURE_CONFIG_PATH" \
+        --cert-file="$CLIENT_CERT_PATH" \
+        --key-file="$CLIENT_KEY_PATH" \
+        --next-proto="$NEXT_PROTO_VALUE" \
+        --kubeconfig="$KUBECONFIG_PATH" \
+        --log-file="$LOG_FILE_PATH"
+
+    [ $? -eq 0 ] && exit 0
+
+    sleep $RETRY_WAIT_SECONDS
+done
 
 #EOF

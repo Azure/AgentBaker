@@ -57,6 +57,8 @@ logs_to_events "AKS.CSE.ensureKubeCAFile" ensureKubeCAFile
 logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    # for now we download it so we don't have to cache it on the VHD, once it's always cached we won't need this step
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapClient" downloadSecureTLSBootstrapClient
     logs_to_events "AKS.CSE.configureSecureTLSBootstrap" configureSecureTLSBootstrap
     logs_to_events "AKS.CSE.start.SecureTLSBootstrap" systemctlEnableAndStartNoBlock secure-tls-bootstrap
 fi

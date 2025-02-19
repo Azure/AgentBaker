@@ -16,6 +16,7 @@ Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
     if [[ "${THP_ENABLED}" != "" ]]; then
@@ -174,14 +175,13 @@ configureAzureJson() {
     
     set +x
     if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+        SP_FILE="/etc/kubernetes/sp.txt"
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > "$SP_FILE"
+        SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
+        SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
+        SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
+        rm "$SP_FILE"
     fi
-
-    SP_FILE="/etc/kubernetes/sp.txt"
-    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
-    SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
-    SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE"
     
     cat << EOF > "${AZURE_JSON_PATH}"
 {
@@ -224,6 +224,13 @@ configureAzureJson() {
 }
 EOF
     set -x
+}
+
+ensureKubeCAFile() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0644 "${KUBE_CA_FILE}"
 }
 
 configureK8s() {
@@ -422,20 +429,24 @@ ensureDHCPv6() {
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
-ensureKubeCAFile() {
-    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
-    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
-    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    chmod 0644 "${KUBE_CA_FILE}"
+getPrimaryNicIP() {
+    local sleepTime=1
+    local maxRetries=10
+    local i=0
+    local ip=""
+
+    while [[ $i -lt $maxRetries ]]; do
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
+        if [[ -n "$ip" && $? -eq 0 ]]; then
+            break
+        fi
+        sleep $sleepTime
+        i=$((i+1))
+    done
+    echo "$ip"
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="v0.1.0-alpha.cameissner2"
-    DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
-    if [[ $(isARM64) == 1 ]]; then
-        DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
-    fi
-
     # default AAD resource here so we can minimze bootstrap contract surface
     AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
     if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
@@ -448,7 +459,6 @@ configureSecureTLSBootstrap() {
 
     cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
 [Service]
-Environment="CLIENT_BINARY_DOWNLOAD_URL=${DOWNLOAD_URL}"
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"
 EOF
@@ -475,23 +485,6 @@ ensureSecureTLSBootstrap() {
         journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG # exit hard here until ready for preview
     fi
-}
-
-getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
-    local ip=""
-
-    while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
-        if [[ -n "$ip" && $? -eq 0 ]]; then
-            break
-        fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
 }
 
 generateSelfSignedKubeletServingCertificate() {

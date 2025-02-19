@@ -6,7 +6,5 @@ Before=kubelet.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh download
-ExecStart=/opt/azure/tlsbootstrap/secure-tls-bootstrap.sh bootstrap
-
-#EOF
+ExecStart=/opt/azure/containers/secure-tls-bootstrap.sh
+RemainAfterExit=No

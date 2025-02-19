@@ -53,6 +53,7 @@ logs_to_events "AKS.CSE.ensureKubeCAFile" ensureKubeCAFile
 logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapClient" downloadSecureTLSBootstrapClient
     logs_to_events "AKS.CSE.configureSecureTLSBootstrap" configureSecureTLSBootstrap
     logs_to_events "AKS.CSE.start.SecureTLSBootstrap" systemctlEnableAndStartNoBlock secure-tls-bootstrap
 fi
