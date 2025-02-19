@@ -27,11 +27,8 @@ logs_to_events() {
     local endTime=$(date +"%F %T.%3N")
 
     msg_string=$(jq -n --arg Status "Succeeded" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
-    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "bootstrap" ]; then
+    if [ "$ret" != "0" ]; then
         msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" --arg LogTail "$(tail -n 20 $LOG_FILE_PATH)" '{Status: $Status, Hostname: $Hostname, LogTail: $LogTail}')
-    fi
-    if [ "$ret" != "0" ] && [ "${SUB_COMMAND,,}" == "download" ]; then
-        msg_string=$(jq -n --arg Status "Failed" --arg Hostname "$(uname -n)" '{Status: $Status, Hostname: $Hostname}')
     fi
 
     json_string=$( jq -n \
