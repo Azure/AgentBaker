@@ -848,6 +848,9 @@ ensureGPUDrivers() {
 ensureAMDGPUDrivers() {
     echo "Installing AMD GPU drivers"
 
+     # delete amdgpu module from blacklist
+    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
+
     pushd /var/cache/amdgpu-apt
     ls -l
     sudo dpkg -i *.deb
