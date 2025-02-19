@@ -78,10 +78,8 @@ func execScriptOnVm(ctx context.Context, s *Scenario, script Script) (*podExecRe
 	}
 
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", s.Runtime.SSHKeyPrivate, sshKeyName(s.Runtime.VMPrivateIP)),
 		"set -x",
 		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
-		fmt.Sprintf("chmod 0600 %s", sshKeyName(s.Runtime.VMPrivateIP)),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
 		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(s.Runtime.VMPrivateIP), s.Runtime.VMPrivateIP, scriptFileName, remoteScriptFileName),
 		fmt.Sprintf("%s %s %s", sshString(s.Runtime.VMPrivateIP), interpreter, remoteScriptFileName),
@@ -174,9 +172,10 @@ func unprivilegedCommandArray() []string {
 }
 
 func uploadSSHKey(ctx context.Context, s *Scenario) {
-	// hack, ssh key is uploaded as a side-effect of executing a script
-	_, err := execScriptOnVm(ctx, s, Script{})
-	require.NoError(s.T, err)
+	cmd := fmt.Sprintf("echo '%[1]s' > %[2]s && chmod 0600 %[2]s", s.Runtime.SSHKeyPrivate, sshKeyName(s.Runtime.VMPrivateIP))
+	kube := s.Runtime.Cluster.Kube
+	_, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, cmd)
+	require.NoError(s.T, err, "error uploading ssh key to pod")
 }
 
 func logSSHInstructions(s *Scenario) {
