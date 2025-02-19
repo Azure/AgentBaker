@@ -162,21 +162,16 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 
 		// found the right node. Use it!
 		node = castNode
-		nodeTaints, _ := json.Marshal(node.Spec.Taints)
-		nodeConditions, _ := json.Marshal(node.Status.Conditions)
 		if len(node.Spec.Taints) > 0 {
-			t.Logf("node %s is tainted. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 			continue
 		}
 
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+				t.Logf("node %s is ready", node.Name)
 				return node.Name
 			}
 		}
-
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 	}
 
 	if node == nil {
