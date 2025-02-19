@@ -25,7 +25,7 @@ else
     echo "shellcheck installed"
 fi
 
-filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './self-contained/*')
+filesToCheck=$(find . -type f -name "*.sh" -not -path './parts/linux/cloud-init/artifacts/*' -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
 
 # also shell-check generated test data
 generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
@@ -65,5 +65,6 @@ SC2153
 SC2129
 SC2286
 SC2048
+SC2181
 "
 shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck

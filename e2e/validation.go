@@ -1,155 +1,112 @@
-package e2e_test
+package e2e
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
-	"log"
-	"strings"
 
-	"github.com/Azure/agentbakere2e/scenario"
+	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 )
 
-func validateNodeHealth(ctx context.Context, kube *kubeclient, vmssName string) (string, error) {
-	nodeName, err := waitUntilNodeReady(ctx, kube, vmssName)
-	if err != nil {
-		return "", fmt.Errorf("error waiting for node ready: %w", err)
-	}
-
-	nginxPodName, err := ensureTestNginxPod(ctx, kube, nodeName)
-	if err != nil {
-		return "", fmt.Errorf("error waiting for pod ready: %w", err)
-	}
-
-	err = waitUntilPodDeleted(ctx, kube, nginxPodName)
-	if err != nil {
-		return "", fmt.Errorf("error waiting pod deleted: %w", err)
-	}
-
-	return nodeName, nil
+func ValidatePodRunning(ctx context.Context, s *Scenario) {
+	testPod := func() *corev1.Pod {
+		if s.VHD.OS == config.OSWindows {
+			return podHTTPServerWindows(s)
+		}
+		return podHTTPServerLinux(s)
+	}()
+	ensurePod(ctx, s, testPod)
+	s.T.Logf("node health validation: test pod %q is running on node %q", testPod.Name, s.Runtime.KubeNodeName)
 }
 
-func validateWasm(ctx context.Context, kube *kubeclient, nodeName, privateKey string) error {
-	spinPodName, err := ensureWasmPods(ctx, kube, nodeName)
-	if err != nil {
-		return fmt.Errorf("failed to valiate wasm, unable to ensure wasm pods on node %q: %w", nodeName, err)
+func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
+	s.T.Logf("wasm scenario: running wasm validation on %s...", nodeName)
+	spinClassName := fmt.Sprintf("wasmtime-%s", wasmHandlerSpin)
+	err := createRuntimeClass(ctx, s.Runtime.Cluster.Kube, spinClassName, wasmHandlerSpin)
+	require.NoError(s.T, err)
+	err = ensureWasmRuntimeClasses(ctx, s.Runtime.Cluster.Kube)
+	require.NoError(s.T, err)
+	spinPodManifest := podWASMSpin(s)
+	ensurePod(ctx, s, spinPodManifest)
+	require.NoError(s.T, err, "unable to ensure wasm pod on node %q", nodeName)
+}
+
+func ValidateCommonLinux(ctx context.Context, s *Scenario) {
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	stdout := execResult.stdout.String()
+	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
+
+	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
+	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
+	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
+	logSSHInstructions(s)
+
+	ValidateSysctlConfig(ctx, s, map[string]string{
+		"net.ipv4.tcp_retries2":             "8",
+		"net.core.message_burst":            "80",
+		"net.core.message_cost":             "40",
+		"net.core.somaxconn":                "16384",
+		"net.ipv4.tcp_max_syn_backlog":      "16384",
+		"net.ipv4.neigh.default.gc_thresh1": "4096",
+		"net.ipv4.neigh.default.gc_thresh2": "8192",
+		"net.ipv4.neigh.default.gc_thresh3": "16384",
+	})
+
+	ValidateDirectoryContent(ctx, s, "/var/log/azure/aks", []string{
+		"cluster-provision.log",
+		"cluster-provision-cse-output.log",
+		"cloud-init-files.paved",
+		"vhd-install.complete",
+		//"cloud-config.txt", // file with UserData
+	})
+
+	execResult = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
+
+	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
+	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
+
+	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl http://168.63.129.16:32526/vmSettings --connect-timeout 4")
+	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver port 32526 shouldn't succeed")
+
+	ValidateLeakedSecrets(ctx, s)
+
+	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
+	if s.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
+		ValidateKubeletNodeIP(ctx, s)
 	}
+}
 
-	spinPodIP, err := getPodIP(ctx, kube, defaultNamespace, spinPodName)
-	if err != nil {
-		return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
+func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
+	var secrets map[string]string
+	b64Encoded := func(val string) string {
+		return base64.StdEncoding.EncodeToString([]byte(val))
 	}
-
-	debugPodName, err := getDebugPodName(kube)
-	if err != nil {
-		return fmt.Errorf("unable to get debug pod name to validate wasm: %w", err)
-	}
-
-	execResult, err := pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-	if err != nil {
-		return fmt.Errorf("unable to execute wasm validation command: %w", err)
-	}
-
-	if execResult.exitCode != "0" {
-		// retry getting the pod IP + curling the hello endpoint if the original curl reports connection refused or a timeout
-		// since the wasm spin pod usually restarts at least once after initial creation, giving it a new IP
-		if execResult.exitCode == "7" || execResult.exitCode == "28" {
-			spinPodIP, err = getPodIP(ctx, kube, defaultNamespace, spinPodName)
-			if err != nil {
-				return fmt.Errorf("unable to get IP of wasm spin pod %q: %w", spinPodName, err)
-			}
-
-			execResult, err = pollExecOnPod(ctx, kube, defaultNamespace, debugPodName, getWasmCurlCommand(fmt.Sprintf("http://%s/hello", spinPodIP)))
-			if err != nil {
-				return fmt.Errorf("unable to execute wasm validation command on wasm pod %q at %s: %w", spinPodName, spinPodIP, err)
-			}
-
-			if execResult.exitCode != "0" {
-				execResult.dumpAll()
-				return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
-			}
-		} else {
-			execResult.dumpAll()
-			return fmt.Errorf("curl wasm endpoint on pod %q at %s terminated with exit code %s", spinPodName, spinPodIP, execResult.exitCode)
+	if s.Runtime.NBC != nil {
+		secrets = map[string]string{
+			"client private key":       b64Encoded(s.Runtime.NBC.ContainerService.Properties.CertificateProfile.ClientPrivateKey),
+			"service principal secret": b64Encoded(s.Runtime.NBC.ContainerService.Properties.ServicePrincipalProfile.Secret),
+			"bootstrap token":          *s.Runtime.NBC.KubeletClientTLSBootstrapToken,
+		}
+	} else {
+		token := s.Runtime.AKSNodeConfig.BootstrappingConfig.TlsBootstrappingToken
+		strToken := ""
+		if token != nil {
+			strToken = *token
+		}
+		secrets = map[string]string{
+			"client private key":       b64Encoded(s.Runtime.AKSNodeConfig.KubeletConfig.KubeletClientKey),
+			"service principal secret": b64Encoded(s.Runtime.AKSNodeConfig.AuthConfig.ServicePrincipalSecret),
+			"bootstrap token":          strToken,
 		}
 	}
 
-	if err := waitUntilPodDeleted(ctx, kube, spinPodName); err != nil {
-		return fmt.Errorf("error waiting for wasm pod deletion: %w", err)
-	}
-
-	return nil
-}
-
-func runLiveVMValidators(ctx context.Context, vmssName, privateIP, sshPrivateKey string, opts *scenarioRunOpts) error {
-	podName, err := getDebugPodName(opts.clusterConfig.kube)
-	if err != nil {
-		return fmt.Errorf("unable to get debug pod name: %w", err)
-	}
-
-	validators := commonLiveVMValidators()
-	if opts.scenario.LiveVMValidators != nil {
-		validators = append(validators, opts.scenario.LiveVMValidators...)
-	}
-
-	for _, validator := range validators {
-		desc := validator.Description
-		command := validator.Command
-		isShellBuiltIn := validator.IsShellBuiltIn
-		log.Printf("running live VM validator: %q", desc)
-
-		execResult, err := pollExecOnVM(ctx, opts.clusterConfig.kube, privateIP, podName, sshPrivateKey, command, isShellBuiltIn)
-		if err != nil {
-			return fmt.Errorf("unable to execute validator command %q: %w", command, err)
-		}
-
-		if validator.Asserter != nil {
-			err := validator.Asserter(execResult.exitCode, execResult.stdout.String(), execResult.stderr.String())
-			if err != nil {
-				execResult.dumpAll()
-				return fmt.Errorf("failed validator assertion: %w", err)
+	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
 			}
 		}
-	}
-
-	return nil
-}
-
-func commonLiveVMValidators() []*scenario.LiveVMValidator {
-	return []*scenario.LiveVMValidator{
-		{
-			Description: "assert /etc/default/kubelet should not contain dynamic config dir flag",
-			Command:     "cat /etc/default/kubelet",
-			Asserter: func(code, stdout, stderr string) error {
-				if code != "0" {
-					return fmt.Errorf("validator command terminated with exit code %q but expected code 0", code)
-				}
-				if strings.Contains(stdout, "--dynamic-config-dir") {
-					return fmt.Errorf("/etc/default/kubelet should not contain kubelet flag '--dynamic-config-dir', but does")
-				}
-				return nil
-			},
-		},
-		scenario.SysctlConfigValidator(
-			map[string]string{
-				"net.ipv4.tcp_retries2":             "8",
-				"net.core.message_burst":            "80",
-				"net.core.message_cost":             "40",
-				"net.core.somaxconn":                "16384",
-				"net.ipv4.tcp_max_syn_backlog":      "16384",
-				"net.ipv4.neigh.default.gc_thresh1": "4096",
-				"net.ipv4.neigh.default.gc_thresh2": "8192",
-				"net.ipv4.neigh.default.gc_thresh3": "16384",
-			},
-		),
-		scenario.DirectoryValidator(
-			"/var/log/azure/aks",
-			[]string{
-				"cluster-provision.log",
-				"cluster-provision-cse-output.log",
-				"cloud-init-files.paved",
-				"vhd-install.complete",
-				"cloud-config.txt",
-			},
-		),
 	}
 }

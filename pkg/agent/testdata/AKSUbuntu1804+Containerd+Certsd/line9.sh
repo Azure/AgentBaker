@@ -24,9 +24,11 @@ ERR_DOCKER_IMG_PULL_TIMEOUT=35
 ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT=36 
 ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT=37 
 ERR_CONTAINERD_INSTALL_FILE_NOT_FOUND=38 
+ERR_CONTAINERD_VERSION_INVALID=39 
 ERR_CNI_DOWNLOAD_TIMEOUT=41 
 ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT=42 
 ERR_MS_PROD_DEB_PKG_ADD_FAIL=43 
+ERR_ORAS_DOWNLOAD_ERROR=45 
 ERR_SYSTEMD_INSTALL_FAIL=48 
 ERR_MODPROBE_FAIL=49 
 ERR_OUTBOUND_CONN_FAIL=50 
@@ -103,26 +105,50 @@ ERR_SYSTEMCTL_MASK_FAIL=2
 
 ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT=205 
 
-OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+ERR_CNI_VERSION_INVALID=206 
+
+
+ERR_ORAS_PULL_K8S_FAIL=207 
+ERR_ORAS_PULL_FAIL_RESERVE_1=208 
+ERR_ORAS_PULL_CONTAINERD_WASM=209 
+ERR_ORAS_PULL_FAIL_RESERVE_2=210 
+ERR_ORAS_PULL_NETWORK_TIMEOUT=211 
+ERR_ORAS_PULL_UNAUTHORIZED=212 
+
+ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
+
+ERR_CLEANUP_CONTAINER_IMAGES=214
+
+ERR_DNS_HEALTH_FAIL=215 
+
+if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+else
+    echo "/etc/*-release not found"
+fi
+
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
+MARINER_KATA_OS_NAME="MARINERKATA"
+AZURELINUX_OS_NAME="AZURELINUX"
 KUBECTL=/usr/local/bin/kubectl
 DOCKER=/usr/bin/docker
 export GPU_DV="${GPU_DRIVER_VERSION:=}"
 export GPU_DEST=/usr/local/nvidia
-NVIDIA_DOCKER_VERSION=2.8.0-1
 DOCKER_VERSION=1.13.1-1
-NVIDIA_CONTAINER_RUNTIME_VERSION="3.6.0"
 export NVIDIA_DRIVER_IMAGE_SHA="${GPU_IMAGE_SHA:=}"
 export NVIDIA_DRIVER_IMAGE_TAG="${GPU_DV}-${NVIDIA_DRIVER_IMAGE_SHA}"
-export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu"
-export CTR_GPU_INSTALL_CMD="ctr run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
+export NVIDIA_GPU_DRIVER_TYPE="${GPU_DRIVER_TYPE:=}"
+export NVIDIA_DRIVER_IMAGE="mcr.microsoft.com/aks/aks-gpu-${NVIDIA_GPU_DRIVER_TYPE}"
+export CTR_GPU_INSTALL_CMD="ctr -n k8s.io run --privileged --rm --net-host --with-ns pid:/proc/1/ns/pid --mount type=bind,src=/opt/gpu,dst=/mnt/gpu,options=rbind --mount type=bind,src=/opt/actions,dst=/mnt/actions,options=rbind"
 export DOCKER_GPU_INSTALL_CMD="docker run --privileged --net=host --pid=host -v /opt/gpu:/mnt/gpu -v /opt/actions:/mnt/actions --rm"
 APT_CACHE_DIR=/var/cache/apt/archives/
 PERMANENT_CACHE_DIR=/root/aptcache/
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 CURL_OUTPUT=/tmp/curl_verbose.out
+ORAS_OUTPUT=/tmp/oras_verbose.out
+ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -137,6 +163,19 @@ retrycmd_if_failure() {
     done
     echo Executed \"$@\" $i times;
 }
+
+retrycmd_if_failure_silent() {
+    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            return 1
+        else
+            sleep $wait_sleep
+        fi
+    done
+}
+
 retrycmd_nslookup() {
     wait_sleep=$1; timeout=$2; total_timeout=$3; record=$4
     start_time=$(date +%s)
@@ -179,6 +218,99 @@ retrycmd_get_tarball() {
         fi
     done
 }
+retrycmd_get_tarball_from_registry_with_oras() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    tar_folder=$(dirname "$tarball")
+    echo "${tar_retries} retries"
+    for i in $(seq 1 $tar_retries); do
+        tar -tzf $tarball && break || \
+        if [ $i -eq $tar_retries ]; then
+            return 1
+        else
+            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            if [[ $? != 0 ]]; then
+                cat $ORAS_OUTPUT
+            fi
+            sleep $wait_sleep
+        fi
+    done
+}
+retrycmd_get_access_token_for_oras() {
+    retries=$1; wait_sleep=$2; url=$3
+    for i in $(seq 1 $retries); do
+        ACCESS_TOKEN_OUTPUT=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url")
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ]; then 
+            echo "$ACCESS_TOKEN_OUTPUT"
+            return 0
+        fi
+        sleep $wait_sleep
+    done
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+}
+retrycmd_get_refresh_token_for_oras() {
+    retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
+    for i in $(seq 1 $retries); do
+        REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
+            https://$acr_url/oauth2/exchange)
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+            echo "$REFRESH_TOKEN_OUTPUT"
+            return 0
+        fi
+        sleep $wait_sleep
+    done
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+}
+retrycmd_oras_login() {
+    retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
+    for i in $(seq 1 $retries); do
+        ORAS_LOGIN_OUTPUT=$(oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
+        exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
+            echo "$ORAS_LOGIN_OUTPUT"
+            return 0
+        fi
+        sleep "$wait_sleep"
+    done
+    return $exit_code
+}
+retrycmd_get_binary_from_registry_with_oras() {
+    binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
+    binary_folder=$(dirname "$binary_path")
+    echo "${binary_retries} retries"
+    
+    for i in $(seq 1 $binary_retries); do
+        if [ -f "$binary_path" ]; then
+            break
+        else
+            if [ $i -eq $binary_retries ]; then
+                return 1
+            else
+                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+                if [[ $? != 0 ]]; then
+                    cat $ORAS_OUTPUT
+                fi
+                sleep $wait_sleep
+            fi
+        fi
+    done
+}
+retrycmd_can_oras_ls_acr() {
+    retries=$1; wait_sleep=$2; url=$3
+    for i in $(seq 1 $retries); do
+        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo "acr is reachable"
+            return 0
+        fi
+        if [[ "$output" == *"unauthorized: authentication required"* ]]; then
+            echo "ACR is not reachable: $output"
+            return 1
+        fi
+    done
+    echo "unexpected response from acr: $output"
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+}
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
@@ -187,7 +319,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -359,6 +491,15 @@ isARM64() {
     fi
 }
 
+isRegistryUrl() {
+    local binary_url=$1
+    registry_regex='^.+\/.+\/.+:.+$'
+    if [[ ${binary_url} =~ $registry_regex ]]; then 
+        return 0 
+    fi
+    return 1 
+}
+
 logs_to_events() {
     local task=$1; shift
     local eventsFileName=$(date +%s%3N)
@@ -397,40 +538,286 @@ should_skip_nvidia_drivers() {
     echo "$should_skip"
 }
 
-start_watch () {
-  capture_time=$(date +%s)
-  start_timestamp=$(date +%H:%M:%S)
+should_disable_kubelet_serving_certificate_rotation() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
+    echo "${should_disable,,}"
 }
 
-stop_watch () {
+should_skip_binary_cleanup() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
+    echo "${should_skip,,}"
+}
 
-  local current_time=$(date +%s)
-  local end_timestamp=$(date +%H:%M:%S)
-  local difference_in_seconds=$((current_time - ${1}))
+isMarinerOrAzureLinux() {
+    local os=$1
+    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+        return 0
+    fi
+    return 1
+}
 
-  local elapsed_hours=$(($difference_in_seconds/3600))
-  local elapsed_minutes=$((($difference_in_seconds%3600)/60))
-  local elapsed_seconds=$(($difference_in_seconds%60))
-  
-  printf -v benchmark "'${2}' - Total Time Elapsed: %02d:%02d:%02d" $elapsed_hours $elapsed_minutes $elapsed_seconds
-  if [ ${3} == true ]; then
-    printf -v start "     Start time: $script_start_timestamp"
+evalPackageDownloadURL() {
+    local url=${1:-}
+    if [[ -n "$url" ]]; then
+         eval "result=${url}"
+         echo $result
+         return
+    fi
+    echo ""
+}
+
+installJq() {
+  output=$(jq --version)
+  if [ -n "$output" ]; then
+    echo "$output"
   else
-    printf -v start "     Start time: $start_timestamp"
+    if isMarinerOrAzureLinux "$OS"; then
+      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
   fi
-  printf -v end "     End Time: $end_timestamp"
-  echo -e "\n$benchmark\n"
-  benchmarks+=("$benchmark")
-  benchmarks+=("$start")
-  benchmarks+=("$end")
 }
 
-show_benchmarks () {
-  echo -e "\nBenchmarks:\n"
-  for i in "${benchmarks[@]}"; do
-    echo "   $i"
+updateRelease() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    #For UBUNTU, if $osVersion is 18.04 and "r1804" is also defined in components.json, then $release is set to "r1804"
+    #Similarly for 20.04 and 22.04. Otherwise $release is set to .current.
+    #For MARINER, the release is always set to "current" now.
+    #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
+    if isMarinerOrAzureLinux "${os}"; then
+        if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.\"v${osVersion}\"") != "null" ]]; then
+            RELEASE="\"v${osVersion}\""
+        fi
+        return 0
+    fi
+    local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
+    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.r${osVersionWithoutDot}") != "null" ]]; then
+        RELEASE="\"r${osVersionWithoutDot}\""
+    fi
+}
+
+updatePackageVersions() {
+    local package="$1"
+    local os="$2"
+    local osVersion="$3"
+    RELEASE="current"
+    updateRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    PACKAGE_VERSIONS=()
+
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]]; then
+        osLowerCase="default"
+    fi
+
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
+        local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
+        local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+        for version in "${latestVersions[@]}"; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        for version in "${previousLatestVersions[@]}"; do
+            PACKAGE_VERSIONS+=("${version}")
+        done
+        return 0
+    fi
+
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions") == "null" ]]; then
+        return 0
+    fi
+    local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
+    for version in "${versions[@]}"; do
+        PACKAGE_VERSIONS+=("${version}")
+    done
+    return 0
+}
+
+updateMultiArchVersions() {
+  local imageToBePulled="$1"
+
+  #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
+  if [[ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]]; then
+    local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
+    local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
+    for version in "${latestVersions[@]}"; do
+      MULTI_ARCH_VERSIONS+=("${version}")
+    done
+    for version in "${previousLatestVersions[@]}"; do
+      MULTI_ARCH_VERSIONS+=("${version}")
+    done
+    return
+  fi
+
+  local versions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersions[]"))
+  for version in "${versions[@]}"; do
+    MULTI_ARCH_VERSIONS+=("${version}")
   done
-  echo
+}
+
+updatePackageDownloadURL() {
+    local package=$1
+    local os=$2
+    local osVersion=$3
+    RELEASE="current"
+    updateRelease "${package}" "${os}" "${osVersion}"
+    local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
+    
+    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
+    #otherwise get the downloadURL from .downloadURIs.default 
+    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+        [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+        return
+    fi
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
+    [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+    return    
+}
+
+addKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if grep -i "$LABEL_STRING" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        echo "kubelet node label $LABEL_STRING is already present, nothing to add"
+        return 0
+    fi
+
+    echo "adding label $LABEL_STRING to kubelet node labels..."
+    if [ -n "$KUBELET_NODE_LABELS" ]; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS},${LABEL_STRING}"
+    else
+        KUBELET_NODE_LABELS=$LABEL_STRING
+    fi
+}
+
+removeKubeletNodeLabel() {
+    local LABEL_STRING=$1
+    if grep -e ",${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/,${LABEL_STRING}/}"
+    elif grep -e "${LABEL_STRING}," <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
+    elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
+        KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+removeKubeletFlag() {
+    local FLAG_STRING=$1
+    if grep -e ",${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/,${FLAG_STRING}/}"
+    elif grep -e "${FLAG_STRING}," <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING},/}"
+    elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
+    fi
+}
+
+verify_DNS_health(){
+    local domain_name=$1
+    if [ -z "$domain_name" ]; then
+        echo "DNS domain is empty"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
+    if [ $? -ne 0 ]; then
+        echo "Failed to resolve root domain '.'"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
+    ret_code=$?
+    if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+        echo "Failed to resolve domain $domain_name return code: $ret_code"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+    echo "DNS health check passed"
+}
+
+oras_login_with_kubelet_identity() {
+    local acr_url=$1
+    local client_id=$2
+    local tenant_id=$3
+
+    if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
+        echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
+        return 
+    fi
+
+    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    ret_code=$? 
+    if [[ $ret_code -eq 0 ]]; then
+        echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
+        return
+    elif [[ $ret_code -ne 1 ]]; then
+        echo "failed with an error other than unauthorized, exiting.."
+        return $ret_code
+    fi
+
+    set +x 
+    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
+    raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
+    ret_code=$? 
+    if [ $ret_code -ne 0 ]; then
+        echo "failed to retrieve access token: $ret_code"
+        return $ret_code
+    fi
+    if [[ "$raw_access_token" == *"error"* ]]; then
+        echo "failed to retrieve access token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
+    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
+        echo "failed to parse access token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
+    ret_code=$? 
+    if [ $ret_code -ne 0 ]; then
+        echo "failed to retrieve refresh token: $ret_code"
+        return $ret_code
+    fi
+    if [[ "$raw_refresh_token" == *"error"* ]]; then
+        echo "failed to retrieve refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
+    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" == "null" ]; then
+        echo "failed to parse refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
+    if [ $? -ne 0 ]; then
+        echo "failed to login to acr '$acr_url' with identity token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    unset ACCESS_TOKEN REFRESH_TOKEN  
+    set -x
+
+    retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
+    if [[ $? -ne 0 ]]; then
+        echo "failed to login to acr '$acr_url', pull is still unauthorized"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
 #HELPERSEOF

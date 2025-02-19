@@ -1,51 +1,68 @@
 #!/bin/bash
-set -euxo pipefail
-
-SKIP_LATEST="${SKIP_LATEST:-false}"
-
+set -euo pipefail
 source vhdbuilder/scripts/automate_helpers.sh
 
-echo "Image version for release notes is $1"
-
-image_version=$1
-build_ids=$2
-
 set +x
-github_access_token=$3
+GITHUB_TOKEN="${GITHUB_TOKEN:-""}"
 set -x
 
-branch_name=releaseNotes/$1
-pr_title="ReleaseNotes"
+IMAGE_VERSION="${IMAGE_VERSION:-""}"
+VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
+SKIP_LATEST="${SKIP_LATEST:-false}"
+PR_TARGET_BRANCH="${PR_TARGET_BRANCH:-master}"
 
 generate_release_notes() {
-    for build_id in $build_ids; do
-        echo $build_id
-        included_skus=""
-        for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
-            if [[ $artifact == *"vhd-release-notes"* ]]; then
-                sku=$(echo $artifact | cut -d "-" -f4-) # Format of artifact is vhd-release-notes-<name of sku>
-                included_skus+="$sku,"
-            fi
-        done
-        echo "SKUs for release notes are $included_skus"
-        if [ "${SKIP_LATEST,,}" == "true" ]; then
-            go run vhdbuilder/release-notes/autonotes/main.go --skip-latest --build $build_id --date $image_version --include ${included_skus%?}
-        else
-            go run vhdbuilder/release-notes/autonotes/main.go --build $build_id --date $image_version --include ${included_skus%?}
+    included_skus=""
+    for artifact in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
+        if [[ $artifact == *"vhd-release-notes"* ]]; then
+            sku=$(echo $artifact | cut -d "-" -f4-) # Format of artifact is vhd-release-notes-<name of sku>
+            included_skus+="$sku,"
         fi
     done
+    echo "SKUs for release notes are $included_skus"
+    if [ "${SKIP_LATEST,,}" == "true" ]; then
+        go run vhdbuilder/release-notes/autonotes/main.go --skip-latest --build $VHD_BUILD_ID --date $IMAGE_VERSION --include ${included_skus%?}
+    else
+        go run vhdbuilder/release-notes/autonotes/main.go --build $VHD_BUILD_ID --date $IMAGE_VERSION --include ${included_skus%?}
+    fi
+    if [ $? -ne 0 ]; then
+        echo "running 'git clean -df' before retrying..."
+        git clean -df
+        return 1
+    fi
 }
 
+if [ -z "$IMAGE_VERSION" ]; then
+    echo "IMAGE_VERSION must be set to generate release notes"
+    exit 1
+fi
+
+if [ -z "$VHD_BUILD_ID" ]; then
+    echo "VHD_BUILD_ID must be set to generate release notes"
+fi
+
+set +x
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "GITHUB_TOKEN must be set to generate release notes"
+fi
+set -x
+
+echo "VHD build ID for release notes is: $VHD_BUILD_ID"
+echo "Image version for release notes is: $IMAGE_VERSION"
+
+BRANCH_NAME=releaseNotes/$IMAGE_VERSION
+PR_TITLE="ReleaseNotes"
+
 set_git_config
-if [ `git branch --list $branch_name` ]; then
-    git checkout $branch_name
+if [ `git branch --list $BRANCH_NAME` ]; then
+    git checkout $BRANCH_NAME
     git pull origin
     git checkout master -- .
 else
-    create_branch $branch_name
+    create_branch $BRANCH_NAME $PR_TARGET_BRANCH
 fi
 
-generate_release_notes
+retrycmd_if_failure 5 10 generate_release_notes || exit $?
 git status
 set +x
-create_pull_request $image_version $github_access_token $branch_name $pr_title
+create_pull_request $IMAGE_VERSION $GITHUB_TOKEN $BRANCH_NAME $PR_TARGET_BRANCH $PR_TITLE

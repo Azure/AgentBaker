@@ -1,11 +1,14 @@
 #!/bin/bash
 set -euxo pipefail
 
+RELEASE_ASSISTANT_APP_NAME="aks-node-sig-release-assistant[bot]"
+RELEASE_ASSISTANT_APP_UID="190555641"
+
 set_git_config() {
-    # git config needs to be set in the agent
-    github_user_name=$1
-    git config --global user.email "$github_user_name@microsoft.com"
-    git config --global user.name "$github_user_name"
+    # git config needs to be set in the agent as the corresponding GitHub app
+    # https://github.com/orgs/community/discussions/24664#discussioncomment-3244950
+    git config --global user.email "${RELEASE_ASSISTANT_APP_UID}+${RELEASE_ASSISTANT_APP_NAME}@users.noreply.github.com"
+    git config --global user.name "$RELEASE_ASSISTANT_APP_NAME"
     git config --list
 }
 
@@ -91,7 +94,9 @@ create_pull_request() {
     echo "Branch Name is $branch_name"
     echo "PR is for $pr_purpose"
 
-    git remote set-url origin https://$github_user_name:$github_access_token@github.com/Azure/AgentBaker.git  # Set remote URL with PAT
+    # use the installation token to authenticate for HTTP-based git access
+    # https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation#about-authentication-as-a-github-app-installation
+    git remote set-url origin https://x-access-token:${github_access_token}@github.com/Azure/AgentBaker.git
     git add .
 
     if [[ $pr_purpose == "ReleaseNotes" ]]; then
@@ -101,7 +106,7 @@ create_pull_request() {
     else
         post_purpose="bump windows image version"
         title="feat: $post_purpose for ${image_version}B"
-        labels="\"windows\""
+        labels="\"windows\", \"VHD\""
     fi
     
     echo "to add git commit feat: $post_purpose for $image_version"
@@ -114,12 +119,13 @@ create_pull_request() {
     # modify .github/PULL_REQUEST_TEMPLATE.md after pushing the pervious changes in created branch
     if [[ $pr_purpose == "ReleaseNotes" ]]; then
         sed -i "/What type of PR is this?/a\/kind documentation" .github/PULL_REQUEST_TEMPLATE.md
-        sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B. Reference: #[xxxxx]." .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
+        sed -i 's/\[ \] includes/\[x\] includes/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     else
         sed -i "/What type of PR is this?/a\/kind feature" .github/PULL_REQUEST_TEMPLATE.md
-        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()\\n- Windows 23H2: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     fi

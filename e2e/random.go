@@ -1,13 +1,13 @@
-package e2e_test
+package e2e
 
-import mrand "math/rand"
+import "math/rand"
 
 const safeLowerBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-func randomLowercaseString(r *mrand.Rand, n int) string {
+func randomLowercaseString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = safeLowerBytes[r.Intn(len(safeLowerBytes))]
+		b[i] = safeLowerBytes[rand.Intn(len(safeLowerBytes))]
 	}
 	return string(b)
 }

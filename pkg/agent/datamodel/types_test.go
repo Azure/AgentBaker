@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -40,15 +41,14 @@ func TestHasAadProfile(t *testing.T) {
 }
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
-	properities := getMockProperitesWithCustomClouEnv()
+	properties := getMockProperitesWithCustomClouEnv()
 	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
-	actual, err := properities.GetCustomEnvironmentJSON(false)
+	actual, err := properties.GetCustomEnvironmentJSON(false)
 	if err != nil {
 		t.Error(err)
 	}
-	if expectedRet != actual {
-		t.Errorf("Expected GetCustomEnvironmentJSON() to return %s, but got %s . ", expectedRet, actual)
-	}
+
+	assert.JSONEq(t, expectedRet, actual)
 }
 
 func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
@@ -947,6 +947,67 @@ func TestAgentPoolProfileIs2204VHDDistro(t *testing.T) {
 	}
 }
 
+func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
+	cases := []struct {
+		name     string
+		ap       AgentPoolProfile
+		expected bool
+	}{
+		{
+			name: "24.04 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuArm64Containerd2404Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "ubuntu 18.04 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804,
+			},
+			expected: false,
+		},
+		{
+			name: "ubuntu 18.04 gen2 non-VHD distro",
+			ap: AgentPoolProfile{
+				Distro: Ubuntu1804Gen2,
+			},
+			expected: false,
+		},
+		{
+			name: "18.04 Ubuntu VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd1804,
+			},
+			expected: false,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.expected != c.ap.Is2404VHDDistro() {
+				t.Fatalf("Got unexpected AgentPoolProfile.Is2204VHDDistro() result. Expected: %t. Got: %t.", c.expected, c.ap.Is2204VHDDistro())
+			}
+		})
+	}
+}
+
 func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -961,9 +1022,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen1 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2,
 			},
 			expected: true,
 		},
@@ -975,9 +1050,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 ARM64 VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen1 FIPS VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen1 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3FIPS,
 			},
 			expected: true,
 		},
@@ -989,9 +1078,23 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 TrustedLaunch VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2TL,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2TL,
 			},
 			expected: true,
 		},
@@ -1036,6 +1139,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 				Distro: AKSUbuntuContainerd1804,
 			},
 			expected: false,
+		},
+		{
+			name: "Azure Linux V3 Arm64 + FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2FIPS,
+			},
+			expected: true,
 		},
 	}
 
@@ -2032,7 +2142,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon := c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2068,7 +2178,7 @@ func TestGetAddonByName(t *testing.T) {
 	}
 
 	addon = c.GetAddonByName(containerMonitoringAddonName)
-	if addon.Config == nil || len(addon.Config) == 0 {
+	if len(addon.Config) == 0 {
 		t.Fatalf("KubernetesConfig.IsContainerMonitoringAddonEnabled() should have addon config instead returned null or empty")
 	}
 
@@ -2225,7 +2335,7 @@ func TestKubernetesConfig_RequiresDocker(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--keep-terminated-pod-volumes=false", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2254,7 +2364,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--image-gc-high-threshold":      "80",
 					"--image-gc-low-threshold":       "60",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{
@@ -2281,7 +2390,6 @@ func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
 					"--node-status-report-frequency": "1m0s",
 					"--cgroups-per-qos":              "true",
 					"--kubeconfig":                   "/var/lib/kubelet/kubeconfig",
-					"--keep-terminated-pod-volumes":  "false",
 				},
 			},
 			CustomKubeletConfig: &CustomKubeletConfig{
@@ -2635,6 +2743,47 @@ func TestSecurityProfileGetProxyAddress(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actual := c.securityProfile.GetProxyAddress()
+			if c.expected != actual {
+				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
+			}
+		})
+	}
+}
+
+func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
+	testContainerRegistryServer := "https://testserver.azurecr.io"
+	cases := []struct {
+		name            string
+		securityProfile *SecurityProfile
+		expected        string
+	}{
+		{
+			name:            "SecurityProfile nil",
+			securityProfile: nil,
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress nil",
+			securityProfile: &SecurityProfile{},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress disabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: false}},
+			expected:        "",
+		},
+		{
+			name:            "PrivateEgress enabled",
+			securityProfile: &SecurityProfile{PrivateEgress: &PrivateEgress{Enabled: true, ContainerRegistryServer: testContainerRegistryServer}},
+			expected:        testContainerRegistryServer,
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actual := c.securityProfile.GetPrivateEgressContainerRegistryServer()
 			if c.expected != actual {
 				t.Fatalf("test case: %s, expected: %s. Got: %s.", c.name, c.expected, actual)
 			}

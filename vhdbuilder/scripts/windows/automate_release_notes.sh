@@ -3,24 +3,20 @@ set -euxo pipefail
 
 source vhdbuilder/scripts/windows/automate_helpers.sh
 
-az login --identity
-
-echo "Build Id is $1"
- 
-build_id=$1
-
 set +x
-github_access_token=$2
+github_access_token=$1
 set -x
 
-github_user_name=$3
+build_id=$2
+echo "Build Id is $build_id"
+
 
 image_version=$(date +"%Y-%m")
-branch_name=$github_user_name/win-${image_version}b-release-notes
+branch_name=releaseNotes/win-${image_version}b-release-notes
 
 pr_purpose="ReleaseNotes"
 
-set_git_config $github_user_name
+set_git_config
 if [ `git branch --list $branch_name` ]; then
     git checkout $branch_name
     git pull origin

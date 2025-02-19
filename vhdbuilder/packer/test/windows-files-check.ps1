@@ -9,10 +9,10 @@ param (
     $windowsSKU
 )
 
-# We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
+# We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-. c:\windows-vhd-configuration.ps1
+. vhdbuilder/packer/windows/windows-vhd-configuration.ps1
 
 # We skip the signature validation of following scripts for known issues
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
@@ -178,16 +178,6 @@ function Test-CompareSingleDir {
         New-Item -ItemType Directory $dir -Force | Out-Null
     }
 
-    $excludeHashComparisionListInAzureChinaCloud = @(
-        "calico-windows",
-        "azure-vnet-cni-singletenancy-windows-amd64",
-        "azure-vnet-cni-singletenancy-swift-windows-amd64",
-        "azure-vnet-cni-singletenancy-overlay-windows-amd64",
-        # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
-        # so we can ignore the different hash values.
-        "v1.26.0-1int.zip"
-    )
-
     foreach ($URL in $map[$dir]) {
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
@@ -196,7 +186,7 @@ function Test-CompareSingleDir {
         $globalFileSize = (Get-Item $dest).length
         
         $isIgnore=$False
-        foreach($excludePackage in $excludeHashComparisionListInAzureChinaCloud) {
+        foreach($excludePackage in $global:excludeHashComparisionListInAzureChinaCloud) {
             if ($URL.Contains($excludePackage)) {
                 $isIgnore=$true
                 break
@@ -304,24 +294,5 @@ function Install-Containerd {
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
-function Test-PullImages {
-    Write-Output "Install Containerd."
-
-    Install-Containerd
-
-    Write-Output "Test-PullImages."
-   
-    Write-Output "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
-    foreach ($image in $imagesToPull) {
-        Write-Output "Pulling image $image"
-        Retry-Command -ScriptBlock {
-            & crictl.exe pull $image
-        } -ErrorMessage "Failed to pull image $image"
-
-        crictl.exe rmi $image
-    }
-}
-
 Test-CompareFiles
 Test-ValidateAllSignature
-Test-PullImages

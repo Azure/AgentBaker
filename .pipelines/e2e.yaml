@@ -1,68 +1,36 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
-trigger: none
+variables:
+  TAGS_TO_SKIP: "os=windows"
+  SKIP_E2E_TESTS: false
+trigger:
+  branches:
+    include:
+      - master
+      - dev
 pr:
   branches:
     include:
-    - master
-    - official/*
+      - master
+      - official/*
+      - dev
   paths:
     include:
-    - .pipelines/e2e.yaml
-    - e2e
-    - parts/linux
-    - pkg/agent
+      - .pipelines/e2e.yaml
+      - .pipelines/templates/e2e-template.yaml
+      - e2e
+      - parts/linux
+      - parts/common/components.json
+      - pkg/agent
     exclude:
-    - e2e/windows
-    - pkg/agent/datamodel/sig_config*.go # SIG config changes
-    - pkg/agent/datamodel/*.json # SIG version changes
-    - pkg/agent/testdata/AKSWindows* # Windows test data
-    
-variables:
-- group: ab-e2e
-- name: defaultTimeout
-  value: 90
-
-pool:
-  name: nodesigtest-pool
+      - pkg/agent/datamodel/sig_config*.go # SIG config changes
+      - pkg/agent/datamodel/*.json # SIG version changes
+      - pkg/agent/testdata/AKSWindows* # Windows test data
+      - parts/common/components.json # centralized components management file
+      - staging/cse/windows/README
+      - /**/*.md
+      - e2e/scenario_win_test.go
 
 jobs:
-- job: Run_AgentBaker_E2E
-  timeoutInMinutes: ${{ variables.defaultTimeout }}
-  steps:
-  - bash: |
-      az login --identity
-      az account set -s $(AZURE_SUBSCRIPTION_ID)
-    displayName: az login
-  - bash: bash .pipelines/scripts/setup_go.sh
-    displayName: setup go
-  - bash: |
-      export PATH="/usr/local/go/bin:$PATH"
-      go version
-
-      export BUILD_ID=$(Build.BuildId)
-
-      cd e2e
-      go test -timeout ${{ variables.defaultTimeout }}m -v -run Test_All ./
-    displayName: Run AgentBaker E2E
-    env:
-      VHD_BUILD_ID: $(VHD_BUILD_ID)
-      ADO_PAT: $(ADO_PAT)
-  - publish: $(System.DefaultWorkingDirectory)/e2e/scenario-logs
-    artifact: scenario-logs
-    condition: always()
-  - bash: |
-      set -x
-
-      vmssResourceIds=""
-      for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
-        resourceId=$(cat ${vmssModel})
-        vmssResourceIds="${vmssResourceIds} ${resourceId}"
-      done
-
-      if [ -n "${vmssResourceIds// }" ]; then
-        az resource delete --ids ${vmssResourceIds}
-      fi
-    displayName: ensure vmss deletion
-    condition: always()
- 
- 
+  - template: ./templates/e2e-template.yaml
+    parameters:
+      name: Linux Tests

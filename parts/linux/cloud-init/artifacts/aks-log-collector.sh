@@ -70,6 +70,10 @@ GLOBS+=(/var/log/cilium-cni*)
 GLOBS+=(/var/run/azure-vnet*)
 GLOBS+=(/var/run/azure-cns*)
 
+# GPU specific entries
+GLOBS+=(/var/log/nvidia*.log)
+GLOBS+=(/var/log/azure/nvidia*.log)
+
 # based on MANIFEST_FULL from Azure Linux Agent's log collector
 # https://github.com/Azure/WALinuxAgent/blob/master/azurelinuxagent/common/logcollector_manifests.py
 GLOBS+=(/var/lib/waagent/provisioned)
@@ -187,7 +191,7 @@ zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|
 collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
 
 # Collect system information
-collectToZip collect/blkid.txt blkid
+collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
 collectToZip collect/du_bytes.txt df -al
 collectToZip collect/du_inodes.txt df -ail
 collectToZip collect/diskinfo.txt lsblk

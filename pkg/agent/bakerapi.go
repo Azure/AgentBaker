@@ -9,31 +9,27 @@ import (
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
-	"github.com/Azure/agentbaker/pkg/agent/vhd/cache"
 )
 
-//nolint:revive // Name does not need to be modified to baker
 type AgentBaker interface {
 	GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error)
 	GetLatestSigImageConfig(sigConfig datamodel.SIGConfig, distro datamodel.Distro, envInfo *datamodel.EnvironmentInfo) (*datamodel.SigImageConfig, error)
 	GetDistroSigImageConfig(sigConfig datamodel.SIGConfig, envInfo *datamodel.EnvironmentInfo) (map[datamodel.Distro]datamodel.SigImageConfig, error)
-	GetCachedVersionsOnVHD() *cache.OnVHD
 }
 
 type agentBakerImpl struct {
-	toggles *toggles.Toggles
+	toggles toggles.Toggles
 }
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
-//nolint:revive // fine to return unexported type due to interface usage
 func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
-		toggles: toggles.New(),
+		toggles: toggles.NewDefaultToggles(),
 	}, nil
 }
 
-func (agentBaker *agentBakerImpl) WithToggles(toggles *toggles.Toggles) *agentBakerImpl {
+func (agentBaker *agentBakerImpl) WithToggles(toggles toggles.Toggles) *agentBakerImpl {
 	agentBaker.toggles = toggles
 	return agentBaker
 }
@@ -44,7 +40,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
 	} else {
-		validateAndSetLinuxNodeBootstrappingConfiguration(config)
+		ValidateAndSetLinuxNodeBootstrappingConfiguration(config)
 	}
 
 	templateGenerator := InitializeTemplateGenerator()
@@ -80,8 +76,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if !config.AgentPoolProfile.IsWindows() {
 		// handle node image version toggle/override
 		e := toggles.NewEntityFromNodeBootstrappingConfiguration(config)
-		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
-		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
 			nodeBootstrapping.SigImageConfig.Version = imageVersion
 		}
 	}
@@ -103,8 +99,8 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 
 	if !distro.IsWindowsDistro() {
 		e := toggles.NewEntityFromEnvironmentInfo(envInfo)
-		imageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
-		if imageVersion, ok := imageVersionOverrides[string(distro)]; ok {
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
 			sigImageConfig.Version = imageVersion
 		}
 	}
@@ -119,7 +115,6 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
-	linuxImageVersionOverrides := agentBaker.toggles.GetLinuxNodeImageVersion(e)
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
 	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
@@ -127,29 +122,33 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigAzureLinuxImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
 
 	for distro, sigConfig := range allAzureSigConfig.SigUbuntuEdgeZoneImageConfig {
-		if version, ok := linuxImageVersionOverrides[string(distro)]; ok {
-			sigConfig.Version = version
+		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		if imageVersion != "" {
+			sigConfig.Version = imageVersion
 		}
 		allDistros[distro] = sigConfig
 	}
@@ -175,8 +174,4 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	}
 
 	return nil
-}
-
-func (agentBaker *agentBakerImpl) GetCachedVersionsOnVHD() *cache.OnVHD {
-	return cache.GetOnVHD()
 }

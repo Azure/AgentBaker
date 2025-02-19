@@ -28,6 +28,7 @@ _If PR is about `failing-tests or flakes`, please post the related issues/tests 
 Fixes #
 
 **Requirements**:
+
 - [ ] uses [conventional commit messages](https://www.conventionalcommits.org/)
   <!-- Common commit types:
         build: Build 🏭
@@ -48,8 +49,8 @@ Fixes #
 
 **Special notes for your reviewer**:
 
-
 **Release note**:
+
 ```
 none
 ```

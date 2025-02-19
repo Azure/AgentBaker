@@ -10,6 +10,7 @@ RestartSec=2
 EnvironmentFile=/etc/default/kubelet
 SuccessExitStatus=143
 ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
+ExecStartPre=/bin/bash /opt/azure/containers/ensure_imds_restriction.sh
 ExecStartPre=/bin/mkdir -p /var/lib/kubelet
 ExecStartPre=/bin/mkdir -p /var/lib/cni
 ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le 0 ] ; then /bin/mount --bind /var/lib/kubelet /var/lib/kubelet ; fi"

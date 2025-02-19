@@ -63,7 +63,18 @@ function Adjust-PageFileSize()
 {
     Logs-To-Event -TaskName "AKS.WindowsCSE.AdjustPageFileSize" -TaskMessage "Start to adjust pagefile size"
 
-    wmic pagefileset set InitialSize=8096,MaximumSize=8096
+    try {
+        $computersys = Get-WmiObject Win32_ComputerSystem -EnableAllPrivileges;
+        $computersys.AutomaticManagedPagefile = $False;
+        $computersys.Put();
+
+        $pagefile = Get-WmiObject -Query "Select * From Win32_PageFileSetting Where Name like '%pagefile.sys'";
+        $pagefile.InitialSize = 8096;
+        $pagefile.MaximumSize = 8096;
+        $pagefile.Put();
+    } catch {
+        Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE -ErrorMessage "Failed to adjust pagefile size. Error: $_"
+    }
 }
 
 function Adjust-DynamicPortRange()
@@ -78,7 +89,7 @@ function Adjust-DynamicPortRange()
     # The fix which reduces dynamic port usage is still needed for DSR mode
     # Update the range to avoid that it conflicts with NodePort range (30000 - 32767)
     if ($global:EnableIncreaseDynamicPortRange) {
-        # UDP port 65330 is excluded in vhdbuilder/packer/configure-windows-vhd.ps1 since it may fail when it is set in provisioning nodes
+        # UDP port 65330 is excluded in vhdbuilder/packer/windows/configure-windows-vhd.ps1 since it may fail when it is set in provisioning nodes
         Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "tcp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_DYNAMIC_PORT_RANGE
         Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "add", "excludedportrange", "tcp", "30000", "2768") -ExitCode $global:WINDOWS_CSE_ERROR_SET_TCP_EXCLUDE_PORT_RANGE
         Invoke-Executable -Executable "netsh.exe" -ArgList @("int", "ipv4", "set", "dynamicportrange", "udp", "16385", "49151") -ExitCode $global:WINDOWS_CSE_ERROR_SET_UDP_DYNAMIC_PORT_RANGE
@@ -128,6 +139,7 @@ function Enable-FIPSMode
         $FipsEnabled
     )
 
+    Logs-To-Event -TaskName "AKS.WindowsCSE.EnableFIPSMode" -TaskMessage "Start to enable FIPS mode: $FipsEnabled."
     if ( $FipsEnabled ) {
         Write-Log "Set the registry to enable fips-mode"
         Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\FipsAlgorithmPolicy" -Name "Enabled" -Value 1 -Type DWORD -Force

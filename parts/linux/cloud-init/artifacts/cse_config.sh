@@ -43,6 +43,9 @@ configureSystemdUseDomains() {
 
     # Restart systemd networkd service
     systemctl restart systemd-networkd
+
+    # Restart rsyslog service to display the correct hostname in log
+    systemctl restart rsyslog
 }
 
 configureSwapFile() {
@@ -124,13 +127,14 @@ EOF
 }
 
 configureHTTPProxyCA() {
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         cert_dest="/usr/share/pki/ca-trust-source/anchors"
         update_cmd="update-ca-trust"
     else
         cert_dest="/usr/local/share/ca-certificates"
         update_cmd="update-ca-certificates"
     fi
+    HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
     echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
     $update_cmd || exit $ERR_UPDATE_CA_CERTS
 }
@@ -160,21 +164,27 @@ EOF
   systemctl restart containerd
 }
 
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
-}
-
 configureAzureJson() {
+    mkdir -p "/etc/kubernetes/"
+
     AZURE_JSON_PATH="/etc/kubernetes/azure.json"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
     
     set +x
+    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+    fi
+    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+    fi
+    if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+    fi
+
+    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+
     SP_FILE="/etc/kubernetes/sp.txt"
     if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
         echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > $SP_FILE
@@ -235,7 +245,7 @@ configureK8s() {
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
     chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
 
-    if [ "$ENABLE_SECURE_TLS_BOOTSTRAPPING" == "false" ] && [ "$ENABLE_TLS_BOOTSTRAPPING" == "false" ]; then
+    if [ "$ENABLE_SECURE_TLS_BOOTSTRAPPING" == "false" ] && [ -z "$TLS_BOOTSTRAP_TOKEN" ]; then
         # we guard the following cert creation logic since it seems RP always gives agentbaker a kubelet client cert/key pair
         # regardless of whether the node is being bootstrapped with some flavor of TLS bootstrapping
         if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
@@ -255,7 +265,6 @@ configureK8s() {
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    configureKubeletServerCert
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
@@ -309,8 +318,8 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" ]]; then
-        echo "Ingorings systemd-resolved query service but using its resolv.conf file"
+    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]]; then
+        echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
         ls -ltr /etc/resolv.conf
@@ -341,6 +350,10 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+    logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
+  fi
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -350,6 +363,18 @@ EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
   systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+configureContainerdRegistryHost() {
+  MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+  CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${MCR_REPOSITORY_BASE}/hosts.toml"
+  mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
+  touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+  chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+  tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+[host."https://${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"]
+  capabilities = ["pull", "resolve"]
+EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
@@ -364,6 +389,7 @@ ensureArtifactStreaming() {
   systemctl enable acr-mirror.service
   systemctl start acr-mirror.service
   sudo /opt/acr/tools/overlaybd/install.sh
+  sudo /opt/acr/tools/overlaybd/config-user-agent.sh azure
   sudo /opt/acr/tools/overlaybd/enable-http-auth.sh
   sudo /opt/acr/tools/overlaybd/config.sh download.enable false
   sudo /opt/acr/tools/overlaybd/config.sh cacheConfig.cacheSizeGB 32
@@ -411,7 +437,7 @@ ensureKubeCAFile() {
 }
 
 configureSecureTLSBootstrap() {
-    CLIENT_VERSION="client-v0.1.0-alpha.cameissner2"
+    CLIENT_VERSION="v0.1.0-alpha.cameissner2"
     DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/amd64/tls-bootstrap-client"
     if [[ $(isARM64) == 1 ]]; then
         DOWNLOAD_URL="https://kubernetesreleases.blob.core.windows.net/aks-tls-bootstrap-client/${CLIENT_VERSION}/linux/arm64/tls-bootstrap-client"
@@ -437,26 +463,127 @@ EOF
 
 ensureSecureTLSBootstrap() {
     KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
-    while [ "$(systemctl is-active secure-tls-bootstrap)" == "activating" ]; do
-        echo "secure TLS bootstrapping is still in progressing, waiting for terminal state..."
-        sleep 1
+
+    SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+    while [ "$SECURE_TLS_BOOTSTRAP_STATUS" == "activating" ]; do
+        echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
+        sleep 0.5
+        SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
     done
-    STATUS="$(systemctl is-active secure-tls-bootstrap)"
-    if [ "$STATUS" == "failed" ] || [ "$STATUS" == "is-failed" ]; then
+
+    if [ "$SECURE_TLS_BOOTSTRAP_STATUS" == "failed" ] || [ "$SECURE_TLS_BOOTSTRAP_STATUS" == "is-failed" ]; then
         systemctl status secure-tls-bootstrap --no-pager -l
         journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL # exit hard here until ready for preview
     fi
+
     if [ ! -f "$KUBECONFIG_FILE" ]; then
         systemctl status secure-tls-bootstrap --no-pager -l
         journalctl -u secure-tls-bootstrap
         exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG # exit hard here until ready for preview
     fi
-} 
+}
+
+getPrimaryNicIP() {
+    local sleepTime=1
+    local maxRetries=10
+    local i=0
+    local ip=""
+
+    while [[ $i -lt $maxRetries ]]; do
+        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
+        if [[ -n "$ip" && $? -eq 0 ]]; then
+            break
+        fi
+        sleep $sleepTime
+        i=$((i+1))
+    done
+    echo "$ip"
+}
+
+generateSelfSignedKubeletServingCertificate() {
+    mkdir -p "/etc/kubernetes/certs"
+    
+    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
+    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+
+    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
+    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
+}
+
+configureKubeletServing() {
+    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
+        echo "kubelet serving certificate rotation is disabled, generating self-signed serving certificate with openssl"
+        generateSelfSignedKubeletServingCertificate
+        return 0
+    fi
+
+    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
+    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+
+    # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
+    export -f should_disable_kubelet_serving_certificate_rotation
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    if [ $? -ne 0 ]; then
+        echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
+        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
+    fi
+
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "true" ]; then
+        echo "kubelet serving certificate rotation is disabled by nodepool tags"
+
+        # set --rotate-server-certificates flag and serverTLSBootstrap config file field to false
+        echo "reconfiguring kubelet flags and config as needed"
+        KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+            set +x
+            KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
+            set -x
+        fi
+
+        # manually generate kubelet's self-signed serving certificate
+        echo "generating self-signed serving certificate with openssl"
+        generateSelfSignedKubeletServingCertificate
+
+        # make sure to eliminate the kubelet serving node label
+        echo "removing node label $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL"
+        removeKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
+    else
+        echo "kubelet serving certificate rotation is enabled"
+
+        # remove the --tls-cert-file and --tls-private-key-file flags, which are incompatible with serving certificate rotation
+        # NOTE: this step will not be needed once these flags are no longer defaulted by the bootstrapper
+        echo "removing --tls-cert-file and --tls-private-key-file from kubelet flags"
+        removeKubeletFlag "--tls-cert-file=$KUBELET_SERVER_CERT_PATH"
+        removeKubeletFlag "--tls-private-key-file=$KUBELET_SERVER_PRIVATE_KEY_PATH"
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+            set +x
+            KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'del(.tlsCertFile)' | jq 'del(.tlsPrivateKeyFile)' | base64)
+            set -x
+        fi
+
+        # make sure to add the kubelet serving node label
+        echo "adding node label $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL if needed"
+        addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
+    fi
+}
 
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
+
+    # In k8s >= 1.29 kubelet no longer sets node internalIP when using external cloud provider
+    # https://github.com/kubernetes/kubernetes/pull/121028
+    # This regresses node startup performance in Azure CNI Overlay and Podsubnet clusters, which require the node to be
+    # assigned an internal IP before configuring pod networking.
+    # To improve node startup performance, explicitly set `--node-ip` to the IP returned from IMDS so kubelet sets
+    # the internal IP when it registers the node.
+    # If this fails, skip setting --node-ip, which is safe because cloud-node-manager will assign it later anyway.
+    if semverCompare ${KUBERNETES_VERSION:-"0.0.0"} "1.29.0"; then
+        logs_to_events "AKS.CSE.ensureKubelet.setKubeletNodeIPFlag" setKubeletNodeIPFlag
+    fi
+
     echo "KUBELET_FLAGS=${KUBELET_FLAGS}" > "${KUBELET_DEFAULT_FILE}"
     echo "KUBELET_REGISTER_SCHEDULABLE=true" >> "${KUBELET_DEFAULT_FILE}"
     echo "NETWORK_POLICY=${NETWORK_POLICY}" >> "${KUBELET_DEFAULT_FILE}"
@@ -468,7 +595,7 @@ ensureKubelet() {
 
     KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ -n "$TLS_BOOTSTRAP_TOKEN" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -482,8 +609,6 @@ ensureKubelet() {
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-            # used in vanilla TLS bootstrapping cases and when secure TLS bootstrapping has failed to generate a kubeconfig
-            # by the time we need to start kubelet
             BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
             mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
             touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -548,19 +673,35 @@ EOF
 # for TCP protocol (which http uses)
 #
 # 168.63.129.16 contains protected settings that have priviledged info.
+# HostGAPlugin (Host-GuestAgent-Plugin) is a web server process that runs on the physical host that serves the operational and diagnostic needs of the in-VM Guest Agent.
+# IT listens on both port 80 and 32526 hence access is only needed for agent but not the containers.
 #
 # The host can still reach 168.63.129.16 because it goes through the OUTPUT chain, not FORWARD.
 #
 # Note: we should not block all traffic to 168.63.129.16. For example UDP traffic is still needed
 # for DNS.
 iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 80 -j DROP
+iptables -I FORWARD -d 168.63.129.16 -p tcp --dport 32526 -j DROP
+EOF
+
+    # As iptables rule will be cleaned every time the node is restarted, we need to ensure the rule is applied every time kubelet is started.
+    primaryNicIP=$(logs_to_events "AKS.CSE.ensureKubelet.getPrimaryNicIP" getPrimaryNicIP)
+    ENSURE_IMDS_RESTRICTION_DROP_IN="/etc/systemd/system/kubelet.service.d/10-ensure-imds-restriction.conf"
+    mkdir -p "$(dirname "${ENSURE_IMDS_RESTRICTION_DROP_IN}")"
+    touch "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
+    chmod 0600 "${ENSURE_IMDS_RESTRICTION_DROP_IN}"
+    tee "${ENSURE_IMDS_RESTRICTION_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="PRIMARY_NIC_IP=${primaryNicIP}"
+Environment="ENABLE_IMDS_RESTRICTION=${ENABLE_IMDS_RESTRICTION}"
+Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
 EOF
 
     # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentalProvider" installCredentalProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
     systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
@@ -671,14 +812,14 @@ configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
         if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-            ctr image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
-            ctr images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
+            ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
@@ -688,9 +829,9 @@ configGPUDrivers() {
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         downloadGPUDrivers
-        installNvidiaContainerRuntime
+        installNvidiaContainerToolkit
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
@@ -702,7 +843,7 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue
-    if [[ $OS == $MARINER_OS_NAME ]]; then
+    if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
@@ -761,6 +902,7 @@ configCredentialProvider() {
     mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
     touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
     if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        echo "configure credential provider for custom cloud"
         tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
@@ -777,8 +919,28 @@ providers:
     args:
       - /etc/kubernetes/azure.json
 EOF
+    elif [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+        echo "configure credential provider for network isolated cluster"
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+EOF
     else
-    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        echo "configure credential provider with default settings"
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
@@ -796,79 +958,19 @@ EOF
     fi
 }
 
-getPrimaryNicIP() {
-    local sleepTime=1
-    local maxRetries=10
-    local i=0
-    local ip=""
-
-    while [[ $i -lt $maxRetries ]]; do
-        ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[].ipv4.ipAddress[0].privateIpAddress')
-        if [[ -n "$ip" && $? -eq 0 ]]; then
-            break
+setKubeletNodeIPFlag() {
+    imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
+    if [[ $? -eq 0 ]]; then
+        nodeIPAddrs=()
+        ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
+        [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")
+        ipv6Addr=$(echo $imdsOutput | jq -r '.[0].ipv6.ipAddress[0].privateIpAddress // ""')
+        [ -n "$ipv6Addr" ] && nodeIPAddrs+=("$ipv6Addr")
+        nodeIPArg=$(IFS=, ; echo "${nodeIPAddrs[*]}") # join, comma-separated
+        if [ -n "$nodeIPArg" ]; then
+            echo "Adding --node-ip=$nodeIPArg to kubelet flags"
+            KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
         fi
-        sleep $sleepTime
-        i=$((i+1))
-    done
-    echo "$ip"
-}
-
-# $1 - boolean, if true, insert the iptables rule to mangle table; otherwise insert the rule to filter table. Default value is false.
-ensureIMDSRestrictionRule() {
-    local primaryNicIP=$(getPrimaryNicIP)
-    if [[ -z "$primaryNicIP" ]]; then
-        echo "Primary NIC IP not found"
-        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
-    fi
-    echo "Primary NIC IP: $primaryNicIP"
-
-    local insertRuleToMangleTable=${1:-false}
-    if [[ $insertRuleToMangleTable == true ]]; then
-        echo "Before inserting IMDS restriction rule to mangle table, checking whether the rule already exists..."
-        iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -eq 0 ]]; then
-            echo "IMDS restriction rule already exists in mangle table, returning..."
-            return
-        fi
-        echo "Inserting IMDS restriction rule to mangle table..."
-        iptables -t mangle -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_MANGLE_TABLE
-    else
-        echo "Before inserting IMDS restriction rule to filter table, checking whether the rule already exists..."
-        iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-        if [[ $? -eq 0 ]]; then
-            echo "IMDS restriction rule already exists in filter table, returning..."
-            return
-        fi
-        echo "Inserting IMDS restriction rule to filter table..."
-        iptables -t filter -I FORWARD 1 ! -s "$primaryNicIP" -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_INSERT_IMDS_RESTRICTION_RULE_INTO_FILTER_TABLE
-    fi
-}
-
-# checks both mangle and filter tables for the IMDS restriction rule and deletes it if found
-disableIMDSRestriction() {
-    local primaryNicIP=$(getPrimaryNicIP)
-    if [[ -z "$primaryNicIP" ]]; then
-        echo "Primary NIC IP not found"
-        exit $ERR_PRIMARY_NIC_IP_NOT_FOUND
-    fi
-    echo "Primary NIC IP: $primaryNicIP"
-
-    echo "Checking whether IMDS restriction rule exists in mangle table..."
-    iptables -t mangle -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-    if [[ $? -ne 0 ]]; then
-        echo "IMDS restriction rule does not exist in mangle table, no need to delete"
-    else
-        echo "Deleting IMDS restriction rule from mangle table..."
-        iptables -t mangle -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_MANGLE_TABLE
-    fi
-
-    echo "Checking whether IMDS restriction rule exists in filter table..."
-    iptables -t filter -S | grep -- '-d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP'
-    if [[ $? -ne 0 ]]; then
-         echo "IMDS restriction rule does not exist in filter table, no need to delete"
-    else
-        echo "Deleting IMDS restriction rule from filter table..."
-        iptables -t filter -D FORWARD ! -s $primaryNicIP -d 169.254.169.254/32 -p tcp -m tcp --dport 80 -m comment --comment "AKS managed: added by AgentBaker esnureIMDSRestriction for IMDS restriction feature" -j DROP || exit $ERR_DELETE_IMDS_RESTRICTION_RULE_FROM_FILTER_TABLE
     fi
 }
 

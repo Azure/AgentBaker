@@ -2,7 +2,8 @@
 
 This is a quick way to generate a list of valid flags for a given kubelet version.
 
-When started with `-v=1 --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock` kubelet will print out a list of valid flags and will run in "standalone mode" without an apiserver (i.e., it will not crash).
+When started with `-v=1 --container-runtime-endpoint=unix:///var/run/containerd/containerd.sock` kubelet will print out
+a list of valid flags and will run in "standalone mode" without an apiserver (i.e., it will not crash).
 
 We abuse this to start it for 1 second, scrape the output, and then kill it.
 
@@ -10,7 +11,7 @@ We use a regex on the output to extract all flags, converting them to key/value 
 
 The list of keys in that map is the valid set of flags for that kubelet version.
 
-Since the test only takes 1-2 seconds, we can run it for every kubelet version we want to support. 
+Since the test only takes 1-2 seconds, we can run it for every kubelet version we want to support.
 
 The current code only runs one version.
 
@@ -91,7 +92,6 @@ map[string]string{
   "--image-service-endpoint": "\"\"",
   "--iptables-drop-bit": "\"15\"",
   "--iptables-masquerade-bit": "\"14\"",
-  "--keep-terminated-pod-volumes": "\"false\"",
   "--kernel-memcg-notification": "\"false\"",
   "--kube-api-burst": "\"10\"",
   "--kube-api-content-type": "\"application/vnd.kubernetes.protobuf\"",

@@ -1,22 +1,14 @@
 powershell.exe -ExecutionPolicy Unrestricted -command \"
-$arguments = '
--MasterIP ''{{ GetKubernetesEndpoint }}''
--KubeDnsServiceIp ''{{ GetParameter "kubeDNSServiceIP" }}''
--MasterFQDNPrefix ''{{ GetParameter "masterEndpointDNSNamePrefix" }}''
--Location ''{{ GetVariable "location" }}''
-{{if UserAssignedIDEnabled}}
--UserAssignedClientID ''{{ GetVariable "userAssignedIdentityID" }}''
-{{ end }}
--TargetEnvironment ''{{ GetTargetEnvironment }}''
--AgentKey ''{{ GetParameter "clientPrivateKey" }}''
--AADClientId ''{{ GetParameter "servicePrincipalClientId" }}''
--AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
--NetworkAPIVersion 2018-08-01
--LogFile %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log
--CSEResultFilePath %SYSTEMDRIVE%\AzureData\provision.complete';
 $inputFile = '%SYSTEMDRIVE%\AzureData\CustomData.bin';
 $outputFile = '%SYSTEMDRIVE%\AzureData\CustomDataSetupScript.ps1';
-if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |C:\AzureData\CustomData.bin does not exist.|' };
+if (!(Test-Path $inputFile)) { throw 'ExitCode: |49|, Output: |WINDOWS_CSE_ERROR_NO_CUSTOM_DATA_BIN|, Error: |$inputFile does not exist.|' };
 Copy-Item $inputFile $outputFile -Force;
-Invoke-Expression('{0} {1}' -f $outputFile, $arguments);
+PowerShell
+-File $outputFile
+-AgentKey ''{{ GetParameter "clientPrivateKey" }}''
+-AADClientSecret ''{{ GetParameter "encodedServicePrincipalClientSecret" }}''
+-CSEResultFilePath %SYSTEMDRIVE%\AzureData\provision.complete >> %SYSTEMDRIVE%\AzureData\CustomDataSetupScript.log 2>&1;
+if (!(Test-Path %SYSTEMDRIVE%\AzureData\provision.complete)) { throw 'ExitCode: |50|, Output: |WINDOWS_CSE_ERROR_NO_CSE_RESULT_LOG|, Error: |C:\AzureData\provision.complete is not generated.|'; };
+$result=(Get-Content %SYSTEMDRIVE%\AzureData\provision.complete);
+if ($result -ne '0') { throw $result; };
 \"

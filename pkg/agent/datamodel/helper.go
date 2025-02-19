@@ -124,3 +124,8 @@ func getComponentNameFromURL(downloadURL string) (string, error) {
 	}
 	return componentName, nil
 }
+
+// IsMIGNode check if the node should be partitioned.
+func IsMIGNode(gpuInstanceProfile string) bool {
+	return gpuInstanceProfile != ""
+}

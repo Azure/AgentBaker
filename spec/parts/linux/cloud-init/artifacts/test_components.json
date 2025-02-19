@@ -1,0 +1,219 @@
+{
+  "ContainerImages": [
+    {
+      "downloadURL": "mcr.microsoft.com/dummyImageWithMultiArchVersionsV2:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=dummyImage",
+          "latestVersion": "dummyVersion1.1",
+          "previousLatestVersion": "dummyVersion1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=dummyImage",
+          "latestVersion": "dummyVersion2.1",
+          "previousLatestVersion": "dummyVersion2"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/dummyImageWithOldMultiArchVersions:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersions": [
+        "dummyVersion3",
+        "dummyVersion4",
+        "dummyVersion5"
+      ]
+    }
+  ],
+  "Packages": [
+    {
+      "name": "pkgVersionsV2",
+      "downloadLocation": "dummy/location",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=pkgVersionsV2, os=ubuntu, release=22.04",
+                "latestVersion": "dummyVersion1",
+                "previousLatestVersion": "dummyVersion0.9"
+              }
+            ],
+            "downloadURL": "https://dummypath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=pkgVersionsV2, os=ubuntu, release=20.04",
+                "latestVersion": "dummyVersion2"
+              }
+            ]
+          },
+          "r1804": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion3"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion4"
+              }
+            ]
+          },
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersionCurrent"
+              }
+            ],
+            "downloadURL": "https://dummydefaultcurrentpath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion5"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion6.1",
+                "previousLatestVersion": "dummyVersion6.0"
+              }
+            ]
+          }
+        },
+        "marinerkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "v3.0": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion8"
+              }
+            ]
+          }
+        },
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion7"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "pkgVersions",
+      "downloadLocation": "/usr/local/bin",
+      "downloadURIs": {
+        "default": {
+          "current": {
+            "versions": [
+              "dummyVersionFallback1.1",
+              "dummyVersionFallback1.0"
+            ],
+            "downloadURL": "https://github.com/dummypath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        }
+      }
+    },
+    {
+      "name": "containerd",
+      "downloadLocation": "dummy/location",
+      "downloadURIs": {
+        "ubuntu": {
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
+                "latestVersion": "1.2.3"
+              }
+            ]
+          },
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersionCurrent"
+              }
+            ],
+            "downloadURL": "https://dummydefaultcurrentpath/v${version}/dummy_${version}_linux_${CPU_ARCH}.tar.gz"
+          }
+        },
+        "mariner": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.2.3-5.fake"
+              }
+            ]
+          }
+        },
+        "marinerkata": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "<SKIP>"
+              }
+            ]
+          }
+        },
+        "azurelinux": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "2.0.0-1.fake"
+              }
+            ]
+          }
+        },
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion7"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "fake-runc",
+      "downloadLocation": "fake",
+      "downloadURIs": {
+        "ubuntu": {
+          "r1804": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "dummyVersion9"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

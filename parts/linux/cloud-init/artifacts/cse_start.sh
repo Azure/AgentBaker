@@ -1,5 +1,7 @@
 CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
+mkdir -p $EVENTS_LOGGING_DIR
 timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
@@ -21,7 +23,6 @@ KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
 KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
-EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 EVENTS_FILE_NAME=$(date +%s%3N)
 EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
 
@@ -42,6 +43,8 @@ JSON_STRING=$( jq -n \
                   '{ExitCode: $ec, Output: $op, Error: $er, ExecDuration: $ed, KernelStartTime: $ks, CloudInitLocalStartTime: $cinitl, CloudInitStartTime: $cinit, CloudFinalStartTime: $cf, NetworkdStartTime: $ns, CSEStartTime: $cse, GuestAgentStartTime: $ga, SystemdSummary: $ss, BootDatapoints: { KernelStartTime: $ks, CSEStartTime: $cse, GuestAgentStartTime: $ga, KubeletStartTime: $kubelet }}' )
 mkdir -p /var/log/azure/aks
 echo $JSON_STRING | tee /var/log/azure/aks/provision.json
+
+mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 # messsage_string is here because GA only accepts strings in Message.
 message_string=$( jq -n \
@@ -85,7 +88,7 @@ upload_logs() {
     # fall back to WALA collector
     if test -x /opt/azure/containers/aks-log-collector.sh; then
         # Call AKS Log Collector
-        /opt/azure/containers/aks-log-collector.sh
+        /opt/azure/containers/aks-log-collector.sh >/var/log/azure/aks/cse-aks-log-collector.log 2>&1
     else
         # find the most recent version of WALinuxAgent and use it to collect logs per
         # https://supportability.visualstudio.com/AzureIaaSVM/_wiki/wikis/AzureIaaSVM/495009/Log-Collection_AGEX?anchor=manually-collect-logs

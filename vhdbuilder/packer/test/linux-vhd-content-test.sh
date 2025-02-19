@@ -1,8 +1,10 @@
 #!/bin/bash
 COMPONENTS_FILEPATH=/opt/azure/components.json
-KUBE_PROXY_IMAGES_FILEPATH=/opt/azure/kube-proxy-images.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
+UBUNTU_OS_NAME="UBUNTU"
+MARINER_OS_NAME="MARINER"
+AZURELINUX_OS_NAME="AZURELINUX"
 
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
@@ -11,6 +13,14 @@ ENABLE_FIPS="$3"
 OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
+
+# List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
+# 1. "Command ['hostname', '-f']":
+#   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
+#   this for stable version and there is no customer issues collected. Ignore this failure now.
+CLOUD_INIT_LOG_MSG_IGNORE_LIST=(
+  "Command ['hostname', '-f']"
+)
 
 err() {
   echo "$1:Error: $2" >>/dev/stderr
@@ -59,73 +69,177 @@ fi
 source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
-testFilesDownloaded() {
-  test="testFilesDownloaded"
+validateDownloadPackage() {
+  local downloadURL=$1
+  local downloadedPackage=$2
+  fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+  fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
+  if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+    return 1
+  fi
+  return 0
+}
+
+validateOrasOCIArtifact() {
+  local downloadURL=$1
+  local downloadedPackage=$2
+  echo "Validating package $downloadURL from registry and downloaded package $downloadedPackage"
+
+  # Fetch the manifest and extract the size using jq
+  fileSizeInRegistry=$(oras manifest fetch --registry-config ${ORAS_REGISTRY_CONFIG_FILE} "$downloadURL" | jq '.layers[0].size')
+  
+  # Get the size of the downloaded package
+  fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
+  
+  # Compare the sizes
+  if [[ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]]; then
+    echo "Error: File size mismatch. Expected $fileSizeInRegistry, but got $fileSizeDownloaded."
+    return 1
+  fi
+
+  echo "Package validated successfully."
+  return 0
+}
+
+testAcrCredentialProviderInstalled() {
+  test="testAcrCredentialProviderInstalled"
+  echo "$test:Start"
+  local downloadURL=$1
+  local acrCredProviderVersions=("${@:2}")
+  for version in "${acrCredProviderVersions[@]}"; do
+    echo "checking acrCredProviderVersions: $version ..."
+    eval "currentDownloadURL=${downloadURL}"
+
+    # if currentDownloadURL is mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:v1.30.0-linux-amd64,
+    # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
+    downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
+    validateOrasOCIArtifact $currentDownloadURL $downloadLocation
+    if [[ $? -ne 0 ]]; then
+      err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
+      continue
+    fi
+  done
+  echo "$test:Finish"
+}
+
+testPackagesInstalled() {
+  test="testPackagesInstalled"
   containerRuntime=$1
   if [[ $(isARM64) == 1 ]]; then
     return
   fi
+  CPU_ARCH="amd64"
   echo "$test:Start"
-  filesToDownload=$(jq .DownloadFiles[] --monochrome-output --compact-output <$COMPONENTS_FILEPATH)
+  packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 
-  for fileToDownload in ${filesToDownload[*]}; do
-    fileName=$(echo "${fileToDownload}" | jq .fileName -r)
-    downloadLocation=$(echo "${fileToDownload}" | jq .downloadLocation -r)
-    versions=$(echo "${fileToDownload}" | jq .versions -r | jq -r ".[]")
-    download_URL=$(echo "${fileToDownload}" | jq .downloadURL -r)
-    targetContainerRuntime=$(echo "${fileToDownload}" | jq .targetContainerRuntime -r)
-    if [ "${targetContainerRuntime}" != "null" ] && [ "${containerRuntime}" != "${targetContainerRuntime}" ]; then
-      echo "$test: skipping ${fileName} verification as VHD container runtime is ${containerRuntime}, not ${targetContainerRuntime}"
+  while IFS= read -r p; do
+    name=$(echo "${p}" | jq .name -r)
+    downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
+    if [[ "$downloadLocation" == "" ]]; then
       continue
     fi
-    if [ ! -d $downloadLocation ]; then
-      err $test "Directory ${downloadLocation} does not exist"
+    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
+      OS=$MARINER_OS_NAME
+    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
+      OS=$AZURELINUX_OS_NAME
+    else
+      OS=$UBUNTU_OS_NAME
+    fi
+    PACKAGE_VERSIONS=()
+    updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
+    PACKAGE_DOWNLOAD_URL=""
+    updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
+    if [ "${name}" == "kubernetes-binaries" ]; then
+      # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      continue
+    fi
+    if [ "${name}" == "azure-acr-credential-provider" ]; then
+      # azure-acr-credential-provider is installed in a different way so we test it separately
+      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
-    for version in ${versions}; do
-      file_Name=$(string_replace $fileName $version)
-      dest="$downloadLocation/${file_Name}"
-      downloadURL=$(string_replace $download_URL $version)/$file_Name
-      if [ ! -s $dest ]; then
-        err $test "File ${dest} does not exist"
+    for version in "${PACKAGE_VERSIONS[@]}"; do
+      if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
+        echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
+        # we can further think of adding a check to see if the package is installed through apt-get
+        break
+      fi
+      # A downloadURL from a package in components.json will look like this: 
+      # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+      # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
+      eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
+      local fileNameWithExt
+      fileNameWithExt=$(basename $downloadURL)
+      local fileNameWithoutExt
+      fileNameWithoutExt="${fileNameWithExt%.*}"
+      local downloadedPackage
+      downloadedPackage="$downloadLocation/${fileNameWithExt}"
+      local extractedPackageDir
+      extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
+
+      # if there is a directory with expected name, we assume it's been downloaded and extracted properly
+      # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
+      if [ -d "$extractedPackageDir" ]; then
+        echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
       fi
-      # no wc -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
-      if [ ! -d $dest ]; then
-        # -L since some urls are redirects (i.e github)
-        fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        fileSizeDownloaded=$(wc -c $dest | awk '{print $1}' | tr -d '\r')
-        if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
-          err $test "File size of ${dest} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downlaoded file size: ${fileSizeDownloaded}"
+
+      # if the downloadLocation is /usr/local/bin verify that the package is installed
+      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+        if command -v "$name" >/dev/null 2>&1; then
+          echo "$name is installed."
+          continue
+        elif [ "$name" == "containerd-wasm-shims" ]; then
+          testWasmRuntimesInstalled $downloadLocation $version
+          echo "$test $name binaries are in the expected location of $downloadLocation"
+          continue
+        elif [ "$name" == "spinkube" ]; then
+          testSpinKubeInstalled $downloadLocation $version
+          echo "$test $name binaries are in the expected location of $downloadLocation"
+          continue
+        else
+          err $test "$name is not installed. Expected to be installed in $downloadLocation"
           continue
         fi
-        # Validate whether package exists in Azure China cloud
-        if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-          mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-          echo "Validating: $mcURL"
-          isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-          if [[ "$isExist" == "404" ]]; then
-            err "$mcURL is invalid"
-            continue
-          fi
+      fi
+      
+      # if there isn't a directory, we check if the file exists and the size is correct
+      # -L since some urls are redirects (i.e github)
+      # shellcheck disable=SC2086
+      validateDownloadPackage "$downloadURL" $downloadedPackage
+      if [[ $? -ne 0 ]]; then
+        err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
+        continue
+      fi
+      echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
+      # Validate whether package exists in Azure China cloud
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+        echo "Validating: $mcURL"
+        isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+        if [[ "$isExist" == "404" ]]; then
+          err "$mcURL is invalid"
+          continue
+        fi
 
-          fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-          if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-            err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downlaoded file size: ${fileSizeInMC}"
-            continue
-          fi
+        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
+          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
+          continue
         fi
       fi
     done
 
     echo "---"
-  done
+  done <<<"$packages"
   echo "$test:Finish"
 }
 
 testImagesPulled() {
   test="testImagesPulled"
+  local componentsJsonContent="$2"
   echo "$test:Start"
   containerRuntime=$1
   if [ $containerRuntime == 'containerd' ]; then
@@ -137,25 +251,23 @@ testImagesPulled() {
     return
   fi
 
-  imagesToBePulled=$(echo $2 | jq .ContainerImages[] --monochrome-output --compact-output)
+  imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
-  for imageToBePulled in ${imagesToBePulled[*]}; do
+  while IFS= read -r imageToBePulled; do
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    multiArchVersionsStr=$(echo "${imageToBePulled}" | jq .multiArchVersions -r)
+    MULTI_ARCH_VERSIONS=()
+    updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
     if [[ ${amd64OnlyVersionsStr} != null ]]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
-    multiArchVersions=""
-    if [[ ${multiArchVersionsStr} != null ]]; then
-      multiArchVersions=$(echo "${multiArchVersionsStr}" | jq -r ".[]")
-    fi
+
     if [[ $(isARM64) == 1 ]]; then
-      versions="${multiArchVersions}"
+      versions="${MULTI_ARCH_VERSIONS}"
     else
-      versions="${amd64OnlyVersions} ${multiArchVersions}"
+      versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
     fi
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
@@ -168,7 +280,7 @@ testImagesPulled() {
     done
 
     echo "---"
-  done
+  done <<<"$imagesToBePulled"
   echo "$test:Finish"
 }
 
@@ -187,14 +299,14 @@ testImagesRetagged() {
   fi
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
-  for pulledImage in ${pulledImages[@]}; do
+  while IFS= read -r pulledImage; do
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
-  done
+  done <<<"$pulledImages"
   if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
     echo "all the images are:"
@@ -229,7 +341,7 @@ testChrony() {
     err $test "ntp is active with status ${status}"
   fi
   #test chrony is running
-  #if mariner check chronyd, else check chrony
+  #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
   if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
     os_chrony="chronyd"
@@ -296,17 +408,51 @@ testFips() {
   echo "$test:Finish"
 }
 
+testCloudInit() {
+  test="testCloudInit"
+  echo "$test:Start"
+  os_sku=$1
+
+  # Limit this test only to Mariner or Azurelinux
+  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+    echo "Checking if cloud-init.log exists..."
+    FILE=/var/log/cloud-init.log
+    if test -f "$FILE"; then
+      echo "Cloud-init log exists. Checking its content..."
+      grep 'WARNING\|ERROR' $FILE | while read -r msg; do
+        for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
+            if [[ "$msg" == *"$pattern"* ]]; then
+                echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
+            else
+                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
+            fi
+        done
+      done
+      echo "Cloud-init log is OK."
+    else
+      err $test "Check cloud-init log does not exist."
+    fi
+
+    echo "Checking cloud-init status..."
+    cloud_init_output=$(cloud-init status --wait)
+    cloud_init_status=$?
+    if [ ${cloud_init_status} -eq 0 ]; then
+      echo "Cloud-init status is OK."
+    else
+      err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
+    fi
+  fi
+
+  echo "$test:Finish"
+}
+
 testKubeBinariesPresent() {
   test="testKubeBinaries"
   echo "$test:Start"
-  containerRuntime=$1
+  local kubeBinariesVersions=("$@")
   binaryDir=/usr/local/bin
-  k8sVersions="$(jq -r .kubernetes.versions[] </opt/azure/manifest.json)"
-  for patchedK8sVersion in ${k8sVersions}; do
-    # Only need to store k8s components >= 1.19 for containerd VHDs
-    if (($(echo ${patchedK8sVersion} | cut -d"." -f2) < 19)) && [[ ${containerRuntime} == "containerd" ]]; then
-      continue
-    fi
+  for patchedK8sVersion in "${kubeBinariesVersions[@]}"; do
+    echo "checking kubeBinariesVersions: $patchedK8sVersion ..."
     # strip the last .1 as that is for base image patch for hyperkube
     if grep -iq hotfix <<<${patchedK8sVersion}; then
       # shellcheck disable=SC2006
@@ -315,6 +461,9 @@ testKubeBinariesPresent() {
       patchedK8sVersion=$(echo ${patchedK8sVersion} | cut -d"." -f1,2,3)
     fi
     k8sVersion=$(echo ${patchedK8sVersion} | cut -d"_" -f1 | cut -d"-" -f1 | cut -d"." -f1,2,3)
+    if grep -iq akslts <<<${patchedK8sVersion}; then
+      k8sVersion="$k8sVersion-akslts"
+    fi
     kubeletDownloadLocation="$binaryDir/kubelet-$k8sVersion"
     kubectlDownloadLocation="$binaryDir/kubectl-$k8sVersion"
     kubeletInstallLocation="/usr/local/bin/kubelet"
@@ -327,16 +476,12 @@ testKubeBinariesPresent() {
       err $test "Binary ${kubectlDownloadLocation} does not exist"
     fi
     #Test whether the installed binary version is indeed correct
-    mv $kubeletDownloadLocation $kubeletInstallLocation
-    mv $kubectlDownloadLocation $kubectlInstallLocation
-    chmod a+x $kubeletInstallLocation $kubectlInstallLocation
-    echo "kubectl version"
-    kubectlLongVersion=$(kubectl version 2>/dev/null)
+    chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
+    kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
-    echo "kubelet version"
-    kubeletLongVersion=$(kubelet --version 2>/dev/null)
+    kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
@@ -344,29 +489,22 @@ testKubeBinariesPresent() {
   echo "$test:Finish"
 }
 
-testKubeProxyImagesPulled() {
-  test="testKubeProxyImagesPulled"
-  echo "$test:Start"
-  containerRuntime=$1
-  containerdKubeProxyImages=$(jq .containerdKubeProxyImages <${KUBE_PROXY_IMAGES_FILEPATH})
-
-  if [ $containerRuntime == 'containerd' ]; then
-    testImagesPulled containerd "$containerdKubeProxyImages"
-  else
-    err $test "unsupported container runtime $containerRuntime"
-    return
-  fi
-  echo "$test:Finish"
-}
-
 # nc and nslookup is used in CSE to check connectivity
 testCriticalTools() {
   test="testCriticalTools"
   echo "$test:Start"
+
+  #TODO (djsly): netcat is only required with 18.04, remove this check when 18.04 is deprecated
   if ! nc -h 2>/dev/null; then
     err $test "nc is not installed"
   else
     echo $test "nc is installed"
+  fi
+
+  if ! curl -h 2>/dev/null; then
+    err $test "curl is not installed"
+  else
+    echo $test "curl is installed"
   fi
 
   if ! nslookup -version 2>/dev/null; then
@@ -384,6 +522,7 @@ testCustomCAScriptExecutable() {
   if [ "$permissions" != "755" ]; then
     err $test "/opt/scripts/update_certs.sh has incorrect permissions"
   fi
+
   echo "$test:Finish"
 }
 
@@ -392,6 +531,16 @@ testCustomCATimerNotStarted() {
   if [[ -n "$isUnitThere" ]]; then
     err $test "Custom CA timer was loaded, but shouldn't be"
   fi
+
+  echo "$test:Finish"
+}
+
+testCustomCATrustNodeCAWatcherRetagged() {
+  isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
+  if [[ -z "$isStaticTagImageThere" ]]; then
+    err $test "Expected to find Node CA Watcher with static tag on the node"
+  fi
+
   echo "$test:Finish"
 }
 
@@ -583,14 +732,17 @@ testNfsServerService() {
   local service_name="nfs-server.service"
   echo "$test:Start"
 
-  # is-enabled returns 'masked' if the service is masked and an empty
-  # string if the service is not installed. Either is fine.
+  # is-enabled returns:
+  # 'masked' if the service is masked.
+  # empty string if the service is not installed.
+  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
   echo "$test: Checking that $service_name is masked"
   local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  echo "$test: logging ${is_enabled} here"
   if [[ "${is_enabled}" == "masked" ]]; then
     echo "$test: $service_name is correctly masked"
-  elif [[ "${is_enabled}" == "" ]]; then
+  elif [[ "${is_enabled}" == "" || "${is_enabled}" == "not-found" ]]; then
     echo "$test: $service_name is not installed, which is fine"
   else
     err $test "$service_name is not masked"
@@ -608,7 +760,7 @@ testPamDSettings() {
   local settings_file=/etc/security/faillock.conf
   echo "$test:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -799,7 +951,7 @@ testPam() {
   local retval=0
   echo "${test}:Start"
 
-  # We only want to run this test on Mariner 2.0
+  # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
   if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
@@ -815,12 +967,14 @@ testPam() {
     pip3 install --disable-pip-version-check -r requirements.txt || \
       (err ${test} "Failed to install dependencies"; return 1)
     # run the script
-    output=$(pytest -v -s test_pam.py)
+    # the pam tests are flaky as they require scraping the console
+    # if there are test failures, --reruns 5 will rerun the failed tests up to 5 times
+    output=$(pytest -v -s --reruns 5 test_pam.py)
     retval=$?
     # deactivate the virtual environment
     deactivate
     popd || (err ${test} "Failed to cd out of test dir"; return 1)
-    
+
     if [ $retval -ne 0 ]; then
       err ${test} "$output"
       err ${test} "PAM configuration is not functional"
@@ -859,13 +1013,110 @@ testContainerImagePrefetchScript() {
 }
 
 testBccTools () {
-  for line in '- bcc-tools' '- libbcc-examples'; do
-    if ! grep -F -x -e "$line" /opt/azure/vhd-install.complete; then
-      echo "BCC tools were not successfully downloaded."
+  local test="BCCInstallTest"
+  echo "$test: checking if BCC tools were successfully installed"
+  for line in '  - bcc-tools' '  - libbcc-examples'; do
+    if ! grep -F -x -e "$line" $VHD_LOGS_FILEPATH; then
+      err "BCC tools were not successfully installed"
       return 1
     fi
   done
-  echo "BCC tools were successfully downloaded."
+  echo "$test: BCC tools were successfully installed"
+  return 0
+}
+
+testAKSNodeControllerBinary () {
+  local test="testAKSNodeControllerBinary"
+  local go_binary_path="/opt/azure/containers/aks-node-controller"
+
+  echo "$test: checking existence of aks-node-controller go binary at $go_binary_path"
+  if [ ! -f "$go_binary_path" ]; then
+    err "$test: aks-node-controller go binary does not exist at $go_binary_path"
+    return 1
+  fi
+  echo "$test: aks-node-controller go binary exists at $go_binary_path"
+}
+
+testAKSNodeControllerService() {
+  local test="testNBCParserService"
+  local service_name="aks-node-controller.service"
+  echo "$test:Start"
+
+  # is-enabled returns:
+  # 'enabled' if the service is enabled.
+  # empty string if the service is not installed.
+  # 'not-found' if the unit files are not present. Encountered with Ubuntu 24.04
+  echo "$test: Checking that $service_name is enabled"
+  is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
+  echo "$test: logging ${is_enabled} here"
+  if [[ "${is_enabled}" == "enabled" ]]; then
+    echo "$test: $service_name is correctly enabled"
+  else
+    err $test "$service_name is not enabled, instead in state $is_enabled"
+  fi
+
+  echo "$test:Finish"
+}
+
+testWasmRuntimesInstalled() {
+  local test="testWasmRuntimesInstalled"
+  local wasm_runtimes_path=${1}
+  local shim_version=${2}
+  shim_version="v${shim_version}"
+
+  echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
+
+  local shims_to_download=("spin" "slight")
+  if [[ "${shim_version}" == "0.8.0" ]]; then
+    shims_to_download+=("wws")
+  fi
+
+  binary_version="$(echo "${shim_version}" | tr . -)"
+  for shim in "${shims_to_download[@]}"; do
+    binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
+    if [ ! -f $binary_path_pattern ]; then
+      output=$(ls -la /usr/local/bin)
+      err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
+      return 1
+    else
+      echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+    fi
+  done
+}
+
+testSpinKubeInstalled() {
+  local test="testSpinKubeInstalled"
+  local spinKube_runtimes_path=${1}
+  local shim_version=${2}
+  shim_version="v${shim_version}"
+  binary_version="$(echo "${shim_version}" | tr . -)"
+
+  # v0.15.1 does not have a version encoded in the binary name
+  binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
+  if [ ! -f $binary_path_pattern ]; then
+    output=$(ls -la /usr/local/bin)
+    err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
+    return 1
+  else
+    echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
+  fi
+
+  echo "$test: Test finished successfully."
+  return 0
+}
+
+checkPerformanceData() {
+  local test="checkPerformanceData"
+  local performanceDataPath="/opt/azure/vhd-build-performance-data.json"
+
+  echo "$test: Checking for existence of $performanceDataPath"
+  if test -f "$performanceDataPath"; then
+    err "$test: $performanceDataPath deletion was not successful."
+    return 1
+  else
+    echo "File $performanceDataPath does not exist"
+  fi
+  echo "$test: Test finished successfully."
   return 0
 }
 
@@ -877,16 +1128,19 @@ testBccTools () {
 #
 # We should also avoid early exit from the test run -- like if a command fails with
 # an exit rather than a return -- because that prevents other tests from running.
+# To repro the test results on the exact VM, we can set VHD_DEBUG="True" in the azure pipeline env variables.
+# This will keep the VM alive after the tests are run and we can SSH/Bastion into the VM to run the test manually.
+# Therefore, for example, you can run "sudo bash /var/lib/waagent/run-command/download/0/script.sh" to run the tests manually.
+checkPerformanceData
 testBccTools
 testVHDBuildLogsExist
 testCriticalTools
-testFilesDownloaded $CONTAINER_RUNTIME
+testPackagesInstalled $CONTAINER_RUNTIME
 testImagesPulled $CONTAINER_RUNTIME "$(cat $COMPONENTS_FILEPATH)"
 testChrony $OS_SKU
 testAuditDNotPresent
 testFips $OS_VERSION $ENABLE_FIPS
-testKubeBinariesPresent $CONTAINER_RUNTIME
-testKubeProxyImagesPulled $CONTAINER_RUNTIME
+testCloudInit $OS_SKU
 # Commenting out testImagesRetagged because at present it fails, but writes errors to stdout
 # which means the test failures haven't been caught. It also calles exit 1 on a failure,
 # which means the rest of the tests aren't being run.
@@ -894,6 +1148,7 @@ testKubeProxyImagesPulled $CONTAINER_RUNTIME
 # testImagesRetagged $CONTAINER_RUNTIME
 testCustomCAScriptExecutable
 testCustomCATimerNotStarted
+testCustomCATrustNodeCAWatcherRetagged
 testLoginDefs
 testUserAdd
 testNetworkSettings
@@ -904,3 +1159,5 @@ testPamDSettings $OS_SKU $OS_VERSION
 testPam $OS_SKU $OS_VERSION
 testUmaskSettings
 testContainerImagePrefetchScript
+testAKSNodeControllerBinary
+testAKSNodeControllerService

@@ -1,62 +1,97 @@
 pool:
-  # uncomment this if the auto teardown pool is down.
-  # vmImage: ubuntu-22.04
   name: $(1ES_DevInfra_Auto_TearDown_Pool_Name)
 
 parameters:
+- name: VHD_BUILD_ID
+  displayName: VHD Build ID
+  type: string
+- name: PRTargetBranch
+  displayName: PR Target Branch
+  type: string
+  default: master
 - name: ImageBump
-  displayName: Image Bump + Branch Cutting
+  displayName: Image Bump + Create Official Branch
   type: boolean
   default: true
 - name: ReleaseNotes
-  displayName: Release Notes
+  displayName: Generate Release Notes
   type: boolean
   default: true
-- name: ArtifactTrigger
-  displayName: SIG Artifact Trigger
+- name: CreateRelease
+  displayName: Create SIG Release
   type: boolean
   default: true
 
-steps:
-- bash: |
-        set -x
-        echo "Removing existing go environment"
-        sudo rm -r /usr/local/go
-        #GOLANG_VERSION=$(curl -s 'https://go.dev/VERSION?m=text' | head -n 1)
-        GOLANG_VERSION="1.20.6"
-        echo "Downloading ${GOLANG_VERSION}"
-        curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
+variables:
+  - group: "AKS Dev Assistant (KV)"
 
-        echo "unpacking go"
-        sudo mkdir -p /usr/local/go
-        sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
-        sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
-        rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
-  displayName: 'Clean up go environment'
-- bash: |
-        az extension add -n azure-devops
-        echo $MAPPED_ADO_PAT | az devops login --organization=https://dev.azure.com/msazure
-        az devops configure --defaults organization=https://dev.azure.com/msazure project=CloudNativeCompute
-  env:
-        MAPPED_ADO_PAT: $(ADO_PAT)
-  displayName: 'az devops login'
-- bash: |
-        echo "PR for Image Bumping, Official Branch Cutting"
-        /bin/bash vhdbuilder/scripts/automate_version_bump.sh $(IMAGE_VERSION) $MAPPED_GITHUB_PAT "${BUILD_ID[@]}"
-  env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
-  displayName: 'Image Version Bumping'
-  condition: eq('${{ parameters.ImageBump }}', true)
-- bash: |
-        echo "PR for Release Notes"
-        /bin/bash vhdbuilder/scripts/automate_release_notes.sh $(IMAGE_VERSION) "${BUILD_ID[@]}" $MAPPED_GITHUB_PAT
-  env:
-        MAPPED_GITHUB_PAT: $(GITHUB_PAT)
-        SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
-  displayName: 'Release Notes'
-  condition: eq('${{ parameters.ReleaseNotes }}', true)
-- bash: |
-        echo "Triggering ev2 artifacts pipeline"
-        /bin/bash vhdbuilder/scripts/automate_ev2pipeline_trigger.sh "${BUILD_ID[@]}"
-  displayName: 'ev2 Artifact Pipeline Trigger'
-  condition: eq('${{ parameters.ArtifactTrigger }}', true)
+stages:
+  - stage: bump_image_version
+    dependsOn: []
+    condition: eq('${{ parameters.ImageBump }}', true)
+    jobs:
+    - job: Automation
+      timeoutInMinutes: 60
+      steps:
+      - template: ./templates/.configure-azdevops-template.yaml
+        parameters:
+          ADO_PAT: $(PAT-aksdevassistant)
+      - template: ./templates/.generate-github-token.yaml
+      - template: ./templates/.set-image-version-template.yaml
+        parameters:
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          IMAGE_VERSION_OVERRIDE: $(IMAGE_VERSION_OVERRIDE) # pass in the image version in case one was supplied
+      - bash: |
+          echo "PR for Image Bumping, Official Branch Cutting"
+          /bin/bash vhdbuilder/scripts/automate_version_bump.sh
+        env:
+          GITHUB_TOKEN: $(GITHUB_TOKEN)
+          IMAGE_VERSION: $(IMAGE_VERSION)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
+        displayName: 'Bump image version and create official branch'
+  - stage: generate_release_notes
+    dependsOn: []
+    condition: eq('${{ parameters.ReleaseNotes }}', true)
+    jobs:
+    - job: Automation
+      timeoutInMinutes: 60
+      steps:
+      - template: ./templates/.configure-azdevops-template.yaml
+        parameters:
+          ADO_PAT: $(PAT-aksdevassistant)
+      - template: ./templates/.generate-github-token.yaml
+      - template: ./templates/.set-image-version-template.yaml
+        parameters:
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          IMAGE_VERSION_OVERRIDE: $(IMAGE_VERSION_OVERRIDE)
+      - bash: |
+          echo "PR for Release Notes"
+          /bin/bash vhdbuilder/scripts/automate_release_notes.sh
+        env:
+          GITHUB_TOKEN: $(GITHUB_TOKEN)
+          IMAGE_VERSION: $(IMAGE_VERSION)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+          SKIP_LATEST: $(SKIP_LATEST_RELEASE_NOTES_UPDATE)
+          PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
+        displayName: 'Generate release notes'
+  - stage: create_release
+    dependsOn: []
+    condition: eq('${{ parameters.CreateRelease }}', true)
+    jobs:
+    - job: Automation
+      timeoutInMinutes: 0
+      steps:
+      - template: ./templates/.configure-azdevops-template.yaml
+        parameters:
+          ADO_PAT: $(PAT-aksdevassistant)
+      - bash: |
+          set +x
+          set -e
+          pushd vhdbuilder/automation/cmd
+            go run main.go
+          popd
+        env:
+          ADO_PAT: $(PAT-aksdevassistant)
+          VHD_BUILD_ID: ${{ parameters.VHD_BUILD_ID }}
+        displayName: 'Create SIG release'

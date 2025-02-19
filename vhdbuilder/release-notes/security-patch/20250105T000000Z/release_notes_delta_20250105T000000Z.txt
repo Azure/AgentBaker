@@ -1,0 +1,11 @@
+Release notes for security patch 20250105T000000Z timestamp
+Package difference between 20241205T000000Z and 20250105T000000Z
+Upgrade: linux-tools-common:amd64 (5.15.0-125.135, 5.15.0-127.137)
+Upgrade: libgstreamer1.0-0:amd64 (1.20.3-0ubuntu1, 1.20.3-0ubuntu1.1)
+Upgrade: libcurl4:amd64 (7.81.0-1ubuntu1.19, 7.81.0-1ubuntu1.20), curl:amd64 (7.81.0-1ubuntu1.19, 7.81.0-1ubuntu1.20)
+Upgrade: libexpat1:amd64 (2.4.7-1ubuntu0.4, 2.4.7-1ubuntu0.5)
+Upgrade: needrestart:amd64 (3.5-5ubuntu2.3, 3.5-5ubuntu2.4)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-125.135, 5.15.0-127.137)
+Upgrade: linux-libc-dev:amd64 (5.15.0-125.135, 5.15.0-127.137)
+Upgrade: libcurl3-gnutls:amd64 (7.81.0-1ubuntu1.19, 7.81.0-1ubuntu1.20)
+

@@ -35,12 +35,6 @@
 	versions: [...#runc_ver]
 }
 
-#kubernetes_ver: =~"[0-9]+.[0-9]+.[0-9]+(-hotfix.[0-9]{8})"
-
-#kubernetes: #dep & {
-	versions: [...#kubernetes_ver]
-}
-
 // root object schema enforced against manifest.json
 #root: {
 	runc:                       #runc
@@ -71,35 +65,6 @@
         "installed": {
 			"default": "1.1.12"
 		}
-    },
-    "nvidia-container-runtime": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": [],
-    },
-    "nvidia-drivers": {
-        "fileName": "",
-        "downloadLocation": "",
-        "downloadURL": "",
-        "versions": [],
-    },
-    "kubernetes": {
-        "fileName": "kubernetes-node-linux-arch.tar.gz",
-        "downloadLocation": "",
-        "downloadURL": "https://acs-mirror.azureedge.net/kubernetes/v${PATCHED_KUBE_BINARY_VERSION}/binaries/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
-        "versions": [
-            "1.27.7",
-            "1.27.9",
-            "1.27.13",
-            "1.28.3",
-            "1.28.5",
-            "1.28.9",
-            "1.29.0",
-            "1.29.2",
-            "1.29.4",
-            "1.30.0",
-        ]
     },
     "_template": {
         "fileName": "",

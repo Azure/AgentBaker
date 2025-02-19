@@ -3,20 +3,28 @@
 echo "Sourcing cse_install_distro.sh for Mariner"
 
 removeContainerd() {
-    retrycmd_if_failure 10 5 60 dnf remove -y moby-containerd
+    containerdPackageName="containerd"
+    if [[ $OS_VERSION == "2.0" ]]; then
+        containerdPackageName="moby-containerd"
+    fi
+    retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
 }
 
 installDeps() {
+    if [[ $OS_VERSION == "2.0" ]]; then
+      systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+    
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in blobfuse ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip; do
+    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
 
     if [[ $OS_VERSION == "2.0" ]]; then
-      for dnf_package in apparmor-parser libapparmor blobfuse2 nftables iscsi-initiator-utils; do
+      for dnf_package in apparmor-parser libapparmor blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
         fi
@@ -35,10 +43,11 @@ installKataDeps() {
 downloadGPUDrivers() {
     #
     #
+    #
     KERNEL_VERSION=$(uname -r | sed 's/-/./g')
-    CUDA_VERSION="*_${KERNEL_VERSION}*"
+    CUDA_PACKAGE=$(dnf repoquery --available "cuda*" | grep -E "cuda-[0-9]+.*_$KERNEL_VERSION" | sort -V | tail -n 1)
 
-    if ! dnf_install 30 1 600 cuda-${CUDA_VERSION}; then
+    if ! dnf_install 30 1 600 ${CUDA_PACKAGE}; then
       exit $ERR_APT_INSTALL_TIMEOUT
     fi
 }
@@ -62,15 +71,20 @@ installNvidiaFabricManager() {
     done
 }
 
-installNvidiaContainerRuntime() {
-    MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION="3.13.0"
-    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.13.5"
-    
-    for nvidia_package in nvidia-container-runtime-${MARINER_NVIDIA_CONTAINER_RUNTIME_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
+installNvidiaContainerToolkit() {
+    MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION=$(jq -r '.Packages[] | select(.name == "nvidia-container-toolkit") | .downloadURIs.azurelinux.current.versionsV2[0].latestVersion' $COMPONENTS_FILEPATH)
+
+    if [ -z "$MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION" ]; then
+      echo "nvidia-container-toolkit not found in components.json" # Expected for older VHD with new CSE
+      MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION="1.16.2"
+    fi
+
+    for nvidia_package in libnvidia-container1-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} libnvidia-container-tools-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-base-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION} nvidia-container-toolkit-${MARINER_NVIDIA_CONTAINER_TOOLKIT_VERSION}; do
       if ! dnf_install 30 1 600 $nvidia_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     done
+
 }
 
 enableNvidiaPersistenceMode() {
@@ -96,18 +110,25 @@ EOF
 }
 
 installStandaloneContainerd() {
-    CONTAINERD_VERSION=$1
-    #overwrite the passed containerd_version since mariner uses only 1 version now which is different than ubuntu's
-    CONTAINERD_VERSION="1.3.4"
+    local desiredVersion="${1:-}"
+    #e.g., desiredVersion will look like this 1.6.26-5.cm2
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     
-    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${CONTAINERD_VERSION}; then
-        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${CONTAINERD_VERSION}. skipping installStandaloneContainerd."
+    if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
+        echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
-        echo "installing containerd version ${CONTAINERD_VERSION}"
+        echo "installing containerd version ${desiredVersion}"
         removeContainerd
-        if ! dnf_install 30 1 600 moby-containerd; then
-          exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        containerdPackageName="containerd-${desiredVersion}"
+        if [[ $OS_VERSION == "2.0" ]]; then
+            containerdPackageName="moby-containerd-${desiredVersion}"
+        fi
+        if [[ $OS_VERSION == "3.0" ]]; then
+            containerdPackageName="containerd2-${desiredVersion}"
+        fi
+        
+        if ! dnf_install 30 1 600 $containerdPackageName; then
+            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
     fi
 
@@ -115,6 +136,10 @@ installStandaloneContainerd() {
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
 
+}
+
+ensureRunc() {
+  echo "Mariner Runc is included in the Mariner base image or containerd installation. Skipping downloading and installing Runc"
 }
 
 cleanUpGPUDrivers() {

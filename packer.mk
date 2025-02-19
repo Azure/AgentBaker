@@ -1,10 +1,11 @@
 SHELL=/bin/bash -o pipefail
 
-build-packer:
-ifeq (${MODE},linuxVhdMode)
-	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run main.go --components=../packer/components.json --container-image-prefetch-script=../packer/prefetch.sh; popd"
+GOARCH=amd64
+ifeq (${ARCHITECTURE},ARM64)
+	GOARCH=arm64
 endif
+
+build-packer: generate-prefetch-scripts build-aks-node-controller build-lister-binary
 ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
@@ -19,8 +20,6 @@ else ifeq (${OS_SKU},AzureLinux)
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
-	@echo "${MODE}: Convert os disk snapshot to SIG"
-	@./vhdbuilder/packer/convert-osdisk-snapshot-to-sig.sh
 else ifeq (${ARCHITECTURE},X86_64)
 ifeq (${HYPERV_GENERATION},V2)
 	@echo "${MODE}: Building with Hyper-v generation 2 x86_64 VM"
@@ -30,8 +29,13 @@ else
 	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
 endif
 ifeq (${OS_SKU},Ubuntu)
-	@echo "Using packer template file: vhd-image-builder-base.json"
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@echo "Using packer template file vhd-image-builder-cvm.json"
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+else
+	@echo "Using packer template file vhd-image-builder-base.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
 	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
@@ -58,17 +62,21 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows-vhd-builder-sig.json
+	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
 az-login:
-	@echo "Logging into Azure with agent VM MSI..."
+ifeq (${MODE},windowsVhdMode)
 ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
 	@echo "Logging in with Hosted Pool's Default Managed Identity"
 	@az login --identity
 else
 	@echo "Logging in with Hosted Pool's Managed Identity: ${MANAGED_IDENTITY_ID}"
 	@az login --identity --username ${MANAGED_IDENTITY_ID}
+endif
+else
+	@echo "Logging into Azure with identity: ${AZURE_MSI_RESOURCE_STRING}..."
+	@az login --identity --username ${AZURE_MSI_RESOURCE_STRING}
 endif
 	@echo "Using the subscription ${SUBSCRIPTION_ID}"
 	@az account set -s ${SUBSCRIPTION_ID}
@@ -77,7 +85,7 @@ init-packer:
 	@./vhdbuilder/packer/init-variables.sh
 
 run-packer: az-login
-	@packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
+	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
 
 run-packer-windows: az-login
 	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
@@ -89,7 +97,7 @@ backfill-cleanup: az-login
 	@chmod +x ./vhdbuilder/packer/backfill-cleanup.sh
 	@./vhdbuilder/packer/backfill-cleanup.sh
 
-generate-sas: az-login
+generate-publishing-info: az-login
 	@./vhdbuilder/packer/generate-vhd-publishing-info.sh
 
 convert-sig-to-classic-storage-account-blob: az-login
@@ -97,3 +105,30 @@ convert-sig-to-classic-storage-account-blob: az-login
 
 test-building-vhd: az-login
 	@./vhdbuilder/packer/test/run-test.sh
+
+scanning-vhd: az-login
+	@./vhdbuilder/packer/vhd-scanning.sh
+
+test-scan-and-cleanup: az-login
+	@./vhdbuilder/packer/test-scan-and-cleanup.sh
+
+evaluate-build-performance: az-login
+	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+
+generate-prefetch-scripts:
+#ifeq (${MODE},linuxVhdMode)
+	@echo "${MODE}: Generating prefetch scripts"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --output-path=../packer/prefetch.sh || exit 1; popd"
+#endif
+
+build-aks-node-controller:
+	@echo "Building aks-node-controller binaries"
+	@bash -c "pushd aks-node-controller && \
+	go test ./... && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/aks-node-controller-linux-amd64 && \
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/aks-node-controller-linux-arm64 && \
+	popd"
+
+build-lister-binary:
+	@echo "Building lister binary for $(GOARCH)"
+	@bash -c "pushd vhdbuilder/lister && CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) go build -o bin/lister main.go && popd"

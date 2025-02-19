@@ -45,12 +45,18 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$false)][bool]
         $IsAzureCNIOverlayEnabled
     )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, CiliumDataplaneEnabled: $global:CiliumDataplaneEnabled"
 
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
     $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
+    
+    if (Test-Path variable:global:CiliumDataplaneEnabled) {
+        if($global:CiliumDataplaneEnabled) {
+            $configJson.plugins.ipam.type = "azure-cns"
+        }
+    }
 
     if ($global:IsDisableWindowsOutboundNat) {
         # Replace OutBoundNAT with LoopbackDSR for IMDS acess if AKS cluster disabled Windows OutBoundNAT.
@@ -209,11 +215,21 @@ function Set-AzureCNIConfig
     }
     $aclRule2 = [PSCustomObject]@{
         Type = 'ACL'
+        Protocols = '6'
+        Action = 'Block'
+        Direction = 'Out'
+        RemoteAddresses = '168.63.129.16/32'
+        RemotePorts = '32526'
+        Priority = 200
+        RuleType = 'Switch'
+    }
+    $aclRule3 = [PSCustomObject]@{
+        Type = 'ACL'
         Action = 'Allow'
         Direction = 'In'
         Priority = 65500
     }
-    $aclRule3 = [PSCustomObject]@{
+    $aclRule4 = [PSCustomObject]@{
         Type = 'ACL'
         Action = 'Allow'
         Direction = 'Out'
@@ -232,6 +248,11 @@ function Set-AzureCNIConfig
     $jsonContent = [PSCustomObject]@{
         Name = 'EndpointPolicy'
         Value = $aclRule3
+    }
+    $configJson.plugins[0].AdditionalArgs += $jsonContent
+    $jsonContent = [PSCustomObject]@{
+        Name = 'EndpointPolicy'
+        Value = $aclRule4
     }
     $configJson.plugins[0].AdditionalArgs += $jsonContent
 

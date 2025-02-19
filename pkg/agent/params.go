@@ -158,10 +158,8 @@ func assignKubernetesParametersfromKubernetesConfig(properties *datamodel.Proper
 	addValue(parametersMap, "containerRuntime", kubernetesConfig.ContainerRuntime)
 	addValue(parametersMap, "containerdDownloadURLBase", cloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase)
 	if config.IsARM64 {
-		addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIARM64PluginsDownloadURL)
 		addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLARM64Linux(cloudSpecConfig))
 	} else {
-		addValue(parametersMap, "cniPluginsURL", cloudSpecConfig.KubernetesSpecConfig.CNIPluginsDownloadURL)
 		addValue(parametersMap, "vnetCniLinuxPluginsURL", kubernetesConfig.GetAzureCNIURLLinux(cloudSpecConfig))
 	}
 	addValue(parametersMap, "vnetCniWindowsPluginsURL", kubernetesConfig.GetAzureCNIURLWindows(cloudSpecConfig))

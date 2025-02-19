@@ -72,8 +72,14 @@ fi
 
 
 if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
-    configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
+    logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
+
+domain_name="mcr.microsoft.com"
+if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+fi
+verify_DNS_health $domain_name || exit $ERR_DNS_HEALTH_FAIL
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
@@ -82,11 +88,16 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
 fi
 
+logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
-if [[ ${ID} != "mariner" ]]; then
+if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
+fi
+
+if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
+    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
 export -f should_skip_nvidia_drivers
@@ -105,17 +116,13 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
-VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
-if [ -f $VHD_LOGS_FILEPATH ]; then
-    echo "detected golden image pre-install"
-    logs_to_events "AKS.CSE.cleanUpContainerImages" cleanUpContainerImages
-    FULL_INSTALL_REQUIRED=false
-else
-    if [[ "${IS_VHD}" = true ]]; then
-        echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-        exit $ERR_VHD_FILE_NOT_FOUND
-    fi
-    FULL_INSTALL_REQUIRED=true
+export -f getInstallModeAndCleanupContainerImages
+SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
+FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD)
+ret=$?
+if [[ "$ret" != "0" ]]; then
+    echo "Failed to get the install mode and cleanup container images"
+    exit $ERR_CLEANUP_CONTAINER_IMAGES
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
@@ -134,7 +141,15 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadKrustlet" downloadContainerdWasmShims
+    local versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    local downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
+    local downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
+
+    local versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
+    local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
 fi
 
 REBOOTREQUIRED=false
@@ -158,7 +173,7 @@ EOF
     fi
 
     if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
-        if [[ $OS == $MARINER_OS_NAME ]]; then
+        if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
@@ -179,12 +194,6 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
-if [ "${ENABLE_IMDS_RESTRICTION}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureIMDSRestrictionRule" ensureIMDSRestrictionRule "${INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE}"
-else
-    logs_to_events "AKS.CSE.disableIMDSRestriction" disableIMDSRestriction
-fi
-
 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
 
 createKubeManifestDir
@@ -196,6 +205,8 @@ fi
 
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
 logs_to_events "AKS.CSE.configureCNI" configureCNI
@@ -204,7 +215,7 @@ if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
-if [[ $OS == $MARINER_OS_NAME ]]; then
+if isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
@@ -215,6 +226,14 @@ else
 fi
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+    if isMarinerOrAzureLinux "$OS" && [ -f /etc/dnf/automatic.conf ]; then
+      sed -i "s/emit_via = motd/emit_via = stdio/g" /etc/dnf/automatic.conf
+    elif [[ $OS == "$UBUNTU_OS_NAME" ]] && [[ -d "/etc/update-motd.d" ]]; then
+          aksCustomMotdUpdatePath=/etc/update-motd.d/99-aks-custom-motd
+          touch "${aksCustomMotdUpdatePath}"
+          chmod 0755 "${aksCustomMotdUpdatePath}"
+          echo -e "#!/bin/bash\ncat /etc/motd" > "${aksCustomMotdUpdatePath}"
+    fi
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
 
@@ -282,7 +301,7 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] || [[ $OS == $MARINER_OS_NAME ]]; then
+if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
@@ -294,6 +313,7 @@ if $FULL_INSTALL_REQUIRED; then
 fi
 
 VALIDATION_ERR=0
+
 
 API_SERVER_CONN_RETRIES=50
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
@@ -318,13 +338,19 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+            #TODO (djsly): remove this once 18.04 isn't supported anymore
+            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        else
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+        fi
     fi
 else
+    API_SERVER_CONN_RETRIES=300
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
-if [[ ${ID} != "mariner" ]]; then
+if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
@@ -353,7 +379,7 @@ else
             
         fi
         aptmarkWALinuxAgent unhold &
-    elif [[ $OS == $MARINER_OS_NAME ]]; then
+    elif isMarinerOrAzureLinux "$OS"; then
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             if [ "${IS_KATA}" == "true" ]; then
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
@@ -370,7 +396,6 @@ fi
 
 echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
 echo $(date),$(hostname), endcustomscript>>/opt/m
-mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 
 exit $VALIDATION_ERR
 

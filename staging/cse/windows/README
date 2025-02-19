@@ -4,17 +4,22 @@
   1. Please install [pester](https://github.com/pester/Pester) with the command `Install-Module -Name pester -SkipPublisherCheck -Force`.
     - Doc: https://pester.dev/docs/quick-start
     - Courses: https://docs.microsoft.com/en-us/shows/testing-powershell-with-pester/
-  1. You need to run unit tests on Windows. NOTE: WSL does not work.
-  1. Run unit test:
+  1. You need to run unit tests on Windows.
+  1. If your git repo is stored in WSL, you can invoke the tests by doing something like this in powershell from windows (not from a WSL shell itself):
+     - ` cd \\wsl$\Ubuntu\home\tim\git\AgentBaker`
+     - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru` (or whatever pester test you want to run)
+ 1. Run unit test:
     - `Invoke-Pester parts/windows/*.tests.ps1 -Passthru`
     - `Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru`
+    - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru`
+  1. Watch out different powershell versions. Sometimes JSON parsing works differently in your local powershell and in the pipeline. Which is annoying.
 
 # Test with AKS RP
 1. Run below commands to build a test package
 ```bash
 branchName="master"
-currentCseVersion="v0.0.42" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
-testCseVersion="v0.0.42.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
+currentCseVersion="v0.0.51" # `WindowsCSEScriptsPackage` defined in `parts/windows/kuberneteswindowssetup.ps1`
+testCseVersion="v0.0.51.0" # Test package name. NOTE: Please do not use the official package format and earlier used version.
 url="https://raw.githubusercontent.com/Azure/AgentBaker/$branchName/staging/cse/windows"
 
 mkdir -p temp-work-folder/aks-windows-cse
@@ -49,11 +54,46 @@ pushd aks-windows-cse
 	zip -r "../aks-windows-cse-scripts-$testCseVersion.zip" *
 popd
 ```
-1. Upload the test package to an Azure storage container
+1. Upload the test package to your Azure storage container `$web`
+  - You need to enable `Static website` in your storage account on Azure portal
+  - You need to note down your `Primary endpoint` of `Static website` of your storage account
+  - The test package download URL should be `[Primary endpoint]/aks-windows-cse-scripts-[$testCseVersion].zip`
 1. Test it with AKS RP in the toggle `windows-cse-package-url.yaml`
 
 # AKS Windows CSE Scripts Package
 All files except *.test.ps1 and README will be published in AKS Windows CSE Scripts Package.
+
+## v0.0.51
+- feat: Add support for setting a different CNI config on cilium clusters #5482
+
+## v0.0.50
+- fix: do not use return in updating kubelet node labels #5151
+
+## v0.0.49
+- refactor: configure kubelet serving certificate rotation label at runtime #5115
+
+## v0.0.48
+- chore: refine collect-windows-logs.ps1 to enable crt by default #4863
+- chore: add windowsnodereset.log in loggenerator.ps1 #4869
+- feat: respect nodepool tags for disabling kubelet serving certificate rotation #4911
+
+## v0.0.46
+- feat: add log events in Windows CSE #4657
+- feat: block 32526 to wireserver on Windows nodes #4758
+
+## v0.0.45
+- Edit containerd snapshot size calculation #4345
+- Add more containerd logs #4398
+- feat: use PowerShell commands to set pagefile size instead of wmic #4594
+
+## v0.0.44
+- fix: do not collect vfp ports in loggenerator.ps1 #4542
+
+## v0.0.43
+- feat: support Windows private k8s packages #4496
+- doc: update Windows CSE script package doc #4447
+- feat: cse supports windows-exporter log #4389
+- feat: refine collect-windows-logs.ps1 #4383
 
 ## v0.0.42
 - feat: add parameters for collect-windows-logs.ps1 #4325

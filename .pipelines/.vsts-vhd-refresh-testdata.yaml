@@ -1,0 +1,39 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - schemas
+    - vhdbuilder/packer
+    - vhdbuilder/scripts/linux
+    - .pipelines/.vsts-vhd-refresh-testdata.yaml
+    - parts/linux/*
+    - packer.mk
+    - parts/common/components.json
+    exclude:
+    - vhdbuilder/packer/*.ps1
+    - vhdbuilder/packer/**/*.ps1
+    - vhdbuilder/packer/*windows*
+    - vhdbuilder/packer/**/*windows*
+
+pool:
+  name: $(POOL_NAME)
+
+stages:
+  - stage: Generate_and_Publish_Testdata
+    condition: succeeded()
+    jobs:
+      - job: Generate_Publish_Testdata
+        timeoutInMinutes: 10
+        steps:
+        - bash: |
+            make generate
+          displayName: Generate Testdata
+        - task: PublishPipelineArtifact@1
+          inputs:
+            targetPath: $(Pipeline.Workspace)/s/pkg/agent/testdata
+            artifact: testdata
+            publishLocation: pipeline
+

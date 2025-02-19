@@ -1,43 +1,48 @@
-name: $(Date:yyyyMMdd)$(Rev:.r)_$(OS_SKU)$(OS_VERSION)_$(HYPERV_GENERATION)_$(FEATURE_FLAGS)_$(Build.SourceBranchName)
+name: $(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
 trigger: none
 pr:
   branches:
     include:
     - master
+    - dev
   paths:
     include:
-    - schemas
+    - schemas/
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
-    - parts/linux/cloud-init/artifacts/manifest.json
-    - parts/linux/cloud-init/artifacts/cse_install.sh
-    - parts/linux/cloud-init/artifacts/cse_helpers.sh
-    - parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh
-    - parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh
+    - .pipelines/templates/.builder-release-template.yaml
+    - .pipelines/templates/e2e-template.yaml
+    - parts/linux/*
     - packer.mk
+    - aks-node-controller/**
+    - parts/common/components.json
     exclude:
+    - schemas/windows_settings.cue
+    - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1
+    - vhdbuilder/packer/windows/
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
+    - /**/*.md
+    - .github/**
+    - e2e/scenario_win_test.go
 
 pool:
   name: $(POOL_NAME)
 
 variables:
-- name: CONTAINER_IMAGE
-  value: 'mcr.microsoft.com/oss/azcu/go-dev:v1.38.1'
+  - group: aks-vuln-to-kusto
+  - group: "AKS Node SIG UA Token (KV)"
 
 stages:
-  - stage: build_vhd
-    dependsOn: []
+  - stage: build
     jobs:
-    - job: build
+    - job: build2204gen2containerd
       timeoutInMinutes: 180
       steps:
         - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]True'
             echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
             echo '##vso[task.setvariable variable=OS_VERSION]22.04'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
@@ -49,45 +54,17 @@ stages:
             echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
             echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
             echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]false'
             echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
             echo '##vso[task.setvariable variable=SGX_INSTALL]True'
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: 2204-gen2-containerd
-  - stage: build_gpu_vhd
-    dependsOn: []
-    jobs:
-    - job: build
+    - job: buildmarinerv2gen2
       timeoutInMinutes: 180
       steps:
         - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]True'
-            echo '##vso[task.setvariable variable=OS_SKU]Ubuntu'
-            echo '##vso[task.setvariable variable=OS_VERSION]18.04'
-            echo '##vso[task.setvariable variable=IMG_PUBLISHER]Canonical'
-            echo '##vso[task.setvariable variable=IMG_OFFER]UbuntuServer'
-            echo '##vso[task.setvariable variable=IMG_SKU]18_04-LTS-GEN2'
-            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
-            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
-            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_NC16as_T4_v3'
-            echo '##vso[task.setvariable variable=FEATURE_FLAGS]fullgpudaemon'
-            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
-            echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
-            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
-            echo '##vso[task.setvariable variable=SGX_INSTALL]True'
-          displayName: Setup Build Variables
-        - template: ./templates/.builder-release-template.yaml
-          parameters:
-            artifactName: 1804-gen2-gpu-containerd
-  - stage: build_mariner_vhd
-    dependsOn: []
-    jobs:
-    - job: build
-      timeoutInMinutes: 180
-      steps:
-        - bash: |
-            echo '##vso[task.setvariable variable=DRY_RUN]True'
             echo '##vso[task.setvariable variable=OS_SKU]CBLMariner'
             echo '##vso[task.setvariable variable=OS_VERSION]V2'
             echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
@@ -106,4 +83,10 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: marinerv2-gen2
-    
+  - stage: e2e
+    condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
+    variables:
+      VHD_BUILD_ID: $(Build.BuildId)
+    jobs:
+      - template: ./templates/e2e-template.yaml
+

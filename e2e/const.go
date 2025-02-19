@@ -1,8 +1,12 @@
-package e2e_test
+package e2e
 
 const (
-	buildIDTagKey           = "buildID"
-	testClusterNameTemplate = "agentbaker-e2e-test-cluster-%s"
-	defaultAzureTokenScope  = "https://management.azure.com/.default"
-	defaultNamespace        = "default"
+	buildIDTagKey    = "buildID"
+	defaultNamespace = "default"
+)
+
+// cse output parsing consts
+const (
+	extensionErrorCodeRegex   = `ProvisioningState/failed/(\d+)`
+	linuxExtensionExitCodeStr = `Enable failed: failed to execute command: command terminated with exit status=(\d+)`
 )

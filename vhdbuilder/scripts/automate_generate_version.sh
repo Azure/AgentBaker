@@ -1,29 +1,31 @@
 #!/bin/bash
-set -euxo pipefail
+set -uexo pipefail
 
-build_ids=$1
-global_image_version="${IMAGE_VERSION:=}"
-for build_id in $build_ids; do
-    for artifact in $(az pipelines runs artifact list --run-id $build_id | jq -r '.[].name'); do    # Retrieve what artifacts were published
-        # This loop is because of how the Image Version is set for builds. 
-        # It uses the UTC time of when the build for a particular SKU ends. 
-        # So in the past, it has happened that you trigger a build at say 3/4pm PST, 
-        # some SKUs will have todays date some will have tomorrows based on when they are triggered because of UTC conversion
-        # TODO(amaheshwari): Change VHD script to use a common var for image version that is plumbed down to all SKUs
+VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
+
+get_image_version_from_publishing_info() {
+    # Note that we previously would specify potentially more than one build, rather than just VHD_BUILD_ID
+    # when doing so, we made sure that all publishing-info's coming from the different builds had the same image version.
+    # this was needed when we previously released VHDs as a single batch from multiple builds.
+    # if we ever need to do that again we should add back that validation.
+    for artifact in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
         if [[ $artifact == *"publishing-info"* ]]; then
-            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $build_id
-            current_image_version=$(jq -r .image_version < vhd-publishing-info.json)
-            if [[ $global_image_version != $current_image_version ]]; then
-                if [[ -z $global_image_version ]]; then
-                    global_image_version=$current_image_version
-                else 
-                    echo "mismatched image, exiting"
-                    exit 1
-                fi
-            fi
+            # just take the image version from the first publishing-info we find (since they should all be the same)
+            # TODO(cameissner): add image version validation to separate validation template
+            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $VHD_BUILD_ID
+            GENERATED_IMAGE_VERSION=$(jq -r .image_version < vhd-publishing-info.json)
+            rm -f vhd-publishing-info.json
+            return 0
         fi
     done
-done
+    echo "unable to find image version from publishing-info artifacts downloaded from VHD build with ID: $VHD_BUILD_ID"
+    return 1
+}
 
-echo $global_image_version
-rm -rf vhd-publishing-info.json
+if [ -z "$VHD_BUILD_ID" ]; then
+    echo "VHD_BUILD_ID must be set in order to set the image version"
+    exit 1
+fi
+
+get_image_version_from_publishing_info || exit $?
+export GENERATED_IMAGE_VERSION="$GENERATED_IMAGE_VERSION"

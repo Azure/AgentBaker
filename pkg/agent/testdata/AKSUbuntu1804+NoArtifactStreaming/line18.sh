@@ -29,7 +29,7 @@ apt_get_update() {
         export DEBIAN_FRONTEND=noninteractive
         dpkg --configure -a --force-confdef
         apt-get -f -y install
-        ! (apt-get update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+        ! (apt-get update 2>&1 | tee $apt_update_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
         cat $apt_update_output && break || \
         cat $apt_update_output
         if [ $i -eq $retries ]; then
@@ -82,7 +82,7 @@ apt_get_dist_upgrade() {
     dpkg --configure -a --force-confdef
     apt-get -f -y install
     apt-mark showhold
-    ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|([eE]rr.*)$") && \
+    ! (apt-get -o Dpkg::Options::="--force-confnew" dist-upgrade -y 2>&1 | tee $apt_dist_upgrade_output | grep -E "^([WE]:.*)|^([Ee][Rr][Rr][Oo][Rr].*)$") && \
     cat $apt_dist_upgrade_output && break || \
     cat $apt_dist_upgrade_output
     if [ $i -eq $retries ]; then

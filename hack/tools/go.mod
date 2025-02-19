@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/hack/tools
 
-go 1.21
+go 1.21.13
 
 require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
@@ -14,6 +14,6 @@ require (
 	github.com/mitchellh/iochan v1.0.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/gomega v1.17.0 // indirect
-	golang.org/x/sys v0.0.0-20210423082822-04245dca01da // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )

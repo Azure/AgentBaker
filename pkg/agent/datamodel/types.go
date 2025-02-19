@@ -157,16 +157,21 @@ const (
 	AKSCBLMarinerV1                     Distro = "aks-cblmariner-v1"
 	AKSCBLMarinerV2                     Distro = "aks-cblmariner-v2"
 	AKSAzureLinuxV2                     Distro = "aks-azurelinux-v2"
+	AKSAzureLinuxV3                     Distro = "aks-azurelinux-v3"
 	AKSCBLMarinerV2Gen2                 Distro = "aks-cblmariner-v2-gen2"
 	AKSAzureLinuxV2Gen2                 Distro = "aks-azurelinux-v2-gen2"
+	AKSAzureLinuxV3Gen2                 Distro = "aks-azurelinux-v3-gen2"
 	AKSCBLMarinerV2FIPS                 Distro = "aks-cblmariner-v2-fips"
 	AKSAzureLinuxV2FIPS                 Distro = "aks-azurelinux-v2-fips"
+	AKSAzureLinuxV3FIPS                 Distro = "aks-azurelinux-v3-fips"
 	AKSCBLMarinerV2Gen2FIPS             Distro = "aks-cblmariner-v2-gen2-fips"
 	AKSAzureLinuxV2Gen2FIPS             Distro = "aks-azurelinux-v2-gen2-fips"
+	AKSAzureLinuxV3Gen2FIPS             Distro = "aks-azurelinux-v3-gen2-fips"
 	AKSCBLMarinerV2Gen2Kata             Distro = "aks-cblmariner-v2-gen2-kata"
 	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
@@ -182,12 +187,17 @@ const (
 	AKSUbuntuContainerd2204Gen2         Distro = "aks-ubuntu-containerd-22.04-gen2"
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
+	AKSUbuntuArm64Containerd2404Gen2    Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2            Distro = "aks-azurelinux-v3-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2FIPS        Distro = "aks-azurelinux-v3-arm64-gen2-fips"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
+	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
+	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -233,16 +243,21 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
 	AKSAzureLinuxV2,
+	AKSAzureLinuxV3,
 	AKSCBLMarinerV2Gen2,
 	AKSAzureLinuxV2Gen2,
+	AKSAzureLinuxV3Gen2,
 	AKSCBLMarinerV2FIPS,
 	AKSAzureLinuxV2FIPS,
+	AKSAzureLinuxV3FIPS,
 	AKSCBLMarinerV2Gen2FIPS,
 	AKSAzureLinuxV2Gen2FIPS,
+	AKSAzureLinuxV3Gen2FIPS,
 	AKSCBLMarinerV2Gen2Kata,
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
+	AKSAzureLinuxV3Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
@@ -258,11 +273,16 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
+	AKSUbuntuArm64Containerd2404Gen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
+	AKSUbuntuContainerd2404,
+	AKSUbuntuContainerd2404Gen2,
 }
 
 type CustomConfigurationComponent string
@@ -283,6 +303,16 @@ func (d Distro) IsVHDDistro() bool {
 
 func (d Distro) Is2204VHDDistro() bool {
 	for _, distro := range AvailableUbuntu2204Distros {
+		if d == distro {
+			return true
+		}
+	}
+	return false
+}
+
+// This function will later be consumed by CSE to determine cgroupv2 usage.
+func (d Distro) Is2404VHDDistro() bool {
+	for _, distro := range AvailableUbuntu2404Distros {
 		if d == distro {
 			return true
 		}
@@ -511,9 +541,9 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
-	//nolint:revive, stylecheck // keep field names the same as RP
+	//nolint:stylecheck // keep field names the same as RP
 	WindowsSecureTlsEnabled *bool `json:"windowsSecureTlsEnabled,omitempty"`
-	//nolint:revive, stylecheck // keep field names the same as RP
+	//nolint:stylecheck // keep field names the same as RP
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
 	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
@@ -594,6 +624,23 @@ type KubernetesAddon struct {
 	Data       string                    `json:"data,omitempty"`
 }
 
+// EbpfDataplane controls the eBPF networking dataplane.
+type EbpfDataplane int32
+
+//nolint:stylecheck // underscores in constant names are used for clarity in this context
+const (
+	// none means don't install an eBPF dataplane.
+	EbpfDataplane_none EbpfDataplane = 0
+	// cilium means use Cilium as the eBPF dataplane.
+	EbpfDataplane_cilium EbpfDataplane = 1
+	// unspecified means the cx didn't provide a value.
+	// This is used only during validation / defaulting, never written to the database.
+	EbpfDataplane_unspecified EbpfDataplane = 3
+	// invalid means the cx provided a value that isn't an enum in the API version.
+	// This will always be rejected by validation (and therefore never written to the database).
+	EbpfDataplane_invalid EbpfDataplane = 4
+)
+
 // KubernetesConfig contains the Kubernetes config structure, containing Kubernetes specific configuration.
 type KubernetesConfig struct {
 	KubernetesImageBase               string            `json:"kubernetesImageBase,omitempty"`
@@ -650,6 +697,7 @@ type KubernetesConfig struct {
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
+	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
 }
 
 /*
@@ -684,6 +732,7 @@ type CustomKubeletConfig struct {
 	ContainerLogMaxSizeMB *int32    `json:"containerLogMaxSizeMB,omitempty"`
 	ContainerLogMaxFiles  *int32    `json:"containerLogMaxFiles,omitempty"`
 	PodMaxPids            *int32    `json:"podMaxPids,omitempty"`
+	SeccompDefault        *bool     `json:"seccompDefault,omitempty"`
 }
 
 // CustomLinuxOSConfig represents custom os configurations for agent pool nodes.
@@ -782,6 +831,13 @@ func (a *AgentPoolProfile) GetCustomLinuxOSConfig() *CustomLinuxOSConfig {
 		return nil
 	}
 	return a.CustomLinuxOSConfig
+}
+
+func (a *AgentPoolProfile) GetAgentPoolWindowsProfile() *AgentPoolWindowsProfile {
+	if a == nil {
+		return nil
+	}
+	return a.AgentPoolWindowsProfile
 }
 
 // Properties represents the AKS cluster definition.
@@ -1116,6 +1172,11 @@ func (a *AgentPoolProfile) Is2204VHDDistro() bool {
 	return a.Distro.Is2204VHDDistro()
 }
 
+// Is2404VHDDistro returns true if the distro uses 2404 VHD.
+func (a *AgentPoolProfile) Is2404VHDDistro() bool {
+	return a.Distro.Is2404VHDDistro()
+}
+
 // IsAzureLinuxCgroupV2VHDDistro returns true if the distro uses Azure Linux CgrpupV2 VHD.
 func (a *AgentPoolProfile) IsAzureLinuxCgroupV2VHDDistro() bool {
 	return a.Distro.IsAzureLinuxCgroupV2VHDDistro()
@@ -1307,7 +1368,7 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 
 // IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
 //
-//nolint:revive,stylecheck // allign func name with field name
+//nolint:stylecheck // allign func name with field name
 func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 	if w.WindowsSecureTlsEnabled != nil {
 		return *w.WindowsSecureTlsEnabled
@@ -1662,6 +1723,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
+	EnableAMDGPU                  bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
 	EnableArtifactStreaming       bool
@@ -1704,6 +1766,9 @@ type NodeBootstrappingConfiguration struct {
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
 	InsertIMDSRestrictionRuleToMangleTable bool
+
+	// Version is required for aks-node-controller application to determine the version of the config file.
+	Version string
 }
 
 type SSHStatus int
@@ -1808,6 +1873,14 @@ type AKSKubeletConfiguration struct {
 	Default: false
 	+optional. */
 	RotateCertificates bool `json:"rotateCertificates,omitempty"`
+	// serverTLSBootstrap enables server certificate bootstrap. Instead of self
+	// signing a serving certificate, the Kubelet will request a certificate from
+	// the 'certificates.k8s.io' API. This requires an approver to approve the
+	// certificate signing requests (CSR). The RotateKubeletServerCertificate feature
+	// must be enabled when setting this field.
+	// Default: false
+	// +optional
+	ServerTLSBootstrap bool `json:"serverTLSBootstrap,omitempty"`
 	/* authentication specifies how requests to the Kubelet's server are authenticated
 	Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
 	it may disrupt components that interact with the Kubelet server.
@@ -2060,6 +2133,17 @@ type AKSKubeletConfiguration struct {
 	Default: []
 	+optional. */
 	AllowedUnsafeSysctls []string `json:"allowedUnsafeSysctls,omitempty"`
+	// serializeImagePulls when enabled, tells the Kubelet to pull images one
+	// at a time. We recommend *not* changing the default value on nodes that
+	// run docker daemon with version  < 1.9 or an Aufs storage backend.
+	// Issue #10959 has more details.
+	// Default: true
+	// +optional
+	SerializeImagePulls *bool `json:"serializeImagePulls,omitempty"`
+	// SeccompDefault enables the use of `RuntimeDefault` as the default seccomp profile for all workloads.
+	// Default: false
+	// +optional
+	SeccompDefault *bool `json:"seccompDefault,omitempty"`
 }
 
 type Duration string
@@ -2173,6 +2257,9 @@ func (err *CSEStatusParsingError) Error() string {
 
 type AgentPoolWindowsProfile struct {
 	DisableOutboundNat *bool `json:"disableOutboundNat,omitempty"`
+
+	// Windows next-gen networking uses Windows eBPF for the networking dataplane.
+	NextGenNetworkingURL *string `json:"nextGenNetworkingURL,omitempty"`
 }
 
 // IsDisableWindowsOutboundNat returns true if the Windows agent pool disable OutboundNAT.
@@ -2180,6 +2267,17 @@ func (a *AgentPoolProfile) IsDisableWindowsOutboundNat() bool {
 	return a.AgentPoolWindowsProfile != nil &&
 		a.AgentPoolWindowsProfile.DisableOutboundNat != nil &&
 		*a.AgentPoolWindowsProfile.DisableOutboundNat
+}
+
+func (a *AgentPoolWindowsProfile) IsNextGenNetworkingEnabled() bool {
+	return a != nil && a.NextGenNetworkingURL != nil
+}
+
+func (a *AgentPoolWindowsProfile) GetNextGenNetworkingURL() string {
+	if a == nil || a.NextGenNetworkingURL == nil {
+		return ""
+	}
+	return *a.NextGenNetworkingURL
 }
 
 // SecurityProfile begin.
@@ -2196,6 +2294,13 @@ type PrivateEgress struct {
 func (s *SecurityProfile) GetProxyAddress() string {
 	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
 		return s.PrivateEgress.ProxyAddress
+	}
+	return ""
+}
+
+func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
+	if s != nil && s.PrivateEgress != nil && s.PrivateEgress.Enabled {
+		return s.PrivateEgress.ContainerRegistryServer
 	}
 	return ""
 }

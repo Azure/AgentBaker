@@ -22,20 +22,20 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
   }
 
   It 'k8s version is less than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/" + $global:StableContainerdPackage
     & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.27.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
   It 'k8s version is equal to MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/" + $global:LatestContainerdPackage
     & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.28.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
   It 'k8s version is greater than MinimalKubernetesVersionWithLatestContainerd' {
-    $expectedURL = "https://mirror.azk8s.cn/containerd/windows/v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
-    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://mirror.azk8s.cn/containerd/windows/" -KubernetesVersion "1.28.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
+    $expectedURL = "https://acs-mirror.azureedge.net/containerd/windows/" + $global:LatestContainerdPackage
+    & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl "https://acs-mirror.azureedge.net/containerd/windows/" -KubernetesVersion "1.28.1" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir"
     Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
   }
 
@@ -133,6 +133,9 @@ Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
 
 Describe 'Validate Exit Codes' {
   It 'should succeed' {
+    Write-Host "Validating whether new error code name is added with the new error code"
+    $global:ErrorCodeNames.Length | Should -Be $global:WINDOWS_CSE_ERROR_MAX_CODE
+
     for($i=0; $i -lt $global:ErrorCodeNames.Length; $i++) {
       $name=$global:ErrorCodeNames[$i]
       $name | Should -Match '[A-Z_]+'
@@ -141,6 +144,24 @@ Describe 'Validate Exit Codes' {
       $ErrorCode = Get-Variable "$name" -ValueOnly
       $ErrorCode | Should -Be $i
       Write-Host "Validated $name"
+    }
+  }
+}
+
+# When using return to return values in a function with using Write-Log, the logs will be returned as well.
+Describe "Mock Write-Log" {
+  It 'should never exist in ut' {
+    # Path to the PowerShell script you want to test
+    $scriptPaths = @()
+    $cseScripts = Get-ChildItem -Path "$PSScriptRoot\..\..\staging\cse\windows\" -Filter "*tests.ps1"
+    foreach($script in $cseScripts) {
+      $scriptPaths += $script.FullName
+    }
+    
+    foreach($scriptPath in $scriptPaths) {
+      Write-Host "Validating $scriptPath"
+      $scriptContent = Get-Content -Path $scriptPath
+      $scriptContent -join "`n" | Should -Not -Match "Mock Write-Log"
     }
   }
 }

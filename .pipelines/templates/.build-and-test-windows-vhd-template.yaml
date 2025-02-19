@@ -1,0 +1,83 @@
+parameters:
+  - name: stageName
+    type: string
+    displayName: Stage name for the created stages. Must contain only alphanmumeric values and _
+  - name: imageName
+    type: string
+    displayName: The value of the imageName tag to run E2E tests on
+  - name: windowsSku
+    type: string
+    displayName: The windows artifact to build. Might be a duplicate of artifactName
+  - name: artifactName
+    type: string
+    displayName: The artifact to build. Might be a duplicate of windowsSku
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+  - name: build
+    displayName: Boolean flag to actually run these stages.
+    type: boolean
+    default: True
+  - name: buildVmSize
+    type: string
+    displayName: VM SKU to build the VHD with. Has a sensible default
+  - name: hyperVGeneration
+    type: string
+    displayName: V1 or V2.
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
+  - name: windowsBaseImageUrl
+    displayName: Windows Base Image URL Override
+    type: string
+  - name: windowsNanoImageUrl
+    displayName: Windows nano base container image URL Override
+    type: string
+  - name: windowsCoreImageUrl
+    displayName: Windows core base container image URL Override
+    type: string
+
+stages:
+  - stage: build_${{ parameters.stageName }}
+    # Put the artifact name first so it doesn't get truncated as much in ADO
+    displayName: Build (${{ parameters.artifactName }})
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    dependsOn: [ ]
+    jobs:
+      - job: build_${{ parameters.stageName }}
+        dependsOn: []
+        timeoutInMinutes: 180
+        steps:
+          - bash: |
+              echo '##vso[task.setvariable variable=VHD_DEBUG]${{ parameters.vhddebug }}'
+              echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
+              echo '##vso[task.setvariable variable=HYPERV_GENERATION]${{ parameters.hyperVGeneration }}'
+              echo '##vso[task.setvariable variable=AZURE_VM_SIZE]${{ parameters.buildVmSize }}'
+              echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.windowsSku }}'
+              echo '##vso[task.setvariable variable=SKIP_EXTENSION_CHECK]${{ parameters.skipExtensionCheck }}'
+              echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]${{ parameters.windowsBaseImageUrl }}'
+              echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]${{ parameters.windowsNanoImageUrl }}'
+              echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]${{ parameters.windowsCoreImageUrl }}'
+              echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
+            displayName: Setup Build Variables
+          - template: ./.builder-release-template-windows.yaml
+            parameters:
+              artifactName: ${{ parameters.artifactName }}
+
+  - stage: e2e_${{ parameters.stageName }}
+    displayName: E2E (${{ parameters.artifactName }})
+    dependsOn: build_${{ parameters.stageName }}
+    condition: and(succeeded(), eq('${{ parameters.build }}', True))
+    variables:
+      TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+    jobs:
+      - template: ./e2e-template.yaml
+        parameters:
+          name: For image ${{ parameters.imageName }}
+
