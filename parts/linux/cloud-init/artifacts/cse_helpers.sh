@@ -523,7 +523,7 @@ logs_to_events() {
     fi
 }
 
-should_skip_nvidia_drivers() {
+should_skip_gpu_drivers() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
