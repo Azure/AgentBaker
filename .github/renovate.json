@@ -159,10 +159,10 @@
         "containernetworking/azure-ipam"
       ],
       "groupName": "azure-cni-cilium-ipam",
-      "assignees": [
+      "reviewers": [
         "team:acn-cni-reviewers"
       ],
-      "reviewers": [
+      "assignees": [
         "rbtr",
         "behzad-mir",
         "jpayne3506",
@@ -175,10 +175,10 @@
         "containernetworking/azure-cns"
       ],
       "groupName": "azure-cns",
-      "assignees": [
+      "reviewers": [
         "team:acn-cns-reviewers"
       ],
-      "reviewers": [
+      "assignees": [
         "rbtr",
         "behzad-mir",
         "jpayne3506",
