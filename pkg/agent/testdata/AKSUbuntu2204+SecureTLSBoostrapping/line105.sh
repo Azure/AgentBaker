@@ -49,37 +49,41 @@ logs_to_events() {
     fi
 }
 
-if [ -z "$API_SERVER_NAME" ]; then
-    echo "ERROR: missing apiserver FQDN, cannot continue bootstrapping"
-    return 1
-fi
-if [ ! -f "$CLIENT_BINARY_PATH" ]; then
-    echo "ERROR: bootstrap client binary does not exist at path $CLIENT_BINARY_PATH"
-    return 1
-fi
-
-deadline=$(($(date +%s) + RETRY_PERIOD_SECONDS))
-while true; do
-    now=$(date +%s)
-    if [ $((now - deadline)) -ge 0 ]; then
-        echo "ERROR: bootstrapping deadline exceeded"
+bootstrap() {
+    if [ -z "$API_SERVER_NAME" ]; then
+        echo "ERROR: missing apiserver FQDN, cannot continue bootstrapping"
+        return 1
+    fi
+    if [ ! -f "$CLIENT_BINARY_PATH" ]; then
+        echo "ERROR: bootstrap client binary does not exist at path $CLIENT_BINARY_PATH"
         return 1
     fi
 
-    $CLIENT_BINARY_PATH \
-        --aad-resource="$AAD_RESOURCE" \
-        --apiserver-fqdn="$API_SERVER_NAME" \
-        --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
-        --azure-config="$AZURE_CONFIG_PATH" \
-        --cert-file="$CLIENT_CERT_PATH" \
-        --key-file="$CLIENT_KEY_PATH" \
-        --next-proto="$NEXT_PROTO_VALUE" \
-        --kubeconfig="$KUBECONFIG_PATH" \
-        --log-file="$LOG_FILE_PATH"
+    deadline=$(($(date +%s) + RETRY_PERIOD_SECONDS))
+    while true; do
+        now=$(date +%s)
+        if [ $((now - deadline)) -ge 0 ]; then
+            echo "ERROR: bootstrapping deadline exceeded"
+            return 1
+        fi
 
-    [ $? -eq 0 ] && exit 0
+        $CLIENT_BINARY_PATH \
+            --aad-resource="$AAD_RESOURCE" \
+            --apiserver-fqdn="$API_SERVER_NAME" \
+            --cluster-ca-file="$CLUSTER_CA_FILE_PATH" \
+            --azure-config="$AZURE_CONFIG_PATH" \
+            --cert-file="$CLIENT_CERT_PATH" \
+            --key-file="$CLIENT_KEY_PATH" \
+            --next-proto="$NEXT_PROTO_VALUE" \
+            --kubeconfig="$KUBECONFIG_PATH" \
+            --log-file="$LOG_FILE_PATH"
 
-    sleep $RETRY_WAIT_SECONDS
-done
+        [ $? -eq 0 ] && exit 0
+
+        sleep $RETRY_WAIT_SECONDS
+    done
+}
+
+logs_to_events "AKS.performSecureTLSBootstrapping" bootstrap
 
 #EOF
