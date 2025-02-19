@@ -1665,8 +1665,10 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
-	//t.Skip("Provisioning of Standard_ND96isr_MI300X_v5 isn't reliable yet")
+func Test_Ubuntu2404Gen2Containerd_AMDGPU_MI300(t *testing.T) {
+	t.Skip("Provisioning of Standard_ND96isr_MI300X_v5 isn't reliable yet")
+	//E2E_LOCATION=eastus2euap
+	//SUBSCRIPTION_ID=4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -1674,7 +1676,7 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd, //TODO: add support for older
+			VHD:     config.VHDUbuntu2404Gen2Containerd, //TODO: add support for older
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_ND96isr_MI300X_v5"
 				nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = "aks-cblmariner-v2-gen2"
@@ -1685,7 +1687,8 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_ND96isr_MI300X_v5")
-				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128) // drivers and gpu images are huge, give us some headroom
+				// rocm images are huge, some space for manual testing
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAMDGPU(ctx, s)
@@ -1696,8 +1699,9 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
 
 func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
 	// the SKU isn't available in subscriptrion/region we run tests
-	//t.Skip("Provisioning of NV4ads_V710_v5 isn't reliable yet")
-	// LOCATION=southcentralus
+	t.Skip("Provisioning of NV4ads_V710_v5 isn't reliable yet")
+	//E2E_LOCATION=southcentralus
+	//SUBSCRIPTION_ID=4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -1717,7 +1721,8 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV4ads_V710_v5")
-				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128) // drivers and gpu images are huge, give us some headroom
+				// rocm images are huge, some space for manual testing
+				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateAMDGPU(ctx, s)
