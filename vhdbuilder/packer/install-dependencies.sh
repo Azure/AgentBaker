@@ -500,7 +500,7 @@ while IFS= read -r imageToBePulled; do
   done
 done <<< "$ContainerImages"
 wait ${image_pids[@]}
-
+exit 1
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
 watcherVersion=$(echo $watcher | jq -r .multiArchVersionsV2[0].latestVersion)

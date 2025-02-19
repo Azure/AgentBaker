@@ -43,7 +43,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
-exit 1
+
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /usr/local/bin/* >> ${VHD_LOGS_FILEPATH}
