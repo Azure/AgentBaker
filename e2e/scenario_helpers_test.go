@@ -180,7 +180,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := s.VHD.VHDResourceID(ctx, t)
+	_, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image", t.Name())
@@ -188,7 +188,6 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q: %s", t.Name(), err)
 		}
 	}
-	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
 func validateVM(ctx context.Context, s *Scenario) {
