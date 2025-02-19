@@ -172,10 +172,10 @@
       ],
       "groupName": "azure-cns",
       "assignees": [
-        "team:Azure/acn-cns-reviewers"
+        "team:acn-cns-reviewers"
       ],
       "reviewers": [
-        "team:Azure/acn-cns-reviewers"
+        "team:acn-cns-reviewers"
       ]
     },
     {
