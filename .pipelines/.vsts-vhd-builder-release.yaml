@@ -931,6 +931,7 @@ stages:
               echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
               echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
               echo '##vso[task.setvariable variable=SGX_INSTALL]True'
+              echo '##vso[task.setvariable variable=SECURITY_TYPE]cvm'
             displayName: Setup Build Variables
           - template: ./templates/.builder-release-template.yaml
             parameters:
