@@ -1415,6 +1415,25 @@ func Test_Ubuntu2204_IMDSRestrictionFilterTable(t *testing.T) {
 	})
 }
 
+func Test_Ubuntu2204_IMDSRestrictionFilterTable_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "tests that the imds restriction filter table is properly set",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.ImdsRestrictionConfig = &aksnodeconfigv1.ImdsRestrictionConfig{
+					EnableImdsRestriction:                  true,
+					InsertImdsRestrictionRuleToMangleTable: false,
+				}
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateIMDSRestrictionRule(ctx, s, "filter")
+			},
+		},
+	})
+}
+
 func Test_Ubuntu1804IMDS_RestrictionMangleTable(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that the imds restriction mangle table is properly set",
