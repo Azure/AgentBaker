@@ -56,7 +56,8 @@
         "moby-containerd",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims"
+        "oss/binaries/deislabs/containerd-wasm-shims",
+        "containernetworking/azure-npm"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -152,23 +153,43 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "azure-cns",
         "containernetworking/azure-cni",
-        "containernetworking/azure-cns",
-        "containernetworking/cilium/cilium"
+        "containernetworking/cilium/cilium",
+        "containernetworking/azure-ipam"
       ],
-      "groupName": "azure-cni-cns-cilium",
+      "groupName": "azure-cni-cilium-ipam",
       "assignees": [
-        "rbtr",
-        "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
+        "team:Azure/acn-cni-reviewers"
       ],
       "reviewers": [
-        "rbtr",
-        "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
+        "team:Azure/acn-cni-reviewers"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "azure-cns",
+        "containernetworking/azure-cns"
+      ],
+      "groupName": "azure-cns",
+      "assignees": [
+        "team:Azure/acn-cns-reviewers"
+      ],
+      "reviewers": [
+        "team:Azure/acn-cns-reviewers"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/azure-npm"
+      ],
+      "groupName": "azure-npm",
+      "assignees": [
+        "rayaisaiah",
+        "huntergregory"
+      ],
+      "reviewers": [
+        "rayaisaiah",
+        "huntergregory"
       ]
     },
     {
