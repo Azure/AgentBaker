@@ -332,6 +332,25 @@ function Get-FilesToCacheOnVHD
             Download-File -URL $URL -Dest $dest
         }
     }
+
+
+    foreach ($dir in $map.Keys)
+    {
+        LogFilesInDirectory "$dir"
+    }
+}
+
+function LogFilesInDirectory
+{
+    Param(
+        [string]
+        $Directory
+    )
+
+    Get-ChildItem -Path "$Directory" | ForEach-Object {
+        $sizeKB = [math]::Round($_.Length / 1KB, 2)
+        Write-Output "$( $_.Name ) - $sizeKB KB"
+    }
 }
 
 function Get-ToolsToVHD
@@ -345,6 +364,8 @@ function Get-ToolsToVHD
     Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
     Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
     Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
+
+    LogFilesInDirectory "$global:aksToolsDir\DU"
 }
 
 function Register-ExpandVolumeTask
