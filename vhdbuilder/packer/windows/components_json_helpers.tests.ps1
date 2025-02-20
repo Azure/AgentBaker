@@ -727,7 +727,7 @@ Describe 'Gets The Versions' {
 # migrated successfully
 Describe 'Tests of components.json ' {
     BeforeEach {
-        $componentsJson = Get-Content 'parts/common/components.json' | Out-String | ConvertFrom-Json
+        $componentsJson = Get-Content 'vhdbuilder/packer/windows/components-test.json' | Out-String | ConvertFrom-Json
     }
 
     it 'can parse components.json' {
