@@ -723,11 +723,10 @@ Describe 'Gets The Versions' {
 
 }
 
-# note that we might remove some of these as we change the versions. Most of them were written to ensure current versions were
-# migrated successfully
 Describe 'Tests of components.json ' {
     BeforeEach {
-        $componentsJson = Get-Content 'parts/common/components.json' | Out-String | ConvertFrom-Json
+        # Note that we use a test components.json file - this file is validated to match our components.cue file during builds.
+        $componentsJson = Get-Content 'vhdbuilder/packer/windows/components-test.json' | Out-String | ConvertFrom-Json
     }
 
     it 'can parse components.json' {
