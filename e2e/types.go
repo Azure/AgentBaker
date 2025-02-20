@@ -22,6 +22,7 @@ type Tags struct {
 	OS                     string
 	Arch                   string
 	Airgap                 bool
+	NonAnonymousACR        bool
 	GPU                    bool
 	WASM                   bool
 	ServerTLSBootstrapping bool
@@ -124,7 +125,6 @@ type ScenarioRuntime struct {
 	SSHKeyPublic  []byte
 	SSHKeyPrivate []byte
 	VMPrivateIP   string
-	DebugHostPod  string
 }
 
 // Config represents the configuration of an AgentBaker E2E scenario.

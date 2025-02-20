@@ -11,6 +11,7 @@ package components
 
 #ContainerImage: {
 	downloadURL: string
+	windowsDownloadURL?: string
 	amd64OnlyVersions:     [...string]
 	multiArchVersionsV2:   [...#VersionV2]
 	windowsVersions?:   [...#WindowsVersion]
@@ -22,6 +23,7 @@ package components
 }
 
 #WindowsVersion: {
+	comment?:                string
 	k8sVersion?:             string
 	renovateTag?:            string
 	latestVersion:           string

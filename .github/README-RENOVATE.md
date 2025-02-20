@@ -23,6 +23,7 @@
   - [What components are onboarded to Renovate for auto-update and what are not yet?](#what-components-are-onboarded-to-renovate-for-auto-update-and-what-are-not-yet)
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
   - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
+  - [Why are some components' `minor version update` disabled?](#why-are-some-components-minor-version-update-disabled)
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
@@ -138,7 +139,7 @@ There are some default managers in Renovate that one can use to monitor supporte
       "customType": "regex",
       "description": "auto update containerImages in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -172,7 +173,7 @@ Similar to containerImages described above, we have other custom manager for pac
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -424,8 +425,11 @@ This is a common scenarior where we want the PR to be merged automatically when 
     },
 ```
 The config includes:
-- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/linux/cloud-init/artifacts/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
+- `matchPackageNames`: The name of the component's renovateTag in `AgentBaker/parts/common/components.json`. For example `moby-containerd`, `oss/kubernetes/kube-proxy`, `oss/binaries/kubernetes/kubernetes-node`. Wildcard character (*) is supported too. For example, `"matchPackageNames": ["oss/kubernetes-csi/*"],`
 - `matchUpdateTypes`: The type of version updates (`patch`) to which this rule applies.
 - `automerge`: Set to `true` to automatically merge PRs created by this rule. Default is `false`.
 - `enabled`: Set to `true` to enable this rule.
 - `assignees` and `reviewers`: The same group of GitHub IDs who will be assigned to and can review and approve the automatically created PRs.
+
+## Why are some components' `minor version update` disabled?
+For many components which have defined multiple versions cached in the components.json, we have disabled the `minor version update`. The reason is that Renovate would create many unncessary PRs. For example if a component has cached `v0.1.1` and `v0.2.1`, and `minor version update` is enabled, when a new minor version `v0.3.1` is released, Renovate will create 2 PRs, namely `v0.1.1 update to v0.3.1` and `v0.2.1 update to v0.3.1`. Both PRs will try to update to the same version `v0.3.1`. This is usually not intended because the onwers would like to cache multiple versions. Therefore, by default, we have disabled `minor version update` for such components.

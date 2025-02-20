@@ -3,6 +3,360 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'SafeReplaceString' {
+    It 'given no vars are present, it returns the string' {
+        SafeReplaceString "this is a string" | Should -Be "this is a string"
+    }
+
+    It 'given version var is present, it replaces version' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is a `${version}` string"
+        $version = "versioned"
+        SafeReplaceString $str | Should -Be "this is a versioned string"
+    }
+
+    It 'given CPU_ARCH var is present, it replaces version' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is an `${CPU_ARCH}` string"
+        $CPU_ARCH = "architecture"
+        SafeReplaceString $str | Should -Be "this is an architecture string"
+    }
+
+    It 'given BOBBY var is present, it replaces with empty string' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is an `${BOBBY}` string"
+        $BOBBY = "architecture"
+        SafeReplaceString $str | Should -Be "this is an  string"
+    }
+
+}
+
+
+
+Describe 'GetWindowsDefenderInfo' {
+    BeforeEach {
+        $testString = '{
+   "WindowsDefenderInfo": {
+    "DefenderUpdateUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64",
+    "DefenderUpdateInfoUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+  },
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it 'returns the right info for GetDefenderUpdateUrl' {
+        GetDefenderUpdateUrl $windowsSettings | Should -Be "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
+    }
+
+    it 'returns the right info for GetDefenderUpdateInfoUrl' {
+        GetDefenderUpdateInfoUrl $windowsSettings | Should -Be "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+    }
+
+}
+
+Describe 'GetWindowsBaseVersions' {
+    BeforeEach {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+    },
+     "23H2-gen2": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it "returns the bsae versions" {
+        $baseVersions = GetWindowsBaseVersions $windowsSettings
+        $baseVersions.Length | Should -Be 2
+        $baseVersions | Should -Contain "2019"
+        $baseVersions | Should -Contain "23H2-gen2"
+    }
+}
+
+Describe 'WindowsBaseVersions' {
+    BeforeEach {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    it "returns an empty array for an unknown windows sku" {
+        $patchurls = GetPatchInfo "12345" $windowsSettings
+        $patchurls.Length | Should -Be 0
+    }
+
+    it "can extract patch urls for windows 2019" {
+        $patchurls = GetPatchInfo "2019" $windowsSettings
+        $patchurls[0].url | Should -Be "patch_url"
+        $patchurls[0].id | Should -Be "patchid"
+        $patchurls.Length | Should -Be 1
+    }
+
+    it "can extract two patch urls for windows 2019" {
+        $testString = '{
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": [{"id": "patchid1", "url": "patch_url1"},{"id": "patchid2", "url": "patch_url2"}]
+    }
+  }
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $patchurls = GetPatchInfo "2019" $windowsSettings
+        $patchurls[0].url | Should -Be "patch_url1"
+        $patchurls[0].id | Should -Be "patchid1"
+        $patchurls[1].url | Should -Be "patch_url2"
+        $patchurls[1].id | Should -Be "patchid2"
+        $patchurls.Length | Should -Be 2
+    }
+}
+
+Describe 'LogReleaseNotesForWindowsRegistryKeys' {
+    BeforeEach {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "this is a comment",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+
+    }
+
+    it "creates a line for the path" {
+        Mock Get-ItemProperty -MockWith { return @{ EnableCertPaddingCheck = "1" } }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines | Should -Contain ("`t{0}" -f "pathpath")
+    }
+
+    it "creates a line for the name" {
+        Mock Get-ItemProperty -MockWith { return @{ EnableCertPaddingCheck = "1" } }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck", "1")
+    }
+
+    it 'given two names in the different path, it logs each path' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath1",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    },
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath2",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1"
+    }
+  ]
+}'
+
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        Mock Get-ItemProperty -MockWith {
+            return @{
+                EnableCertPaddingCheck = "1"
+                EnableCertPaddingCheck2 = "2"
+            }
+        }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines.Length | Should -Be 4
+        $lines | Should -Contain ("`t{0}" -f "pathpath1")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck", "1")
+        $lines | Should -Contain ("`t{0}" -f "pathpath2")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck2", "2")
+    }
+
+    it 'given two names in the same path, it only logs the path once' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    },
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1"
+    }
+  ]
+}'
+
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        Mock Get-ItemProperty -MockWith {
+            return @{
+                EnableCertPaddingCheck = "1"
+                EnableCertPaddingCheck2 = "2"
+            }
+        }
+
+        $windowsSku = "2019-containerd-gen2"
+        $lines = LogReleaseNotesForWindowsRegistryKeys $windowsSettings
+
+        $lines.Length | Should -Be 3
+        $lines | Should -Contain ("`t{0}" -f "pathpath")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck", "1")
+        $lines | Should -Contain ("`t`t{0} : {1}" -f "EnableCertPaddingCheck2", "2")
+    }
+}
+
+Describe 'tests of windows_settings' {
+    BeforeEach {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "this is a comment",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given windows sku matches, it returns the key' {
+        $windowsSku = "2019-containerd-gen2"
+        $regKeysToApplyt1 = GetRegKeysToApply $windowsSettings
+        $regKeysToApplyt1.Length | Should -Be 1
+    }
+
+    It 'given windows sku does not match, it does not returns the key' {
+        $windowsSku = "2022-containerd-gen2"
+        $regKeysToApplyt2 = GetRegKeysToApply $windowsSettings
+        $regKeysToApplyt2.Length | Should -Be 0
+    }
+
+    It 'given two windows keys match, it returns both' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    },
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1"
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $windowsSku = "2019-containerd-gen2"
+        $regKeysToApplyt3 = GetRegKeysToApply $windowsSettings
+        $regKeysToApplyt3.Length | Should -Be 2
+    }
+}
+
+
+Describe "Gets the paths and names for release notes" {
+    BeforeEach {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+    }
+
+    It 'given windows sku matches, the names for key should contain the name' {
+        $windowsSku = "2019-containerd-gen2"
+        $items = GetKeyMapForReleaseNotes $windowsSettings
+        $namesForKey = $items["pathpath"]
+        $namesForKey.Length | Should -Be 1
+        $namesForKey | Should -Contain "EnableCertPaddingCheck"
+    }
+
+    It 'given windows sku does not match, the names for key should not contain the name' {
+        $windowsSku = "2022-containerd-gen2"
+        $items = GetKeyMapForReleaseNotes $windowsSettings
+        $namesForKey = $items["pathpath"]
+        $namesForKey | Should -Be $null
+    }
+
+    It 'given two items with the same path match, it combines them' {
+        $testString = '{
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck",
+      "Value": "1"
+    },
+    {
+      "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+      "WindowsSkuMatch": "2019*",
+      "Path": "pathpath",
+      "Name": "EnableCertPaddingCheck2",
+      "Value": "1"
+    }
+  ]
+}'
+        $windowsSettings = echo $testString | ConvertFrom-Json
+        $windowsSku = "2019-containerd-gen2"
+        $items = GetKeyMapForReleaseNotes $windowsSettings
+        $namesForKey = $items["pathpath"]
+        $namesForKey.Length | Should -Be 2
+        $namesForKey | Should -Contain "EnableCertPaddingCheck"
+        $namesForKey | Should -Contain "EnableCertPaddingCheck2"
+    }
+}
+
 Describe 'Gets the Binaries' {
     BeforeEach {
         $testString = '{
@@ -16,11 +370,11 @@ Describe 'Gets the Binaries' {
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.48",
-                "previousLatestVersion": "0.0.50"
+                "latestVersion": "0.0.50",
+                "previousLatestVersion": "0.0.51"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -61,7 +415,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -79,7 +433,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -94,7 +448,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -115,7 +469,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -131,7 +485,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -160,7 +514,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           },
           "default": {
             "versionsV2": [
@@ -169,7 +523,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -196,6 +550,36 @@ Describe 'Gets The Versions' {
 "windowsVersions": []
 }]}'
         $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'replaces CPU_ARCH in the string' {
+        $componentsJson.ContainerImages[0].windowsVersions = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+            }
+        )
+        $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${CPU_ARCH}/addon-resizer:*"
+
+        $CPU_ARCH="x86"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/x86/addon-resizer:1.8.22"
+    }
+
+    It 'does not replace varvarvar in the string' {
+        $componentsJson.ContainerImages[0].windowsVersions = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+            }
+        )
+        $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${varvarvar}/addon-resizer:*"
+
+        $varvarvar="x86"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler//addon-resizer:1.8.22"
     }
 
     It 'given there are no container images, it returns an empty array' {
@@ -339,9 +723,11 @@ Describe 'Gets The Versions' {
 
 }
 
-Describe 'Tests of components.json' {
+# note that we might remove some of these as we change the versions. Most of them were written to ensure current versions were
+# migrated successfully
+Describe 'Tests of components.json ' {
     BeforeEach {
-        $componentsJson = Get-Content 'parts/linux/cloud-init/artifacts/components.json' | Out-String | ConvertFrom-Json
+        $componentsJson = Get-Content 'parts/common/components.json' | Out-String | ConvertFrom-Json
     }
 
     it 'can parse components.json' {
@@ -353,11 +739,33 @@ Describe 'Tests of components.json' {
         $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
     }
 
+    it 'has the right version of ciprod for win 2019' {
+        $windowsSku = "2019-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
+
+    it 'has the right version of ciprod for win 2022' {
+        $windowsSku = "2022-containerd"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
+
+    it 'has the no version of ciprod for win 23H2' {
+        $windowsSku = "23H2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Not -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-
-        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.48.zip"
+        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
         $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
     }
@@ -365,12 +773,6 @@ Describe 'Tests of components.json' {
     it 'has csi proxy' {
         $packages = GetPackagesFromComponentsJson $componentsJson
         $packages["c:\akse-cache\csi-proxy\"] | Should -Contain "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
-    }
-
-    it 'has credential provider' {
-        $packages = GetPackagesFromComponentsJson $componentsJson
-        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-windows-amd64-v1.30.0.tar.gz"
     }
 
     it 'has calico' {
@@ -384,6 +786,7 @@ Describe 'Tests of components.json' {
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip"
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip"
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.59.zip"
+
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
         $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.59.zip"
     }
@@ -395,13 +798,13 @@ Describe 'Tests of components.json' {
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.28.100-akslts/windowszip/v1.28.100-akslts-1int.zip"
-#        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip"
+        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.12/windowszip/v1.29.12-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.13/windowszip/v1.29.13-1int.zip"
-#        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip"
+        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.8/windowszip/v1.30.8-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.9/windowszip/v1.30.9-1int.zip"
-#        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
+        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.4/windowszip/v1.31.4-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip"
     }
@@ -412,7 +815,7 @@ Describe 'Tests of components.json' {
 
         $components.Length | Should -BeGreaterThan 0
 
-        # Pause image shouldn't change too often, so let's check that is in there.
+        # core images shouldn't change too often, so let's check that is in there.
         $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2019"
         $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:1809"
     }

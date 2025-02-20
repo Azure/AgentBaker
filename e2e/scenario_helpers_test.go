@@ -39,12 +39,13 @@ func setupSignalHandler() context.Context {
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit."))
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
 		cancel()
 
 		// block until second signal is received
 		<-ch
-		fmt.Println(red("Received second cancellation signal, forcing exit."))
+		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName)
+		fmt.Println(red(msg))
 		os.Exit(1)
 	}()
 	return ctx
@@ -97,6 +98,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	prepareAKSNode(ctx, s)
+
+	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
 	validateVM(ctx, s)
 }
 
@@ -135,7 +138,9 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 
 	require.NoError(s.T, err)
+
 	createVMSS(ctx, s)
+
 	err = getCustomScriptExtensionStatus(ctx, s)
 	require.NoError(s.T, err)
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
@@ -145,9 +150,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
-	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
-	s.Runtime.DebugHostPod = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -215,7 +217,7 @@ func validateVM(ctx context.Context, s *Scenario) {
 func getExpectedPackageVersions(packageName, distro, release string) []string {
 	var expectedVersions []string
 	// since we control this json, we assume its going to be properly formatted here
-	jsonBytes, _ := os.ReadFile("../parts/linux/cloud-init/artifacts/components.json")
+	jsonBytes, _ := os.ReadFile("../parts/common/components.json")
 	packages := gjson.GetBytes(jsonBytes, fmt.Sprintf("Packages.#(name=%s).downloadURIs", packageName))
 
 	for _, packageItem := range packages.Array() {

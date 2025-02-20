@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
+# avoid using set -x in this pipeline as you'll end up logging a sensitive access token down below.
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
@@ -67,7 +69,7 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
       } \
     } \
   }"
-elif [ "${OS_TYPE}" == "Linux" ]  && [ "${IMG_SKU,,}" == "20_04-lts-cvm" ]; then
+elif [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
@@ -100,7 +102,18 @@ capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 
 echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
-sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSAS] -o tsv)
+sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
+if [[ "$sas" == "None" ]]; then
+ echo "sas token empty. Trying alternative query string"
+# shellcheck disable=SC2102
+ sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSAS] -o tsv)
+fi
+
+if [[ "$sas" == "None" ]]; then
+ echo "sas token empty after trying both queries. Can't continue"
+ exit 1
+fi
+
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
