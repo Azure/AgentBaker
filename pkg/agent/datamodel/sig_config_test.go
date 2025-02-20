@@ -43,6 +43,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSCBLMarinerV2Gen2TL:            SIGCBLMarinerV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV2Gen2TL:            SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404CVMGen2:   SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(),
 		}
 		Expect(GetMaintainedLinuxSIGImageConfigMap()).To(Equal(expected))
 	})
