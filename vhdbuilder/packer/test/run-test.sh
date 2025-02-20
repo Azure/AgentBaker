@@ -76,7 +76,7 @@ fi
 
 if [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --public-ip-sku Standard"
 fi
 
 if [ "${OS_TYPE,,}" == "linux" ]; then
@@ -97,7 +97,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
       --image "$MANAGED_SIG_ID" \
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
-      --nics "$TESTING_NIC_ID" \
+      # --nics "$TESTING_NIC_ID" \
       ${TARGET_COMMAND_STRING}
 else
   az vm create \
