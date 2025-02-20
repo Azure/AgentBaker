@@ -636,6 +636,9 @@ func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 					},
 				},
 				Spec: corev1.PodSpec{
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
 					Tolerations: []corev1.Toleration{
 						{
 							Key:      "sku",
