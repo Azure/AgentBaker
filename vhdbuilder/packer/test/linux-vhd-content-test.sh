@@ -414,34 +414,34 @@ testCloudInit() {
   os_sku=$1
 
   # Limit this test only to Mariner or Azurelinux
-  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
-    echo "Checking if cloud-init.log exists..."
-    FILE=/var/log/cloud-init.log
-    if test -f "$FILE"; then
-      echo "Cloud-init log exists. Checking its content..."
-      grep 'WARNING\|ERROR' $FILE | while read -r msg; do
-        for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
-            if [[ "$msg" == *"$pattern"* ]]; then
-                echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
-            else
-                err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
-            fi
-        done
+  #if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+  echo "Checking if cloud-init.log exists..."
+  FILE=/var/log/cloud-init.log
+  if test -f "$FILE"; then
+    echo "Cloud-init log exists. Checking its content..."
+    grep 'WARNING\|ERROR' $FILE | while read -r msg; do
+      for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
+          if [[ "$msg" == *"$pattern"* ]]; then
+              echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
+          else
+              err $test "Cloud-init log has unexpected WARNING/ERROR: '${msg}'"
+          fi
       done
-      echo "Cloud-init log is OK."
-    else
-      err $test "Check cloud-init log does not exist."
-    fi
-
-    echo "Checking cloud-init status..."
-    cloud_init_output=$(cloud-init status --wait)
-    cloud_init_status=$?
-    if [ ${cloud_init_status} -eq 0 ]; then
-      echo "Cloud-init status is OK."
-    else
-      err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
-    fi
+    done
+    echo "Cloud-init log is OK."
+  else
+    err $test "Check cloud-init log does not exist."
   fi
+
+  echo "Checking cloud-init status..."
+  cloud_init_output=$(cloud-init status --wait)
+  cloud_init_status=$?
+  if [ ${cloud_init_status} -eq 0 ]; then
+    echo "Cloud-init status is OK."
+  else
+    err $test "Cloud-init exit status with code ${cloud_init_status}, ${cloud_init_output}."
+  fi
+  #fi
 
   echo "$test:Finish"
 }
