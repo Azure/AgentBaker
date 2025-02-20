@@ -132,6 +132,6 @@ stages:
               -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
               -e OS_TYPE="Windows" \
               ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
-            enabled: false
+            enabled: true
             displayName: Backfill Clean Up Older Resources
             condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
