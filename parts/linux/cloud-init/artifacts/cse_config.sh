@@ -453,11 +453,12 @@ configureSecureTLSBootstrap() {
         AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
     fi
 
-    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
-    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
-    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    SECURE_TLS_BOOTSTRAP_DROPIN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+    mkdir -p "$(dirname "${SECURE_TLS_BOOTSTRAP_DROPIN}")"
+    touch "${SECURE_TLS_BOOTSTRAP_DROPIN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAP_DROPIN}"
 
-    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+    cat > "${SECURE_TLS_BOOTSTRAP_DROPIN}" <<EOF
 [Service]
 Environment="API_SERVER_NAME=${API_SERVER_NAME}"
 Environment="AAD_RESOURCE=${AAD_RESOURCE}"

@@ -59,6 +59,8 @@ bootstrap() {
         return 1
     fi
 
+    chmod +x "$CLIENT_BINARY_PATH"
+
     deadline=$(($(date +%s) + RETRY_PERIOD_SECONDS))
     while true; do
         now=$(date +%s)
@@ -78,7 +80,7 @@ bootstrap() {
             --kubeconfig="$KUBECONFIG_PATH" \
             --log-file="$LOG_FILE_PATH"
 
-        [ $? -eq 0 ] && exit 0
+        [ $? -eq 0 ] && return 0
 
         sleep $RETRY_WAIT_SECONDS
     done
