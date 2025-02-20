@@ -174,7 +174,7 @@ installCredentialProvider() {
 }
 
 downloadSecureTLSBootstrapClient() {
-    local client_version="v0.1.0-alpha.5"
+    local client_version="v0.1.0-alpha.6"
     local client_download_url="https://stlsbootstrap.z22.web.core.windows.net/client/linux/amd64/${client_version}"
     if [[ $(isARM64) == 1 ]]; then
         client_download_url="https://stlsbootstrap.z22.web.core.windows.net/client/linux/arm64/${client_version}"
