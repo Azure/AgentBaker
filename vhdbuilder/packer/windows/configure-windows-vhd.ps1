@@ -492,7 +492,7 @@ function Install-ContainerD
 
 function Install-OpenSSH
 {
-    if ($env:INSTALL_OPEN_SSH_SERVER -eq 'true')
+    if ($env:INSTALL_OPEN_SSH_SERVER -eq 'False')
     {
         Write-Log "Not installing Windows OpenSSH Server as this is disabled in the pipeline"
         return
@@ -824,9 +824,9 @@ function Log-ReofferUpdate
 
 function Test-AzureExtensions
 {
-    if ($env:SKIP_EXTENSION_CHECK -eq "true")
+    if ($env:SKIP_EXTENSION_CHECK -eq "True")
     {
-        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to true"
+        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to True"
         return
     }
 
