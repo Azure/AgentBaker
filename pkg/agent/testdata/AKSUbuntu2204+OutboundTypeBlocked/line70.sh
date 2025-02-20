@@ -16,6 +16,7 @@ Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
   systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
 }
+
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
     if [[ "${THP_ENABLED}" != "" ]]; then
@@ -155,36 +156,24 @@ EOF
   systemctl restart containerd
 }
 
-configureK8s() {
-    mkdir -p "/etc/kubernetes/certs"
-    
-    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
-    touch "${APISERVER_PUBLIC_KEY_PATH}"
-    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
-    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+configureAzureJson() {
+    mkdir -p "/etc/kubernetes/"
 
     AZURE_JSON_PATH="/etc/kubernetes/azure.json"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
     chown root:root "${AZURE_JSON_PATH}"
-
+    
     set +x
-    if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
-    fi
-    if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
-        echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
-    fi
     if [ -n "${SERVICE_PRINCIPAL_FILE_CONTENT}" ]; then
-        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > /etc/kubernetes/sp.txt
+        SP_FILE="/etc/kubernetes/sp.txt"
+        echo "${SERVICE_PRINCIPAL_FILE_CONTENT}" | base64 -d > "$SP_FILE"
+        SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
+        SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
+        SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
+        rm "$SP_FILE"
     fi
-
-    echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
-    SP_FILE="/etc/kubernetes/sp.txt"
-    SERVICE_PRINCIPAL_CLIENT_SECRET="$(cat "$SP_FILE")"
-    SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\\/\\\\}
-    SERVICE_PRINCIPAL_CLIENT_SECRET=${SERVICE_PRINCIPAL_CLIENT_SECRET//\"/\\\"}
-    rm "$SP_FILE"
+    
     cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud": "${TARGET_CLOUD}",
@@ -226,6 +215,40 @@ configureK8s() {
 }
 EOF
     set -x
+}
+
+ensureKubeCAFile() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0644 "${KUBE_CA_FILE}"
+}
+
+configureK8s() {
+    mkdir -p "/etc/kubernetes/certs"
+
+    APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+    touch "${APISERVER_PUBLIC_KEY_PATH}"
+    chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+    chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+
+    if [ -n "${APISERVER_PUBLIC_KEY}" ]; then
+        set +x
+        echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+        set -x
+    fi
+
+    if [ "$ENABLE_SECURE_TLS_BOOTSTRAPPING" == "false" ] && [ -z "$TLS_BOOTSTRAP_TOKEN" ]; then
+        set +x
+        if [ -n "${KUBELET_CLIENT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.key
+        fi
+        if [ -n "${KUBELET_CLIENT_CERT_CONTENT}" ]; then
+            echo "${KUBELET_CLIENT_CERT_CONTENT}" | base64 -d > /etc/kubernetes/certs/client.crt
+        fi
+        set -x
+    fi
+
     if [[ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]]; then
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
@@ -411,6 +434,46 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
+configureSecureTLSBootstrap() {
+    AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
+    if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE" ]; then
+        AAD_RESOURCE="$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_RESOURCE"
+    fi
+
+    SECURE_TLS_BOOTSTRAPPING_DROP_IN="/etc/systemd/system/secure-tls-bootstrap.service.d/10-securetlsbootstrap.conf"
+    touch "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+    chmod 0600 "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}"
+
+    cat > "${SECURE_TLS_BOOTSTRAPPING_DROP_IN}" <<EOF
+[Service]
+Environment="API_SERVER_NAME=${API_SERVER_NAME}"
+Environment="AAD_RESOURCE=${AAD_RESOURCE}"
+EOF
+}
+
+ensureSecureTLSBootstrap() {
+    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+
+    SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+    while [ "$SECURE_TLS_BOOTSTRAP_STATUS" == "activating" ]; do
+        echo "secure TLS bootstrapping is in-progress, waiting for terminal state..."
+        sleep 0.5
+        SECURE_TLS_BOOTSTRAP_STATUS="$(systemctl is-active secure-tls-bootstrap)"    
+    done
+
+    if [ "$SECURE_TLS_BOOTSTRAP_STATUS" == "failed" ] || [ "$SECURE_TLS_BOOTSTRAP_STATUS" == "is-failed" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
+        exit $ERR_SECURE_TLS_BOOTSTRAP_CLIENT_FAIL 
+    fi
+
+    if [ ! -f "$KUBECONFIG_FILE" ]; then
+        systemctl status secure-tls-bootstrap --no-pager -l
+        journalctl -u secure-tls-bootstrap
+        exit $ERR_SECURE_TLS_BOOTSTRAP_MISSING_KUBECONFIG 
+    fi
+}
+
 generateSelfSignedKubeletServingCertificate() {
     mkdir -p "/etc/kubernetes/certs"
     
@@ -488,66 +551,25 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
-    chmod 0600 "${KUBELET_DEFAULT_FILE}"
-    
-    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
-    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
-    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    chmod 0600 "${KUBE_CA_FILE}"
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
+
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ -n "$TLS_BOOTSTRAP_TOKEN" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
         chmod 0600 "${KUBELET_TLS_DROP_IN}"
-        tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+
+        if [ ! -f "$KUBECONFIG_FILE" ]; then
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
 [Service]
 Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig --bootstrap-kubeconfig /var/lib/kubelet/bootstrap-kubeconfig"
 EOF
-    fi
-
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
-        if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
-            AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
-        fi
-        SECURE_BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${SECURE_BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
-apiVersion: v1
-kind: Config
-clusters:
-- name: localcluster
-  cluster:
-    certificate-authority: /etc/kubernetes/certs/ca.crt
-    server: https://${API_SERVER_NAME}:443
-users:
-- name: kubelet-bootstrap
-  user:
-    exec:
-        apiVersion: client.authentication.k8s.io/v1
-        command: /opt/azure/tlsbootstrap/tls-bootstrap-client
-        args:
-        - bootstrap
-        - --next-proto=aks-tls-bootstrap
-        - --aad-resource=${AAD_RESOURCE}
-        interactiveMode: Never
-        provideClusterInfo: true
-contexts:
-- context:
-    cluster: localcluster
-    user: kubelet-bootstrap
-  name: bootstrap-context
-current-context: bootstrap-context
-EOF
-    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
-        BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
-        mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
-        touch "${BOOTSTRAP_KUBECONFIG_FILE}"
-        chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
-        tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
+            BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
+            mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
+            touch "${BOOTSTRAP_KUBECONFIG_FILE}"
+            chmod 0644 "${BOOTSTRAP_KUBECONFIG_FILE}"
+            tee "${BOOTSTRAP_KUBECONFIG_FILE}" > /dev/null <<EOF
 apiVersion: v1
 kind: Config
 clusters:
@@ -566,8 +588,13 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
+        else
+            tee "${KUBELET_TLS_DROP_IN}" > /dev/null <<EOF
+[Service]
+Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfig"
+EOF
+        fi
     else
-        KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
         chmod 0644 "${KUBECONFIG_FILE}"

@@ -52,6 +52,17 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 
+logs_to_events "AKS.CSE.ensureKubeCAFile" ensureKubeCAFile
+
+logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
+
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    # for now we download it so we don't have to cache it on the VHD, once it's always cached we won't need this step
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapClient" downloadSecureTLSBootstrapClient
+    logs_to_events "AKS.CSE.configureSecureTLSBootstrap" configureSecureTLSBootstrap
+    logs_to_events "AKS.CSE.start.SecureTLSBootstrap" systemctlEnableAndStartNoBlock secure-tls-bootstrap
+fi
+
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
@@ -147,10 +158,6 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
     local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
     logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
-fi
-
-if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
 fi
 
 # By default, never reboot new nodes.
@@ -329,7 +336,12 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    logs_to_events "AKS.CSE.ensureSecureTLSBootstrap" ensureSecureTLSBootstrap
+fi
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi

@@ -16,8 +16,7 @@ K8S_REGISTRY_REPO="oss/binaries/kubernetes"
 UBUNTU_RELEASE=$(lsb_release -r -s)
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
 OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
-SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION="v0.1.0-alpha.2"
+SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR="/opt/azure/containers/aks-secure-tls-bootstrap-client"
 TELEPORTD_PLUGIN_DOWNLOAD_DIR="/opt/teleportd/downloads"
 CREDENTIAL_PROVIDER_DOWNLOAD_DIR="/opt/credentialprovider/downloads"
 CREDENTIAL_PROVIDER_BIN_DIR="/var/lib/kubelet/credential-provider"
@@ -193,19 +192,17 @@ installCredentialProvider() {
     rm -rf ${CREDENTIAL_PROVIDER_DOWNLOAD_DIR}
 }
 
-downloadSecureTLSBootstrapKubeletExecPlugin() {
-    local plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/amd64/tls-bootstrap-client"
+downloadSecureTLSBootstrapClient() {
+    # TODO(cameissner): move to components.json
+    local client_version="v0.1.0-alpha.5"
+    local client_download_url="https://stlsbootstrap.z22.web.core.windows.net/client/linux/amd64/${client_version}"
     if [[ $(isARM64) == 1 ]]; then
-        plugin_url="https://k8sreleases.blob.core.windows.net/aks-tls-bootstrap-client/${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_VERSION}/linux/arm64/tls-bootstrap-client"
+        client_download_url="https://stlsbootstrap.z22.web.core.windows.net/client/linux/arm64/${client_version}"
     fi
-
-    mkdir -p $SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR
-    plugin_download_path="${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR}/tls-bootstrap-client"
-
-    if [ ! -f "$plugin_download_path" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
-        chown -R root:root "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
-        chmod -R 755 "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
+    
+    mkdir -p "/opt/azure/containers"
+    if ! retrycmd_if_failure 30 5 60 curl -fSL -o "$SECURE_TLS_BOOTSTRAP_CLIENT_BIN_DIR" "$client_download_url"; then
+        exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_CLIENT
     fi
 }
 
