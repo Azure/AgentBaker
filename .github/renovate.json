@@ -305,7 +305,7 @@
         "windows/nanoserver",
         "windows/servercore",
         "windows/servercore/iis",
-        "oss/kubernetes/windows-gmsa-webhook"
+        "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
       "groupName": "windowsbase",
       "assignees": [
