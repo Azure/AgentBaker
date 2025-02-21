@@ -30,4 +30,4 @@ steps:
       cp -af "${sourceFile}" "${destinationFile}"
 
     condition: and(succeeded(), eq('${{ parameters.enabled }}', true))
-    displayName: Copy file ${{ parameters.sourceFile }} to ${{ parameters.destinationFile }}
+    displayName: Overwrite file ${{ parameters.destinationFile }}
