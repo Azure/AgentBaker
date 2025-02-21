@@ -158,7 +158,7 @@ steps:
       HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       WINDOWS_PATCH_URL: $(WINDOWS_PATCH_URL)
-      WINDOWS_BASE_IMAGE_URL: {{ parameters.windowsBaseImageUrl }}
+      WINDOWS_BASE_IMAGE_URL: ${{ parameters.windowsBaseImageUrl }}
       WINDOWS_NANO_IMAGE_URL: ${{ parameters.windowsNanoImageUrl }}
       WINDOWS_CORE_IMAGE_URL: ${{ parameters.windowsCoreImageUrl }}
       WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
