@@ -92,7 +92,7 @@ steps:
     env:
       MODE: $(MODE)
       POOL_NAME: $(AZURE_POOL_NAME)
-      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       AZURE_VM_SIZE: $(AZURE_VM_SIZE)
@@ -132,7 +132,7 @@ steps:
        make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
     env:
-      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       WINDOWS_SKU: $(WINDOWS_SKU)
@@ -188,9 +188,9 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
-      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
-      RESOURCE_GROUP_NAME: "${AZURE_BUILD_RESOURCE_GROUP_NAME}"
-      LOCATION: "${AZURE_BUILD_LOCATION}"
+      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+      RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+      LOCATION: $(AZURE_BUILD_LOCATION)
       OS_TYPE: "Windows"
       CLASSIC_BLOB: "$(STORAGE_ACCT_BLOB_URL)"
       SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
@@ -221,7 +221,7 @@ steps:
     displayName: Clean Up Packer Generated Resources
     condition: always()
     env:
-      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       MODE: $(MODE)
       DRY_RUN: $(DRY_RUN)
@@ -257,7 +257,7 @@ steps:
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
                    eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
-      SUBSCRIPTION_ID: "${AZURE_PROD_SUBSCRIPTION_ID}" 
+      SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL) 
       VHD_NAME: $(VHD_NAME) 
       OS_NAME: "Windows" 
