@@ -457,7 +457,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_run_start_ebpf_downloads"
+capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 
 string_replace() {
   echo ${1//\*/$2}
