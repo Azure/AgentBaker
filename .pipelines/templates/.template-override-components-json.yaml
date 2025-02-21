@@ -17,6 +17,7 @@ steps:
 
   - checkout: git://CloudNativeCompute/aks-rp@${{ parameters.overrideBranch }}
     path: aks-rp
+    condition: and(succeeded(), eq('${{ parameters.useOverrides }}', true))
     fetchDepth: 1
     fetchTags: false
     lfs: false
