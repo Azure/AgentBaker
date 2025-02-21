@@ -64,17 +64,15 @@ stages:
     dependsOn: [ ]
     jobs:
       - job: build_${{ parameters.stageName }}
-        dependsOn: []
+        dependsOn: [ ]
         timeoutInMinutes: 180
         steps:
           - template: ./.builder-release-template-windows.yaml
             parameters:
               artifactName: ${{ parameters.artifactName }}
-              stageName: ${{ parameters.stageName }}
-              imageName:  ${{ parameters.imageName }}
-              windowsSku:  ${{ parameters.windowsSku }}
-              hyperVGeneration:  ${{ parameters.hyperVGeneration }}
-              architecture:  ${{ parameters.architecture }}
+              windowsSku: ${{ parameters.windowsSku }}
+              hyperVGeneration: ${{ parameters.hyperVGeneration }}
+              architecture: ${{ parameters.architecture }}
               buildVmSize: ${{ parameters.buildVmSize }}
               build: ${{ parameters.build }}
               vhddebug: ${{ parameters.vhddebug }}
@@ -86,7 +84,6 @@ stages:
               windowsCoreImageUrl: ${{ parameters.windowsCoreImageUrl }}
               overrideBranch: ${{ parameters.overrideBranch }}
               useOverrides: ${{ parameters.useOverrides }}
-
 
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})

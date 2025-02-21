@@ -41,7 +41,7 @@ parameters:
     type: boolean
 
 stages:
-  - template:   ./.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2019_v1
       artifactName: 2019-containerd
@@ -61,7 +61,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
-  - template:   ./.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1
       artifactName: 2022-containerd
@@ -81,7 +81,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
-  - template:   ./.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v2
       artifactName: 2022-containerd-gen2
@@ -101,7 +101,7 @@ stages:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
-  - template:   ./.build-and-test-windows-vhd-template.yaml
+  - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_23H2_v1
       artifactName: 23H2
@@ -142,7 +142,7 @@ stages:
       useOverrides: ${{ parameters.useOverrides }}
 
   - stage: backfill_cleanup_outdated_resources
-    dependsOn: []
+    dependsOn: [ ]
     condition: always()
     jobs:
       - job: build
