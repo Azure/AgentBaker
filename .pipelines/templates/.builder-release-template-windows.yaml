@@ -28,6 +28,26 @@ parameters:
   - name: architecture
     type: string
     displayName: CPU Architecture - X86_64 or ARM64
+  - name: windowsBaseImageUrl
+    displayName: Windows Base Image URL Override
+    type: string
+  - name: windowsNanoImageUrl
+    displayName: Windows nano base container image URL Override
+    type: string
+  - name: windowsCoreImageUrl
+    displayName: Windows core base container image URL Override
+    type: string
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
+  - name: windowsSku
+    type: string
+    displayName: The windows artifact to build. Might be a duplicate of artifactName
 
 
 steps:
