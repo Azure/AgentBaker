@@ -43,6 +43,10 @@ parameters:
   displayName: Skip Extension Check
   type: boolean
   default: False
+- name: installOpenSshServer
+  displayName: Install Open SSH Server
+  type: boolean
+  default: True
 - name: buildVmSize
   displayName: Build VM Size
   type: string
@@ -64,3 +68,4 @@ stages:
       build23H2:  ${{ parameters.build23H2 }}
       build23H2gen2:  ${{ parameters.build23H2gen2 }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
