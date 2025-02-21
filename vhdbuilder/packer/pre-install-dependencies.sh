@@ -49,7 +49,7 @@ systemctlEnableAndStart systemd-journald || exit 1
 systemctlEnableAndStart rsyslog || exit 1
 
 systemctlEnableAndStart disk_queue || exit 1
-capture_benchmark "${SCRIPT_NAME}_copy_packer_files"
+capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_rsyslog"
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
@@ -62,15 +62,13 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
-capture_benchmark "${SCRIPT_NAME}_start_system_logs_and_aks_log_collector"
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
-capture_benchmark "${SCRIPT_NAME}_enable_modified_log_rotate_service"
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
-capture_benchmark "${SCRIPT_NAME}_sync_container_logs"
+capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
 # enable aks-node-controller.service
 systemctl enable aks-node-controller.service
@@ -107,13 +105,14 @@ else
     installFIPS
   fi
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_mariner_and_fips_configurations"
+capture_benchmark "${SCRIPT_NAME}_upgrade_distro_and_resolve_fips_requirements"
 
 # Handle Azure Linux + CgroupV2
 # CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
+capture_benchmark "${SCRIPT_NAME}_handle_azureLinux_and_cgroupV2"
 
 if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   echo "Logging the currently running kernel: $(uname -r)"
@@ -129,7 +128,7 @@ if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
 
   update-grub
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_azureLinux_and_cgroupV2"
+capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
