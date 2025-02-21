@@ -437,7 +437,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-state-metrics",
-          "latestVersion": "v2.11.0"
+          "latestVersion": "v2.14.0"
         }
       ],
       "windowsVersions": []
@@ -919,7 +919,8 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.18"
+                "latestVersion": "1.6.21",
+                "previousLatestVersion": "1.6.18"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-windows-amd64-v${version}.zip"
@@ -1191,8 +1192,8 @@
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.18",
-                "previousLatestVersion": "1.6.13"
+                "latestVersion": "1.6.21",
+                "previousLatestVersion": "1.6.18"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
