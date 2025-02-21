@@ -48,6 +48,7 @@ stages:
       imageName: windows-2019-containerd
       windowsSku: 2019-containerd
       hyperVGeneration: V1
+      architecture: X86_64
       build: ${{ parameters.build2019containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
@@ -67,6 +68,7 @@ stages:
       imageName: windows-2022-containerd
       windowsSku: 2022-containerd
       hyperVGeneration: V1
+      architecture: X86_64
       build: ${{ parameters.build2022containerd }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
@@ -86,6 +88,7 @@ stages:
       imageName: windows-2022-containerd-gen2
       windowsSku: 2022-containerd-gen2
       hyperVGeneration: V2
+      architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build2022containerdgen2 }}
       vhddebug: ${{ parameters.vhddebug }}
@@ -105,6 +108,7 @@ stages:
       imageName: windows-23H2
       windowsSku: 23H2
       hyperVGeneration: V1
+      architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build23H2 }}
       vhddebug: ${{ parameters.vhddebug }}
@@ -124,6 +128,7 @@ stages:
       imageName: windows-23H2-gen2
       windowsSku: 23H2-gen2
       hyperVGeneration: V2
+      architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build23H2gen2 }}
       vhddebug: ${{ parameters.vhddebug }}
