@@ -56,12 +56,9 @@ steps:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
+  # We create the variable dry run and the update it, depending on the pipeline and branch type.
   - bash: |
       echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
-      echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.windowsSku }}'
-    displayName: Setup Build Variables
-
-  - bash: |
       echo "Checking SourceBranch: $(Build.SourceBranch)"
       if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
         if [[ "${DRY_RUN}" = "True" ]]; then
@@ -130,6 +127,8 @@ steps:
       branch=$(echo "${branch}" | sed 's/refs\/heads\///g')
       echo "##vso[task.setvariable variable=BRANCH]$branch"
     displayName: Set pipeline variables
+    env:
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
 
   - script: |
       #      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
@@ -200,7 +199,6 @@ steps:
       GIT_BRANCH: $(Build.SourceBranch)
 
   # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
-
   # Use jq to reformat the image-bom.json file
   - bash: |
       sudo chmod 777 image-bom.json
@@ -319,6 +317,7 @@ steps:
       IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
       HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
       OS_TYPE: "Windows"
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
 
   # Will be stepped in if the sig is for production
   - task: PublishPipelineArtifact@1
