@@ -41,6 +41,7 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
+capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   # disable and mask all UU timers/services
@@ -56,7 +57,6 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -99,7 +99,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmark "${SCRIPT_NAME}_install_dependencies"
+capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
