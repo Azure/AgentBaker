@@ -168,6 +168,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
+	AKSAzureLinuxV3CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -212,6 +213,7 @@ var AvailableGen2Distros = []Distro{
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2FIPS,
+	AKSAzureLinuxV3CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -239,6 +241,7 @@ var AvailableAzureLinuxDistros = []Distro{
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
+	AKSAzureLinuxV3CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -257,6 +260,7 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSAzureLinuxV2Gen2TL,
 	AKSAzureLinuxV3Gen2TL,
+	AKSAzureLinuxV3CVMGen2,
 }
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
@@ -811,6 +815,13 @@ var (
 		Definition:    "windows-23H2-gen2",
 		Version:       Windows23H2SIGImageVersion,
 	}
+
+	SIGAzureLinuxV3CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSAzureLinuxResourceGroup,
+		Gallery:       AKSAzureLinuxGalleryName,
+		Definition:    "V3cvmgen2",
+		Version:       LinuxSIGImageVersion,
+	}
 )
 
 // GetMaintainedLinuxSIGImageConfigMap returns a set of Distro -> SigImageConfig mappings
@@ -898,6 +909,7 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 		AKSAzureLinuxV3Arm64Gen2FIPS: SIGAzureLinuxV3Arm64Gen2FIPSImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV2Gen2TL:        SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(opts...),
 		AKSAzureLinuxV3Gen2TL:        SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(opts...),
+		AKSAzureLinuxV3CVMGen2:       SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
