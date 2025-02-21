@@ -57,18 +57,8 @@ steps:
       useOverrides: ${{ parameters.useOverrides }}
 
   - bash: |
-      echo '##vso[task.setvariable variable=VHD_DEBUG]${{ parameters.vhddebug }}'
       echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
-      echo '##vso[task.setvariable variable=ARCHITECTURE]${{ parameters.architecture }}'
-      echo '##vso[task.setvariable variable=HYPERV_GENERATION]${{ parameters.hyperVGeneration }}'
-      echo '##vso[task.setvariable variable=AZURE_VM_SIZE]${{ parameters.buildVmSize }}'
       echo '##vso[task.setvariable variable=WINDOWS_SKU]${{ parameters.windowsSku }}'
-      echo '##vso[task.setvariable variable=SKIP_EXTENSION_CHECK]${{ parameters.skipExtensionCheck }}'
-      echo '##vso[task.setvariable variable=INSTALL_OPEN_SSH_SERVER]${{ parameters.installOpenSshServer }}'
-      echo '##vso[task.setvariable variable=WINDOWS_BASE_IMAGE_URL]${{ parameters.windowsBaseImageUrl }}'
-      echo '##vso[task.setvariable variable=WINDOWS_NANO_IMAGE_URL]${{ parameters.windowsNanoImageUrl }}'
-      echo '##vso[task.setvariable variable=WINDOWS_CORE_IMAGE_URL]${{ parameters.windowsCoreImageUrl }}'
-      echo '##vso[task.setvariable variable=WINDOWS_PRIVATE_PACKAGES_URL]$(PRIVATE_PACKAGES_URL)'
     displayName: Setup Build Variables
 
   - bash: |
@@ -152,26 +142,27 @@ steps:
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
-      AZURE_VM_SIZE: $(AZURE_VM_SIZE)
+      AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
       GIT_BRANCH: $(BRANCH)
       GIT_REPO: $(Build.Repository.Uri)
       GIT_VERSION: $(Build.SourceVersion)
       BUILD_ID: $(Build.BuildId)
       BUILD_NUMBER: $(Build.BuildNumber)
-      WINDOWS_SKU: $(WINDOWS_SKU)
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
       OS_TYPE: "Windows"
-      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      INSTALL_OPEN_SSH_SERVER: ${{ parameters.installOpenSshServer }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
-      HYPERV_GENERATION: $(HYPERV_GENERATION)
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       WINDOWS_PATCH_URL: $(WINDOWS_PATCH_URL)
-      WINDOWS_BASE_IMAGE_URL: $(WINDOWS_BASE_IMAGE_URL)
-      WINDOWS_NANO_IMAGE_URL: $(WINDOWS_NANO_IMAGE_URL)
-      WINDOWS_CORE_IMAGE_URL: $(WINDOWS_CORE_IMAGE_URL)
-      WINDOWS_PRIVATE_PACKAGES_URL: $(WINDOWS_PRIVATE_PACKAGES_URL)
+      WINDOWS_BASE_IMAGE_URL: {{ parameters.windowsBaseImageUrl }}
+      WINDOWS_NANO_IMAGE_URL: ${{ parameters.windowsNanoImageUrl }}
+      WINDOWS_CORE_IMAGE_URL: ${{ parameters.windowsCoreImageUrl }}
+      WINDOWS_PRIVATE_PACKAGES_URL: $(PRIVATE_PACKAGES_URL)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
   
@@ -181,7 +172,7 @@ steps:
       export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" 
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
       
-      echo "ARCHITECTURE: $ARCHITECTURE"
+      echo "ARCHITECTURE: ${{ parameters.architecture }}"
       
       echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
 
@@ -194,17 +185,18 @@ steps:
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
-      WINDOWS_SKU: $(WINDOWS_SKU)
-      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      INSTALL_OPEN_SSH_SERVER: ${{ parameters.installOpenSshServer }}
       SKIPVALIDATEREOFFERUPDATE: $(SKIPVALIDATEREOFFERUPDATE)
       OS_TYPE: "Windows"
       MODE: $(MODE)
       FEATURE_FLAGS: $(FEATURE_FLAGS)
-      VHD_DEBUG: $(VHD_DEBUG)
+      VHD_DEBUG: ${{ parameters.vhddebug }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_NAME: $(SIG_IMAGE_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
-      ARCHITECTURE: $(ARCHITECTURE)
+      ARCHITECTURE: ${{ parameters.architecture }}
       GIT_BRANCH: $(Build.SourceBranch)
 
   # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
@@ -252,7 +244,7 @@ steps:
       LOCATION: $(AZURE_BUILD_LOCATION)
       OS_TYPE: "Windows"
       CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
-      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
@@ -286,8 +278,8 @@ steps:
       DRY_RUN: $(DRY_RUN)
       VNET_RESOURCE_GROUP_NAME: $(VNET_RESOURCE_GROUP_NAME)
       TEST_VM_RESOURCE_GROUP_NAME: $(TEST_VM_RESOURCE_GROUP_NAME)
-      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
-      WINDOWS_SKU: $(WINDOWS_SKU)
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
+      WINDOWS_SKU: ${{ parameters.windowsSku }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
       SIG_IMAGE_VERSION: $(SIG_IMAGE_VERSION)
       SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
@@ -320,12 +312,12 @@ steps:
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)
       VHD_NAME: $(VHD_NAME)
       OS_NAME: "Windows"
-      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       SKU_NAME: $(SKU_NAME)
       OFFER_NAME: "Windows"
       MODE: $(MODE)
       IMAGE_VERSION: $(AKS_WINDOWS_IMAGE_VERSION)
-      HYPERV_GENERATION: $(HYPERV_GENERATION)
+      HYPERV_GENERATION: ${{ parameters.hyperVGeneration }}
       OS_TYPE: "Windows"
 
   # Will be stepped in if the sig is for production
