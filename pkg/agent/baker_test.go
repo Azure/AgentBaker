@@ -787,6 +787,30 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
+		Entry("AKSUbuntu1804 with kubelet client certificatet", "AKSUbuntu1804+WithKubeletClientCert", "1.18.3",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					ClientCertificate: "fooBarBaz",
+					ClientPrivateKey:  "fooBarBaz",
+					CaCertificate:     "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+				Expect(kubeconfig).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).To(BeNil())
+			}),
+
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
@@ -804,13 +828,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(etcDefaultKubelet).NotTo(BeEmpty())
 				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"]
+				Expect(kubeconfig).To(BeNil())
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",

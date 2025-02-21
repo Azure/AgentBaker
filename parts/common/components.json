@@ -521,7 +521,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
-          "latestVersion": "v1.8.9"
+          "latestVersion": "v1.8.11"
         }
       ],
       "windowsVersions": []
@@ -544,33 +544,33 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.29.12",
-          "previousLatestVersion": "v1.29.10"
+          "latestVersion": "v1.29.12"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.7",
-          "previousLatestVersion": "v1.30.6"
+          "latestVersion": "v1.30.8",
+          "previousLatestVersion": "v1.30.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.3"
+          "latestVersion": "v1.31.4",
+          "previousLatestVersion": "v1.31.3"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.29.12-windows-hp",
-          "previousLatestVersion": "v1.29.10-windows-hp"
+          "latestVersion": "v1.29.12-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.7-windows-hp",
-          "previousLatestVersion": "v1.30.5-windows-hp"
+          "latestVersion": "v1.30.8-windows-hp",
+          "previousLatestVersion": "v1.30.7-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.3-windows-hp"
+          "latestVersion": "v1.31.4-windows-hp",
+          "previousLatestVersion": "v1.31.3-windows-hp"
         }
       ]
     },
@@ -795,14 +795,14 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-cuda:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-cuda",
-        "latestVersion": "550.127.08-20241204190836"
+          "latestVersion": "550.144.03-20250220172218"
       }
     },
     {
       "downloadURL": "mcr.microsoft.com/aks/aks-gpu-grid:*",
       "gpuVersion": {
         "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-gpu-grid",
-        "latestVersion": "550.127.05-20250109210537"
+          "latestVersion": "550.144.03-20250220172220"
       }
     }
   ],
