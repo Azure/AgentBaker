@@ -66,78 +66,76 @@ steps:
         BUILD_DATE=${CUSTOM_BUILD_DATE}; \
       fi
       echo "Set build date to $BUILD_DATE" && \
-      echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE"
-    displayName: Get Build Mode
-
-  - script: |
+      echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE" 
+    
       branch=$(Build.SourceBranch)
       branch=$(echo "${branch}" | sed 's/refs\/heads\///g')
-      echo MODE=$(MODE) && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e POOL_NAME=$(AZURE_POOL_NAME) \
-      -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
-      -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
-      -e AZURE_VM_SIZE=${AZURE_VM_SIZE} \
-      -e GIT_BRANCH=$branch \
-      -e GIT_REPO=$(Build.Repository.Uri) \
-      -e GIT_VERSION=$(Build.SourceVersion) \
-      -e BUILD_ID=$(Build.BuildId) \
-      -e BUILD_NUMBER=$(Build.BuildNumber) \
-      -e WINDOWS_SKU=$(WINDOWS_SKU) \
-      -e OS_TYPE="Windows" \
-      -e SKIP_EXTENSION_CHECK=$(SKIP_EXTENSION_CHECK) \
-      -e INSTALL_OPEN_SSH_SERVER=$(INSTALL_OPEN_SSH_SERVER) \
-      -e MODE=$(MODE) \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e SIG_FOR_PRODUCTION=${SIG_FOR_PRODUCTION} \
-      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
-      -e WINDOWS_PATCH_URL=${WINDOWS_PATCH_URL} \
-      -e WINDOWS_BASE_IMAGE_URL=${WINDOWS_BASE_IMAGE_URL} \
-      -e WINDOWS_NANO_IMAGE_URL=${WINDOWS_NANO_IMAGE_URL} \
-      -e WINDOWS_CORE_IMAGE_URL=${WINDOWS_CORE_IMAGE_URL} \
-      -e WINDOWS_PRIVATE_PACKAGES_URL=${WINDOWS_PRIVATE_PACKAGES_URL} \
-      -e AZURE_MSI_RESOURCE_STRING=${AZURE_MSI_RESOURCE_STRING} \
-      -e BUILD_DATE=${BUILD_DATE} \
-      ${AZURE_CONTAINER_IMAGE} make -f packer.mk run-packer-windows
-    displayName: Building windows VHD
+      echo "##vso[task.setvariable variable=BRANCH]$branch"
+    displayName: Set pipeline variables
 
-# Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
-      echo MODE=$(MODE) && \
-      OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)" && \
-      MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" && \
-      TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM" && \
-      echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
-      -e OS_DISK_URI=${OS_DISK_URI} \
-      -e MANAGED_SIG_ID=${MANAGED_SIG_ID} \
-      -e AZURE_LOCATION=${AZURE_BUILD_LOCATION} \
-      -e WINDOWS_SKU=$(WINDOWS_SKU) \
-      -e SKIP_EXTENSION_CHECK=$(SKIP_EXTENSION_CHECK) \
-      -e INSTALL_OPEN_SSH_SERVER=$(INSTALL_OPEN_SSH_SERVER) \
-      -e SKIPVALIDATEREOFFERUPDATE=${SKIPVALIDATEREOFFERUPDATE} \
-      -e OS_TYPE="Windows" \
-      -e MODE=$(MODE) \
-      -e FEATURE_FLAGS=${FEATURE_FLAGS} \
-      -e VHD_DEBUG=${VHD_DEBUG} \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e TEST_VM_RESOURCE_GROUP_NAME=${TEST_VM_RESOURCE_GROUP_NAME} \
-      -e ARCHITECTURE=${ARCHITECTURE} \
-      -e GIT_BRANCH=$(Build.SourceBranch) \
-      ${AZURE_CONTAINER_IMAGE} make -f packer.mk test-building-vhd
+#      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+#      -w /go/src/github.com/Azure/AgentBaker
+      make -f packer.mk run-packer-windows
+    displayName: Building windows VHD
+    env:
+      MODE: $(MODE)
+      POOL_NAME: $(AZURE_POOL_NAME)
+      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      AZURE_RESOURCE_GROUP_NAME: ${AZURE_BUILD_RESOURCE_GROUP_NAME}
+      AZURE_LOCATION: ${AZURE_BUILD_LOCATION}
+      AZURE_VM_SIZE: ${AZURE_VM_SIZE}
+      GIT_BRANCH: $(BRANCH)
+      GIT_REPO: $(Build.Repository.Uri)
+      GIT_VERSION: $(Build.SourceVersion)
+      BUILD_ID: $(Build.BuildId)
+      BUILD_NUMBER: $(Build.BuildNumber)
+      WINDOWS_SKU: $(WINDOWS_SKU)
+      OS_TYPE: "Windows"
+      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}
+      SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}
+      SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}
+      SIG_FOR_PRODUCTION: ${SIG_FOR_PRODUCTION}
+      HYPERV_GENERATION: ${HYPERV_GENERATION}
+      VNET_RESOURCE_GROUP_NAME: ${VNET_RESOURCE_GROUP_NAME}
+      WINDOWS_PATCH_URL: ${WINDOWS_PATCH_URL}
+      WINDOWS_BASE_IMAGE_URL: ${WINDOWS_BASE_IMAGE_URL}
+      WINDOWS_NANO_IMAGE_URL: ${WINDOWS_NANO_IMAGE_URL}
+      WINDOWS_CORE_IMAGE_URL: ${WINDOWS_CORE_IMAGE_URL}
+      WINDOWS_PRIVATE_PACKAGES_URL: ${WINDOWS_PRIVATE_PACKAGES_URL}
+      AZURE_MSI_RESOURCE_STRING: ${AZURE_MSI_RESOURCE_STRING}
+      BUILD_DATE: ${BUILD_DATE}
+  
+  # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
+  - script: |
+      export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
+      export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" 
+      export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM" 
+      
+      echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
+
+#      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+#      -w /go/src/github.com/Azure/AgentBaker \
+
+       make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
+    env:
+      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      AZURE_RESOURCE_GROUP_NAME: ${AZURE_BUILD_RESOURCE_GROUP_NAME}
+      AZURE_LOCATION: ${AZURE_BUILD_LOCATION}
+      WINDOWS_SKU: $(WINDOWS_SKU)
+      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      SKIPVALIDATEREOFFERUPDATE: ${SKIPVALIDATEREOFFERUPDATE}
+      OS_TYPE: "Windows"
+      MODE: $(MODE)
+      FEATURE_FLAGS: ${FEATURE_FLAGS}
+      VHD_DEBUG: ${VHD_DEBUG}
+      SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}
+      SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}
+      SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}
+      ARCHITECTURE: ${ARCHITECTURE}
+      GIT_BRANCH: $(Build.SourceBranch)
 
 # We can upload release notes for check-in pr and sig mode to validate whether it is expected.
 
@@ -162,7 +160,7 @@ steps:
 
 # We can upload image bom json for check-in pr and sig mode to validate whether it is expected.
   - task: PublishPipelineArtifact@0
-    inputs:          
+    inputs:
         artifactName: 'vhd-image-list-${{ parameters.artifactName }}'
         targetPath: '$(AKS_WINDOWS_IMAGE_VERSION)-image-list.json'
 
@@ -170,27 +168,24 @@ steps:
 # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
 # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
   - bash: |
-        echo MODE=$(MODE) && \
-        SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-        docker run --rm \
-        -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-        -w /go/src/github.com/Azure/AgentBaker \
-        -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-        -e RESOURCE_GROUP_NAME="${AZURE_BUILD_RESOURCE_GROUP_NAME}" \
-        -e LOCATION="${AZURE_BUILD_LOCATION}" \
-        -e OS_TYPE="Windows" \
-        -e CLASSIC_BLOB="$(STORAGE_ACCT_BLOB_URL)" \
-        -e SKIP_EXTENSION_CHECK=$(SKIP_EXTENSION_CHECK) \
-        -e INSTALL_OPEN_SSH_SERVER=$(INSTALL_OPEN_SSH_SERVER) \      
-        -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-        -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-        -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-        -e CAPTURED_SIG_VERSION=${captured_sig_version} \
-        -e AZURE_MSI_RESOURCE_STRING=$(AZURE_MSI_RESOURCE_STRING) \
-        ${AZURE_CONTAINER_IMAGE} make -f packer.mk convert-sig-to-classic-storage-account-blob
+        export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        export CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+#        -v ${PWD}:/go/src/github.com/Azure/AgentBaker
+#        -w /go/src/github.com/Azure/AgentBaker
+
+        make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    env:
+      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      RESOURCE_GROUP_NAME: "${AZURE_BUILD_RESOURCE_GROUP_NAME}"
+      LOCATION: "${AZURE_BUILD_LOCATION}"
+      OS_TYPE: "Windows"
+      CLASSIC_BLOB: "$(STORAGE_ACCT_BLOB_URL)"
+      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}
+      SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}
+      AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
 
 # SA_NAME:             Temporary storage account name
 # IMPORTED_IMAGE_NAME: Build output for windowsVhdMode is SIG. Packer does not support building a SIG from raw
@@ -202,68 +197,66 @@ steps:
 # IMAGE_NAME:          Managed image created by packer: ManagedImageName in log. No longer used.
 #                      Can be cleaned up in this step.
   - bash: |
-      echo MODE=$(MODE) && \
-      PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" && \
-      SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)" && \
-      IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
-      IMAGE_NAME="$(cat packer-output | grep -a "ManagedImageName:" | cut -d " " -f 2)" && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-      -e SA_NAME=${SA_NAME} \
-      -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
-      -e PKR_RG_NAME=${PKR_RG_NAME} \
-      -e MODE=$(MODE) \
-      -e DRY_RUN=${DRY_RUN} \
-      -e IMAGE_NAME=${IMAGE_NAME} \
-      -e VNET_RESOURCE_GROUP_NAME=${VNET_RESOURCE_GROUP_NAME} \
-      -e TEST_VM_RESOURCE_GROUP_NAME=${TEST_VM_RESOURCE_GROUP_NAME} \
-      -e SKIP_EXTENSION_CHECK=$(SKIP_EXTENSION_CHECK) \
-      -e INSTALL_OPEN_SSH_SERVER=$(INSTALL_OPEN_SSH_SERVER) \
-      -e WINDOWS_SKU=$(WINDOWS_SKU) \
-      -e IMPORTED_IMAGE_NAME=${IMPORTED_IMAGE_NAME} \
-      -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-      -e SIG_IMAGE_NAME=${SIG_IMAGE_NAME} \
-      -e SIG_IMAGE_VERSION=${SIG_IMAGE_VERSION} \
-      -e SIG_FOR_PRODUCTION=${SIG_FOR_PRODUCTION} \
-      -e OS_TYPE="Windows" \
-      ${AZURE_CONTAINER_IMAGE} make -f packer.mk cleanup
+      export PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" 
+      export SA_NAME="$(cat packer-output | grep -a "storage name:" | cut -d " " -f 3)" 
+      export IMPORTED_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "imported_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" 
+      export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+      export IMAGE_NAME="$(cat packer-output | grep -a "ManagedImageName:" | cut -d " " -f 2)"
+#      docker run --rm \
+#      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+#      -w /go/src/github.com/Azure/AgentBaker \
+
+      make -f packer.mk cleanup
     displayName: Clean Up Packer Generated Resources
     condition: always()
+    env:
+      SUBSCRIPTION_ID: "${AZURE_BUILD_SUBSCRIPTION_ID}"
+      AZURE_RESOURCE_GROUP_NAME: ${AZURE_BUILD_RESOURCE_GROUP_NAME}
+      MODE: $(MODE)
+      DRY_RUN: ${DRY_RUN}
+      VNET_RESOURCE_GROUP_NAME: ${VNET_RESOURCE_GROUP_NAME}
+      TEST_VM_RESOURCE_GROUP_NAME: ${TEST_VM_RESOURCE_GROUP_NAME}
+      SKIP_EXTENSION_CHECK: $(SKIP_EXTENSION_CHECK)
+      WINDOWS_SKU: $(WINDOWS_SKU)
+      SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}
+      SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}
+      SIG_FOR_PRODUCTION: ${SIG_FOR_PRODUCTION}
+      OS_TYPE: "Windows"
+
 
 # Set VHD_NAME and SKU_NAME which will be published.
 # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
 # Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
   - bash: |
-      echo MODE=$(MODE) && \
-      if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"; \
-      [ -n "${captured_sig_version}" ] && VHD_NAME="${captured_sig_version}.vhd"; \
-      SKU_NAME="windows-$WINDOWS_SKU"; \
-      else \
-      OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; \
-      VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; \
-      SKU_NAME="windows-$WINDOWS_SKU"; fi && \
-      docker run --rm \
-      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-      -w /go/src/github.com/Azure/AgentBaker \
-      -e SUBSCRIPTION_ID="${AZURE_PROD_SUBSCRIPTION_ID}" \
-      -e STORAGE_ACCT_BLOB_URL=${STORAGE_ACCT_BLOB_URL} \
-      -e VHD_NAME=${VHD_NAME} \
-      -e OS_NAME="Windows" \
-      -e SKIP_EXTENSION_CHECK=${SKIP_EXTENSION_CHECK} \
-      -e INSTALL_OPEN_SSH_SERVER=$(INSTALL_OPEN_SSH_SERVER) \
-      -e SKU_NAME=${SKU_NAME} \
-      -e OFFER_NAME="Windows" \
-      -e MODE=$(MODE) \
-      -e IMAGE_VERSION=${AKS_WINDOWS_IMAGE_VERSION} \
-      -e HYPERV_GENERATION=${HYPERV_GENERATION} \
-      -e OS_TYPE="Windows" \
-      ${AZURE_CONTAINER_IMAGE} make -f packer.mk generate-publishing-info
+      if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
+        export captured_sig_version="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
+        [ -n "${captured_sig_version}" ] && export VHD_NAME="${captured_sig_version}.vhd"; 
+      else 
+        export OS_DISK_SAS="$(cat packer-output | grep -a "OSDiskUriReadOnlySas:" | cut -d " " -f 2)"; 
+        export VHD_NAME="$(echo $OS_DISK_SAS | cut -d "/" -f 8 | cut -d "?" -f 1)"; 
+      fi
+      export SKU_NAME="windows-$WINDOWS_SKU"; 
+
+    #      docker run --rm \
+#      -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
+#      -w /go/src/github.com/Azure/AgentBaker \
+     
+      make -f packer.mk generate-publishing-info
     displayName: Getting Shared Access Signature URI
     condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), 
                    eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    env:
+      SUBSCRIPTION_ID: "${AZURE_PROD_SUBSCRIPTION_ID}" 
+      STORAGE_ACCT_BLOB_URL: ${STORAGE_ACCT_BLOB_URL} 
+      VHD_NAME: ${VHD_NAME} 
+      OS_NAME: "Windows" 
+      SKIP_EXTENSION_CHECK: ${SKIP_EXTENSION_CHECK} 
+      SKU_NAME: ${SKU_NAME} 
+      OFFER_NAME: "Windows" 
+      MODE: $(MODE) 
+      IMAGE_VERSION: ${AKS_WINDOWS_IMAGE_VERSION} 
+      HYPERV_GENERATION: ${HYPERV_GENERATION} 
+      OS_TYPE: "Windows" 
 
 # Will be stepped in if the sig is for production
   - task: PublishPipelineArtifact@1
