@@ -46,6 +46,12 @@ parameters:
   - name: windowsCoreImageUrl
     displayName: Windows core base container image URL Override
     type: string
+  - name: overrideBranch
+    type: string
+    default: master
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
 
 stages:
   - stage: build_${{ parameters.stageName }}
@@ -74,6 +80,8 @@ stages:
           - template: ./.builder-release-template-windows.yaml
             parameters:
               artifactName: ${{ parameters.artifactName }}
+              overrideBranch: ${{ parameters.overrideBranch }}
+              useOverrides: ${{ parameters.useOverrides }}
 
   - stage: e2e_${{ parameters.stageName }}
     displayName: E2E (${{ parameters.artifactName }})

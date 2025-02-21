@@ -51,6 +51,14 @@ parameters:
   displayName: Build VM Size
   type: string
   default: Standard_D4ds_v5
+- name: useOverrides
+  displayName: Use component overrides
+  type: boolean
+  default: false
+- name: overrideBranch
+  displayName: Branch in aks-rp to use for overrides
+  type: string
+  default: master
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -69,3 +77,5 @@ stages:
       build23H2gen2:  ${{ parameters.build23H2gen2 }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}

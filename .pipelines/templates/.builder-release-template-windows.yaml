@@ -1,8 +1,19 @@
 parameters:
     - name: artifactName
       type: string
+    - name: overrideBranch
+      type: string
+      default: master
+    - name: useOverrides
+      displayName: Use component overrides
+      type: boolean
 
 steps:
+  - template: ./..template-override-components-json.yaml
+    parameters:
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+
   - bash: |
       echo "Checking SourceBranch: $(Build.SourceBranch)"
       if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
