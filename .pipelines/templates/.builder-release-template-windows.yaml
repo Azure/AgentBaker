@@ -11,8 +11,8 @@ parameters:
 steps:
   - template: ./.template-override-components-json.yaml
     parameters:
-      overrideBranch: $({ parameters.overrideBranch })
-      useOverrides: $({ parameters.useOverrides })
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
 
   - bash: |
       echo "Checking SourceBranch: $(Build.SourceBranch)"
