@@ -10,7 +10,7 @@ parameters:
     default: master
 
 steps:
-  - template: ./..template-override-components-json.yaml
+  - template: ./.template-override-components-json.yaml
     parameters:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
