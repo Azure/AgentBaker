@@ -1,9 +1,8 @@
+# TODO - over time this file should contain less and less info, and really just source the json and helpers file. Then that logic can be moved into
+# the scripts that use this file and this file can be deleted.
+
+
 $global:windowsSKU = $env:WindowsSKU
-$validSKU = @("2019-containerd", "2022-containerd", "2022-containerd-gen2", "23H2", "23H2-gen2")
-if (-not ($validSKU -contains $windowsSKU))
-{
-    throw "Unsupported windows image SKU: $windowsSKU"
-}
 
 # We use the same temp dir for all temp tools that will be used for vhd build
 $global:aksTempDir = "c:\akstemp"
@@ -14,47 +13,26 @@ $global:aksToolsDir = "c:\aks-tools"
 # We need to guarantee that the node provisioning will not fail because the vhd is full before resize-osdisk is called in AKS Windows CSE script.
 $global:lowestFreeSpace = 1*1024*1024*1024 # 1GB
 
-$global:excludeHashComparisionListInAzureChinaCloud = @(
-    "calico-windows",
-    "azure-vnet-cni-singletenancy-windows-amd64",
-    "azure-vnet-cni-singletenancy-swift-windows-amd64",
-    "azure-vnet-cni-singletenancy-overlay-windows-amd64",
-    # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
-    # so we can ignore the different hash values.
-    "v1.26.0-1int.zip",
-    "azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-)
-
-# Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619
-# Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee
-# Windows Server 23H2 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248
-# then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx
-#
-# IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:
-# You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).
-# SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU.
-
-# defenderUpdateUrl refers to the latest windows defender platform update
-$global:defenderUpdateUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64"
-# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
-$global:defenderUpdateInfoUrl = "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
-
-switch -Regex ($windowsSku)
-{
-    "2019-containerd" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "2022-containerd*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
-    "23H2*" {
-        $global:patchUrls = @()
-        $global:patchIDs = @()
-    }
+$cpu = Get-WmiObject -Class Win32_Processor
+$CPU_ARCH = switch ($cpu.Architecture) {
+    0 { "amd64" } # x86
+    1 { "" } # MIPS
+    2 { "" } # Alpha
+    3 { "" } # PowerPC
+    5 { "arm64" } # ARM
+    6 { "amd64" } # Itanium
+    9 { "amd64" } # x64
+    default { "" }
 }
 
+Write-Output ($cpu | ConvertTo-Json)
+
+if ([string]::IsNullOrEmpty($CPU_ARCH)) {
+    $cpuName = $cpu.Name
+    $cpuArch = $cpu.Architecture
+    Write-Output "Unknown architecture for CPU $cpuName with arch $cpuArch"
+    throw "Unsupported architecture for SKU $windowsSKU for CPU $cpuName with arch $cpuArch"
+}
 
 $HelpersFile = "c:/k/components_json_helpers.ps1"
 $ComponentsJsonFile = "c:/k/components.json"
@@ -84,11 +62,20 @@ Write-Output "WindowsSettingsFile: $WindowsSettingsFile"
 
 $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
 $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
+$patch_data = GetPatchInfo $windowsSKU $windowsSettingsJson
+$global:patchUrls = $patch_data | % { $_.url }
+$global:patchIDs = $patch_data | % { $_.id }
 
 $global:imagesToPull = GetComponentsFromComponentsJson $componentsJson
 $global:keysToSet = GetRegKeysToApply $windowsSettingsJson
 $global:map = GetPackagesFromComponentsJson $componentsJson
 $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
+
+$validSKU = GetWindowsBaseVersions $windowsSettingsJson
+if (-not ($validSKU -contains $windowsSKU))
+{
+    throw "Unsupported windows image SKU: $windowsSKU"
+}
 
 # Different from other packages which are downloaded/cached and used later only during CSE, windows containerd is installed
 # during building the Windows VHD to cache container images.
@@ -96,3 +83,20 @@ $global:releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
 # specified by AKS PR for most of the cases. BUT as long as there's a new unpacked image version, we should keep the
 # versions synced.
 $global:defaultContainerdPackageUrl = GetDefaultContainerDFromComponentsJson $componentsJson
+
+# defenderUpdateUrl refers to the latest windows defender platform update
+$global:defenderUpdateUrl = GetDefenderUpdateUrl $windowsSettingsJson
+# defenderUpdateInfoUrl refers to the info of latest windows defender platform update
+$global:defenderUpdateInfoUrl = GetDefenderUpdateInfoUrl $windowsSettingsJson
+
+# The following items still need to be migrated into the windows_settings file.
+$global:excludeHashComparisionListInAzureChinaCloud = @(
+    "calico-windows",
+    "azure-vnet-cni-singletenancy-windows-amd64",
+    "azure-vnet-cni-singletenancy-swift-windows-amd64",
+    "azure-vnet-cni-singletenancy-overlay-windows-amd64",
+    # We need upstream's help to republish this package. Before that, it does not impact functionality and 1.26 is only in public preview
+    # so we can ignore the different hash values.
+    "v1.26.0-1int.zip"
+)
+

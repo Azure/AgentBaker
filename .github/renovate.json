@@ -56,7 +56,8 @@
         "moby-containerd",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
-        "oss/binaries/deislabs/containerd-wasm-shims"
+        "oss/binaries/deislabs/containerd-wasm-shims",
+        "containernetworking/azure-npm"
       ],
       "matchUpdateTypes": [
         "minor"
@@ -116,14 +117,15 @@
     {
       "matchPackageNames": [
         "moby-runc",
-        "moby-containerd"
+        "moby-containerd",
+        "aks/aks-node-ca-watcher"
       ],
       "matchUpdateTypes": [
         "patch"
       ],
       "automerge": true,
       "enabled": true,
-      "groupName": "runc-containerd",
+      "groupName": "runc-containerd-ca_watcher",
       "assignees": [
         "devinwong",
         "anujmaheshwari1",
@@ -152,47 +154,81 @@
     {
       "matchPackageNames": [
         "azure-cni",
-        "azure-cns",
         "containernetworking/azure-cni",
-        "containernetworking/azure-cns",
-        "containernetworking/cilium/cilium"
+        "containernetworking/cilium/cilium",
+        "containernetworking/azure-ipam"
       ],
-      "groupName": "azure-cni-cns-cilium",
+      "groupName": "azure-cni-cilium-ipam",
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
       "assignees": [
         "rbtr",
         "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
-      ],
-      "reviewers": [
-        "rbtr",
-        "behzad-mir",
-        "QxBytes",
-        "jpayne3506"
+        "jpayne3506",
+        "QxBytes"
       ]
     },
     {
       "matchPackageNames": [
-        "aks/aks-node-ca-watcher"
+        "azure-cns",
+        "containernetworking/azure-cns"
+      ],
+      "groupName": "azure-cns",
+      "reviewers": [
+        "team:acn-cns-reviewers"
       ],
       "assignees": [
-        "UtheMan"
-      ],
-      "reviewers": [
-        "UtheMan"
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
       ]
     },
     {
       "matchPackageNames": [
+        "containernetworking/azure-npm"
+      ],
+      "groupName": "azure-npm",
+      "assignees": [
+        "rayaisaiah",
+        "huntergregory"
+      ],
+      "reviewers": [
+        "rayaisaiah",
+        "huntergregory"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/kubernetes/autoscaler/addon-resizer",
+        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
         "oss/kubernetes/coredns",
         "oss/v2/kubernetes/coredns"
       ],
-      "groupName": "coredns",
       "assignees": [
+        "nirnaymsft",
         "SriHarsha001"
       ],
       "reviewers": [
+        "nirnaymsft",
         "SriHarsha001"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod"
+      ],
+      "assignees": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ],
+      "reviewers": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
       ]
     },
     {
@@ -201,22 +237,28 @@
       ],
       "groupName": "acr-credential-provider",
       "assignees": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ],
       "reviewers": [
-        "mainred"
+        "mainred",
+        "MartinForReal",
+        "nilo19"
       ]
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/*"
+        "oss/kubernetes-csi/**"
       ],
       "groupName": "csi",
       "assignees": [
-        "andyzhangx"
+        "andyzhangx",
+        "jiashun0011"
       ],
       "reviewers": [
-        "andyzhangx"
+        "andyzhangx",
+        "jiashun0011"
       ]
     },
     {
@@ -246,14 +288,24 @@
       "matchPackageNames": [
         "oss/kubernetes/azure-cloud-node-manager"
       ],
-      "groupName": "azure-cloud-node-manager"
+      "groupName": "azure-cloud-node-manager",
+      "assignees": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ]
     },
     {
       "matchPackageNames": [
         "windows/nanoserver",
         "windows/servercore",
         "windows/servercore/iis",
-        "oss/kubernetes/windows-gmsa-webhook"
+        "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
       "groupName": "windowsbase",
       "assignees": [

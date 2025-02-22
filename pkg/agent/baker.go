@@ -410,10 +410,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
 		},
-		"EnableTLSBootstrapping": func() bool {
-			// this will be true when we get a hard-coded TLS bootstrap token in the NodeBootstrappingConfiguration to use for performing TLS bootstrapping.
-			return IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken)
-		},
 		"EnableSecureTLSBootstrapping": func() bool {
 			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
 			return config.EnableSecureTLSBootstrapping
@@ -1004,6 +1000,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetBootstrapProfileContainerRegistryServer": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
+		},
+		"GetMCRRepositoryBase": func() string {
+			return config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase
 		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming

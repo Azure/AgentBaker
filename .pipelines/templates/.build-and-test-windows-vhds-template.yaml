@@ -26,6 +26,10 @@ parameters:
     displayName: Skip Extension Check
     type: boolean
     default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
   - name: buildVmSize
     displayName: Build VM Size
     type: string
@@ -42,6 +46,7 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       buildVmSize: ${{ parameters.buildVmSize }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
@@ -58,6 +63,7 @@ stages:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       buildVmSize: ${{ parameters.buildVmSize }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
@@ -74,6 +80,7 @@ stages:
       build: ${{ parameters.build2022containerdgen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
@@ -90,6 +97,7 @@ stages:
       build: ${{ parameters.build23H2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
@@ -106,6 +114,7 @@ stages:
       build: ${{ parameters.build23H2gen2 }}
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
@@ -132,6 +141,6 @@ stages:
               -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
               -e OS_TYPE="Windows" \
               ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
-            enabled: false
+            enabled: true
             displayName: Backfill Clean Up Older Resources
             condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')

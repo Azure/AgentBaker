@@ -71,7 +71,7 @@ if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	exit 1
 fi
 
-if [[ "${IMG_SKU,,}" == "20_04-lts-cvm" || "${IMG_SKU,,}" == "cvm"  ]] && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
+if grep -q "cvm" <<< "$FEATURE_FLAGS" && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
 	PACKER_BUILD_LOCATION="${CVM_PACKER_BUILD_LOCATION}"
 	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
@@ -172,7 +172,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
-		elif [[ "${IMG_SKU,,}" == "20_04-lts-cvm" || "${IMG_SKU,,}" == "cvm" ]]; then
+		elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 			SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
@@ -261,13 +261,13 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
-		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${IMG_SKU} == "cvm" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
-		  TARGET_COMMAND_STRING=""
-		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-			TARGET_COMMAND_STRING+="--architecture Arm64"
-		  elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${IMG_SKU} == "cvm" ]]; then
-			TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
-		  fi
+		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
+			TARGET_COMMAND_STRING=""
+			if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+				TARGET_COMMAND_STRING+="--architecture Arm64"
+			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+			fi
 
       az sig image-definition create \
         --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -501,6 +501,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
   "SKIP_EXTENSION_CHECK": "${SKIP_EXTENSION_CHECK}",
+  "INSTALL_OPEN_SSH_SERVER": "${INSTALL_OPEN_SSH_SERVER}",
   "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",

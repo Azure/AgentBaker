@@ -160,7 +160,7 @@ parameters:
   - name: build2404cvmgen2containerd
     displayName: Build 2404 CVM Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2404gen2containerd
     displayName: Build 2404 Gen2 Containerd
     type: boolean
@@ -1156,7 +1156,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
@@ -1234,7 +1234,7 @@ stages:
               echo '##vso[task.setvariable variable=IMG_VERSION]latest'
               echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
               echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_DC16ads_v5'
-              echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+              echo '##vso[task.setvariable variable=FEATURE_FLAGS]cvm'
               echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
               echo '##vso[task.setvariable variable=ARCHITECTURE]X86_64'
               echo '##vso[task.setvariable variable=ENABLE_FIPS]False'
