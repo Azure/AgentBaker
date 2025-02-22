@@ -428,6 +428,7 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 	return podExecResult.stdout.String()
 }
 
+// ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario) {
 	expectedTaints := s.Runtime.NBC.KubeletConfig["--register-with-taints"]
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
