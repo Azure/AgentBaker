@@ -31,7 +31,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -139,7 +139,7 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
-capture_benchmark "${SCRIPT_NAME}_create_containerd_service_dir_and_set_ip_forwarding"
+capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
 
 echo "set read ahead size to 15380 KB"
 AWK_PATH=$(command -v awk)
