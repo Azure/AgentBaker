@@ -16,7 +16,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 # Hardcode the desired size of the OS disk so we don't accidently rely on extra disk space
 MAX_BLOCK_COUNT=30298176 # 30 GB
-capture_benchmark "${SCRIPT_NAME}_set_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # shellcheck disable=SC2021
