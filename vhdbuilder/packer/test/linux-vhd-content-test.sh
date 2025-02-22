@@ -434,7 +434,7 @@ testLtsKernel() {
       echo "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
     fi
   else
-    echo "OS is not Ubuntu, skip LTS kernel test"
+    echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
   fi
 
 }
