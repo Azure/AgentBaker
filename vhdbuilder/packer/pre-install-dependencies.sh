@@ -33,7 +33,7 @@ if isMarinerOrAzureLinux "$OS"; then
 fi
 
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
-capture_benchmark "${SCRIPT_NAME}_source_packer_files_declare_variables_and_set_mariner_permissions"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
 
@@ -49,12 +49,12 @@ systemctlEnableAndStart systemd-journald || exit 1
 systemctlEnableAndStart rsyslog || exit 1
 
 systemctlEnableAndStart disk_queue || exit 1
-capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_rsyslog"
+capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
-capture_benchmark "${SCRIPT_NAME}_make_directory_and_update_certs"
+capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -112,7 +112,7 @@ capture_benchmark "${SCRIPT_NAME}_upgrade_distro_and_resolve_fips_requirements"
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_azureLinux_and_cgroupV2"
+capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
 if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
   echo "Logging the currently running kernel: $(uname -r)"
