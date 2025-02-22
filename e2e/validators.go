@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -429,19 +428,17 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 	return podExecResult.stdout.String()
 }
 
-func ValidateNoTaints(ctx context.Context, s *Scenario) {
-	// get taints on the node
+func ValidateTaints(ctx context.Context, s *Scenario) {
+	expectedTaints := s.Runtime.NBC.KubeletConfig["--register-with-taints"]
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
-	require.Empty(s.T, node.Spec.Taints, "expected node %q to have no taints, but got %v", s.Runtime.KubeNodeName, node.Spec.Taints)
-}
-
-func ValidateTaints(ctx context.Context, s *Scenario, taints []*aksnodeconfigv1.Taint) {
-	// get taints on the node
-	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
-	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
-	require.Len(s.T, node.Spec.Taints, 1, "expected node %q to have one taint, but got %v", s.Runtime.KubeNodeName, node.Spec.Taints)
-	require.Equal(s.T, taints[0].Key, node.Spec.Taints[0].Key, "expected taint key %q, but got %q", taints[0].Key, node.Spec.Taints[0].Key)
-	require.Equal(s.T, taints[0].Effect, node.Spec.Taints[0].Effect, "expected taint effect %q, but got %q", taints[0].Effect, node.Spec.Taints[0].Effect)
-
+	actualTaints := ""
+	for i, taint := range node.Spec.Taints {
+		actualTaints += fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect)
+		// add a comma if it's not the last element
+		if i < len(node.Spec.Taints)-1 {
+			actualTaints += ","
+		}
+	}
+	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }

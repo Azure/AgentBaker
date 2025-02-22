@@ -690,7 +690,6 @@ func Test_Ubuntu2204(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
-				ValidateNoTaints(ctx, s)
 			},
 		},
 	})
@@ -825,59 +824,37 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ChronyRestarts(t *testing.T) {
-	taints := [](*aksnodeconfigv1.Taint){
-		{
-			Key:    "testkey1",
-			Effect: "value1",
-		},
-		{
-			Key:    "testkey2",
-			Effect: "value2",
-		},
-	}
+func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
+		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1,testkey2=value2"
+				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateTaints(ctx, s, taints)
+				ValidateTaints(ctx, s)
 			},
 		},
 	})
 }
 
 func Test_Ubuntu2204_ChronyRestarts_Scriptless(t *testing.T) {
-	taints := [](*aksnodeconfigv1.Taint){
-		{
-			Key:    "testkey1",
-			Effect: "value1",
-		},
-		{
-			Key:    "testkey2",
-			Effect: "value2",
-		},
-	}
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.KubeletConfig.Taints = taints
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateTaints(ctx, s, taints)
 			},
 		},
 	})

@@ -280,12 +280,6 @@
     },
     {
       "matchPackageNames": [
-        "containernetworking/azure-ipam"
-      ],
-      "groupName": "azure-ipam"
-    },
-    {
-      "matchPackageNames": [
         "oss/kubernetes/azure-cloud-node-manager"
       ],
       "groupName": "azure-cloud-node-manager",
