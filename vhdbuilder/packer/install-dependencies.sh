@@ -621,7 +621,7 @@ capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
 
 
-download_amdgpu_drivers() {
+downloadAMDGPUDriversUbuntu() {
   if [[ $OS != $UBUNTU_OS_NAME ]]; then
     echo "Skipping AMD GPU driver setup: Unsupported OS (${OS})"
     return
@@ -641,7 +641,8 @@ download_amdgpu_drivers() {
   wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
       gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
   sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
-  echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.2/ubuntu ${DISTRO} main" \
+
+  echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu ${DISTRO} main" \
       | sudo tee /etc/apt/sources.list.d/amdgpu.list
   sudo apt-get update
 
@@ -655,4 +656,13 @@ download_amdgpu_drivers() {
   sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only --reinstall -y m4 amdgpu-dkms autoconf automake autotools-dev amdgpu-dkms-firmware
 }
 
-download_amdgpu_drivers
+downloadAMDGPUDrivers() {
+  if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    downloadAMDGPUDriversUbuntu
+  else
+    echo "os $OS not supported at this time. skipping ensureAMDGPUDrivers"
+    return
+  fi
+}
+
+downloadAMDGPUDrivers

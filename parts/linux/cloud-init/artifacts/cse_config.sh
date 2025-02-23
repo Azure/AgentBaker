@@ -844,8 +844,17 @@ ensureGPUDrivers() {
     fi
 }
 
-# TODO: this is a temporary ubuntu-only HACK until we get a driver
 ensureAMDGPUDrivers() {
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        ensureAMDGPUDriversUbuntu
+    else
+        echo "os $OS not supported at this time. skipping ensureAMDGPUDrivers"
+        return
+    fi
+}
+
+# TODO: this is a temporary ubuntu-only HACK until we get a driver
+ensureAMDGPUDriversUbuntu() {
     echo "Installing AMD GPU drivers"
 
      # delete amdgpu module from blacklist
@@ -859,6 +868,23 @@ ensureAMDGPUDrivers() {
     REBOOTREQUIRED=true
     echo "AMD GPU drivers installed"
 }
+
+cleanAMDGPUDriver() {
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+      ensureAMDGPUDriversUbuntu
+    else
+      return
+    fi
+}
+
+cleanAMDGPUDriverUbuntu() {
+   # delete amd from a list of recognized vendors
+   sudo rm /etc/apt/keyrings/rocm.gpg
+   sudo rm /etc/apt/sources.list.d/amdgpu.list
+   # delete cached amd gpu packages to save disk space
+   sudo rm -rf /var/cache/amdgpu-apt/*
+}
+
 
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
