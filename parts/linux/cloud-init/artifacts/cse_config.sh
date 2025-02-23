@@ -857,13 +857,13 @@ ensureAMDGPUDrivers() {
 ensureAMDGPUDriversUbuntu() {
     echo "Installing AMD GPU drivers"
 
-     # delete amdgpu module from blacklist
-    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
-
     pushd /var/cache/amdgpu-apt
     ls -l
     sudo dpkg -i *.deb
     popd
+
+     # delete amdgpu module from blacklist
+    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
 
     REBOOTREQUIRED=true
     echo "AMD GPU drivers installed"
@@ -878,9 +878,6 @@ cleanAMDGPUDriver() {
 }
 
 cleanAMDGPUDriverUbuntu() {
-   # delete amd from a list of recognized vendors
-   sudo rm /etc/apt/keyrings/rocm.gpg
-   sudo rm /etc/apt/sources.list.d/amdgpu.list
    # delete cached amd gpu packages to save disk space
    sudo rm -rf /var/cache/amdgpu-apt/*
 }

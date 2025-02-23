@@ -654,6 +654,9 @@ downloadAMDGPUDriversUbuntu() {
   # Otherwise installation of some packages like "m4" is skipped because it is already installed
   # "m4" seems to be deleted at the later stage, making the installation fail
   sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only --reinstall -y m4 amdgpu-dkms autoconf automake autotools-dev amdgpu-dkms-firmware
+  # delete amd from a list of recognized vendors
+  sudo rm /etc/apt/keyrings/rocm.gpg
+  sudo rm /etc/apt/sources.list.d/amdgpu.list
 }
 
 downloadAMDGPUDrivers() {
