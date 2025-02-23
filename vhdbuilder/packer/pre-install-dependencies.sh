@@ -142,8 +142,6 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   update-grub
 fi
 capture_benchmark "${SCRIPT_NAME}_handle_azureLinux_and_cgroupV2"
-sleep 5
-capture_benchmark "${SCRIPT_NAME}_random_sleep"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

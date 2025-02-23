@@ -57,14 +57,7 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
-sleep 5
-capture_benchmark "${SCRIPT_NAME}_random_sleep"
-sleep 5
-capture_benchmark "${SCRIPT_NAME}_random_sleep2"
-capture_benchmark "${SCRIPT_NAME}_auto_ingest_test"
-capture_benchmark "${SCRIPT_NAME}_second_auto_ingest_test"
-capture_benchmark "${SCRIPT_NAME}_third_auto_ingest_test"
-capture_benchmark "${SCRIPT_NAME}_fourth_auto_ingest_test"
+
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
@@ -125,10 +118,6 @@ if [[ $(isARM64) == 1 ]]; then
   fi
 fi
 
-capture_benchmark "${SCRIPT_NAME}_new_section"
-capture_benchmark "${SCRIPT_NAME}_virginia"
-capture_benchmark "${SCRIPT_NAME}_northcarolina"
-capture_benchmark "${SCRIPT_NAME}_other_auto_ingest_test"
 # Since we do not build Ubuntu 16.04 images anymore, always override network config and disable NTP + Timesyncd and install Chrony
 # Mariner does this differently, so only do it for Ubuntu
 if ! isMarinerOrAzureLinux "$OS"; then
@@ -532,7 +521,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
-capture_benchmark "new_section_for_final_test"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
@@ -541,7 +529,6 @@ DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${
 pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
 fi
 capture_benchmark "${SCRIPT_NAME}_download_gpu_device_plugin"
-capture_benchmark "extra_section_for_test"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
