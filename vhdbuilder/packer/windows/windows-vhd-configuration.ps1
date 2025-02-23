@@ -25,8 +25,6 @@ $CPU_ARCH = switch ($cpu.Architecture) {
     default { "" }
 }
 
-Write-Output ($cpu | ConvertTo-Json)
-
 if ([string]::IsNullOrEmpty($CPU_ARCH)) {
     $cpuName = $cpu.Name
     $cpuArch = $cpu.Architecture
