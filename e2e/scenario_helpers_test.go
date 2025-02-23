@@ -99,7 +99,6 @@ func RunScenario(t *testing.T, s *Scenario) {
 	defer cancel()
 	prepareAKSNode(ctx, s)
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
-	logSSHInstructions(s)
 
 	validateVM(ctx, s)
 }
@@ -149,10 +148,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
 	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
 
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err, "failed to get VM private IP address")
-
-	uploadSSHKey(ctx, s)
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {

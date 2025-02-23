@@ -367,7 +367,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
-func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
@@ -408,6 +408,8 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 	if err := a.ensureReplication(ctx, image, latestVersion); err != nil {
 		return "", fmt.Errorf("ensuring image replication: %w", err)
 	}
+
+	t.Logf("found the latest image version for %s, %s", image.Name, *latestVersion.Name)
 
 	return VHDResourceID(*latestVersion.ID), nil
 }

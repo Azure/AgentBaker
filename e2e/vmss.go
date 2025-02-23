@@ -35,6 +35,15 @@ const (
 )
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
+	defer func() {
+		var err error
+		s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
+		require.NoError(s.T, err, "failed to get VM private IP address")
+
+		uploadSSHKey(ctx, s)
+		logSSHInstructions(s)
+	}()
+
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()

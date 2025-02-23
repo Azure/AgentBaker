@@ -107,7 +107,6 @@ func ClusterAzureNetwork(ctx context.Context, t *testing.T) (*Cluster, error) {
 }
 
 func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerservice.ManagedCluster, isAirgap, isNonAnonymousPull bool) (*Cluster, error) {
-	t.Logf("preparing cluster %q", *cluster.Name)
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutCluster)
 	defer cancel()
 	cluster.Name = to.Ptr(fmt.Sprintf("%s-%s", *cluster.Name, hash(cluster)))

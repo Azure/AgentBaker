@@ -211,11 +211,11 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		t.Logf("finding the latest image version for %s, %s", i.Name, i.Version)
 		switch {
 		case i.Latest:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, "", "")
+			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, "", "")
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, i)
 		default:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
