@@ -3,13 +3,17 @@
     "config:base"
   ],
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "enabledManagers": ["custom.regex"],
+  "enabledManagers": [
+    "custom.regex"
+  ],
   "prConcurrentLimit": 50,
   "prHourlyLimit": 50,
   "branchConcurrentLimit": 50,
   "separateMinorPatch": true,
   "recreateWhen": "never",
-  "labels": ["renovate"],
+  "labels": [
+    "renovate"
+  ],
   "rebaseWhen": "behind-base-branch",
   "schedule": [
     "after 10pm and before 5am every weekday",
@@ -25,7 +29,45 @@
   ],
   "packageRules": [
     {
-      "matchDatasources": ["docker"],
+      "matchPackageNames": [
+        "oss/kubernetes/autoscaler/addon-resizer",
+        "oss/kubernetes/pause",
+        "oss/v2/kubernetes/coredns",
+        "containernetworking/azure-cni",
+        "containernetworking/azure-cns",
+        "containernetworking/azure-ipam",
+        "containernetworking/cilium/cilium",
+        "oss/kubernetes/apiserver-network-proxy/agent",
+        "oss/kubernetes-csi/secrets-store/driver",
+        "oss/azure/secrets-store/provider-azure",
+        "azuremonitor/containerinsights/ciprod/prometheus-collector/images",
+        "oss/kubernetes/azure-cloud-node-manager",
+        "aks/ip-masq-agent-v2",
+        "oss/kubernetes-csi/azuredisk-csi",
+        "oss/kubernetes-csi/azurefile-csi",
+        "oss/kubernetes-csi/blob-csi",
+        "oss/kubernetes-csi/livenessprobe",
+        "oss/kubernetes-csi/csi-node-driver-registrar",
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod",
+        "azure-policy/policy-kubernetes-webhook",
+        "oss/kubernetes/kube-proxy",
+        "moby-runc",
+        "moby-containerd",
+        "oss/binaries/kubernetes/kubernetes-node",
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "oss/binaries/deislabs/containerd-wasm-shims",
+        "containernetworking/azure-npm"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "enabled": false
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
@@ -33,7 +75,9 @@
       "enabled": true
     },
     {
-      "matchDatasources": ["custom.deb1804"],
+      "matchDatasources": [
+        "custom.deb1804"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
@@ -41,7 +85,9 @@
       "enabled": true
     },
     {
-      "matchDatasources": ["custom.deb2004"],
+      "matchDatasources": [
+        "custom.deb2004"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
@@ -49,7 +95,9 @@
       "enabled": true
     },
     {
-      "matchDatasources": ["custom.deb2204"],
+      "matchDatasources": [
+        "custom.deb2204"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
@@ -57,7 +105,9 @@
       "enabled": true
     },
     {
-      "matchDatasources": ["custom.deb2404"],
+      "matchDatasources": [
+        "custom.deb2404"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
@@ -65,69 +115,232 @@
       "enabled": true
     },
     {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd",
+        "aks/aks-node-ca-watcher"
+      ],
       "matchUpdateTypes": [
         "patch"
       ],
       "automerge": true,
       "enabled": true,
-      "groupName" : "runc-containerd",
-      "assignees": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"],
-      "reviewers": ["devinwong", "anujmaheshwari1", "cameronmeissner", "AlisonB319", "lilypan26", "djsly", "jason1028kr", "UtheMan", "zachary-bailey", "ganeshkumarashok"]
+      "groupName": "runc-containerd-ca_watcher",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
     },
     {
-      "matchPackageNames": ["azure-cni", "azure-cns", "containernetworking/azure-cni", "containernetworking/azure-cns", "containernetworking/cilium/cilium"],
-      "groupName" : "azure-cni-cns-cilium",
-      "assignees": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"],
-      "reviewers": ["rbtr", "behzad-mir", "QxBytes", "jpayne3506"]
+      "matchPackageNames": [
+        "azure-cni",
+        "containernetworking/azure-cni",
+        "containernetworking/cilium/cilium",
+        "containernetworking/azure-ipam"
+      ],
+      "groupName": "azure-cni-cilium-ipam",
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
     },
     {
-      "matchPackageNames": ["aks/aks-node-ca-watcher"],
-      "assignees": ["UtheMan"],
-      "reviewers": ["UtheMan"]
+      "matchPackageNames": [
+        "azure-cns",
+        "containernetworking/azure-cns"
+      ],
+      "groupName": "azure-cns",
+      "reviewers": [
+        "team:acn-cns-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
     },
     {
-      "matchPackageNames": ["oss/kubernetes/coredns", "oss/v2/kubernetes/coredns"],
-      "groupName" : "coredns",
-      "assignees": ["SriHarsha001"],
-      "reviewers": ["SriHarsha001"]
+      "matchPackageNames": [
+        "containernetworking/azure-npm"
+      ],
+      "groupName": "azure-npm",
+      "assignees": [
+        "rayaisaiah",
+        "huntergregory"
+      ],
+      "reviewers": [
+        "rayaisaiah",
+        "huntergregory"
+      ]
     },
     {
-      "matchPackageNames": ["oss/binaries/kubernetes/azure-acr-credential-provider"],
+      "matchPackageNames": [
+        "oss/kubernetes/autoscaler/addon-resizer",
+        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "oss/kubernetes/coredns",
+        "oss/v2/kubernetes/coredns"
+      ],
+      "assignees": [
+        "nirnaymsft",
+        "SriHarsha001"
+      ],
+      "reviewers": [
+        "nirnaymsft",
+        "SriHarsha001"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/v2/open-policy-agent/gatekeeper",
+        "azure-policy/policy-kubernetes-addon-prod"
+      ],
+      "assignees": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ],
+      "reviewers": [
+        "kevinhwangkr-msft",
+        "anlandu",
+        "nreisch"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "oss/binaries/kubernetes/azure-acr-credential-provider"
+      ],
       "groupName": "acr-credential-provider",
-      "assignees": ["mainred"],
-      "reviewers": ["mainred"]
+      "assignees": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ]
     },
     {
-      "matchPackageNames": ["oss/kubernetes-csi/*"],
-      "groupName" : "csi",
-      "assignees": ["andyzhangx"],
-      "reviewers": ["andyzhangx"]
+      "matchPackageNames": [
+        "oss/kubernetes-csi/**"
+      ],
+      "groupName": "csi",
+      "assignees": [
+        "andyzhangx",
+        "jiashun0011"
+      ],
+      "reviewers": [
+        "andyzhangx",
+        "jiashun0011"
+      ]
     },
     {
-      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/kubernetes/kube-proxy"],
+      "matchPackageNames": [
+        "oss/binaries/kubernetes/kubernetes-node",
+        "oss/kubernetes/kube-proxy"
+      ],
       "groupName": "kube-components",
-      "assignees": ["haitch", "wenhug", "gaopenghigh"],
-      "reviewers": ["haitch", "wenhug", "gaopenghigh"]
+      "assignees": [
+        "haitch",
+        "wenhug",
+        "gaopenghigh"
+      ],
+      "reviewers": [
+        "haitch",
+        "wenhug",
+        "gaopenghigh"
+      ]
     },
     {
-      "matchPackageNames": ["containernetworking/azure-ipam"],
+      "matchPackageNames": [
+        "containernetworking/azure-ipam"
+      ],
       "groupName": "azure-ipam"
     },
     {
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["oss/binaries/kubernetes/kubernetes-node", "oss/binaries/kubernetes/azure-acr-credential-provider", "oss/binaries/deislabs/containerd-wasm-shims"],
+      "matchPackageNames": [
+        "oss/kubernetes/azure-cloud-node-manager"
+      ],
+      "groupName": "azure-cloud-node-manager",
+      "assignees": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ],
+      "reviewers": [
+        "mainred",
+        "MartinForReal",
+        "nilo19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "windows/nanoserver",
+        "windows/servercore",
+        "windows/servercore/iis",
+        "oss/v2/kubernetes/windows-gmsa-webhook"
+      ],
+      "groupName": "windowsbase",
+      "assignees": [
+        "timmy-wright"
+      ],
+      "reviewers": [
+        "timmy-wright"
+      ]
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "oss/binaries/kubernetes/kubernetes-node",
+        "oss/binaries/kubernetes/azure-acr-credential-provider",
+        "oss/binaries/deislabs/containerd-wasm-shims"
+      ],
       "extractVersion": "^(?P<version>.*?)-[^-]*-[^-]*$"
     },
     {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd"
+      ],
       "extractVersion": "^v?(?<version>.+)$"
     },
-    {      
-      "matchPackageNames": ["aks/aks-gpu-cuda", "aks/aks-gpu-grid"],  
-      "groupName" : "nvidia-gpu",    
+    {
+      "matchPackageNames": [
+        "aks/aks-gpu-cuda",
+        "aks/aks-gpu-grid"
+      ],
+      "groupName": "nvidia-gpu",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
-      "automerge": true,      
+      "automerge": true,
       "enabled": true,
       "ignoreUnstable": false
     }
@@ -137,7 +350,7 @@
       "customType": "regex",
       "description": "auto update containerImages in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -150,7 +363,7 @@
       "customType": "regex",
       "description": "auto update OCI artifacts in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -163,7 +376,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 18.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -177,7 +390,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 20.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -185,13 +398,13 @@
       ],
       "datasourceTemplate": "custom.deb2004",
       "versioningTemplate": "deb",
-      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"   
+      "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=20.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
     {
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 22.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -205,7 +418,7 @@
       "customType": "regex",
       "description": "auto update packages for OS ubuntu 24.04 in components.json",
       "fileMatch": [
-        "parts/linux/cloud-init/artifacts/components.json"
+        "parts/common/components.json"
       ],
       "matchStringsStrategy": "any",
       "matchStrings": [
@@ -215,7 +428,7 @@
       "versioningTemplate": "deb",
       "autoReplaceStringTemplate": "\"renovateTag\": \"name={{{packageName}}}, os=ubuntu, release=24.04\",\n                \"latestVersion\": \"{{{newValue}}}\"{{#if depType}},\n                \"previousLatestVersion\": \"{{{currentValue}}}\"{{/if}}"
     },
-    {      
+    {
       "customType": "regex",
       "description": "update version line in any cse_*.sh",
       "fileMatch": [

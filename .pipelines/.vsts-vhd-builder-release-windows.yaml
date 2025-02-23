@@ -39,6 +39,18 @@ parameters:
   displayName: VHD Debug
   type: boolean
   default: False
+- name: skipExtensionCheck
+  displayName: Skip Extension Check
+  type: boolean
+  default: False
+- name: installOpenSshServer
+  displayName: Install Open SSH Server
+  type: boolean
+  default: True
+- name: buildVmSize
+  displayName: Build VM Size
+  type: string
+  default: Standard_D4ds_v5
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -49,8 +61,11 @@ stages:
     parameters:
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
       build2019containerd: ${{ parameters.build2019containerd }}
       build2022containerd:  ${{ parameters.build2022containerd }}
       build2022containerdgen2:  ${{ parameters.build2022containerdgen2 }}
       build23H2:  ${{ parameters.build23H2 }}
       build23H2gen2:  ${{ parameters.build23H2gen2 }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}

@@ -28,7 +28,7 @@ steps:
       # Just copy components.json. If anything else is needed, then someone can modify the pipeline in an emergency.
       # we check for existence of both src and destination file because if neither of those exist then the override will fail.
       COMPONENT_JSON_SRC=$(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
-      COMPONENT_JSON_DEST=./parts/linux/cloud-init/artifacts/components.json
+      COMPONENT_JSON_DEST=./parts/common/components.json
       if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
         echo "destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}"
         exit 1
@@ -103,7 +103,7 @@ steps:
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ "${IMG_SKU}" == "20_04-lts-cvm" || "${IMG_SKU}" == "cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \

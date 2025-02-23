@@ -1,4 +1,60 @@
 {
+  "WindowsComments": [
+    "Windows Server 2019 update history can be found at https://support.microsoft.com/en-us/help/4464619",
+    "Windows Server 2022 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-2022-update-history-e1caa597-00c5-4ab9-9f3e-8212fe80b2ee",
+    "Windows Server 23H2 update history can be found at https://support.microsoft.com/en-us/topic/windows-server-version-23h2-update-history-68c851ff-825a-4dbc-857b-51c5aa0ab248",
+    "Then you can get download links by searching for specific KBs at http://www.catalog.update.microsoft.com/home.aspx",
+    "",
+    "IMPORTANT NOTES: Please check the KB article before getting the KB links. For example, for 2021-4C:",
+    "You must install the April 22, 2021 servicing stack update (SSU) (KB5001407) before installing the latest cumulative update (LCU).",
+    "SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU."
+  ],
+  "WindowsDefenderInfo": {
+    "DefenderUpdateUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64",
+    "DefenderUpdateInfoUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+  },
+  "WindowsBaseVersions": {
+    "2019": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": []
+    },
+    "2019-containerd": {
+      "base_image_sku": "2019-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2019-containerd",
+      "base_image_version": "17763.6893.250210",
+      "patches_to_apply": []
+    },
+    "2022-containerd": {
+      "os_disk_size": "35",
+      "base_image_sku": "2022-Datacenter-Core-smalldisk",
+      "windows_image_name": "windows-2022-containerd",
+      "base_image_version": "20348.3207.250210",
+      "patches_to_apply": []
+    },
+    "2022-containerd-gen2": {
+      "os_disk_size": "35",
+      "base_image_sku": "2022-datacenter-core-smalldisk-g2",
+      "windows_image_name": "windows-2022-containerd",
+      "base_image_version": "20348.3207.250210",
+      "patches_to_apply": []
+    },
+    "23H2": {
+      "os_disk_size": "35",
+      "base_image_sku": "23h2-datacenter-core",
+      "windows_image_name": "windows-23H2",
+      "base_image_version": "25398.1425.250210",
+      "patches_to_apply": []
+    },
+    "23H2-gen2": {
+      "os_disk_size": "35",
+      "base_image_sku": "23h2-datacenter-core-g2",
+      "windows_image_name": "windows-23H2",
+      "base_image_version": "25398.1425.250210",
+      "patches_to_apply": []
+    }
+  },
   "WindowsRegistryKeys": [
     {
       "Comment": "Enables DNS resolution of SMB shares for containerD:  # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945",
@@ -638,6 +694,22 @@
       "WindowsSkuMatch": "2022*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1455863438",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-2B",
+      "WindowsSkuMatch": "2022*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1971481230",
+      "Value": "1",
+      "Type": "DWORD"
+    },
+    {
+      "Comment": "2025-2b",
+      "WindowsSkuMatch": "23H2*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+      "Name": "1155685006",
       "Value": "1",
       "Type": "DWORD"
     }
