@@ -10,41 +10,10 @@ parameters:
     default: master
 
 steps:
-  - checkout: self
-    # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
-    # "s/AgentBaker", but most of the pipeline variables still refer to "s" and many of the scripts below fail.
-    path: s
-    fetchTags: false
-    fetchDepth: 1
-  - checkout: git://CloudNativeCompute/aks-rp@${{ parameters.overrideBranch }}
-    path: aks-rp
-    fetchDepth: 1
-    fetchTags: false
-    lfs: false
-    condition: eq('${{ parameters.useOverrides }}', true)
-
-  - bash: |
-      set -euo pipefail
-      # Just copy components.json. If anything else is needed, then someone can modify the pipeline in an emergency.
-      # we check for existence of both src and destination file because if neither of those exist then the override will fail.
-      COMPONENT_JSON_SRC=$(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
-      COMPONENT_JSON_DEST=./parts/common/components.json
-      if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
-        echo "destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}"
-        exit 1
-      fi
-      echo "Found file to overwrite: ${COMPONENT_JSON_DEST}"
-
-      if [ ! -f "${COMPONENT_JSON_SRC}" ]; then
-        echo "src components.json file does not exist, not copying: ${COMPONENT_JSON_SRC}"
-        exit 1
-      fi
-      echo "Found source components.json to use for overrides: ${COMPONENT_JSON_SRC}"
-
-      echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
-      cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
-    condition: eq('${{ parameters.useOverrides }}', true)
-    displayName: Apply Overrides
+  - template: ./.template-override-components-json.yaml
+    parameters:
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
 
   - bash: |
       m="linuxVhdMode" && \
