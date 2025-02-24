@@ -82,19 +82,19 @@ Unregister-HNSRemediatorScriptTask
 # Stop services
 #
 Write-Log "Stopping kubeproxy service"
-Stop-Service kubeproxy
+Stop-Service kubeproxy -Force
 
 Write-Log "Stopping kubelet service"
-Stop-Service kubelet
+Stop-Service kubelet -Force
 
 if ($global:CsiProxyEnabled) {
     Write-Log "Stopping csi-proxy service"
-    Stop-Service csi-proxy
+    Stop-Service csi-proxy -Force
 }
 
 if ($global:EnableHostsConfigAgent) {
     Write-Log "Stopping hosts-config-agent service"
-    Stop-Service hosts-config-agent
+    Stop-Service hosts-config-agent -Force
 }
 
 # Due to a bug in hns there is a race where it picks up the incorrect IPv6 address from the node in some cases.
