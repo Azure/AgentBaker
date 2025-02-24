@@ -7,20 +7,24 @@ pr:
     - dev
   paths:
     include:
-    - schemas
+    - schemas/
     - vhdbuilder/packer
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
     - .pipelines/templates/.builder-release-template.yaml
+    - .pipelines/templates/.template-override-components-json.yaml
+    - .pipelines/templates/.template-copy-file.yaml
     - .pipelines/templates/e2e-template.yaml
     - parts/linux/*
     - packer.mk
     - aks-node-controller/**
     - parts/common/components.json
     exclude:
+    - schemas/windows_settings.cue
     - vhdbuilder/release-notes
     - vhdbuilder/packer/*.ps1
     - vhdbuilder/packer/**/*.ps1
+    - vhdbuilder/packer/windows/
     - vhdbuilder/packer/*windows*
     - vhdbuilder/packer/**/*windows*
     - /**/*.md
