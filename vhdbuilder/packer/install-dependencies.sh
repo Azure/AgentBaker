@@ -642,18 +642,14 @@ downloadAMDGPUDriversUbuntu() {
       gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
   sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
 
-  echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu ${DISTRO} main" \
+  echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu noble main" \
       | sudo tee /etc/apt/sources.list.d/amdgpu.list
   sudo apt-get update
-
+  sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
   # Download to /var/cache/apt/archives/
   sudo mkdir -p /var/cache/amdgpu-apt/
   sudo chmod 777 /var/cache/amdgpu-apt/
-  # Download all dependencies of the amdgpu-dkms package
-  # The --reinstall flag is used to ensure that the package is downloaded even if it is already installed
-  # Otherwise installation of some packages like "m4" is skipped because it is already installed
-  # "m4" seems to be deleted at the later stage, making the installation fail
-  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only --reinstall -y m4 amdgpu-dkms autoconf automake autotools-dev amdgpu-dkms-firmware
+  time sudo apt-get install -y amdgpu-dkms
   # delete amd from a list of recognized vendors
   sudo rm /etc/apt/keyrings/rocm.gpg
   sudo rm /etc/apt/sources.list.d/amdgpu.list
