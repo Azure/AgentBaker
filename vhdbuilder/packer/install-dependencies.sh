@@ -31,7 +31,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -41,6 +41,7 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
+capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   # disable and mask all UU timers/services
@@ -56,7 +57,6 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
@@ -99,7 +99,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmark "${SCRIPT_NAME}_install_dependencies"
+capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -124,7 +124,7 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-capture_benchmark "${SCRIPT_NAME}_check_container_runtime_and_network_configurations"
+capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -139,6 +139,7 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
+capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
 
 echo "set read ahead size to 15380 KB"
 AWK_PATH=$(command -v awk)
@@ -200,6 +201,7 @@ ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="
 LABEL="azure_disk_end"
 EOF
 udevadm control --reload
+capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
 if isMarinerOrAzureLinux "$OS"; then
     disableSystemdResolvedCache
@@ -217,6 +219,7 @@ if isMarinerOrAzureLinux "$OS"; then
     enableCheckRestart
     activateNfConntrack
 fi
+capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
 
 # doing this at vhd allows CSE to be faster with just mv 
 unpackTgzToCNIDownloadsDIR() {
@@ -241,7 +244,7 @@ downloadCNI() {
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-capture_benchmark "${SCRIPT_NAME}_create_containerd_service_directory_and_configure_runtime_and_network"
+capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f $COMPONENTS_FILEPATH ]; then
@@ -399,7 +402,7 @@ cliTool="ctr"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
+capture_benchmark "${SCRIPT_NAME}_configure_artifact_streaming_and_install_crictl"
 
 GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
@@ -454,7 +457,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_image_and_run_installBcc_in_subshell"
+capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -514,13 +517,12 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables || exit 1
 fi
-capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
+capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
 NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
@@ -548,8 +550,7 @@ fi
 
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-
-capture_benchmark "${SCRIPT_NAME}_configure_telemetry_create_logging_directory"
+capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -588,6 +589,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
+capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
