@@ -346,8 +346,16 @@ configureContainerdRegistryHost() {
   mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
   touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
-  tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
-[host."https://${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"]
+  IFS='/' read -ra container_registry_server <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+  if [[ -n "${container_registry_server[1]}" ]]; then
+    tee -a "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+[host."https://${container_registry_server[0]}/v2/${container_registry_server[1]}"]
+  capabilities = ["pull", "resolve"]
+  override_path = true
+EOF
+  fi
+  tee -a "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+[host."https://${container_registry_server[0]}"]
   capabilities = ["pull", "resolve"]
 EOF
 }

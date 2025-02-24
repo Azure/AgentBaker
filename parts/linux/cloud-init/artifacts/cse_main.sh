@@ -74,7 +74,8 @@ fi
 
 domain_name="mcr.microsoft.com"
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+    IFS='/' read -ra domain_name <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+    domain_name="${domain_name[0]}"
 fi
 verify_DNS_health $domain_name || exit $ERR_DNS_HEALTH_FAIL
 
