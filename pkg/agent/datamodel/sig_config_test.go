@@ -133,7 +133,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(azurelinuxV3Gen2.Definition).To(Equal("V3gen2"))
 		Expect(azurelinuxV3Gen2.Version).To(Equal(LinuxSIGImageVersion))
 
-		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(6))
+		Expect(len(sigConfig.SigWindowsImageConfig)).To(Equal(8))
 
 		windows2019 := sigConfig.SigWindowsImageConfig[AKSWindows2019]
 		Expect(windows2019.ResourceGroup).To(Equal("AKS-Windows"))
@@ -177,7 +177,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(windows2025Containerd.Definition).To(Equal("windows-2025-containerd"))
 		Expect(windows2025Containerd.Version).To(Equal("26100.2025.221114"))
 
-		windows2025ContainerdGen2 := sigConfig.SigWindowsImageConfig[AKSWindows2022ContainerdGen2]
+		windows2025ContainerdGen2 := sigConfig.SigWindowsImageConfig[AKSWindows2025ContainerdGen2]
 		Expect(windows2025ContainerdGen2.ResourceGroup).To(Equal("AKS-Windows"))
 		Expect(windows2025ContainerdGen2.Gallery).To(Equal("AKSWindows"))
 		Expect(windows2025ContainerdGen2.Definition).To(Equal("windows-2025-containerd-gen2"))
