@@ -12,6 +12,8 @@ pr:
     - vhdbuilder/scripts/linux
     - .pipelines/.vsts-vhd-builder.yaml
     - .pipelines/templates/.builder-release-template.yaml
+    - .pipelines/templates/.template-override-components-json.yaml
+    - .pipelines/templates/.template-copy-file.yaml
     - .pipelines/templates/e2e-template.yaml
     - parts/linux/*
     - packer.mk
