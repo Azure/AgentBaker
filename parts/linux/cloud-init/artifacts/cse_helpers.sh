@@ -113,7 +113,7 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 # In AzureLinux 3.0, /etc/*-release are symlinks to /usr/lib/*-release, so the find command includes -type f,l.
 
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208 # Error pulling credential provider artifact with oras from registry
 ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_2=210 # Error pulling artifact with oras from registry with incorrect acr cache setting
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
