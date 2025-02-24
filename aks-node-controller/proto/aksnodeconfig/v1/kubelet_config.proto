@@ -4,43 +4,29 @@ package aksnodeconfig.v1;
 option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
 
 message KubeletConfig {
-  // A list of taints to apply to the node.
-  // These are reserved for now. We are using KubeletFlags with flag "--register-with-taints" to register node with taints.
-  repeated Taint taints = 1;
-
   // A map of kubelet flags to their values.
-  map<string, string> kubelet_flags = 2;
+  map<string, string> kubelet_flags = 1;
 
   // A map of node labels to their values.
-  map<string, string> kubelet_node_labels = 3;
-
-  // A list of taints to apply to the node at startup.
-  // These are reserved for now. We are using KubeletFlags with flag "--register-with-taints" to register node with taints.
-  repeated Taint startup_taints = 4;
+  map<string, string> kubelet_node_labels = 2;
 
   // The type of disk to use for the kubelet.
-  KubeletDisk kubelet_disk_type = 5;
+  KubeletDisk kubelet_disk_type = 3;
 
   // Whether kubelet config should be enabled.
-  bool enable_kubelet_config_file = 6;
+  bool enable_kubelet_config_file = 4;
 
   // Base64 encoded content of the kubelet config file.
-  string kubelet_config_file_content = 7;
+  string kubelet_config_file_content = 5;
 
   // Kubelet client private key
-  string kubelet_client_key = 8;
+  string kubelet_client_key = 6;
 
   // The content of the kubelet client certificate file.
-  string kubelet_client_cert_content = 9;
+  string kubelet_client_cert_content = 7;
 
   // The path used to mount docker images, emptyDir volumes, and kubelet data.
-  string container_data_dir = 10;
-}
-
-message Taint {
-  string key = 1;
-  string effect = 2;
-  string value = 3;
+  string container_data_dir = 8;
 }
 
 enum KubeletDisk {
