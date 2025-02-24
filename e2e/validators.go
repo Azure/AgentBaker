@@ -430,7 +430,12 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 
 // ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
 func ValidateTaints(ctx context.Context, s *Scenario) {
-	expectedTaints := s.Runtime.NBC.KubeletConfig["--register-with-taints"]
+	var expectedTaints string
+	if s.Runtime.NBC != nil {
+		expectedTaints = s.Runtime.NBC.KubeletConfig["--register-with-taints"]
+	} else {
+		expectedTaints = s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"]
+	}
 	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
 	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
 	actualTaints := ""

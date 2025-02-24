@@ -5,6 +5,7 @@ option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aks
 
 message KubeletConfig {
   // A list of taints to apply to the node.
+  // These are reserved for now. We are using KubeletFlags with flag "--register-with-taints" to register node with taints.
   repeated Taint taints = 1;
 
   // A map of kubelet flags to their values.
@@ -14,6 +15,7 @@ message KubeletConfig {
   map<string, string> kubelet_node_labels = 3;
 
   // A list of taints to apply to the node at startup.
+  // These are reserved for now. We are using KubeletFlags with flag "--register-with-taints" to register node with taints.
   repeated Taint startup_taints = 4;
 
   // The type of disk to use for the kubelet.
@@ -38,6 +40,7 @@ message KubeletConfig {
 message Taint {
   string key = 1;
   string effect = 2;
+  string value = 3;
 }
 
 enum KubeletDisk {
