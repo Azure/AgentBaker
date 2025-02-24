@@ -77,6 +77,8 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
         eval $PROXY_VARS
     fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+else
+    touch /var/run/outbound-check-skipped
 fi
 
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
