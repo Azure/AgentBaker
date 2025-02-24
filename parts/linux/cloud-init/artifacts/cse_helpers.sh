@@ -265,7 +265,7 @@ retrycmd_get_access_token_for_oras() {
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
     for i in $(seq 1 $retries); do
-        response=$(timeout 60 curl -s -v -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+        response=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange -w "\n%{http_code}")
         REFRESH_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
