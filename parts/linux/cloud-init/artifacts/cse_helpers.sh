@@ -115,7 +115,7 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
 ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
 ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_2=210 # Error pulling artifact with oras from registry with incorrect acr cache setting
+ERR_ORAS_PULL_FORBIDDEN=210 # Error pulling artifact from acr with non-retryable forbidden error
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
 ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
@@ -265,12 +265,29 @@ retrycmd_get_access_token_for_oras() {
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
     for i in $(seq 1 $retries); do
-        REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+        response=$(timeout 60 curl -s -v -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
-            https://$acr_url/oauth2/exchange)
-        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+            https://$acr_url/oauth2/exchange -w "\n%{http_code}")
+        REFRESH_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
+        http_code=$(echo "$response" | tail -n1)
+        if [ "$http_code" -eq 200 ] && [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
             echo "$REFRESH_TOKEN_OUTPUT"
             return 0
+        else
+            echo "Failed to get refresh token from ACR, http_code: $http_code"
+            case $http_code in
+                401)
+                    echo "Unauthorized: authentication required"
+                    return $ERR_ORAS_PULL_UNAUTHORIZED
+                    ;;
+                403)
+                    echo "Forbidden: access denied"
+                    return $ERR_ORAS_PULL_FORBIDDEN
+                    ;;
+                *)
+                    echo "Unexpected response from ACR: $http_code"
+                    ;;
+            esac
         fi
         sleep $wait_sleep
     done
