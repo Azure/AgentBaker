@@ -173,6 +173,8 @@ func prepareCluster(ctx context.Context, t *testing.T, cluster *armcontainerserv
 		return nil, fmt.Errorf("get host network debug pod: %w", err)
 	}
 
+	t.Logf("cluster %q is ready", *cluster.Name)
+
 	return &Cluster{
 		Model:         cluster,
 		Kube:          kube,

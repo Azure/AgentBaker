@@ -162,21 +162,16 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 
 		// found the right node. Use it!
 		node = castNode
-		nodeTaints, _ := json.Marshal(node.Spec.Taints)
-		nodeConditions, _ := json.Marshal(node.Status.Conditions)
 		if len(node.Spec.Taints) > 0 {
-			t.Logf("node %s is tainted. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 			continue
 		}
 
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-				t.Logf("node %s is ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
+				t.Logf("node %s is ready", node.Name)
 				return node.Name
 			}
 		}
-
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 	}
 
 	if node == nil {
@@ -630,6 +625,55 @@ func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 									Path: "/var/lib/kubelet/device-plugins",
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func podEnableAMDGPUResource(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-amdgpu-device-plugin", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			PriorityClassName: "system-node-critical",
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "amdgpu-device-plugin-container",
+					Image: "rocm/k8s-device-plugin",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
+						{
+							Name:      "sys",
+							MountPath: "/sys",
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+				{
+					Name: "sys",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/sys",
 						},
 					},
 				},

@@ -174,7 +174,7 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *po
 		script.interpreter = Bash
 	}
 
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
+	result, err := execScriptOnVm(ctx, s, script)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -334,7 +334,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 	nodeName := s.Runtime.KubeNodeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-
+	s.T.Logf("waiting for resource %q to be available on node %q", resourceName, nodeName)
 	for {
 		select {
 		case <-ctx.Done():
@@ -426,4 +426,16 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 
 	return podExecResult.stdout.String()
+}
+
+func ValidateAMDGPU(ctx context.Context, s *Scenario) {
+	s.T.Logf("validating pod using AMD GPU")
+
+	execResult := execScriptOnVMForScenario(ctx, s, "lspci -k")
+	require.Equal(s.T, "0", execResult.exitCode, "expected to find lspci command, but did not")
+	assert.Contains(s.T, execResult.stdout.String(), "amdgpu", "expected to see amdgpu kernel module managing a PCI device, but did not")
+
+	ensurePod(ctx, s, podEnableAMDGPUResource(s))
+	waitUntilResourceAvailable(ctx, s, "amd.com/gpu")
+	//ensureJob(ctx, s, jobAMDGPUWorkload(s))
 }

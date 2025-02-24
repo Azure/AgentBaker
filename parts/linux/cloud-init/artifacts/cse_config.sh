@@ -844,6 +844,45 @@ ensureGPUDrivers() {
     fi
 }
 
+ensureAMDGPUDrivers() {
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        ensureAMDGPUDriversUbuntu
+    else
+        echo "os $OS not supported at this time. skipping ensureAMDGPUDrivers"
+        return
+    fi
+}
+
+# TODO: this is a temporary ubuntu-only HACK until we get a driver
+ensureAMDGPUDriversUbuntu() {
+    echo "Installing AMD GPU drivers"
+
+    pushd /var/cache/amdgpu-apt
+    ls -l
+    sudo dpkg -i *.deb
+    popd
+
+     # delete amdgpu module from blacklist
+    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
+
+    REBOOTREQUIRED=true
+    echo "AMD GPU drivers installed"
+}
+
+cleanAMDGPUDriver() {
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+      ensureAMDGPUDriversUbuntu
+    else
+      return
+    fi
+}
+
+cleanAMDGPUDriverUbuntu() {
+   # delete cached amd gpu packages to save disk space
+   sudo rm -rf /var/cache/amdgpu-apt/*
+}
+
+
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }
