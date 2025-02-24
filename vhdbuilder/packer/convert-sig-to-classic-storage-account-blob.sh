@@ -113,7 +113,6 @@ if [[ "$sas" == "None" ]]; then
  echo "sas token empty after trying both queries. Can't continue"
  exit 1
 fi
-
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
