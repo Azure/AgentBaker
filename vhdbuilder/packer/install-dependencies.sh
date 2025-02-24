@@ -628,35 +628,32 @@ downloadAMDGPUDriversUbuntu() {
   fi
   echo "Downloading AMD GPU drivers for Ubuntu ${UBUNTU_RELEASE}"
   # Determine the appropriate Ubuntu release
-  if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-    DISTRO="jammy"
-  elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
-    DISTRO="noble"
-  else
+case "${UBUNTU_RELEASE}" in
+  "22.04")
+    ;;
+  "24.04")
+    ;;
+  *)
     echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
     return
-  fi
+    ;;
+esac
 
-  sudo mkdir --parents --mode=0755 /etc/apt/keyrings
-  wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
-      gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
-  sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
-
-  echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu ${DISTRO} main" \
-      | sudo tee /etc/apt/sources.list.d/amdgpu.list
   sudo apt-get update
-
-  # Download to /var/cache/apt/archives/
-  sudo mkdir -p /var/cache/amdgpu-apt/
-  sudo chmod 777 /var/cache/amdgpu-apt/
-  # Download all dependencies of the amdgpu-dkms package
-  # The --reinstall flag is used to ensure that the package is downloaded even if it is already installed
-  # Otherwise installation of some packages like "m4" is skipped because it is already installed
-  # "m4" seems to be deleted at the later stage, making the installation fail
-  sudo apt-get install -o Dir::Cache::Archives="/var/cache/amdgpu-apt" --download-only --reinstall -y m4 amdgpu-dkms autoconf automake autotools-dev amdgpu-dkms-firmware
-  # delete amd from a list of recognized vendors
-  sudo rm /etc/apt/keyrings/rocm.gpg
-  sudo rm /etc/apt/sources.list.d/amdgpu.list
+  sudo apt-get install -y "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
+  sudo apt-get install -y python3-setuptools python3-wheel
+  if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
+    wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/jammy/amdgpu-install_6.3.60303-1_all.deb
+    sudo apt-get install -y ./amdgpu-install_6.3.60303-1_all.deb
+  elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
+    wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/noble/amdgpu-install_6.3.60303-1_all.deb
+    sudo apt-get install -y ./amdgpu-install_6.3.60303-1_all.deb
+  else
+    echo "Unexpected Ubuntu Release (${UBUNTU_RELEASE})"
+    exit 1
+  fi
+  sudo apt-get update
+  sudo amdgpu-install --usecase=dkms
 }
 
 downloadAMDGPUDrivers() {
