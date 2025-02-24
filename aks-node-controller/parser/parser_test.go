@@ -289,6 +289,7 @@ oom_score = -999
 				"--system-reserved":                   "cpu=2,memory=1Gi",
 				"--kube-reserved":                     "cpu=100m,memory=1638Mi",
 				"--container-log-max-size":            "50M",
+				"--register-with-taints":              "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule",
 			}
 
 			helpers.ValidateAndSetLinuxKubeletFlags(kubeletConfig, cs, agentPool)
