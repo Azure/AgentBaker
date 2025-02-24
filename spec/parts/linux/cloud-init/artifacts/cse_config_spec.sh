@@ -261,10 +261,10 @@ Describe 'cse_config.sh'
             }
             MCR_REPOSITORY_BASE="fake.test.com/"
             When call configureContainerdRegistryHost
-            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/fake.test.com//hosts.toml'
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/fake.test.com/hosts.toml'
             The output should include "mkdir -p /etc/containerd/certs.d/fake.test.com"
-            The output should include "touch /etc/containerd/certs.d/fake.test.com//hosts.toml"
-            The output should include "chmod 0644 /etc/containerd/certs.d/fake.test.com//hosts.toml"
+            The output should include "touch /etc/containerd/certs.d/fake.test.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/fake.test.com/hosts.toml"
             The output should not include "tee"
         End
     End
