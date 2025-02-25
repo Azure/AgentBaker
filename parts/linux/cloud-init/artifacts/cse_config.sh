@@ -853,35 +853,20 @@ ensureAMDGPUDrivers() {
     fi
 }
 
-# TODO: this is a temporary ubuntu-only HACK until we get a driver
 ensureAMDGPUDriversUbuntu() {
-    echo "Installing AMD GPU drivers"
 
-    pushd /var/cache/amdgpu-apt
-    ls -l
-    sudo dpkg -i *.deb
-    popd
-
-     # delete amdgpu module from blacklist
+    # for some reason the amdgpu module is in blacklist and won't be loaded without this
     sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
-
-    REBOOTREQUIRED=true
+    # Note, next command may crash non-AMDGPU machines
+    # Caused by an installation of amdgpu-dkms module inside the installer
+    # Takes about 6m to finish
+#    sudo /root/rocm-offline-install.run
     echo "AMD GPU drivers installed"
 }
 
 cleanAMDGPUDriver() {
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-      ensureAMDGPUDriversUbuntu
-    else
-      return
-    fi
+    sudo rm /root/rocm-offline-instal.run
 }
-
-cleanAMDGPUDriverUbuntu() {
-   # delete cached amd gpu packages to save disk space
-   sudo rm -rf /var/cache/amdgpu-apt/*
-}
-
 
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH

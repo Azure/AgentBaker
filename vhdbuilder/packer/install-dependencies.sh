@@ -624,37 +624,49 @@ process_benchmarks
 downloadAMDGPUDriversUbuntu() {
   echo "Downloading AMD GPU drivers for Ubuntu ${UBUNTU_RELEASE}"
   # Determine the appropriate Ubuntu release
-  case "${UBUNTU_RELEASE}" in
-    "22.04"|"24.04")
-      # Supported release, continue
-      ;;
-    *)
-      echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
-      return 1
-      ;;
-  esac
-
-  # Add validation keys for amdgpu repo
-  sudo mkdir --parents --mode=0755 /etc/apt/keyrings
-  wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
-      gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
-  sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
-
-  # for some reason the module is in blacklist for 22.04 and won't be loaded unless we remove it
-  # attempt to remove it for other releases as well, just in case
-  sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
   if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu jammy main" \
-          | sudo tee /etc/apt/sources.list.d/amdgpu.list
+    wget https://repo.radeon.com/rocm/installer/rocm-linux-install-offline/rocm-rel-6.3.3/ubuntu/22.04/rocm-offline-creator_1.0.7.60303-1~22.04.run -O rocm-offline-creator.run
   elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
-    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu noble main" \
-        | sudo tee /etc/apt/sources.list.d/amdgpu.list
+    wget https://repo.radeon.com/rocm/installer/rocm-linux-install-offline/rocm-rel-6.3.3/ubuntu/24.04/rocm-offline-creator_1.0.7.60303-1~24.04.run -O rocm-offline-creator.run
   else
-    echo "Unexpected Ubuntu Release (${UBUNTU_RELEASE})"
-    exit 1
+    echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
+    return 1
   fi
-  sudo apt-get update
-  sudo apt-get install -y amdgpu-dkms
+  cat << EOL | sudo tee /etc/amdgpu.config
+# Creator/Build Options
+###############################
+INSTALL_PACKAGE_TYPE=0
+INSTALL_PACKAGE_NAME="rocm-offline-install.run"
+INSTALL_PACKAGE_DIR=/root
+
+INSTALL_PACKAGE_REPO=0
+
+DOWNLOAD_PKG_CONFIG_NUM=0
+
+# ROCm Options
+###############################
+ROCM_USECASES=dkms
+ROCM_VERSIONS=6.3.3
+
+# Driver/amdgpu Options
+###############################
+AMDGPU_INSTALL_DRIVER=yes
+AMDGPU_POST_INSTALL_BLACKLIST=no
+AMDGPU_POST_INSTALL_START=yes
+
+# Post-Install Options
+###############################
+AMDGPU_POST_GPU_ACCESS_CURRENT_USER=no
+AMDGPU_POST_GPU_ACCESS_ALL_USERS=no
+
+# Extra Package Options
+###############################
+EXTRA_PACKAGES_ONLY=no
+EXTRA_PACKAGES=""
+EOL
+  # This takes time and potentially can be built and cached outside of VHD build to improve performance
+  # Th output file /root/rocm-offline-install.run is about 200 MB
+  sudo bash ./rocm-offline-creator.run config=/etc/amdgpu.config
 }
 
 downloadAMDGPUDrivers() {
