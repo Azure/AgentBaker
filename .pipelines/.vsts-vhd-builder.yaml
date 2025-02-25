@@ -37,6 +37,7 @@ pool:
 variables:
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
+  - group: build_performance
 
 stages:
   - stage: build
