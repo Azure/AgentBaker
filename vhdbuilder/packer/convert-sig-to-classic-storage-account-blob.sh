@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
 required_env_vars=(
     "AZURE_MSI_RESOURCE_STRING"
@@ -80,21 +80,22 @@ fi
 echo "Converted $sig_resource_id to $disk_resource_id"
 
 echo "Granting access to $disk_resource_id for 1 hour"
+
+set +x
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
-
 # TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
-
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
+set -x
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 az disk revoke-access --ids $disk_resource_id 
 
-az resource delete --ids $disk_resource_id
+az resource delete --ids $disk_resource_id --verbose
 
 echo "Deleted $disk_resource_id"
