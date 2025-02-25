@@ -66,7 +66,7 @@ else
 fi
 
 echo "##[group]Build Performance"
-jq . -C ${SIG_IMAGE_NAME}-build-performance.json
+jq . -C vhdbuilder/packer/buildperformance/${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 rm vhdbuilder/packer/buildperformance/${SIG_IMAGE_NAME}-build-performance.json
