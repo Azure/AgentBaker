@@ -21,7 +21,7 @@ func Test_Windows2019Containerd(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsVersion(ctx, s, "2019")
+				ValidateWindowsVersion(ctx, s, "2019-containerd")
 			},
 		},
 	})
@@ -40,6 +40,7 @@ func Test_Windows2022Containerd(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsVersion(ctx, s, "2022-containerd")
 			},
 		},
 	})
@@ -58,6 +59,7 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsVersion(ctx, s, "2022-containerd-gen2")
 			},
 		},
 	})
@@ -76,6 +78,7 @@ func Test_Windows23H2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsVersion(ctx, s, "23H2")
 			},
 		},
 	})
@@ -94,6 +97,7 @@ func Test_Windows23H2Gen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateWindowsVersion(ctx, s, "23H2-gen2")
 			},
 		},
 	})
