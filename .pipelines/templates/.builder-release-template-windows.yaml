@@ -227,7 +227,7 @@ steps:
 
       make -f packer.mk convert-sig-to-classic-storage-account-blob
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
-    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
     env:
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
@@ -288,8 +288,7 @@ steps:
       
       make -f packer.mk generate-publishing-info
     displayName: Getting Shared Access Signature URI
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'),
-      eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
     env:
       SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
       STORAGE_ACCT_BLOB_URL: $(STORAGE_ACCT_BLOB_URL)

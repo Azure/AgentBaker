@@ -401,6 +401,14 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 	}
 }
 
+func ValidateWindowsVersion(ctx context.Context, s *Scenario, windowsVersion string) {
+	steps := []string{
+		"[System.Environment]::OSVersion.Version | ConvertTo-Json",
+	}
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	require.Contains(s.T, podExecResult, "bob")
+}
+
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
 	ValidateJsonFileHasField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
