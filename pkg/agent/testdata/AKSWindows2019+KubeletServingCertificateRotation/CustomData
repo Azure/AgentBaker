@@ -45,7 +45,6 @@ $MasterFQDNPrefix="uttestdom"
 $Location="southcentralus"
 
 $TargetEnvironment="AzurePublicCloud"
-$AgentKey=""
 $AADClientId="ClientID"
 $NetworkAPIVersion="2018-08-01"
 
