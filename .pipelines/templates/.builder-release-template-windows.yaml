@@ -163,7 +163,7 @@ steps:
       BUILD_DATE: $(BUILD_DATE)
   
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
-  - script: |
+  - pwsh: |
       export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
       export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" 
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
