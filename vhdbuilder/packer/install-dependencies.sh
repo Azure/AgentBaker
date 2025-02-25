@@ -653,7 +653,7 @@ esac
     exit 1
   fi
   sudo apt-get update
-  sudo amdgpu-install --usecase=dkms
+  sudo amdgpu-install -y --usecase=dkms
 }
 
 downloadAMDGPUDrivers() {
