@@ -622,38 +622,39 @@ process_benchmarks
 
 
 downloadAMDGPUDriversUbuntu() {
-  if [[ $OS != $UBUNTU_OS_NAME ]]; then
-    echo "Skipping AMD GPU driver setup: Unsupported OS (${OS})"
-    return
-  fi
   echo "Downloading AMD GPU drivers for Ubuntu ${UBUNTU_RELEASE}"
   # Determine the appropriate Ubuntu release
-case "${UBUNTU_RELEASE}" in
-  "22.04")
-    ;;
-  "24.04")
-    ;;
-  *)
-    echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
-    return
-    ;;
-esac
+  case "${UBUNTU_RELEASE}" in
+    "22.04"|"24.04")
+      # Supported release, continue
+      ;;
+    *)
+      echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
+      return 1
+      ;;
+  esac
 
-  sudo apt-get update
-  sudo apt-get install -y "linux-headers-$(uname -r)" "linux-modules-extra-$(uname -r)"
-  sudo apt-get install -y python3-setuptools python3-wheel
+  # Add validation keys for amdgpu repo
+  sudo mkdir --parents --mode=0755 /etc/apt/keyrings
+  wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | \
+      gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
+  sudo chmod 0644 /etc/apt/keyrings/rocm.gpg
+
+  # for some reason the module is in blacklist for 22.04 and won't be loaded unless we remove it
+  # attempt to remove it for other releases as well, just in case
+  sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
   if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-    wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/jammy/amdgpu-install_6.3.60303-1_all.deb
-    sudo apt-get install -y ./amdgpu-install_6.3.60303-1_all.deb
+    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu ${DISTRO} main" \
+          | sudo tee /etc/apt/sources.list.d/amdgpu.list
   elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
-    wget https://repo.radeon.com/amdgpu-install/6.3.3/ubuntu/noble/amdgpu-install_6.3.60303-1_all.deb
-    sudo apt-get install -y ./amdgpu-install_6.3.60303-1_all.deb
+    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu jammy main" \
+        | sudo tee /etc/apt/sources.list.d/amdgpu.list
   else
     echo "Unexpected Ubuntu Release (${UBUNTU_RELEASE})"
     exit 1
   fi
   sudo apt-get update
-  sudo amdgpu-install -y --usecase=dkms
+  sudo apt-get install -y amdgpu-dkms
 }
 
 downloadAMDGPUDrivers() {
