@@ -1,6 +1,5 @@
 #!/bin/bash
-set -e
-# avoid using set -x in this pipeline as you'll end up logging a sensitive access token down below.
+set -ex
 
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
@@ -119,23 +118,25 @@ capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
+
+set +x
 # TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work for Windows
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
-
 if [[ "${OS_TYPE}" == "Linux" ]]; then
   export AZCOPY_CONCURRENCY_VALUE="AUTO"
   azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 else
   azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 fi
+set -x
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
 az disk revoke-access --ids $disk_resource_id 
 
-az resource delete --ids $disk_resource_id
+az resource delete --ids $disk_resource_id --verbose
 
 echo "Deleted $disk_resource_id"
 capture_benchmark "${SCRIPT_NAME}_revoke_access_and_delete_disk"
