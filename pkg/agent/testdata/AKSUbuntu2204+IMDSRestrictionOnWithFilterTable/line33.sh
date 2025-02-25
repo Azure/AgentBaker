@@ -6,6 +6,19 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+for i in $(seq 1 3600); do
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
+    fi
+    if [ $i -eq 3600 ]; then
+        exit $ERR_FILE_WATCH_TIMEOUT
+    else
+        sleep 1
+    fi
+done
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
+
 aptmarkWALinuxAgent hold &
 
 LOG_DIR=/var/log/azure/aks
@@ -29,19 +42,6 @@ if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
 fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
-
-for i in $(seq 1 3600); do
-    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
-        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
-    fi
-    if [ $i -eq 3600 ]; then
-        exit $ERR_FILE_WATCH_TIMEOUT
-    else
-        sleep 1
-    fi
-done
-sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
-source "${CSE_HELPERS_FILEPATH}"
 
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 source "${CSE_INSTALL_FILEPATH}"
@@ -77,6 +77,8 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
         eval $PROXY_VARS
     fi
     retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+else
+    touch /var/run/outbound-check-skipped
 fi
 
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
