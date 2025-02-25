@@ -268,4 +268,28 @@ Describe 'cse_config.sh'
             The output should not include "tee"
         End
     End
+
+    Describe 'configCredentialProvider'
+        Mock mkdir
+            echo "mkdir $@"
+        End
+
+        Mock touch
+            echo "touch $@"
+        End
+
+        Mock tee
+            echo "tee $@"
+        End
+
+        It 'should configure credential provider for network isolated cluster'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            When call configCredentialProvider
+            The variable CREDENTIAL_PROVIDER_CONFIG_FILE should equal '/var/lib/kubelet/credential-provider-config.yaml'
+            The output should include "mkdir -p /var/lib/kubelet"
+            The output should include "touch /var/lib/kubelet/credential-provider-config.yaml"
+            The output should include "configure credential provider for network isolated cluster"
+            The output should not include "tee"
+        End
+    End
 End

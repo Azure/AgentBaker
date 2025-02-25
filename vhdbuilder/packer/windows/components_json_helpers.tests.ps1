@@ -3,6 +3,36 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'SafeReplaceString' {
+    It 'given no vars are present, it returns the string' {
+        SafeReplaceString "this is a string" | Should -Be "this is a string"
+    }
+
+    It 'given version var is present, it replaces version' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is a `${version}` string"
+        $version = "versioned"
+        SafeReplaceString $str | Should -Be "this is a versioned string"
+    }
+
+    It 'given CPU_ARCH var is present, it replaces version' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is an `${CPU_ARCH}` string"
+        $CPU_ARCH = "architecture"
+        SafeReplaceString $str | Should -Be "this is an architecture string"
+    }
+
+    It 'given BOBBY var is present, it replaces with empty string' {
+        # set the str before the $version env var so that we know it's being replaced in the function.
+        $str = "this is an `${BOBBY}` string"
+        $BOBBY = "architecture"
+        SafeReplaceString $str | Should -Be "this is an  string"
+    }
+
+}
+
+
+
 Describe 'GetWindowsDefenderInfo' {
     BeforeEach {
         $testString = '{
@@ -344,7 +374,7 @@ Describe 'Gets the Binaries' {
                 "previousLatestVersion": "0.0.51"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -385,7 +415,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -403,7 +433,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -418,7 +448,7 @@ Describe 'Gets the Binaries' {
             }
         )
         $componentsJson.Packages[0].windowsDownloadLocation = "location"
-        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+        $componentsJson.Packages[0].downloadUris.windows.default.downloadURL = "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v`${version}.zip"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -439,7 +469,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -455,7 +485,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -484,7 +514,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.49"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           },
           "default": {
             "versionsV2": [
@@ -493,7 +523,7 @@ Describe 'Gets the Binaries' {
                 "latestVersion": "0.0.48"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v[version].zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -520,6 +550,36 @@ Describe 'Gets The Versions' {
 "windowsVersions": []
 }]}'
         $componentsJson = echo $testString | ConvertFrom-Json
+    }
+
+    It 'replaces CPU_ARCH in the string' {
+        $componentsJson.ContainerImages[0].windowsVersions = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+            }
+        )
+        $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${CPU_ARCH}/addon-resizer:*"
+
+        $CPU_ARCH="x86"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler/x86/addon-resizer:1.8.22"
+    }
+
+    It 'does not replace varvarvar in the string' {
+        $componentsJson.ContainerImages[0].windowsVersions = @(
+            [PSCustomObject]@{
+                latestVersion = "1.8.22"
+            }
+        )
+        $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${varvarvar}/addon-resizer:*"
+
+        $varvarvar="x86"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -HaveCount 1
+        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/autoscaler//addon-resizer:1.8.22"
     }
 
     It 'given there are no container images, it returns an empty array' {
@@ -663,11 +723,10 @@ Describe 'Gets The Versions' {
 
 }
 
-# note that we might remove some of these as we change the versions. Most of them were written to ensure current versions were
-# migrated successfully
 Describe 'Tests of components.json ' {
     BeforeEach {
-        $componentsJson = Get-Content 'parts/common/components.json' | Out-String | ConvertFrom-Json
+        # Note that we use a test components.json file - this file is validated to match our components.cue file during builds.
+        $componentsJson = Get-Content 'vhdbuilder/packer/windows/components-test.json' | Out-String | ConvertFrom-Json
     }
 
     it 'can parse components.json' {
@@ -715,26 +774,9 @@ Describe 'Tests of components.json ' {
         $packages["c:\akse-cache\csi-proxy\"] | Should -Contain "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
     }
 
-    it 'has credential provider' {
-        $packages = GetPackagesFromComponentsJson $componentsJson
-        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.2/binaries/azure-acr-credential-provider-windows-amd64-v1.29.2.tar.gz"
-        $packages["c:\akse-cache\credential-provider\"] | Should -Contain "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.0/binaries/azure-acr-credential-provider-windows-amd64-v1.30.0.tar.gz"
-    }
-
     it 'has calico' {
         $packages = GetPackagesFromComponentsJson $componentsJson
         $packages["c:\akse-cache\calico\"] | Should -Contain "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
-    }
-
-    it 'has vnet-cni' {
-        $packages = GetPackagesFromComponentsJson $componentsJson
-        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain  "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip"
-        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip"
-        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip"
-        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.59.zip"
-
-        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
-        $packages["c:\akse-cache\win-vnet-cni\"] | Should -Contain "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.59.zip"
     }
 
     it 'has kubenetes binaries' {

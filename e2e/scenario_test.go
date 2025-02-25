@@ -824,35 +824,39 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ChronyRestarts(t *testing.T) {
+func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
+		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.KubeletConfig["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
 			},
 		},
 	})
 }
 
-func Test_Ubuntu2204_ChronyRestarts_Scriptless(t *testing.T) {
+func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
+		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletFlags["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"])
 			},
 		},
 	})
@@ -1149,14 +1153,18 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 // The code path is not hit in either of these tests. In the future, testing with some kind of firewall to ensure no egress
 // calls are made would be beneficial for airgap testing.
 
-func Test_Ubuntu2204_ContainerdURL(t *testing.T) {
+// Combine old e2e tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
+func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the components.json containerd version",
+		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override bootstraps with the provided URL and not the components.json containerd version,
+		              tests that the imds restriction filter table is properly set`,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerdPackageURL = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
+				nbc.EnableIMDSRestriction = true
+				nbc.InsertIMDSRestrictionRuleToMangleTable = false
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
@@ -1165,14 +1173,20 @@ func Test_Ubuntu2204_ContainerdURL(t *testing.T) {
 	})
 }
 
-func Test_Ubuntu2204_ContainerdURL_Scriptless(t *testing.T) {
+// Combine e2e scriptless tests for scenario Ubuntu2204_ContainerdURL and Ubuntu2204_IMDSRestrictionFilterTable
+func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version",
+		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
+		              tests that the imds restriction filter table is properly set`,
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				config.ContainerdConfig.ContainerdPackageUrl = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
+				config.ImdsRestrictionConfig = &aksnodeconfigv1.ImdsRestrictionConfig{
+					EnableImdsRestriction:                  true,
+					InsertImdsRestrictionRuleToMangleTable: false,
+				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
@@ -1393,23 +1407,6 @@ func Test_Ubuntu2204_WASMAirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_IMDSRestrictionFilterTable(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "tests that the imds restriction filter table is properly set",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.EnableIMDSRestriction = true
-				nbc.InsertIMDSRestrictionRuleToMangleTable = false
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateIMDSRestrictionRule(ctx, s, "filter")
 			},
 		},
 	})

@@ -428,6 +428,21 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 	return podExecResult.stdout.String()
 }
 
+// ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
+func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
+	actualTaints := ""
+	for i, taint := range node.Spec.Taints {
+		actualTaints += fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect)
+		// add a comma if it's not the last element
+		if i < len(node.Spec.Taints)-1 {
+			actualTaints += ","
+		}
+	}
+	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
+}
+
 func ValidateAMDGPU(ctx context.Context, s *Scenario) {
 	s.T.Logf("validating pod using AMD GPU")
 

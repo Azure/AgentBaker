@@ -501,6 +501,7 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
   "SKIP_EXTENSION_CHECK": "${SKIP_EXTENSION_CHECK}",
+  "INSTALL_OPEN_SSH_SERVER": "${INSTALL_OPEN_SSH_SERVER}",
   "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",

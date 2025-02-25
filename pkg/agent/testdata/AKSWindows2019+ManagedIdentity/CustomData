@@ -47,7 +47,6 @@ $Location="southcentralus"
 $UserAssignedClientID="userAssignedID"
 
 $TargetEnvironment="AzurePublicCloud"
-$AgentKey=""
 $AADClientId="msi"
 $NetworkAPIVersion="2018-08-01"
 
