@@ -135,7 +135,7 @@ capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
 
 az disk revoke-access --ids $disk_resource_id 
 
-az resource delete --ids $disk_resource_id
+az resource delete --ids $disk_resource_id --debug
 
 echo "Deleted $disk_resource_id"
 capture_benchmark "${SCRIPT_NAME}_revoke_access_and_delete_disk"
