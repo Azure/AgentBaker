@@ -271,10 +271,9 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
-    $jobs = @()
-    foreach ($image in $imagesToPull)
+    $jobs = foreach ($image in $imagesToPull)
     {
-        $jobs += Start-Job -ScriptBlock {
+        Start-ThreadJob -ScriptBlock {
             param ($image)
             $imagePrefix = $image.Split(":")[0]
             if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
@@ -314,11 +313,12 @@ function Get-ContainerImages
                     Write-Host "Error: $_"
                 }
             }
-        } -ArgumentList $image
+        } -ArgumentList $image -ThrottleLimit 5
     }
 
-    # Wait for all jobs to complete
-    $jobs | ForEach-Object { $_ | Wait-Job | Receive-Job }
+    # Wait for all threads to complete
+    $result = Receive-Job $jobs -Wait -AutoRemoveJob
+    $result | Format-Table
 
     # before stopping containerd, let's echo the cached images and their sizes.
     crictl images show
