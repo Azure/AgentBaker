@@ -704,24 +704,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
-				if NeedsContainerdV2(profile, cs) {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
+				if profile.Is2404VHDDistro() {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
-			}(profile, cs))
+			}(profile))
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
-				if NeedsContainerdV2(profile, cs) {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
+				if profile.Is2404VHDDistro() {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
-			}(profile, cs))
+			}(profile))
 
 			if err != nil {
 				panic(err)
