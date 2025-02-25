@@ -291,20 +291,20 @@ function Get-ContainerImages
                 }
                 $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
                 $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-                Write-Log "Downloading image $image to $tmpDest"
+                Write-Host "Downloading image $image to $tmpDest"
                 Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
-                Write-Log "Loading image $image from $tmpDest"
+                Write-Host "Loading image $image from $tmpDest"
                 Retry-Command -ScriptBlock {
                     & ctr -n k8s.io images import $tmpDest
                 } -ErrorMessage "Failed to load image $image from $tmpDest"
 
-                Write-Log "Removing tmp tar file $tmpDest"
+                Write-Host "Removing tmp tar file $tmpDest"
                 Remove-Item -Path $tmpDest
             }
             else
             {
-                Write-Log "Pulling image $image"
+                Write-Host "Pulling image $image"
                 Retry-Command -ScriptBlock {
                     & crictl.exe pull $image
                 } -ErrorMessage "Failed to pull image $image"
