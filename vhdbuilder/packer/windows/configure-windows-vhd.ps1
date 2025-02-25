@@ -295,19 +295,24 @@ function Get-ContainerImages
                 Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
                 Write-Host "Loading image $image from $tmpDest"
-                Retry-Command -ScriptBlock {
+                try {
                     & ctr -n k8s.io images import $tmpDest
-                } -ErrorMessage "Failed to load image $image from $tmpDest"
-
+                } catch {
+                    Write-Host "Failed to load image $image from $tmpDest"
+                    Write-Host "Error: $_"
+                }
                 Write-Host "Removing tmp tar file $tmpDest"
                 Remove-Item -Path $tmpDest
             }
             else
             {
                 Write-Host "Pulling image $image"
-                Retry-Command -ScriptBlock {
+                try {
                     & crictl.exe pull $image
-                } -ErrorMessage "Failed to pull image $image"
+                } catch {
+                    Write-Host "Failed to pull image $image"
+                    Write-Host "Error: $_"
+                }
             }
         } -ArgumentList $image
     }
