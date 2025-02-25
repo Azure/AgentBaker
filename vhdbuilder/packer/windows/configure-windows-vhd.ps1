@@ -271,42 +271,49 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
+    $jobs = @()
     foreach ($image in $imagesToPull)
     {
-        $imagePrefix = $image.Split(":")[0]
-        if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
-                ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL)))
-        {
-            $url = ""
-            if ( $image.Contains("mcr.microsoft.com/windows/servercore"))
+        $jobs += Start-Job -ScriptBlock {
+            param ($image)
+            $imagePrefix = $image.Split(":")[0]
+            if (($imagePrefix -eq "mcr.microsoft.com/windows/servercore" -and ![string]::IsNullOrEmpty($env:WindowsServerCoreImageURL)) -or
+                    ($imagePrefix -eq "mcr.microsoft.com/windows/nanoserver" -and ![string]::IsNullOrEmpty($env:WindowsNanoServerImageURL)))
             {
-                $url = $env:WindowsServerCoreImageURL
+                $url = ""
+                if ( $image.Contains("mcr.microsoft.com/windows/servercore"))
+                {
+                    $url = $env:WindowsServerCoreImageURL
+                }
+                elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver"))
+                {
+                    $url = $env:WindowsNanoServerImageURL
+                }
+                $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
+                $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
+                Write-Log "Downloading image $image to $tmpDest"
+                Download-FileWithAzCopy -URL $url -Dest $tmpDest
+
+                Write-Log "Loading image $image from $tmpDest"
+                Retry-Command -ScriptBlock {
+                    & ctr -n k8s.io images import $tmpDest
+                } -ErrorMessage "Failed to load image $image from $tmpDest"
+
+                Write-Log "Removing tmp tar file $tmpDest"
+                Remove-Item -Path $tmpDest
             }
-            elseif ($image.Contains("mcr.microsoft.com/windows/nanoserver"))
+            else
             {
-                $url = $env:WindowsNanoServerImageURL
+                Write-Log "Pulling image $image"
+                Retry-Command -ScriptBlock {
+                    & crictl.exe pull $image
+                } -ErrorMessage "Failed to pull image $image"
             }
-            $fileName = [IO.Path]::GetFileName($url.Split("?")[0])
-            $tmpDest = [IO.Path]::Combine([System.IO.Path]::GetTempPath(), $fileName)
-            Write-Log "Downloading image $image to $tmpDest"
-            Download-FileWithAzCopy -URL $url -Dest $tmpDest
-
-            Write-Log "Loading image $image from $tmpDest"
-            Retry-Command -ScriptBlock {
-                & ctr -n k8s.io images import $tmpDest
-            } -ErrorMessage "Failed to load image $image from $tmpDest"
-
-            Write-Log "Removing tmp tar file $tmpDest"
-            Remove-Item -Path $tmpDest
-        }
-        else
-        {
-            Write-Log "Pulling image $image"
-            Retry-Command -ScriptBlock {
-                & crictl.exe pull $image
-            } -ErrorMessage "Failed to pull image $image"
-        }
+        } -ArgumentList $image
     }
+
+    # Wait for all jobs to complete
+    $jobs | ForEach-Object { $_ | Wait-Job | Receive-Job }
 
     # before stopping containerd, let's echo the cached images and their sizes.
     crictl images show
