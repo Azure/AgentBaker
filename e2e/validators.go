@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/tidwall/gjson"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -403,10 +405,26 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 
 func ValidateWindowsVersion(ctx context.Context, s *Scenario, windowsVersion string) {
 	steps := []string{
-		"[System.Environment]::OSVersion.Version | ConvertTo-Json",
+		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
 	}
+
+	jsonBytes := getWindowsSettingsJson()
+	osVersion := gjson.GetBytes(jsonBytes, fmt.Sprintf("WindowsBaseVersions.%s.base_image_version", windowsVersion))
+	versionSliced := strings.Split(osVersion.String(), ".")
+	osMajorVersion := versionSliced[0]
+
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-	require.Contains(s.T, podExecResult, "bob")
+	podExecResultStdout := podExecResult.stdout.String()
+
+	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
+	s.T.Logf("Winddows version returned from VM  %s", podExecResultStdout)
+
+	require.Contains(s.T, podExecResultStdout, osMajorVersion)
+}
+
+func getWindowsSettingsJson() []byte {
+	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
+	return jsonBytes
 }
 
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
