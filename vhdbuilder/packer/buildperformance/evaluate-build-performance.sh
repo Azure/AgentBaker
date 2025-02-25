@@ -22,7 +22,7 @@ if [[ $? -ne 0 ]]; then
 fi
 
 if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
-  log_and_exit ${PERFORMANCE_DATA_FILE} "contains no scripts"
+  log_and_exit ${PERFORMANCE_DATA_FILE} "contains no data"
 fi
 
 echo -e "\nGenerating build performance data for ${SIG_IMAGE_NAME}...\n"
@@ -35,26 +35,36 @@ jq --arg sig_name "${SIG_IMAGE_NAME}" \
   --arg status "${JOB_STATUS}" \
   --arg branch "${GIT_BRANCH}" \
   --arg commit "${GIT_VERSION}" \
-  '{sig_image_name: $sig_name, architecture: $arch, captured_sig_version: $captured_sig_version, build_id: $build_id, build_datetime: $date,
-  build_status: $status, branch: $branch, commit: $commit, scripts: .}' \
-  ${PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
+  'to_entries | ([
+  {key: "sig_image_name", value: $sig_name},
+  {key: "architecture", value: $arch},
+  {key: "captured_sig_version", value: $captured_sig_version},
+  {key: "build_id", value: $build_id},
+  {key: "build_datetime", value: $date},
+  {key: "outcome", value: $status},
+  {key: "branch", value: $branch},
+  {key: "commit", value: $commit}
+] + .) | from_entries' ${PERFORMANCE_DATA_FILE} > ${SIG_IMAGE_NAME}-build-performance.json
 
 rm ${PERFORMANCE_DATA_FILE}
 
-echo "##[group]Build Information"
-jq -C '. | {sig_image_name, architecture, captured_sig_version, build_id, build_datetime, build_status, branch, commit}' ${SIG_IMAGE_NAME}-build-performance.json
+echo "##[group]Build Performance"
+jq . -C ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
-scripts=()
-for entry in $(jq -rc '.scripts | to_entries[]' ${SIG_IMAGE_NAME}-build-performance.json); do
-  scripts+=("$(echo "$entry" | jq -r '.key')")
-done
+echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
+if [ "${ENVIRONMENT,,}" == "test" ]; then
+  mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
+  pushd vhdbuilder/packer/buildperformance || exit 0
+    echo -e "\nRunning build performance evaluation program...\n"
+    chmod +x ${BUILD_PERFORMANCE_BINARY}
+    ./${BUILD_PERFORMANCE_BINARY}
+    rm ${BUILD_PERFORMANCE_BINARY}
+  popd || exit 0
+else
+  echo -e "Skipping build performance evaluation for prod"
+fi
 
-for script in "${scripts[@]}"; do
-  echo "##[group]${script}"
-  jq -C ".scripts.\"$script\"" ${SIG_IMAGE_NAME}-build-performance.json
-  echo "##[endgroup]"
-done
+rm vhdbuilder/packer/buildperformance/${SIG_IMAGE_NAME}-build-performance.json
 
-rm ${SIG_IMAGE_NAME}-build-performance.json
 echo -e "\nBuild performance evaluation script completed."
