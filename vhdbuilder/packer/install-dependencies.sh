@@ -644,10 +644,10 @@ downloadAMDGPUDriversUbuntu() {
   # attempt to remove it for other releases as well, just in case
   sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
   if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
-    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu ${DISTRO} main" \
+    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu jammy main" \
           | sudo tee /etc/apt/sources.list.d/amdgpu.list
   elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
-    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu jammy main" \
+    echo "deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/amdgpu/6.3.3/ubuntu noble main" \
         | sudo tee /etc/apt/sources.list.d/amdgpu.list
   else
     echo "Unexpected Ubuntu Release (${UBUNTU_RELEASE})"
