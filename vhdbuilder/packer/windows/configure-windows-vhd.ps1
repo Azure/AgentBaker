@@ -14,16 +14,19 @@ param(
     [string]
     $customizedDiskSizeParam
 )
+
 if (![string]::IsNullOrEmpty($windowsSKUParam))
 {
     Write-Log "Setting Windows SKU to $windowsSKUParam"
     $env:WindowsSKU = $windowsSKUParam
 }
+
 if (![string]::IsNullOrEmpty($provisioningPhaseParam))
 {
     Write-Log "Setting Provisioning Phase to $provisioningPhaseParam"
     $env:ProvisioningPhase = $provisioningPhaseParam
 }
+
 if (![string]::IsNullOrEmpty($customizedDiskSizeParam))
 {
     Write-Log "Setting Customized Disk Size to $customizedDiskSizeParam"
