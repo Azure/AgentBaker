@@ -657,7 +657,7 @@ function Update-Registry
             if (![string]::IsNullOrEmpty($currentValue))
             {
                 Write-Log "The current value of $keyName is $currentValue"
-                $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
+                $keyValue = ([int]$currentValue.$keyName -bor $keyValue)
             }
             Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
         }
