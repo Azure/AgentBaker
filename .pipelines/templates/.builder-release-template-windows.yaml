@@ -130,7 +130,7 @@ steps:
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
 
-  - script: make -f packer.mk run-packer-windows
+  - pwsh: make -f packer.mk run-packer-windows
     displayName: Building windows VHD
     env:
       MODE: $(MODE)
