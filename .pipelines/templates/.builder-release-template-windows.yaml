@@ -132,9 +132,9 @@ steps:
   - pwsh: |
       # Install the ThreadJob module
       Install-Module -Name ThreadJob -Scope CurrentUser -Force
-    displayName: Install ThreadJob Module
-
-  - pwsh: |
+      # Print the PowerShell version to verify that PowerShell Core is being used
+      $PSVersionTable.PSVersion
+      
       make -f packer.mk run-packer-windows
     displayName: Building windows VHD
     env:
