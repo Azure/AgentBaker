@@ -64,7 +64,7 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -131,7 +131,7 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -338,7 +338,7 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -389,7 +389,7 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -725,7 +725,7 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -762,7 +762,7 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -787,7 +787,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 				}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
@@ -1427,7 +1427,7 @@ func Test_Ubuntu2204_WASMAirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
-				ValidateDirectoryContent(ctx, s, "/var/run", []string{"outbound-check-skipped"})
+				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
 			},
 		},
 	})
