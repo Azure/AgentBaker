@@ -39,6 +39,22 @@ parameters:
   - name: useOverrides
     displayName: Use component overrides
     type: boolean
+  - name: ws2019BaseImageUrl
+    displayName: WS2019 base image URL
+    type: string
+    default:
+  - name: ws2022BaseImageUrl
+    displayName: WS2022 base image URL
+    type: string
+    default:
+  - name: ws23H2BaseImageUrl
+    displayName: WS23H2 base image URL
+    type: string
+    default:
+  - name: ws2025BaseImageUrl
+    displayName: ws2025 base image URL
+    type: string
+    default:
 
 stages:
   - template: ./.build-and-test-windows-vhd-template.yaml
@@ -55,7 +71,7 @@ stages:
       buildVmSize: ${{ parameters.buildVmSize }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_2019_BASE_IMAGE_URL)
+      windowsBaseImageUrl: ${{ parameters.ws2019BaseImageUrl }}
       windowsNanoImageUrl: $(WINDOWS_2019_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2019_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -75,7 +91,7 @@ stages:
       buildVmSize: ${{ parameters.buildVmSize }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_2022_BASE_IMAGE_URL)
+      windowsBaseImageUrl: ${{ parameters.ws2022BaseImageUrl }}
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -95,7 +111,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
+      windowsBaseImageUrl: ${{ parameters.ws2022BaseImageUrl }}
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -115,7 +131,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_BASE_IMAGE_URL)
+      windowsBaseImageUrl: ${{ parameters.ws23H2BaseImageUrl }}
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
@@ -135,7 +151,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
+      windowsBaseImageUrl: ${{ parameters.ws23H2BaseImageUrl }}
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}

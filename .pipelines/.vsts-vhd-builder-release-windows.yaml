@@ -59,6 +59,22 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+  - name: ws2019BaseImageUrl
+    displayName: WS2019 base image URL
+    type: string
+    default:
+  - name: ws2022BaseImageUrl
+    displayName: WS2022 base image URL
+    type: string
+    default:
+  - name: ws23H2BaseImageUrl
+    displayName: WS23H2 base image URL
+    type: string
+    default:
+  - name: ws2025BaseImageUrl
+    displayName: ws2025 base image URL
+    type: string
+    default:
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -79,3 +95,7 @@ stages:
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      ws2019BaseImageUrl: {{ parameters.ws2019BaseImageUrl }}
+      ws2022BaseImageUrl: {{ parameters.ws2022BaseImageUrl }}
+      ws23H2BaseImageUrl: {{ parameters.ws23H2BaseImageUrl }}
+      ws2025BaseImageUrl: {{ parameters.ws2025BaseImageUrl }}
