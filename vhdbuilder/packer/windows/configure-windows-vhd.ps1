@@ -271,6 +271,21 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
+    # print powershell version
+    Write-Host "Powershell version: $PSVersionTable.PSVersion"
+
+    # install threadjob if not already installed
+    if (-not (Get-Module -ListAvailable -Name ThreadJob))
+    {
+        Install-Module -Name ThreadJob -Force -Scope CurrentUser
+    }
+    # check if Start-ThreadJob is -ListAvailable
+    if (-not (Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue))
+    {
+        Import-Module -Name ThreadJob
+    }
+
+
     $jobs = foreach ($image in $imagesToPull)
     {
         Start-ThreadJob -ScriptBlock {
