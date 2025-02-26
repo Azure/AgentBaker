@@ -837,24 +837,26 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
-				ValidateTaints(ctx, s)
+				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
 			},
 		},
 	})
 }
 
-func Test_Ubuntu2204_ChronyRestarts_Scriptless(t *testing.T) {
+func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
+		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletFlags["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateTaints(ctx, s, s.Runtime.AKSNodeConfig.KubeletConfig.KubeletFlags["--register-with-taints"])
 			},
 		},
 	})

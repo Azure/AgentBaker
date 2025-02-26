@@ -113,22 +113,16 @@ if [[ "$sas" == "None" ]]; then
  echo "sas token empty after trying both queries. Can't continue"
  exit 1
 fi
-
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-# TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work for Windows
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
-if [[ "${OS_TYPE}" == "Linux" ]]; then
-  export AZCOPY_CONCURRENCY_VALUE="AUTO"
-  azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
-else
-  azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
-fi
+export AZCOPY_CONCURRENCY_VALUE="AUTO"
+azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"
