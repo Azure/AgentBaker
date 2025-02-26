@@ -97,34 +97,46 @@ if ($global:EnableHostsConfigAgent) {
     Stop-Service hosts-config-agent
 }
 
+function Get-HNSManagementIP {
+    $managementIP = ""
+    if ($IsDualStackEnabled) {
+        $managementIP = (Get-HnsNetwork | Where-Object {$_.IPv6 -eq $true}).ManagementIPv6
+    } else {
+        $managementIP = (Get-HnsNetwork | where {$_.Name -eq 'ext'}).ManagementIP
+    }
+    return $managementIP
+}
+
 # Due to a bug in hns there is a race where it picks up the incorrect IPv6 address from the node in some cases.
 # Hns service has to be restarted after the node internal IPv6 address is available when dual-stack is enabled.
 # TODO Remove this once the bug is fixed in hns.
 function Restart-HnsService {
+    $ipType = "IPv4"
+    if ($IsDualStackEnabled) {
+        $ipType = "IPv6"
+    }
+
     do {
         Start-Sleep -Seconds 1
-        $nodeInternalIPv6Address = (Get-NetIPAddress | Where-Object {$_.PrefixOrigin -eq "Dhcp" -and $_.AddressFamily -eq "IPv6"}).IPAddress 
-    } while ($nodeInternalIPv6Address -eq $null)
-    Write-Log "Got node internal IPv6 address: $nodeInternalIPv6Address"
+        $nodeInternalIPAddress = (Get-NetIPAddress | Where-Object {$_.PrefixOrigin -eq "Dhcp" -and $_.AddressFamily -eq $ipType}).IPAddress 
+    } while ($nodeInternalIPAddress -eq $null)
+    Write-Log "Got node internal $ipType address: $nodeInternalIPAddress"
     
-    $hnsManagementIPv6Address = (Get-HnsNetwork | Where-Object {$_.IPv6 -eq $true}).ManagementIPv6
-    Write-Log "Got hns ManagementIPv6: $hnsManagementIPv6Address"
+    $hnsManagementIPAddress = Get-HNSManagementIP
+    Write-Log "Got hns Management for $ipType : $hnsManagementIPAddress"
 
-    if ($hnsManagementIPv6Address -ne $nodeInternalIPv6Address) {
+    if ($hnsManagementIPAddress -ne $nodeInternalIPAddress) {
         Restart-Service hns
         Write-Log "Restarted hns service"
 
-        $hnsManagementIPv6Address = (Get-HnsNetwork | Where-Object {$_.IPv6 -eq $true}).ManagementIPv6
-        Write-Log "Got hns ManagementIPv6: $hnsManagementIPv6Address after restart"
-    }
-    else {
-        Write-Log "Hns network has correct IPv6 address, not restarting"
+        $hnsManagementIPAddress = Get-HNSManagementIP -ipType $ipType
+        Write-Log "Got hns Management for $ipType : $hnsManagementIPAddress after restart"
+    } else {
+        Write-Log "Hns network has correct IP address, not restarting"
     }
 }
 
-if ($IsDualStackEnabled) {
-    Restart-HnsService
-}
+Restart-HnsService
 
 # Perform cleanup. It should run when node reset (node provsion and node restart)
 & "c:\k\cleanupnetwork.ps1" >> $global:LogPath
