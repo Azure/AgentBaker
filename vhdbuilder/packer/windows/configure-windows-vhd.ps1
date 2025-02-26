@@ -66,9 +66,9 @@ function Download-File
             $logURL = $logURL.Split("?")[0]
         }
         if ("$LASTEXITCODE" -eq "23") {
-            throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'. This often means VHD out of space."
+            throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'"
     }
 }
 
