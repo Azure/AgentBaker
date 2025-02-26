@@ -451,6 +451,7 @@ func ValidateAMDGPU(ctx context.Context, s *Scenario) {
 	assert.Contains(s.T, execResult.stdout.String(), "amdgpu", "expected to see amdgpu kernel module managing a PCI device, but did not")
 
 	ensurePod(ctx, s, podEnableAMDGPUResource(s))
+	s.T.Logf("waiting for AMD GPU to be available")
 	waitUntilResourceAvailable(ctx, s, "amd.com/gpu")
 	//ensureJob(ctx, s, jobAMDGPUWorkload(s))
 }

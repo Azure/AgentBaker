@@ -146,8 +146,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
 	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {

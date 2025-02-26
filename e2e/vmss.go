@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -35,14 +37,6 @@ const (
 )
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
-	defer func() {
-		var err error
-		s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
-		require.NoError(s.T, err, "failed to get VM private IP address")
-
-		uploadSSHKey(ctx, s)
-		logSSHInstructions(s)
-	}()
 
 	cluster := s.Runtime.Cluster
 	var nodeBootstrapping *datamodel.NodeBootstrapping
@@ -81,11 +75,15 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
-
 	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
+	var ipErr error
+	s.Runtime.VMPrivateIP, ipErr = getVMPrivateIPAddress(ctx, s)
+	assert.NoError(s.T, ipErr, "failed to get VM private IP address")
+	uploadSSHKey(ctx, s)
+	logSSHInstructions(s)
 	skipTestIfSKUNotAvailableErr(s.T, err)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
@@ -129,14 +127,23 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	}
 
 	var logFiles = map[string]string{}
+	wg := sync.WaitGroup{}
+	lock := sync.Mutex{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execBashCommandOnVM(ctx, s, sourceCmd)
-		if err != nil {
-			s.T.Logf("error executing %s: %s", sourceCmd, err)
-			continue
-		}
-		logFiles[file] = execResult.String()
+		wg.Add(1)
+		go func(file, sourceCmd string) {
+			defer wg.Done()
+			execResult, err := execBashCommandOnVM(ctx, s, sourceCmd)
+			if err != nil {
+				s.T.Logf("error executing %s: %s", sourceCmd, err)
+				return
+			}
+			lock.Lock()
+			logFiles[file] = execResult.String()
+			lock.Unlock()
+		}(file, sourceCmd)
 	}
+	wg.Wait()
 	err := dumpFileMapToDir(s.T, logFiles)
 	require.NoError(s.T, err)
 }
@@ -505,7 +512,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),
-						TypeHandlerVersion:      to.Ptr("2.0"),
+						TypeHandlerVersion:      to.Ptr("2.1"),
 						AutoUpgradeMinorVersion: to.Ptr(true),
 						Settings:                map[string]interface{}{},
 						ProtectedSettings: map[string]interface{}{
