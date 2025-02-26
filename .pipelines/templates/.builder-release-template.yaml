@@ -155,6 +155,7 @@ steps:
     condition: always()
     displayName: Copy BCC Tools Installation Log
     inputs:
+      Overwrite: true
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
