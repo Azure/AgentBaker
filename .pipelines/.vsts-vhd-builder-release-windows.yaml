@@ -72,7 +72,7 @@ parameters:
     type: string
     default:
   - name: ws2025BaseImageUrl
-    displayName: ws2025 base image URL
+    displayName: WS2025 base image URL
     type: string
     default:
 
