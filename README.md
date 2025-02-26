@@ -4,7 +4,7 @@
 
 Agentbaker is a collection of components used to provision Kubernetes nodes in Azure.
 
-Agentbaker has a few pieces
+Agentbaker has a few pieces:
 
 - Packer templates and scripts to build VM images.
 - A set of templates and a public API to render those templates given input config.

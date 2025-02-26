@@ -386,7 +386,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
+		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
 		WINDOWS_IMAGE_PUBLISHER=""

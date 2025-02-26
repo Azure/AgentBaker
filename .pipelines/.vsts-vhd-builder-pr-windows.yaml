@@ -27,6 +27,7 @@ pr:
       - vhdbuilder/packer/init-variables.sh
       - vhdbuilder/packer/windows/
       - parts/common/components.json
+      - parts/windows
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md

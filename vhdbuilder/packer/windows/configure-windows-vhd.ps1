@@ -14,16 +14,19 @@ param(
     [string]
     $customizedDiskSizeParam
 )
+
 if (![string]::IsNullOrEmpty($windowsSKUParam))
 {
     Write-Log "Setting Windows SKU to $windowsSKUParam"
     $env:WindowsSKU = $windowsSKUParam
 }
+
 if (![string]::IsNullOrEmpty($provisioningPhaseParam))
 {
     Write-Log "Setting Provisioning Phase to $provisioningPhaseParam"
     $env:ProvisioningPhase = $provisioningPhaseParam
 }
+
 if (![string]::IsNullOrEmpty($customizedDiskSizeParam))
 {
     Write-Log "Setting Customized Disk Size to $customizedDiskSizeParam"
@@ -61,6 +64,9 @@ function Download-File
         if ($redactUrl)
         {
             $logURL = $logURL.Split("?")[0]
+        }
+        if ("$LASTEXITCODE" -eq "23") {
+            throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'. This often means VHD out of space."
         }
         throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
     }
@@ -657,7 +663,7 @@ function Update-Registry
             if (![string]::IsNullOrEmpty($currentValue))
             {
                 Write-Log "The current value of $keyName is $currentValue"
-                $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
+                $keyValue = ([int]$currentValue.$keyName -bor $keyValue)
             }
             Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
         }

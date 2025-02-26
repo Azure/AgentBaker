@@ -332,6 +332,7 @@ EOF
 
 configureContainerdRegistryHost() {
   MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+  MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
   CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${MCR_REPOSITORY_BASE}/hosts.toml"
   mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
   touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
