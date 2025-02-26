@@ -274,14 +274,17 @@ function Get-ContainerImages
     # install threadjob if not already installed
     if (-not (Get-Module -ListAvailable -Name ThreadJob))
     {
-        Write-Log "Installing ThreadJob module"
-        Install-Module -Name ThreadJob -Force -Scope CurrentUser
-    }
-    # check if Start-ThreadJob is -ListAvailable
-    if (-not (Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue))
-    {
-        Write-Log "Importing ThreadJob module"
-        Import-Module -Name ThreadJob
+        try {
+            $installThreadJob = {
+                Install-Module -Name ThreadJob -Force -AllowClobber -Scope CurrentUser
+            }
+            $job = Start-Job -ScriptBlock $installThreadJob
+            $result = Receive-Job -Job $job -Wait -AutoRemoveJob -ErrorAction Stop
+            Write-Log "ThreadJob module installed successfully."
+        } catch {
+            Write-Error "Failed to install ThreadJob module. Error: $_"
+            exit 1
+        }
     }
 
 
