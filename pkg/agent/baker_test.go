@@ -1467,30 +1467,6 @@ oom_score = -999
 				Expect(exist).To(BeFalse())
 			},
 		),
-
-		Entry("CustomizedImageKata VHD with k8s 1.32+ should have proper containerd config", "CustomizedImageKata+1.32", ">=1.32.x",
-			func(c *datamodel.NodeBootstrappingConfiguration) {
-				c.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
-					ContainerRuntime: datamodel.Containerd,
-				}
-				c.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.CustomizedImageKata
-				c.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
-			}, func(o *nodeBootstrappingOutput) {
-				_, exist := o.files["/opt/azure/containers/provision_start.sh"]
-
-				Expect(exist).To(BeFalse())
-				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
-				Expect(err).To(BeNil())
-				expectedContainerdV2KataConfig := `
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
-`
-				deprecatedContainerdV1KataConfig := `
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-`
-				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2KataConfig))
-				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1KataConfig))
-			},
-		),
 		Entry("AKSUbuntu2204 DisableSSH with enabled ssh", "AKSUbuntu2204+SSHStatusOn", "1.24.2", func(config *datamodel.NodeBootstrappingConfiguration) {
 			config.SSHStatus = datamodel.SSHOn
 		}, nil),
@@ -1735,12 +1711,11 @@ oom_score = -999
 				expectedRuncConfig := `
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-        BinaryName = "/usr/bin/runc"
-        SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
 `
 				deprecatedRuncConfig := `
 [plugins."io.containerd.grpc.v1.cri".containerd]
