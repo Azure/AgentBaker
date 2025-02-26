@@ -150,7 +150,7 @@ stages:
         steps:
           - bash: |
               # For reasons I don't understand, setting this in the "env" section below doesn't work.
-              export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)"
+              export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
       
               make -f packer.mk backfill-cleanup
             enabled: true
