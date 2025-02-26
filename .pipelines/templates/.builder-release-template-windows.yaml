@@ -58,13 +58,14 @@ steps:
 
   # We create the variable dry run and the update it, depending on the pipeline and branch type.
   - bash: |
-      echo '##vso[task.setvariable variable=DRY_RUN]${{ parameters.dryrun }}'
+      export DRY_RUN=${{ parameters.dryrun }}
+      echo '##vso[task.setvariable variable=DRY_RUN]${DRY_RUN}'
       echo "Checking SourceBranch: $(Build.SourceBranch)"
       if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
         if [[ "${DRY_RUN}" = "True" ]]; then
           echo "This is a test build triggered from the release pipeline"
         else
-          echo "This is a release build triggered from the release pipeline"
+          echo "This is a release build triggered from the release pipeline. DRY_RUN=${DRY_RUN}"
 
           echo "$(Build.SourceBranch)" | grep -E '^refs/heads/windows/v[[:digit:]]{8}$'
           if (( $? != 0 )); then
@@ -132,6 +133,7 @@ steps:
 
   - script: |
       echo "Sub ID: ${SUBSCRIPTION_ID}"
+      echo "Build sub ID: $(AZURE_BUILD_SUBSCRIPTION_ID)"
       make -f packer.mk run-packer-windows
     displayName: Building windows VHD
     env:
