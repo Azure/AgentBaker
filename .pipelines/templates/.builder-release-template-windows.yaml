@@ -130,8 +130,25 @@ steps:
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
   - pwsh: |
-      # Install the ThreadJob module
-      Install-Module -Name ThreadJob -Scope CurrentUser -Force
+      # Check if the ThreadJob module is available
+      if (-not (Get-Module -ListAvailable -Name ThreadJob)) {
+        # Install the ThreadJob module if not available
+        Install-Module -Name ThreadJob -Scope CurrentUser -Force
+      }
+      # Verify that the ThreadJob module is installed
+      if (Get-Module -ListAvailable -Name ThreadJob) {
+        Write-Output "ThreadJob module is installed."
+      } else {
+        Write-Error "ThreadJob module installation failed."
+        exit 1
+      }
+      # Check if the Start-ThreadJob command is available
+      if (Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue) {
+        Write-Output "Start-ThreadJob command is available."
+      } else {
+        Write-Error "Start-ThreadJob command is not available."
+        exit 1
+      }
       # Print the PowerShell version to verify that PowerShell Core is being used
       $PSVersionTable.PSVersion
       
