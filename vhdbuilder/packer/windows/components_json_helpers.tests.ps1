@@ -761,6 +761,13 @@ Describe 'Tests of components.json ' {
         $components | Should -Not -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
     }
 
+    it 'has the no version of ciprod for win 2025' {
+        $windowsSku = "2025"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Not -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
     It 'has the latest 2 versions of windows scripts and cgmaplugin' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -833,7 +840,7 @@ Describe 'Tests of components.json ' {
     }
 
 
-    It 'has specific WS23H2-gen2 containers' {
+    It 'has specific WS23H2 containers' {
         $windowsSku = "23H2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
@@ -858,7 +865,7 @@ Describe 'Tests of components.json ' {
     }
 
     It 'has specific WS2025 containers' {
-        $windowsSku = "2025-containerd"
+        $windowsSku = "2025"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
@@ -870,7 +877,7 @@ Describe 'Tests of components.json ' {
     }
 
     It 'has specific WS2025-gen2 containers' {
-        $windowsSku = "2025-containerd-gen2"
+        $windowsSku = "2025-gen2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
@@ -931,7 +938,7 @@ Describe 'Tests of components.json ' {
     }
 
     It 'has containerd versions for 2025' {
-        $windowsSku = "2025-containerd"
+        $windowsSku = "2025"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -941,7 +948,7 @@ Describe 'Tests of components.json ' {
     }
 
     It 'has containerd versions for 2025-gen2' {
-        $windowsSku = "2025-containerd-gen2"
+        $windowsSku = "2025-gen2"
 
         $packages = GetPackagesFromComponentsJson $componentsJson
 
