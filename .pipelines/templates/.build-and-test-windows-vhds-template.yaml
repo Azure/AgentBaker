@@ -149,19 +149,16 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              m="windowsVhdMode"
-              echo "Set build mode to $m" && \
-              docker run --rm \
-              -v ${PWD}:/go/src/github.com/Azure/AgentBaker \
-              -w /go/src/github.com/Azure/AgentBaker \
-              -e SUBSCRIPTION_ID="${AZURE_BUILD_SUBSCRIPTION_ID}" \
-              -e PROD_SUBSCRIPTION_ID=${AZURE_PROD_SUBSCRIPTION_ID} \
-              -e AZURE_RESOURCE_GROUP_NAME=${AZURE_BUILD_RESOURCE_GROUP_NAME} \
-              -e MODE=$m \
-              -e DRY_RUN=${DRY_RUN} \
-              -e SIG_GALLERY_NAME=${SIG_GALLERY_NAME} \
-              -e OS_TYPE="Windows" \
-              ${AZURE_CONTAINER_IMAGE} make -f packer.mk backfill-cleanup
+              make -f packer.mk backfill-cleanup
             enabled: true
             displayName: Backfill Clean Up Older Resources
             condition: eq(variables.ENABLE_BACKFILL_CLEANUP, 'True')
+            env:
+              MODE: windowsVhdMode
+              SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+              PROD_SUBSCRIPTION_ID: $(AZURE_PROD_SUBSCRIPTION_ID)
+              AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+              DRY_RUN:  ${{ parameters.dryrun }}
+              SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
+              OS_TYPE: Windows
+
