@@ -132,7 +132,7 @@ steps:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
 
   - script: |
-       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
       make -f packer.mk run-packer-windows
     displayName: Building windows VHD
@@ -168,7 +168,7 @@ steps:
   
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
-       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
       export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
@@ -229,7 +229,7 @@ steps:
   # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
   # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
   - bash: |
-       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
       export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
@@ -259,7 +259,7 @@ steps:
   # IMAGE_NAME:          Managed image created by packer: ManagedImageName in log. No longer used.
   #                      Can be cleaned up in this step.
   - bash: |
-       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
       export PKR_RG_NAME="$(cat packer-output | grep -a "ResourceGroupName" | cut -d "'" -f 2 | head -1)" 
@@ -290,7 +290,7 @@ steps:
   # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
   # Perform this step only if we want to publish the VHD: Gen 1 or Gen 2 and the built sig is for production.
   - bash: |
-       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
       if [[ "${SIG_FOR_PRODUCTION}" == "True" ]]; then
