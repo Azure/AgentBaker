@@ -173,6 +173,7 @@ function Test-FilesToCacheOnVHD
                     # It's too slow to download the file from the China Cloud. So we only compare the file size.
                     $localFileSize = (Get-Item $dest).length
 
+                    Write-Output "Getting the size of the file: $mcURL"
                     $webRequest = [System.Net.HttpWebRequest]::Create($mcURL)
                     # Set the 'Range' header using the AddRange method
                     $webRequest.AddRange(0, 1023)

@@ -199,6 +199,7 @@ function Test-CompareSingleDir {
         if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
             $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://mirror.azk8s.cn/")
 
+            Write-Output "Getting the size of the file: $mcURL"
             $webRequest = [System.Net.HttpWebRequest]::Create($mcURL)
             # Set the 'Range' header using the AddRange method
             $webRequest.AddRange(0, 1023)
