@@ -184,20 +184,20 @@ var (
 		Gallery: windowsGallery,
 	}
 
-	VHDWindows2025Containerd = &Image{
-		Name:    "windows-2025-containerd",
-		OS:      "windows",
+	VHDWindows2025 = &Image{
+		Name:    "windows-2025",
+		OS:      OSWindows,
 		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2025Containerd,
+		Distro:  datamodel.AKSWindows2025,
 		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
-	VHDWindows2025ContainerdGen2 = &Image{
-		Name:    "windows-2025-containerd-gen2",
+	VHDWindows2025Gen2 = &Image{
+		Name:    "windows-2025-gen2",
 		OS:      OSWindows,
 		Arch:    "amd64",
-		Distro:  datamodel.AKSWindows2025ContainerdGen2,
+		Distro:  datamodel.AKSWindows2025Gen2,
 		Latest:  true,
 		Gallery: windowsGallery,
 	}

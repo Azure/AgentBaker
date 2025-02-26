@@ -581,10 +581,6 @@ function Test-RegistryAdded
         Validate-WindowsFixInFeatureManagement -Name 340036751
         Validate-WindowsFixInFeatureManagement -Name 2020509326
     }
-
-    if ($env:WindowsSKU -Like '2025*')
-    {
-    }
 }
 
 function Test-DefenderSignature

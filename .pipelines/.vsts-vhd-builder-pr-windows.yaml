@@ -61,4 +61,4 @@ stages:
       overrideBranch: master
       useOverrides: False
       build2025: False
-      build2025gen2: False
+      build2025gen2: True

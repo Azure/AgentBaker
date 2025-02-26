@@ -41,7 +41,7 @@ steps:
     go install .
     cd ../../..
     echo "go run autonotes to shuffle release note files from Azure Pipelines into the AgentBaker repo structure"
-    go run vhdbuilder/release-notes/autonotes/main.go --build $BUILD_ID --include 2019-containerd,2022-containerd,2022-containerd-gen2,23H2,23H2-gen2,2025-containerd,2025-containerd-gen2
+    go run vhdbuilder/release-notes/autonotes/main.go --build $BUILD_ID --include 2019-containerd,2022-containerd,2022-containerd-gen2,23H2,23H2-gen2,2025,2025-gen2
     echo "run bash to create pull request for the shuffled release note files"
     /bin/bash vhdbuilder/scripts/windows/automate_release_notes.sh "$GITHUB_TOKEN" "$BUILD_ID"
   env:

@@ -96,15 +96,19 @@ function GetPackagesFromComponentsJson
             {
                 "2019-containerd" {
                     $part = $downloadUrls.ws2019
+                    break
                 }
                 "2022-containerd*" {
                     $part = $downloadUrls.ws2022
+                    break
                 }
                 "23H2*" {
                     $part = $downloadUrls.ws32h2
+                    break
                 }
-                "2025-containerd*" {
+                "2025*" {
                     $part = $downloadUrls.ws2025
+                    break
                 }
             }
 

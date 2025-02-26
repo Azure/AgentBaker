@@ -150,9 +150,9 @@ stages:
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2025_v1
-      artifactName: 2025-containerd-gen1
-      imageName: windows-2025-containerd
-      windowsSku: 2025-containerd
+      artifactName: 2025
+      imageName: windows-2025
+      windowsSku: 2025
       hyperVGeneration: V1
       architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}
@@ -170,9 +170,9 @@ stages:
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2025_v2
-      artifactName: 2025-containerd-gen2
-      imageName: windows-2025-containerd-gen2
-      windowsSku: 2025-containerd-gen2
+      artifactName: 2025-gen2
+      imageName: windows-2025-gen2
+      windowsSku: 2025-gen2
       hyperVGeneration: V2
       architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}
@@ -181,7 +181,7 @@ stages:
       dryrun: ${{ parameters.dryrun }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
-      windowsBaseImageUrl: $(WINDOWS_2025_BASE_IMAGE_URL)
+      windowsBaseImageUrl: $(WINDOWS_2025_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}

@@ -49,15 +49,17 @@
       "base_image_version": "25398.1425.250210",
       "patches_to_apply": []
     },
-    "2025-containerd": {
+    "2025": {
+      "os_disk_size": "45",
       "base_image_sku": "2025-datacenter-core",
-      "windows_image_name": "windows-2025-containerd",
+      "windows_image_name": "windows-2025",
       "base_image_version": "26100.3194.250210",
       "patches_to_apply": []
     },
-    "2025-containerd-gen2": {
+    "2025-gen2": {
+      "os_disk_size": "45",
       "base_image_sku": "2025-datacenter-core-g2",
-      "windows_image_name": "windows-2025-containerd",
+      "windows_image_name": "windows-2025",
       "base_image_version": "26100.3194.250210",
       "patches_to_apply": []
     }
