@@ -149,7 +149,7 @@ stages:
         timeoutInMinutes: 180
         steps:
           - bash: |
-              # For reasons I don't understand, setting this in the "env" section below doesn't work.
+              # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
               export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
       
               make -f packer.mk backfill-cleanup
