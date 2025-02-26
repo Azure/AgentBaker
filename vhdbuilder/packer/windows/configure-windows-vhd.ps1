@@ -271,17 +271,16 @@ function Get-ContainerImages
         Write-Output "* $image"
     }
 
-    # print powershell version
-    Write-Host "Powershell version: $PSVersionTable.PSVersion"
-
     # install threadjob if not already installed
     if (-not (Get-Module -ListAvailable -Name ThreadJob))
     {
+        Write-Log "Installing ThreadJob module"
         Install-Module -Name ThreadJob -Force -Scope CurrentUser
     }
     # check if Start-ThreadJob is -ListAvailable
     if (-not (Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue))
     {
+        Write-Log "Importing ThreadJob module"
         Import-Module -Name ThreadJob
     }
 
@@ -308,6 +307,9 @@ function Get-ContainerImages
                 Write-Host "Downloading image $image to $tmpDest"
                 Download-FileWithAzCopy -URL $url -Dest $tmpDest
 
+                # stdout to the console
+
+
                 Write-Host "Loading image $image from $tmpDest"
                 try {
                     & ctr -n k8s.io images import $tmpDest
@@ -328,11 +330,31 @@ function Get-ContainerImages
                     Write-Host "Error: $_"
                 }
             }
-        } -ArgumentList $image -ThrottleLimit 5
+        } -ArgumentList $image -ThrottleLimit 10
     }
 
     # Wait for all threads to complete
-    $result = Receive-Job $jobs -Wait -AutoRemoveJob
+    $result = Receive-Job -Wait -AutoRemoveJob
+
+    # do until all jobs are completed
+    while ($jobs | Where-Object { $_.State -eq "Running" })
+    {
+        #check the status of the jobs
+        $result | ForEach-Object {
+        if ($_.State -eq "Failed")
+        {
+            Write-Log "Failed to pull image $($_.Arguments[0])"
+            Write-Log "Error: $($_.Error)"
+        }
+        if ($_.State -eq "Completed")
+        {
+            Write-Log "Completed pulling image $($_.Arguments[0])"
+        }
+        Write-Log "image $($_.Arguments[0]) state: $($_.State)"
+    }
+        Start-Sleep -Seconds 30
+    }
+
     $result | Format-Table
 
     # before stopping containerd, let's echo the cached images and their sizes.
