@@ -1147,6 +1147,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "Ubuntu 2404 CVM VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404CVMGen2,
+			},
+			expected: false,
+		},
 	}
 
 	for _, c := range cases {
