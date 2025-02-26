@@ -36,19 +36,19 @@ type Configuration struct {
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableAKSNodeControllerTest            bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
-	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
+	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"MarinerAKSSig"`
 	GalleryNameWindows                     string        `env:"GALLERY_NAME_WINDOWS" envDefault:"AKSWindows"`
-	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
+	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"MarinerAKSTest"`
 	GalleryResourceGroupNameWindows        string        `env:"GALLERY_RESOURCE_GROUP_WINDOWS" envDefault:"AKS-Windows"`
-	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
+	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"035db282-f1c8-4ce7-b78f-2a7265d5398c"`
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID_WINDOWS" envDefault:"4be8920b-2978-43d7-ab14-04d8549c1d05"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
-	KeepVMSS                               bool          `env:"KEEP_VMSS"`
-	Location                               string        `env:"E2E_LOCATION" envDefault:"westus3"`
-	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
-	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
+	KeepVMSS                               bool          `env:"KEEP_VMSS" envDefault:"true"` 
+	Location                               string        `env:"E2E_LOCATION" envDefault:"southcentralus"`
+	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:""`
+	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:""`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
-	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
+	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"035db282-f1c8-4ce7-b78f-2a7265d5398c"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`

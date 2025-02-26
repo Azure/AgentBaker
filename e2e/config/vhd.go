@@ -95,6 +95,16 @@ var (
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
+	VHDAzureLinuxV3Gen2 = &Image{
+		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
+		Name:    "AzureLinuxV3gen2",
+		OS:      OSAzureLinux,
+		Arch:    "amd64",
+		Version: "1.1740599337.22416",
+		Distro:  datamodel.AKSAzureLinuxV3Gen2,
+		Gallery: linuxGallery,
+	}
+	
 	VHDUbuntu2204Gen2ContainerdPrivateKubePkg = &Image{
 		// 2204Gen2 is a special image definition holding historical VHDs used by agentbaker e2e's.
 		Name:    "2204Gen2",
