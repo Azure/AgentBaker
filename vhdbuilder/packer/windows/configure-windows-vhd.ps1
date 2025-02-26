@@ -14,16 +14,19 @@ param(
     [string]
     $customizedDiskSizeParam
 )
+
 if (![string]::IsNullOrEmpty($windowsSKUParam))
 {
     Write-Log "Setting Windows SKU to $windowsSKUParam"
     $env:WindowsSKU = $windowsSKUParam
 }
+
 if (![string]::IsNullOrEmpty($provisioningPhaseParam))
 {
     Write-Log "Setting Provisioning Phase to $provisioningPhaseParam"
     $env:ProvisioningPhase = $provisioningPhaseParam
 }
+
 if (![string]::IsNullOrEmpty($customizedDiskSizeParam))
 {
     Write-Log "Setting Customized Disk Size to $customizedDiskSizeParam"
@@ -45,6 +48,27 @@ function Write-Log($Message)
 
 . c:/k/windows-vhd-configuration.ps1
 
+
+function Log-VHDFreeSize
+{
+    Write-Log "Get Disk info"
+    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach ($disk in $disksInfo)
+    {
+        if ($disk.DeviceID -eq "C:")
+        {
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
+            {
+                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
+            }
+            break
+        }
+
+        # the break above means we'll only print this where there is no error.
+        Write-Log "Disk $( $disk.DeviceID ) has free space $( $disk.FreeSpace )"
+    }
+}
+
 function Download-File
 {
     param (
@@ -62,7 +86,12 @@ function Download-File
         {
             $logURL = $logURL.Split("?")[0]
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        Log-VHDFreeSize
+        curl.exe --version
+        if ("$LASTEXITCODE" -eq "23") {
+            throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
+        }
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'"
     }
 }
 
@@ -657,7 +686,7 @@ function Update-Registry
             if (![string]::IsNullOrEmpty($currentValue))
             {
                 Write-Log "The current value of $keyName is $currentValue"
-                $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
+                $keyValue = ([int]$currentValue.$keyName -bor $keyValue)
             }
             Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
         }
@@ -727,24 +756,6 @@ function Get-SystemDriveDiskInfo
         if ($disk.DeviceID -eq "C:")
         {
             Write-Log "Disk C: Free space: $( $disk.FreeSpace ), Total size: $( $disk.Size )"
-        }
-    }
-}
-
-function Validate-VHDFreeSize
-{
-    Clear-TempFolder
-    Write-Log "Get Disk info"
-    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
-    foreach ($disk in $disksInfo)
-    {
-        if ($disk.DeviceID -eq "C:")
-        {
-            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
-            {
-                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
-            }
-            break
         }
     }
 }
@@ -884,7 +895,8 @@ try
             Register-ExpandVolumeTask
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
-            Validate-VHDFreeSize
+            Clear-TempFolder
+            Log-VHDFreeSize
             Test-AzureExtensions
         }
         default {
