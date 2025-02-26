@@ -129,8 +129,13 @@ steps:
     displayName: Set pipeline variables
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
+  - pwsh: |
+      # Print the PowerShell version to verify that PowerShell Core is being used
+      $PSVersionTable.PSVersion
+    displayName: Verify PowerShell Version
 
-  - pwsh: make -f packer.mk run-packer-windows
+  - pwsh: |
+      make -f packer.mk run-packer-windows
     displayName: Building windows VHD
     env:
       MODE: $(MODE)
