@@ -197,9 +197,14 @@ function Test-CompareSingleDir {
         }
 
         if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
-            $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+            $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://mirror.azk8s.cn/")
 
-            $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+            $webRequest = [System.Net.HttpWebRequest]::Create($mcURL)
+            # Set the 'Range' header using the AddRange method
+            $webRequest.AddRange(0, 1023)
+            # Get the response
+            $response = $webRequest.GetResponse()
+            $mooncakeFileSize = $response.Headers["Content-Range"] -split "/" | Select-Object -Last 1
 
             if ($globalFileSize -ne $mooncakeFileSize) {
                 $MisMatchFiles[$URL]=$mcURL

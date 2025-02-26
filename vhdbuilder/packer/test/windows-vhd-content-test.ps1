@@ -167,12 +167,18 @@ function Test-FilesToCacheOnVHD
 
             if ( $URL.StartsWith("https://acs-mirror.azureedge.net/"))
             {
-                $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+                $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://mirror.azk8s.cn/")
                 try
                 {
                     # It's too slow to download the file from the China Cloud. So we only compare the file size.
                     $localFileSize = (Get-Item $dest).length
-                    $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+
+                    $webRequest = [System.Net.HttpWebRequest]::Create($mcURL)
+                    # Set the 'Range' header using the AddRange method
+                    $webRequest.AddRange(0, 1023)
+                    # Get the response
+                    $response = $webRequest.GetResponse()
+                    $remoteFileSize = $response.Headers["Content-Range"] -split "/" | Select-Object -Last 1
                     if ($localFileSize -ne $remoteFileSize)
                     {
                         $isIgnore = $False
