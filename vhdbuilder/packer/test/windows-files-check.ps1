@@ -203,9 +203,11 @@ function Test-CompareSingleDir {
             $webRequest = [System.Net.HttpWebRequest]::Create($mcURL)
             # Set the 'Range' header using the AddRange method
             $webRequest.AddRange(0, 1023)
-            # Get the response
-            $response = $webRequest.GetResponse()
-            $mooncakeFileSize = $response.Headers["Content-Range"] -split "/" | Select-Object -Last 1
+            Retry-Command -ScriptBlock {
+                # Get the response
+                $global:response = $webRequest.GetResponse()
+            } -ErrorMessage "Failed to get the size ofthe file: $mcURL"
+            $mooncakeFileSize = $global:response.Headers["Content-Range"] -split "/" | Select-Object -Last 1
 
             if ($globalFileSize -ne $mooncakeFileSize) {
                 $MisMatchFiles[$URL]=$mcURL
