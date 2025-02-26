@@ -403,7 +403,7 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 	}
 }
 
-func ValidateWindowsVersion(ctx context.Context, s *Scenario, windowsVersion string) {
+func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario, windowsVersion string) {
 	steps := []string{
 		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
 	}
@@ -420,6 +420,19 @@ func ValidateWindowsVersion(ctx context.Context, s *Scenario, windowsVersion str
 	s.T.Logf("Winddows version returned from VM  %s", podExecResultStdout)
 
 	require.Contains(s.T, podExecResultStdout, osMajorVersion)
+}
+
+func ValidateWindowsVersionDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+	steps := []string{
+		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name DisplayVersion).DisplayVersion",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := podExecResult.stdout.String()
+
+	s.T.Logf("Winddows version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+
+	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
 
 func getWindowsSettingsJson() []byte {
