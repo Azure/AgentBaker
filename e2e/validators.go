@@ -417,7 +417,7 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
 	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
-	s.T.Logf("Winddows version returned from VM  %s", podExecResultStdout)
+	s.T.Logf("Windows version returned from VM  %s", podExecResultStdout)
 
 	require.Contains(s.T, podExecResultStdout, osMajorVersion)
 }
