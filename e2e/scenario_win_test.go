@@ -18,11 +18,12 @@ func Test_Windows2019Containerd(t *testing.T) {
 			VMConfigMutator:        func(vmss *armcompute.VirtualMachineScaleSet) {},
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2019 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "???")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
-				ValidateWindowsVersionDisplayVersion(ctx, s, "2019")
 			},
 		},
 	})
@@ -38,12 +39,12 @@ func Test_Windows2022Containerd(t *testing.T) {
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "23H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
-				ValidateWindowsVersionDisplayVersion(ctx, s, "2022")
-
 			},
 		},
 	})
@@ -59,11 +60,12 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "23H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
-				ValidateWindowsVersionDisplayVersion(ctx, s, "2022")
 			},
 		},
 	})
@@ -79,11 +81,12 @@ func Test_Windows23H2(t *testing.T) {
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "23H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
-				ValidateWindowsVersionDisplayVersion(ctx, s, "23H2")
 			},
 		},
 	})
@@ -99,11 +102,12 @@ func Test_Windows23H2Gen2(t *testing.T) {
 			BootstrapConfigMutator: func(configuration *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
+				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+				ValidateWindowsDisplayVersion(ctx, s, "23H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
-				ValidateWindowsVersionDisplayVersion(ctx, s, "23H2")
 			},
 		},
 	})

@@ -414,7 +414,7 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	osMajorVersion := versionSliced[0]
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-	podExecResultStdout := podExecResult.stdout.String()
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
 	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
 	s.T.Logf("Winddows version returned from VM  %s", podExecResultStdout)
@@ -422,15 +422,28 @@ func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario,
 	require.Contains(s.T, podExecResultStdout, osMajorVersion)
 }
 
-func ValidateWindowsVersionDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) {
 	steps := []string{
-		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name DisplayVersion).DisplayVersion",
+		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").ProductName",
 	}
 
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
-	podExecResultStdout := podExecResult.stdout.String()
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
 
-	s.T.Logf("Winddows version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+	s.T.Logf("Winddows product name from VM  %s. Expected product name %s", podExecResultStdout, productName)
+
+	require.Contains(s.T, podExecResultStdout, productName)
+}
+
+func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+	steps := []string{
+		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").DisplayVersion",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Winddows display version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
 
 	require.Contains(s.T, podExecResultStdout, displayVersion)
 }
