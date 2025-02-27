@@ -121,25 +121,36 @@ function Download-FileWithAzCopy
     $env:AZCOPY_JOB_PLAN_LOCATION = "$global:aksTempDir\azcopy"
     $env:AZCOPY_LOG_LOCATION = "$global:aksTempDir\azcopy"
 
+    # create log directory
+    New-Item -ItemType Directory -Path $env:AZCOPY_LOG_LOCATION -Force | Out-Null
+
     mkdir -Force $env:AZCOPY_LOG_LOCATION
     if (Test-Path -Path "$env:AZCOPY_LOG_LOCATION\*.log")
     {
         rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
     }
 
-    Write-Log "Logging in to AzCopy using $env:user_assigned_managed_identities"
+    Write-Log "Logging in to AzCopy"
+    Write-Log "AZURE_MSI_RESOURCE_STRING: $env:AZURE_MSI_RESOURCE_STRING"
+
     $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
-    $env:AZCOPY_MSI_RESOURCE_STRING=$env:user_assigned_managed_identities
+    $env:AZCOPY_MSI_RESOURCE_STRING=$env:AZURE_MSI_RESOURCE_STRING
 
     # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
     # .\azcopy.exe login --login-type=MSI
-
 
     Write-Log "Copying $URL to $Dest"
     .\azcopy.exe copy "$URL" "$Dest"
 
     Write-Log "--- START AzCopy Log"
-    Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
+    Get-ChildItem "$env:AZCOPY_LOG_LOCATION\*.log" | ForEach-Object {
+        Write-Log "AzCopy log file: $_"
+        Get-Content $_.FullName
+        $content = Get-Content $_.FullName
+        Write-Host $content
+        Write-Log $content
+    }
+    # Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
     Write-Log "--- END AzCopy Log"
     popd
 }

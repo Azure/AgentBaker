@@ -167,9 +167,16 @@ filter RemoveNulls { $_ -replace '\0', '' }
 
 filter Timestamp { "$(Get-Date -Format o): $_" }
 
-function Write-Log($message) {
-    $msg = $message | Timestamp
-    Write-Output $msg
+function Write-Log {
+    param (
+        [Parameter(ValueFromPipeline = $true)]
+        [string]$message
+    )
+
+    process {
+        $msg = $message | Timestamp
+        Write-Output $msg
+    }
 }
 
 function DownloadFileOverHttp {
