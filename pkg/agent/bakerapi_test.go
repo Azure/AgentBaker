@@ -332,6 +332,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSAzureLinuxV3Arm64Gen2,
 				datamodel.AKSAzureLinuxV2Gen2TL,
 				datamodel.AKSAzureLinuxV3Arm64Gen2FIPS,
+				datamodel.AKSAzureLinuxV3CVMGen2,
 			}
 
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)
