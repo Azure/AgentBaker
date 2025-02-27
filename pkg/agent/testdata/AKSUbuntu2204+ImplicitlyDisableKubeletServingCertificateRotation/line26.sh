@@ -26,7 +26,7 @@ KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeRead
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_FILE_NAME=$(date +%s%3N)
-EXECUTION_DURATION=$(echo $(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s))))
+EXECUTION_DURATION=$(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s)))
 
 JSON_STRING=$( jq -n \
                   --arg ec "$EXIT_CODE" \

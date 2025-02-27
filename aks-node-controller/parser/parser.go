@@ -138,7 +138,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"KUBELET_CLIENT_CONTENT":                         config.GetKubeletConfig().GetKubeletClientKey(),
 		"KUBELET_CLIENT_CERT_CONTENT":                    config.GetKubeletConfig().GetKubeletClientCertContent(),
 		"KUBELET_CONFIG_FILE_ENABLED":                    fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
-		"KUBELET_CONFIG_FILE_CONTENT":                    getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
+		"KUBELET_CONFIG_FILE_CONTENT":                    config.GetKubeletConfig().GetKubeletConfigFileContent(),
 		"SWAP_FILE_SIZE_MB":                              fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
 		"GPU_DRIVER_VERSION":                             getGpuDriverVersion(config.GetVmSize()),
 		"GPU_IMAGE_SHA":                                  getGpuImageSha(config.GetVmSize()),
