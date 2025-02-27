@@ -18,12 +18,7 @@ write_files:
     H4sIAAAAAAAC/+SWb2/bNhDG3+tTXFUitYsyilNkL2K4qwsrW4AgGdIWGZCkAi2dJMIyqZJUnCDJdx9Iy/L/xV1fDMMCBJbIhyfewx95fP0qGHIRDJnOPQ/jXIL/WVYq5iKDWGOUY1Gi0lHCtVFyX+eQSgVfh5Uwle95HivNmKnRVf+Mi+q+n6EwrTY8egAALhxpJcxg+x1p5VIbwcbYfgfaMGX660PBJx3fjZ0wbqJUqoiVJipkPNKuWaFRD/E4iXgapYwXlULoHB7AERweASsNtRGBdGDCChuVuahPT3DjhvMUrq/dR6DXAz+XReLD7W0XTI7CKdy877kBEl5eRr9fnA2iq/7Z6fnXP/u/hedfpnkVK3Eq8WKky/As7H8Ot0RM+QuGoUi22vXseetuNYswyXmBkFYaFQR3TAUFHwZJOcoCq5s3sdIEBddGL7THLM7R9TAV5/wO684PQYJ3gaiKAg4/7HW6kMh5yjaHN1eMG4uQhUVhgUwjyNSuELjpvWn0ukAs4b17T6RA79kyFWVooqq0TjSZ2LXnqHudA/dqVVNFJCtTVqYXmHFpZ0szNHTatS8rM3VYKuDABZCWxu/QAVKHay/Nfgt207UspTIwCD+d9s+jk8uL8y/h+aAnpODCoGKx4XfYqK3DQGksRcozSyllQGkqVYyuMcG00dZTBpoCfQAutGFF0fS+gtZMMM3JeQ5PYBCBrLkAT5ApLIGG4H9rXV+Ft8f7b9tP31rXId5eX6rp/4V0v/tv28Rvw95evT/sX8zMprB7ezBUyEbzzbRd3HTbfQKEA8XvjeGwuknqta2UgM7c7UJjzcZR01hvE4dJw1p4j3FlMIEVlwgHw8eotx0nc85qx9dAI53udKCbR48cdl1EWZkeed8FnfPU+bL88J/BrU4bqIRBOcqOjy9Kw6XQx8c9f3GsO9ooFZLWI6jCWI7HKBJtgSWPH5+34PFz67+kmLJA5uux1Lt8ZPwgMI0R23O88cnHG79hqvsyVGWlMvy/IFXnAGT2MLPWubAjYf8+SbvhUuf0T6Cwt6ioKjPFkhkbS1XN6hY1GyubFdBaUNe3HdjYwsXuTOzKw/Zq1tzPdC4n9sbkrdS3lzgROPFhMX37hdVquMG/n6qJTYnbFHgd1r+TezuSvMTwWiV0lNaMbiZ0yaKFOriRzXqFBjj8g8UjluGJkuMTXswPr0H4KTo5PQt7pPPDd3N7Nf/l4GBOxYMFY3biksdZ7GeglBWFnNBEToSbuV64spNfgQqEg/Ur9pJXKfeevdfhxYn3VwAAAP//q0AABNgMAAA=
 
 
-- path: /opt/azure/containers/provision_start.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    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
+
 
 - path: /opt/azure/containers/provision.sh
   permissions: "0744"
@@ -190,13 +185,6 @@ write_files:
          "max-size": "50m",
          "max-file": "5"
       }
-      ,"default-runtime": "nvidia",
-      "runtimes": {
-         "nvidia": {
-             "path": "/usr/bin/nvidia-container-runtime",
-             "runtimeArgs": []
-        }
-      }
     }
 
 - path: /etc/systemd/system/containerd.service.d/exec_start.conf
@@ -267,7 +255,7 @@ write_files:
   permissions: "0644"
   owner: root
   content: |
-    KUBELET_FLAGS=--address=0.0.0.0 --anonymous-auth=false --authentication-token-webhook=true --authorization-mode=Webhook --azure-container-registry-config=/etc/kubernetes/azure.json --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --container-log-max-size=50M --enforce-node-allocatable=pods --event-qps=0 --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5% --feature-gates=DynamicKubeletConfig=false,PodPriority=true,RotateKubeletServerCertificate=true,a=false,x=false --image-gc-high-threshold=85 --image-gc-low-threshold=80 --kube-reserved=cpu=100m,memory=1638Mi --max-pods=110 --node-status-update-frequency=10s --pod-manifest-path=/etc/kubernetes/manifests --pod-max-pids=-1 --protect-kernel-defaults=true --read-only-port=10255 --resolv-conf=/etc/resolv.conf --rotate-certificates=true --streaming-connection-idle-timeout=4h0m0s --system-reserved=cpu=2,memory=1Gi --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256 --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key 
+    KUBELET_FLAGS=--address=0.0.0.0 --anonymous-auth=false --authentication-token-webhook=true --authorization-mode=Webhook --azure-container-registry-config=/etc/kubernetes/azure.json --cgroups-per-qos=true --client-ca-file=/etc/kubernetes/certs/ca.crt --cloud-config=/etc/kubernetes/azure.json --cloud-provider=azure --cluster-dns=10.0.0.10 --cluster-domain=cluster.local --container-log-max-size=50M --enforce-node-allocatable=pods --event-qps=0 --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5% --feature-gates=PodPriority=true,RotateKubeletServerCertificate=true,a=false,x=false --image-gc-high-threshold=85 --image-gc-low-threshold=80 --kube-reserved=cpu=100m,memory=1638Mi --max-pods=110 --node-status-update-frequency=10s --pod-manifest-path=/etc/kubernetes/manifests --pod-max-pids=-1 --protect-kernel-defaults=true --read-only-port=10255 --resolv-conf=/etc/resolv.conf --rotate-certificates=true --streaming-connection-idle-timeout=4h0m0s --system-reserved=cpu=2,memory=1Gi --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256 --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key 
     KUBELET_REGISTER_SCHEDULABLE=true
     NETWORK_POLICY=
     KUBELET_NODE_LABELS=agentpool=agent2,kubernetes.azure.com/agentpool=agent2
