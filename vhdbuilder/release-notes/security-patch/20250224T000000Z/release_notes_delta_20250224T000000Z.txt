@@ -1,0 +1,13 @@
+Release notes for security patch 20250224T000000Z timestamp
+Package difference between 20250210T000000Z and 20250224T000000Z
+No reboot required
+Upgrade: vim:amd64 (2:8.2.3995-1ubuntu2.22, 2:8.2.3995-1ubuntu2.23), vim-common:amd64 (2:8.2.3995-1ubuntu2.22, 2:8.2.3995-1ubuntu2.23), vim-tiny:amd64 (2:8.2.3995-1ubuntu2.22, 2:8.2.3995-1ubuntu2.23), vim-runtime:amd64 (2:8.2.3995-1ubuntu2.22, 2:8.2.3995-1ubuntu2.23)
+Upgrade: xxd:amd64 (2:8.2.3995-1ubuntu2.22, 2:8.2.3995-1ubuntu2.23)
+Upgrade: libtasn1-6:amd64 (4.18.0-4build1, 4.18.0-4ubuntu0.1)
+Upgrade: openssh-client:amd64 (1:8.9p1-3ubuntu0.10, 1:8.9p1-3ubuntu0.11), openssh-server:amd64 (1:8.9p1-3ubuntu0.10, 1:8.9p1-3ubuntu0.11), openssh-sftp-server:amd64 (1:8.9p1-3ubuntu0.10, 1:8.9p1-3ubuntu0.11)
+Upgrade: python3.10:amd64 (3.10.12-1~22.04.8, 3.10.12-1~22.04.9), libpython3.10-minimal:amd64 (3.10.12-1~22.04.8, 3.10.12-1~22.04.9), libpython3.10-stdlib:amd64 (3.10.12-1~22.04.8, 3.10.12-1~22.04.9), libpython3.10:amd64 (3.10.12-1~22.04.8, 3.10.12-1~22.04.9), python3.10-minimal:amd64 (3.10.12-1~22.04.8, 3.10.12-1~22.04.9)
+Upgrade: libgnutls30:amd64 (3.7.3-4ubuntu1.5, 3.7.3-4ubuntu1.6)
+Upgrade: tzdata:amd64 (2024b-0ubuntu0.22.04, 2024b-0ubuntu0.22.04.1)
+Upgrade: libssl3:amd64 (3.0.2-0ubuntu1.18, 3.0.2-0ubuntu1.19)
+Upgrade: openssl:amd64 (3.0.2-0ubuntu1.18, 3.0.2-0ubuntu1.19)
+
