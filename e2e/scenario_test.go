@@ -1714,12 +1714,10 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV4ads_V710_v5")
-				// rocm images are huge, some space for manual testing
+				// rocm images are huge, need space for manual testing
 				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				res := execScriptOnVMForScenario(ctx, s, "df")
-				t.Log(res.String())
 				ValidateAMDGPU(ctx, s)
 			},
 		},
@@ -1749,12 +1747,10 @@ func Test_Ubuntu2404Gen2_AMDGPU_V710(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_NV4ads_V710_v5")
-				// rocm images are huge, some space for manual testing
+				// rocm images are huge, need space for manual testing
 				vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB = to.Ptr[int32](128)
-				//vmss.Properties.VirtualMachineProfile.ExtensionProfile.Extensions[0].Properties.ProtectedSettings[]
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
-				execScriptOnVMForScenario(ctx, s, "df")
 				ValidateAMDGPU(ctx, s)
 			},
 		},
