@@ -72,7 +72,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
-# TODO: Enable dynamic assignment of registry_domain_name depending on cloud environment
+# TODO: (zachary-bailey) Enable dynamic assignment of registry_domain_name depending on cloud environment
 if [ "${TARGET_CLOUD,,}" == "azurepubliccloud" ]; then
     registry_domain_name="mcr.microsoft.com"
     if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
