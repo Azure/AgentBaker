@@ -267,6 +267,52 @@ Describe 'cse_config.sh'
             The output should include "chmod 0644 /etc/containerd/certs.d/fake.test.com/hosts.toml"
             The output should not include "tee"
         End
+
+        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should not include "tee"
+        End
+
+        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io/def'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io/def"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/def/'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should not include "tee"
+        End
     End
 
     Describe 'configCredentialProvider'
