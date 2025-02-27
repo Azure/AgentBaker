@@ -159,9 +159,21 @@ copyPackerFiles() {
     KATA_INITRD_DEST=$KATA_CONFIG_DIR/kata-containers-initrd.img
     cpAndMode $KATA_INITRD_SRC $KATA_INITRD_DEST 0755
 
-    KATACC_IMAGE_SRC=/home/packer/kata-containers.img
-    KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers.img
+    KATA_IMAGE_SRC=/home/packer/kata-containers.img
+    KATA_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers.img
+    cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
+
+    KATA_DBG_IMAGE_SRC=/home/packer/kata-containers-debug.img
+    KATA_DBG_IMAGE_DEST=$KATA_CONFIG_DIR/kata-containers-debug.img
+    cpAndMode $KATA_DBG_IMAGE_SRC $KATA_DBG_IMAGE_DEST 0755
+
+    KATACC_IMAGE_SRC=/home/packer/kata-containers-cc.img
+    KATACC_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers-cc.img
     cpAndMode $KATACC_IMAGE_SRC $KATACC_IMAGE_DEST 0755
+
+    KATACC_DBG_IMAGE_SRC=/home/packer/kata-containers-cc-debug.img
+    KATACC_DBG_IMAGE_DEST=$KATACC_CONFIG_DIR/kata-containers-cc-debug.img
+    cpAndMode $KATACC_DBG_IMAGE_SRC $KATACC_DBG_IMAGE_DEST 0755
 
     REF_INFO_SRC=/home/packer/reference-info-base64
     REF_INFO_DEST=$KATACC_CONFIG_DIR/reference-info-base64
