@@ -279,7 +279,7 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
 }
@@ -331,7 +331,7 @@ downloadSpinKube(){
         return 
     fi
     
-    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
 }
 

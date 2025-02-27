@@ -1,3 +1,5 @@
+#!/bin/bash
+
 CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
