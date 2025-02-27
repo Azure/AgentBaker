@@ -76,9 +76,13 @@ steps:
       itemPattern: |
         **/kata-containers-igvm-debug.img**
         **/igvm-measurement**
+        **/igvm-debug-measurement**
         **/kata-containers-igvm.img**
         **/kata-containers-cc.img**
         **/kata-containers.img**
+        **/kata-containers-debug.img**
+        **/kata-containers-cc.img**
+        **/kata-containers-cc-debug.img**
         **/kata-containers-initrd-base.img**
         **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
