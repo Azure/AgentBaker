@@ -6,7 +6,7 @@
 cd /var/lib/logrotate
 test -e status || touch status
 head -1 status > status.clean
-sed 's/"//g' status | while read logfile date
+sed 's/"//g' status | while read -r logfile date
 do
     [ -e "$logfile" ] && echo "\"$logfile\" $date"
 done >> status.clean

@@ -145,7 +145,7 @@ if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDI
   echo "ERROR: Could not create temporary working directory."
   exit 1
 fi
-cd $WORKDIR
+cd $WORKDIR || exit
 echo "Created temporary directory: $WORKDIR"
 
 # Function to clean up the output directory and log termination
@@ -174,7 +174,7 @@ trap "cleanup" EXIT
 # any disk space aside from the ZIP file itself.
 # USAGE: collectToZip FILENAME CMDTORUN
 function collectToZip {
-  command -v "${2}" >/dev/null || { printf "${2} not found, skipping.\n"; return; }
+  command -v "${2}" >/dev/null || { printf "%s not found, skipping.\n" "${2}"; return; }
   mkfifo "${1}"
   ${@:2} >"${1}" 2>&1 &
   zip -gumDZ deflate --fifo "${ZIP}" "${1}"

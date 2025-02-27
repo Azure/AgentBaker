@@ -652,7 +652,7 @@ cleanUpImages() {
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            echo "${images_to_delete}" | while read image; do
+            echo "${images_to_delete}" | while read -r image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                     removeContainerImage ${CLI_TOOL} ${image}
                 else
@@ -683,7 +683,7 @@ cleanupRetaggedImages() {
             images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
         if [[ "${images_to_delete}" != "" ]]; then
-            echo "${images_to_delete}" | while read image; do
+            echo "${images_to_delete}" | while read -r image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                     removeContainerImage "ctr" ${image}
                 else
