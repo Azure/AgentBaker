@@ -72,11 +72,16 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
-registry_domain_name="mcr.microsoft.com"
-if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+# TODO: Enable dynamic assignment of registry_domain_name depending on cloud environment
+if [ "${TARGET_CLOUD,,}" == "azurepubliccloud" ]; then
+    registry_domain_name="mcr.microsoft.com"
+    if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+    fi
+    verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
+else
+    echo "Skipping DNS Health verification, target cloud is not public"
 fi
-verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
