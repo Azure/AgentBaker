@@ -66,7 +66,11 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
+<<<<<<< HEAD
 domain_name="mcr.microsoft.com"
+=======
+registry_domain_name="${MCR_REPOSITORY_BASE%/}"
+>>>>>>> a3db5d9d10 (fix: prevent failed provisioning due to dns health check bug (#5945))
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
     domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
 fi

@@ -712,7 +712,7 @@ verify_DNS_health(){
 
     dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
     ret_code=$?
-    if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+    if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
         echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
     fi
