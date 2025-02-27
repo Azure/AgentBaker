@@ -66,7 +66,7 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
-registry_domain_name=${MCR_REPOSITORY_BASE}
+registry_domain_name="${MCR_REPOSITORY_BASE}"
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
     registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
 fi
