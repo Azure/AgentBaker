@@ -27,6 +27,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -611,6 +612,23 @@ func getServicePrincipalFileContent(authConfig *aksnodeconfigv1.AuthConfig) stri
 		return ""
 	}
 	return base64.StdEncoding.EncodeToString([]byte(authConfig.GetServicePrincipalSecret()))
+}
+
+// getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	if kubeletConfig == nil {
+		return ""
+	}
+	kubeletConfigMap := kubeletConfig.GetKubeletFlags()
+	configStringByte, _ := json.MarshalIndent(kubeletConfigMap, "", "    ")
+	return string(configStringByte)
+}
+
+func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	if kubeletConfig == nil {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig)))
 }
 
 func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {
