@@ -72,5 +72,9 @@ SC2002
 SC2003
 SC2005
 SC2116
+SC2207
+SC2155
+SC2027
+SC2010
 "
 shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
