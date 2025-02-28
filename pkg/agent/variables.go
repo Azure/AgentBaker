@@ -43,7 +43,6 @@ func getCustomDataVariables(config *datamodel.NodeBootstrappingConfiguration) pa
 			"containerdKubeletDropin":      getBase64EncodedGzippedCustomScript(containerdKubeletDropin, config),
 			"cgroupv2KubeletDropin":        getBase64EncodedGzippedCustomScript(cgroupv2KubeletDropin, config),
 			"componentConfigDropin":        getBase64EncodedGzippedCustomScript(componentConfigDropin, config),
-			"tlsBootstrapDropin":           getBase64EncodedGzippedCustomScript(tlsBootstrapDropin, config),
 			"bindMountDropin":              getBase64EncodedGzippedCustomScript(bindMountDropin, config),
 			"httpProxyDropin":              getBase64EncodedGzippedCustomScript(httpProxyDropin, config),
 			"snapshotUpdateScript":         getBase64EncodedGzippedCustomScript(snapshotUpdateScript, config),
