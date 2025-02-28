@@ -74,7 +74,7 @@ fi
 
 registry_domain_name="${MCR_REPOSITORY_BASE%/}"
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+    registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
 fi
 verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 
