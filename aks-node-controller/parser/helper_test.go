@@ -264,7 +264,7 @@ func Test_getContainerdConfig(t *testing.T) {
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -296,7 +296,7 @@ oom_score = 0
 				noGpu: false,
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -325,7 +325,7 @@ oom_score = 0
 				noGpu: true,
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]

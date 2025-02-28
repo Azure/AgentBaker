@@ -33,7 +33,7 @@ if isMarinerOrAzureLinux "$OS"; then
 fi
 
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
-capture_benchmark "${SCRIPT_NAME}_source_packer_files_declare_variables_and_set_mariner_permissions"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
 
@@ -49,12 +49,12 @@ systemctlEnableAndStart systemd-journald || exit 1
 systemctlEnableAndStart rsyslog || exit 1
 
 systemctlEnableAndStart disk_queue || exit 1
-capture_benchmark "${SCRIPT_NAME}_copy_packer_files"
+capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
 
 mkdir /opt/certs
 chmod 1666 /opt/certs
 systemctlEnableAndStart update_certs.path || exit 1
-capture_benchmark "${SCRIPT_NAME}_make_directory_and_update_certs"
+capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 
 systemctlEnableAndStart ci-syslog-watcher.path || exit 1
 systemctlEnableAndStart ci-syslog-watcher.service || exit 1
@@ -62,15 +62,13 @@ systemctlEnableAndStart ci-syslog-watcher.service || exit 1
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
 systemctlEnableAndStart aks-log-collector.timer || exit 1
-capture_benchmark "${SCRIPT_NAME}_start_system_logs_and_aks_log_collector"
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
 systemctlEnableAndStart logrotate.timer || exit 1
 rm -f /etc/cron.daily/logrotate
-capture_benchmark "${SCRIPT_NAME}_enable_modified_log_rotate_service"
 
 systemctlEnableAndStart sync-container-logs.service || exit 1
-capture_benchmark "${SCRIPT_NAME}_sync_container_logs"
+capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
 # enable aks-node-controller.service
 systemctl enable aks-node-controller.service
@@ -79,7 +77,7 @@ systemctl enable aks-node-controller.service
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [[ "${ENABLE_FIPS,,}" == "true" && "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
@@ -107,29 +105,42 @@ else
     installFIPS
   fi
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_mariner_and_fips_configurations"
+capture_benchmark "${SCRIPT_NAME}_upgrade_distro_and_resolve_fips_requirements"
 
 # Handle Azure Linux + CgroupV2
 # CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
+capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
-if [[ "${UBUNTU_RELEASE}" == "22.04" && "${ENABLE_FIPS,,}" != "true" ]]; then
+if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
+  LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
+  LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
+  LTS_CLOUD_TOOLS="linux-cloud-tools-azure-lts-${UBUNTU_RELEASE}"
+  LTS_HEADERS="linux-headers-azure-lts-${UBUNTU_RELEASE}"
+  LTS_MODULES="linux-modules-extra-azure-lts-${UBUNTU_RELEASE}"
+
   echo "Logging the currently running kernel: $(uname -r)"
   echo "Before purging kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
 
-  # Purge all current kernels and dependencies
-  DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
-  echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+  if apt-cache show "$LTS_KERNEL" &>/dev/null; then
+      echo "LTS kernel is available for ${UBUNTU_RELEASE}, proceeding with purging current kernel and installing LTS kernel..."
 
-  # Install lts-22.04 kernel
-  DEBIAN_FRONTEND=noninteractive apt-get install -y linux-image-azure-lts-22.04 linux-cloud-tools-azure-lts-22.04 linux-headers-azure-lts-22.04 linux-modules-extra-azure-lts-22.04 linux-tools-azure-lts-22.04
-  echo "After installing new kernel, here is a list of kernels/headers installed"; dpkg -l 'linux-*azure*'
+      # Purge all current kernels and dependencies
+      DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y $(dpkg-query -W 'linux-*azure*' | awk '$2 != "" { print $1 }' | paste -s)
+      echo "After purging kernel, dpkg list should be empty"; dpkg -l 'linux-*azure*'
+
+      # Install LTS kernel
+      DEBIAN_FRONTEND=noninteractive apt-get install -y "$LTS_KERNEL" "$LTS_TOOLS" "$LTS_CLOUD_TOOLS" "$LTS_HEADERS" "$LTS_MODULES"
+      echo "After installing new kernel, here is a list of kernels/headers installed:"; dpkg -l 'linux-*azure*'
+  else
+      echo "LTS kernel for Ubuntu ${UBUNTU_RELEASE} is not available. Skipping purging and subsequent installation."
+  fi
 
   update-grub
 fi
-capture_benchmark "${SCRIPT_NAME}_handle_azureLinux_and_cgroupV2"
+capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks

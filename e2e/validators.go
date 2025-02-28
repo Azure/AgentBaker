@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/tidwall/gjson"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -174,7 +176,7 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *po
 		script.interpreter = Bash
 	}
 
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.DebugHostPod, string(s.Runtime.SSHKeyPrivate), script)
+	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -367,19 +369,16 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	require.Truef(s.T, strings.HasPrefix(versions[0], "2."), "expected moby-containerd version to start with '2.', got %v", versions[0])
 
 	ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0])
-	// assert that containerd.server service file does not contain LimitNOFILE
-	// https://github.com/containerd/containerd/blob/main/docs/containerd-2.0.md#limitnofile-configuration-has-been-removed
-	ValidateFileExcludesContent(ctx, s, "/etc/systemd/system/containerd.service", "LimitNOFILE")
+
+	execResult := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
+	// validate containerd config dump has no warnings
+	require.NotContains(s.T, execResult.stdout.String(), "level=warning", "do not expect warning message when converting config file %", execResult.stdout.String())
 }
 
 func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) {
 	// nri plugin is enabled by default
 	ValidateDirectoryContent(ctx, s, "/var/run/nri", []string{"nri.sock"})
-	// cri plugin has deprecated properties
-	// assert that /etc/containerd/config.toml exists and does not contain deprecated properties from 1.7
-	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "CriuPath")
-	// level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key=sandbox_image plugin=io.containerd.grpc.v1.cri
-	ValidateFileExcludesContent(ctx, s, "/etc/containerd/config.toml", "sandbox_image")
+
 }
 
 func ValidateRunc12Properties(ctx context.Context, s *Scenario, versions []string) {
@@ -402,6 +401,56 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 		expectedArgument := arguments[i]
 		require.Contains(s.T, actualArgs, expectedArgument)
 	}
+}
+
+func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario, windowsVersion string) {
+	steps := []string{
+		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
+	}
+
+	jsonBytes := getWindowsSettingsJson()
+	osVersion := gjson.GetBytes(jsonBytes, fmt.Sprintf("WindowsBaseVersions.%s.base_image_version", windowsVersion))
+	versionSliced := strings.Split(osVersion.String(), ".")
+	osMajorVersion := versionSliced[0]
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
+	s.T.Logf("Windows version returned from VM  %s", podExecResultStdout)
+
+	require.Contains(s.T, podExecResultStdout, osMajorVersion)
+}
+
+func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) {
+	steps := []string{
+		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").ProductName",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Winddows product name from VM  %s. Expected product name %s", podExecResultStdout, productName)
+
+	require.Contains(s.T, podExecResultStdout, productName)
+}
+
+func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+	steps := []string{
+		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").DisplayVersion",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Winddows display version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+
+	require.Contains(s.T, podExecResultStdout, displayVersion)
+}
+
+func getWindowsSettingsJson() []byte {
+	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
+	return jsonBytes
 }
 
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
@@ -429,4 +478,19 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 
 	return podExecResult.stdout.String()
+}
+
+// ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
+func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
+	actualTaints := ""
+	for i, taint := range node.Spec.Taints {
+		actualTaints += fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect)
+		// add a comma if it's not the last element
+		if i < len(node.Spec.Taints)-1 {
+			actualTaints += ","
+		}
+	}
+	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }

@@ -787,6 +787,30 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
+		Entry("AKSUbuntu1804 with kubelet client certificatet", "AKSUbuntu1804+WithKubeletClientCert", "1.18.3",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					ClientCertificate: "fooBarBaz",
+					ClientPrivateKey:  "fooBarBaz",
+					CaCertificate:     "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+				Expect(kubeconfig).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).To(BeNil())
+			}),
+
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
@@ -804,13 +828,15 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(etcDefaultKubelet).NotTo(BeEmpty())
 				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"]
+				Expect(kubeconfig).To(BeNil())
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
@@ -1170,7 +1196,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1221,7 +1247,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedOverlaybdConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1344,7 +1370,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1387,7 +1413,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1645,7 +1671,67 @@ oom_score = 0
 				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
 				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
 			}),
-		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated features", "AKSUbuntu2404", ">=1.32.x",
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should have rename containerd runtime name", "AKSUbuntu2404+Teleport", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				// to have snapshotter features
+				config.EnableACRTeleportPlugin = true
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedContainerdV2CriConfig := `
+[plugins."io.containerd.cri.v1.images".pinned_images]
+  sandbox = ""
+`
+				deprecatedContainerdV1CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2CriConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
+
+				expectedSnapshotterConfig := `
+[plugins."io.containerd.cri.v1.images"]
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
+`
+				deprecatedSnapshotterConfig := `
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
+`
+				Expect(expectedSnapshotterConfig).NotTo(Equal(deprecatedSnapshotterConfig))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedSnapshotterConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedSnapshotterConfig))
+
+				expectedRuncConfig := `
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+`
+				deprecatedRuncConfig := `
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+`
+				Expect(expectedRuncConfig).NotTo(Equal(deprecatedRuncConfig))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedRuncConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedRuncConfig))
+
+			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated cni features", "AKSUbuntu2404+NetworkPolicy", ">=1.32.x",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
 					ContainerRuntime: datamodel.Containerd,
@@ -1658,23 +1744,11 @@ oom_score = 0
 			}, func(o *nodeBootstrappingOutput) {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
-				expectedContainerdV2CriConfig := `
-[plugins."io.containerd.grpc.v1.cri"]
-  [plugins."io.containerd.cri.v1.images".pinned_images]
-    sandbox = ""
-`
-				deprecatedContainerdV1CriConfig := `
-[plugins."io.containerd.grpc.v1.cri"]
-  sandbox_image = ""
-`
-				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2CriConfig))
-				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
-
 				expectedCniV2Config := `
-  [plugins."io.containerd.cri.v1.runtime".cni]
-    bin_dir = "/opt/cni/bin"
-    conf_dir = "/etc/cni/net.d"
-    conf_template = "/etc/containerd/kubenet_template.conf"
+[plugins."io.containerd.cri.v1.runtime".cni]
+  bin_dir = "/opt/cni/bin"
+  conf_dir = "/etc/cni/net.d"
+  conf_template = "/etc/containerd/kubenet_template.conf"
 `
 				deprecatedCniV1Config := `
   [plugins."io.containerd.grpc.v1.cri".cni]

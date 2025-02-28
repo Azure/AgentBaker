@@ -76,8 +76,9 @@
             "type": "file",
             "direction": "upload",
             "sources": [
-                "parts/linux/cloud-init/artifacts/components.json",
+                "parts/common/components.json",
                 "vhdbuilder/packer/windows/windows-vhd-configuration.ps1",
+                "vhdbuilder/packer/windows/windows_settings.json",
                 "vhdbuilder/packer/windows/components_json_helpers.ps1"
             ],
             "destination": "c:/k/"
@@ -88,7 +89,8 @@
             "environment_vars": [
                 "ProvisioningPhase=1",
                 "WindowsSKU={{user `windows_sku`}}",
-                "CustomizedDiskSize={{user `os_disk_size_gb`}}"
+                "CustomizedDiskSize={{user `os_disk_size_gb`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
             "scripts": [
@@ -108,7 +110,8 @@
                 "CustomizedDiskSize={{user `os_disk_size_gb`}}",
                 "WindowsNanoServerImageURL={{user `nano_image_url`}}",
                 "WindowsServerCoreImageURL={{user `core_image_url`}}",
-                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}"
+                "WindowsPrivatePackagesURL={{user `windows_private_packages_url`}}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
             "scripts": [
@@ -124,7 +127,9 @@
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
                 "ProvisioningPhase=3",
-                "WindowsSKU={{user `windows_sku`}}"
+                "WindowsSKU={{user `windows_sku`}}",
+                "SKIP_EXTENSION_CHECK={{ user `SKIP_EXTENSION_CHECK` }}",
+                "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
             "scripts": [
@@ -141,6 +146,7 @@
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "environment_vars": [
+                "WindowsSKU={{user `windows_sku`}}",
                 "BUILD_BRANCH={{user `build_branch`}}",
                 "BUILD_COMMIT={{user `build_commit`}}",
                 "BUILD_ID={{user `build_id`}}",
