@@ -373,7 +373,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				CoreDnsImageUrl:      "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-4",
 				VnetDnsOverrides: map[string]datamodel.DnsOverride{
 					".": {
-						QueryLogging:                "errors",
+						QueryLogging:                "log",
 						ForceTCP:                    false,
 						ForwardDestination:          "VnetDnsServers",
 						ForwardPolicy:               "sequential",
@@ -383,7 +383,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						ServeStale:                  "verify",
 					},
 					"cluster.local": {
-						QueryLogging:                "errors",
+						QueryLogging:                "log",
 						ForceTCP:                    true,
 						ForwardDestination:          "ClusterCoreDns",
 						ForwardPolicy:               "sequential",
@@ -393,7 +393,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						ServeStale:                  "verify",
 					},
 					"domain1.com": {
-						QueryLogging:                "errors",
+						QueryLogging:                "log",
 						ForceTCP:                    false,
 						ForwardDestination:          "VnetDnsServers",
 						ForwardPolicy:               "sequential",
@@ -405,7 +405,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				},
 				KubeDnsOverrides: map[string]datamodel.DnsOverride{
 					".": {
-						QueryLogging:                "errors",
+						QueryLogging:                "log",
 						ForceTCP:                    true,
 						ForwardDestination:          "VnetDnsServers",
 						ForwardPolicy:               "sequential",
@@ -415,7 +415,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						ServeStale:                  "verify",
 					},
 					"cluster.local": {
-						QueryLogging:                "errors",
+						QueryLogging:                "log",
 						ForceTCP:                    false,
 						ForwardDestination:          "ClusterCoreDns",
 						ForwardPolicy:               "sequential",
@@ -425,7 +425,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						ServeStale:                  "verify",
 					},
 					"domain1.com": {
-						QueryLogging:                "errors",
+						QueryLogging:                "log",
 						ForceTCP:                    false,
 						ForwardDestination:          "VnetDnsServers",
 						ForwardPolicy:               "sequential",

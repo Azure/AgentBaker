@@ -58,7 +58,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 							CoreDnsImageUrl:      "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-4",
 							VnetDnsOverrides: map[string]datamodel.DnsOverride{
 								".": {
-									QueryLogging:                "errors",
+									QueryLogging:                "log",
 									ForceTCP:                    false,
 									ForwardDestination:          "VnetDnsServers",
 									ForwardPolicy:               "sequential",
@@ -68,7 +68,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 									ServeStale:                  "verify",
 								},
 								"cluster.local": {
-									QueryLogging:                "errors",
+									QueryLogging:                "log",
 									ForceTCP:                    true,
 									ForwardDestination:          "ClusterCoreDns",
 									ForwardPolicy:               "sequential",
@@ -78,7 +78,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 									ServeStale:                  "verify",
 								},
 								"domain1.com": {
-									QueryLogging:                "errors",
+									QueryLogging:                "log",
 									ForceTCP:                    false,
 									ForwardDestination:          "VnetDnsServers",
 									ForwardPolicy:               "sequential",
@@ -90,7 +90,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 							},
 							KubeDnsOverrides: map[string]datamodel.DnsOverride{
 								".": {
-									QueryLogging:                "errors",
+									QueryLogging:                "log",
 									ForceTCP:                    true,
 									ForwardDestination:          "VnetDnsServers",
 									ForwardPolicy:               "sequential",
@@ -100,7 +100,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 									ServeStale:                  "verify",
 								},
 								"cluster.local": {
-									QueryLogging:                "errors",
+									QueryLogging:                "log",
 									ForceTCP:                    false,
 									ForwardDestination:          "ClusterCoreDns",
 									ForwardPolicy:               "sequential",
@@ -110,7 +110,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 									ServeStale:                  "verify",
 								},
 								"domain1.com": {
-									QueryLogging:                "errors",
+									QueryLogging:                "log",
 									ForceTCP:                    false,
 									ForwardDestination:          "VnetDnsServers",
 									ForwardPolicy:               "sequential",
