@@ -216,7 +216,7 @@ testPackagesInstalled() {
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
       # Validate whether package exists in Azure China cloud
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/mirror.azk8s.cn}"
         echo "Validating: $mcURL"
         isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
         if [[ "$isExist" == "404" ]]; then
@@ -224,7 +224,7 @@ testPackagesInstalled() {
           continue
         fi
 
-        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+        fileSizeInMC=$(wget -S $mcURL --start-pos=500G 2>&1 | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
         if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
           err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
           continue
