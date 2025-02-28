@@ -100,7 +100,7 @@ var (
 		Name:    "AzureLinuxV3gen2",
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
-		Version: "1.1740599337.22416",
+		Version: "1.1740610599.27113",
 		Distro:  datamodel.AKSAzureLinuxV3Gen2,
 		Gallery: linuxGallery,
 	}

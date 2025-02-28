@@ -412,7 +412,14 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    service=$1
+    if [ "$service" = "mig-partition" ]; then
+        timeout=300
+    else
+        timeout=30
+    fi
+    
+    systemctl_restart 100 5 $timeout $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then

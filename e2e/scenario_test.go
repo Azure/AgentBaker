@@ -248,13 +248,14 @@ func Test_AzureLinuxV3_GPU(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV3Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "standard_nd96asr_v4"
+				nbc.AgentPoolProfile.VMSize = "Standard_ND96asr_v4"
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG1g"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("standard_nd96asr_v4")
+				vmss.SKU.Name = to.Ptr("Standard_ND96asr_v4")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 			},

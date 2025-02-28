@@ -30,10 +30,10 @@ type Configuration struct {
 	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
 	ACRSecretName                          string        `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
+	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2etest"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
-	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
+	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2s_v3"`
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableAKSNodeControllerTest            bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"MarinerAKSSig"`
@@ -48,7 +48,7 @@ type Configuration struct {
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:""`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:""`
 	SkipTestsWithSKUCapacityIssue          bool          `env:"SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE"`
-	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"035db282-f1c8-4ce7-b78f-2a7265d5398c"`
+	SubscriptionID                         string        `env:"SUBSCRIPTION_ID" envDefault:"8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8"`
 	TagsToRun                              string        `env:"TAGS_TO_RUN"`
 	TagsToSkip                             string        `env:"TAGS_TO_SKIP"`
 	TestTimeout                            time.Duration `env:"TEST_TIMEOUT" envDefault:"35m"`
