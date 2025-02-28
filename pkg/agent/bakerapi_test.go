@@ -55,7 +55,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 							CurrentServiceStatus: "Enabled",
 							CPULimit:             2,
 							MemoryLimitInMB:      128,
-							CoreDnsImageUrl:      "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.11.3-4",
+							CoreDnsImageUrl:      "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.0-1",
 							VnetDnsOverrides: map[string]datamodel.DnsOverride{
 								".": {
 									QueryLogging:                "log",
