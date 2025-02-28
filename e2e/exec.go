@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -54,7 +55,7 @@ type Script struct {
 	interpreter Interpreter
 }
 
-func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey string, script Script) (*podExecResult, error) {
+func execScriptOnVm(ctx context.Context, s *Scenario, script Script) (*podExecResult, error) {
 	/*
 		This works in a way that doesn't rely on the node having joined the cluster:
 		* We create a linux pod on a different node.
@@ -77,13 +78,11 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 	}
 
 	steps := []string{
-		fmt.Sprintf("echo '%[1]s' > %[2]s", sshPrivateKey, sshKeyName(vmPrivateIP)),
 		"set -x",
 		fmt.Sprintf("echo %[1]s > %[2]s", quoteForBash(script.script), scriptFileName),
-		fmt.Sprintf("chmod 0600 %s", sshKeyName(vmPrivateIP)),
 		fmt.Sprintf("chmod 0755 %s", scriptFileName),
-		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(vmPrivateIP), vmPrivateIP, scriptFileName, remoteScriptFileName),
-		fmt.Sprintf("%s %s %s", sshString(vmPrivateIP), interpreter, remoteScriptFileName),
+		fmt.Sprintf(`scp -i %[1]s -o PasswordAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 %[3]s azureuser@%[2]s:%[4]s`, sshKeyName(s.Runtime.VMPrivateIP), s.Runtime.VMPrivateIP, scriptFileName, remoteScriptFileName),
+		fmt.Sprintf("%s %s %s", sshString(s.Runtime.VMPrivateIP), interpreter, remoteScriptFileName),
 	}
 
 	joinedSteps := strings.Join(steps, " && ")
@@ -91,7 +90,7 @@ func execScriptOnVm(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodNam
 	s.T.Logf("Executing script %[1]s using %[2]s:\n---START-SCRIPT---\n%[3]s\n---END-SCRIPT---\n", scriptFileName, interpreter, script.script)
 
 	kube := s.Runtime.Cluster.Kube
-	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, jumpboxPodName, joinedSteps)
+	execResult, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, joinedSteps)
 	if err != nil {
 		return nil, fmt.Errorf("error executing command on pod: %w", err)
 	}
@@ -170,6 +169,13 @@ func unprivilegedCommandArray() []string {
 		"bash",
 		"-c",
 	}
+}
+
+func uploadSSHKey(ctx context.Context, s *Scenario) {
+	cmd := fmt.Sprintf("echo '%[1]s' > %[2]s && chmod 0600 %[2]s", s.Runtime.SSHKeyPrivate, sshKeyName(s.Runtime.VMPrivateIP))
+	kube := s.Runtime.Cluster.Kube
+	_, err := execOnPrivilegedPod(ctx, kube, defaultNamespace, s.Runtime.Cluster.DebugPod.Name, cmd)
+	require.NoError(s.T, err, "error uploading ssh key to pod")
 }
 
 func logSSHInstructions(s *Scenario) {
