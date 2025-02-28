@@ -100,7 +100,7 @@ function check_and_curl {
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
-        elif [ $response -eq 400 ] && ([ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
+        elif [ $response -eq 400 ] && { [ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]; }; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
