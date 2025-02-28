@@ -239,7 +239,7 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}" # adding v to version for simplicity
+        downloadContainerdWasmShims $download_location $containerd_wasm_url "$version" "${shims_to_download[@]}" # adding v to version for simplicity
     done
     # wait for file downloads to complete before updating file permissions
     wait ${WASMSHIMPIDS[@]}
@@ -248,7 +248,7 @@ installContainerdWasmShims(){
         if [[ "$version" == "0.8.0" ]]; then
             shims_to_download+=("wws")
         fi
-        updateContainerdWasmShimsPermissions $download_location "v$version" "${shims_to_download[@]}"
+        updateContainerdWasmShimsPermissions $download_location "$version" "${shims_to_download[@]}"
     done
 }
 
