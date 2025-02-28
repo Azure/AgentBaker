@@ -1,0 +1,22 @@
+Release notes for security patch 20250226T000000Z timestamp
+Package difference between 20250224T000000Z and 20250226T000000Z
+Reboot required
+Upgrade: libcap2:amd64 (1:2.44-1ubuntu0.22.04.1, 1:2.44-1ubuntu0.22.04.2)
+Upgrade: linux-libc-dev:amd64 (5.15.0-131.141, 5.15.0-133.144)
+Upgrade: linux-tools-azure-lts-22.04:amd64 (5.15.0.1079.77, 5.15.0.1081.79)
+Upgrade: libxml2:amd64 (2.9.13+dfsg-1ubuntu0.5, 2.9.13+dfsg-1ubuntu0.6)
+Upgrade: linux-headers-azure-lts-22.04:amd64 (5.15.0.1079.77, 5.15.0.1081.79)
+Upgrade: linux-image-azure-lts-22.04:amd64 (5.15.0.1079.77, 5.15.0.1081.79)
+Upgrade: linux-cloud-tools-common:amd64 (5.15.0-131.141, 5.15.0-133.144)
+Upgrade: linux-tools-common:amd64 (5.15.0-131.141, 5.15.0-133.144)
+Upgrade: linux-cloud-tools-azure-lts-22.04:amd64 (5.15.0.1079.77, 5.15.0.1081.79)
+Upgrade: libcap2-bin:amd64 (1:2.44-1ubuntu0.22.04.1, 1:2.44-1ubuntu0.22.04.2)
+Upgrade: libpam-cap:amd64 (1:2.44-1ubuntu0.22.04.1, 1:2.44-1ubuntu0.22.04.2)
+Install: linux-azure-tools-5.15.0-1081:amd64 (5.15.0-1081.90, automatic), linux-tools-5.15.0-1081-azure:amd64 (5.15.0-1081.90, automatic)
+Install: linux-headers-5.15.0-1081-azure:amd64 (5.15.0-1081.90, automatic), linux-azure-headers-5.15.0-1081:amd64 (5.15.0-1081.90, automatic)
+Install: linux-modules-5.15.0-1081-azure:amd64 (5.15.0-1081.90, automatic), linux-image-5.15.0-1081-azure:amd64 (5.15.0-1081.90, automatic)
+Install: linux-azure-cloud-tools-5.15.0-1081:amd64 (5.15.0-1081.90, automatic), linux-cloud-tools-5.15.0-1081-azure:amd64 (5.15.0-1081.90, automatic)
+Remove: linux-tools-5.15.0-1078-azure:amd64 (5.15.0-1078.87)
+Remove: linux-cloud-tools-5.15.0-1078-azure:amd64 (5.15.0-1078.87)
+Remove: linux-azure-cloud-tools-5.15.0-1078:amd64 (5.15.0-1078.87)
+Remove: linux-azure-tools-5.15.0-1078:amd64 (5.15.0-1078.87)
