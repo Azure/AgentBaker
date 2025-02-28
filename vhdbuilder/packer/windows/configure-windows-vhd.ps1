@@ -127,9 +127,13 @@ function Download-FileWithAzCopy
         rm -Force "$env:AZCOPY_LOG_LOCATION\*.log"
     }
 
-    Write-Log "Logging in to AzCopy"
+    Write-Log "Logging in to AzCopy using $env:user_assigned_managed_identities"
+    $env:AZCOPY_AUTO_LOGIN_TYPE="MSI"
+    $env:AZCOPY_MSI_RESOURCE_STRING=$env:user_assigned_managed_identities
+
     # user_assigned_managed_identities has been bound in vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-    .\azcopy.exe login --login-type=MSI
+    # .\azcopy.exe login --login-type=MSI
+
 
     Write-Log "Copying $URL to $Dest"
     .\azcopy.exe copy "$URL" "$Dest"
