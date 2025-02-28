@@ -131,3 +131,9 @@ const (
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
 )
+
+// AKSLocalDNSEnabled flag.
+const (
+	// AKSLocalDNSEnabled is the string constant for aks-local-dns service enabled.
+	AKSLocalDNSEnabled = "Enabled"
+)
