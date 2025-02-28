@@ -741,24 +741,30 @@ removeKubeletFlag() {
 
 verify_DNS_health(){
     local domain_name=$1
-    if [ -z "$domain_name" ]; then
+
+    if [ "${TARGET_CLOUD,,}" == "azurepubliccloud" ]; then
+      if [ -z "$domain_name" ]; then
         echo "DNS domain is empty"
         return $ERR_DNS_HEALTH_FAIL
-    fi
+      fi
 
-    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
-    if [ $? -ne 0 ]; then
+      dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
+      if [ $? -ne 0 ]; then
         echo "Failed to resolve root domain '.'"
         return $ERR_DNS_HEALTH_FAIL
-    fi
+      fi
 
-    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
-    ret_code=$?
-    if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+      dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
+      ret_code=$?
+      if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
         echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
+      fi
+      echo "DNS health check passed"
+    else
+      echo "Skipping DNS Health Check for non AzurePublicCloud..."
+      return 0
     fi
-    echo "DNS health check passed"
 }
 
 oras_login_with_kubelet_identity() {
