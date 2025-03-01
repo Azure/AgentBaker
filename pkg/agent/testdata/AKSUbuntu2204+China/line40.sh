@@ -497,6 +497,7 @@ installAzureCNI() {
 
 extractKubeBinaries() {
     local k8s_version="$1"
+    k8s_version="${k8s_version#v}"
     local kube_binary_url="$2"
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
@@ -556,7 +557,7 @@ installKubeletKubectlAndKubeProxy() {
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true
     fi
-
+    
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]] || [[ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]]; then
         if [[ "$install_default_if_missing" == true ]]; then
             if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
