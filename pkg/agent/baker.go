@@ -1754,7 +1754,10 @@ func AKSLocalDNSGenerateCoreFile(
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
-	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Parse(tmpl))
+	funcMapForHasSuffix := template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}
+	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
 
 	var b bytes.Buffer
 	if err := localDNSCorefileTemplate.Execute(&b, profile.AksLocalDnsProfile); err != nil {
@@ -1772,15 +1775,21 @@ health-check.aks-local-dns.local:53 {
     whoami
 }
 # VNET DNS traffic (Traffic from pods with dnsPolicy:default or kubelet)
-{{- range $domain, $override := $.VnetDnsOverrides}}
+{{- range $domain, $override := $.VnetDnsOverrides -}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $useCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.NodeListenerIP}}
-    {{- if eq $override.ForwardDestination "ClusterCoreDns" }}
+    {{- if $isRootDomain}}
+    forward . Vnet_Dns_Servers {
+    {{- else}}
+    {{- if $useCoreDns}}
     forward . {{$.CoreDnsServiceIP}} {
     {{- else}}
-    forward . /etc/resolv.conf {
+    forward . Vnet_Dns_Servers {
     {{- end}}
+	{{- end}}
         {{- if $override.ForceTCP}}
         force_tcp
         {{- end}}
@@ -1799,7 +1808,7 @@ health-check.aks-local-dns.local:53 {
     loop
     nsid aks-local-dns
     prometheus :9253
-    {{- if eq $domain "."}}
+    {{- if $isRootDomain}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN
@@ -1813,13 +1822,15 @@ health-check.aks-local-dns.local:53 {
 {{- end}}
 # Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
 {{- range $domain, $override := $.KubeDnsOverrides}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $useCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.ClusterListenerIP}}
-    {{- if eq $override.ForwardDestination "ClusterCoreDns" }}
+    {{- if $useCoreDns}}
     forward . {{$.CoreDnsServiceIP}} {
     {{- else}}
-    forward . /etc/resolv.conf {
+    forward . Vnet_Dns_Servers {
     {{- end}}
         {{- if $override.ForceTCP}}
         force_tcp
@@ -1839,7 +1850,7 @@ health-check.aks-local-dns.local:53 {
     loop
     nsid aks-local-dns-pod
     prometheus :9253
-    {{- if eq $domain "."}}
+    {{- if $isRootDomain}}
     template ANY ANY internal.cloudapp.net {
         match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
         rcode NXDOMAIN

@@ -240,10 +240,10 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 									ServeStaleDurationInSeconds: 3600,
 									ServeStale:                  "verify",
 								},
-								"domain1.com": {
+								"testdomain.com": {
 									QueryLogging:                "log",
 									ForceTCP:                    false,
-									ForwardDestination:          "VnetDnsServers",
+									ForwardDestination:          "ClusterCoreDns",
 									ForwardPolicy:               "sequential",
 									MaxConcurrent:               1000,
 									CacheDurationInSeconds:      3600,
@@ -255,7 +255,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 								".": {
 									QueryLogging:                "log",
 									ForceTCP:                    true,
-									ForwardDestination:          "VnetDnsServers",
+									ForwardDestination:          "ClusterCoreDns",
 									ForwardPolicy:               "sequential",
 									MaxConcurrent:               1000,
 									CacheDurationInSeconds:      3600,
@@ -272,7 +272,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 									ServeStaleDurationInSeconds: 3600,
 									ServeStale:                  "verify",
 								},
-								"domain1.com": {
+								"testdomain.com": {
 									QueryLogging:                "log",
 									ForceTCP:                    false,
 									ForwardDestination:          "VnetDnsServers",

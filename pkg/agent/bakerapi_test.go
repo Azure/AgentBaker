@@ -77,10 +77,10 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 									ServeStaleDurationInSeconds: 3600,
 									ServeStale:                  "verify",
 								},
-								"domain1.com": {
+								"testdomain.com": {
 									QueryLogging:                "log",
 									ForceTCP:                    false,
-									ForwardDestination:          "VnetDnsServers",
+									ForwardDestination:          "ClusterCoreDns",
 									ForwardPolicy:               "sequential",
 									MaxConcurrent:               1000,
 									CacheDurationInSeconds:      3600,
@@ -92,7 +92,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 								".": {
 									QueryLogging:                "log",
 									ForceTCP:                    true,
-									ForwardDestination:          "VnetDnsServers",
+									ForwardDestination:          "ClusterCoreDns",
 									ForwardPolicy:               "sequential",
 									MaxConcurrent:               1000,
 									CacheDurationInSeconds:      3600,
@@ -109,7 +109,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 									ServeStaleDurationInSeconds: 3600,
 									ServeStale:                  "verify",
 								},
-								"domain1.com": {
+								"testdomain.com": {
 									QueryLogging:                "log",
 									ForceTCP:                    false,
 									ForwardDestination:          "VnetDnsServers",

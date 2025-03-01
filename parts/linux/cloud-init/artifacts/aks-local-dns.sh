@@ -6,22 +6,17 @@ set -euo pipefail
 # This systemd service runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
-# Ensure required positional arguments are provided
+# Ensure required positional arguments are provided.
+# --------------------------------------------------------------------------------------------------------------------
 : "${1:?Required parameter COREDNS_IMAGE is not set}"
 : "${2:?Required parameter NODE_LISTENER_IP is not set}"
 : "${3:?Required parameter CLUSTER_LISTENER_IP is not set}"
 
-readonly COREDNS_IMAGE="$1"                # CoreDNS image reference to use to obtain the binary if not present.
-readonly NODE_LISTENER_IP="$2"             # This is the IP that aks-local-dns service should bind to for node traffic; an APIPA address.
-readonly CLUSTER_LISTENER_IP="$3"          # This is the IP that aks-local-dns service should bind to for pod traffic; an APIPA address.
-
-# Generated Corefile path used by aks-local-dns service.
-# This should match with 'LOCAL_DNS_CORE_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
-readonly LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
-
-COREDNS_SHUTDOWN_DELAY="3"                 # Delay coredns shutdown to allow connections to finish.
-PID_FILE="/run/aks-local-dns.pid"          # PID file.
-source /opt/azure/containers/provision_source.sh
+readonly COREDNS_IMAGE="$1"          # CoreDNS image reference to use to obtain the binary if not present.
+readonly NODE_LISTENER_IP="$2"       # This is the IP that aks-local-dns service should bind to for node traffic; an APIPA address.
+readonly CLUSTER_LISTENER_IP="$3"    # This is the IP that aks-local-dns service should bind to for pod traffic; an APIPA address.
+COREDNS_SHUTDOWN_DELAY="3"           # Delay coredns shutdown to allow connections to finish.
+PID_FILE="/run/aks-local-dns.pid"    # PID file.
 
 # Information variables.
 # --------------------------------------------------------------------------------------------------------------------
@@ -30,10 +25,36 @@ DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status ${DEFAULT_ROUTE_INTERFACE} | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-aks-local-dns.conf"
+UPSTREAM_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
 
+# aks-local-dns corefile.
+# --------------------------------------------------------------------------------------------------------------------
+# Generated Corefile path used by aks-local-dns service.
+# This should match with 'LOCAL_DNS_CORE_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
+readonly LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
+
+if [ ! -f "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
+  printf "Error: Corefile does not exist at ${LOCAL_DNS_CORE_FILE_PATH}\n"
+  exit 1
+fi
+if [ ! -s "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
+  printf "Error: Corefile is empty at ${LOCAL_DNS_CORE_FILE_PATH}\n"
+  exit 1
+fi
+
+# Validate UPSTREAM_DNS_SERVERS is not empty
+if [ -z "${UPSTREAM_DNS_SERVERS}" ]; then
+    echo "Error: No upstream DNS servers found in /run/systemd/resolve/resolv.conf.\n"
+    exit 1
+fi
+# Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_DNS_SERVERS in the local DNS core file
+sed -i "s/Vnet_Dns_Servers/${UPSTREAM_DNS_SERVERS}/g" "${LOCAL_DNS_CORE_FILE_PATH}"
+
+printf "Generated corefile:\n"
+cat "${LOCAL_DNS_CORE_FILE_PATH}"
 
 # Iptables: build rules.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 # These rules skip conntrack for DNS traffic to save conntrack table
 # space. OUTPUT rules affect node services and hostNetwork: true pods.
 # PREROUTING rules affect traffic from regular pods.
@@ -45,9 +66,8 @@ for PROTO in tcp udp; do
     IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
 done; done; done
 
-
 # Cleanup function: will be run on script exit/crash to revert config.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 function cleanup {
     # Disable error handling so that we don't get into a recursive loop
     set +e
@@ -98,9 +118,9 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
-
+# source /opt/azure/containers/provision_source.sh
 # coredns: extract from image.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
     printf "extracting coredns from image: ${COREDNS_IMAGE}\n"
     CTR_TEMP="$(mktemp -d)"
@@ -169,9 +189,8 @@ trap "exit 0" QUIT TERM                                    # Exit with code 0 on
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
 trap "printf 'executing cleanup function\n'; cleanup" EXIT # Always cleanup when you're exiting.
 
-
 # Node listener and cluster listener.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP.
 printf "setting up aks-local-dns dummy interface with IPs ${NODE_LISTENER_IP} and ${CLUSTER_LISTENER_IP}\n"
 ip link add name aks-local-dns type dummy
@@ -185,23 +204,8 @@ for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
 
-
-# aks-local-dns corefile.
-# -------------------------------------------------------------------------------------------
-if [ ! -f "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
-  printf "Error: Corefile does not exist."
-  exit 1
-fi
-if [ ! -s "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
-  printf "Error: Corefile is empty."
-  exit 1
-fi
-printf "Generated corefile..."
-cat "${LOCAL_DNS_CORE_FILE_PATH}"
-
-
 # Build the coredns command.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="/opt/azure/aks-local-dns/coredns -conf ${LOCAL_DNS_CORE_FILE_PATH} -pidfile ${PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
@@ -230,9 +234,8 @@ until [ "$(curl -s "http://${NODE_LISTENER_IP}:8181/ready")" == "OK" ]; do
 done
 printf "coredns online and ready to serve node traffic\n"
 
-
 # Disable DNS from DHCP and point the system at aks-local-dns.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 printf "updating network DNS configuration to point to coredns via ${NETWORK_DROPIN_FILE}\n"
 mkdir -p ${NETWORK_DROPIN_DIR}
 printf "[Network]\nDNS=${NODE_LISTENER_IP}\n\n[DHCP]\nUseDNS=false\n" >${NETWORK_DROPIN_FILE}
@@ -240,14 +243,12 @@ chmod -R ugo+rX ${NETWORK_DROPIN_DIR}
 networkctl reload
 printf "startup complete - serving node and pod DNS traffic\n"
 
-
 # systemd notify: send ready if service is Type=notify.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 if [[ ! -z "${NOTIFY_SOCKET:-}" ]]; then systemd-notify --ready; fi
 
-
 # systemd watchdog: send pings so we get restarted if we go unhealthy.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 # If the watchdog is defined, we check pod status and pass success to systemd.
 if [[ ! -z "${NOTIFY_SOCKET:-}" && ! -z "${WATCHDOG_USEC:-}" ]]; then
     # Health check at 20% of WATCHDOG_USEC; this means that we should check
@@ -268,9 +269,8 @@ else
     wait -f ${COREDNS_PID}
 fi
 
-
 # The cleanup function is called on exit, so it will be run after the
 # wait ends (which will be when a signal is sent or coredns crashes) or
 # the script receives a terminal signal.
-# -------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------
 # end of line
