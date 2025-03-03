@@ -884,7 +884,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 
 func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Azure Linux 2204 VHD can be properly bootstrapped and custom CA was correctly added",
+		Description: "Tests that a node using the Azure Linux VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
