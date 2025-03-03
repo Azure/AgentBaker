@@ -896,21 +896,25 @@ setKubeletNodeIPFlag() {
 }
 
 ensureAKSLocalDNS() {
-    LOCAL_DNS_CORE_FILE=/opt/azure/aks-local-dns/Corefile
-    mkdir -p "$(dirname "${LOCAL_DNS_CORE_FILE}")"
-    touch "${LOCAL_DNS_CORE_FILE}"
-    chmod 0644 "${LOCAL_DNS_CORE_FILE}"
-    echo "${AKS_LOCAL_DNS_GENERATED_COREFILE}" | base64 -d > "${LOCAL_DNS_CORE_FILE}"
-    echo "${LOCAL_DNS_CORE_FILE}"
+    AKS_LOCAL_DNS_CORE_FILE=/opt/azure/aks-local-dns/Corefile
+    AKS_LOCAL_DNS_DEFAULT_FILE=/etc/default/aks-local-dns/aks-local-dns.envfile
 
-    mkdir -p /etc/systemd/system/aks-local-dns.service.d/
-    touch /etc/systemd/system/aks-local-dns.service.d/aks-local-dns.conf
-    tee /etc/systemd/system/aks-local-dns.service.d/aks-local-dns.conf > /dev/null <<EOF
-[Service]
-Environment="COREDNS_IMAGE_URL=${AKS_LOCAL_DNS_IMAGE_URL}"
-Environment="NODE_LISTENER_IP=${AKS_LOCAL_DNS_NODE_LISTENER_IP}"
-Environment="CLUSTER_LISTENER_IP=${AKS_LOCAL_DNS_CLUSTER_LISTENER_IP}"
+    mkdir -p "$(dirname "${AKS_LOCAL_DNS_CORE_FILE}")"
+    echo "${AKS_LOCAL_DNS_GENERATED_COREFILE}" | base64 -d > "${AKS_LOCAL_DNS_CORE_FILE}"
+    chmod 0644 "${AKS_LOCAL_DNS_CORE_FILE}"
+
+    mkdir -p "$(dirname "${AKS_LOCAL_DNS_DEFAULT_FILE}")"
+    tee "${AKS_LOCAL_DNS_DEFAULT_FILE}" > /dev/null <<EOF
+AKSLOCALDNS_IMAGE_URL=${AKS_LOCAL_DNS_IMAGE_URL}
+AKSLOCALDNS_NODE_LISTENER_IP=${AKS_LOCAL_DNS_NODE_LISTENER_IP}
+AKSLOCALDNS_CLUSTER_LISTENER_IP=${AKS_LOCAL_DNS_CLUSTER_LISTENER_IP}
+AKSLOCALDNS_CPU_LIMIT=${AKS_LOCAL_DNS_CPU_LIMIT}
+AKSLOCALDNS_MEMORY_LIMIT=${AKS_LOCAL_DNS_MEMORY_LIMIT}
+AKSLOCALDNS_SHUTDOWN_DELAY=5
+AKSLOCALDNS_PID_FILE="/run/aks-local-dns.pid"
 EOF
+    chmod 0644 "${AKS_LOCAL_DNS_DEFAULT_FILE}"
+
     systemctlEnableAndStart aks-local-dns || exit $ERR_AKS_LOCAL_DNS_FAIL
 }
 

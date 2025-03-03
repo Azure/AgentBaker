@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net"
+	"net/url"
 	neturl "net/url"
 	"sort"
 	"strings"
@@ -830,32 +832,51 @@ type DnsOverride struct {
 
 // IsAKSLocalDNSEnabled returns true if the customer specified AksLocalDnsProfile and currentServiceStatus property is enable.
 func (a *AgentPoolProfile) IsAKSLocalDNSEnabled() bool {
-	return a.AksLocalDnsProfile != nil &&
+	return a != nil && a.AksLocalDnsProfile != nil &&
 		strings.EqualFold(a.AksLocalDnsProfile.CurrentServiceStatus, AKSLocalDNSEnabled)
 }
 
 // GetAKSLocalDNSImageUrl returns CoreDNS image version used in aks-local-dns service.
 func (a *AgentPoolProfile) GetAKSLocalDNSImageUrl() string {
-	if a != nil && a.AksLocalDnsProfile != nil && a.IsAKSLocalDNSEnabled() {
-		return a.AksLocalDnsProfile.CoreDnsImageUrl
+	if a.IsAKSLocalDNSEnabled() && a.AksLocalDnsProfile.CoreDnsImageUrl != "" {
+		_, err := url.Parse(a.AksLocalDnsProfile.CoreDnsImageUrl)
+		if err == nil {
+			return a.AksLocalDnsProfile.CoreDnsImageUrl
+		}
 	}
-	return ""
+	return DefaultAKSLocalDNSImageUrl
 }
 
-// GetAKSLocalDNSNodeListenerIP returns 169.254.10.10 used in aks-local-dns service.
+// GetAKSLocalDNSNodeListenerIP returns APIPA IP address used in aks-local-dns service.
 func (a *AgentPoolProfile) GetAKSLocalDNSNodeListenerIP() string {
-	if a != nil && a.AksLocalDnsProfile != nil && a.IsAKSLocalDNSEnabled() {
+	if a.IsAKSLocalDNSEnabled() && net.ParseIP(a.AksLocalDnsProfile.NodeListenerIP) != nil {
 		return a.AksLocalDnsProfile.NodeListenerIP
 	}
-	return ""
+	return DefaultAKSLocalDNSNodeListenerIP
 }
 
-// GetAKSLocalDNSClusterListenerIP returns 169.254.10.11 used in aks-local-dns service.
+// GetAKSLocalDNSClusterListenerIP returns APIPA IP address used in aks-local-dns service.
 func (a *AgentPoolProfile) GetAKSLocalDNSClusterListenerIP() string {
-	if a != nil && a.AksLocalDnsProfile != nil && a.IsAKSLocalDNSEnabled() {
+	if a.IsAKSLocalDNSEnabled() && net.ParseIP(a.AksLocalDnsProfile.ClusterListenerIP) != nil {
 		return a.AksLocalDnsProfile.ClusterListenerIP
 	}
-	return ""
+	return DefaultAKSLocalDNSClusterListenerIP
+}
+
+// GetAKSLocalDNSCPULimit returns CPU limit used for aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSCPULimit() int {
+	if a.IsAKSLocalDNSEnabled() && a.AksLocalDnsProfile.CPULimit >= DefaultAKSLocalDNSCPULimit {
+		return a.AksLocalDnsProfile.CPULimit
+	}
+	return DefaultAKSLocalDNSCPULimit
+}
+
+// GetAKSLocalDNSMemoryLimit returns memory limit used for aks-local-dns service.
+func (a *AgentPoolProfile) GetAKSLocalDNSMemoryLimit() int {
+	if a.IsAKSLocalDNSEnabled() && a.AksLocalDnsProfile.MemoryLimitInMB >= DefaultAKSLocalDNSMemoryLimit {
+		return a.AksLocalDnsProfile.MemoryLimitInMB
+	}
+	return DefaultAKSLocalDNSMemoryLimit
 }
 
 // AgentPoolProfile represents an agent pool definition.

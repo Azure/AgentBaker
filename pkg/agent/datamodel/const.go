@@ -134,6 +134,16 @@ const (
 
 // AKSLocalDNSEnabled flag.
 const (
-	// AKSLocalDNSEnabled is the string constant for aks-local-dns service enabled.
+	// AKSLocalDNSEnabled is string constant enabled.
 	AKSLocalDNSEnabled = "Enabled"
+	// DefaultAKSLocalDNSImageUrl sepcifies the default image url used in aks-local-dns.
+	DefaultAKSLocalDNSImageUrl = "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.0-1"
+	// DefaultAKSLocalDNSNodeListenerIP sepcifies the default node listener APIPA-IP used in aks-local-dns.
+	DefaultAKSLocalDNSNodeListenerIP = "169.254.10.10"
+	// DefaultAKSLocalDNSClusterListenerIP sepcifies the default cluster listener APIPA-IP used in aks-local-dns.
+	DefaultAKSLocalDNSClusterListenerIP = "169.254.10.11"
+	// DefaultAKSLocalDNSCPULimit sepcifies the default CPU limit used in aks-local-dns.
+	DefaultAKSLocalDNSCPULimit = 2
+	// DefaultAKSLocalDNSMemoryLimit sepcifies the default Memory limit used in aks-local-dns.
+	DefaultAKSLocalDNSMemoryLimit = 128
 )

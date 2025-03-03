@@ -15,8 +15,8 @@ Restart=on-failure
 KillMode=mixed
 TimeoutStopSec=30
 Slice=aks-local-dns.slice
-EnvironmentFile=-/etc/default/aks-local-dns
-ExecStart=/opt/azure/aks-local-dns/aks-local-dns.sh "${COREDNS_IMAGE_URL}" "${NODE_LISTENER_IP}" "${CLUSTER_LISTENER_IP}"
+EnvironmentFile=-/etc/default/aks-local-dns/aks-local-dns.envfile
+ExecStart=/opt/azure/aks-local-dns/aks-local-dns.sh
 
 [Install]
 WantedBy=multi-user.target

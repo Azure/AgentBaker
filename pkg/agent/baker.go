@@ -1021,6 +1021,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetAKSLocalDNSClusterListenerIP": func() string {
 			return profile.GetAKSLocalDNSClusterListenerIP()
 		},
+		"GetAKSLocalDNSCPULimit": func() int {
+			return profile.GetAKSLocalDNSCPULimit()
+		},
+		"GetAKSLocalDNSMemoryLimit": func() int {
+			return profile.GetAKSLocalDNSMemoryLimit()
+		},
 	}
 }
 
@@ -1777,14 +1783,14 @@ health-check.aks-local-dns.local:53 {
 # VNET DNS traffic (Traffic from pods with dnsPolicy:default or kubelet)
 {{- range $domain, $override := $.VnetDnsOverrides -}}
 {{- $isRootDomain := eq $domain "." -}}
-{{- $useCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
+{{- $useClusterCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.NodeListenerIP}}
     {{- if $isRootDomain}}
     forward . Vnet_Dns_Servers {
     {{- else}}
-    {{- if $useCoreDns}}
+    {{- if $useClusterCoreDns}}
     forward . {{$.CoreDnsServiceIP}} {
     {{- else}}
     forward . Vnet_Dns_Servers {
@@ -1823,11 +1829,11 @@ health-check.aks-local-dns.local:53 {
 # Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
 {{- range $domain, $override := $.KubeDnsOverrides}}
 {{- $isRootDomain := eq $domain "." -}}
-{{- $useCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
+{{- $useClusterCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
 {{$domain}}:53 {
     {{$override.QueryLogging}}
     bind {{$.ClusterListenerIP}}
-    {{- if $useCoreDns}}
+    {{- if $useClusterCoreDns}}
     forward . {{$.CoreDnsServiceIP}} {
     {{- else}}
     forward . Vnet_Dns_Servers {

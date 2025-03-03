@@ -6,17 +6,31 @@ set -euo pipefail
 # This systemd service runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
-# Ensure required positional arguments are provided.
+# Load environment variables from the default file.
 # --------------------------------------------------------------------------------------------------------------------
-: "${1:?Required parameter COREDNS_IMAGE is not set}"
-: "${2:?Required parameter NODE_LISTENER_IP is not set}"
-: "${3:?Required parameter CLUSTER_LISTENER_IP is not set}"
+AKS_LOCAL_DNS_ENV_FILE_PATH="/etc/default/aks-local-dns/aks-local-dns.envfile"
+if [ -f "${AKS_LOCAL_DNS_ENV_FILE_PATH}" ]; then
+    source "${AKS_LOCAL_DNS_ENV_FILE_PATH}"
+else
+    printf "Error: Envfile does not exist at ${AKS_LOCAL_DNS_ENV_FILE_PATH}\n"
+    exit 1
+fi
 
-readonly COREDNS_IMAGE="$1"          # CoreDNS image reference to use to obtain the binary if not present.
-readonly NODE_LISTENER_IP="$2"       # This is the IP that aks-local-dns service should bind to for node traffic; an APIPA address.
-readonly CLUSTER_LISTENER_IP="$3"    # This is the IP that aks-local-dns service should bind to for pod traffic; an APIPA address.
-COREDNS_SHUTDOWN_DELAY="3"           # Delay coredns shutdown to allow connections to finish.
-PID_FILE="/run/aks-local-dns.pid"    # PID file.
+: "${AKSLOCALDNS_IMAGE_URL:?Required parameter AKSLOCALDNS_IMAGE_URL is not set}"
+: "${AKSLOCALDNS_NODE_LISTENER_IP:?Required parameter AKSLOCALDNS_NODE_LISTENER_IP is not set}"
+: "${AKSLOCALDNS_CLUSTER_LISTENER_IP:?Required parameter AKSLOCALDNS_CLUSTER_LISTENER_IP is not set}"
+: "${AKSLOCALDNS_CPU_LIMIT:?Required parameter AKSLOCALDNS_CPU_LIMIT is not set}"
+: "${AKSLOCALDNS_MEMORY_LIMIT:?Required parameter AKSLOCALDNS_MEMORY_LIMIT is not set}"
+: "${AKSLOCALDNS_SHUTDOWN_DELAY:?Required parameter AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
+: "${AKSLOCALDNS_PID_FILE:?Required parameter AKSLOCALDNS_PID_FILE is not set}"
+
+readonly COREDNS_IMAGE="${AKSLOCALDNS_IMAGE_URL}"                       # CoreDNS image reference to use to obtain the binary if not present.
+readonly NODE_LISTENER_IP="${AKSLOCALDNS_NODE_LISTENER_IP}"             # This is the IP that aks-local-dns service should bind to for node traffic; an APIPA address.
+readonly CLUSTER_LISTENER_IP="${AKSLOCALDNS_CLUSTER_LISTENER_IP}"       # This is the IP that aks-local-dns service should bind to for pod traffic; an APIPA address.
+readonly CPU_LIMIT="${AKSLOCALDNS_CPU_LIMIT}"                           # CPU limit for aks-local-dns service.
+readonly MEMORY_LIMIT="${AKSLOCALDNS_MEMORY_LIMIT}"                     # Memory limit for aks-local-dns service.
+readonly COREDNS_SHUTDOWN_DELAY="${AKSLOCALDNS_SHUTDOWN_DELAY}"         # Delay coredns shutdown to allow connections to finish.
+readonly PID_FILE="${AKSLOCALDNS_PID_FILE}"                             # PID file.
 
 # Information variables.
 # --------------------------------------------------------------------------------------------------------------------
@@ -31,7 +45,7 @@ UPSTREAM_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {pri
 # --------------------------------------------------------------------------------------------------------------------
 # Generated Corefile path used by aks-local-dns service.
 # This should match with 'LOCAL_DNS_CORE_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
-readonly LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
+LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
 
 if [ ! -f "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
   printf "Error: Corefile does not exist at ${LOCAL_DNS_CORE_FILE_PATH}\n"
@@ -137,7 +151,7 @@ if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
     trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
     # Function to pull the image.
-    function retrycmd_pull_image_with_ctr() {
+    function retrycmd_pull_image_using_ctr() {
         local retries=$1
         local wait_sleep=$2
         local image="$3"
@@ -155,7 +169,7 @@ if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
 
     if ! ctr -n k8s.io images ls | grep -q "${COREDNS_IMAGE}"; then
         printf "Image not found locally, attempting to pull: ${COREDNS_IMAGE}\n"
-        retrycmd_pull_image_with_ctr 5 10 "${COREDNS_IMAGE}" || exit 1
+        retrycmd_pull_image_using_ctr 5 10 "${COREDNS_IMAGE}" || exit 1
     fi
 
     # Mount the coredns image to the temporary directory.
@@ -252,8 +266,7 @@ if [[ ! -z "${NOTIFY_SOCKET:-}" ]]; then systemd-notify --ready; fi
 # If the watchdog is defined, we check pod status and pass success to systemd.
 if [[ ! -z "${NOTIFY_SOCKET:-}" && ! -z "${WATCHDOG_USEC:-}" ]]; then
     # Health check at 20% of WATCHDOG_USEC; this means that we should check
-    # five times in every watchdog interval, and thus need to fail five checks to
-    # get restarted.
+    # five times in every watchdog interval, and thus need to fail five checks to get restarted.
     HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
     HEALTH_CHECK_DNS_REQUEST=$'health-check.aks-local-dns.local @'"${NODE_LISTENER_IP}"$'\nhealth-check.aks-local-dns.local @'"${CLUSTER_LISTENER_IP}"
     printf "starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals\n"

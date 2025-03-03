@@ -2,15 +2,29 @@
 set -euo pipefail
 
 
-: "${1:?Required parameter COREDNS_IMAGE is not set}"
-: "${2:?Required parameter NODE_LISTENER_IP is not set}"
-: "${3:?Required parameter CLUSTER_LISTENER_IP is not set}"
+AKS_LOCAL_DNS_ENV_FILE_PATH="/etc/default/aks-local-dns/aks-local-dns.envfile"
+if [ -f "${AKS_LOCAL_DNS_ENV_FILE_PATH}" ]; then
+    source "${AKS_LOCAL_DNS_ENV_FILE_PATH}"
+else
+    printf "Error: Envfile does not exist at ${AKS_LOCAL_DNS_ENV_FILE_PATH}\n"
+    exit 1
+fi
 
-readonly COREDNS_IMAGE="$1"          
-readonly NODE_LISTENER_IP="$2"       
-readonly CLUSTER_LISTENER_IP="$3"    
-COREDNS_SHUTDOWN_DELAY="3"           
-PID_FILE="/run/aks-local-dns.pid"    
+: "${AKSLOCALDNS_IMAGE_URL:?Required parameter AKSLOCALDNS_IMAGE_URL is not set}"
+: "${AKSLOCALDNS_NODE_LISTENER_IP:?Required parameter AKSLOCALDNS_NODE_LISTENER_IP is not set}"
+: "${AKSLOCALDNS_CLUSTER_LISTENER_IP:?Required parameter AKSLOCALDNS_CLUSTER_LISTENER_IP is not set}"
+: "${AKSLOCALDNS_CPU_LIMIT:?Required parameter AKSLOCALDNS_CPU_LIMIT is not set}"
+: "${AKSLOCALDNS_MEMORY_LIMIT:?Required parameter AKSLOCALDNS_MEMORY_LIMIT is not set}"
+: "${AKSLOCALDNS_SHUTDOWN_DELAY:?Required parameter AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
+: "${AKSLOCALDNS_PID_FILE:?Required parameter AKSLOCALDNS_PID_FILE is not set}"
+
+readonly COREDNS_IMAGE="${AKSLOCALDNS_IMAGE_URL}"                       
+readonly NODE_LISTENER_IP="${AKSLOCALDNS_NODE_LISTENER_IP}"             
+readonly CLUSTER_LISTENER_IP="${AKSLOCALDNS_CLUSTER_LISTENER_IP}"       
+readonly CPU_LIMIT="${AKSLOCALDNS_CPU_LIMIT}"                           
+readonly MEMORY_LIMIT="${AKSLOCALDNS_MEMORY_LIMIT}"                     
+readonly COREDNS_SHUTDOWN_DELAY="${AKSLOCALDNS_SHUTDOWN_DELAY}"         
+readonly PID_FILE="${AKSLOCALDNS_PID_FILE}"                             
 
 SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
 DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
@@ -19,7 +33,7 @@ NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-aks-local-dns.conf"
 UPSTREAM_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
 
-readonly LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
+LOCAL_DNS_CORE_FILE_PATH="/opt/azure/aks-local-dns/Corefile"
 
 if [ ! -f "${LOCAL_DNS_CORE_FILE_PATH}" ]; then
   printf "Error: Corefile does not exist at ${LOCAL_DNS_CORE_FILE_PATH}\n"
@@ -88,7 +102,6 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
-source /opt/azure/containers/provision_source.sh
 if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
     printf "extracting coredns from image: ${COREDNS_IMAGE}\n"
     CTR_TEMP="$(mktemp -d)"
@@ -101,7 +114,7 @@ if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
     }
     trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
-    function retrycmd_pull_image_with_ctr() {
+    function retrycmd_pull_image_using_ctr() {
         local retries=$1
         local wait_sleep=$2
         local image="$3"
@@ -119,7 +132,7 @@ if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
 
     if ! ctr -n k8s.io images ls | grep -q "${COREDNS_IMAGE}"; then
         printf "Image not found locally, attempting to pull: ${COREDNS_IMAGE}\n"
-        retrycmd_pull_image_with_ctr 5 10 "${COREDNS_IMAGE}" || exit 1
+        retrycmd_pull_image_using_ctr 5 10 "${COREDNS_IMAGE}" || exit 1
     fi
 
     ctr -n k8s.io images mount "${COREDNS_IMAGE}" "${CTR_TEMP}" >/dev/null
