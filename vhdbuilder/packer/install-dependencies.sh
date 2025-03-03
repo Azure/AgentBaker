@@ -32,6 +32,7 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
+capture_benchmark "${SCRIPT_NAME}_virginia"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
@@ -57,7 +58,7 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-
+capture_benchmark "${SCRIPT_NAME}_north_carolina"
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
