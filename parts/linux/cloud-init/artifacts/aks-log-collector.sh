@@ -145,7 +145,7 @@ if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDI
   echo "ERROR: Could not create temporary working directory."
   exit 1
 fi
-cd $WORKDIR || exit
+cd $WORKDIR || { echo "Failed to change directory to $WORKDIR. Exiting." || exit 1
 echo "Created temporary directory: $WORKDIR"
 
 # Function to clean up the output directory and log termination
