@@ -6,8 +6,9 @@ set -euo pipefail
 # This systemd service runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
-# Load environment variables from the default file.
+# Load environment variables from the env file.
 # --------------------------------------------------------------------------------------------------------------------
+# This should match with 'AKS_LOCAL_DNS_DEFAULT_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
 AKS_LOCAL_DNS_ENV_FILE_PATH="/etc/default/aks-local-dns/aks-local-dns.envfile"
 if [ -f "${AKS_LOCAL_DNS_ENV_FILE_PATH}" ]; then
     source "${AKS_LOCAL_DNS_ENV_FILE_PATH}"
@@ -61,7 +62,8 @@ if [ -z "${UPSTREAM_DNS_SERVERS}" ]; then
     echo "Error: No upstream DNS servers found in /run/systemd/resolve/resolv.conf.\n"
     exit 1
 fi
-# Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_DNS_SERVERS in the local DNS core file
+# Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_DNS_SERVERS in aks-local-dns corefile.
+# Based on customer input corefile is generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
 sed -i "s/Vnet_Dns_Servers/${UPSTREAM_DNS_SERVERS}/g" "${LOCAL_DNS_CORE_FILE_PATH}"
 
 printf "Generated corefile:\n"
