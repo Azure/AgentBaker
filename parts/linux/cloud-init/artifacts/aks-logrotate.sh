@@ -4,7 +4,7 @@
 
 # Clean non existent log file entries from status file
 test -d /var/lib/logrotate || mkdir -p /var/lib/logrotate
-cd /var/lib/logrotate
+cd /var/lib/logrotate || { echo "Failed to change directory to /var/lib/logrotate. Exiting."; exit 1; }
 
 test -e status || touch status
 head -1 status > status.clean
