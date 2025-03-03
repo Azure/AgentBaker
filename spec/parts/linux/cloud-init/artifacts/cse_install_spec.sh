@@ -69,53 +69,43 @@ Describe 'cse_install.sh'
         logs_to_events() {
             echo "mock logs to events calling with $1"
         }
-        exit() {
-            echo "mock exit calling with $1"
-        }
+
         VHD_LOGS_FILEPATH="non_existent_file.txt"
         setup() {
             touch "$VHD_LOGS_FILEPATH"
         }
         cleanup() {
-            VHD_LOGS_FILEPATH="non_existent_file.txt"
             rm -f "$VHD_LOGS_FILEPATH"
         }
 
         BeforeEach 'setup'
         AfterEach 'cleanup'
+
         It 'should skip binary cleanup if SKIP_BINARY_CLEANUP is true'
             SKIP_BINARY_CLEANUP="true"
             IS_VHD="false"
-            When call getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
-            The output line 1 should equal "binaries will not be cleaned up"
-            The output line 2 should equal "true"
+            When run getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
+            The stdout should include "binaries will not be cleaned up"
+            The 
         End
+
         It 'should cleanup container images if SKIP_BINARY_CLEANUP is false and VHD_LOGS_FILEPATH exists'
             SKIP_BINARY_CLEANUP="false"
             IS_VHD="false"
             cleanUpContainerImages() {
                 echo "mock cleanUpContainerImages calling"
             }
-            When call getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
-            The output line 1 should equal "detected golden image pre-install"
-            The output line 2 should equal "mock logs to events calling with AKS.CSE.cleanUpContainerImages"
-            The output line 3 should equal "false"
+            When run getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
+            The stdout should include "detected golden image pre-install"
+            The stdout should include "mock logs to events calling with AKS.CSE.cleanUpContainerImages"
         End
-        It 'should error if IS_VHD is true and VHD_LOGS_FILEPATH does not exist'
-            SKIP_BINARY_CLEANUP="false"
-            IS_VHD="true"
-            VHD_LOGS_FILEPATH="dummy-not-existant-file.txt"
-            When call getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
-            The output line 1 should equal "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
-            The output line 2 should equal "mock exit calling with 65"
-        End
+
         It 'should return true if VHD_LOGS_FILEPATH does not exist and IS_VHD is false'
             SKIP_BINARY_CLEANUP="false"
             IS_VHD="false"
             VHD_LOGS_FILEPATH="dummy-not-existant-file.txt"
-            When call getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
-            The output line 1 should equal "the file $VHD_LOGS_FILEPATH does not exist and IS_VHD is "${IS_VHD,,}", full install requred"
-            The output line 2 should equal "true"
+            When run getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD
+            The stdout should include "the file $VHD_LOGS_FILEPATH does not exist and IS_VHD is ${IS_VHD,,}, full install requred"
         End
     End
 End

@@ -116,6 +116,11 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
+if [ ! -f $VHD_LOGS_FILEPATH ] && [ "${IS_VHD,,}" == "true" ]; then
+    echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+    exit $ERR_VHD_FILE_NOT_FOUND
+fi
+
 export -f getInstallModeAndCleanupContainerImages
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
 FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD)
