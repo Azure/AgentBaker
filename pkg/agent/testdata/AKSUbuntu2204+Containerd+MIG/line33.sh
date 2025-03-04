@@ -18,6 +18,7 @@ for i in $(seq 1 3600); do
 done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
 aptmarkWALinuxAgent hold &
 
@@ -43,7 +44,6 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-source "${CSE_DISTRO_HELPERS_FILEPATH}"
 source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
@@ -144,7 +144,7 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
     downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
     downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
-    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
+    logs_to_events "AKS.CSE.installSpinKube" installSpinKube  "$downloadLocationSpinKube" "$downloadURLSpinKube" "$versionsSpinKube"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
