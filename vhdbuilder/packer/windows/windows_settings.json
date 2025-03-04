@@ -27,28 +27,28 @@
       "patches_to_apply": []
     },
     "2022-containerd": {
-      "os_disk_size": "35",
+      "os_disk_size": "50",
       "base_image_sku": "2022-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2022-containerd",
       "base_image_version": "20348.3207.250210",
       "patches_to_apply": []
     },
     "2022-containerd-gen2": {
-      "os_disk_size": "35",
+      "os_disk_size": "50",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2022-containerd",
       "base_image_version": "20348.3207.250210",
       "patches_to_apply": []
     },
     "23H2": {
-      "os_disk_size": "35",
+      "os_disk_size": "50",
       "base_image_sku": "23h2-datacenter-core",
       "windows_image_name": "windows-23H2",
       "base_image_version": "25398.1425.250210",
       "patches_to_apply": []
     },
     "23H2-gen2": {
-      "os_disk_size": "35",
+      "os_disk_size": "50",
       "base_image_sku": "23h2-datacenter-core-g2",
       "windows_image_name": "windows-23H2",
       "base_image_version": "25398.1425.250210",
