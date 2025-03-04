@@ -90,9 +90,9 @@ function Download-File
         Log-VHDFreeSize
         curl.exe --version
         if ("$curlExitCode" -eq "23") {
-            throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
+            throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'. This often means VHD out of space."
         }
-        throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'"
+        throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
 }
 
