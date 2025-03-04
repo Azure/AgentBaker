@@ -119,15 +119,18 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 export -f getInstallModeAndCleanupContainerImages
+export -f should_skip_binary_cleanup
+
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
-FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD)
+# this needs better fix to separate logs and return value;
+FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
 ret=$?
 if [[ "$ret" != "0" ]]; then
     echo "Failed to get the install mode and cleanup container images"
-    exit $ERR_CLEANUP_CONTAINER_IMAGES
+    exit "$ERR_CLEANUP_CONTAINER_IMAGES"
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+if [[ $OS == "$UBUNTU_OS_NAME"  && "$FULL_INSTALL_REQUIRED" == "true" ]]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
@@ -339,12 +342,12 @@ if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
+if [[ $OS == "$UBUNTU_OS_NAME" ]] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
-if $FULL_INSTALL_REQUIRED; then
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $FULL_INSTALL_REQUIRED == "true" ]]; then
+    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
@@ -407,12 +410,12 @@ fi
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # logs_to_events should not be run on & commands
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"

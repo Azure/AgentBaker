@@ -884,7 +884,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 
 func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Azure Linux VHD can be properly bootstrapped and custom CA was correctly added",
+		Description: "Tests that a node using the Azure Linux 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
@@ -1240,7 +1240,6 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerdVersion = "1.6.9"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
