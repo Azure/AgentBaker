@@ -239,7 +239,7 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadContainerdWasmShims $download_location $containerd_wasm_url "v$version" "${shims_to_download[@]}" # adding v to version for simplicity
+        downloadContainerdWasmShims $download_location $containerd_wasm_url "$version" "${shims_to_download[@]}"
     done
     # wait for file downloads to complete before updating file permissions
     wait ${WASMSHIMPIDS[@]}
@@ -248,7 +248,7 @@ installContainerdWasmShims(){
         if [[ "$version" == "0.8.0" ]]; then
             shims_to_download+=("wws")
         fi
-        updateContainerdWasmShimsPermissions $download_location "v$version" "${shims_to_download[@]}"
+        updateContainerdWasmShimsPermissions $download_location "$version" "${shims_to_download[@]}"
     done
 }
 
@@ -279,7 +279,7 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
 }
@@ -303,7 +303,7 @@ installSpinKube(){
 
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadSpinKube $download_location $containerd_spinkube_url "v$version" # adding v to version for simplicity
+        downloadSpinKube $download_location $containerd_spinkube_url "$version"
     done
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
@@ -331,7 +331,7 @@ downloadSpinKube(){
         return 
     fi
     
-    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT >/dev/null | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
 }
 
@@ -535,6 +535,8 @@ installAzureCNI() {
 
 extractKubeBinaries() {
     local k8s_version="$1"
+    # Remove leading 'v' if it exists
+    k8s_version="${k8s_version#v}"
     local kube_binary_url="$2"
     local is_private_url="$3"
     local k8s_downloads_dir="$4"
@@ -713,7 +715,7 @@ cleanUpImages() {
         if [[ $exit_code != 0 ]]; then
             exit $exit_code
         elif [[ "${images_to_delete}" != "" ]]; then
-            echo "${images_to_delete}" | while read image; do
+            echo "${images_to_delete}" | while read -r image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                     removeContainerImage ${CLI_TOOL} ${image}
                 else
@@ -744,7 +746,7 @@ cleanupRetaggedImages() {
             images_to_delete=$(docker images --format '{{OpenBraces}}.Repository{{CloseBraces}}:{{OpenBraces}}.Tag{{CloseBraces}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
         if [[ "${images_to_delete}" != "" ]]; then
-            echo "${images_to_delete}" | while read image; do
+            echo "${images_to_delete}" | while read -r image; do
                 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
                     # crictl will remove *ALL* references to a given imageID (SHA), which removes too much, so always use ctr
                     removeContainerImage "ctr" ${image}

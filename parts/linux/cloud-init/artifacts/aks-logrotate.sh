@@ -3,10 +3,12 @@
 # This will be saved on the target VM within /usr/local/bin/logrotate.sh and invoked by logrotate.service
 
 # Clean non existent log file entries from status file
-cd /var/lib/logrotate
+test -d /var/lib/logrotate || mkdir -p /var/lib/logrotate
+cd /var/lib/logrotate || { echo "Failed to change directory to /var/lib/logrotate. Exiting."; exit 1; }
+
 test -e status || touch status
 head -1 status > status.clean
-sed 's/"//g' status | while read logfile date
+sed 's/"//g' status | while read -r logfile date
 do
     [ -e "$logfile" ] && echo "\"$logfile\" $date"
 done >> status.clean
