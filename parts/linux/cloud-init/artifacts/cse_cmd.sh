@@ -142,6 +142,7 @@ NEEDS_CGROUPV2="{{IsCgroupV2}}"
 TLS_BOOTSTRAP_TOKEN="{{GetTLSBootstrapTokenForKubeConfig}}"
 KUBELET_FLAGS="{{GetKubeletConfigKeyVals}}"
 NETWORK_POLICY="{{GetParameter "networkPolicy"}}"
+# shellcheck disable=SC1036
 {{- if not (IsKubernetesVersionGe "1.17.0")}}
 KUBELET_IMAGE="{{GetHyperkubeImageReference}}"
 {{end}}

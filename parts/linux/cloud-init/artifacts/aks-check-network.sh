@@ -82,12 +82,12 @@ function check_and_curl {
     local error_msg=$2
 
     # check DNS 
-    nslookup $url > /dev/null
+    nslookup "$url" > /dev/null
     if [ $? -eq 0 ]; then
         logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $url'"
     else
         logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url. $error_msg'"
-        dns_trace $url
+        dns_trace "$url"
         return 1
     fi
 
@@ -100,7 +100,7 @@ function check_and_curl {
         if [ $response -ge 200 ] && [ $response -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
-        elif [ $response -eq 400 ] && ([ $url == "acs-mirror.azureedge.net" ] || [ $url == "eastus.data.mcr.microsoft.com" ]); then
+        elif [ $response -eq 400 ] && { [ "$url" == "acs-mirror.azureedge.net" ] || [ "$url" == "eastus.data.mcr.microsoft.com" ]; }; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
@@ -189,7 +189,7 @@ fi
 # check access to required endpoints
 for url in "${!URL_LIST[@]}"
 do
-    check_and_curl $url "${URL_LIST[$url]}"
+    check_and_curl "$url" "${URL_LIST[$url]}"
 done
 
 # check access to additional endpoints
@@ -198,7 +198,7 @@ if [ ! -z "$CUSTOM_ENDPOINT" ]; then
     extra_urls=($(echo $CUSTOM_ENDPOINT | tr "," "\n"))
     for url in "${extra_urls[@]}"
     do
-        check_and_curl $url ""
+        check_and_curl "$url" ""
     done
 fi
 

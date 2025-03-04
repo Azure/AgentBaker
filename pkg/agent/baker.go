@@ -991,6 +991,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
 		},
 		"GetMCRRepositoryBase": func() string {
+			if config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase == "" {
+				return "mcr.microsoft.com"
+			}
 			return config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase
 		},
 		"IsArtifactStreamingEnabled": func() bool {

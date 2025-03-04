@@ -1093,7 +1093,6 @@ testWasmRuntimesInstalled() {
   local test="testWasmRuntimesInstalled"
   local wasm_runtimes_path=${1}
   local shim_version=${2}
-  shim_version="v${shim_version}"
 
   echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
 
