@@ -79,7 +79,8 @@ function Download-File
         [Switch]$redactUrl = $false
     )
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE)
+    $curlExitCode = $LASTEXITCODE
+    if ($curlExitCode)
     {
         $logURL = $URL
         if ($redactUrl)
@@ -88,10 +89,10 @@ function Download-File
         }
         Log-VHDFreeSize
         curl.exe --version
-        if ("$LASTEXITCODE" -eq "23") {
-            throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
+        if ("$curlExitCode" -eq "23") {
+            throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'"
+        throw "Curl exited with '$curlExitCode' while attemping to download '$logURL' to '$Dest'"
     }
 }
 
