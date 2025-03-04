@@ -18,6 +18,7 @@ for i in $(seq 1 3600); do
 done
 sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
 aptmarkWALinuxAgent hold &
 
@@ -43,7 +44,6 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-source "${CSE_DISTRO_HELPERS_FILEPATH}"
 source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
