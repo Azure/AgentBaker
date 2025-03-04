@@ -497,6 +497,7 @@ installAzureCNI() {
 
 extractKubeBinaries() {
     local k8s_version="$1"
+    k8s_version="${k8s_version#v}"
     local kube_binary_url="$2"
     local is_private_url="$3"
     local k8s_downloads_dir="$4"

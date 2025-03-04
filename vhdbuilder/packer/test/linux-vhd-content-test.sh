@@ -151,7 +151,8 @@ testPackagesInstalled() {
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     if [ "${name}" == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      # Intentionally remove leading 'v' from each element in the array
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
       continue
     fi
     if [ "${name}" == "azure-acr-credential-provider" ]; then
