@@ -514,17 +514,23 @@ extractKubeBinaries() {
 
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
-    else
+    fi
+
+    if [[ -n "${k8s_downloads_dir}" ]]; then
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
-        if isRegistryUrl "${kube_binary_url}"; then
+
+        if isRegistryUrl "${kube_binary_url}"; then 
+            k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}" 
+            mkdir -p ${k8s_downloads_dir}
+
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
-        else
+        else 
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
