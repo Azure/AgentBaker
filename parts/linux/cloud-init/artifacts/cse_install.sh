@@ -558,11 +558,16 @@ extractKubeBinaries() {
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
-    else
+    fi
+
+    if [[ -n "${k8s_downloads_dir}" ]]; then
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
-        # if the url is a registry url, use oras to pull the artifact instead of curl
-        if isRegistryUrl "${kube_binary_url}"; then
+
+        if isRegistryUrl "${kube_binary_url}"; then # if isRegistryUrl, then it is a NIC and we need to use oras 
+            k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}" 
+            mkdir -p ${k8s_downloads_dir}
+
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
@@ -570,7 +575,7 @@ extractKubeBinaries() {
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
-        else
+        else # build-time cached pacakges from install-dependencies.sh
             # download the kube package from the default URL
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
@@ -658,6 +663,7 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+                echo "this is the logs to events that I am using the extract"
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
         fi
