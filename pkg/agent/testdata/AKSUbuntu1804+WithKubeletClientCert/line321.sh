@@ -1,11 +1,22 @@
-#!/bin/bash
-set -x
-source "${CSE_HELPERS_FILEPATH}"
-source "${CSE_DISTRO_HELPERS_FILEPATH}"
+[Unit]
+Description=AKS Local DNS
+Wants=network.target
+After=network.target
+After=cloud-config.service
+Before=kubelet.service
+Before=containerd.service
+ConditionKernelVersion=>=5.15 
 
-echo "  dns-search ${CUSTOM_SEARCH_DOMAIN_NAME}" | tee -a /etc/network/interfaces.d/50-cloud-init.cfg
-systemctl_restart 20 5 10 networking
-wait_for_apt_locks
-retrycmd_if_failure 10 5 120 apt-get -y install realmd sssd sssd-tools samba-common samba samba-common python2.7 samba-libs packagekit
-wait_for_apt_locks
-echo "${CUSTOM_SEARCH_REALM_PASSWORD}" | realm join -U ${CUSTOM_SEARCH_REALM_USER}@$(echo "${CUSTOM_SEARCH_DOMAIN_NAME}" | tr /a-z/ /A-Z/) $(echo "${CUSTOM_SEARCH_DOMAIN_NAME}" | tr /a-z/ /A-Z/)
+[Service]
+Type=notify
+NotifyAccess=all
+WatchdogSec=60
+Restart=on-failure
+KillMode=mixed
+TimeoutStopSec=30
+Slice=akslocaldns.slice
+EnvironmentFile=-/etc/default/akslocaldns/akslocaldns.envfile
+ExecStart=/opt/azure/akslocaldns/akslocaldns.sh
+
+[Install]
+WantedBy=multi-user.target

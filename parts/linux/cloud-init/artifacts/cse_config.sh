@@ -515,6 +515,13 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
+
+    # If akslocaldns service needs to be enabled, then Kubelet's --cluster-dns flag is set to AKSLOCALDNS_CLUSTER_LISTENER_IP address.
+    if [ "${IS_AKSLOCALDNS_ENABLED}" == "true" ] && [ ! -z "${AKSLOCALDNS_CLUSTER_LISTENER_IP}" ]; then
+        if ! grep -q -- "--cluster-dns=${AKSLOCALDNS_CLUSTER_LISTENER_IP}" "${KUBELET_DEFAULT_FILE}"; then
+           sed -ie "s/--cluster-dns=[^ \n]\+/--cluster-dns=${AKSLOCALDNS_CLUSTER_LISTENER_IP}/" "${KUBELET_DEFAULT_FILE}"
+        fi
+    fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
@@ -926,6 +933,29 @@ setKubeletNodeIPFlag() {
             KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
         fi
     fi
+}
+
+ensureAKSLocalDNS() {
+    AKSLOCALDNS_CORE_FILE=/opt/azure/akslocaldns/Corefile
+    AKSLOCALDNS_ENV_FILE=/etc/default/akslocaldns/akslocaldns.envfile
+
+    mkdir -p "$(dirname "${AKSLOCALDNS_CORE_FILE}")"
+    echo "${AKSLOCALDNS_GENERATED_COREFILE}" | base64 -d > "${AKSLOCALDNS_CORE_FILE}"
+    chmod 0644 "${AKSLOCALDNS_CORE_FILE}"
+
+    mkdir -p "$(dirname "${AKSLOCALDNS_ENV_FILE}")"
+    tee "${AKSLOCALDNS_ENV_FILE}" > /dev/null <<EOF
+AKSLOCALDNS_IMAGE_URL=${AKSLOCALDNS_IMAGE_URL}
+AKSLOCALDNS_NODE_LISTENER_IP=${AKSLOCALDNS_NODE_LISTENER_IP}
+AKSLOCALDNS_CLUSTER_LISTENER_IP=${AKSLOCALDNS_CLUSTER_LISTENER_IP}
+AKSLOCALDNS_CPU_LIMIT=${AKSLOCALDNS_CPU_LIMIT}
+AKSLOCALDNS_MEMORY_LIMIT=${AKSLOCALDNS_MEMORY_LIMIT}
+AKSLOCALDNS_SHUTDOWN_DELAY=5
+AKSLOCALDNS_PID_FILE="/run/akslocaldns.pid"
+EOF
+    chmod 0644 "${AKSLOCALDNS_ENV_FILE}"
+
+    systemctlEnableAndStart akslocaldns || exit $ERR_AKSLOCALDNS_FAIL
 }
 
 #EOF

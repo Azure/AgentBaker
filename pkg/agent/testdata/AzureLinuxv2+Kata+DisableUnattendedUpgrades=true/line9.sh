@@ -119,6 +119,8 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 
 
+ERR_AKSLOCALDNS_FAIL=216 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')

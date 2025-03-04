@@ -131,3 +131,19 @@ const (
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
 )
+
+// AKSLocalDNSEnabled flag.
+const (
+	// AKSLocalDNSEnabled is string constant enabled.
+	AKSLocalDNSEnabled = "Enabled"
+	// DefaultAKSLocalDNSImageUrl sepcifies the default image url used in akslocaldns.
+	DefaultAKSLocalDNSImageUrl = "mcr.microsoft.com/oss/v2/kubernetes/coredns:v1.12.0-1"
+	// DefaultAKSLocalDNSNodeListenerIP sepcifies the default node listener APIPA-IP used in akslocaldns.
+	DefaultAKSLocalDNSNodeListenerIP = "169.254.10.10"
+	// DefaultAKSLocalDNSClusterListenerIP sepcifies the default cluster listener APIPA-IP used in akslocaldns.
+	DefaultAKSLocalDNSClusterListenerIP = "169.254.10.11"
+	// DefaultAKSLocalDNSCPULimit sepcifies the default CPU limit used in akslocaldns.
+	DefaultAKSLocalDNSCPULimit = 2
+	// DefaultAKSLocalDNSMemoryLimit sepcifies the default Memory limit used in akslocaldns.
+	DefaultAKSLocalDNSMemoryLimit = 128
+)

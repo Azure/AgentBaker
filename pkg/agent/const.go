@@ -90,6 +90,13 @@ const (
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
+
+	aksLocalDnsScript                 = "linux/cloud-init/artifacts/akslocaldns.sh"
+	aksLocalDnsSystemdService         = "linux/cloud-init/artifacts/akslocaldns.service"
+	aksLocalDnsSystemdServiceDelegate = "linux/cloud-init/artifacts/akslocaldns-delegate.conf"
+	aksLocalDnsSlice                  = "linux/cloud-init/artifacts/akslocaldns.slice"
+	aksLocalDnsResolvedConf           = "linux/cloud-init/artifacts/akslocaldns-resolved.conf"
+	aksNetworkdConfFile               = "linux/cloud-init/artifacts/05-aks-keepconfig.conf"
 )
 
 // cloud-init destination file references.

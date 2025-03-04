@@ -409,6 +409,48 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
+- path: /opt/azure/akslocaldns/akslocaldns.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLocalDnsScript"}}
+
+- path: /etc/systemd/system/akslocaldns.service
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLocalDnsSystemdService"}}
+
+- path: /etc/systemd/system/akslocaldns.service.d/delegate.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLocalDnsSystemdServiceDelegate"}}
+
+- path: /etc/systemd/system/akslocaldns.slice
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLocalDnsSlice"}}
+
+- path: /etc/systemd/resolved.conf.d/70-aks-dns.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksLocalDnsResolvedConf"}}
+
+- path: /etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "aksNetworkdConfFile"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64

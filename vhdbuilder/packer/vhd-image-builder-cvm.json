@@ -503,6 +503,36 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns.sh",
+      "destination": "/home/packer/akslocaldns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns.service",
+      "destination": "/home/packer/akslocaldns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns-delegate.conf",
+      "destination": "/home/packer/akslocaldns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns.slice",
+      "destination": "/home/packer/akslocaldns.slice"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns-resolved.conf",
+      "destination": "/home/packer/akslocaldns-resolved.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/05-aks-keepconfig.conf",
+      "destination": "/home/packer/05-aks-keepconfig.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-check-network.sh",
       "destination": "/home/packer/aks-check-network.sh"
     },
