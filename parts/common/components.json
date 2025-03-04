@@ -46,23 +46,6 @@
       ]
     },
     {
-      "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [],
-      "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.5",
-          "windowsSkuMatch": "2022-containerd*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.5",
-          "windowsSkuMatch": "23H2*"
-        }
-      ]
-    },
-    {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
