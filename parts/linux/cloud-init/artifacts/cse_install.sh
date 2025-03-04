@@ -548,8 +548,6 @@ extractKubeBinaries() {
     if [[ $is_private_url == true ]]; then
         k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
 
-        # ALISON TODO
-        # is k8s_tgz_tmp K8S_PRIVATE_PACKAGES_CACHE_DIR ? 
         if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
             return 1
@@ -602,35 +600,12 @@ extractKubeBinaries() {
     fi
 }
 
-start_timer() {
-    TIMER_START=$(date +%s%N) 
-    echo "Timer started at $(date +%s)"
-}
-
-end_timer() {
-    if [ -z "$TIMER_START" ]; then
-        echo "Timer was not started. Call start_timer first."
-        return 1
-    fi
-
-    local TIMER_END=$(date +%s%N)
-    local ELAPSED_NS=$((TIMER_END - TIMER_START))
-    local ELAPSED_SEC=$(awk "BEGIN {printf \"%.3f\", $ELAPSED_NS / 1000000000}")
-    echo "Timer ended at $(date +%s)"
-    echo "Elapsed time: ${ELAPSED_SEC} seconds"
-}
-
 installKubeletKubectlAndKubeProxy() {
-    start_timer
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
-    CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}" # null
-    PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}" # null
+    CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}" 
+    PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
     echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
     install_default_if_missing=true
-
-    echo "=== Contents of /usr/local/bin BEFORE install ==="
-    ls -lh /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* 2>/dev/null || echo "No kube binaries found"
-
 
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         # remove the kubelet and kubectl binaries to make sure the only binary left is from the CUSTOM_KUBE_BINARY_DOWNLOAD_URL
@@ -647,9 +622,6 @@ installKubeletKubectlAndKubeProxy() {
     fi
 
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
-    # ALISON TODO
-    #/usr/local/bin/kubectl-<version>
-    #/usr/local/bin/kubelet-<version>
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]] || [[ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]]; then
         if [[ "$install_default_if_missing" == true ]]; then
             if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
@@ -663,7 +635,6 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                echo "this is the logs to events that I am using the extract"
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
         fi
@@ -673,7 +644,6 @@ installKubeletKubectlAndKubeProxy() {
 
     chmod a+x /usr/local/bin/kubelet /usr/local/bin/kubectl
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
-    end_timer
 }
 
 pullContainerImage() {
