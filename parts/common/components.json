@@ -275,7 +275,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
-          "latestVersion": "v0.0.20",
+          "latestVersion": "v0.2.0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
