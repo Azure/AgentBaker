@@ -6,7 +6,7 @@ After=cloud-config.service
 Before=kubelet.service
 Before=containerd.service
 # don't run on old images; we're not compatible
-ConditionKernelVersion=>=5.15 
+ConditionKernelVersion=>=5.15
 
 [Service]
 Type=notify

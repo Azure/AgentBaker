@@ -6,9 +6,10 @@ set -euo pipefail
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
-# Load environment variables from the env file.
+# Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
 # This should match with 'AKSLOCALDNS_ENV_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
+# This file contains the environment variables used by akslocaldns.
 AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns/akslocaldns.envfile"
 if [ -f "${AKSLOCALDNS_ENV_FILE_PATH}" ]; then
     source "${AKSLOCALDNS_ENV_FILE_PATH}"
@@ -17,80 +18,67 @@ else
     exit 1
 fi
 
-# CoreDNS image reference to use to obtain the binary if not present.
-: "${AKSLOCALDNS_IMAGE_URL:?Required parameter AKSLOCALDNS_IMAGE_URL is not set}"
-# This is the IP that akslocaldns service should bind to for node traffic; an APIPA address.
-: "${AKSLOCALDNS_NODE_LISTENER_IP:?Required parameter AKSLOCALDNS_NODE_LISTENER_IP is not set}"
-# This is the IP that akslocaldns service should bind to for pod traffic; an APIPA address.
-: "${AKSLOCALDNS_CLUSTER_LISTENER_IP:?Required parameter AKSLOCALDNS_CLUSTER_LISTENER_IP is not set}"
-# CPU limit for akslocaldns service.
-: "${AKSLOCALDNS_CPU_LIMIT:?Required parameter AKSLOCALDNS_CPU_LIMIT is not set}"
-# Memory limit in MB for akslocaldns service.
-: "${AKSLOCALDNS_MEMORY_LIMIT:?Required parameter AKSLOCALDNS_MEMORY_LIMIT is not set}"
-# Delay coredns shutdown to allow connections to finish.
-: "${AKSLOCALDNS_SHUTDOWN_DELAY:?Required parameter AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
-# PID file.
-: "${AKSLOCALDNS_PID_FILE:?Required parameter AKSLOCALDNS_PID_FILE is not set}"
-
-# Information variables.
-# --------------------------------------------------------------------------------------------------------------------
-SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
-NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
-NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
-NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-akslocaldns.conf"
-UPSTREAM_VNET_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
-
-# akslocaldns corefile.
-# --------------------------------------------------------------------------------------------------------------------
 # Generated Corefile path used by akslocaldns service.
 # This should match with 'AKSLOCALDNS_CORE_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
 AKSLOCALDNS_CORE_FILE_PATH="/opt/azure/akslocaldns/Corefile"
-
-if [ ! -f "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
-  printf "Error: akslocaldns corefile does not exist at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
-  exit 1
-fi
-if [ ! -s "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
-  printf "Error: akslocaldns corefile is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
-  exit 1
+if [ ! -f "${AKSLOCALDNS_CORE_FILE_PATH}" ] || [ ! -s "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
+    printf "Error: akslocaldns corefile either does not exist or is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
+    exit 1
 fi
 
-# Validate UPSTREAM_VNET_DNS_SERVERS is not empty
+ # This is slice file for akslocaldns.
+AKSLOCALDNS_SLICE_PATH="/etc/systemd/system/akslocaldns.slice"
+if [ ! -f "${AKSLOCALDNS_SLICE_PATH}" ]; then
+    printf "Error: akslocaldns slice file does not exist at %s.\n" "${AKSLOCALDNS_SLICE_PATH}"
+    exit 1
+fi
+
+# Load environment variables from envfile.
+# --------------------------------------------------------------------------------------------------------------------
+# CoreDNS image reference to use to obtain the binary if not present.
+: "${AKSLOCALDNS_IMAGE_URL:?AKSLOCALDNS_IMAGE_URL is not set}"
+# This is the IP that akslocaldns service should bind to for node traffic; an APIPA address.
+: "${AKSLOCALDNS_NODE_LISTENER_IP:?AKSLOCALDNS_NODE_LISTENER_IP is not set}"
+# This is the IP that akslocaldns service should bind to for pod traffic; an APIPA address.
+: "${AKSLOCALDNS_CLUSTER_LISTENER_IP:?AKSLOCALDNS_CLUSTER_LISTENER_IP is not set}"
+# CPU limit for akslocaldns service.
+: "${AKSLOCALDNS_CPU_LIMIT:?AKSLOCALDNS_CPU_LIMIT is not set}"
+# Memory limit in MB for akslocaldns service.
+: "${AKSLOCALDNS_MEMORY_LIMIT:?AKSLOCALDNS_MEMORY_LIMIT is not set}"
+# Delay coredns shutdown to allow connections to finish.
+: "${AKSLOCALDNS_SHUTDOWN_DELAY:?AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
+# PID file.
+: "${AKSLOCALDNS_PID_FILE:?AKSLOCALDNS_PID_FILE is not set}"
+
+# Configure CPU and Memory limit.
+# --------------------------------------------------------------------------------------------------------------------
+CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
+CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
+if [ "${CGROUP_VERSION}" = "cgroup2fs" ]; then
+    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "${AKSLOCALDNS_SLICE_PATH}" || { echo "Error: sed command failed"; exit 1; }
+else
+    echo "Error: Unsupported cgroup version: ${CGROUP_VERSION}"
+    exit 1
+fi
+
+# Replace Vnet_Dns_Servers in corefile with VNET DNS Server Ips.
+# --------------------------------------------------------------------------------------------------------------------
+UPSTREAM_VNET_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
 if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
     printf "Error: No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf.\n"
     exit 1
 fi
 # Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_VNET_DNS_SERVERS in akslocaldns corefile.
-# Based on customer input corefile is generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
-sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}"
+# Based on customer input, corefile was generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
+sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: sed command failed"; exit 1; }
 
 printf "Generated corefile:\n"
 cat "${AKSLOCALDNS_CORE_FILE_PATH}"
 
-# Configure CPU and Memory limit.
-# --------------------------------------------------------------------------------------------------------------------
-AKSLOCALDNS_SLICE_PATH="/etc/systemd/system/akslocaldns.slice"
-if [ ! -f "$AKSLOCALDNS_SLICE_PATH" ]; then
-    printf "Error: akslocaldns slice file does not exist at %s.\n" "${AKSLOCALDNS_SLICE_PATH}"
-    exit 1
-fi
-
-CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
-CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=$CPU_QUOTA/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "$AKSLOCALDNS_SLICE_PATH"
-elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
-    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=$CPU_QUOTA/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "$AKSLOCALDNS_SLICE_PATH"
-else
-    echo "Error: Unsupported cgroup version: $CGROUP_VERSION"
-    exit 1
-fi
-
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
-# These rules skip conntrack for DNS traffic to save conntrack table
-# space. OUTPUT rules affect node services and hostNetwork: true pods.
+# These rules skip conntrack for DNS traffic to save conntrack table space. 
+# OUTPUT rules affect node services and hostNetwork: true pods.
 # PREROUTING rules affect traffic from regular pods.
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS: skip conntrack"'
 IPTABLES_RULES=()
@@ -100,7 +88,15 @@ for PROTO in tcp udp; do
     IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
 done; done; done
 
-# Cleanup function: will be run on script exit/crash to revert config.
+# Information variables.
+# --------------------------------------------------------------------------------------------------------------------
+SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
+DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
+NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
+NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
+NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-akslocaldns.conf"
+
+# Cleanup function will be run on script exit/crash to revert config.
 # --------------------------------------------------------------------------------------------------------------------
 function cleanup {
     # Disable error handling so that we don't get into a recursive loop.
@@ -224,7 +220,7 @@ trap "exit 0" QUIT TERM                                    # Exit with code 0 on
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
 trap "printf 'executing cleanup function\n'; cleanup" EXIT # Always cleanup when you're exiting.
 
-# Node listener and cluster listener.
+# Configure interface listening on Node listener and cluster listener Ips.
 # --------------------------------------------------------------------------------------------------------------------
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP.
 printf "setting up akslocaldns dummy interface with IPs %s and %s.\n" "${AKSLOCALDNS_NODE_LISTENER_IP}" "${AKSLOCALDNS_CLUSTER_LISTENER_IP}"
@@ -239,7 +235,7 @@ for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
 
-# Build the coredns command.
+# Start akslocaldns.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="/opt/azure/akslocaldns/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
@@ -304,7 +300,6 @@ else
 fi
 
 # The cleanup function is called on exit, so it will be run after the
-# wait ends (which will be when a signal is sent or akslocaldns crashes) or
-# the script receives a terminal signal.
+# wait ends (which will be when a signal is sent or akslocaldns crashes) or the script receives a terminal signal.
 # --------------------------------------------------------------------------------------------------------------------
 # end of line

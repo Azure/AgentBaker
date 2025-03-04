@@ -5,7 +5,7 @@ After=network.target
 After=cloud-config.service
 Before=kubelet.service
 Before=containerd.service
-ConditionKernelVersion=>=5.15 
+ConditionKernelVersion=>=5.15
 
 [Service]
 Type=notify

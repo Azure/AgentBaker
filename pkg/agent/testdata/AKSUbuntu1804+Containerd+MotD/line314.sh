@@ -10,57 +10,44 @@ else
     exit 1
 fi
 
-: "${AKSLOCALDNS_IMAGE_URL:?Required parameter AKSLOCALDNS_IMAGE_URL is not set}"
-: "${AKSLOCALDNS_NODE_LISTENER_IP:?Required parameter AKSLOCALDNS_NODE_LISTENER_IP is not set}"
-: "${AKSLOCALDNS_CLUSTER_LISTENER_IP:?Required parameter AKSLOCALDNS_CLUSTER_LISTENER_IP is not set}"
-: "${AKSLOCALDNS_CPU_LIMIT:?Required parameter AKSLOCALDNS_CPU_LIMIT is not set}"
-: "${AKSLOCALDNS_MEMORY_LIMIT:?Required parameter AKSLOCALDNS_MEMORY_LIMIT is not set}"
-: "${AKSLOCALDNS_SHUTDOWN_DELAY:?Required parameter AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
-: "${AKSLOCALDNS_PID_FILE:?Required parameter AKSLOCALDNS_PID_FILE is not set}"
-
-SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
-NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
-NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
-NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-akslocaldns.conf"
-UPSTREAM_VNET_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
-
 AKSLOCALDNS_CORE_FILE_PATH="/opt/azure/akslocaldns/Corefile"
-
-if [ ! -f "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
-  printf "Error: akslocaldns corefile does not exist at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
-  exit 1
-fi
-if [ ! -s "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
-  printf "Error: akslocaldns corefile is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
-  exit 1
-fi
-
-if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
-    printf "Error: No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf.\n"
+if [ ! -f "${AKSLOCALDNS_CORE_FILE_PATH}" ] || [ ! -s "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
+    printf "Error: akslocaldns corefile either does not exist or is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
     exit 1
 fi
-sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}"
-
-printf "Generated corefile:\n"
-cat "${AKSLOCALDNS_CORE_FILE_PATH}"
 
 AKSLOCALDNS_SLICE_PATH="/etc/systemd/system/akslocaldns.slice"
-if [ ! -f "$AKSLOCALDNS_SLICE_PATH" ]; then
+if [ ! -f "${AKSLOCALDNS_SLICE_PATH}" ]; then
     printf "Error: akslocaldns slice file does not exist at %s.\n" "${AKSLOCALDNS_SLICE_PATH}"
     exit 1
 fi
 
+: "${AKSLOCALDNS_IMAGE_URL:?AKSLOCALDNS_IMAGE_URL is not set}"
+: "${AKSLOCALDNS_NODE_LISTENER_IP:?AKSLOCALDNS_NODE_LISTENER_IP is not set}"
+: "${AKSLOCALDNS_CLUSTER_LISTENER_IP:?AKSLOCALDNS_CLUSTER_LISTENER_IP is not set}"
+: "${AKSLOCALDNS_CPU_LIMIT:?AKSLOCALDNS_CPU_LIMIT is not set}"
+: "${AKSLOCALDNS_MEMORY_LIMIT:?AKSLOCALDNS_MEMORY_LIMIT is not set}"
+: "${AKSLOCALDNS_SHUTDOWN_DELAY:?AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
+: "${AKSLOCALDNS_PID_FILE:?AKSLOCALDNS_PID_FILE is not set}"
+
 CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=$CPU_QUOTA/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "$AKSLOCALDNS_SLICE_PATH"
-elif [ "$CGROUP_VERSION" = "tmpfs" ]; then
-    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=$CPU_QUOTA/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "$AKSLOCALDNS_SLICE_PATH"
+if [ "${CGROUP_VERSION}" = "cgroup2fs" ]; then
+    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "${AKSLOCALDNS_SLICE_PATH}" || { echo "Error: sed command failed"; exit 1; }
 else
-    echo "Error: Unsupported cgroup version: $CGROUP_VERSION"
+    echo "Error: Unsupported cgroup version: ${CGROUP_VERSION}"
     exit 1
 fi
+
+UPSTREAM_VNET_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
+if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
+    printf "Error: No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf.\n"
+    exit 1
+fi
+sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: sed command failed"; exit 1; }
+
+printf "Generated corefile:\n"
+cat "${AKSLOCALDNS_CORE_FILE_PATH}"
 
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS: skip conntrack"'
 IPTABLES_RULES=()
@@ -69,6 +56,12 @@ for IP in ${AKSLOCALDNS_NODE_LISTENER_IP} ${AKSLOCALDNS_CLUSTER_LISTENER_IP}; do
 for PROTO in tcp udp; do
     IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
 done; done; done
+
+SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
+DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
+NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
+NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
+NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-akslocaldns.conf"
 
 function cleanup {
     set +e

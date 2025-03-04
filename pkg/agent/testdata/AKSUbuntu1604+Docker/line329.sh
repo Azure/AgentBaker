@@ -1,2 +1,2 @@
 [Service]
-Delegate=cpu cpuset
+Delegate=cpu
