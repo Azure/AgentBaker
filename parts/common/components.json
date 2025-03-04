@@ -1046,7 +1046,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=24.04",
-                "latestVersion": "2.0.2-ubuntu24.04u1"
+                "latestVersion": "2.0.3-ubuntu24.04u1"
               }
             ]
           },
@@ -1054,7 +1054,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=22.04",
-                "latestVersion": "1.7.25-ubuntu22.04u1"
+                "latestVersion": "1.7.26-ubuntu22.04u1"
               }
             ]
           },
@@ -1062,7 +1062,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-containerd, os=ubuntu, release=20.04",
-                "latestVersion": "1.7.25-ubuntu20.04u1"
+                "latestVersion": "1.7.26-ubuntu20.04u1"
               }
             ]
           },
