@@ -38,11 +38,6 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	stdout := execResult.stdout.String()
 	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
-	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
-	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
-	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
-	logSSHInstructions(s)
-
 	ValidateSysctlConfig(ctx, s, map[string]string{
 		"net.ipv4.tcp_retries2":             "8",
 		"net.core.message_burst":            "80",

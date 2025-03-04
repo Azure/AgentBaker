@@ -83,6 +83,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"API_SERVER_NAME":                                config.GetApiServerConfig().GetApiServerName(),
 		"IS_VHD":                                         fmt.Sprintf("%v", getIsVHD(config.IsVhd)),
 		"GPU_NODE":                                       fmt.Sprintf("%v", getEnableNvidia(config)),
+		"AMD_GPU_NODE":                                   fmt.Sprintf("%v", config.GetGpuConfig().GetEnableAmdGpu()),
 		"SGX_NODE":                                       fmt.Sprintf("%v", getIsSgxEnabledSKU(config.GetVmSize())),
 		"MIG_NODE":                                       fmt.Sprintf("%v", getIsMIGNode(config.GetGpuConfig().GetGpuInstanceProfile())),
 		"CONFIG_GPU_DRIVER_IF_NEEDED":                    fmt.Sprintf("%v", config.GetGpuConfig().GetConfigGpuDriver()),
