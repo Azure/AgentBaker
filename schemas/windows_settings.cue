@@ -31,7 +31,6 @@
 
 
 #WindowsBaseVersions: {
-  "2019": #WindowsBaseVersion
   "2019-containerd": #WindowsBaseVersion
   "2022-containerd": #WindowsBaseVersion
   "2022-containerd-gen2": #WindowsBaseVersion
