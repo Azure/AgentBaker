@@ -20,7 +20,7 @@
 
 #WindowsBaseVersion: {
   comment?:           string
-  os_disk_size?:      string
+  os_disk_size:      string
   base_image_sku:     string,
   base_image_version: string
   windows_image_name: string

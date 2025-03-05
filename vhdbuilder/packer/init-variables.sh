@@ -352,6 +352,8 @@ if [ "$OS_TYPE" == "Windows" ]; then
   if [ "null" != "${OS_DISK_SIZE}" ]; then
     echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
     os_disk_size_gb=${OS_DISK_SIZE}
+  else
+    os_disk_size_gb="30"
   fi
 
   imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
