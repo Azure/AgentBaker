@@ -110,7 +110,7 @@ copyPackerFiles() {
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
   ENSURE_IMDS_RESTRICTION_DEST=/opt/azure/containers/ensure_imds_restriction.sh
   VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
-  VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/contains/validate-kubelet-credentials.sh
+  VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
