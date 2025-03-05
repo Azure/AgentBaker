@@ -524,14 +524,6 @@ if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
 fi
 capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
-
-DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-fi
-capture_benchmark "${SCRIPT_NAME}_download_gpu_device_plugin"
-
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
