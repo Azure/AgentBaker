@@ -94,6 +94,8 @@ function Download-File
         }
         throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
+
+    dir "$Dest"
 }
 
 function Download-FileWithAzCopy
@@ -134,6 +136,8 @@ function Download-FileWithAzCopy
 
     Write-Log "Copying $URL to $Dest"
     .\azcopy.exe copy "$URL" "$Dest"
+
+    dir "$Dest"
 
     Write-Log "--- START AzCopy Log"
     Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
