@@ -559,7 +559,7 @@ extractKubeBinaries() {
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         if [[ -n "${k8s_downloads_dir}" ]]; then
-            mkdir -p ${k8s_downloads_dir}
+            mkdir -p ${k8s_downloads_dir} 
         fi
         # if the url is a registry url, use oras to pull the artifact instead of curl
         if isRegistryUrl "${kube_binary_url}"; then
