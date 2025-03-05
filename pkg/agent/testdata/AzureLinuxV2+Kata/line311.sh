@@ -8,21 +8,26 @@ BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstr
 
 VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES=${VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES:-10}
 VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS:-3}
-VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS:-5}
+VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS:-3}
 
 function validateKubeconfig {
     local kubeconfig_path=$1
 
-    command="kubectl auth whoami --kubeconfig $kubeconfig_path >/dev/null"
-    if ! grep -i "whoami" <<< "$(kubectl auth 2>&1)" >/dev/null 2>&1; then
-        echo "kubectl auth whoami is not supported, will use can-i create certificatesigningrequests instead"
-        command="kubectl auth can-i create certificatesigningrequests --kubeconfig $kubeconfig_path >/dev/null"
+    if grep -i "whoami" <<< "$(kubectl auth 2>&1)" >/dev/null 2>&1; then
+        retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
+            $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
+            $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
+            kubectl auth whoami --kubeconfig $kubeconfig_path >/dev/null
+        code=$?
+    else
+        retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
+            $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
+            $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
+            kubectl auth can-i create certificatesigningrequests --kubeconfig $kubeconfig_path >/dev/null
+        code=$?
     fi
 
-    if ! retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
-        $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
-        $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS $command; then
-
+    if [ $code -ne 0 ]; then
         echo "kubelet credential validation failed, will still attempt to start kubelet"
         exit 0
     fi
