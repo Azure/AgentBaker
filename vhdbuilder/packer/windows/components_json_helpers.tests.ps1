@@ -720,81 +720,63 @@ Describe 'Gets The Versions' {
 
         $components | Should -Be @()
     }
-
 }
 
-Describe 'Tests of components.json ' {
+Describe 'Tests of components-test.json ' {
     BeforeEach {
         # Note that we use a test components.json file - this file is validated to match our components.cue file during builds.
         $componentsJson = Get-Content 'vhdbuilder/packer/windows/components-test.json' | Out-String | ConvertFrom-Json
     }
 
-    it 'can parse components.json' {
+    it 'can get the right version of a container that has different windows and linux versions' {
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components.Length | Should -BeGreaterThan 0
 
         # Pause image shouldn't change too often, so let's check that is in there.
-        $components | Should -Contain "mcr.microsoft.com/oss/kubernetes/pause:3.9"
+        $components | Should -Contain "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version"
+        $components | Should -Not -Contain "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:linux-version"
     }
 
-    it 'has the right version of ciprod for win 2019' {
+    it 'can get a specific version of a windows container for win 2019 where there is a different windows download url' {
         $windowsSku = "2019-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
 
-        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+        $components | Should -Contain "mcr.microsoft.com/windows-url/win:v-for-2019"
+        $components | Should -Not -Contain "mcr.microsoft.com/windows-url/win:v-for-2022"
+        $components | Should -Not -Contain "mcr.microsoft.com/linux-url/lin:v-for-linux"
     }
 
-
-    it 'has the right version of ciprod for win 2022' {
+    it 'can get a specific version of a windows container for win 2022 where there is a different windows download url' {
         $windowsSku = "2022-containerd"
         $components = GetComponentsFromComponentsJson $componentsJson
 
-        $components | Should -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+        $components | Should -Not -Contain "mcr.microsoft.com/windows-url/win:v-for-2019"
+        $components | Should -Contain "mcr.microsoft.com/windows-url/win:v-for-2022"
+        $components | Should -Not -Contain "mcr.microsoft.com/linux-url/lin:v-for-linux"
     }
 
-
-    it 'has the no version of ciprod for win 23H2' {
+    it 'can ignore windows 23H2 when there is a version for 2019 and 2022' {
         $windowsSku = "23H2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
-        $components | Should -Not -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+        $components | Should -Not -Contain "mcr.microsoft.com/windows-url/win:v-for-2019"
+        $components | Should -Not -Contain "mcr.microsoft.com/windows-url/win:v-for-2022"
+        $components | Should -Not -Contain "mcr.microsoft.com/linux-url/lin:v-for-linux"
     }
 
-    It 'has the latest 2 versions of windows scripts and cgmaplugin' {
+    It 'has the latest 2 versions of a package' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
-        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip"
-        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
-        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
+        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/win-cse-scripts-vLatest.zip"
+        $packages["c:\akse-cache\"] | Should -Contain "https://acs-mirror.azureedge.net/win-cse-scripts-vPrev.zip"
     }
 
-    it 'has csi proxy' {
-        $packages = GetPackagesFromComponentsJson $componentsJson
-        $packages["c:\akse-cache\csi-proxy\"] | Should -Contain "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
-    }
-
-    it 'has calico' {
-        $packages = GetPackagesFromComponentsJson $componentsJson
-        $packages["c:\akse-cache\calico\"] | Should -Contain "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
-    }
-
-    it 'has kubenetes binaries' {
+    it 'can get packages from the default when there is no windows override set' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.102-akslts/windowszip/v1.27.102-akslts-1int.zip"
         $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.28.100-akslts/windowszip/v1.28.100-akslts-1int.zip"
-        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.11/windowszip/v1.29.11-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.12/windowszip/v1.29.12-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.29.13/windowszip/v1.29.13-1int.zip"
-        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.7/windowszip/v1.30.7-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.8/windowszip/v1.30.8-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.30.9/windowszip/v1.30.9-1int.zip"
-        #        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.3/windowszip/v1.31.3-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.4/windowszip/v1.31.4-1int.zip"
-        $packages["c:\akse-cache\win-k8s\"] | Should -Contain "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip"
     }
 
     It 'has specific WS2019 containers' {
