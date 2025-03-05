@@ -543,11 +543,16 @@ extractKubeBinaries() {
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
+    if [[ -n "${k8s_downloads_dir}" ]]; then
+        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
+        mkdir -p ${k8s_downloads_dir}
+    else
+        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
+    fi
+
     # if the private URL is specified and if the kube package is cached already, extract the package, return otherwise
     # if the private URL is not specified, download and extract the kube package from the given URL
     if [[ $is_private_url == true ]]; then
-        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
-
         if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
             return 1
@@ -556,16 +561,8 @@ extractKubeBinaries() {
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
-    fi
-
-    if [[ -n "${k8s_downloads_dir}" ]]; then
-        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${k8s_downloads_dir}
-
+    else
         if isRegistryUrl "${kube_binary_url}"; then # if isRegistryUrl, then it is a NIC and we need to use oras 
-            k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}" 
-            mkdir -p ${k8s_downloads_dir}
-
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
@@ -573,7 +570,7 @@ extractKubeBinaries() {
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
-        else # build-time cached pacakges from install-dependencies.sh
+        else
             # download the kube package from the default URL
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
