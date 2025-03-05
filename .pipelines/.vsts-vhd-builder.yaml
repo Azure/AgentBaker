@@ -86,8 +86,6 @@ stages:
           displayName: Setup Build Variables
         - template: ./templates/.builder-release-template.yaml
           parameters:
-            useOverrides: ${{ parameters.useOverrides }}
-            overrideBranch: ${{ parameters.overrideBranch }}
             artifactName: azurelinuxv2-gen2
     - job: buildAzureLinuxV3gen2
       timeoutInMinutes: 180
