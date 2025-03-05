@@ -504,14 +504,9 @@ extractKubeBinaries() {
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
-    if [[ -n "${k8s_downloads_dir}" ]]; then
-        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${k8s_downloads_dir}
-    else
-        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
-    fi
-
     if [[ $is_private_url == true ]]; then
+        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
+
         if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
             return 1
@@ -520,7 +515,11 @@ extractKubeBinaries() {
         echo "cached package ${k8s_tgz_tmp} found, will extract that"
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        if isRegistryUrl "${kube_binary_url}"; then 
+        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
+        if [[ -n "${k8s_downloads_dir}" ]]; then
+            mkdir -p ${k8s_downloads_dir}
+        fi
+        if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL

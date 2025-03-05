@@ -543,16 +543,11 @@ extractKubeBinaries() {
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
-    if [[ -n "${k8s_downloads_dir}" ]]; then
-        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${k8s_downloads_dir}
-    else
-        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
-    fi
-
     # if the private URL is specified and if the kube package is cached already, extract the package, return otherwise
     # if the private URL is not specified, download and extract the kube package from the given URL
     if [[ $is_private_url == true ]]; then
+        k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
+
         if [[ ! -f "${k8s_tgz_tmp}" ]]; then
             echo "cached package ${k8s_tgz_tmp} not found"
             return 1
@@ -562,7 +557,12 @@ extractKubeBinaries() {
         # remove the current kubelet and kubectl binaries before extracting new binaries from the cached package
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
-        if isRegistryUrl "${kube_binary_url}"; then # if isRegistryUrl, then it is a NIC and we need to use oras 
+        k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
+        if [[ -n "${k8s_downloads_dir}" ]]; then
+            mkdir -p ${k8s_downloads_dir}
+        fi
+        # if the url is a registry url, use oras to pull the artifact instead of curl
+        if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
