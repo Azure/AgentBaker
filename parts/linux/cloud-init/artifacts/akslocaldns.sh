@@ -53,10 +53,14 @@ fi
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------
 # Extract image tag version after `:`
-COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
 SCRIPT_PATH="/opt/azure/akslocaldns"
-if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
-    printf "Error: coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
+COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
+
+# Coredns binary is extracted from cached coredns image(s) and pre-installed in the VHD -
+# /opt/azure/akslocaldns/<version>/coredns.
+COREDNS_BINARY_PATH="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns"
+if [ ! -x "${COREDNS_BINARY_PATH}" ]; then
+    printf "Error: coredns binary not found at %s.\n" "${COREDNS_BINARY_PATH}"
     exit 1
 fi
 
@@ -184,7 +188,7 @@ done
 
 # Start akslocaldns.
 # --------------------------------------------------------------------------------------------------------------------
-COREDNS_COMMAND="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
+COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=akslocaldns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"

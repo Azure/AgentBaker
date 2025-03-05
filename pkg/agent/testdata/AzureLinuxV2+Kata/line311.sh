@@ -30,10 +30,12 @@ fi
 : "${AKSLOCALDNS_SHUTDOWN_DELAY:?AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
 : "${AKSLOCALDNS_PID_FILE:?AKSLOCALDNS_PID_FILE is not set}"
 
-COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
 SCRIPT_PATH="/opt/azure/akslocaldns"
-if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
-    printf "Error: coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
+COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
+
+COREDNS_BINARY_PATH="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns"
+if [ ! -x "${COREDNS_BINARY_PATH}" ]; then
+    printf "Error: coredns binary not found at %s.\n" "${COREDNS_BINARY_PATH}"
     exit 1
 fi
 
@@ -128,7 +130,7 @@ for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
 
-COREDNS_COMMAND="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
+COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     COREDNS_COMMAND="systemd-cat --identifier=akslocaldns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
