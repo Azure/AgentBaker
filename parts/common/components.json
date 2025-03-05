@@ -22,7 +22,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2025",
+          "latestVersion": "ltsc2022",
           "windowsSkuMatch": "2025*"
         }
       ]
@@ -50,7 +50,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
-          "latestVersion": "ltsc2025",
+          "latestVersion": "ltsc2022",
           "windowsSkuMatch": "2025*"
         }
       ]
