@@ -577,6 +577,72 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
+extractAndCacheCoreDNSBinaries() {
+  # Get the list of CoreDNS images
+  COREDNS_IMAGE_LIST=$(ctr -n k8s.io images list -q | grep coredns)
+
+  # Define base script path
+  DEST_PATH="/opt/azure/akslocaldns"
+
+  # Set a trap to clean up the temp directory if anything fails.
+  function cleanup_coredns_import {
+      # Disable error handling so that we don't get into a recursive loop.
+      set +e
+      printf 'Error extracting coredns from %s.\n' "${COREDNS_IMAGE_URL}"
+      ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
+      rm -rf "${CTR_TEMP}"
+  }
+  # Set trap to clean up on failure
+  trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
+
+  # Check if any CoreDNS images were found
+  if [[ -z "$COREDNS_IMAGE_LIST" ]]; then
+      echo "No CoreDNS images found."
+      exit 1
+  fi
+
+  # Ensure SCRIPT_PATH exists
+  mkdir -p "${DEST_PATH}"
+
+  for COREDNS_IMAGE_URL in $COREDNS_IMAGE_LIST; do
+      CTR_TEMP="$(mktemp -d)"
+      # Extract image tag version after `:`
+      COREDNS_VERSION="${COREDNS_IMAGE_URL##*:}"
+      # Create versioned directory
+      VERSIONED_PATH="${DEST_PATH}/${COREDNS_VERSION}"
+      mkdir -p "${VERSIONED_PATH}"
+
+      # Mount the image
+      if ! ctr -n k8s.io images mount "${COREDNS_IMAGE_URL}" "${CTR_TEMP}" >/dev/null; then
+          echo "Failed to mount ${COREDNS_IMAGE_URL}"
+          rm -rf "${CTR_TEMP}"
+          continue
+      fi
+
+      # Find the CoreDNS binary in the mounted directory. head -n 1 is used to get the first binary found.
+      # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
+      # reference - https://github.com/Azure/dalec-build-defs/blob/a72a61032c6626dd0f7d66f2508925046a1d6560/specs/coredns/coredns-1.12.0.yml#L65
+      # For registry.k8s.io/coredns/coredns:v1.11.3 image, coredns binary is placed in this path /coredns.
+      # Locate CoreDNS binary
+      COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
+
+      if [[ -z "$COREDNS_BINARY" ]]; then
+          echo "CoreDNS binary not found in ${COREDNS_IMAGE_URL}"
+      else
+          # Copy CoreDNS binary to versioned folder
+          cp "$COREDNS_BINARY" "${VERSIONED_PATH}/coredns"
+          echo "Copied CoreDNS binary to ${VERSIONED_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+      fi
+
+      # Unmount and clean up
+      ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
+      rm -rf "${CTR_TEMP}"
+  done
+
+  # Clear the trap after success.
+  trap - EXIT ABRT ERR INT PIPE QUIT TERM
+}
+
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
@@ -616,6 +682,8 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
+
+extractAndCacheCoreDNSBinaries
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"

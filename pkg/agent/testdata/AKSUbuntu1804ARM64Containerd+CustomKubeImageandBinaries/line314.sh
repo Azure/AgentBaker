@@ -57,7 +57,6 @@ for PROTO in tcp udp; do
     IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
 done; done; done
 
-SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
 DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
@@ -105,54 +104,11 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
-if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
+COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
+SCRIPT_PATH="/opt/azure/akslocaldns"
+if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
     printf "extracting coredns from image: %s \n" "${AKSLOCALDNS_IMAGE_URL}"
-    CTR_TEMP="$(mktemp -d)"
-
-    function cleanup_coredns_import {
-        set +e
-        printf 'Error extracting coredns.\n'
-        ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
-        rm -rf "${CTR_TEMP}"
-    }
-    trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
-
-    function retrycmd_pull_image_using_ctr() {
-        local retries=$1
-        local wait_sleep=$2
-        local image="$3"
-
-        for i in $(seq 1 $retries); do
-            if timeout 60 ctr -n k8s.io images pull "${image}" >/dev/null; then
-                printf "ctr Successfully pulled image: %s \n" "${image}"
-                return 0
-            fi
-            sleep $wait_sleep
-        done
-        printf "Error: Failed to ctr pull image: %s after %d attempts.\n" "${image}" "${retries}"
-        return 1
-    }
-
-    if ! ctr -n k8s.io images ls | grep -q "${AKSLOCALDNS_IMAGE_URL}"; then
-        printf "Image not found locally, attempting to pull: %s \n" "${AKSLOCALDNS_IMAGE_URL}"
-        retrycmd_pull_image_using_ctr 5 10 "${AKSLOCALDNS_IMAGE_URL}" || exit 1
-    fi
-
-    ctr -n k8s.io images mount "${AKSLOCALDNS_IMAGE_URL}" "${CTR_TEMP}" >/dev/null
-
-    COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
-
-    if [[ -z "$COREDNS_BINARY" ]]; then
-        printf "Error: coredns binary not found in the image.\n"
-        exit 1
-    fi    
-
-    cp "$COREDNS_BINARY" "${SCRIPT_PATH}/coredns"
-
-    ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
-    rm -rf "${CTR_TEMP}"
-
-    trap - EXIT ABRT ERR INT PIPE QUIT TERM
+    exit 1
 fi
 
 trap "exit 0" QUIT TERM                                    

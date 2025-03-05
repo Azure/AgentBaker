@@ -90,7 +90,6 @@ done; done; done
 
 # Information variables.
 # --------------------------------------------------------------------------------------------------------------------
-SCRIPT_PATH="$(dirname -- "$(readlink -f -- "$0";)";)"
 DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
@@ -149,70 +148,14 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
-# source /opt/azure/containers/provision_source.sh
 # akslocaldns: extract from image.
 # --------------------------------------------------------------------------------------------------------------------
-if [ ! -x "${SCRIPT_PATH}/coredns" ]; then
+# Extract image tag version after `:`
+COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
+SCRIPT_PATH="/opt/azure/akslocaldns"
+if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
     printf "extracting coredns from image: %s \n" "${AKSLOCALDNS_IMAGE_URL}"
-    CTR_TEMP="$(mktemp -d)"
-
-    # Set a trap to clean up the temp directory if anything fails.
-    function cleanup_coredns_import {
-        # Disable error handling so that we don't get into a recursive loop.
-        set +e
-        printf 'Error extracting coredns.\n'
-        ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
-        rm -rf "${CTR_TEMP}"
-    }
-    # Set trap to clean up on failure
-    trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
-
-    # Function to pull the image.
-    function retrycmd_pull_image_using_ctr() {
-        local retries=$1
-        local wait_sleep=$2
-        local image="$3"
-
-        for i in $(seq 1 $retries); do
-            if timeout 60 ctr -n k8s.io images pull "${image}" >/dev/null; then
-                printf "ctr Successfully pulled image: %s \n" "${image}"
-                return 0
-            fi
-            sleep $wait_sleep
-        done
-        printf "Error: Failed to ctr pull image: %s after %d attempts.\n" "${image}" "${retries}"
-        return 1
-    }
-
-    if ! ctr -n k8s.io images ls | grep -q "${AKSLOCALDNS_IMAGE_URL}"; then
-        printf "Image not found locally, attempting to pull: %s \n" "${AKSLOCALDNS_IMAGE_URL}"
-        retrycmd_pull_image_using_ctr 5 10 "${AKSLOCALDNS_IMAGE_URL}" || exit 1
-    fi
-
-    # Mount the coredns image to the temporary directory.
-    ctr -n k8s.io images mount "${AKSLOCALDNS_IMAGE_URL}" "${CTR_TEMP}" >/dev/null
-
-    # Find the CoreDNS binary in the mounted directory. head -n 1 is used to get the first binary found.
-    # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
-    # reference - https://github.com/Azure/dalec-build-defs/blob/a72a61032c6626dd0f7d66f2508925046a1d6560/specs/coredns/coredns-1.12.0.yml#L65
-    # For registry.k8s.io/coredns/coredns:v1.11.3 image, coredns binary is placed in this path /coredns.
-    COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
-
-    # Check if the binary was found.
-    if [[ -z "$COREDNS_BINARY" ]]; then
-        printf "Error: coredns binary not found in the image.\n"
-        exit 1
-    fi    
-
-    # Copy coredns to SCRIPT_PATH.
-    cp "$COREDNS_BINARY" "${SCRIPT_PATH}/coredns"
-
-    # Umount and clean up the temporary directory.
-    ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
-    rm -rf "${CTR_TEMP}"
-
-    # Clear the trap after success.
-    trap - EXIT ABRT ERR INT PIPE QUIT TERM
+    exit 1
 fi
 
 # Enable the cleanup function now that we have a coredns binary.
