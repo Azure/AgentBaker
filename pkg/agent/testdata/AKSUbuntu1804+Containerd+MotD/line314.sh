@@ -33,14 +33,18 @@ fi
 COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
 SCRIPT_PATH="/opt/azure/akslocaldns"
 if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
-    printf "coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
+    printf "Error: coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
     exit 1
 fi
 
 CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
+
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "${CGROUP_VERSION}" = "cgroup2fs" ]; then
-    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "${AKSLOCALDNS_SLICE_PATH}" || { echo "Error: sed command failed"; exit 1; }
+if [ "${CGROUP_VERSION}" = "cgroup2fs" ] || [ "${CGROUP_VERSION}" = "tmpfs" ]; then
+    sed -i \
+        -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" \
+        -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" \
+        "${AKSLOCALDNS_SLICE_PATH}" || { echo "Error: updating akslocaldns slice failed"; exit 1; }
 else
     echo "Error: Unsupported cgroup version: ${CGROUP_VERSION}"
     exit 1
@@ -51,7 +55,8 @@ if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
     printf "Error: No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf.\n"
     exit 1
 fi
-sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: sed command failed"; exit 1; }
+sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" \
+    "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: updating akslocaldns corefile failed"; exit 1; }
 
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS: skip conntrack"'
 IPTABLES_RULES=()
@@ -141,7 +146,7 @@ declare -i ATTEMPTS=0
 printf "waiting for akslocaldns to start and be able to serve traffic.\n"
 until [ "$(curl -s "http://${AKSLOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ]; do
     if [ $ATTEMPTS -ge 60 ]; then
-        printf "\nERROR: akslocaldns failed to come online.\n"
+        printf "ERROR: akslocaldns failed to come online.\n"
         exit 255
     fi
     sleep 1

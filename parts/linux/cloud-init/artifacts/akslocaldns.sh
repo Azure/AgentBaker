@@ -56,22 +56,28 @@ fi
 COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
 SCRIPT_PATH="/opt/azure/akslocaldns"
 if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
-    printf "coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
+    printf "Error: coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
     exit 1
 fi
 
 # Configure CPU and Memory limit.
 # --------------------------------------------------------------------------------------------------------------------
+# Takes a percentage value, suffixed with "%". The percentage specifies how much CPU time the unit shall get at maximum, 
+# relative to the total CPU time available on one CPU. Use values > 100% for allotting CPU time on more than one CPU.
 CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
+
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "${CGROUP_VERSION}" = "cgroup2fs" ]; then
-    sed -i -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" "${AKSLOCALDNS_SLICE_PATH}" || { echo "Error: sed command failed"; exit 1; }
+if [ "${CGROUP_VERSION}" = "cgroup2fs" ] || [ "${CGROUP_VERSION}" = "tmpfs" ]; then
+    sed -i \
+        -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" \
+        -e "s/^MemoryMax=[^ ]*/MemoryMax=${AKSLOCALDNS_MEMORY_LIMIT}M/" \
+        "${AKSLOCALDNS_SLICE_PATH}" || { echo "Error: updating akslocaldns slice failed"; exit 1; }
 else
     echo "Error: Unsupported cgroup version: ${CGROUP_VERSION}"
     exit 1
 fi
 
-# Replace Vnet_Dns_Servers in corefile with VNET DNS Server Ips.
+# Replace Vnet_Dns_Servers in corefile with VNET DNS Server IPs.
 # --------------------------------------------------------------------------------------------------------------------
 UPSTREAM_VNET_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
 if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
@@ -80,7 +86,8 @@ if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
 fi
 # Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_VNET_DNS_SERVERS in akslocaldns corefile.
 # Based on customer input, corefile was generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
-sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: sed command failed"; exit 1; }
+sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" \
+    "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: updating akslocaldns corefile failed"; exit 1; }
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
@@ -160,7 +167,7 @@ trap "exit 0" QUIT TERM                                    # Exit with code 0 on
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
 trap "printf 'executing cleanup function\n'; cleanup" EXIT # Always cleanup when you're exiting.
 
-# Configure interface listening on Node listener and cluster listener Ips.
+# Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP.
 printf "setting up akslocaldns dummy interface with IPs %s and %s.\n" "${AKSLOCALDNS_NODE_LISTENER_IP}" "${AKSLOCALDNS_CLUSTER_LISTENER_IP}"
@@ -177,7 +184,6 @@ done
 
 # Start akslocaldns.
 # --------------------------------------------------------------------------------------------------------------------
-# chmod +x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns"
 COREDNS_COMMAND="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
@@ -198,7 +204,7 @@ declare -i ATTEMPTS=0
 printf "waiting for akslocaldns to start and be able to serve traffic.\n"
 until [ "$(curl -s "http://${AKSLOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ]; do
     if [ $ATTEMPTS -ge 60 ]; then
-        printf "\nERROR: akslocaldns failed to come online.\n"
+        printf "ERROR: akslocaldns failed to come online.\n"
         exit 255
     fi
     sleep 1
