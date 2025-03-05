@@ -50,6 +50,16 @@ fi
 # PID file.
 : "${AKSLOCALDNS_PID_FILE:?AKSLOCALDNS_PID_FILE is not set}"
 
+# Check if coredns binary is cached in VHD.
+# --------------------------------------------------------------------------------------------------------------------
+# Extract image tag version after `:`
+COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
+SCRIPT_PATH="/opt/azure/akslocaldns"
+if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
+    printf "coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
+    exit 1
+fi
+
 # Configure CPU and Memory limit.
 # --------------------------------------------------------------------------------------------------------------------
 CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
@@ -71,9 +81,6 @@ fi
 # Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_VNET_DNS_SERVERS in akslocaldns corefile.
 # Based on customer input, corefile was generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
 sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: sed command failed"; exit 1; }
-
-printf "Generated corefile:\n"
-cat "${AKSLOCALDNS_CORE_FILE_PATH}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
@@ -148,16 +155,6 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
-# akslocaldns: extract from image.
-# --------------------------------------------------------------------------------------------------------------------
-# Extract image tag version after `:`
-COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
-SCRIPT_PATH="/opt/azure/akslocaldns"
-if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
-    printf "extracting coredns from image: %s \n" "${AKSLOCALDNS_IMAGE_URL}"
-    exit 1
-fi
-
 # Enable the cleanup function now that we have a coredns binary.
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
@@ -180,7 +177,8 @@ done
 
 # Start akslocaldns.
 # --------------------------------------------------------------------------------------------------------------------
-COREDNS_COMMAND="/opt/azure/akslocaldns/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
+# chmod +x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns"
+COREDNS_COMMAND="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=akslocaldns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"

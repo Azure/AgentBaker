@@ -30,6 +30,13 @@ fi
 : "${AKSLOCALDNS_SHUTDOWN_DELAY:?AKSLOCALDNS_SHUTDOWN_DELAY is not set}"
 : "${AKSLOCALDNS_PID_FILE:?AKSLOCALDNS_PID_FILE is not set}"
 
+COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
+SCRIPT_PATH="/opt/azure/akslocaldns"
+if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
+    printf "coredns binary not found at %s. \n" "${AKSLOCALDNS_IMAGE_URL}"
+    exit 1
+fi
+
 CPU_QUOTA="$((AKSLOCALDNS_CPU_LIMIT * 100))%"
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "${CGROUP_VERSION}" = "cgroup2fs" ]; then
@@ -45,9 +52,6 @@ if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
     exit 1
 fi
 sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: sed command failed"; exit 1; }
-
-printf "Generated corefile:\n"
-cat "${AKSLOCALDNS_CORE_FILE_PATH}"
 
 IPTABLES='iptables -w -t raw -m comment --comment "AKS Local DNS: skip conntrack"'
 IPTABLES_RULES=()
@@ -104,13 +108,6 @@ if [[ $* == *--cleanup* ]]; then
     exit 0
 fi
 
-COREDNS_VERSION="${AKSLOCALDNS_IMAGE_URL##*:}"
-SCRIPT_PATH="/opt/azure/akslocaldns"
-if [ ! -x "${SCRIPT_PATH}/${COREDNS_VERSION}/coredns" ]; then
-    printf "extracting coredns from image: %s \n" "${AKSLOCALDNS_IMAGE_URL}"
-    exit 1
-fi
-
 trap "exit 0" QUIT TERM                                    
 trap "exit 1" ABRT ERR INT PIPE                            
 trap "printf 'executing cleanup function\n'; cleanup" EXIT 
@@ -126,7 +123,7 @@ for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
 
-COREDNS_COMMAND="/opt/azure/akslocaldns/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
+COREDNS_COMMAND="${SCRIPT_PATH}/${COREDNS_VERSION}/coredns -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     COREDNS_COMMAND="systemd-cat --identifier=akslocaldns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
