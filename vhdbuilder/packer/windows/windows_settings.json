@@ -51,14 +51,14 @@
     },
     "2025": {
       "os_disk_size": "45",
-      "base_image_sku": "2025-datacenter-core",
+      "base_image_sku": "2025-datacenter-core-smalldisk",
       "windows_image_name": "windows-2025",
       "base_image_version": "26100.3194.250210",
       "patches_to_apply": []
     },
     "2025-gen2": {
       "os_disk_size": "45",
-      "base_image_sku": "2025-datacenter-core-g2",
+      "base_image_sku": "2025-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2025",
       "base_image_version": "26100.3194.250210",
       "patches_to_apply": []
