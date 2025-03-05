@@ -14,10 +14,15 @@ VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS=${VALIDATE_KUBELET_CREDENTIAL
 function validateKubeconfig {
     local kubeconfig_path=$1
 
+    command="kubectl auth whoami --kubeconfig $kubeconfig_path >/dev/null"
+    if ! grep -i "whoami" <<< "$(kubectl auth 2>&1)" >/dev/null 2>&1; then
+        echo "kubectl auth whoami is not supported, will use can-i create certificatesigningrequests instead"
+        command="kubectl auth can-i create certificatesigningrequests --kubeconfig $kubeconfig_path >/dev/null"
+    fi
+
     if ! retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
         $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
-        $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
-        kubectl auth whoami --kubeconfig "$kubeconfig_path"; then
+        $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS $command; then
 
         # for now we simply exit 0 here to prevent provisioning failures in cases where the credential
         # doesn't become valid until after we've exhausted our retries - kubelet should still eventually be able to register
@@ -32,13 +37,8 @@ function validateKubeletCredentials {
         exit 1
     fi
 
-    if ! which kubectl; then
+    if ! which kubectl >/dev/null 2>&1; then
         echo "kubectl not found, will skip kubelet credential validation"
-        exit 0
-    fi
-
-    if ! grep -i "whoami" <<< "$(kubectl auth 2>&1)" >/dev/null 2>&1; then
-        echo "kubectl auth whoami not supported, will skip kubelet credential validation"
         exit 0
     fi
 
