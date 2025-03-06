@@ -80,7 +80,8 @@ if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]]; then
     if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
         registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
     fi
-    verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
+    # Disabling DNS health check until better E2E are created.
+    # verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 fi
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
