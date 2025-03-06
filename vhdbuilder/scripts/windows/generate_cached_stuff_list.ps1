@@ -15,7 +15,6 @@ $WindowsSettingsFile = "vhdbuilder/packer/windows/windows_settings.json"
 $ComponentsJsonFile = "parts/common/components.json"
 $outputDir = "temp"
 
-
 if (![string]::IsNullOrEmpty($outputDirParam))
 {
     Write-Output "Setting output dir to to to $outputDirParam"
