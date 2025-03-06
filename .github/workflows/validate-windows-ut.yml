@@ -41,22 +41,22 @@ jobs:
 
 
       - name: Produce vhd files - master
-        shell: powershell
+        shell: pwsh
         run: |
           mkdir win_files
           mkdir win_files/master
           mkdir win_files/pr
           cd master
-          vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/master
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/master
 
       - name: Produce vhd files - pr
-        shell: powershell
+        shell: pwsh
         run: |
           cd pr
-          vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/pr
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/pr
 
       - name: diff
-        shell: powershell
+        shell: pwsh
         run: |
           $vhdFilesMaster = Get-ChildItem -Recurse -path win_files/master
           $vhdFilesPr = Get-ChildItem -Recurse -path win_files/pr
