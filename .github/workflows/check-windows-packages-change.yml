@@ -7,8 +7,6 @@ jobs:
     runs-on: windows-latest
     permissions:
       pull-requests: write
-    outputs:
-      commentAction: ${{ steps.makeDiff.outputs.commentAction }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -38,16 +36,14 @@ jobs:
           git commit -m "versions of files from master"
 
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
-                    
-          mkdir -p ../.github/workflows
-          $diffFile = "../.github/workflows/diff.md"
+          
+          $diffFile = "diff.md"
+          $noDiffFile = "no_diff.md"
           
           git diff --quiet
           if ( $LASTEXITCODE -eq "0" ) {
-            Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
-            echo "commentAction=delete" >> $GITHUB_OUTPUT
+            Write-Output "No changes to cached containers or packages on Windows VHDs" > $noDiffFile
           } else {
-            echo "commentAction=create" >> $GITHUB_OUTPUT
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
@@ -57,13 +53,10 @@ jobs:
           
           dir $diffFile
           Get-Content $diffFile
-          
-          Write-Output "github output"
-          Get-Content $GITHUB_OUTPUT
 
       - name: Add comment to PR
         uses: thollander/actions-comment-pull-request@v3
-        if: ${{ steps.makeDiff.outputs.commentAction == 'create' }}
+        if: ${{ hashFiles('diff.md') != '' }}
         with:
           file-path: "diff.md"
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
@@ -72,7 +65,7 @@ jobs:
 
       - name: remove comment from PR
         uses: thollander/actions-comment-pull-request@v3
-        if: ${{ steps.makeDiff.outputs.commentAction == 'delete' }}
+        if: ${{ hashFiles('nodiff.md') != '' }}
         with:
           mode: delete
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
