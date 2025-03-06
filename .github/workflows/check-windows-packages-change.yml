@@ -38,9 +38,10 @@ jobs:
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
           
           $diffFile = "../diff.md"
+          $noDiffFile = "../nodiff.md"
           git diff --quiet
           if ( $LASTEXITCODE -eq "0" ) {
-            Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
+            Write-Output "No changes to cached containers or packages on Windows VHDs" > $noDiffFile
           } else {
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
