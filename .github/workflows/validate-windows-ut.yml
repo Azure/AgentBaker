@@ -58,14 +58,19 @@ jobs:
           git diff
           
           mkdir -p ../.github/workflows
-          git diff > ../.github/workflows/pr.diff
-          
-          dir ../.github/workflows/pr.diff
+          $diffFile = "../.github/workflows/diff.md"
+          Write-Output "Changes to windows VHDs" > $diffFile
+          Write-Output "" > $diffFile
+          Write-Output "```diff" > $diffFile
+          git diff >> $diffFile
+          Write-Output "```" > $diffFile
+
+          dir $diffFile
 
       - name: Add comment to PR
         uses: NejcZdovc/comment-pr@v2
         with:
-            file: "pr.diff"
+            file: "diff.md"
             identifier: "GITHUB_COMMENT_SCRIPT"
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
