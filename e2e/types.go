@@ -162,6 +162,8 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
 	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
 
+	s.T.Logf("got vhd resource id %s", resourceID)
+
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)
 	}
