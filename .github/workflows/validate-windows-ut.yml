@@ -57,14 +57,15 @@ jobs:
           
           git diff
           
-          git diff > ../pr.diff
+          mkdir -p ../.github/workflows
+          git diff > ../.github/workflows/pr.diff
           
-          dir ../pr.diff
+          dir ../.github/workflowspr.diff
 
       - name: Add comment to PR
         uses: NejcZdovc/comment-pr@v2
         with:
-            file: "../../pr.diff"
+            file: "pr.diff"
             identifier: "GITHUB_COMMENT_SCRIPT"
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
