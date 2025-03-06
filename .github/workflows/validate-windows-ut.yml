@@ -61,9 +61,9 @@ jobs:
           $diffFile = "../.github/workflows/diff.md"
           Write-Output "Changes to windows VHDs" > $diffFile
           Write-Output "" > $diffFile
-          Write-Output "```diff" > $diffFile
+          Write-Output '```diff' > $diffFile
           git diff >> $diffFile
-          Write-Output "```" > $diffFile
+          Write-Output '```' > $diffFile
 
           dir $diffFile
 
@@ -71,6 +71,6 @@ jobs:
         uses: NejcZdovc/comment-pr@v2
         with:
             file: "diff.md"
-            identifier: "GITHUB_COMMENT_SCRIPT"
+            identifier: "WINDOWS_VHD_CONTENT_DIFF"
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
