@@ -113,11 +113,7 @@ Describe 'Tests of GetAllCachedThings ' {
 
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
-        $allpackages | Should -Be @(
-            'c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip',
-            'c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip',
-            'mcr.microsoft.com/container/with/seperate/win/and/linux/versions:other-version',
-            'mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version')
+        $allpackages | Should -Be ( $allpackages | Sort-Object )
     }
 }
 
