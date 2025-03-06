@@ -45,7 +45,7 @@ jobs:
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
-            git diff >> $diffFile
+            git diff --unified=0 >> $diffFile
             Write-Output '```' >> $diffFile
           
             dir $diffFile
