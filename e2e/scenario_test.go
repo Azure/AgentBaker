@@ -402,27 +402,16 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 	})
 }
 
-func Test_MarinerV2_AzureCNI(t *testing.T) {
+// Merge test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
+func Test_MarinerV2_AzureCNI_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "marinerv2 scenario on a cluster configured with Azure CNI",
+		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_ChronyRestarts(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -433,16 +422,18 @@ func Test_MarinerV2_ChronyRestarts(t *testing.T) {
 	})
 }
 
-func Test_MarinerV2_ChronyRestarts_Scriptless(t *testing.T) {
+// Merge scriptless test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
+func Test_MarinerV2_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
+		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
 		Tags: Tags{
 			Scriptless: true,
 		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
