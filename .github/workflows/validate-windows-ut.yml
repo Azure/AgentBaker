@@ -61,10 +61,10 @@ jobs:
           mkdir -p ../.github/workflows
           $diffFile = "../.github/workflows/diff.md"
           Write-Output "Changes to windows VHDs" > $diffFile
-          Write-Output "" > $diffFile
-          Write-Output '```diff' > $diffFile
+          Write-Output "" >> $diffFile
+          Write-Output '```diff' >> $diffFile
           git diff >> $diffFile
-          Write-Output '```' > $diffFile
+          Write-Output '```' >> $diffFile
           
           dir $diffFile
 
