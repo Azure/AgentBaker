@@ -14,6 +14,12 @@ parameters:
   - name: build23H2gen2
     displayName: Build 23H2 Gen 2
     type: boolean
+  - name: build2025
+    displayName: Build 2025
+    type: boolean
+  - name: build2025gen2
+    displayName: Build 2025 Gen 2
+    type: boolean
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -138,6 +144,46 @@ stages:
       windowsBaseImageUrl: $(WINDOWS_23H2_GEN2_BASE_IMAGE_URL)
       windowsNanoImageUrl: $(WINDOWS_2022_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2022_CORE_IMAGE_URL)
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2025_v1
+      artifactName: 2025
+      imageName: windows-2025
+      windowsSku: 2025
+      hyperVGeneration: V1
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build2025 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2025_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2025_v2
+      artifactName: 2025-gen2
+      imageName: windows-2025-gen2
+      windowsSku: 2025-gen2
+      hyperVGeneration: V2
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build2025gen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: $(WINDOWS_2025_GEN2_BASE_IMAGE_URL)
+      windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
+      windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
