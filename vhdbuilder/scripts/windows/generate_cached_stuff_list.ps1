@@ -55,11 +55,6 @@ $BaseVersions = GetWindowsBaseVersions $windowsSettingsJson
 
 foreach ($WindowsSku in $BaseVersions)
 {
-
-    $patch_data = GetPatchInfo $windowsSKU $windowsSettingsJson
-    $patchUrls = $patch_data | % { $_.url }
-    $patchIDs = $patch_data | % { $_.id }
-
     $cachedThings = GetAllCachedThings $componentsJson $windowsSettingsJson
 
     $fileName = "${outputDir}/${WindowsSku}.txt"
