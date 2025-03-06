@@ -55,6 +55,8 @@ jobs:
 
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 pr/vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
           
+          git diff
+          
           git diff > ../pr.diff
 
       - name: Add comment to PR
