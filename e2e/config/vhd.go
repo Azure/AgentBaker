@@ -144,7 +144,6 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -153,7 +152,6 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022Containerd,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -162,7 +160,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -171,7 +168,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -180,7 +176,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -212,7 +207,6 @@ type Image struct {
 	OS      OS
 	Version string
 	Gallery *Gallery
-	Latest  bool // a hack to get the latest version of the image for windows, currently windows images are not tagged
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once
@@ -231,8 +225,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, "", "")
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
+			t.Logf("got version vid %s: %s", i.Version, i.vhd)
 		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhd)
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
