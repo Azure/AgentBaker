@@ -43,20 +43,17 @@ jobs:
       - name: Produce vhd files - master
         shell: pwsh
         run: |
-          mkdir pr/vhd_files
-
-          pwsh -c pr/vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 pr/vhd_files master/vhdbuilder/packer/windows/components_json_helpers.ps1 master/vhdbuilder/packer/windows/windows_settings.json master/parts/common/components.json 
-         
           cd pr
+          mkdir vhd_files
+
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 vhd_files ../master/vhdbuilder/packer/windows/components_json_helpers.ps1 ../master/vhdbuilder/packer/windows/windows_settings.json ../master/parts/common/components.json 
+         
           git add vhd_files
           git config user.email "you@example.com"
           git config user.name "Your Name"
           git commit -m "versions of files from master"
 
-          cd ..
-          pwsh -c pr/vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 pr/vhd_files pr/vhdbuilder/packer/windows/components_json_helpers.ps1 pr/vhdbuilder/packer/windows/windows_settings.json pr/parts/common/components.json 
-
-          cd pr
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 pr/vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
           
           git diff > ../pr.diff
 
