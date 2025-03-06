@@ -46,15 +46,14 @@ jobs:
           mkdir win_files
           mkdir win_files/master
           mkdir win_files/pr
-          Import-Module vhdbuilder
           cd master
-          vhdbuilder\scripts\windows\generate_cached_stuff_list.ps1 ../win_files/master
+          vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/master
 
       - name: Produce vhd files - pr
         shell: powershell
         run: |
           cd pr
-          vhdbuilder\scripts\windows\generate_cached_stuff_list.ps1 ../win_files/pr
+          vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/pr
 
       - name: diff
         shell: powershell
