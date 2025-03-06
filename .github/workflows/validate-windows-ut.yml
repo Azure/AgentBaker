@@ -57,9 +57,9 @@ jobs:
           
           git diff
           
-          git diff > ../pr.diff
+          git diff > ../.github/workflows/pr.diff
           
-          dir ../pr.diff
+          dir ../.github/workflows/pr.diff
 
       - name: Add comment to PR
         uses: NejcZdovc/comment-pr@v2
