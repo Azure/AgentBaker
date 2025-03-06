@@ -49,7 +49,7 @@ jobs:
           
           dir
           cd master
-          dir
+          dir vhdbuilder/scripts/windows/
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/master
 
       - name: Produce vhd files - pr
@@ -57,7 +57,7 @@ jobs:
         run: |
           dir
           cd pr
-          dir
+          dir vhdbuilder/scripts/windows/
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/pr
 
       - name: diff
