@@ -52,6 +52,12 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData = nodeBootstrapping.CustomData
 	}
 
+	s.T.Logf("vhd sub id %s", nodeBootstrapping.SigImageConfig.SubscriptionID)
+	s.T.Logf("vhd rgr id %s", nodeBootstrapping.SigImageConfig.ResourceGroup)
+	s.T.Logf("vhd galler %s", nodeBootstrapping.SigImageConfig.Gallery)
+	s.T.Logf("vhd versio %s", nodeBootstrapping.SigImageConfig.Version)
+	s.T.Logf("vhd defini %s", nodeBootstrapping.SigImageConfig.Definition)
+
 	model := getBaseVMSSModel(s, customData, cse)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
@@ -73,6 +79,11 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
+
+	s.T.Logf("vhd rgr id %s", nodeBootstrapping.SigImageConfig.ResourceGroup)
+	s.T.Logf("vhd galler %s", nodeBootstrapping.SigImageConfig.Gallery)
+	s.T.Logf("vhd versio %s", nodeBootstrapping.SigImageConfig.Version)
+	s.T.Logf("vhd defini %s", nodeBootstrapping.SigImageConfig.Definition)
 
 	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
 	s.T.Cleanup(func() {
