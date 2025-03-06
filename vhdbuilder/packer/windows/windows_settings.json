@@ -56,7 +56,7 @@
       "WindowsSkuMatch": "*",
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "EnableCompartmentNamespace",
-      "Value": "2",
+      "Value": "1",
       "Type": "DWORD"
     },
     {
