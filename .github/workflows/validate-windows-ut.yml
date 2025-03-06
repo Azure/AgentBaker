@@ -60,14 +60,19 @@ jobs:
                     
           mkdir -p ../.github/workflows
           $diffFile = "../.github/workflows/diff.md"
-          Write-Output "Changes to windows VHDs" > $diffFile
-          Write-Output "" >> $diffFile
-          Write-Output '```diff' >> $diffFile
-          git diff >> $diffFile
-          Write-Output '```' >> $diffFile
+          
+          git diff --quiet
+          if ( $LASTEXITCODE -eq "0" ) {
+            Write-Output "No changes to windows VHDs" > $diffFile
+          } else {
+            Write-Output "Changes to windows VHDs" > $diffFile
+            Write-Output "" >> $diffFile
+            Write-Output '```diff' >> $diffFile
+            git diff >> $diffFile
+            Write-Output '```' >> $diffFile
+          }
           
           dir $diffFile
-
           Get-Content $diffFile
 
       - name: Add comment to PR
