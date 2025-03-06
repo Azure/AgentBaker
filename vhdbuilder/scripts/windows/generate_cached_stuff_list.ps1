@@ -5,17 +5,14 @@ $ComponentsJsonFile = "parts/common/components.json"
 
 . "$HelpersFile"
 
-
-
-
+$componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
+$windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
 
 $BaseVersions = GetWindowsBaseVersions $windowsSettingsJson
 
 foreach ($WindowsSku in $BaseVersions)
 {
 
-    $componentsJson = Get-Content $ComponentsJsonFile | Out-String | ConvertFrom-Json
-    $windowsSettingsJson = Get-Content $WindowsSettingsFile | Out-String | ConvertFrom-Json
     $patch_data = GetPatchInfo $windowsSKU $windowsSettingsJson
     $patchUrls = $patch_data | % { $_.url }
     $patchIDs = $patch_data | % { $_.id }

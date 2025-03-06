@@ -7,7 +7,7 @@ null
   "mcr.microsoft.com/windows/servercore:ltsc2019",
   "mcr.microsoft.com/windows/nanoserver:1809",
   "mcr.microsoft.com/windows/servercore/iis:latest",
-  "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+  "mcr.microsoft.com/oss/kubernetes/pause:3.9-hotfix-20230808",
   "mcr.microsoft.com/containernetworking/azure-cni:v1.4.59",
   "mcr.microsoft.com/containernetworking/azure-cni:v1.5.42",
   "mcr.microsoft.com/containernetworking/azure-cni:v1.6.21",
@@ -45,16 +45,6 @@ null
 
 ---- Packages to Download ----
 {
-  "c:\\akse-cache\\": [
-    "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip",
-    "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
-  ],
-  "c:\\akse-cache\\csi-proxy\\": [
-    "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
-  ],
-  "c:\\akse-cache\\calico\\": [
-    "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
-  ],
   "c:\\akse-cache\\win-k8s\\": [
     "https://acs-mirror.azureedge.net/kubernetes/v1.27.102-akslts/windowszip/v1.27.102-akslts-1int.zip",
     "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip",
@@ -68,6 +58,17 @@ null
     "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip",
     "https://acs-mirror.azureedge.net/kubernetes/v1.32.2/windowszip/v1.32.2-1int.zip",
     "https://acs-mirror.azureedge.net/kubernetes/v1.32.1/windowszip/v1.32.1-1int.zip"
+  ],
+  "c:\\akse-cache\\calico\\": [
+    "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
+  ],
+  "c:\\akse-cache\\csi-proxy\\": [
+    "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
+  ],
+  "c:\\akse-cache\\credential-provider\\": [
+    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.31.2/binaries/azure-acr-credential-provider-windows-amd64-v1.31.2.tar.gz",
+    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.8/binaries/azure-acr-credential-provider-windows-amd64-v1.30.8.tar.gz",
+    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.12/binaries/azure-acr-credential-provider-windows-amd64-v1.29.12.tar.gz"
   ],
   "c:\\akse-cache\\win-vnet-cni\\": [
     "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
@@ -83,10 +84,9 @@ null
     "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz",
     "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
   ],
-  "c:\\akse-cache\\credential-provider\\": [
-    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.31.2/binaries/azure-acr-credential-provider-windows-amd64-v1.31.2.tar.gz",
-    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.8/binaries/azure-acr-credential-provider-windows-amd64-v1.30.8.tar.gz",
-    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.12/binaries/azure-acr-credential-provider-windows-amd64-v1.29.12.tar.gz"
+  "c:\\akse-cache\\": [
+    "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip",
+    "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
   ]
 }
 ---- Win Reg Keys ----
