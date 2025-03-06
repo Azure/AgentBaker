@@ -14,6 +14,13 @@ jobs:
     timeoutInMinutes: 90
     displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:
+      - checkout: self
+        # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
+        # "s/AgentBaker", but most of the pipeline variables still refer to "s" and many of the scripts below fail.
+        path: s
+        fetchTags: false
+        fetchDepth: 1
+
       - bash: |
           set -ex
           az login --identity --username $(E2E_AGENT_IDENTITY_ID)
