@@ -1,0 +1,74 @@
+name: Make windows components change PR review comment
+on: pull_request
+
+jobs:
+  compare-components-output:
+    name: Compare components.json and windows_settings.json for each windows VHD
+    runs-on: windows-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: master
+          fetch-depth: 1
+
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          path: pr
+          fetch-depth: 1
+
+      - name: Produce vhd files - master
+        shell: pwsh
+        run: |
+          cd pr
+          mkdir vhd_files
+
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 ../master/vhdbuilder/packer/windows/windows_settings.json ../master/parts/common/components.json 
+         
+          git add vhd_files
+          git config user.email "you@example.com"
+          git config user.name "Your Name"
+          git commit -m "versions of files from master"
+
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
+                    
+          mkdir -p ../.github/workflows
+          $diffFile = "../.github/workflows/diff.md"
+          
+          git diff --quiet
+          if ( $LASTEXITCODE -eq "0" ) {
+            Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
+            echo "IsDifference=0" >> $GITHUB_ENV
+          } else {
+            echo "IsDifference=1" >> $GITHUB_ENV
+            Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
+            Write-Output "" >> $diffFile
+            Write-Output '```diff' >> $diffFile
+            git diff >> $diffFile
+            Write-Output '```' >> $diffFile
+          }
+          
+          dir $diffFile
+          Get-Content $diffFile
+
+      - name: Add comment to PR
+        uses: thollander/actions-comment-pull-request@v3
+        if: ${{ env.IsDifference == 1 }}
+        with:
+          file-path: "diff.md"
+          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: remove comment from PR
+        uses: thollander/actions-comment-pull-request@v3
+        if: ${{ env.IsDifference == 0 }}
+        with:
+          mode: delete
+          comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
