@@ -819,7 +819,7 @@ var (
 	SIGAzureLinuxV3CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSAzureLinuxResourceGroup,
 		Gallery:       AKSAzureLinuxGalleryName,
-		Definition:    "V3cvmgen2",
+		Definition:    "V3gen2CVM",
 		Version:       LinuxSIGImageVersion,
 	}
 )
