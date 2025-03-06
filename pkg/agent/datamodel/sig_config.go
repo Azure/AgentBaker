@@ -351,6 +351,8 @@ var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2022ContainerdGen2,
 	AKSWindows23H2,
 	AKSWindows23H2Gen2,
+	AKSWindows2025,
+	AKSWindows2025Gen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -397,6 +399,7 @@ const (
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 	Windows23H2SIGImageVersion string = "25398.2022.221114"
+	Windows2025SIGImageVersion string = "26100.2025.221114"
 )
 
 type sigVersion struct {
@@ -821,6 +824,20 @@ var (
 		Definition:    "windows-23H2-gen2",
 		Version:       Windows23H2SIGImageVersion,
 	}
+
+	SIGWindows2025ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2025",
+		Version:       Windows2025SIGImageVersion,
+	}
+
+	SIGWindows2025Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2025-gen2",
+		Version:       Windows2025SIGImageVersion,
+	}
 )
 
 // GetMaintainedLinuxSIGImageConfigMap returns a set of Distro -> SigImageConfig mappings
@@ -920,6 +937,8 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows23H2:               SIGWindows23H2ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows23H2Gen2:           SIGWindows23H2Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2025:               SIGWindows2025ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2025Gen2:           SIGWindows2025Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 
