@@ -70,7 +70,7 @@ registry_domain_name="${MCR_REPOSITORY_BASE%/}"
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
     registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
 fi
-verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
+
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
