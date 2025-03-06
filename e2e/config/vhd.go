@@ -183,6 +183,24 @@ var (
 		Latest:  true,
 		Gallery: windowsGallery,
 	}
+
+	VHDWindows2025 = &Image{
+		Name:    "windows-2025",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2025,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
+
+	VHDWindows2025Gen2 = &Image{
+		Name:    "windows-2025-gen2",
+		OS:      OSWindows,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSWindows2025Gen2,
+		Latest:  true,
+		Gallery: windowsGallery,
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
