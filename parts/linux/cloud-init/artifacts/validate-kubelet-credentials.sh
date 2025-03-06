@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euo pipefail xtrace
 
 # this gives us logs_to_events and retry wrappers
 source /opt/azure/containers/provision_source.sh 
