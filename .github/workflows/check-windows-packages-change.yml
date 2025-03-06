@@ -48,10 +48,10 @@ jobs:
             Write-Output '```diff' >> $diffFile
             git diff >> $diffFile
             Write-Output '```' >> $diffFile
-          }
           
-          dir $diffFile
-          Get-Content $diffFile
+            dir $diffFile
+            Get-Content $diffFile
+          }
 
       - name: Add comment to PR
         uses: thollander/actions-comment-pull-request@v3
