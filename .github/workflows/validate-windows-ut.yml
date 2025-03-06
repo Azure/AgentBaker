@@ -53,7 +53,7 @@ jobs:
           git config user.name "Your Name"
           git commit -m "versions of files from master"
 
-          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 pr/vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
+          pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 vhd_files vhdbuilder/packer/windows/components_json_helpers.ps1 vhdbuilder/packer/windows/windows_settings.json parts/common/components.json 
           
           git diff
           
