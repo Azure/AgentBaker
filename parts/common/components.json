@@ -80,7 +80,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
-          "latestVersion": "3.9"
+          "latestVersion": "3.9-hotfix-20230808"
         }
       ]
     },
@@ -304,13 +304,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.14.18-250107",
-          "previousLatestVersion": "v1.14.15-241024"
+          "latestVersion": "v1.14.19-250129",
+          "previousLatestVersion": "v1.14.18-250107"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cilium/cilium",
-          "latestVersion": "v1.16.5-250110",
-          "previousLatestVersion": "v1.16.2-241024"
+          "latestVersion": "v1.16.6-250129",
+          "previousLatestVersion": "v1.16.5-250110"
         }
       ],
       "windowsVersions": []
@@ -446,13 +446,13 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.30.8",
-          "previousLatestVersion": "v1.30.7"
+          "latestVersion": "v1.30.9",
+          "previousLatestVersion": "v1.30.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.2",
-          "previousLatestVersion": "v1.31.1"
+          "latestVersion": "v1.31.3",
+          "previousLatestVersion": "v1.31.2"
         }
       ],
       "windowsVersions": [
@@ -486,7 +486,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.30.8"
+          "latestVersion": "v1.30.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
@@ -494,7 +494,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/azure-cloud-node-manager",
-          "latestVersion": "v1.31.2"
+          "latestVersion": "v1.31.3"
         }
       ]
     },
@@ -814,8 +814,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.51",
-                "previousLatestVersion": "0.0.50"
+                "latestVersion": "0.0.51"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
