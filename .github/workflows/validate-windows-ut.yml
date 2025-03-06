@@ -48,6 +48,8 @@ jobs:
           pwsh -c pr/vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 pr/vhd_files master/vhdbuilder/packer/windows/components_json_helpers.ps1 master/vhdbuilder/packer/windows/windows_settings.json master/parts/common/components.json 
           cd pr
           git add vhd_files
+          git config user.email "you@example.com"
+          git config user.name "Your Name
           git commit -m "versions of files from master"
 
       - name: Produce vhd files - pr
