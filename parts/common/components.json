@@ -7,11 +7,6 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2019",
-          "windowsSkuMatch": "2019-containerd"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
           "latestVersion": "ltsc2022",
           "windowsSkuMatch": "2022-containerd*"
         },
