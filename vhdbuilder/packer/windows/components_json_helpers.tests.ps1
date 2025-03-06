@@ -119,7 +119,6 @@ Describe 'Tests of GetAllCachedThings ' {
             'mcr.microsoft.com/container/with/seperate/win/and/linux/versions:other-version',
             'mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version')
     }
-
 }
 
 
