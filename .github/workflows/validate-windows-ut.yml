@@ -58,6 +58,8 @@ jobs:
           git diff
           
           git diff > ../pr.diff
+          
+          dir ../pr.diff
 
       - name: Add comment to PR
         uses: NejcZdovc/comment-pr@v2
