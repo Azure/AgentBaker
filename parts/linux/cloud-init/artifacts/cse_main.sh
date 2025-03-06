@@ -337,7 +337,6 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
-logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
@@ -401,6 +400,13 @@ else
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+echo "API server connection check code: $VALIDATION_ERR"
+if [ $VALIDATION_ERR -ne 0 ]; then
+    exit $VALIDATION_ERR
+fi
+
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
@@ -458,10 +464,7 @@ else
     fi
 fi
 
-echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
+echo "Custom script finished."
 echo $(date),$(hostname), endcustomscript>>/opt/m
-
-exit $VALIDATION_ERR
-
 
 #EOF
