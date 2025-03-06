@@ -49,7 +49,17 @@ Describe 'Tests of GetAllCachedThings ' {
   "base_image_version": "17763.6893.250210",
   "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
 }
-}
+},
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "Enables DNS resolution of SMB shares for containerD:  # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945",
+      "WindowsSkuMatch": "*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "EnableCompartmentNamespace",
+      "Value": "1",
+      "Type": "DWORD"
+    }
+  ]
 }'
         $windowsSettings = echo $windowsSettingsTestString | ConvertFrom-Json
 
@@ -106,6 +116,14 @@ Describe 'Tests of GetAllCachedThings ' {
         $allpackages = GetAllCachedThings $componentsJson $windowsSettings
 
         $allpackages | Should -Contain "c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
+    }
+
+    it 'has a reg key in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State\EnableCompartmentNamespace=1"
     }
 
     it 'is sorted' {
