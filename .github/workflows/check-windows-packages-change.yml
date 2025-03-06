@@ -42,9 +42,9 @@ jobs:
           git diff --quiet
           if ( $LASTEXITCODE -eq "0" ) {
             Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
-            echo "IsDifference=0" >> $GITHUB_ENV
+            echo "\nCommentAction=delete\n" >> $GITHUB_ENV
           } else {
-            echo "IsDifference=1" >> $GITHUB_ENV
+            echo "\nCommentAction=create\n" >> $GITHUB_ENV
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
@@ -57,7 +57,7 @@ jobs:
 
       - name: Add comment to PR
         uses: thollander/actions-comment-pull-request@v3
-        if: ${{ env.IsDifference == '1' }}
+        if: ${{ env.CommentAction == 'create' }}
         with:
           file-path: "diff.md"
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
@@ -66,7 +66,7 @@ jobs:
 
       - name: remove comment from PR
         uses: thollander/actions-comment-pull-request@v3
-        if: ${{ env.IsDifference == '0' }}
+        if: ${{ env.CommentAction == 'delete' }}
         with:
           mode: delete
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
