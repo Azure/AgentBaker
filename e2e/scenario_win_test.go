@@ -49,6 +49,7 @@ func Test_Windows2022Containerd(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
 			},
 		},
 	})
@@ -69,6 +70,7 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
 			},
 		},
 	})
@@ -89,6 +91,7 @@ func Test_Windows23H2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
 			},
 		},
 	})
@@ -109,6 +112,7 @@ func Test_Windows23H2Gen2(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
+				ValidateFileHasContent(ctx, s, "/k/test.txt", "this is a test file")
 			},
 		},
 	})
