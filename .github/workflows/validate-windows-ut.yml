@@ -60,4 +60,5 @@ jobs:
       - name: diff
         shell: pwsh
         run: |
+          cd pr
           git diff
