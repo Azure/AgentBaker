@@ -42,7 +42,7 @@ jobs:
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
           
           if [ -n "${VHD_BUILD_ID}" ]; then
-            echo "VHD_BUILD_ID is specified (${VHD_BUILD_ID}). Running tests using VHDs from that build
+            echo "VHD_BUILD_ID is specified (${VHD_BUILD_ID}). Running tests using VHDs from that build"
             export SIG_VERSION_TAG_NAME=buildId
             export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
             export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
