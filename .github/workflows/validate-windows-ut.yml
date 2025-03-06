@@ -57,7 +57,7 @@ jobs:
           
           git diff
           
-          git diff > ./pr.diff
+          git diff > ../pr.diff
           
           dir ../pr.diff
 
