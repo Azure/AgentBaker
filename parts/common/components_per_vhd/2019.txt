@@ -1,0 +1,245 @@
+2019
+---- Patch Data ----
+null
+
+---- Container Images to Pull ----
+[
+  "mcr.microsoft.com/windows/servercore/iis:latest",
+  "mcr.microsoft.com/oss/kubernetes/pause:3.9",
+  "mcr.microsoft.com/containernetworking/azure-cni:v1.4.59",
+  "mcr.microsoft.com/containernetworking/azure-cni:v1.5.42",
+  "mcr.microsoft.com/containernetworking/azure-cni:v1.6.21",
+  "mcr.microsoft.com/containernetworking/azure-cns:v1.4.59",
+  "mcr.microsoft.com/containernetworking/azure-cns:v1.5.42",
+  "mcr.microsoft.com/containernetworking/azure-cns:v1.6.21",
+  "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.8",
+  "mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.7",
+  "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.5.3",
+  "mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2",
+  "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21-windows-hpc",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.27.21",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.14-windows-hpc",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.28.14",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.12-windows-hpc",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.29.12",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.8-windows-hpc",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.30.8",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.2-windows-hpc",
+  "mcr.microsoft.com/oss/kubernetes/azure-cloud-node-manager:v1.31.2",
+  "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.12-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.8-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.7-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.4-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.3-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.10-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.29.9-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.6-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.3-windows-hp",
+  "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0",
+  "mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0"
+]
+
+---- Packages to Download ----
+{
+  "c:\\akse-cache\\": [
+    "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip",
+    "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v1.1.5.zip"
+  ],
+  "c:\\akse-cache\\csi-proxy\\": [
+    "https://acs-mirror.azureedge.net/csi-proxy/v1.1.2-hotfix.20230807/binaries/csi-proxy-v1.1.2-hotfix.20230807.tar.gz"
+  ],
+  "c:\\akse-cache\\calico\\": [
+    "https://acs-mirror.azureedge.net/calico-node/v3.24.0/binaries/calico-windows-v3.24.0.zip"
+  ],
+  "c:\\akse-cache\\win-k8s\\": [
+    "https://acs-mirror.azureedge.net/kubernetes/v1.27.102-akslts/windowszip/v1.27.102-akslts-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.27.101-akslts/windowszip/v1.27.101-akslts-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.28.100-akslts/windowszip/v1.28.100-akslts-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.28.15/windowszip/v1.28.15-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.29.14/windowszip/v1.29.14-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.29.13/windowszip/v1.29.13-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.30.10/windowszip/v1.30.10-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.30.9/windowszip/v1.30.9-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.31.6/windowszip/v1.31.6-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.31.5/windowszip/v1.31.5-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.32.2/windowszip/v1.32.2-1int.zip",
+    "https://acs-mirror.azureedge.net/kubernetes/v1.32.1/windowszip/v1.32.1-1int.zip"
+  ],
+  "c:\\akse-cache\\win-vnet-cni\\": [
+    "https://acs-mirror.azureedge.net/azure-cni/v1.5.38/binaries/azure-vnet-cni-windows-amd64-v1.5.38.zip",
+    "https://acs-mirror.azureedge.net/azure-cni/v1.6.21/binaries/azure-vnet-cni-windows-amd64-v1.6.21.zip",
+    "https://acs-mirror.azureedge.net/azure-cni/v1.6.18/binaries/azure-vnet-cni-windows-amd64-v1.6.18.zip",
+    "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.59.zip",
+    "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-swift-windows-amd64-v1.4.58.zip",
+    "https://acs-mirror.azureedge.net/azure-cni/v1.4.59/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.59.zip",
+    "https://acs-mirror.azureedge.net/azure-cni/v1.4.58/binaries/azure-vnet-cni-overlay-windows-amd64-v1.4.58.zip"
+  ],
+  "c:\\akse-cache\\containerd\\": [
+    "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz",
+    "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+  ],
+  "c:\\akse-cache\\credential-provider\\": [
+    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.31.2/binaries/azure-acr-credential-provider-windows-amd64-v1.31.2.tar.gz",
+    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.30.8/binaries/azure-acr-credential-provider-windows-amd64-v1.30.8.tar.gz",
+    "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.12/binaries/azure-acr-credential-provider-windows-amd64-v1.29.12.tar.gz"
+  ]
+}
+---- Win Reg Keys ----
+[
+  {
+    "Comment": "Enables DNS resolution of SMB shares for containerD:  # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945",
+    "WindowsSkuMatch": "*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+    "Name": "EnableCompartmentNamespace",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900 - even tho this is turned on by default, we keep the fix in case windows wants to use it in future",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+    "Name": "HNSControlFlag",
+    "Value": "0x10",
+    "Operation": "bor",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
+    "Name": "EnableCertPaddingCheck",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\Software\\Wow6432Node\\Microsoft\\Cryptography\\Wintrust\\Config",
+    "Name": "EnableCertPaddingCheck",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable a WCIFS fix in 2022-10B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\wcifs",
+    "Name": "WcifsSOPCountDisabled",
+    "Value": "0",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable HnsPolicyUpdateChange fix in 2023-04B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+    "Name": "HnsPolicyUpdateChange",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable HnsNatAllowRuleUpdateChange fix in 2023-04B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+    "Name": "HnsNatAllowRuleUpdateChange",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable 3105872524 fix in 2023-04B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "3105872524",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable 1 fix in 2023-05B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
+    "Name": "VfpEvenPodDistributionIsEnabled",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable 1 fix in 2023-06B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "3230913164",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "Enable 1 fix in 2023-10B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
+    "Name": "VfpNotReuseTcpOneWayFlowIsEnabled",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2023-11B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+    "Name": "CleanupReservedPorts",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2023-11B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "652313229",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2023-11B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "2059235981",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2023-11B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "3767762061",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2024-01B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "1102009996",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2024-04B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "2290715789",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2024-04B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "3152880268",
+    "Value": "1",
+    "Type": "DWORD"
+  },
+  {
+    "Comment": "2024-06B",
+    "WindowsSkuMatch": "2019*",
+    "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
+    "Name": "1605443213",
+    "Value": "1",
+    "Type": "DWORD"
+  }
+]
+
