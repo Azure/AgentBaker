@@ -23,6 +23,7 @@ jobs:
         run: |
           Install-Module -Name powershell-yaml -Force
           Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
+
   compare-components-output:
     name: Compare components.json for each windows VHD
     runs-on: windows-latest
