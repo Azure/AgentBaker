@@ -33,6 +33,7 @@ pr:
       - /**/*.md
       - .github/**
       - e2e/scenario_test.go
+      - parts/common/components.json
 
 pool:
   name: $(AZURE_POOL_NAME)

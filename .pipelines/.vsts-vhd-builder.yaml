@@ -30,6 +30,8 @@ pr:
     - /**/*.md
     - .github/**
     - e2e/scenario_win_test.go
+    - parts/common/components.json
+
 
 pool:
   name: $(POOL_NAME)
