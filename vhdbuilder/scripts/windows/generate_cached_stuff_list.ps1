@@ -60,24 +60,11 @@ foreach ($WindowsSku in $BaseVersions)
     $patchUrls = $patch_data | % { $_.url }
     $patchIDs = $patch_data | % { $_.id }
 
-    $imagesToPull = GetComponentsFromComponentsJson $componentsJson
-    $keysToSet = GetRegKeysToApply $windowsSettingsJson
-    $map = GetPackagesFromComponentsJson $componentsJson
-    $releaseNotesToSet = GetKeyMapForReleaseNotes $windowsSettingsJson
+    $cachedThings = GetAllCachedThings $componentsJson $windowsSettingsJson
 
     $fileName = "${outputDir}/${WindowsSku}.txt"
     Write-Output "Creating file $fileName"
     Write-Output $WindowsSku > $fileName
 
-    Write-Output "---- Patch Data ----" >> $fileName
-    echo $patchData | ConvertTo-Json | Write-Output >> $fileName
-    Write-Output "">> $fileName
-    Write-Output  "---- Container Images to Pull ----" >> $fileName
-    echo $imagesToPull | ConvertTo-Json | Write-Output >> $fileName
-    Write-Output "" >> $fileName
-    Write-Output  "---- Packages to Download ----" >> $fileName
-    echo $map | ConvertTo-Json | Write-Output >> $fileName
-    Write-Output  "---- Win Reg Keys ----" >> $fileName
-    echo $keysToSet | ConvertTo-Json | Write-Output >> $fileName
-    Write-Output "" >> $fileName
+    echo $cachedThings | ConvertTo-Json | Write-Output >> $fileName
 }

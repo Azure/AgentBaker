@@ -33,6 +33,96 @@ Describe 'SafeReplaceString' {
 
 
 
+Describe 'Tests of GetAllCachedThings ' {
+    BeforeEach {
+        $windowsSettingsTestString = '{
+"WindowsBaseVersions": {
+"2019": {
+  "base_image_sku": "2019-Datacenter-Core-smalldisk",
+  "windows_image_name": "windows-2019",
+  "base_image_version": "17763.6893.250210",
+  "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+},
+ "23H2-gen2": {
+  "base_image_sku": "2019-Datacenter-Core-smalldisk",
+  "windows_image_name": "windows-2019",
+  "base_image_version": "17763.6893.250210",
+  "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+}
+}
+}'
+        $windowsSettings = echo $windowsSettingsTestString | ConvertFrom-Json
+
+        $componentsJsonTestString = '{
+        "ContainerImages": [
+{
+  "downloadURL": "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:*",
+  "amd64OnlyVersions": [],
+  "multiArchVersionsV2": [],
+  "windowsVersions": [
+    {
+      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+      "latestVersion": "win-version"
+    },{
+      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+      "latestVersion": "other-version"
+    }
+  ]
+}],
+"Packages": [
+{
+  "windowsDownloadLocation": "c:\\akse-cache\\",
+  "downloadLocation": null,
+  "downloadUris": {
+    "windows": {
+      "default": {
+        "versionsV2": [
+          {
+            "renovateTag": "<DO_NOT_UPDATE>",
+            "latestVersion": "0.0.50",
+            "previousLatestVersion": "0.0.51"
+          }
+        ],
+        "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+      }
+    }
+  }
+}
+]}'
+        $componentsJson = echo $componentsJsonTestString | ConvertFrom-Json
+    }
+
+    it 'has a component in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version"
+    }
+
+    it 'has a package in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
+    }
+
+    it 'is sorted' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Be @(
+            'c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip',
+            'c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.51.zip',
+            'mcr.microsoft.com/container/with/seperate/win/and/linux/versions:other-version',
+            'mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version')
+    }
+
+}
+
+
 Describe 'GetWindowsDefenderInfo' {
     BeforeEach {
         $testString = '{
@@ -560,7 +650,7 @@ Describe 'Gets The Versions' {
         )
         $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${CPU_ARCH}/addon-resizer:*"
 
-        $CPU_ARCH="x86"
+        $CPU_ARCH = "x86"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1
@@ -575,7 +665,7 @@ Describe 'Gets The Versions' {
         )
         $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${varvarvar}/addon-resizer:*"
 
-        $varvarvar="x86"
+        $varvarvar = "x86"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1

@@ -280,3 +280,23 @@ function GetDefenderUpdateInfoUrl {
 
     return $windowsSettingsContent.WindowsDefenderInfo.DefenderUpdateInfoUrl
 }
+
+function GetAllCachedThings {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent,
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $items = GetComponentsFromComponentsJson $componentsJsonContent
+    $packages = GetPackagesFromComponentsJson $componentsJsonContent
+
+    foreach ($packageName in $packages.keys) {
+        foreach ($package in $packages[$packageName]) {
+            $items += $packageName + ": " + $package
+        }
+    }
+
+    return ($items | Sort-Object)
+}
