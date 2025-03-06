@@ -64,7 +64,13 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
-          "latestVersion": "latest"
+          "latestVersion": "windowsservercore-ltsc2022",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
+          "latestVersion": "windowsservercore-ltsc2022",
+          "windowsSkuMatch": "23H2*"
         }
       ]
     },
