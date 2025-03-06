@@ -693,17 +693,6 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/open-policy-agent/gatekeeper:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.17.1"
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
