@@ -3,6 +3,9 @@ parameters:
     type: string
     displayName: Additional name for the pipeline step
     default: ""
+  - name: IgnoreScenariosWithMissingVhd
+    type: boolean
+    displayName: Ignore tests where the VHD can't be loaded
 
 jobs:
   - job: e2e
@@ -40,12 +43,13 @@ jobs:
           go version
           
           echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-          
+          echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: $IGNORE_SCENARIOS_WITH_MISSING_VHD"
+          echo "LOGGING_DIR: $LOGGING_DIR"
+
           if [ -n "${VHD_BUILD_ID}" ]; then
             echo "VHD_BUILD_ID is specified (${VHD_BUILD_ID}). Running tests using VHDs from that build"
             export SIG_VERSION_TAG_NAME=buildId
             export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
-            export IGNORE_SCENARIOS_WITH_MISSING_VHD=true
           else
             echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
           fi
@@ -61,6 +65,7 @@ jobs:
         env:
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOGGING_DIR: $(LOGGING_DIR)
+          IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
       # Without this step next step may fail on successful run
       - bash: |
           set -ex

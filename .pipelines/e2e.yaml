@@ -36,3 +36,4 @@ jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
       name: Linux Tests
+      IgnoreScenariosWithMissingVhd: false
