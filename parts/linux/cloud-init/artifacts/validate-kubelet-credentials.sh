@@ -14,21 +14,11 @@ VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS=${VALIDATE_KUBELET_CREDENTIAL
 function validateKubeconfig {
     local kubeconfig_path=$1
 
-    if grep -i "whoami" <<< "$(kubectl auth 2>&1)" >/dev/null 2>&1; then
-        retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
-            $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
-            $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
-            kubectl auth whoami --kubeconfig $kubeconfig_path >/dev/null
-        code=$?
-    else
-        retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
-            $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
-            $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
-            kubectl auth can-i create certificatesigningrequests --kubeconfig $kubeconfig_path >/dev/null
-        code=$?
-    fi
-
-    if [ $code -ne 0 ]; then
+    if ! retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
+        $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
+        $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
+        kubectl version --kubeconfig "$kubeconfig_path" >/dev/null; then
+        
         # for now we simply exit 0 here to prevent provisioning failures in cases where the credential
         # doesn't become valid until after we've exhausted our retries - kubelet should still eventually be able to register
         echo "kubelet credential validation failed, will still attempt to start kubelet"
