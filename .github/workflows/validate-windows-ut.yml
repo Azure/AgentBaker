@@ -8,6 +8,8 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
         shell: powershell
         run: |
@@ -21,3 +23,41 @@ jobs:
         run: |
           Install-Module -Name powershell-yaml -Force
           Invoke-Pester staging/cse/windows/*.tests.ps1 -Passthru
+  compare-components-output:
+    name: Compare components.json for each windows VHD
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: master
+          fetch-depth: 1
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          path: pr
+          fetch-depth: 1
+
+
+      - name: Produce vhd files - master
+        shell: powershell
+        run: |
+          mkdir win_files
+          mkdir win_files/master
+          mkdir win_files/pr
+          cd master
+          vhdbuilder\scripts\windows\generate_cached_stuff_list.ps1 ../win_files/master
+
+      - name: Produce vhd files - pr
+        shell: powershell
+        run: |
+          cd pr
+          vhdbuilder\scripts\windows\generate_cached_stuff_list.ps1 ../win_files/pr
+
+      - name: diff
+        shell: powershell
+        run: |
+          $vhdFilesMaster = Get-ChildItem -Recurse -path win_files/master
+          $vhdFilesPr = Get-ChildItem -Recurse -path win_files/pr
+          Compare-Object -ReferenceObject $vhdFilesMaster -DifferenceObject $vhdFilesPr
