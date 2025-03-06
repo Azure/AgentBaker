@@ -7,26 +7,6 @@ pr:
       - dev
   paths:
     include:
-      - .pipelines/.vsts-vhd-builder-release-windows.yaml
-      - .pipelines/.vsts-vhd-builder-pr-windows.yaml
-      - .pipelines/templates/.template-override-components-json.yaml
-      - .pipelines/templates/.template-copy-file.yaml
-      - .pipelines/templates/.build-and-test-windows-vhds-template.yaml
-      - .pipelines/templates/.build-and-test-windows-vhd-template.yaml
-      - .pipelines/templates/.builder-release-template-windows.yaml
-      - .pipelines/templates/e2e-template.yaml
-      - packer.mk
-      - vhdbuilder/packer/packer-plugin.pkr.hcl
-      - vhdbuilder/packer/*.ps1
-      - vhdbuilder/packer/test/*.ps1
-      - vhdbuilder/packer/test/run-test.sh
-      - vhdbuilder/packer/backfill-cleanup.sh
-      - vhdbuilder/packer/cleanup.sh
-      - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
-      - vhdbuilder/packer/generate-vhd-publishing-info.sh
-      - vhdbuilder/packer/init-variables.sh
-      - vhdbuilder/packer/windows/
-      - parts/common/components.json
       - parts/windows
     exclude:
       - vhdbuilder/release-notes

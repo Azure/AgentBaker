@@ -42,9 +42,9 @@ jobs:
           git diff --quiet
           if ( $LASTEXITCODE -eq "0" ) {
             Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
-            echo "\nCommentAction=delete\n" >> $GITHUB_ENV
+            echo "CommentAction=delete" >> $GITHUB_ENV
           } else {
-            echo "\nCommentAction=create\n" >> $GITHUB_ENV
+            echo "CommentAction=create" >> $GITHUB_ENV
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
