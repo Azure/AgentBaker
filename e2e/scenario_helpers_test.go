@@ -86,6 +86,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	t.Parallel()
 	ctx := newTestCtx(t)
+
 	maybeSkipScenario(ctx, t, s)
 	cluster, err := s.Config.Cluster(ctx, s.T)
 	require.NoError(s.T, err)
