@@ -60,7 +60,7 @@ jobs:
           mkdir -p ../.github/workflows
           git diff > ../.github/workflows/pr.diff
           
-          dir ../.github/workflowspr.diff
+          dir ../.github/workflows/pr.diff
 
       - name: Add comment to PR
         uses: NejcZdovc/comment-pr@v2
