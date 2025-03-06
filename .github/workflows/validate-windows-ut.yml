@@ -33,12 +33,12 @@ jobs:
           ref: master
           path: master
           fetch-depth: 1
+
       - name: Check out repository code
         uses: actions/checkout@v4
         with:
           path: pr
           fetch-depth: 1
-
 
       - name: Produce vhd files - master
         shell: pwsh
@@ -46,13 +46,18 @@ jobs:
           mkdir win_files
           mkdir win_files/master
           mkdir win_files/pr
+          
+          dir
           cd master
+          dir
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/master
 
       - name: Produce vhd files - pr
         shell: pwsh
         run: |
+          dir
           cd pr
+          dir
           pwsh -c vhdbuilder/scripts/windows/generate_cached_stuff_list.ps1 ../win_files/pr
 
       - name: diff
