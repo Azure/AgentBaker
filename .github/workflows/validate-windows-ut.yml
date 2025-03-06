@@ -63,9 +63,9 @@ jobs:
           
           git diff --quiet
           if ( $LASTEXITCODE -eq "0" ) {
-            Write-Output "No changes to windows VHDs" > $diffFile
+            Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
           } else {
-            Write-Output "Changes to windows VHDs" > $diffFile
+            Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
             git diff >> $diffFile
