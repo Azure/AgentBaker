@@ -95,4 +95,5 @@ stages:
       - template: ./e2e-template.yaml
         parameters:
           name: For image ${{ parameters.imageName }}
+          IgnoreScenariosWithMissingVhd: false
 
