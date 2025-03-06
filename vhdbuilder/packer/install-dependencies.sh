@@ -577,12 +577,21 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
+# This function extracts CoreDNS binaries from cached coredns images and copies them to /opt/azure/akslocaldns/<version>/coredns.
+# The binary is then used by akslocaldns systemd unit.
+# The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDNSBinaries() {
-  # Get the list of CoreDNS images
+  # Get the list of CoreDNS images that is already pulled and cached earlier.
   COREDNS_IMAGE_LIST=$(ctr -n k8s.io images list -q | grep coredns)
+    if [[ -z "$COREDNS_IMAGE_LIST" ]]; then
+      echo "No CoreDNS images found."
+      exit 1
+  fi
 
-  # Define base script path
+  # When akslocaldns is started, it will look for the coredns binary in the following path:
+  # /opt/azure/akslocaldns/<version>/coredns.
   DEST_PATH="/opt/azure/akslocaldns"
+  mkdir -p "${DEST_PATH}"
 
   # Set a trap to clean up the temp directory if anything fails.
   function cleanup_coredns_import {
@@ -595,50 +604,37 @@ extractAndCacheCoreDNSBinaries() {
   # Set trap to clean up on failure
   trap cleanup_coredns_import EXIT ABRT ERR INT PIPE QUIT TERM
 
-  # Check if any CoreDNS images were found
-  if [[ -z "$COREDNS_IMAGE_LIST" ]]; then
-      echo "No CoreDNS images found."
-      exit 1
-  fi
-
-  # Ensure SCRIPT_PATH exists
-  mkdir -p "${DEST_PATH}"
-
   for COREDNS_IMAGE_URL in $COREDNS_IMAGE_LIST; do
       CTR_TEMP="$(mktemp -d)"
-      # Extract image tag version after `:`
+      # Extract coredns image tag version after `:`
       COREDNS_VERSION="${COREDNS_IMAGE_URL##*:}"
-      # Create versioned directory
       VERSIONED_PATH="${DEST_PATH}/${COREDNS_VERSION}"
       mkdir -p "${VERSIONED_PATH}"
 
-      # Mount the image
       if ! ctr -n k8s.io images mount "${COREDNS_IMAGE_URL}" "${CTR_TEMP}" >/dev/null; then
           echo "Failed to mount ${COREDNS_IMAGE_URL}"
           rm -rf "${CTR_TEMP}"
           continue
       fi
-
       # Find the CoreDNS binary in the mounted directory. head -n 1 is used to get the first binary found.
-      # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
-      # reference - https://github.com/Azure/dalec-build-defs/blob/a72a61032c6626dd0f7d66f2508925046a1d6560/specs/coredns/coredns-1.12.0.yml#L65
       # For registry.k8s.io/coredns/coredns:v1.11.3 image, coredns binary is placed in this path /coredns.
-      # Locate CoreDNS binary
-      COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
+      # But this is not efficient and unpredictable if multiple binaries are found.
+      # COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
 
-      if [[ -z "$COREDNS_BINARY" ]]; then
+      # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
+      # reference - https://github.com/Azure/dalec-build-defs/blob/a72a61032c6626dd0f7d66f2508925046a1d6560/specs/coredns/coredns-1.12.0.yml#L65.
+      COREDNS_BINARY="${CTR_TEMP}/usr/bin/coredns"
+      if [[ -f "$COREDNS_BINARY" ]]; then
           echo "CoreDNS binary not found in ${COREDNS_IMAGE_URL}"
       else
           # Copy CoreDNS binary to versioned folder
           cp "$COREDNS_BINARY" "${VERSIONED_PATH}/coredns"
           echo "Copied CoreDNS binary to ${VERSIONED_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
       fi
-
-      # Unmount and clean up
+      # Clean up the temporary directory and unmount the image.
       ctr -n k8s.io images unmount "${CTR_TEMP}" >/dev/null
       rm -rf "${CTR_TEMP}"
   done
-
   # Clear the trap after success.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
 }
