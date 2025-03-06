@@ -27,6 +27,8 @@ jobs:
   compare-components-output:
     name: Compare components.json for each windows VHD
     runs-on: windows-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
