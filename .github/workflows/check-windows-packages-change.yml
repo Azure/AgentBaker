@@ -7,6 +7,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       pull-requests: write
+    outputs:
+      output1: ${{ steps.makeDiff.outputs.commentAction }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -22,6 +24,7 @@ jobs:
           fetch-depth: 1
 
       - name: Produce vhd files - master
+        id: makeDiff
         shell: pwsh
         run: |
           cd pr
@@ -42,9 +45,9 @@ jobs:
           git diff --quiet
           if ( $LASTEXITCODE -eq "0" ) {
             Write-Output "No changes to cached containers or packages on Windows VHDs" > $diffFile
-            echo "CommentAction=delete" >> $GITHUB_ENV
+            echo "commentAction=delete" >> $GITHUB_OUTPUT
           } else {
-            echo "CommentAction=create" >> $GITHUB_ENV
+            echo "commentAction=create" >> $GITHUB_OUTPUT
             Write-Output "Changes cached containers or packages on windows VHDs" > $diffFile
             Write-Output "" >> $diffFile
             Write-Output '```diff' >> $diffFile
@@ -57,7 +60,7 @@ jobs:
 
       - name: Add comment to PR
         uses: thollander/actions-comment-pull-request@v3
-        if: ${{ env.CommentAction == 'create' }}
+        if: ${{ steps.makeDiff.outputs.commentAction == 'create' }}
         with:
           file-path: "diff.md"
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
@@ -66,7 +69,7 @@ jobs:
 
       - name: remove comment from PR
         uses: thollander/actions-comment-pull-request@v3
-        if: ${{ env.CommentAction == 'delete' }}
+        if: ${{ steps.makeDiff.outputs.commentAction == 'delete' }}
         with:
           mode: delete
           comment-tag: "WINDOWS_VHD_CONTENT_DIFF"
