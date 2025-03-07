@@ -76,7 +76,7 @@ fi
 
 if [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
-    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly"
+    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
 if [ "${OS_TYPE,,}" == "linux" ]; then
