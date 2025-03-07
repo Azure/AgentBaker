@@ -33,6 +33,109 @@ Describe 'SafeReplaceString' {
 
 
 
+Describe 'Tests of GetAllCachedThings ' {
+    BeforeEach {
+        $windowsSettingsTestString = '{
+"WindowsBaseVersions": {
+"2019": {
+  "base_image_sku": "2019-Datacenter-Core-smalldisk",
+  "windows_image_name": "windows-2019",
+  "base_image_version": "17763.6893.250210",
+  "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+},
+ "23H2-gen2": {
+  "base_image_sku": "2019-Datacenter-Core-smalldisk",
+  "windows_image_name": "windows-2019",
+  "base_image_version": "17763.6893.250210",
+  "patches_to_apply": [{"id": "patchid", "url": "patch_url"}]
+}
+},
+  "WindowsRegistryKeys": [
+    {
+      "Comment": "Enables DNS resolution of SMB shares for containerD:  # https://github.com/kubernetes-sigs/windows-gmsa/issues/30#issuecomment-802240945",
+      "WindowsSkuMatch": "*",
+      "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
+      "Name": "EnableCompartmentNamespace",
+      "Value": "1",
+      "Type": "DWORD"
+    }
+  ]
+}'
+        $windowsSettings = echo $windowsSettingsTestString | ConvertFrom-Json
+
+        $componentsJsonTestString = '{
+        "ContainerImages": [
+{
+  "downloadURL": "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:*",
+  "amd64OnlyVersions": [],
+  "multiArchVersionsV2": [],
+  "windowsVersions": [
+    {
+      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+      "latestVersion": "win-version"
+    },{
+      "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/pause",
+      "latestVersion": "other-version"
+    }
+  ]
+}],
+"Packages": [
+{
+  "windowsDownloadLocation": "c:\\akse-cache\\",
+  "downloadLocation": null,
+  "downloadUris": {
+    "windows": {
+      "default": {
+        "versionsV2": [
+          {
+            "renovateTag": "<DO_NOT_UPDATE>",
+            "latestVersion": "0.0.50",
+            "previousLatestVersion": "0.0.51"
+          }
+        ],
+        "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+      }
+    }
+  }
+}
+]}'
+        $componentsJson = echo $componentsJsonTestString | ConvertFrom-Json
+    }
+
+    it 'has a component in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "mcr.microsoft.com/container/with/seperate/win/and/linux/versions:win-version"
+    }
+
+    it 'has a package in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "c:\akse-cache\: https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v0.0.50.zip"
+    }
+
+    it 'has a reg key in it' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Contain "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State\EnableCompartmentNamespace=1"
+    }
+
+    it 'is sorted' {
+        $windowsSku = "2019-containerd"
+
+        $allpackages = GetAllCachedThings $componentsJson $windowsSettings
+
+        $allpackages | Should -Be ( $allpackages | Sort-Object )
+    }
+}
+
+
 Describe 'GetWindowsDefenderInfo' {
     BeforeEach {
         $testString = '{
@@ -560,7 +663,7 @@ Describe 'Gets The Versions' {
         )
         $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${CPU_ARCH}/addon-resizer:*"
 
-        $CPU_ARCH="x86"
+        $CPU_ARCH = "x86"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1
@@ -575,7 +678,7 @@ Describe 'Gets The Versions' {
         )
         $componentsJson.ContainerImages[0].downloadURL = "mcr.microsoft.com/oss/kubernetes/autoscaler/`${varvarvar}/addon-resizer:*"
 
-        $varvarvar="x86"
+        $varvarvar = "x86"
         $components = GetComponentsFromComponentsJson $componentsJson
 
         $components | Should -HaveCount 1
@@ -765,6 +868,13 @@ Describe 'Tests of components-test.json ' {
         $components | Should -Not -Contain "mcr.microsoft.com/linux-url/lin:v-for-linux"
     }
 
+    it 'has the no version of ciprod for win 2025' {
+        $windowsSku = "2025"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components | Should -Not -Contain "mcr.microsoft.com/azuremonitor/containerinsights/ciprod:win-3.1.25"
+    }
+
     It 'has the latest 2 versions of a package' {
         $packages = GetPackagesFromComponentsJson $componentsJson
 
@@ -815,7 +925,7 @@ Describe 'Tests of components-test.json ' {
     }
 
 
-    It 'has specific WS23H2-gen2 containers' {
+    It 'has specific WS23H2 containers' {
         $windowsSku = "23H2"
         $components = GetComponentsFromComponentsJson $componentsJson
 
@@ -836,6 +946,30 @@ Describe 'Tests of components-test.json ' {
         # Pause image shouldn't change too often, so let's check that is in there.
         $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2022"
         $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+        $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
+    }
+
+    It 'has specific WS2025 containers' {
+        $windowsSku = "2025"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2025"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2025"
+        $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
+    }
+
+    It 'has specific WS2025-gen2 containers' {
+        $windowsSku = "2025-gen2"
+        $components = GetComponentsFromComponentsJson $componentsJson
+
+        $components.Length | Should -BeGreaterThan 0
+
+        # Pause image shouldn't change too often, so let's check that is in there.
+        $components | Should -Contain "mcr.microsoft.com/windows/servercore:ltsc2025"
+        $components | Should -Contain "mcr.microsoft.com/windows/nanoserver:ltsc2025"
         $components | Should -Contain "mcr.microsoft.com/containernetworking/azure-npm:v1.5.5"
     }
 
@@ -888,6 +1022,26 @@ Describe 'Tests of components-test.json ' {
         $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
     }
 
+    It 'has containerd versions for 2025' {
+        $windowsSku = "2025"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
+    It 'has containerd versions for 2025-gen2' {
+        $windowsSku = "2025-gen2"
+
+        $packages = GetPackagesFromComponentsJson $componentsJson
+
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+        $packages["c:\akse-cache\containerd\"] | Should -Not -Contain "https://acs-mirror.azureedge.net/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
+    }
+
     it 'has the right default containerd for ws2019' {
         $windowsSku = "2019-containerd"
 
@@ -906,6 +1060,14 @@ Describe 'Tests of components-test.json ' {
 
     it 'has the right default containerd for ws23H2' {
         $windowsSku = "23H2"
+
+        $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
+
+        $containerDUrl | Should -Be "https://acs-mirror.azureedge.net/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
+    }
+
+    it 'has the right default containerd for ws2025' {
+        $windowsSku = "2025"
 
         $containerDUrl = GetDefaultContainerDFromComponentsJson $componentsJson
 

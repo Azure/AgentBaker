@@ -8,6 +8,8 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Perform a Pester test from the parts/windows/*.tests.ps1 file
         shell: powershell
         run: |
