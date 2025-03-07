@@ -284,6 +284,7 @@ while IFS= read -r p; do
         # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
         CRICTL_VERSION=${version} 
         CRICTL_VERSIONS=${version}
+        KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
       done
       ;;
     "azure-cni")
@@ -392,8 +393,6 @@ fi
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
-
-KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
