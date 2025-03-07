@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	Config            = mustLoadConfig()
-	Azure             = mustNewAzureClient()
-	ResourceGroupName = "abe2e-" + Config.Location
-	VMIdentityName    = "abe2e-vm-identity"
-	PrivateACRName    = "privateacre2e" + Config.Location + "dev" // TODO (alburgess): remove dev once CCOA is over
+	Config                = mustLoadConfig()
+	Azure                 = mustNewAzureClient()
+	ResourceGroupName     = "abe2e-" + Config.Location
+	VMIdentityName        = "abe2e-vm-identity"
+	PrivateACRNameNotAnon = "privateace2enonanonpull" + Config.Location // will have anonymous pull enabled
+	PrivateACRName        = "privateacre2e" + Config.Location           // will not have anonymous pull enabled
 
 	DefaultPollUntilDoneOptions = &runtime.PollUntilDoneOptions{
 		Frequency: time.Second,
@@ -27,8 +28,9 @@ var (
 type Configuration struct {
 	AirgapNSGName                          string        `env:"AIRGAP_NSG_NAME" envDefault:"abe2e-airgap-securityGroup"`
 	AzureContainerRegistrytargetRepository string        `env:"ACR_TARGET_REPOSITORY" envDefault:"*"`
+	ACRSecretName                          string        `env:"ACR_SECRET_NAME" envDefault:"acr-secret-code2"`
 	BlobContainer                          string        `env:"BLOB_CONTAINER" envDefault:"abe2e"`
-	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2etest"`
+	BlobStorageAccountPrefix               string        `env:"BLOB_STORAGE_ACCOUNT_PREFIX" envDefault:"abe2e"`
 	BuildID                                string        `env:"BUILD_ID" envDefault:"local"`
 	DefaultSubnetName                      string        `env:"DEFAULT_SUBNET_NAME" envDefault:"aks-subnet"`
 	DefaultVMSKU                           string        `env:"DEFAULT_VM_SKU" envDefault:"Standard_D2ds_v5"`
@@ -41,7 +43,7 @@ type Configuration struct {
 	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
 	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID_WINDOWS" envDefault:"4be8920b-2978-43d7-ab14-04d8549c1d05"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
-	KeepVMSS                               bool          `env:"KEEP_VMSS" envDefault:"true"`
+	KeepVMSS                               bool          `env:"KEEP_VMSS"`
 	Location                               string        `env:"E2E_LOCATION" envDefault:"westus3"`
 	SIGVersionTagName                      string        `env:"SIG_VERSION_TAG_NAME" envDefault:"branch"`
 	SIGVersionTagValue                     string        `env:"SIG_VERSION_TAG_VALUE" envDefault:"refs/heads/master"`
@@ -97,4 +99,12 @@ func mustLoadConfig() *Configuration {
 		panic(err)
 	}
 	return cfg
+}
+
+func GetPrivateACRName(isNonAnonymousPull bool) string {
+	privateACRName := PrivateACRName
+	if isNonAnonymousPull {
+		privateACRName = PrivateACRNameNotAnon
+	}
+	return privateACRName
 }

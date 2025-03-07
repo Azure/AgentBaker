@@ -430,7 +430,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_D2s_v3"),
+			Name:     to.Ptr("Standard_D2ds_v5"),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{

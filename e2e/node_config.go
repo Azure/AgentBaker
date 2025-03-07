@@ -60,7 +60,7 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 		Version:            "v0",
 		DisableCustomData:  false,
 		LinuxAdminUsername: "azureuser",
-		VmSize:             "Standard_D2s_v3",
+		VmSize:             "Standard_D2ds_v5",
 		ClusterConfig: &aksnodeconfigv1.ClusterConfig{
 			Location:      nbc.ContainerService.Location,
 			ResourceGroup: nbc.ResourceGroupName,
@@ -347,7 +347,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 		},
 		AgentPoolProfile: &datamodel.AgentPoolProfile{
 			Name:                "nodepool2",
-			VMSize:              "Standard_D2s_v3",
+			VMSize:              "Standard_D2ds_v5",
 			KubeletDiskType:     "",
 			WorkloadRuntime:     "",
 			DNSPrefix:           "",
