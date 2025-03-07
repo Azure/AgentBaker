@@ -558,7 +558,9 @@ extractKubeBinaries() {
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
-        mkdir -p ${k8s_downloads_dir}
+        if [[ -n "${k8s_downloads_dir}" ]]; then
+            mkdir -p ${k8s_downloads_dir}
+        fi
         # if the url is a registry url, use oras to pull the artifact instead of curl
         if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
