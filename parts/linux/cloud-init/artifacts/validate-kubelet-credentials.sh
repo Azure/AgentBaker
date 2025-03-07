@@ -30,7 +30,7 @@ function validateKubeconfig {
     if ! retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
         $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
         $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
-        kubectl auth can-i create certificatesigningrequests --kubeconfig "$kubeconfig_path"; then
+        kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"; then
         
         # for now we simply exit 0 here to prevent provisioning failures in cases where the credential
         # doesn't become valid until after we've exhausted our retries - kubelet should still eventually be able to register
