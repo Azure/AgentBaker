@@ -2,6 +2,10 @@ version = 2
 oom_score = -999{{if getHasDataDir .KubeletConfig}}
 root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
+  {{- if and ( .GetGpuConfig ) ( .GpuConfig.GetRequiresCdi ) }}
+  enable_cdi = true
+  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+  {{- end }}
   sandbox_image = "{{ .KubeBinaryConfig.GetPodInfraContainerImageUrl }}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
     {{- if .TeleportConfig.GetStatus }}
