@@ -1060,7 +1060,7 @@ func Test_Ubuntu2204_GPUNC(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUA100(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_ND96amsrf_A100_v4")
+	runScenarioUbuntu2204GPU(t, "Standard_ND96asr_v4")
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
