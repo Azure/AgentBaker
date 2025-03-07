@@ -163,8 +163,14 @@ testPackagesInstalled() {
 
     for version in "${PACKAGE_VERSIONS[@]}"; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
-        echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
-        # we can further think of adding a check to see if the package is installed through apt-get
+        # if $PACKAGE_DOWNLOAD_URL is empty, which means downloadURL in the package in components.json is not defined, it's actually using package management tool to download and install that package.
+        # For example, in Ubuntu, we use apt-get to install packages.
+        # We can simply execute the command to verify the package version.
+        case "$name" in
+          "kubernetes-cri-tools")
+            testCriCtl "$version"
+            ;;
+        esac
         break
       fi
       # A downloadURL from a package in components.json will look like this: 
@@ -1132,6 +1138,24 @@ testSpinKubeInstalled() {
     echo "$test: Spin Wasm Runtime binary exists at $binary_path_pattern"
   fi
 
+  echo "$test: Test finished successfully."
+  return 0
+}
+
+testCriCtl() {
+  expectedVersion="${1}"
+  # the expectedVersion looks like this, "1.32.0-ubuntu18.04u3", need to extract the version number.
+  expectedVersion=$(echo $expectedVersion | cut -d'-' -f1)
+  # use command `crictl --version` to get the version
+  local test="testCriCtl"
+  local crictl_version=$(crictl --version)
+  # the output of crictl_version looks like this "crictl version 1.32.0", need to extract the version number.
+  crictl_version=$(echo $crictl_version | cut -d' ' -f3)
+  echo "$test: checking if crictl version is $expectedVersion"
+  if [ "$crictl_version" != "$expectedVersion" ]; then
+    err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
+    return 1
+  fi
   echo "$test: Test finished successfully."
   return 0
 }

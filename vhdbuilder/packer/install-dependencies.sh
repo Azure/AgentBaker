@@ -295,7 +295,7 @@ while IFS= read -r p; do
   downloadDir=$(echo "${p}" | jq .downloadLocation -r)
   #download the package
   case $name in
-    "cri-tools")
+    "kubernetes-cri-tools")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"

@@ -1194,7 +1194,7 @@
       }
     },
     {
-      "name": "cri-tools",
+      "name": "kubernetes-cri-tools",
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURIs": {
         "windows": {
