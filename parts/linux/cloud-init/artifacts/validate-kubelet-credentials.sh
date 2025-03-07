@@ -1,8 +1,10 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 # this gives us logs_to_events and retry wrappers
-source /opt/azure/containers/provision_source.sh 
+source /opt/azure/containers/provision_source.sh
+
+set -x
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
