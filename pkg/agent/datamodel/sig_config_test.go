@@ -369,7 +369,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		azurelinuxV3CVMGen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3CVMGen2]
 		Expect(azurelinuxV3CVMGen2.ResourceGroup).To(Equal("resourcegroup"))
 		Expect(azurelinuxV3CVMGen2.Gallery).To(Equal("aksazurelinux"))
-		Expect(azurelinuxV3CVMGen2.Definition).To(Equal("V3cvmgen2"))
+		Expect(azurelinuxV3CVMGen2.Definition).To(Equal("V3gen2CVM"))
 		Expect(azurelinuxV3CVMGen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntu2404CVMGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2404CVMGen2]
