@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail xtrace
+set -euxo pipefail
 
 # this gives us logs_to_events and retry wrappers
 source /opt/azure/containers/provision_source.sh 
@@ -17,7 +17,7 @@ function validateKubeconfig {
     if ! retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
         $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
         $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
-        kubectl version --kubeconfig "$kubeconfig_path" 2>&1; then
+        kubectl version --kubeconfig "$kubeconfig_path"; then
         
         # for now we simply exit 0 here to prevent provisioning failures in cases where the credential
         # doesn't become valid until after we've exhausted our retries - kubelet should still eventually be able to register
