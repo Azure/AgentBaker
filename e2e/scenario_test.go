@@ -1060,7 +1060,7 @@ func Test_Ubuntu2204_GPUNC(t *testing.T) {
 }
 
 func Test_Ubuntu2204_GPUA100(t *testing.T) {
-	runScenarioUbuntu2204GPU(t, "Standard_NC24ads_A100_v4")
+	runScenarioUbuntu2204GPU(t, "Standard_ND96amsrf_A100_v4")
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
@@ -1082,6 +1082,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				nbc.ConfigGPUDriverIfNeeded = true
 				nbc.EnableGPUDevicePluginIfNeeded = false
 				nbc.EnableNvidia = true
+				nbc.GPUInstanceProfile = "MIG1g"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr(vmSize)
