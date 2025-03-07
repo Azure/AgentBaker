@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/tidwall/gjson"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -401,6 +403,56 @@ func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, pro
 	}
 }
 
+func ValidateWindowsVersionFromWindowsSettings(ctx context.Context, s *Scenario, windowsVersion string) {
+	steps := []string{
+		"(Get-ItemProperty -Path \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\" -Name BuildLabEx).BuildLabEx",
+	}
+
+	jsonBytes := getWindowsSettingsJson()
+	osVersion := gjson.GetBytes(jsonBytes, fmt.Sprintf("WindowsBaseVersions.%s.base_image_version", windowsVersion))
+	versionSliced := strings.Split(osVersion.String(), ".")
+	osMajorVersion := versionSliced[0]
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Found windows version in windows_settings: %s: %s (%s)", windowsVersion, osMajorVersion, osVersion)
+	s.T.Logf("Windows version returned from VM  %s", podExecResultStdout)
+
+	require.Contains(s.T, podExecResultStdout, osMajorVersion)
+}
+
+func ValidateWindowsProductName(ctx context.Context, s *Scenario, productName string) {
+	steps := []string{
+		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").ProductName",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Winddows product name from VM  %s. Expected product name %s", podExecResultStdout, productName)
+
+	require.Contains(s.T, podExecResultStdout, productName)
+}
+
+func ValidateWindowsDisplayVersion(ctx context.Context, s *Scenario, displayVersion string) {
+	steps := []string{
+		"(Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\").DisplayVersion",
+	}
+
+	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
+	podExecResultStdout := strings.TrimSpace(podExecResult.stdout.String())
+
+	s.T.Logf("Winddows display version returned from VM  %s. Expected display version %s", podExecResultStdout, displayVersion)
+
+	require.Contains(s.T, podExecResultStdout, displayVersion)
+}
+
+func getWindowsSettingsJson() []byte {
+	jsonBytes, _ := os.ReadFile("../vhdbuilder/packer/windows/windows_settings.json")
+	return jsonBytes
+}
+
 func ValidateCiliumIsRunningWindows(ctx context.Context, s *Scenario) {
 	ValidateJsonFileHasField(ctx, s, "/k/azurecni/netconf/10-azure.conflist", "plugins.ipam.type", "azure-cns")
 }
@@ -426,4 +478,19 @@ func GetFieldFromJsonObjectOnNode(ctx context.Context, s *Scenario, fileName str
 	podExecResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate command has parameters - might mean file does not have params, might mean something went wrong")
 
 	return podExecResult.stdout.String()
+}
+
+// ValidateTaints checks if the node has the expected taints that are set in the kubelet config with --register-with-taints flag
+func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
+	node, err := s.Runtime.Cluster.Kube.Typed.CoreV1().Nodes().Get(ctx, s.Runtime.KubeNodeName, metav1.GetOptions{})
+	require.NoError(s.T, err, "failed to get node %q", s.Runtime.KubeNodeName)
+	actualTaints := ""
+	for i, taint := range node.Spec.Taints {
+		actualTaints += fmt.Sprintf("%s=%s:%s", taint.Key, taint.Value, taint.Effect)
+		// add a comma if it's not the last element
+		if i < len(node.Spec.Taints)-1 {
+			actualTaints += ","
+		}
+	}
+	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }

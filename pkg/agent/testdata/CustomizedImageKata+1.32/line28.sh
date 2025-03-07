@@ -66,17 +66,19 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
-domain_name="mcr.microsoft.com"
+registry_domain_name="mcr.microsoft.com"
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+    registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
 fi
-verify_DNS_health $domain_name || exit $ERR_DNS_HEALTH_FAIL
+verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
         eval $PROXY_VARS
     fi
-    retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+else
+    touch /var/run/outbound-check-skipped
 fi
 
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
@@ -88,7 +90,7 @@ if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
 fi
 
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
-    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
+    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
 export -f should_skip_nvidia_drivers
@@ -132,15 +134,15 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    local versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
-    local downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
-    local downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
+    downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
     logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
 
-    local versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
-    local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
-    local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
-    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
+    versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
+    downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadLocationSpinKube"  "$downloadURLSpinKube"  "$versionsSpinKube"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then

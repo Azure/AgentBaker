@@ -117,6 +117,7 @@ var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
+	AKSUbuntuContainerd2404CVMGen2,
 }
 
 //nolint:gochecknoglobals
@@ -154,6 +155,7 @@ var AvailableContainerdDistros = []Distro{
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
+	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
@@ -191,6 +193,7 @@ var AvailableGen2Distros = []Distro{
 	AKSUbuntuEdgeZoneContainerd1804Gen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
+	AKSUbuntuContainerd2404CVMGen2,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuContainerd2204TLGen2,
@@ -352,6 +355,8 @@ var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2022ContainerdGen2,
 	AKSWindows23H2,
 	AKSWindows23H2Gen2,
+	AKSWindows2025,
+	AKSWindows2025Gen2,
 	CustomizedWindowsOSImage,
 }
 
@@ -398,6 +403,7 @@ const (
 	Windows2019SIGImageVersion string = "17763.2019.221114"
 	Windows2022SIGImageVersion string = "20348.2022.221114"
 	Windows23H2SIGImageVersion string = "25398.2022.221114"
+	Windows2025SIGImageVersion string = "26100.2025.221114"
 )
 
 type sigVersion struct {
@@ -547,6 +553,13 @@ var (
 		ResourceGroup: AKSUbuntuResourceGroup,
 		Gallery:       AKSUbuntuGalleryName,
 		Definition:    "2404gen2arm64containerd",
+		Version:       LinuxSIGImageVersion,
+	}
+
+	SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSUbuntuResourceGroup,
+		Gallery:       AKSUbuntuGalleryName,
+		Definition:    "2404gen2CVMcontainerd",
 		Version:       LinuxSIGImageVersion,
 	}
 
@@ -822,6 +835,20 @@ var (
 		Definition:    "V3gen2CVM",
 		Version:       LinuxSIGImageVersion,
 	}
+
+	SIGWindows2025ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2025",
+		Version:       Windows2025SIGImageVersion,
+	}
+
+	SIGWindows2025Gen2ImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: AKSWindowsResourceGroup,
+		Gallery:       AKSWindowsGalleryName,
+		Definition:    "windows-2025-gen2",
+		Version:       Windows2025SIGImageVersion,
+	}
 )
 
 // GetMaintainedLinuxSIGImageConfigMap returns a set of Distro -> SigImageConfig mappings
@@ -870,6 +897,7 @@ func getSigUbuntuImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]Si
 		AKSUbuntuContainerd2004CVMGen2:     SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2204Gen2:   SIGUbuntuArm64Containerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuArm64Containerd2404Gen2:   SIGUbuntuArm64Containerd2404Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSUbuntuContainerd2404CVMGen2:     SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuContainerd2204TLGen2:      SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204:     SIGUbuntuMinimalContainerd2204ImageConfigTemplate.WithOptions(opts...),
 		AKSUbuntuMinimalContainerd2204Gen2: SIGUbuntuMinimalContainerd2204Gen2ImageConfigTemplate.WithOptions(opts...),
@@ -921,6 +949,8 @@ func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]S
 		AKSWindows2022ContainerdGen2: SIGWindows2022ContainerdGen2ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows23H2:               SIGWindows23H2ImageConfigTemplate.WithOptions(opts...),
 		AKSWindows23H2Gen2:           SIGWindows23H2Gen2ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2025:               SIGWindows2025ImageConfigTemplate.WithOptions(opts...),
+		AKSWindows2025Gen2:           SIGWindows2025Gen2ImageConfigTemplate.WithOptions(opts...),
 	}
 }
 

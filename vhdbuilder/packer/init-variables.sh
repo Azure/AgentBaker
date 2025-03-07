@@ -1,5 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
 set -x
+set -e
+
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
@@ -341,7 +343,7 @@ fi
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
 
-	echo "Set the base image sku and version from windows-settings.json"
+	echo "Set the base image sku and version from windows_settings.json"
 
 	WINDOWS_IMAGE_SKU=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" < $CDIR/windows/windows_settings.json`
 	WINDOWS_IMAGE_VERSION=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" < $CDIR/windows/windows_settings.json`
@@ -350,6 +352,8 @@ if [ "$OS_TYPE" == "Windows" ]; then
   if [ "null" != "${OS_DISK_SIZE}" ]; then
     echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
     os_disk_size_gb=${OS_DISK_SIZE}
+  else
+    os_disk_size_gb="30"
   fi
 
   imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
@@ -386,7 +390,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
+		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
 		WINDOWS_IMAGE_PUBLISHER=""
