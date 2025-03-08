@@ -787,7 +787,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
-		Entry("AKSUbuntu1804 with kubelet client certificatet", "AKSUbuntu1804+WithKubeletClientCert", "1.18.3",
+		Entry("AKSUbuntu1804 with kubelet client certificate", "AKSUbuntu1804+WithKubeletClientCert", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
 					ClientCertificate: "fooBarBaz",
@@ -798,12 +798,14 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
 
 				Expect(etcDefaultKubelet).NotTo(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 				Expect(kubeconfig).ToNot(BeEmpty())
 
@@ -822,6 +824,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 
@@ -829,6 +832,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))

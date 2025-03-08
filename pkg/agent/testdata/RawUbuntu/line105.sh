@@ -19,6 +19,8 @@ ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 ExecStartPre=-/sbin/ebtables -t nat --list
 ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
+ExecStartPre=/bin/bash /opt/azure/containers/validate-kubelet-credentials.sh
+
 ExecStart=/usr/local/bin/kubelet \
         --enable-server \
         --node-labels="${KUBELET_NODE_LABELS}" \
