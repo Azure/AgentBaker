@@ -90,8 +90,6 @@ const (
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
-
-	aksLocalDnsCoreFile = "linux/cloud-init/artifacts/akslocaldns-corefile.tpl"
 )
 
 // cloud-init destination file references.

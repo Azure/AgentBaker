@@ -277,10 +277,6 @@ copyPackerFiles() {
   AKSLOCALDNS_SLICE_DEST=/etc/systemd/system/akslocaldns.slice
   cpAndMode $AKSLOCALDNS_SLICE_SRC $AKSLOCALDNS_SLICE_DEST 0644
 
-  AKSLOCALDNS_COREFILE_SRC=/home/packer/akslocaldns-corefile.tpl
-  AKSLOCALDNS_COREFILE_DEST=/opt/azure/akslocaldns/akslocaldns-corefile.tpl
-  cpAndMode $AKSLOCALDNS_COREFILE_SRC $AKSLOCALDNS_COREFILE_DEST 0644
-
   AKSLOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/akslocaldns-delegate.conf
   AKSLOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/akslocaldns.service.d/delegate.conf
   cpAndMode $AKSLOCALDNS_SERVICE_DELEGATE_SRC $AKSLOCALDNS_SERVICE_DELEGATE_DEST 0644

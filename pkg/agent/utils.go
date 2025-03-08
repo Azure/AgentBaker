@@ -198,32 +198,6 @@ func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.No
 	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
 }
 
-// getBase64EncodedGzippedAKSLocalDNSCoreFile will return a base64 of akslocaldns corefile.
-func getBase64EncodedGzippedAKSLocalDNSCoreFile(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
-	b, err := parts.Templates.ReadFile(csFilename)
-	if err != nil {
-		// this should never happen and this is a bug.
-		panic(fmt.Sprintf("BUG: %s", err.Error()))
-	}
-	// translate the parameters.
-	b = removeComments(b)
-	templ := template.New("AKSLocalDNSCoreFile template").Option("missingkey=error").Funcs(getContainerServiceFuncMap(config))
-	_, err = templ.Parse(string(b))
-	if err != nil {
-		// this should never happen and this is a bug.
-		panic(fmt.Sprintf("BUG: %s", err.Error()))
-	}
-	var buffer bytes.Buffer
-	err = templ.Execute(&buffer, config.ContainerService.Properties.AgentPoolProfiles[0].AksLocalDnsProfile)
-	if err != nil {
-		// this should never happen and this is a bug.
-		panic(fmt.Sprintf("BUG: %s", err.Error()))
-	}
-	csStr := buffer.String()
-	csStr = strings.ReplaceAll(csStr, "\r\n", "\n")
-	return getBase64EncodedGzippedCustomScriptFromStr(csStr)
-}
-
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
 func removeComments(b []byte) []byte {
 	var contentWithoutComments []string

@@ -619,11 +619,11 @@ extractAndCacheCoreDNSBinaries() {
       # Find the CoreDNS binary in the mounted directory. head -n 1 is used to get the first binary found.
       # For registry.k8s.io/coredns/coredns:v1.11.3 image, coredns binary is placed in this path /coredns.
       # But this is not efficient and unpredictable if multiple binaries are found.
-      # COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
+      COREDNS_BINARY=$(find "${CTR_TEMP}" -type f -name "coredns" | head -n 1)
 
       # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
       # reference - https://github.com/Azure/dalec-build-defs/blob/a72a61032c6626dd0f7d66f2508925046a1d6560/specs/coredns/coredns-1.12.0.yml#L65.
-      COREDNS_BINARY="${CTR_TEMP}/usr/bin/coredns"
+      # COREDNS_BINARY="${CTR_TEMP}/usr/bin/coredns"
       if [[ -f "$COREDNS_BINARY" ]]; then
           echo "CoreDNS binary not found in ${COREDNS_IMAGE_URL}"
       else

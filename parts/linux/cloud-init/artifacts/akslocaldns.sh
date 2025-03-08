@@ -8,25 +8,26 @@ set -euo pipefail
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
-# This should match with 'AKSLOCALDNS_ENV_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
-# This file contains the environment variables used by akslocaldns.
-AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns/akslocaldns.envfile"
-if [ -f "${AKSLOCALDNS_ENV_FILE_PATH}" ]; then
-    source "${AKSLOCALDNS_ENV_FILE_PATH}"
+# This file contains the environment variables used by akslocaldns systemd unit.
+# This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+AKSLOCALDNS_ENV_FILE="/etc/default/akslocaldns/akslocaldns.envfile"
+if [ -f "${AKSLOCALDNS_ENV_FILE}" ]; then
+    source "${AKSLOCALDNS_ENV_FILE}"
 else
-    printf "Error: akslocaldns envfile does not exist at %s.\n" "${AKSLOCALDNS_ENV_FILE_PATH}"
+    printf "Error: akslocaldns envfile does not exist at %s.\n" "${AKSLOCALDNS_ENV_FILE}"
     exit 1
 fi
 
-# Generated Corefile path used by akslocaldns service.
-# This should match with 'AKSLOCALDNS_CORE_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
-AKSLOCALDNS_CORE_FILE_PATH="/opt/azure/akslocaldns/corefile"
-if [ ! -f "${AKSLOCALDNS_CORE_FILE_PATH}" ] || [ ! -s "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
-    printf "Error: akslocaldns corefile either does not exist or is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
+# This file contains generated Corefile used by akslocaldns systemd unit.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+AKSLOCALDNS_CORE_FILE="/opt/azure/akslocaldns/akslocaldns.corefile"
+if [ ! -f "${AKSLOCALDNS_CORE_FILE}" ] || [ ! -s "${AKSLOCALDNS_CORE_FILE}" ]; then
+    printf "Error: akslocaldns corefile either does not exist or is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE}"
     exit 1
 fi
 
- # This is slice file for akslocaldns.
+# This is slice file used by akslocaldns systemd unit.
+# This should match with 'AKSLOCALDNS_SLICE_DEST' defined in vhdbuilder/packer/packer_source.sh.
 AKSLOCALDNS_SLICE_PATH="/etc/systemd/system/akslocaldns.slice"
 if [ ! -f "${AKSLOCALDNS_SLICE_PATH}" ]; then
     printf "Error: akslocaldns slice file does not exist at %s.\n" "${AKSLOCALDNS_SLICE_PATH}"
@@ -91,10 +92,10 @@ fi
 # Replace all occurrences of Vnet_Dns_Servers with UPSTREAM_VNET_DNS_SERVERS in akslocaldns corefile.
 # Based on customer input, corefile was generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
 sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" \
-    "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: updating akslocaldns corefile failed"; exit 1; }
+    "${AKSLOCALDNS_CORE_FILE}" || { echo "Error: updating akslocaldns corefile failed"; exit 1; }
 
 echo Generated corefile:
-cat "${AKSLOCALDNS_CORE_FILE_PATH}"
+cat "${AKSLOCALDNS_CORE_FILE}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
@@ -191,7 +192,7 @@ done
 
 # Start akslocaldns.
 # --------------------------------------------------------------------------------------------------------------------
-COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${AKSLOCALDNS_CORE_FILE_PATH} -pidfile ${AKSLOCALDNS_PID_FILE}"
+COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${AKSLOCALDNS_CORE_FILE} -pidfile ${AKSLOCALDNS_PID_FILE}"
 if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=akslocaldns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
