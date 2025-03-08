@@ -91,6 +91,8 @@ stages:
     condition: and(succeeded(), eq('${{ parameters.build }}', True))
     variables:
       TAGS_TO_RUN: imageName=${{ parameters.imageName }}
+      GALLERY_SUBSCRIPTION_ID_WINDOWS: a15c116e-99e3-4c59-aebc-8f864929b4a0
+      GALLERY_RESOURCE_GROUP_WINDOWS: akswinvhdbuilderrg
     jobs:
       - template: ./e2e-template.yaml
         parameters:
