@@ -177,7 +177,7 @@ ExecStart=
 ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
 EOF
         fi
-        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
@@ -193,7 +193,7 @@ EOF
         if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
-        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
     # This will only be true for multi-instance capable VM sizes
@@ -451,7 +451,7 @@ else
                 # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
                 systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
                 systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
                 # The check-restart service which will inform kured of required restarts should already be running
             fi
         fi
