@@ -17,10 +17,9 @@ function validateKubeconfig {
 
         
 
-    if ! retrycmd_if_failure $VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES \
-        $VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS \
-        $VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS \
-        kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"; then
+        
+
+    if ! kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"; then
         
         echo "kubelet credential validation failed, will still attempt to start kubelet"
         exit 0
