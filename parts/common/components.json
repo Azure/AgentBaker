@@ -548,13 +548,13 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.8",
-          "previousLatestVersion": "v1.30.7"
+          "latestVersion": "v1.30.9",
+          "previousLatestVersion": "v1.30.8"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.4",
-          "previousLatestVersion": "v1.31.3"
+          "latestVersion": "v1.31.5",
+          "previousLatestVersion": "v1.31.4"
         }
       ],
       "windowsVersions": [
@@ -564,13 +564,13 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.8-windows-hp",
-          "previousLatestVersion": "v1.30.7-windows-hp"
+          "latestVersion": "v1.30.9-windows-hp",
+          "previousLatestVersion": "v1.30.8-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.4-windows-hp",
-          "previousLatestVersion": "v1.31.3-windows-hp"
+          "latestVersion": "v1.31.5-windows-hp",
+          "previousLatestVersion": "v1.31.4-windows-hp"
         }
       ]
     },
@@ -585,12 +585,12 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.7",
-          "previousLatestVersion": "v1.30.6"
+          "latestVersion": "v1.30.8",
+          "previousLatestVersion": "v1.30.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.31.3"
+          "latestVersion": "v1.31.4"
         }
       ],
       "windowsVersions": [
@@ -601,12 +601,12 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.7-windows-hp",
-          "previousLatestVersion": "v1.30.6-windows-hp"
+          "latestVersion": "v1.30.8-windows-hp",
+          "previousLatestVersion": "v1.30.7-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.31.3-windows-hp"
+          "latestVersion": "v1.31.4-windows-hp"
         }
       ]
     },
@@ -621,12 +621,12 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.6",
-          "previousLatestVersion": "v1.24.5"
+          "latestVersion": "v1.24.7",
+          "previousLatestVersion": "v1.24.6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.25.2"
+          "latestVersion": "v1.25.3"
         }
       ],
       "windowsVersions": []
