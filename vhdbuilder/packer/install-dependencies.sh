@@ -36,7 +36,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if grep -q "cvm" <<< "$FEATURE_FLAGS"; then 
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then 
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
