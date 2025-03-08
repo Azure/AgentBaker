@@ -290,9 +290,6 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
-if [ "${IS_AKSLOCALDNS_ENABLED}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureAKSLocalDNS" ensureAKSLocalDNS
-fi
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then

@@ -265,21 +265,25 @@ copyPackerFiles() {
 
 # Below files need to be shipped in VHD for enabling akslocaldns systemd unit.
 # ---------------------------------------------------------------------------------------------------
-  AKSLOCALDNS_SRC=/home/packer/akslocaldns.sh
-  AKSLOCALDNS_DEST=/opt/azure/akslocaldns/akslocaldns.sh
-  cpAndMode $AKSLOCALDNS_SRC $AKSLOCALDNS_DEST 0755
+  AKSLOCALDNS_SCRIPT_SRC=/home/packer/akslocaldns.sh
+  AKSLOCALDNS_SCRIPT_DEST=/opt/azure/akslocaldns/akslocaldns.sh
+  cpAndMode $AKSLOCALDNS_SCRIPT_SRC $AKSLOCALDNS_SCRIPT_DEST 0755
 
   AKSLOCALDNS_SERVICE_SRC=/home/packer/akslocaldns.service
   AKSLOCALDNS_SERVICE_DEST=/etc/systemd/system/akslocaldns.service
   cpAndMode $AKSLOCALDNS_SERVICE_SRC $AKSLOCALDNS_SERVICE_DEST 0644
 
-  AKSLOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/akslocaldns-delegate.conf
-  AKSLOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/akslocaldns.service.d/delegate.conf
-  cpAndMode $AKSLOCALDNS_SERVICE_DELEGATE_SRC $AKSLOCALDNS_SERVICE_DELEGATE_DEST 0644
-
   AKSLOCALDNS_SLICE_SRC=/home/packer/akslocaldns.slice
   AKSLOCALDNS_SLICE_DEST=/etc/systemd/system/akslocaldns.slice
   cpAndMode $AKSLOCALDNS_SLICE_SRC $AKSLOCALDNS_SLICE_DEST 0644
+
+  AKSLOCALDNS_COREFILE_SRC=/home/packer/akslocaldns-corefile.tpl
+  AKSLOCALDNS_COREFILE_DEST=/opt/azure/akslocaldns/akslocaldns-corefile.tpl
+  cpAndMode $AKSLOCALDNS_COREFILE_SRC $AKSLOCALDNS_COREFILE_DEST 0644
+
+  AKSLOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/akslocaldns-delegate.conf
+  AKSLOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/akslocaldns.service.d/delegate.conf
+  cpAndMode $AKSLOCALDNS_SERVICE_DELEGATE_SRC $AKSLOCALDNS_SERVICE_DELEGATE_DEST 0644
 
   AKSLOCALDNS_RESOLVED_SRC=/home/packer/akslocaldns-resolved.conf
   AKSLOCALDNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf

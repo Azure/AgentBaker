@@ -1,2 +1,0 @@
-[Service]
-Delegate=cpu

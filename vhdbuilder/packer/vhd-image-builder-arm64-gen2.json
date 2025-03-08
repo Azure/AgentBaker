@@ -601,13 +601,18 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/akslocaldns-delegate.conf",
-      "destination": "/home/packer/akslocaldns-delegate.conf"
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns.slice",
+      "destination": "/home/packer/akslocaldns.slice"
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/akslocaldns.slice",
-      "destination": "/home/packer/akslocaldns.slice"
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns-corefile.tpl",
+      "destination": "/home/packer/akslocaldns-corefile.tpl"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/akslocaldns-delegate.conf",
+      "destination": "/home/packer/akslocaldns-delegate.conf"
     },
     {
       "type": "file",

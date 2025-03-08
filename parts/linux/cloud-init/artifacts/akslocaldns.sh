@@ -20,7 +20,7 @@ fi
 
 # Generated Corefile path used by akslocaldns service.
 # This should match with 'AKSLOCALDNS_CORE_FILE' defined in parts/linux/cloud-init/artifacts/cse_config.sh.
-AKSLOCALDNS_CORE_FILE_PATH="/opt/azure/akslocaldns/Corefile"
+AKSLOCALDNS_CORE_FILE_PATH="/opt/azure/akslocaldns/corefile"
 if [ ! -f "${AKSLOCALDNS_CORE_FILE_PATH}" ] || [ ! -s "${AKSLOCALDNS_CORE_FILE_PATH}" ]; then
     printf "Error: akslocaldns corefile either does not exist or is empty at %s.\n" "${AKSLOCALDNS_CORE_FILE_PATH}"
     exit 1
@@ -92,6 +92,9 @@ fi
 # Based on customer input, corefile was generated with Vnet_Dns_Servers as placeholder in pkg/agent/baker.go.
 sed -i "s/Vnet_Dns_Servers/${UPSTREAM_VNET_DNS_SERVERS}/g" \
     "${AKSLOCALDNS_CORE_FILE_PATH}" || { echo "Error: updating akslocaldns corefile failed"; exit 1; }
+
+echo Generated corefile:
+cat "${AKSLOCALDNS_CORE_FILE_PATH}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
