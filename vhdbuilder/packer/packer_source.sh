@@ -263,6 +263,35 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
 
+# Below files will be shipped in VHD for enabling akslocaldns systemd unit.
+# ---------------------------------------------------------------------------------------------------
+  AKSLOCALDNS_SCRIPT_SRC=/home/packer/akslocaldns.sh
+  AKSLOCALDNS_SCRIPT_DEST=/opt/azure/containers/akslocaldns/akslocaldns.sh
+  cpAndMode $AKSLOCALDNS_SCRIPT_SRC $AKSLOCALDNS_SCRIPT_DEST 0755
+
+  AKSLOCALDNS_SERVICE_SRC=/home/packer/akslocaldns.service
+  AKSLOCALDNS_SERVICE_DEST=/etc/systemd/system/akslocaldns.service
+  cpAndMode $AKSLOCALDNS_SERVICE_SRC $AKSLOCALDNS_SERVICE_DEST 0644
+
+  AKSLOCALDNS_SLICE_SRC=/home/packer/akslocaldns.slice
+  AKSLOCALDNS_SLICE_DEST=/etc/systemd/system/akslocaldns.slice
+  cpAndMode $AKSLOCALDNS_SLICE_SRC $AKSLOCALDNS_SLICE_DEST 0644
+
+  AKSLOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/akslocaldns-delegate.conf
+  AKSLOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/akslocaldns.service.d/delegate.conf
+  cpAndMode $AKSLOCALDNS_SERVICE_DELEGATE_SRC $AKSLOCALDNS_SERVICE_DELEGATE_DEST 0644
+
+  AKSLOCALDNS_RESOLVED_SRC=/home/packer/akslocaldns-resolved.conf
+  AKSLOCALDNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf
+  cpAndMode $AKSLOCALDNS_RESOLVED_SRC $AKSLOCALDNS_RESOLVED_DEST 0644
+  chmod -R ugo+rX /opt/azure/containers/akslocaldns /etc/systemd/resolved.conf.d
+
+  AKS_NETWORKD_KEEPCONFIG_SRC=/home/packer/05-aks-keepconfig.conf
+  AKS_NETWORKD_KEEPCONFIG_DEST=/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf
+  cpAndMode $AKS_NETWORKD_KEEPCONFIG_SRC $AKS_NETWORKD_KEEPCONFIG_DEST 0644
+  chmod -R ugo+rX /etc/systemd/network
+# ---------------------------------------------------------------------------------------------------
+
   # Install AKS log collector
   cpAndMode $AKS_LOG_COLLECTOR_SCRIPT_SRC $AKS_LOG_COLLECTOR_SCRIPT_DEST 755
   cpAndMode $AKS_LOG_COLLECTOR_SEND_SCRIPT_SRC $AKS_LOG_COLLECTOR_SEND_SCRIPT_DEST 755

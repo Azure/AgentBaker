@@ -131,3 +131,19 @@ const (
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
 )
+
+// AKSLocalDNSEnabled flag.
+const (
+	// AKSLocalDNSEnabled is a string constant for 'Enabled'.
+	AKSLocalDNSEnabled = "Enabled"
+	// DefaultAKSLocalDNSImageUrl sepcifies the default coredns image tag used in akslocaldns.
+	DefaultAKSLocalDNSImageTag = "v1.12.0-1"
+	// DefaultAKSLocalDNSNodeListenerIP sepcifies the default nodelistener APIPA-IP used in akslocaldns.
+	DefaultAKSLocalDNSNodeListenerIP = "169.254.10.10"
+	// DefaultAKSLocalDNSClusterListenerIP sepcifies the default clusterlistener APIPA-IP used in akslocaldns.
+	DefaultAKSLocalDNSClusterListenerIP = "169.254.10.11"
+	// DefaultAKSLocalDNSCPULimit sepcifies the default CPU limit used in akslocaldns.
+	DefaultAKSLocalDNSCPULimit = 2
+	// DefaultAKSLocalDNSMemoryLimit sepcifies the default Memory limit used in akslocaldns.
+	DefaultAKSLocalDNSMemoryLimit = 128
+)

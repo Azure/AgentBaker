@@ -6,6 +6,7 @@ package agent
 import (
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -1005,6 +1006,31 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
+		"IsAKSLocalDNSEnabled": func() bool {
+			return profile.IsAKSLocalDNSEnabled()
+		},
+		"GetAKSLocalDNSGeneratedCoreFile": func() string {
+			output, err := AKSLocalDNSGenerateCoreFile(config, profile, akslocalDNSCoreFileTemplateString)
+			if err != nil {
+				panic(err)
+			}
+			return output
+		},
+		"GetAKSLocalDNSImageTag": func() string {
+			return profile.GetAKSLocalDNSImageTag()
+		},
+		"GetAKSLocalDNSNodeListenerIP": func() string {
+			return profile.GetAKSLocalDNSNodeListenerIP()
+		},
+		"GetAKSLocalDNSClusterListenerIP": func() string {
+			return profile.GetAKSLocalDNSClusterListenerIP()
+		},
+		"GetAKSLocalDNSCPULimit": func() int {
+			return profile.GetAKSLocalDNSCPULimit()
+		},
+		"GetAKSLocalDNSMemoryLimit": func() int {
+			return profile.GetAKSLocalDNSMemoryLimit()
+		},
 	}
 }
 
@@ -1728,3 +1754,138 @@ func containerdConfigFromTemplate(
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
+
+// Parse and generate akslocaldns Corefile from template and AksLocalDnsProfile.
+func AKSLocalDNSGenerateCoreFile(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+	funcMapForHasSuffix := template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}
+	localDNSCorefileTemplate := template.Must(template.New("akslocaldnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
+
+	// Generate the Corefile content
+	var corefileBuffer bytes.Buffer
+	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, profile.AksLocalDnsProfile); err != nil {
+		return "", fmt.Errorf("failed to execute local dns corefile template: %w", err)
+	}
+
+	// Gzip the Corefile content
+	var gzippedBuffer bytes.Buffer
+	gzipWriter := gzip.NewWriter(&gzippedBuffer)
+	if _, err := gzipWriter.Write(corefileBuffer.Bytes()); err != nil {
+		return "", fmt.Errorf("failed to gzip CoreFile content: %w", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	// Return the gzipped content as a base64-encoded string
+	return base64.StdEncoding.EncodeToString(gzippedBuffer.Bytes()), nil
+}
+
+// Template to create corefile that will be used by akslocaldns service.
+const akslocalDNSCoreFileTemplateString = `
+# ***********************************************************************************
+# WARNING : Changes made to this file will be overwritten and will not be persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.akslocaldns.local:53 {
+    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    whoami
+}
+# VNET DNS traffic (Traffic from pods with dnsPolicy:default or kubelet)
+{{- range $domain, $override := $.VnetDnsOverrides -}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $useClusterCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
+{{$domain}}:53 {
+    {{$override.QueryLogging}}
+    bind {{$.NodeListenerIP}}
+    {{- if $isRootDomain}}
+    forward . Vnet_Dns_Servers {
+    {{- else}}
+    {{- if $useClusterCoreDns}}
+    forward . {{$.CoreDnsServiceIP}} {
+    {{- else}}
+    forward . Vnet_Dns_Servers {
+    {{- end}}
+	{{- end}}
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.NodeListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disabled"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid akslocaldns
+    prometheus :9253
+    {{- if $isRootDomain}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+# Kube DNS traffic (Traffic from pods with dnsPolicy:ClusterFirst)
+{{- range $domain, $override := $.KubeDnsOverrides}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $useClusterCoreDns := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDns")}}
+{{$domain}}:53 {
+    {{$override.QueryLogging}}
+    bind {{$.ClusterListenerIP}}
+    {{- if $useClusterCoreDns}}
+    forward . {{$.CoreDnsServiceIP}} {
+    {{- else}}
+    forward . Vnet_Dns_Servers {
+    {{- end}}
+        {{- if $override.ForceTCP}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.ClusterListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disabled"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid akslocaldns-pod
+    prometheus :9253
+    {{- if $isRootDomain}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+`

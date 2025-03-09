@@ -515,6 +515,14 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
+
+    # If akslocaldns systemd unit is enabled, then Kubelet's --cluster-dns flag is set to AKSLOCALDNS_CLUSTER_LISTENER_IP address.
+    if should_akslocaldns_be_enabled; then
+        akslocaldns_cluster_listener_ip=$(get_akslocaldns_cluster_listener_ip)
+        if [[ $? -eq 0 && -n "$akslocaldns_cluster_listener_ip" ]] && ! grep -q -- "--cluster-dns=${akslocaldns_cluster_listener_ip}" "${KUBELET_DEFAULT_FILE}"; then
+            sed -ie "s/--cluster-dns=[^ \n]\+/--cluster-dns=${akslocaldns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
+        fi
+    fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
@@ -814,7 +822,7 @@ validateGPUDrivers() {
     fi
 
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    which nvidia-smi
+    command -v nvidia-smi 
     if [[ $? == 0 ]]; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
@@ -926,6 +934,10 @@ setKubeletNodeIPFlag() {
             KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
         fi
     fi
+}
+
+ensureAKSLocalDNS() {
+    systemctlEnableAndStart akslocaldns || exit $ERR_AKSLOCALDNS_FAIL
 }
 
 #EOF

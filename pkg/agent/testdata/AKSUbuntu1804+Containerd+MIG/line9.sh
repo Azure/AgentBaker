@@ -119,6 +119,12 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 
 
+ERR_AKSLOCALDNS_FAIL=216 
+ERR_AKSLOCALDNS_BINARY_NOT_FOUND=217 
+ERR_AKSLOCALDNS_IMAGE_TAG_NOT_FOUND=218 
+ERR_AKSLOCALDNS_FILES_NOT_FOUND=219 
+ERR_AKSLOCALDNS_CLUSTER_LISTENER_IP_NOT_FOUND=220 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -809,6 +815,46 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+should_akslocaldns_be_enabled() {
+    local AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns.envfile"
+    local AKSLOCALDNS_COREFILE_PATH="/opt/azure/containers/akslocaldns/akslocaldns.corefile"
+
+    if [[ -f "${AKSLOCALDNS_ENV_FILE_PATH}" && -s "${AKSLOCALDNS_ENV_FILE_PATH}" && -f "${AKSLOCALDNS_COREFILE_PATH}" && -s "${AKSLOCALDNS_COREFILE_PATH}" ]]; then
+        
+        local IMAGE_TAG=$(grep -E "^AKSLOCALDNS_IMAGE_TAG=" "$AKSLOCALDNS_ENV_FILE_PATH" | cut -d'=' -f2)
+        
+        if [[ -n "$IMAGE_TAG" ]]; then
+            local AKSLOCALDNS_BINARY_PATH="/opt/azure/containers/akslocaldns/${IMAGE_TAG}/coredns"
+            if [[ -x "${AKSLOCALDNS_BINARY_PATH}" ]]; then
+                return 0
+            else
+                echo "coredns binary used by akslocaldns is not found or is not executable at ${AKSLOCALDNS_BINARY_PATH}"
+                return $ERR_AKSLOCALDNS_BINARY_NOT_FOUND
+            fi
+        else
+            echo "AKSLOCALDNS_IMAGE_TAG not found in ${AKSLOCALDNS_ENV_FILE_PATH}"
+            return $ERR_AKSLOCALDNS_IMAGE_TAG_NOT_FOUND
+        fi
+    else
+        echo "akslocaldns required files are missing or empty."
+        return $ERR_AKSLOCALDNS_FILES_NOT_FOUND
+    fi
+}
+
+get_akslocaldns_cluster_listener_ip() {
+    local AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns.envfile"
+    local akslocaldns_cluster_listener_ip
+
+    akslocaldns_cluster_listener_ip=$(grep -E "^AKSLOCALDNS_CLUSTER_LISTENER_IP=" "$AKSLOCALDNS_ENV_FILE_PATH" | cut -d'=' -f2)
+    if [[ -n "$akslocaldns_cluster_listener_ip" ]]; then
+        echo "$akslocaldns_cluster_listener_ip"
+        return 0
+    else
+        echo "AKSLOCALDNS_CLUSTER_LISTENER_IP not found in ${AKSLOCALDNS_ENV_FILE_PATH}"
+        return $ERR_AKSLOCALDNS_CLUSTER_LISTENER_IP_NOT_FOUND
+    fi
 }
 
 #HELPERSEOF

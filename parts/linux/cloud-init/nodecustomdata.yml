@@ -422,3 +422,24 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+{{if IsAKSLocalDNSEnabled}}
+- path: /opt/azure/containers/akslocaldns/akslocaldns.corefile
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetAKSLocalDNSGeneratedCoreFile}}
+
+- path: /etc/default/akslocaldns.envfile
+  permissions: "0744"
+  owner: root
+  content: |
+    AKSLOCALDNS_IMAGE_TAG={{GetAKSLocalDNSImageTag}}
+    AKSLOCALDNS_NODE_LISTENER_IP={{GetAKSLocalDNSNodeListenerIP}}
+    AKSLOCALDNS_CLUSTER_LISTENER_IP={{GetAKSLocalDNSClusterListenerIP}}
+    AKSLOCALDNS_CPU_LIMIT={{GetAKSLocalDNSCPULimit}}
+    AKSLOCALDNS_MEMORY_LIMIT={{GetAKSLocalDNSMemoryLimit}}
+    AKSLOCALDNS_SHUTDOWN_DELAY=5
+    AKSLOCALDNS_PID_FILE="/run/akslocaldns.pid"
+{{- end}}
