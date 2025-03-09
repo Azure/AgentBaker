@@ -63,7 +63,12 @@
                 "SkipASMAzSecPack": "True",
                 "SkipASMAV": "True",
                 "SkipCIExtensionAudit": "True",
-                "SkipCIEmergency": "True"
+                "SkipCIEmergency": "True",
+                "buildDefinitionName": "{{user `build_definition_name`}}",
+                "buildNumber": "{{user `build_number`}}",
+                "buildId": "{{user `build_id`}}",
+                "image_sku": "{{user `img_sku`}}",
+                "branch": "{{user `branch`}}"
             },
             "virtual_network_resource_group_name": "{{user `vnet_resource_group_name`}}",
             "virtual_network_name": "{{user `vnet_name`}}",
