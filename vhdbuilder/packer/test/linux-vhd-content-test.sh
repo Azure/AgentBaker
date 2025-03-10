@@ -233,16 +233,25 @@ testPackageInAzureChinaCloud() {
   # }
 
   local downloadURL=$1
-  supportedProxyLocations=("aks" "kubernetes" "cni-plugins" "csi-proxy" "aks-engine" "containerd" "calico-node" "ccgakvplugin" "cloud-provider-azure")
 
   if [[ $downloadURL != https://acs-mirror.azureedge.net/* ]]; then
     return
   fi
+  proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
+
+  # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+  rootPathExceptions=("cri-tools")
+  for rootPathException in "${rootPathExceptions[@]}"; do
+    if [ "$rootPathException" == "$proxyLocation" ]; then
+      return
+    fi
+  done
+
+  supportedProxyLocations=("aks" "kubernetes" "cni-plugins" "csi-proxy" "aks-engine" "containerd" "calico-node" "ccgakvplugin" "cloud-provider-azure")
 
   foundLocation=false
-  proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
-  for supportedProxyLocations in "${supportedProxyLocations[@]}"; do
-    if [ "$supportedProxyLocations" == "$proxyLocation" ]; then
+  for supportedProxyLocation in "${supportedProxyLocations[@]}"; do
+    if [ "$supportedProxyLocation" == "$proxyLocation" ]; then
       foundLocation=true
       break
     fi

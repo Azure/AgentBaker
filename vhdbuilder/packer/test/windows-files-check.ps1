@@ -184,15 +184,17 @@ function Test-CompareSingleDir {
 
     foreach ($URL in $map[$dir]) {
 
+        # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+        $rootPathExceptions = @("cri-tools")
         # When proxy location is not correctly defined in MoonCake, we will get 404 error when downloading files from MoonCake.
         # This valiation should including files in excludeHashComparisionListInAzureChinaCloud.
-        if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
+        if ($URL.StartsWith("https://acs-mirror.azureedge.net/") -and ($rootPathExceptions -notcontains $URL)) {
             $supportedProxyLocations = @(
                 "aks",
-                "kubernetes", 
-                "cni-plugins", 
-                "csi-proxy", 
-                "aks-engine", 
+                "kubernetes",
+                "cni-plugins",
+                "csi-proxy",
+                "aks-engine",
                 "containerd",
                 "calico-node",
                 "ccgakvplugin",
