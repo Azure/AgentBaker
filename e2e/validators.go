@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tidwall/gjson"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
@@ -301,7 +302,7 @@ func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
 
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
 	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
 	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
 }
@@ -314,7 +315,7 @@ func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
 
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.
 func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not get kubelet logs")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
 }
