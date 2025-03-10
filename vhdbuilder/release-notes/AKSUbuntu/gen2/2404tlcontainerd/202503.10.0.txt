@@ -1,4 +1,4 @@
-Starting build on  Mon Mar 10 20:48:26 UTC 2025
+Starting build on  Mon Mar 10 20:45:29 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - runc version 1.2.5-ubuntu24.04u1
@@ -145,15 +145,15 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root root  51454104 Feb 24 23:57 /usr/local/bin/kubectl-1.30.10
 -rwxr-xr-x 1 root root 112615684 Feb 25 00:12 /usr/local/bin/kubelet-1.29.14
 -rwxr-xr-x 1 root root  50229400 Feb 25 00:12 /usr/local/bin/kubectl-1.29.14
--rwxr-xr-x 1 root root       705 Mar 10 20:48 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root root      9903 Mar 10 20:56 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root root      9903 Mar 10 20:56 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root root      9903 Mar 10 20:56 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root root      9903 Mar 10 20:56 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root root      9903 Mar 10 20:56 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root root      9903 Mar 10 20:56 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root root  63515504 Mar 10 20:56 /usr/local/bin/containerd-shim-spin-v2
--rwxr-xr-x 1 root root  35384960 Mar 10 20:56 /usr/local/bin/bpftrace
+-rwxr-xr-x 1 root root       705 Mar 10 20:45 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root root      9903 Mar 10 20:53 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root root      9903 Mar 10 20:53 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root root      9903 Mar 10 20:53 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root root      9903 Mar 10 20:53 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root root      9903 Mar 10 20:53 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root root      9903 Mar 10 20:53 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root root  63515504 Mar 10 20:53 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root root  35384960 Mar 10 20:53 /usr/local/bin/bpftrace
 === Installed Packages Begin
 Listing...
 adduser/noble,now 3.137ubuntu1 all [installed,automatic]
@@ -939,7 +939,7 @@ LOGO=ubuntu-logo
 === os-release End
 Using kernel:
 Linux version 6.8.0-1021-azure (buildd@lcy02-amd64-022) (x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #25-Ubuntu SMP Wed Jan 15 20:45:09 UTC 2025
-Install completed successfully on  Mon Mar 10 21:07:18 UTC 2025
+Install completed successfully on  Mon Mar 10 21:03:00 UTC 2025
 VSTS Build NUMBER: 20250310.1_master_117515844
 VSTS Build ID: 117515844
 Commit: cdf85792bf6ceef1e52c36d5270b12260583444a
