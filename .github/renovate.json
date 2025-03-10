@@ -52,8 +52,6 @@
         "azure-policy/policy-kubernetes-addon-prod",
         "azure-policy/policy-kubernetes-webhook",
         "oss/kubernetes/kube-proxy",
-        "moby-runc",
-        "moby-containerd",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
         "oss/binaries/deislabs/containerd-wasm-shims",
@@ -126,6 +124,42 @@
       "automerge": true,
       "enabled": true,
       "groupName": "runc-containerd-ca_watcher",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "runc-containerd-minor",
       "assignees": [
         "devinwong",
         "anujmaheshwari1",
