@@ -46,7 +46,7 @@ func getBaseClusterModel(clusterName string) *armcontainerservice.ManagedCluster
 				{
 					Name:         to.Ptr("nodepool1"),
 					Count:        to.Ptr[int32](1),
-					VMSize:       to.Ptr("standard_d2ds_v5"),
+					VMSize:       to.Ptr(config.Config.DefaultVMSKU),
 					MaxPods:      to.Ptr[int32](110),
 					OSType:       to.Ptr(armcontainerservice.OSTypeLinux),
 					Type:         to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
