@@ -24,6 +24,10 @@ $SkipMapForSignature=@{
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
 $MisMatchFiles=@{}
 
+# ProxyLocationNotFoundInMooncakeFiles is used to record files who proxy location is not correctly defined MoonCake.
+# proxy location not found in Mooncake will lead to 404 error when downloading files from Mooncake.
+$ProxyLocationNotFoundInMooncakeFiles=@{}
+
 # NotSignedResult is used to record unsigned files that we think should be signed
 $NotSignedResult=@{}
 
@@ -179,6 +183,28 @@ function Test-CompareSingleDir {
     }
 
     foreach ($URL in $map[$dir]) {
+
+        # When proxy location is not correctly defined in MoonCake, we will get 404 error when downloading files from MoonCake.
+        # This valiation should including files in excludeHashComparisionListInAzureChinaCloud.
+        if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
+            $supportedProxyLocations = @(
+                "aks",
+                "kubernetes", 
+                "cni-plugins", 
+                "csi-proxy", 
+                "aks-engine", 
+                "containerd",
+                "calico-node",
+                "ccgakvplugin",
+                "cloud-provider-azure",
+            )
+            $proxyLocation = $URL.Split('/')[3]
+    
+            if ($supportedProxyLocations -notcontains $proxyLocation) {
+                $ProxyLocationNotFoundInMooncakeFiles[$URL]=$URL
+            }
+        }
+
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
@@ -213,6 +239,13 @@ function Test-CompareFiles {
     foreach ($dir in $map.Keys) {
         Test-CompareSingleDir $dir
     }
+
+    if ($ProxyLocationNotFoundInMooncakeFiles.Count -ne 0) {
+        $ProxyLocationNotFoundInMooncakeFiles = (echo $ProxyLocationNotFoundInMooncakeFiles | ConvertTo-Json -Compress)
+        Write-Error "The following files has proxy location defined is not supported, please use 'aks' as the root path, or contact 'andyzhangx' for help: $ProxyLocationNotFoundInMooncakeFiles"
+
+        Write-Error "The following files have proxy location not found in MoonCake: $ProxyLocationNotFoundInMooncakeFiles"
+    }   
 
     if ($MisMatchFiles.Count -ne 0) {
         $MisMatchFiles = (echo $MisMatchFiles | ConvertTo-Json -Compress)
