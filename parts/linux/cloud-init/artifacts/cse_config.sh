@@ -937,7 +937,7 @@ setKubeletNodeIPFlag() {
 }
 
 ensureAKSLocalDNS() {
-    systemctlEnableAndStart akslocaldns || exit $ERR_AKSLOCALDNS_FAIL
+    systemctlEnableAndStart akslocaldns 30 || exit $ERR_AKSLOCALDNS_FAIL
 }
 
 #EOF
