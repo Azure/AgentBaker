@@ -217,25 +217,66 @@ testPackagesInstalled() {
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
       # Validate whether package exists in Azure China cloud
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-        echo "Validating: $mcURL"
-        isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-        if [[ "$isExist" == "404" ]]; then
-          err "$mcURL is invalid"
-          continue
-        fi
-
-        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
-          continue
-        fi
+        testPackageInAzureChinaCloud "$downloadURL"
       fi
     done
 
     echo "---"
   done <<<"$packages"
   echo "$test:Finish"
+}
+
+testPackageInAzureChinaCloud() {
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # location /kubernetes/ {
+  #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
+  # }
+
+  local downloadURL=$1
+
+  if [[ $downloadURL != https://acs-mirror.azureedge.net/* ]]; then
+    return
+  fi
+  proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
+
+  # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+  rootPathExceptions=("cri-tools")
+  for rootPathException in "${rootPathExceptions[@]}"; do
+    if [ "$rootPathException" == "$proxyLocation" ]; then
+      return
+    fi
+  done
+
+  supportedProxyLocations=("aks" "kubernetes" "cni-plugins" "csi-proxy" "aks-engine" "containerd" "calico-node" "ccgakvplugin" "cloud-provider-azure")
+
+  foundLocation=false
+  for supportedProxyLocation in "${supportedProxyLocations[@]}"; do
+    if [ "$supportedProxyLocation" == "$proxyLocation" ]; then
+      foundLocation=true
+      break
+    fi
+  done
+
+  if [ "$foundLocation" == false ]; then
+    err "Proxy location $proxyLocation is not defined, please use 'aks' as the root path, or contact 'andyzhangx' for help"
+    return
+  fi
+
+  # kubernetesartifacts.blob.core.chinacloudapi.cn is not exactly the same endpoint used for Azure China Cloud.
+  # Will fix endpoint in Azure China Cloud by https://github.com/Azure/AgentBaker/pull/5924
+  mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  echo "Validating: $mcURL"
+  isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+  if [[ "$isExist" == "404" ]]; then
+    err "$mcURL is invalid"
+    return
+  fi
+
+  fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+  if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
+    err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
+    return
+  fi
 }
 
 testImagesPulled() {
