@@ -198,7 +198,7 @@ function Test-CompareSingleDir {
                 "containerd",
                 "calico-node",
                 "ccgakvplugin",
-                "cloud-provider-azure",
+                "cloud-provider-azure"
             )
             $proxyLocation = $URL.Split('/')[3]
     
