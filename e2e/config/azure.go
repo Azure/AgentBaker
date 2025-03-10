@@ -365,7 +365,14 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
-func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+	t.Logf("Looking up images for gallery subscription %s resource group %s gallery name %s image name %s ersion %s ",
+		image.Gallery.SubscriptionID,
+		image.Gallery.ResourceGroupName,
+		image.Gallery.Name,
+		image.Name,
+		image.Version)
+
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
@@ -382,11 +389,13 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 			// skip images tagged with the no-selection tag, indicating they
 			// shouldn't be selected dynmically for running abe2e scenarios
 			if _, ok := version.Tags[noSelectionTagName]; ok {
+				t.Logf("Skipping version %s as it has no seletion tag %s", version.ID, noSelectionTagName)
 				continue
 			}
 			if tagName != "" {
 				tag, ok := version.Tags[tagName]
 				if !ok || tag == nil || *tag != tagValue {
+					t.Logf("Skipping version %s as it doesn't have tag %s=%s", version.ID, tagName, tagValue)
 					continue
 				}
 			}
@@ -404,8 +413,10 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 	}
 
 	if err := a.ensureReplication(ctx, image, latestVersion); err != nil {
-		return "", fmt.Errorf("ensuring image replication: %w", err)
+		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
+
+	t.Logf("Using version %s", *latestVersion.ID)
 
 	return VHDResourceID(*latestVersion.ID), nil
 }
@@ -439,23 +450,33 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	return nil
 }
 
-func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (VHDResourceID, error) {
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, image *Image) (VHDResourceID, error) {
+	t.Logf("Looking up gallery images fro subcription %s", image.Gallery.SubscriptionID)
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
+	t.Logf("Looking up images for gallery subscription %s resource group %s gallery name %s image name %s ersion %s ",
+		image.Gallery.SubscriptionID,
+		image.Gallery.ResourceGroupName,
+		image.Gallery.Name,
+		image.Name,
+		image.Version)
+
 	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
+	t.Logf("Found image with id %s", resp.ID)
+
 	liveVersion := &resp.GalleryImageVersion
 	if err := ensureProvisioningState(liveVersion); err != nil {
-		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
+		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
 	}
 
 	if err := a.ensureReplication(ctx, image, liveVersion); err != nil {
-		return "", fmt.Errorf("ensuring image replication: %w", err)
+		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 
 	return VHDResourceID(*resp.ID), nil

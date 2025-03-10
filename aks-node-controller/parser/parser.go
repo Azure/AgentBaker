@@ -128,7 +128,6 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HTTPS_PROXY_URLS":                               config.GetHttpProxyConfig().GetHttpsProxy(),
 		"NO_PROXY_URLS":                                  getStringifiedStringArray(config.GetHttpProxyConfig().GetNoProxyEntries(), ","),
 		"PROXY_VARS":                                     getProxyVariables(config.GetHttpProxyConfig()),
-		"ENABLE_TLS_BOOTSTRAPPING":                       fmt.Sprintf("%v", getEnableTLSBootstrap(config.GetBootstrappingConfig())),
 		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                fmt.Sprintf("%v", getEnableSecureTLSBootstrap(config.GetBootstrappingConfig())),
 		"CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID":  getCustomSecureTLSBootstrapAADServerAppID(config.GetBootstrappingConfig()),
 		"DHCPV6_SERVICE_FILEPATH":                        getDHCPV6ServiceFilepath(),

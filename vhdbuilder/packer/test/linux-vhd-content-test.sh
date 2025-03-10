@@ -151,7 +151,8 @@ testPackagesInstalled() {
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
     if [ "${name}" == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      # Intentionally remove leading 'v' from each element in the array
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
       continue
     fi
     if [ "${name}" == "azure-acr-credential-provider" ]; then
@@ -406,6 +407,37 @@ testFips() {
   fi
 
   echo "$test:Finish"
+}
+
+testLtsKernel() {
+  test="testLtsKernel"
+  echo "$test:Start"
+  os_version=$1
+  os_sku=$2
+  enable_fips=$3
+
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
+    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
+    # Check the Ubuntu version and set the expected kernel version
+    if [[ "$os_version" == "2204" ]]; then
+      expected_kernel="5.15"
+    elif [[ "$os_version" == "2404" ]]; then
+      expected_kernel="6.8"
+    else
+      echo "LTS kernel not installed for: $os_version"
+    fi
+
+    kernel=$(uname -r)
+    echo "Current kernel version: $kernel"
+    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+      echo "Kernel version is as expected ($expected_kernel)."
+    else
+      echo "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
+    fi
+  else
+    echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
+  fi
+
 }
 
 testCloudInit() {
@@ -1062,7 +1094,6 @@ testWasmRuntimesInstalled() {
   local test="testWasmRuntimesInstalled"
   local wasm_runtimes_path=${1}
   local shim_version=${2}
-  shim_version="v${shim_version}"
 
   echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
 
@@ -1161,3 +1192,4 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
+testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS

@@ -14,7 +14,7 @@
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "behind-base-branch",
+  "rebaseWhen": "automerging",
   "schedule": [
     "after 10pm and before 5am every weekday",
     "every weekend"
@@ -117,14 +117,15 @@
     {
       "matchPackageNames": [
         "moby-runc",
-        "moby-containerd"
+        "moby-containerd",
+        "aks/aks-node-ca-watcher"
       ],
       "matchUpdateTypes": [
         "patch"
       ],
       "automerge": true,
       "enabled": true,
-      "groupName": "runc-containerd",
+      "groupName": "runc-containerd-ca_watcher",
       "assignees": [
         "devinwong",
         "anujmaheshwari1",
@@ -154,15 +155,34 @@
       "matchPackageNames": [
         "azure-cni",
         "containernetworking/azure-cni",
-        "containernetworking/cilium/cilium",
         "containernetworking/azure-ipam"
       ],
       "groupName": "azure-cni-cilium-ipam",
-      "assignees": [
-        "team:Azure/acn-cni-reviewers"
-      ],
       "reviewers": [
-        "team:Azure/acn-cni-reviewers"
+        "team:acn-cni-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/cilium/cilium"
+      ],
+      "groupName": "azure-cni-cilium-ipam",
+      "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
       ]
     },
     {
@@ -171,11 +191,14 @@
         "containernetworking/azure-cns"
       ],
       "groupName": "azure-cns",
-      "assignees": [
-        "team:acn-cns-reviewers"
-      ],
       "reviewers": [
         "team:acn-cns-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
       ]
     },
     {
@@ -194,19 +217,10 @@
     },
     {
       "matchPackageNames": [
-        "aks/aks-node-ca-watcher"
-      ],
-      "assignees": [
-        "UtheMan"
-      ],
-      "reviewers": [
-        "UtheMan"
-      ]
-    },
-    {
-      "matchPackageNames": [
         "oss/kubernetes/autoscaler/addon-resizer",
-        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler"
+        "oss/kubernetes/autoscaler/cluster-proportional-autoscaler",
+        "oss/kubernetes/coredns",
+        "oss/v2/kubernetes/coredns"
       ],
       "assignees": [
         "nirnaymsft",
@@ -235,19 +249,6 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes/coredns",
-        "oss/v2/kubernetes/coredns"
-      ],
-      "groupName": "coredns",
-      "assignees": [
-        "SriHarsha001"
-      ],
-      "reviewers": [
-        "SriHarsha001"
-      ]
-    },
-    {
-      "matchPackageNames": [
         "oss/binaries/kubernetes/azure-acr-credential-provider"
       ],
       "groupName": "acr-credential-provider",
@@ -264,14 +265,16 @@
     },
     {
       "matchPackageNames": [
-        "oss/kubernetes-csi/*"
+        "oss/kubernetes-csi/**"
       ],
       "groupName": "csi",
       "assignees": [
-        "andyzhangx"
+        "andyzhangx",
+        "jiashun0011"
       ],
       "reviewers": [
-        "andyzhangx"
+        "andyzhangx",
+        "jiashun0011"
       ]
     },
     {
@@ -290,12 +293,6 @@
         "wenhug",
         "gaopenghigh"
       ]
-    },
-    {
-      "matchPackageNames": [
-        "containernetworking/azure-ipam"
-      ],
-      "groupName": "azure-ipam"
     },
     {
       "matchPackageNames": [
@@ -318,7 +315,7 @@
         "windows/nanoserver",
         "windows/servercore",
         "windows/servercore/iis",
-        "oss/kubernetes/windows-gmsa-webhook"
+        "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
       "groupName": "windowsbase",
       "assignees": [

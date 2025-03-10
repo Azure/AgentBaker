@@ -46,7 +46,7 @@ done
 echo "Starting inotifywait..."
 
 # Monitor for changes
-inotifywait -q -m -r -e delete,create $SRC | while read DIRECTORY EVENT FILE; do
+inotifywait -q -m -r -e delete,create $SRC | while read -r DIRECTORY EVENT FILE; do
     case $FILE in
         *_@(kube-system|tigera-operator|calico-system)_*.log)
             case $EVENT in

@@ -1,4 +1,4 @@
-// Package parts provides the the embedded templates used in Linux and Windows systems.
+// Package parts provides the embedded templates used in Linux and Windows systems.
 package parts
 
 import "embed"
