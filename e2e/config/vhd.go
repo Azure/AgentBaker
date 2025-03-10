@@ -219,8 +219,6 @@ func (i *Image) String() string {
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
-		case i.Latest:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, "", "")
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
 			t.Logf("got version vid %s: %s", i.Version, i.vhd)
