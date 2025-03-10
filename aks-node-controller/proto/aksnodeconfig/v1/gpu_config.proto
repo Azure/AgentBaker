@@ -19,7 +19,4 @@ message GpuConfig {
 
   // Same as enable_nvidia, but for AMD GPUs.
   optional bool enable_amd_gpu = 5;
-
-  // Whether this GPU configuration requires CDI (see https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/cdi-support.html).
-  optional bool requires_cdi = 6;
 }
