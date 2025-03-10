@@ -132,6 +132,50 @@ function DownloadFileWithRetry
     }
 }
 
+function Retry-Command {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0, Mandatory=$true)]
+        [scriptblock]$ScriptBlock,
+
+        [Parameter(Position=1, Mandatory=$true)]
+        [string]$ErrorMessage,
+
+        [Parameter(Position=2, Mandatory=$false)]
+        [int]$Maximum = 5,
+
+        [Parameter(Position=3, Mandatory=$false)]
+        [int]$Delay = 10
+    )
+
+    Begin {
+        $cnt = 0
+    }
+
+    Process {
+        do {
+            $cnt++
+            try {
+                $ScriptBlock.Invoke()
+                if ($LASTEXITCODE) {
+                    throw "Retry $cnt : $ErrorMessage"
+                }
+                return
+            } catch {
+                Write-ErrorWithTimestamp $_.Exception.InnerException.Message -ErrorAction Continue
+                if ($_.Exception.InnerException.Message.Contains("There is not enough space on the disk. (0x70)")) {
+                    throw "Exit retry since there is not enough space on the disk"
+                }
+                Start-Sleep $Delay
+            }
+        } while ($cnt -lt $Maximum)
+
+        # Throw an error after $Maximum unsuccessful invocations. Doesn't need
+        # a condition, since the function returns upon successful invocation.
+        throw 'All retries failed. $ErrorMessage'
+    }
+}
+
 function Test-FilesToCacheOnVHD
 {
     $invalidFiles = @()
@@ -192,12 +236,22 @@ function Test-FilesToCacheOnVHD
 
             if ( $URL.StartsWith("https://acs-mirror.azureedge.net/"))
             {
-                $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+                $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://mirror.azk8s.cn/")
                 try
                 {
                     # It's too slow to download the file from the China Cloud. So we only compare the file size.
                     $localFileSize = (Get-Item $dest).length
-                    $remoteFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
+
+                    Write-Output "Getting the size of the file: $mcURL"
+                    $webRequest = [System.Net.HttpWebRequest]::Create($mcURL)
+                    # Set the 'Range' header using the AddRange method
+                    $webRequest.AddRange(0, 1023)
+                    Retry-Command -ScriptBlock {
+                        # Get the response
+                        $global:response = $webRequest.GetResponse()
+                    } -ErrorMessage "Failed to get the size ofthe file: $mcURL"
+                    $mooncakeFileSize = $global:response.Headers["Content-Range"] -split "/" | Select-Object -Last 1
+                    $remoteFileSize = $response.Headers["Content-Range"] -split "/" | Select-Object -Last 1
                     if ($localFileSize -ne $remoteFileSize)
                     {
                         $isIgnore = $False
