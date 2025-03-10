@@ -44,6 +44,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSAzureLinuxV2Gen2TL:            SIGAzureLinuxV2TLImageConfigTemplate.WithOptions(),
 			AKSAzureLinuxV3Gen2TL:            SIGAzureLinuxV3TLImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404CVMGen2:   SIGUbuntuContainerd2404CVMGen2ImageConfigTemplate.WithOptions(),
+			AKSUbuntuContainerd2404TLGen2:    SIGUbuntuContainerd2404TLGen2ImageConfigTemplate.WithOptions(),
 		}
 		Expect(GetMaintainedLinuxSIGImageConfigMap()).To(Equal(expected))
 	})
@@ -91,7 +92,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
 
-		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(27))
+		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(28))
 
 		aksUbuntuGPU1804Gen2 := sigConfig.SigUbuntuImageConfig[AKSUbuntuGPU1804Gen2]
 		Expect(aksUbuntuGPU1804Gen2.ResourceGroup).To(Equal("resourcegroup"))
