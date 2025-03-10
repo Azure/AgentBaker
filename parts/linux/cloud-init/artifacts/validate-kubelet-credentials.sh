@@ -38,7 +38,9 @@ function validateKubeconfig {
     #     exit 0
     # fi
 
-    if ! kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"; then
+    strace -tt kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"
+
+    if [ $? -ne 0 ]; then
         
         # for now we simply exit 0 here to prevent provisioning failures in cases where the credential
         # doesn't become valid until after we've exhausted our retries - kubelet should still eventually be able to register

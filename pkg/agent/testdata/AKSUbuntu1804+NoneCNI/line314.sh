@@ -19,7 +19,9 @@ function validateKubeconfig {
 
         
 
-    if ! kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"; then
+    strace -tt kubectl auth whoami -v 10 --kubeconfig "$kubeconfig_path"
+
+    if [ $? -ne 0 ]; then
         
         echo "kubelet credential validation failed, will still attempt to start kubelet"
         exit 0
