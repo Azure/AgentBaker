@@ -1235,6 +1235,16 @@
               }
             ]
           }
+        },
+        "default": {
+          "current": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.32.0"
+              }
+            ]
+          }
         }
       }
     },
