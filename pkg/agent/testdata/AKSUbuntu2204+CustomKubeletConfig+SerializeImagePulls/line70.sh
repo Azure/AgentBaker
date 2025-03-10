@@ -491,13 +491,6 @@ ensureKubelet() {
     if [ -n "${AZURE_ENVIRONMENT_FILEPATH}" ]; then
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
-
-    if should_akslocaldns_be_enabled; then
-        akslocaldns_cluster_listener_ip=$(get_akslocaldns_cluster_listener_ip)
-        if [[ $? -eq 0 && -n "$akslocaldns_cluster_listener_ip" ]] && ! grep -q -- "--cluster-dns=${akslocaldns_cluster_listener_ip}" "${KUBELET_DEFAULT_FILE}"; then
-            sed -ie "s/--cluster-dns=[^ \n]\+/--cluster-dns=${akslocaldns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
-        fi
-    fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
     
     KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
@@ -629,6 +622,12 @@ EOF
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+    fi
+
+    if [ "${IS_AKSLOCALDNS_ENABLED}" == "true" ]; then
+        if akslocaldns_cluster_listener_ip=$(get_akslocaldns_cluster_listener_ip) && ! grep -q -- "--cluster-dns=${akslocaldns_cluster_listener_ip}" "${KUBELET_DEFAULT_FILE}"; then
+            sed -ie "s/--cluster-dns=[^ \n]\+/--cluster-dns=${akslocaldns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
+        fi
     fi
 
     systemctlEnableAndStart kubelet 30 || exit $ERR_KUBELET_START_FAIL

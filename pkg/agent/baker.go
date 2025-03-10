@@ -6,7 +6,6 @@ package agent
 import (
 	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"fmt"
 	"reflect"
@@ -1774,20 +1773,8 @@ func AKSLocalDNSGenerateCoreFile(
 	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, profile.AksLocalDnsProfile); err != nil {
 		return "", fmt.Errorf("failed to execute local dns corefile template: %w", err)
 	}
-
-	// Gzip the Corefile content
-	var gzippedBuffer bytes.Buffer
-	gzipWriter := gzip.NewWriter(&gzippedBuffer)
-	if _, err := gzipWriter.Write(corefileBuffer.Bytes()); err != nil {
-		return "", fmt.Errorf("failed to gzip CoreFile content: %w", err)
-	}
-
-	if err := gzipWriter.Close(); err != nil {
-		return "", fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	// Return the gzipped content as a base64-encoded string
-	return base64.StdEncoding.EncodeToString(gzippedBuffer.Bytes()), nil
+	// Return gzipped base64 encoded Corefile. Used in nodecustomdata.
+	return getBase64EncodedGzippedCustomScriptFromStr(corefileBuffer.String()), nil
 }
 
 // Template to create corefile that will be used by akslocaldns service.

@@ -128,10 +128,6 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
 ERR_AKSLOCALDNS_FAIL=216 # Unable to start akslocaldns system unit.
-ERR_AKSLOCALDNS_BINARY_NOT_FOUND=217 # Unable to find coredns binary to start akslocaldns system unit.
-ERR_AKSLOCALDNS_IMAGE_TAG_NOT_FOUND=218 # Unable to find coredns image tag for akslocaldns system unit.
-ERR_AKSLOCALDNS_FILES_NOT_FOUND=219 # Unable to find akslocaldns files to start akslocaldns system unit.
-ERR_AKSLOCALDNS_CLUSTER_LISTENER_IP_NOT_FOUND=220 # Unable to find akslocaldns cluster listener IP address.
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
@@ -865,35 +861,6 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-should_akslocaldns_be_enabled() {
-    local AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns.envfile"
-    local AKSLOCALDNS_COREFILE_PATH="/opt/azure/containers/akslocaldns/akslocaldns.corefile"
-
-    # Check if required files exist and are not empty.
-    if [[ -f "${AKSLOCALDNS_ENV_FILE_PATH}" && -s "${AKSLOCALDNS_ENV_FILE_PATH}" && -f "${AKSLOCALDNS_COREFILE_PATH}" && -s "${AKSLOCALDNS_COREFILE_PATH}" ]]; then
-        
-        # Extract the AKSLOCALDNS_IMAGE_TAG value.
-        local IMAGE_TAG=$(grep -E "^AKSLOCALDNS_IMAGE_TAG=" "$AKSLOCALDNS_ENV_FILE_PATH" | cut -d'=' -f2)
-        
-        if [[ -n "$IMAGE_TAG" ]]; then
-            local AKSLOCALDNS_BINARY_PATH="/opt/azure/containers/akslocaldns/${IMAGE_TAG}/coredns"
-            # Check if the binary is executable.
-            if [[ -x "${AKSLOCALDNS_BINARY_PATH}" ]]; then
-                return 0
-            else
-                echo "coredns binary used by akslocaldns is not found or is not executable at ${AKSLOCALDNS_BINARY_PATH}"
-                return $ERR_AKSLOCALDNS_BINARY_NOT_FOUND
-            fi
-        else
-            echo "AKSLOCALDNS_IMAGE_TAG not found in ${AKSLOCALDNS_ENV_FILE_PATH}"
-            return $ERR_AKSLOCALDNS_IMAGE_TAG_NOT_FOUND
-        fi
-    else
-        echo "akslocaldns required files are missing or empty."
-        return $ERR_AKSLOCALDNS_FILES_NOT_FOUND
-    fi
-}
-
 get_akslocaldns_cluster_listener_ip() {
     local AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns.envfile"
     local akslocaldns_cluster_listener_ip
@@ -904,7 +871,7 @@ get_akslocaldns_cluster_listener_ip() {
         return 0
     else
         echo "AKSLOCALDNS_CLUSTER_LISTENER_IP not found in ${AKSLOCALDNS_ENV_FILE_PATH}"
-        return $ERR_AKSLOCALDNS_CLUSTER_LISTENER_IP_NOT_FOUND
+        return 1
     fi
 }
 
