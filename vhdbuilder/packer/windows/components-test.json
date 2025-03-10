@@ -39,10 +39,6 @@
         }
       ]
     },
-
-
-
-
     {
       "downloadURL": "mcr.microsoft.com/windows/servercore:*",
       "amd64OnlyVersions": [],
@@ -143,7 +139,6 @@
         }
       ]
     },
-
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/coredns:*",
       "amd64OnlyVersions": [],
@@ -330,24 +325,6 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/containernetworking/cni-dropgz:*",
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/cni-dropgz",
-          "latestVersion": "v0.0.20",
-          "containerImagePrefetch": {
-            "latestVersion": {
-              "binaries": [
-                "/dropgz"
-              ]
-            }
-          }
-        }
-      ],
-      "windowsVersions": []
-    },
-    {
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-npm:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -419,7 +396,6 @@
         }
       ]
     },
-
     {
       "downloadURL": "mcr.microsoft.com/aks/msi/addon-token-adapter:*",
       "amd64OnlyVersions": [],
