@@ -144,7 +144,6 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -153,7 +152,6 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022Containerd,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -162,7 +160,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -171,7 +168,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -180,7 +176,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -189,7 +184,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -198,7 +192,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 )
@@ -212,7 +205,6 @@ type Image struct {
 	OS      OS
 	Version string
 	Gallery *Gallery
-	Latest  bool // a hack to get the latest version of the image for windows, currently windows images are not tagged
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once
@@ -227,16 +219,20 @@ func (i *Image) String() string {
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
-		case i.Latest:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, "", "")
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, i)
+			t.Logf("got version vid %s: %s", i.Version, i.vhd)
 		default:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			t.Logf("version: %s", i.Version)
+			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhd)
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image version for %s", i.vhdErr)
+			t.Logf("Failed to find the image. Sub=%s rg=%s gallary=%s version for with err %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhdErr)
+		} else {
+			t.Logf("Found the image. Sub=%s rg=%s gallary=%s version for with id %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhd.Short())
+
 		}
 	})
 	return i.vhd, i.vhdErr
