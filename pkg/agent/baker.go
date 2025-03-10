@@ -561,6 +561,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsNSeriesSKU": func() bool {
 			return config.EnableNvidia
 		},
+		"IsCDIEnabled": func() bool {
+			return config.EnableCDI
+		},
 		"HasCustomSearchDomain": func() bool {
 			return cs.Properties.LinuxProfile != nil && cs.Properties.LinuxProfile.HasSearchDomain()
 		},
@@ -1274,6 +1277,10 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
   [plugins."io.containerd.grpc.v1.cri".containerd]
+	{{- if IsCDIEnabled }}
+	enable_cdi = true
+	cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+	{{- end }}
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
@@ -1411,7 +1418,10 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
 
-[plugins."io.containerd.cri.v1.runtime".containerd]
+{{ if IsCDIEnabled }}[plugins."io.containerd.cri.v1.runtime"]
+  enable_cdi = true
+  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+{{ end }}[plugins."io.containerd.cri.v1.runtime".containerd]
   {{- if IsNSeriesSKU }}
   default_runtime_name = "nvidia-container-runtime"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
@@ -1530,7 +1540,10 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
 
-[plugins."io.containerd.cri.v1.runtime".containerd]
+{{ if IsCDIEnabled }}[plugins."io.containerd.cri.v1.runtime"]
+  enable_cdi = true
+  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+{{ end }}[plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
     runtime_type = "io.containerd.runc.v2"
