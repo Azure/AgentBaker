@@ -53,9 +53,9 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	if nodeBootstrapping != nil && nodeBootstrapping.SigImageConfig != nil {
-		s.T.Logf("vhd sub id %s", nodeBootstrapping.SigImageConfig.SubscriptionID)
-		s.T.Logf("vhd rgr id %s", nodeBootstrapping.SigImageConfig.ResourceGroup)
-		s.T.Logf("vhd galler %s", nodeBootstrapping.SigImageConfig.Gallery)
+		s.T.Logf("vhd sub id %s", config.Config.SubscriptionID)
+		s.T.Logf("vhd rgr id %s", config.ResourceGroupName)
+		s.T.Logf("vhd galler %s", config.Config.GalleryNameWindows)
 		s.T.Logf("vhd versio %s", nodeBootstrapping.SigImageConfig.Version)
 		s.T.Logf("vhd defini %s", nodeBootstrapping.SigImageConfig.Definition)
 	} else {
