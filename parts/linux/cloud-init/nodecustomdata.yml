@@ -336,7 +336,7 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
+{{ if (or EnableSecureTLSBootstrapping GetTLSBootstrapTokenForKubeConfig) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root

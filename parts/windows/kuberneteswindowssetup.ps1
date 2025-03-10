@@ -47,7 +47,6 @@ $Location="{{ GetVariable "location" }}"
 $UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
 {{ end }}
 $TargetEnvironment="{{ GetTargetEnvironment }}"
-$AgentKey="{{ GetParameter "clientPrivateKey" }}"
 $AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
 $NetworkAPIVersion="2018-08-01"
 

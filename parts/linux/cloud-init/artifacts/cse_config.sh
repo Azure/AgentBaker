@@ -14,7 +14,7 @@ configPrivateClusterHosts() {
 [Service]
 Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
-  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureTransparentHugePage() {
@@ -362,27 +362,30 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
-  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
   MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+  MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
   CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${MCR_REPOSITORY_BASE}/hosts.toml"
   mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
   touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
   chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+  CONTAINER_REGISTRY_URL=$(sed 's@/@/v2/@1' <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/")
   tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
-[host."https://${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}"]
+[host."https://${CONTAINER_REGISTRY_URL%/}"]
   capabilities = ["pull", "resolve"]
+  override_path = true
 EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
-    systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureTeleportd() {
-    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureArtifactStreaming() {
@@ -420,12 +423,12 @@ ensureDocker() {
         fi
     done
     systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
 
 }
 
 ensureDHCPv6() {
-    systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart dhcpv6 30 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
@@ -691,11 +694,11 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
+    systemctlEnableAndStart kubelet 30 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+    systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -709,7 +712,7 @@ EOF
     # it MAY succeed, only due to unreliability of systemd
     # service type=Simple, which does not exit non-zero
     # on failure if ExecStart failed to invoke.
-    systemctlEnableAndStart mig-partition
+    systemctlEnableAndStart mig-partition 300
 }
 
 ensureSysctl() {
@@ -876,7 +879,7 @@ ensureGPUDrivers() {
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
 
