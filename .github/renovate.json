@@ -153,6 +153,42 @@
     },
     {
       "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "runc-containerd",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "azure-cni",
         "containernetworking/azure-cni",
         "containernetworking/azure-ipam"
