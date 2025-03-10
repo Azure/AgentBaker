@@ -47,6 +47,12 @@ installKataDeps() {
     fi
 }
 
+installCriCtlPackage() {
+  version="${1:-}"
+  echo "Installing kubernetes-cri-tools=${version} with dnf"
+  dnf_install 30 1 600 kubernetes-cri-tools-${version}* || exit $ERR_CRICTL_INSTALL_TIMEOUT
+}
+
 downloadGPUDrivers() {
     # Mariner CUDA rpm name comes in the following format:
     #
