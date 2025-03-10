@@ -230,7 +230,10 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the image sub=%s rg=%s gallary=%s version for with id %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhdErr)
+			t.Logf("Failed to find the image. Sub=%s rg=%s gallary=%s version for with err %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhdErr)
+		} else {
+			t.Logf("Found the image. Sub=%s rg=%s gallary=%s version for with id %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhd.Short())
+
 		}
 	})
 	return i.vhd, i.vhdErr
