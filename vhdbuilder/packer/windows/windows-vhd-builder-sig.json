@@ -4,6 +4,8 @@
         "build_commit": "{{env `GIT_VERSION`}}",
         "build_id": "{{env `BUILD_ID`}}",
         "build_number": "{{env `BUILD_NUMBER`}}",
+        "build_definition_name": "{{env `BUILD_DEFINITION_NAME`}}",
+        "img_sku": "{{env `WINDOWS_IMAGE_SKU`}}",
         "build_repo": "{{env `GIT_REPO`}}",
         "windows_sku": "{{env `WINDOWS_SKU`}}",
         "subscription_id": "{{env `AZURE_SUBSCRIPTION_ID`}}",
@@ -18,6 +20,7 @@
         "vnet_name": "{{env `VNET_NAME`}}",
         "subnet_name": "{{env `SUBNET_NAME`}}",
         "build_date": "{{env `BUILD_DATE`}}",
+        "branch": "{{env `BRANCH`}}",
         "vnet_resource_group_name": "{{env `VNET_RESOURCE_GROUP_NAME`}}"
     },
     "builders": [
