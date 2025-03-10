@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
@@ -389,6 +390,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		}
 		expectedCSECommand, err := os.ReadFile(fmt.Sprintf("./testdata/%s/CSECommand", folder))
 		Expect(err).To(BeNil())
+		log.Printf("Actual CSE command: %s", cseCommand)
 		Expect(cseCommand).To(Equal(string(expectedCSECommand)))
 
 		files, err := getDecodedFilesFromCustomdata(customDataBytes)
@@ -1446,6 +1448,35 @@ oom_score = -999
 `
 
 				Expect(containerdConfigFileContent).To(Equal(expectedShimConfig))
+			}),
+		Entry("AKSUbuntu2404 containerd with NVIDIA GPU and CDI", "AKSUbuntu2404+NVidia+CDI", "1.32.1",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.1"
+				config.EnableArtifactStreaming = true
+				config.AgentPoolProfile.VMSize = "Standard_ND128_FOO_v1"
+				config.EnableCDI = true
+				config.EnableNvidia = true
+				config.ConfigGPUDriverIfNeeded = true
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["CONTAINERD_CONFIG_CONTENT"]).NotTo(BeEmpty())
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedShimConfigSubstr := `
+[plugins."io.containerd.cri.v1.runtime"]
+  enable_cdi = true
+  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "nvidia-container-runtime"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
+      BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedShimConfigSubstr))
 			}),
 		Entry("CustomizedImage VHD should not have provision_start.sh", "CustomizedImage", "1.24.2",
 			func(c *datamodel.NodeBootstrappingConfiguration) {
