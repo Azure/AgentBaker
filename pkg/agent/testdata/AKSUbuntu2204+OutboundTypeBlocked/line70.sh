@@ -624,9 +624,9 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    if [ "${IS_AKSLOCALDNS_ENABLED}" == "true" ]; then
+    if is_akslocaldns_enabled; then
         if akslocaldns_cluster_listener_ip=$(get_akslocaldns_cluster_listener_ip) && ! grep -q -- "--cluster-dns=${akslocaldns_cluster_listener_ip}" "${KUBELET_DEFAULT_FILE}"; then
-            sed -ie "s/--cluster-dns=[^ \n]\+/--cluster-dns=${akslocaldns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
+            sed -i "s/--cluster-dns=[^ \n]\+/--cluster-dns=${akslocaldns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
         fi
     fi
 

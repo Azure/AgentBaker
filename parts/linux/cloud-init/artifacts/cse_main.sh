@@ -337,7 +337,7 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
-if [ "${IS_AKSLOCALDNS_ENABLED}" == "true" ]; then
+if is_akslocaldns_enabled; then
     logs_to_events "AKS.CSE.ensureAKSLocalDNS" ensureAKSLocalDNS
 fi
 

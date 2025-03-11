@@ -814,15 +814,27 @@ oras_login_with_kubelet_identity() {
 }
 
 get_akslocaldns_cluster_listener_ip() {
-    local AKSLOCALDNS_ENV_FILE_PATH="/etc/default/akslocaldns.envfile"
+    local akslocaldns_env_file_path="/etc/default/akslocaldns.envfile"
     local akslocaldns_cluster_listener_ip
 
-    akslocaldns_cluster_listener_ip=$(grep -E "^AKSLOCALDNS_CLUSTER_LISTENER_IP=" "$AKSLOCALDNS_ENV_FILE_PATH" | cut -d'=' -f2)
+    akslocaldns_cluster_listener_ip=$(awk -F= '/^AKSLOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$akslocaldns_env_file_path")
     if [[ -n "$akslocaldns_cluster_listener_ip" ]]; then
         echo "$akslocaldns_cluster_listener_ip"
         return 0
     else
-        echo "AKSLOCALDNS_CLUSTER_LISTENER_IP not found in ${AKSLOCALDNS_ENV_FILE_PATH}"
+        echo "AKSLOCALDNS_CLUSTER_LISTENER_IP not found in ${akslocaldns_env_file_path}"
+        return 1
+    fi
+}
+
+is_akslocaldns_enabled() {
+    local akslocaldns_env_file_path="/etc/default/akslocaldns.envfile"
+    local is_akslocaldns_enabled
+
+    is_akslocaldns_enabled=$(awk -F= '/^AKSLOCALDNS_IS_ENABLED=/{print $2}' "$akslocaldns_env_file_path")
+    if [ "$is_akslocaldns_enabled" = "true" ]; then
+        return 0
+    else
         return 1
     fi
 }

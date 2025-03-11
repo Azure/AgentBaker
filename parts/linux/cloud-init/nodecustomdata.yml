@@ -435,6 +435,7 @@ write_files:
   permissions: "0744"
   owner: root
   content: |
+    AKSLOCALDNS_IS_ENABLED={{IsAKSLocalDNSEnabled}}
     AKSLOCALDNS_IMAGE_TAG={{GetAKSLocalDNSImageTag}}
     AKSLOCALDNS_NODE_LISTENER_IP={{GetAKSLocalDNSNodeListenerIP}}
     AKSLOCALDNS_CLUSTER_LISTENER_IP={{GetAKSLocalDNSClusterListenerIP}}
