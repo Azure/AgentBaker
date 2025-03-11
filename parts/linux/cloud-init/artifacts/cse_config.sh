@@ -492,6 +492,13 @@ configureKubeletServing() {
     fi
 }
 
+ensureKubeCACert() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0600 "${KUBE_CA_FILE}"
+}
+
 ensureKubelet() {
     KUBELET_DEFAULT_FILE=/etc/default/kubelet
     mkdir -p /etc/default
@@ -516,11 +523,6 @@ ensureKubelet() {
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
-    
-    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
-    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
-    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    chmod 0600 "${KUBE_CA_FILE}"
 
     if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
