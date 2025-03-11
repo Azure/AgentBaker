@@ -200,6 +200,7 @@ const (
 	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
 	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
 	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -291,6 +292,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
+	AKSUbuntuContainerd2404TLGen2,
 }
 
 type CustomConfigurationComponent string

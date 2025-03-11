@@ -202,7 +202,7 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-    systemctlEnableAndStart chrony || exit $ERR_CHRONY_START_TIMEOUT
+    systemctlEnableAndStart chrony 30 || exit $ERR_CHRONY_START_TIMEOUT
 }
 
 installFIPS() {
