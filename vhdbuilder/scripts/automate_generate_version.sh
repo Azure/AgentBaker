@@ -33,6 +33,9 @@ get_image_version_from_publishing_info() {
         return 1
     fi
 
+    # remove publishing info any dangling publishing info
+    rm -f vhd-publishing-info.json
+    
     GENERATED_IMAGE_VERSION=$unique_image_version
 }
 
