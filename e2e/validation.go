@@ -40,15 +40,10 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
 
 	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
-	require.False(
-		s.T,
-		strings.Contains(kubeletLogs, "unable to validate bootstrap credentials"),
-		"expected kubelet bootstrap credential validation to have succeeded",
-	)
 	require.True(
 		s.T,
-		strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
-		"expected to have validated bootstrap token before kubelet startup, but did not",
+		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+		"expected to have successfully validated bootstrap token before kubelet startup, but did not",
 	)
 
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
