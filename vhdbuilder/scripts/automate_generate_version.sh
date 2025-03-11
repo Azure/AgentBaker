@@ -23,6 +23,7 @@ get_image_version_from_publishing_info() {
                 # mismatching image_versions will cause problems downstream in the release process
                 echo "mismatched image version for VHD build with ID: $VHD_BUILD_ID"
                 echo "expected publishing info artifact $artifact to have image_version $unique_image_version, but had: $image_version"
+                echo "a new VHD build will be required"
                 exit 1
             fi
         fi
@@ -33,9 +34,9 @@ get_image_version_from_publishing_info() {
         return 1
     fi
 
-    # remove publishing info any dangling publishing info
+    # remove any dangling publishing info
     rm -f vhd-publishing-info.json
-    
+
     GENERATED_IMAGE_VERSION=$unique_image_version
 }
 
