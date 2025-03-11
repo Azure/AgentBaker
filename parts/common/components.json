@@ -189,7 +189,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.42"
+          "latestVersion": "v1.5.44"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -210,8 +210,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.42",
-          "previousLatestVersion": "v1.5.41",
+          "latestVersion": "v1.5.44",
+          "previousLatestVersion": "v1.5.42",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
