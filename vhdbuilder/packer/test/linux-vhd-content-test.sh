@@ -180,6 +180,11 @@ testPackagesInstalled() {
       local extractedPackageDir
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
+      # Validate whether package exists in Azure China cloud.
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+        testPackageURLInAzureChinaCloud "$downloadURL"
+      fi
+
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
       # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
       if [ -d "$extractedPackageDir" ]; then
@@ -205,7 +210,7 @@ testPackagesInstalled() {
           continue
         fi
       fi
-      
+
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
@@ -236,6 +241,53 @@ testPackagesInstalled() {
     echo "---"
   done <<<"$packages"
   echo "$test:Finish"
+}
+
+# Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
+# if defined in control plane, is accessible and has the same file size as the one in the public cloud.
+testPackageURLInAzureChinaCloud() {
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # location /kubernetes/ {
+  #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
+  # }
+
+  local downloadURL=$1
+
+  proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
+
+  # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+  rootPathExceptions=("cri-tools" "spinkube")
+  for rootPathException in "${rootPathExceptions[@]}"; do
+    if [ "$rootPathException" == "$proxyLocation" ]; then
+      return
+    fi
+  done
+
+  supportedProxyLocations=(
+    "aks"
+    "kubernetes"
+    "cni-plugins"
+    "azure-cni"
+    "csi-proxy"
+    "aks-engine"
+    "containerd"
+    "calico-node"
+    "ccgakvplugin"
+    "cloud-provider-azure"
+    )
+
+  foundLocation=false
+  for supportedProxyLocation in "${supportedProxyLocations[@]}"; do
+    if [ "$supportedProxyLocation" == "$proxyLocation" ]; then
+      foundLocation=true
+      break
+    fi
+  done
+
+  if [ "$foundLocation" == false ]; then
+    err "Proxy location $proxyLocation is not defined in mooncake for $downloadURL, please use root path 'aks' , or contact 'andyzhangx' for help"
+    return
+  fi
 }
 
 testImagesPulled() {
