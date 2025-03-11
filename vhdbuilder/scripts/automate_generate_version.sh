@@ -4,7 +4,7 @@ set -uexo pipefail
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
 get_image_version_from_publishing_info() {
-    local unique_image_version
+    local unique_image_version=""
 
     for artifact in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
         if [[ $artifact == *"publishing-info"* ]]; then
@@ -12,17 +12,17 @@ get_image_version_from_publishing_info() {
             rm -f vhd-publishing-info.json
 
             az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $VHD_BUILD_ID
-            image_version=$(jq -r image_version < vhd-publishing-info.json)
+            version=$(jq -r .image_version < vhd-publishing-info.json)
             if [ -z "$unique_image_version" ]; then
-                unique_image_version=$image_version
+                unique_image_version=$version
                 continue
             fi
 
-            if [ "$image_version" != "$unique_image_version" ]; then
+            if [ "$version" != "$unique_image_version" ]; then
                 # this is to ensure that all publishing-infos coming from the same VHD build specify the same image_version,
                 # mismatching image_versions will cause problems downstream in the release process
                 echo "mismatched image version for VHD build with ID: $VHD_BUILD_ID"
-                echo "expected publishing info artifact $artifact to have image_version $unique_image_version, but had: $image_version"
+                echo "expected publishing info artifact $artifact to have image_version $unique_image_version, but had: $version"
                 echo "a new VHD build will be required"
                 exit 1
             fi
