@@ -43,7 +43,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	require.True(
 		s.T,
 		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
-		"expected to have successfully validated bootstrap token before kubelet startup, but did not",
+		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 	)
 
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
