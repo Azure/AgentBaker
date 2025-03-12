@@ -13,6 +13,7 @@ ENABLE_FIPS="$3"
 OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
+FEATURE_FLAGS="$7"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
@@ -445,8 +446,8 @@ testCloudInit() {
   echo "$test:Start"
   os_sku=$1
 
-  # Limit this test only to Mariner or Azurelinux
-  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+  # Limit this test only to non-cvm Mariner or Azurelinux
+  if ! grep -q "cvm" <<< "$FEATURE_FLAGS" && [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
