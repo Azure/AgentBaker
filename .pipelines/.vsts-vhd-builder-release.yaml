@@ -172,7 +172,7 @@ parameters:
   - name: build2404tlgen2containerd
     displayName: Build 2404 TL Gen2 Containerd
     type: boolean
-    default: false
+    default: true
   - name: build2004cvmgen2containerd
     displayName: Build 2004 CVM Gen2 Containerd
     type: boolean

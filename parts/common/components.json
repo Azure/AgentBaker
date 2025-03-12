@@ -189,7 +189,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.42"
+          "latestVersion": "v1.5.44"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
@@ -210,8 +210,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.42",
-          "previousLatestVersion": "v1.5.41",
+          "latestVersion": "v1.5.44",
+          "previousLatestVersion": "v1.5.42",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -982,7 +982,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=20.04",
-                "latestVersion": "1.1.15-ubuntu20.04u1"
+                "latestVersion": "1.2.5-ubuntu20.04u1"
               }
             ]
           },
@@ -990,7 +990,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, os=ubuntu, release=22.04",
-                "latestVersion": "1.1.15-ubuntu22.04u1"
+                "latestVersion": "1.2.5-ubuntu22.04u1"
               }
             ]
           },

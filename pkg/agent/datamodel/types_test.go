@@ -1002,6 +1002,13 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "24.04 Gen2 TL VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404TLGen2,
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
