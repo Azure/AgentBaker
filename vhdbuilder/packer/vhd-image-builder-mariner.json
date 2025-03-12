@@ -187,6 +187,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
+      "destination": "/home/packer/validate-kubelet-credentials.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
