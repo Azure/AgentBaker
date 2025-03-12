@@ -366,7 +366,7 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 }
 
 func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
-	t.Logf("Looking up images for gallery subscription %s resource group %s gallery name %s image name %s ersion %s ",
+	t.Logf("Looking up images for subscription %s resource group %s gallery %s image name %s version %s ",
 		image.Gallery.SubscriptionID,
 		image.Gallery.ResourceGroupName,
 		image.Gallery.Name,
@@ -389,13 +389,11 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			// skip images tagged with the no-selection tag, indicating they
 			// shouldn't be selected dynmically for running abe2e scenarios
 			if _, ok := version.Tags[noSelectionTagName]; ok {
-				t.Logf("Skipping version %s as it has no selection tag %s", *version.ID, noSelectionTagName)
 				continue
 			}
 			if tagName != "" {
 				tag, ok := version.Tags[tagName]
 				if !ok || tag == nil || *tag != tagValue {
-					t.Logf("Skipping version %s as it doesn't have tag %s=%s", *version.ID, tagName, tagValue)
 					continue
 				}
 			}
@@ -409,6 +407,14 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 		}
 	}
 	if latestVersion == nil {
+		t.Logf("Could not find VHD with tag %s=%s in for subscription %s resource group %s gallery %s image name %s version %s",
+			tagName,
+			tagValue,
+			image.Gallery.SubscriptionID,
+			image.Gallery.ResourceGroupName,
+			image.Gallery.Name,
+			image.Name,
+			image.Version)
 		return "", ErrNotFound
 	}
 
@@ -451,7 +457,7 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 }
 
 func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, image *Image) (VHDResourceID, error) {
-	t.Logf("Looking up gallery images fro subcription %s", image.Gallery.SubscriptionID)
+	t.Logf("Looking up gallery images for subcription %s", image.Gallery.SubscriptionID)
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
