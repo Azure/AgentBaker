@@ -389,7 +389,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			// skip images tagged with the no-selection tag, indicating they
 			// shouldn't be selected dynmically for running abe2e scenarios
 			if _, ok := version.Tags[noSelectionTagName]; ok {
-				t.Logf("Skipping version %s as it has no selection tag %s", version.ID, noSelectionTagName)
+				t.Logf("Skipping version %s as it has no selection tag %s", *version.ID, noSelectionTagName)
 				continue
 			}
 
