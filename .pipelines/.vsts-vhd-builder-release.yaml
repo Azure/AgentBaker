@@ -108,7 +108,7 @@ parameters:
   - name: buildAzureLinuxV3cvmgen2
     displayName: Build AzureLinuxV3 CVM Gen2
     type: boolean
-    default: false
+    default: true
   - name: buildMarinerV2gen2kataTrustedLaunch
     displayName: Build MarinerV2 Gen2 Kata - Trusted Launch
     type: boolean
