@@ -246,11 +246,13 @@ function Test-CompareFiles {
     if ($ProxyLocationNotFoundInMooncakeFiles.Count -ne 0) {
         $ProxyLocationNotFoundInMooncakeFiles = (echo $ProxyLocationNotFoundInMooncakeFiles | ConvertTo-Json -Compress)
         Write-Error "The proxy location of the following files are not defined in mooncake, please use root path 'aks', or contact 'andyzhangx' for help: $ProxyLocationNotFoundInMooncakeFiles"
+        exit 1
     }   
 
     if ($MisMatchFiles.Count -ne 0) {
         $MisMatchFiles = (echo $MisMatchFiles | ConvertTo-Json -Compress)
         Write-Error "The following files have different sizes on global and mooncake: $MisMatchFiles"
+        exit 1
     }
 }
 

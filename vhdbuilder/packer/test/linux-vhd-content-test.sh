@@ -180,9 +180,9 @@ testPackagesInstalled() {
       local extractedPackageDir
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
-      # Validate whether package exists in Azure China cloud.
+      # Validate whether package proxy path exists in Azure China cloud.
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-        testPackageURLInAzureChinaCloud "$downloadURL"
+        testPackageInAzureChinaCloud "$downloadURL"
       fi
 
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
@@ -220,22 +220,7 @@ testPackagesInstalled() {
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
-      # Validate whether package exists in Azure China cloud
-      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-        echo "Validating: $mcURL"
-        isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-        if [[ "$isExist" == "404" ]]; then
-          err "$mcURL is invalid"
-          continue
-        fi
 
-        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
-          continue
-        fi
-      fi
     done
 
     echo "---"
@@ -245,7 +230,7 @@ testPackagesInstalled() {
 
 # Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
 # if defined in control plane, is accessible and has the same file size as the one in the public cloud.
-testPackageURLInAzureChinaCloud() {
+testPackageInAzureChinaCloud() {
   # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
   # location /kubernetes/ {
   #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
@@ -288,6 +273,24 @@ testPackageURLInAzureChinaCloud() {
     err "Proxy location $proxyLocation is not defined in mooncake for $downloadURL, please use root path 'aks' , or contact 'andyzhangx' for help"
     return
   fi
+
+  mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  echo "Validating: $mcURL"
+  isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+  if [[ "$isExist" == "404" ]]; then
+    err "$mcURL is invalid"
+    return
+  fi
+
+  fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+  fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+
+
+  if [[ "$fileSizeInMC" != "$fileSizeInRepo" ]]; then
+    err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - file size in Mooncake: ${fileSizeInMC}"
+    return
+  fi
+
 }
 
 testImagesPulled() {
