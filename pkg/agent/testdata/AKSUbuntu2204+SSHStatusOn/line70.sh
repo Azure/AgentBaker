@@ -755,6 +755,18 @@ configGPUDrivers() {
         echo "os $OS not supported at this time. skipping configGPUDrivers"
         exit 1
     fi
+    
+    if [[ "$NVIDIA_DRIVER_IMAGE" == *"grid"* ]]; then
+        if [ -x /usr/bin/nvidia-gridd ]; then
+            if nvidia-smi -q | grep -q "License Status.*Unlicensed"; then
+                echo "GRID license status is Unlicensed. Restarting nvidia-gridd..."
+                sudo pkill nvidia-gridd || true
+                sudo /usr/bin/nvidia-gridd &
+            fi
+        else
+            echo "/usr/bin/nvidia-gridd not found; skipping restart."
+        fi
+   fi
 
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
