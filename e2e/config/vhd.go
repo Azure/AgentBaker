@@ -221,17 +221,20 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		switch {
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
-			t.Logf("got version vid %s: %s", i.Version, i.vhd)
+			if i.vhd != "" {
+				t.Logf("got version vid %s: %s", i.Version, i.vhd)
+			}
 		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
-			t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhd)
+			if i.vhd != "" {
+				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhd)
+			}
 		}
 		if i.vhdErr != nil {
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 			t.Logf("Failed to find the image. Sub=%s rg=%s gallary=%s version for with err %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhdErr)
 		} else {
 			t.Logf("Found the image. Sub=%s rg=%s gallary=%s version for with id %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhd.Short())
-
 		}
 	})
 	return i.vhd, i.vhdErr
