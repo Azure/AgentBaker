@@ -66,13 +66,14 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
-registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
-registry_domain_name="${registry_domain_name%/}"
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]]; then
+    registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    registry_domain_name="${registry_domain_name%/}"
 
-if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+    if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+    fi
 fi
-verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
