@@ -88,40 +88,47 @@ steps:
   #     Task variable SIG_FOR_PRODUCTION is set to True and passed to the following steps.
   #     Built sig will be deleted because it has been converted to VHD, and thus not needed.
   - bash: |
+      set -e
       m="windowsVhdMode"
-      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then \   
-          sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"; \
-          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"; \
-          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"; \
+      echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
+      echo "SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX}"
+      echo "SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
+      
+      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then
+          echo "Non prod build"
+          sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
+          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
       else
-          sigImageName="windows-${WINDOWS_SKU}-$(date +"%H%M%S")-$RANDOM"; \
+          echo "prod build"
+          sigImageName="windows-${WINDOWS_SKU}-$(date +"%H%M%S")-$RANDOM"
           WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
-          sigGalleryName="WSGallery$(date +"%y%m%d")";\
-          echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"; \
-          echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"; \
-          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"; \
-          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"; \
+          sigGalleryName="WSGallery$(date +"%y%m%d")"
+          echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"
+          echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
+          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
       fi
-      echo "Set build mode to $m" && \
-      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName" && \
-      echo "##vso[task.setvariable variable=MODE]$m" && \
-      if [[ "${USE_RELEASE_DATE}" = "False" ]]; then \
-        echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d"); \
-      else \
-        echo "use release date as build date"; \
+      echo "Set build mode to $m"
+      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName"
+      echo "##vso[task.setvariable variable=MODE]$m"
+      if [[ "${USE_RELEASE_DATE}" = "False" ]]; then 
+        echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d")
+      else 
+        echo "use release date as build date"
         echo "${RELEASE_DATE}" | grep -E '[[:digit:]]{6}'
         if (( $? != 0 )); then
           echo "The release date ${RELEASE_DATE} is not valid date. Release date format: YYMMDD."
           exit 1
         fi
-        BUILD_DATE=${RELEASE_DATE}; \
-      fi && \
-      echo "Default BUILD_DATE is $BUILD_DATE" && \
-      if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then \
-        echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"; \
-        BUILD_DATE=${CUSTOM_BUILD_DATE}; \
+        BUILD_DATE=${RELEASE_DATE}
+      fi 
+      echo "Default BUILD_DATE is $BUILD_DATE" 
+      if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then 
+        echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"
+        BUILD_DATE=${CUSTOM_BUILD_DATE}
       fi
-      echo "Set build date to $BUILD_DATE" && \
+      echo "Set build date to $BUILD_DATE" 
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE" 
     displayName: Set pipeline variables
     env:
