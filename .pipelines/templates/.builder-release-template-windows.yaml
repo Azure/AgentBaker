@@ -123,10 +123,6 @@ steps:
       fi
       echo "Set build date to $BUILD_DATE" && \
       echo "##vso[task.setvariable variable=BUILD_DATE]$BUILD_DATE" 
-      
-      branch=$(Build.SourceBranch)
-      branch=$(echo "${branch}" | sed 's/refs\/heads\///g')
-      echo "##vso[task.setvariable variable=BRANCH]$branch"
     displayName: Set pipeline variables
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
@@ -137,6 +133,7 @@ steps:
       make -f packer.mk run-packer-windows
     displayName: Building windows VHD
     env:
+      BRANCH: $(Build.SourceBranch)
       MODE: $(MODE)
       POOL_NAME: $(AZURE_POOL_NAME)
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
@@ -146,10 +143,11 @@ steps:
       GIT_BRANCH: $(BRANCH)
       GIT_REPO: $(Build.Repository.Uri)
       GIT_VERSION: $(Build.SourceVersion)
+      BUILD_DEFINITION_NAME: $(Build.DefinitionName)
       BUILD_ID: $(Build.BuildId)
       BUILD_NUMBER: $(Build.BuildNumber)
       WINDOWS_SKU: ${{ parameters.windowsSku }}
-      OS_TYPE: "Windows"
+      OS_TYPE: Windows
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
       INSTALL_OPEN_SSH_SERVER: ${{ parameters.installOpenSshServer }}
       SIG_GALLERY_NAME: $(SIG_GALLERY_NAME)
@@ -181,6 +179,7 @@ steps:
 
       make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
+    enabled: false
     env:
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)

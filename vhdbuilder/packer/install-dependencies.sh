@@ -36,7 +36,7 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if grep -q "cvm" <<< "$FEATURE_FLAGS"; then 
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then 
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
@@ -520,7 +520,7 @@ retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart ipv6_nftables || exit 1
+  systemctlEnableAndStart ipv6_nftables 30 || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
@@ -528,14 +528,14 @@ mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
 if ! isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
 fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service
 fi
