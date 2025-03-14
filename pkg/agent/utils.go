@@ -45,6 +45,7 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--eviction-hard":                     true,
 	"--node-status-update-frequency":      true,
 	"--node-status-report-frequency":      true,
+	"--pod-container-stats-cri":           true,
 	"--image-gc-high-threshold":           true,
 	"--image-gc-low-threshold":            true,
 	"--event-qps":                         true,
@@ -442,6 +443,13 @@ func IsKubeletServingCertificateRotationEnabled(config *datamodel.NodeBootstrapp
 		return false
 	}
 	return config.KubeletConfig["--rotate-server-certificates"] == "true"
+}
+
+func IsKubeletCriMetricsEnabled(config *datamodel.NodeBootstrappingConfiguration) bool {
+	if config == nil || config.KubeletConfig == nil {
+		return false
+	}
+	return config.KubeletConfig["--pod-container-stats-cri"] == "true"
 }
 
 func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfiguration {
