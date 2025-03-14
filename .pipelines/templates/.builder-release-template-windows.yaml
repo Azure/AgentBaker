@@ -140,6 +140,7 @@ steps:
       echo "DRY_RUN 2: ${DRY_RUN}"
       echo "SIG_FOR_PRODUCTION: ${SIG_FOR_PRODUCTION_ENV}"
       echo "SIG_FOR_PRODUCTION 2: ${SIG_FOR_PRODUCTION}"
+      exit 1
     displayName: Echo vars used for condition - before build
     env:
       DRY_RUN_ENV: ${{variables.DRY_RUN}}
