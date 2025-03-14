@@ -246,8 +246,9 @@ steps:
   # Gen 2 packer outputs a sig in destination. This step: dest sig=>disk=>VHD in classic SA for publishing.
   # Credentials and resource group name come from the BUILD_**** pipeline variables because source sig is in the build subscription.
   - bash: |
-      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
+      # because SUBSCRIPTION_ID and LOCATION are defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
+      export LOCATION=$(AZURE_BUILD_LOCATION)
 
       export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
       export CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
@@ -257,8 +258,8 @@ steps:
     condition: and(eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'), succeeded())
     env:
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
-      RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       LOCATION: $(AZURE_BUILD_LOCATION)
+      RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       OS_TYPE: "Windows"
       CLASSIC_BLOB: $(STORAGE_ACCT_BLOB_URL)
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
