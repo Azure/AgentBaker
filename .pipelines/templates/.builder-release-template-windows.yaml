@@ -143,8 +143,8 @@ steps:
       exit 1
     displayName: Echo vars used for condition - before build
     env:
-      DRY_RUN_ENV: $(variables.DRY_RUN)
-      SIG_FOR_PRODUCTION_ENV: $(SIG_FOR_PRODUCTION)
+      DRY_RUN_ENV: $[variables.DRY_RUN]
+      SIG_FOR_PRODUCTION_ENV: $[variables.SIG_FOR_PRODUCTION]
 
   - script: |
       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
