@@ -199,6 +199,7 @@ const (
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
 	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
 	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
 	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 
 	RHEL              Distro = "rhel"
@@ -278,6 +279,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,

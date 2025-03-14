@@ -1161,6 +1161,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "Azure Linux V3 Gen2 CVM VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3CVMGen2,
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
