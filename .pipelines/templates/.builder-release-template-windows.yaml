@@ -291,6 +291,12 @@ steps:
       SIG_FOR_PRODUCTION: $(SIG_FOR_PRODUCTION)
       OS_TYPE: "Windows"
 
+  - bash: |
+      echo "DRY_RUN: $(variables.DRY_RUN)"
+      echo "DRY_RUN 2: ${DRY_RUN}"
+      echo "SIG_FOR_PRODUCTION: $(variables.SIG_FOR_PRODUCTION)"
+      echo "SIG_FOR_PRODUCTION 2: ${SIG_FOR_PRODUCTION}"
+    displayName: Echo vars used for condition
 
   # Set VHD_NAME and SKU_NAME which will be published.
   # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
@@ -330,5 +336,4 @@ steps:
     inputs:
       artifactName: 'publishing-info-${{ parameters.artifactName }}'
       targetPath: 'vhd-publishing-info.json'
-    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'),
-      eq(variables.SIG_FOR_PRODUCTION, 'True'))
+    condition: and(succeeded(), eq(variables.DRY_RUN, 'False'), eq(variables.SIG_FOR_PRODUCTION, 'True'))
