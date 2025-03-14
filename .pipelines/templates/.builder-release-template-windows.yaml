@@ -134,6 +134,17 @@ steps:
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
 
+
+  - bash: |
+      echo "DRY_RUN: ${DRY_RUN_ENV}"
+      echo "DRY_RUN 2: ${DRY_RUN}"
+      echo "SIG_FOR_PRODUCTION: ${SIG_FOR_PRODUCTION_ENV}"
+      echo "SIG_FOR_PRODUCTION 2: ${SIG_FOR_PRODUCTION}"
+    displayName: Echo vars used for condition - before build
+    env:
+      DRY_RUN_ENV: $(variables.DRY_RUN)
+      SIG_FOR_PRODUCTION_ENV: $(variables.SIG_FOR_PRODUCTION)
+
   - script: |
       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
@@ -292,11 +303,14 @@ steps:
       OS_TYPE: "Windows"
 
   - bash: |
-      echo "DRY_RUN: $(variables.DRY_RUN)"
+      echo "DRY_RUN: ${DRY_RUN_ENV}"
       echo "DRY_RUN 2: ${DRY_RUN}"
-      echo "SIG_FOR_PRODUCTION: $(variables.SIG_FOR_PRODUCTION)"
+      echo "SIG_FOR_PRODUCTION: ${SIG_FOR_PRODUCTION_ENV}"
       echo "SIG_FOR_PRODUCTION 2: ${SIG_FOR_PRODUCTION}"
     displayName: Echo vars used for condition
+    env:
+      DRY_RUN_ENV: $(variables.DRY_RUN)
+      SIG_FOR_PRODUCTION_ENV: $(variables.SIG_FOR_PRODUCTION)
 
   # Set VHD_NAME and SKU_NAME which will be published.
   # Note: use -a to grep OS_DISK_SAS (packer-output should be read as a binary file in Linux)
