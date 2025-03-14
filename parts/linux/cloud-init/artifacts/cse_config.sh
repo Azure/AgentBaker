@@ -764,6 +764,29 @@ configAzurePolicyAddon() {
     sed -i "s|<resourceId>|/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP|g" $AZURE_POLICY_ADDON_FILE
 }
 
+restart_nvidia_gridd_if_needed() {
+    # Proceed only if the driver image indicates GRID usage.
+    if [[ "$NVIDIA_DRIVER_IMAGE" != *"grid"* ]]; then
+        return 0
+    fi
+
+    # Ensure /usr/bin/nvidia-gridd exists and is executable.
+    if [ ! -x /usr/bin/nvidia-gridd ]; then
+        echo "/usr/bin/nvidia-gridd not found; skipping restart."
+        return 0
+    fi
+
+    # Check if the license status is Unlicensed.
+    if ! nvidia-smi -q | grep -q "License Status.*Unlicensed"; then
+        return 0
+    fi
+
+    echo "GRID license status is Unlicensed. Restarting nvidia-gridd..."
+    pkill nvidia-gridd || true
+    /usr/bin/nvidia-gridd &
+}
+
+
 configGPUDrivers() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
         mkdir -p /opt/{actions,gpu}
@@ -797,6 +820,8 @@ configGPUDrivers() {
     retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+
+    restart_nvidia_gridd_if_needed
 
     # Fix the NVIDIA /dev/char link issue
     if isMarinerOrAzureLinux "$OS"; then
