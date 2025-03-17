@@ -135,6 +135,7 @@ configureHTTPProxyCA() {
 
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
+    chmod 1755 /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
