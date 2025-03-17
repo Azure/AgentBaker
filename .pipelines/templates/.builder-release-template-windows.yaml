@@ -186,7 +186,7 @@ steps:
 
       make -f packer.mk test-building-vhd
     displayName: Run VHD cache test
-    enabled: false
+    enabled: true
     env:
       SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
