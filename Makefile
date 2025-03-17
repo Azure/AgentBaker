@@ -177,8 +177,7 @@ ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
 test: test-aks-node-controller
-    go build  -mod=readonly ./...
-	go test ./...
+    go build  -mod=readonly ./... && go test ./...
 
 test-aks-node-controller:
 	pushd aks-node-controller && go build -mod=readonly ./... && go test ./... && popd
