@@ -116,52 +116,43 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 		fmt.Printf("Including artifact \"%s\" with path \"%s\"\n", sku, path)
 	}
 
-	var errc = make(chan error)
-	var done = make(chan struct{})
+	var errs []error
 
 	for sku, path := range artifactsToDownload {
 		if strings.Contains(path, "AKSWindows") {
-			getReleaseNotesWindows(sku, path, fl, errc, done)
+			err := getReleaseNotesWindows(sku, path, fl)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		} else {
-			getReleaseNotes(sku, path, fl, errc, done)
-		}
-	}
-
-	var errs []error
-
-	for i := 0; i < len(artifactsToDownload); i++ {
-		select {
-		case err := <-errc:
-			errs = append(errs, err)
-		case <-done:
-			continue
+			err := getReleaseNotes(sku, path, fl)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
 	return errs
 }
 
-func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
-	defer func() { done <- struct{}{} }()
+func getReleaseNotes(sku, path string, fl *flags) error {
 
 	// working directory, need one per sku because the file name is
 	// always "release-notes.txt" so they all overwrite each other.
 	tmpdir, err := os.MkdirTemp("", "releasenotes")
 	if err != nil {
-		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
+		return fmt.Errorf("failed to create temp working directory: %w", err)
 	}
 	defer os.RemoveAll(tmpdir)
 
 	artifactsDirOut := filepath.Join(fl.path, path)
 
 	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	artifacts := []buildArtifact{
@@ -182,27 +173,25 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	for _, artifact := range artifacts {
 		if err := artifact.process(fl, artifactsDirOut, tmpdir); err != nil {
 			fmt.Printf("processing artifact %s for sku %s", artifact.name, sku)
-			errc <- fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
-			return
+			return fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
 		}
 	}
+
+	return nil
 }
 
-func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
-	defer func() { done <- struct{}{} }()
+func getReleaseNotesWindows(sku, path string, fl *flags) error {
 
 	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
 	imageListName := fmt.Sprintf("vhd-image-list-%s", sku)
 
 	artifactsDirOut := filepath.Join(fl.path, path)
 	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	fmt.Printf("downloading releaseNotes '%s' from windows build '%s'\n", releaseNotesName, fl.build)
@@ -210,8 +199,7 @@ func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done
 	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", releaseNotesName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		fmt.Printf("Failed downloading releaseNotes '%s' from windows build '%s'\n", releaseNotesName, fl.build)
-		errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		return
+		return fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
 	}
 
 	fmt.Printf("downloading imageList '%s' from build '%s'\n", imageListName, fl.build)
@@ -219,9 +207,10 @@ func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done
 	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", imageListName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
 		fmt.Printf("failed downloading imageList '%s' from windows build '%s'\n", imageListName, fl.build)
-		errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		return
+		return fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
 	}
+
+	return nil
 }
 
 func stripWhitespace(str string) string {
