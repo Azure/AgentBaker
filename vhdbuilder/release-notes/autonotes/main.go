@@ -116,9 +116,9 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 
 	for sku, path := range artifactsToDownload {
 		if strings.Contains(path, "AKSWindows") {
-			go getReleaseNotesWindows(sku, path, fl, errc, done)
+			getReleaseNotesWindows(sku, path, fl, errc, done)
 		} else {
-			go getReleaseNotes(sku, path, fl, errc, done)
+			getReleaseNotes(sku, path, fl, errc, done)
 		}
 	}
 
