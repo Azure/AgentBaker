@@ -40,25 +40,6 @@ stages:
               CHERRY_PICK_COMMIT_ID: $(CHERRY_PICK_COMMIT_ID)
             displayName: 'Image Version Bumping'
 
-  - stage: bump_version
-    dependsOn: [ ]
-    condition: eq('${{ parameters.ImageBump }}', true)
-    jobs:
-      - job: Bump Image Version
-        steps:
-          - template: ./templates/.configure-azdevops-template.yaml
-            parameters:
-              ADO_PAT: $(PAT-aksdevassistant)
-          - template: ./templates/.generate-github-token.yaml
-          - bash: |
-              set -ex
-              echo "Bumping windows VHD base image version"
-              /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh "$GITHUB_TOKEN" "$CHERRY_PICK_COMMIT_ID"
-            env:
-              GITHUB_TOKEN: $(GITHUB_TOKEN)
-              CHERRY_PICK_COMMIT_ID: $(CHERRY_PICK_COMMIT_ID)
-            displayName: 'Image Version Bumping'
-
   - stage: release_notes
     dependsOn: []
     condition: eq('${{ parameters.ReleaseNotes }}', true)
