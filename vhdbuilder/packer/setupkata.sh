@@ -8,16 +8,26 @@ sleep 3
 
 CONFIG_PATH="/etc/containerd/config.toml"
 
-# Check if snapshotter = "tardev" exists under [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-if grep -A 1 '^\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata\]' "$CONFIG_PATH" | grep -q 'snapshotter *= *"tardev"'; then
-  echo "snapshotter = \"tardev\" is already set under [plugins.\"io.containerd.grpc.v1.cri\".containerd.runtimes.kata]. No changes needed."
+# Check if kata-blk runtime already exists
+if grep -q '^\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-blk\]' "$CONFIG_PATH"; then
+  echo "kata-blk runtime already exists in config. No changes needed."
 else
-  echo "Adding missing snapshotter = \"tardev\" under [plugins.\"io.containerd.grpc.v1.cri\".containerd.runtimes.kata]..."
+  echo "Adding kata-blk runtime configuration..."
   
-  # Use sed to insert snapshotter = "tardev" right after the [kata] runtime section
-  sed -i '/\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata\]/a \  snapshotter = "tardev"' "$CONFIG_PATH"
+  # Append the new runtime configuration at the end of the file
+  cat >> "$CONFIG_PATH" << EOF
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-blk]
+  runtime_type = "io.containerd.kata.v2"
+  snapshotter = "tardev"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-blk.options]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-blk.toml"
+EOF
 
-  echo "Config change applied, restarting containerd..."
+  echo "kata-blk runtime added to containerd config"
+  
+  # Restart containerd to apply changes
   systemctl restart containerd
 fi
 
