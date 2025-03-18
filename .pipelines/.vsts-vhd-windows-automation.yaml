@@ -25,7 +25,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.ImageBump }}', true)
     jobs:
-      - job: Bump Image Version
+      - job: bump_image_version
         steps:
           - template: ./templates/.configure-azdevops-template.yaml
             parameters:
@@ -44,7 +44,7 @@ stages:
     dependsOn: []
     condition: eq('${{ parameters.ReleaseNotes }}', true)
     jobs:
-      - job: Release Notes
+      - job: release_notes
         steps:
         - template: ./templates/.configure-azdevops-template.yaml
           parameters:
