@@ -28,6 +28,7 @@ jobs:
           set -ex
           az login --identity --username $(E2E_AGENT_IDENTITY_ID)
           az account set -s $(E2E_SUBSCRIPTION_ID)
+          echo "Using subscription $(E2E_SUBSCRIPTION_ID) for e2e tests"
         displayName: Azure login
       - bash: bash .pipelines/scripts/setup_go.sh
         displayName: Setup go
