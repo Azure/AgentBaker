@@ -169,8 +169,8 @@ testPackagesInstalled() {
         break
       fi
       # A downloadURL from a package in components.json will look like this: 
-      # "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
-      # After eval(resolved), downloadURL will look like "https://acs-mirror.azureedge.net/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
+      # "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+      # After eval(resolved), downloadURL will look like "https://packages.aks.azure.com/cni-plugins/v0.8.7/binaries/cni-plugins-linux-arm64-v0.8.7.tgz"
       eval "downloadURL=${PACKAGE_DOWNLOAD_URL}"
       local fileNameWithExt
       fileNameWithExt=$(basename $downloadURL)
@@ -182,7 +182,7 @@ testPackagesInstalled() {
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
       # Validate whether package proxy path exists in Azure China cloud.
-      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+      if [[ $downloadURL == https://packages.aks.azure.com/* ]]; then
         testPackageInAzureChinaCloud "$downloadURL"
       fi
 
@@ -275,7 +275,7 @@ testPackageInAzureChinaCloud() {
     return
   fi
 
-  mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  mcURL="${downloadURL/https:\/\/packages.aks.azure.com/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
   echo "Validating: $mcURL"
   isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
   if [[ "$isExist" == "404" ]]; then

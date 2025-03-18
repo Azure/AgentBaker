@@ -235,7 +235,7 @@ For a `containerImage`, you don't need to distinguish among distros and releases
                 "latestVersion": "1.6.3"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }

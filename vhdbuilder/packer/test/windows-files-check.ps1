@@ -188,7 +188,7 @@ function Test-CompareSingleDir {
         $rootPathExceptions = @("cri-tools")
         # When proxy location is not correctly defined in MoonCake, we will get 404 error when downloading files from MoonCake.
         # This valiation should including files in excludeHashComparisionListInAzureChinaCloud.
-        if ($URL.StartsWith("https://acs-mirror.azureedge.net/") -and ($rootPathExceptions -notcontains $URL)) {
+        if ($URL.StartsWith("https://packages.aks.azure.com/") -and ($rootPathExceptions -notcontains $URL)) {
             $supportedProxyLocations = @(
                 "aks",
                 "kubernetes",
@@ -225,8 +225,8 @@ function Test-CompareSingleDir {
             continue
         }
 
-        if ($URL.StartsWith("https://acs-mirror.azureedge.net/")) {
-            $mcURL = $URL.replace("https://acs-mirror.azureedge.net/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
+        if ($URL.StartsWith("https://packages.aks.azure.com/")) {
+            $mcURL = $URL.replace("https://packages.aks.azure.com/", "https://kubernetesartifacts.blob.core.chinacloudapi.cn/")
 
             $mooncakeFileSize = (Invoke-WebRequest $mcURL -UseBasicParsing -Method Head).Headers.'Content-Length'
 
