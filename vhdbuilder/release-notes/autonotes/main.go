@@ -109,8 +109,11 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 			continue
 		}
 
-		fmt.Printf("Including artifact \"%s\" with path \"%s\"\n", key, value)
 		artifactsToDownload[key] = value
+	}
+
+	for sku, path := range artifactsToDownload {
+		fmt.Printf("Including artifact \"%s\" with path \"%s\"\n", sku, path)
 	}
 
 	var errc = make(chan error)
