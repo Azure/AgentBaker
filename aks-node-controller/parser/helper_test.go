@@ -17,6 +17,7 @@ limitations under the License.
 package parser
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"reflect"
 	"testing"
@@ -24,6 +25,36 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 )
+
+var expectedKubeletConfigFlags = "--address=0.0.0.0" +
+	" --anonymous-auth=false" +
+	" --authentication-token-webhook=true" +
+	" --authorization-mode=Webhook" +
+	" --cgroups-per-qos=true" +
+	" --client-ca-file=/etc/kubernetes/certs/ca.crt" +
+	" --cluster-dns=10.0.0.10" +
+	" --cluster-domain=cluster.local" +
+	" --enforce-node-allocatable=pods" +
+	" --event-qps=0" +
+	" --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%" +
+	" --feature-gates=RotateKubeletServerCertificate=true,DynamicKubeletConfig=false" +
+	" --image-gc-high-threshold=85" +
+	" --image-gc-low-threshold=80" +
+	" --kube-reserved=cpu=100m,memory=1638Mi" +
+	" --max-pods=110" +
+	" --node-status-update-frequency=10s" +
+	" --pod-manifest-path=/etc/kubernetes/manifests" +
+	" --pod-max-pids=-1" +
+	" --protect-kernel-defaults=true" +
+	" --read-only-port=10255" +
+	" --resolv-conf=/etc/resolv.conf" +
+	" --rotate-certificates=true" +
+	" --rotate-server-certificates=true" +
+	" --streaming-connection-idle-timeout=4h0m0s" +
+	" --system-reserved=cpu=2,memory=1Gi" +
+	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
+	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" +
+	" --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key"
 
 var expectedKubeletJSON = `{
     "kind": "KubeletConfiguration",
@@ -1204,6 +1235,36 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 			name: "Default KubeletConfig",
 			args: args{
 				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					KubeletConfigFileContent: &aksnodeconfigv1.KubeletConfigFileContent{
+						Kind: "KubeletConfiguration",
+					},
+				},
+			},
+			want: expectedKubeletJSON,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getKubeletConfigFileContent(tt.args.kubeletConfig); got != tt.want {
+				t.Errorf("getKubeletConfigFileContent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getKubeletFlags(t *testing.T) {
+	type args struct {
+		kubeletConfig *aksnodeconfigv1.KubeletConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Default KubeletFlags",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
 					KubeletFlags: map[string]string{
 						"--address":                           "0.0.0.0",
 						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
@@ -1237,13 +1298,13 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 					},
 				},
 			},
-			want: expectedKubeletJSON,
+			want: expectedKubeletConfigFlags,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getKubeletConfigFileContent(tt.args.kubeletConfig); got != tt.want {
-				t.Errorf("getKubeletConfigFileContent() = %v, want %v", got, tt.want)
+			if got := getKubeletFlags(tt.args.kubeletConfig); got != tt.want {
+				t.Errorf("getKubeletFlags() = %v, want %v", got, tt.want)
 			}
 		})
 	}

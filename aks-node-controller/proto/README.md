@@ -1,8 +1,8 @@
-This readme is to describe the new public data contract `AKSNodeConfig` between a bootstrap requester (client) and a Linux node to be bootstrapped and join an AKS cluster. The contract is defined in a set of proto files with [protobuf](https://protobuf.dev/). And we convert/compile all the proto files into specific programming languages. Currently we only convert to .go files for Go. We can convert to other languages if needed in the future. A simple way to compile the files to Go is to run this command at `AgentBaker` root directory.
+This readme is to describe the new public data contract `AKSNodeConfig` between a bootstrap requester (client) and a Linux node to be bootstrapped and join an AKS cluster. The contract is defined in a set of proto files with [protobuf](https://protobuf.dev/). And we convert/compile all the proto files into specific programming languages. Currently we only convert to .go files for Go. We can convert to other languages if needed in the future. A simple way to compile the files to Go is to run this command at `AgentBaker/aks-node-controller` directory.
 ```
-make compile-proto-files
+make proto-generate
 ``` 
-
+Note: This command uses Docker to compile the proto files so you need to have Docker running otherwise you will see corresponing error message.
 
 # Public data contract `AKSNodeConfig`
 This table is describing the all the AKSNodeConfig Fields converted to .go files. The naming convention is a bit different in the .proto files. For example, in _config.proto_ file, you will see `api_server_config`, but in _config.pb.go_, it's automatically renamed to `ApiServerConfig`. In the following table, we will use the names defined in the .go files.

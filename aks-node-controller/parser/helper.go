@@ -14,13 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/* All the helper functions should be hosted by another public repo later. (e.g. agentbaker)
-This action of populating cse_cmd.sh should happen in the Go binary on VHD.
-Therefore, Karpenter will not use these helper functions once the Go binary is ready. */
-
-// Parser helpers are used to get values of the env variables to populate cse_cmd.sh. For example, default values, values computed by others, etc.
-// It's the go binary parser who will call these functions.
-
+// Parser helpers are used to get values of the env variables and pass to the provision scripts execution. For example, default values, values computed by others, etc.
 package parser
 
 import (
@@ -614,13 +608,17 @@ func getServicePrincipalFileContent(authConfig *aksnodeconfigv1.AuthConfig) stri
 	return base64.StdEncoding.EncodeToString([]byte(authConfig.GetServicePrincipalSecret()))
 }
 
+func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
+}
+
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
 		return ""
 	}
-	kubeletConfigMap := kubeletConfig.GetKubeletFlags()
-	configStringByte, _ := json.MarshalIndent(kubeletConfigMap, "", "    ")
+	str := kubeletConfig.GetKubeletConfigFileContent()
+	configStringByte, _ := json.MarshalIndent(str, "", "    ")
 	return string(configStringByte)
 }
 

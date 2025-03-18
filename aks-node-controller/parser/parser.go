@@ -151,7 +151,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HAS_KUBELET_DISK_TYPE":                          fmt.Sprintf("%v", getHasKubeletDiskType(config.GetKubeletConfig())),
 		"NEEDS_CGROUPV2":                                 fmt.Sprintf("%v", config.GetNeedsCgroupv2()),
 		"TLS_BOOTSTRAP_TOKEN":                            getTLSBootstrapToken(config.GetBootstrappingConfig()),
-		"KUBELET_FLAGS":                                  createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletFlags(), " "),
+		"KUBELET_FLAGS":                                  getKubeletFlags(config.GetKubeletConfig()),
 		"NETWORK_POLICY":                                 getStringFromNetworkPolicyType(config.GetNetworkConfig().GetNetworkPolicy()),
 		"KUBELET_NODE_LABELS":                            createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletNodeLabels(), ","),
 		"AZURE_ENVIRONMENT_FILEPATH":                     getAzureEnvironmentFilepath(config),
