@@ -124,7 +124,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.44"
+          "latestVersion": "v1.5.42"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
@@ -145,8 +145,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cni",
-          "latestVersion": "v1.5.44",
-          "previousLatestVersion": "v1.5.42",
+          "latestVersion": "v1.5.42",
+          "previousLatestVersion": "v1.5.41",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -250,8 +250,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "previousLatestVersion": "v0.0.7",
-          "latestVersion": "v0.0.8",
+          "latestVersion": "v0.0.7",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -262,8 +261,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "previousLatestVersion": "v0.2.0",
-          "latestVersion": "v0.2.1",
+          "latestVersion": "v0.2.0",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
