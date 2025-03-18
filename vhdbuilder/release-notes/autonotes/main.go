@@ -98,26 +98,30 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 	enforceInclude := len(include) > 0
 
 	artifactsToDownload := map[string]string{}
+	fmt.Printf("\n")
 	for key, value := range artifactToPath {
 		if ignore[key] {
-			fmt.Printf("Explicitly ignoring artifact \"%s\" with path \"%s\"\n", key, value)
+			fmt.Printf("Ignoring as artifact explicitly excluded \"%s\" with path \"%s\"\n", key, value)
 			continue
 		}
 
 		if enforceInclude && !include[key] {
-			fmt.Printf("Ignoring as not included artifact \"%s\" with path \"%s\"\n", key, value)
+			fmt.Printf("Ignoring as not artifact not explicitly included \"%s\" with path \"%s\"\n", key, value)
 			continue
 		}
 
 		artifactsToDownload[key] = value
 	}
 
+	fmt.Printf("\n")
 	for sku, path := range artifactsToDownload {
 		fmt.Printf("Including artifact \"%s\" with path \"%s\"\n", sku, path)
 	}
 
 	var errs []error
 
+	// In theory, this could be done in parallel using a goroutine.
+	// In practice, the "az" command breaks if you call it in parallel.
 	for sku, path := range artifactsToDownload {
 		if strings.Contains(path, "AKSWindows") {
 			err := getReleaseNotesWindows(sku, path, fl)
