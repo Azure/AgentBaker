@@ -26,6 +26,7 @@ steps:
     ADO_PAT: $(PAT-aksdevassistant)
 - template: ./templates/.generate-github-token.yaml
 - bash: |
+    set -ex
     echo "Bumping windows VHD base image version"
     /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh "$GITHUB_TOKEN" "$CHERRY_PICK_COMMIT_ID"
   env:
@@ -34,6 +35,7 @@ steps:
   displayName: 'Image Version Bumping'
   condition: eq('${{ parameters.ImageBump }}', true)
 - bash: |
+    set -ex
     echo "PR for Release Notes"
     cd vhdbuilder/release-notes/autonotes
     VER=$(go version)
