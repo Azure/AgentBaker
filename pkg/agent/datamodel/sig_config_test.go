@@ -20,6 +20,7 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 			AKSUbuntuContainerd2204Gen2:      SIGUbuntuContainerd2204Gen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2204TLGen2:    SIGUbuntuContainerd2204TLGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2004CVMGen2:   SIGUbuntuContainerd2004CVMGen2ImageConfigTemplate.WithOptions(),
+			AKSAzureLinuxV3CVMGen2:           SIGAzureLinuxV3CVMGen2ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404:          SIGUbuntuContainerd2404ImageConfigTemplate.WithOptions(),
 			AKSUbuntuContainerd2404Gen2:      SIGUbuntuContainerd2404Gen2ImageConfigTemplate.WithOptions(),
 			AKSCBLMarinerV2:                  SIGCBLMarinerV2Gen1ImageConfigTemplate.WithOptions(),
@@ -108,7 +109,7 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(mariner.Definition).To(Equal("V1"))
 		Expect(mariner.Version).To(Equal(FrozenCBLMarinerV1SIGImageVersionForDeprecation))
 
-		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(14))
+		Expect(len(sigConfig.SigAzureLinuxImageConfig)).To(Equal(15))
 
 		azurelinuxV2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV2]
 		Expect(azurelinuxV2.ResourceGroup).To(Equal("resourcegroup"))
@@ -365,6 +366,12 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(aksUbuntu2404Gen2Containerd.Gallery).To(Equal("aksubuntu"))
 		Expect(aksUbuntu2404Gen2Containerd.Definition).To(Equal("2404gen2containerd"))
 		Expect(aksUbuntu2404Gen2Containerd.Version).To(Equal(LinuxSIGImageVersion))
+
+		azurelinuxV3CVMGen2 := sigConfig.SigAzureLinuxImageConfig[AKSAzureLinuxV3CVMGen2]
+		Expect(azurelinuxV3CVMGen2.ResourceGroup).To(Equal("resourcegroup"))
+		Expect(azurelinuxV3CVMGen2.Gallery).To(Equal("aksazurelinux"))
+		Expect(azurelinuxV3CVMGen2.Definition).To(Equal("V3gen2CVM"))
+		Expect(azurelinuxV3CVMGen2.Version).To(Equal(LinuxSIGImageVersion))
 
 		aksUbuntu2404CVMGen2Containerd := sigConfig.SigUbuntuImageConfig[AKSUbuntuContainerd2404CVMGen2]
 		Expect(aksUbuntu2404CVMGen2Containerd.ResourceGroup).To(Equal("resourcegroup"))
