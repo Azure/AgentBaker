@@ -5,7 +5,7 @@ toolchain go1.24.1
 
 require (
 	github.com/containerd/containerd v1.7.27
-	github.com/containerd/platforms v0.2.1
+	github.com/containerd/platforms v1.0.0-rc.1
 	github.com/stretchr/testify v1.9.0
 )
 
