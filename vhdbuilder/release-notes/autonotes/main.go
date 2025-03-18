@@ -99,15 +99,17 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 
 	artifactsToDownload := map[string]string{}
 	for key, value := range artifactToPath {
-		fmt.Printf("%s - %s\n", key, value)
 		if ignore[key] {
+			fmt.Printf("Explicitly ignoring artifact \"%s\" with path \"%s\"\n", key, value)
 			continue
 		}
 
 		if enforceInclude && !include[key] {
+			fmt.Printf("Ignoring as not included artifact \"%s\" with path \"%s\"\n", key, value)
 			continue
 		}
 
+		fmt.Printf("Including artifact \"%s\" with path \"%s\"\n", key, value)
 		artifactsToDownload[key] = value
 	}
 
