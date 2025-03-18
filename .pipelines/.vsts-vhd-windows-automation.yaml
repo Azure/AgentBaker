@@ -51,7 +51,7 @@ stages:
             ADO_PAT: $(PAT-aksdevassistant)
         - template: ./templates/.generate-github-token.yaml
         - bash: |
-            set -ex
+            set -e
             echo "PR for Release Notes"
             cd vhdbuilder/release-notes/autonotes
             VER=$(go version)
