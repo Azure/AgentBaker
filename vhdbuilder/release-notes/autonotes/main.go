@@ -115,7 +115,6 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 	var done = make(chan struct{})
 
 	for sku, path := range artifactsToDownload {
-
 		if strings.Contains(path, "AKSWindows") {
 			go getReleaseNotesWindows(sku, path, fl, errc, done)
 		} else {
@@ -201,13 +200,12 @@ func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done
 		return
 	}
 
-	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
+	fmt.Printf("downloading releaseNotes '%s' from windows build '%s'\n", releaseNotesName, fl.build)
 
 	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", releaseNotesName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
+		fmt.Printf("Failed downloading releaseNotes '%s' from windows build '%s'\n", releaseNotesName, fl.build)
+		errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
 		return
 	}
 
@@ -215,9 +213,8 @@ func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done
 
 	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", imageListName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
+		fmt.Printf("failed downloading imageList '%s' from windows build '%s'\n", imageListName, fl.build)
+		errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
 		return
 	}
 }
