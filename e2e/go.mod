@@ -1,7 +1,8 @@
 module github.com/Azure/agentbaker/e2e
 
-go 1.22.2
-toolchain go1.23.7
+go 1.23.0
+
+toolchain go1.24.1
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
