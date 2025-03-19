@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/vhdbuilder/lister
 
-go 1.23.0
+go 1.21.13
 
 toolchain go1.24.1
 
