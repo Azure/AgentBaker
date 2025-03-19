@@ -26,12 +26,24 @@ import (
 // this is a base kubelet config for Scriptless e2e test
 var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	EnableKubeletConfigFile: true,
+	KubeletFlags: map[string]string{
+		"--cloud-config":              "",
+		"--cloud-provider":            "external",
+		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+	},
+	KubeletNodeLabels: map[string]string{
+		"agentpool":                               "nodepool2",
+		"kubernetes.azure.com/agentpool":          "nodepool2",
+		"kubelnetes.azure.com/cluster":            "test-cluster",
+		"kubernetes.azure.com/mode":               "system",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+	},
 	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
 		Kind:              "KubeletConfiguration",
 		ApiVersion:        "kubelet.config.k8s.io/v1beta1",
 		StaticPodPath:     "/etc/kubernetes/manifests",
 		Address:           "0.0.0.0",
-		ReadOnlyPort:      10255,
 		TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
 		TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
 		TlsCipherSuites: []string{
@@ -44,7 +56,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 			"TLS_RSA_WITH_AES_256_GCM_SHA384",
 			"TLS_RSA_WITH_AES_128_GCM_SHA256",
 		},
-		RotateCertificates: true,
+		RotateCertificates: false,
 		ServerTlsBootstrap: true,
 		Authentication: &aksnodeconfigv1.KubeletAuthentication{
 			X509: &aksnodeconfigv1.KubeletX509Authentication{
@@ -62,36 +74,22 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		ClusterDns: []string{
 			"10.0.0.10",
 		},
-		StreamingConnectionIdleTimeout: "4h0m0s",
+		StreamingConnectionIdleTimeout: "4h",
 		NodeStatusUpdateFrequency:      "10s",
-		ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
-		ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
+		ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
+		ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
 		CgroupsPerQos:                  to.Ptr(true),
-		CpuManagerPolicy:               "static",
-		TopologyManagerPolicy:          "best-effort",
 		MaxPods:                        to.Ptr(int32(110)),
-		PodPidsLimit:                   to.Ptr(int32(12345)),
-		ResolvConf:                     "/etc/resolv.conf",
-		CpuCfsQuota:                    to.Ptr(false),
-		CpuCfsQuotaPeriod:              "200ms",
+		PodPidsLimit:                   to.Ptr(int32(-1)),
+		ResolvConf:                     "/run/systemd/resolve/resolv.conf",
 		EvictionHard: map[string]string{
 			"memory.available":  "750Mi",
 			"nodefs.available":  "10%",
 			"nodefs.inodesFree": "5%",
 		},
 		ProtectKernelDefaults: true,
-		FeatureGates: map[string]bool{
-			"CustomCPUCFSQuotaPeriod":        true,
-			"RotateKubeletServerCertificate": true,
-			"DynamicKubeletConfig":           false,
-		},
-		FailSwapOn:           to.Ptr(false),
-		ContainerLogMaxSize:  "1000M",
-		ContainerLogMaxFiles: to.Ptr(int32(99)),
-		SystemReserved: map[string]string{
-			"cpu":    "2",
-			"memory": "1Gi",
-		},
+		FeatureGates:          map[string]bool{},
+		FailSwapOn:            to.Ptr(false),
 		KubeReserved: map[string]string{
 			"cpu":    "100m",
 			"memory": "1638Mi",

@@ -1377,8 +1377,9 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				config.KubeletConfig.EnableKubeletConfigFile = true
 				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
 				config.KubeletConfig.KubeletConfigFileConfig.AllowedUnsafeSysctls = []string{"kernel.msg*", "net.ipv4.route.min_pmtu"}
-				config.KubeletConfig.KubeletConfigFileConfig.RotateCertificates = true
-
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = true
+				config.KubeletConfig.KubeletConfigFileConfig.FeatureGates = map[string]bool{"RotateKubeletServerCertificate": true}
+				config.EnableUnattendedUpgrade = false
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
