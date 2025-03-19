@@ -250,8 +250,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-ipam",
-          "previousLatestVersion": "v0.0.7",
-          "latestVersion": "v0.0.8",
+          "latestVersion": "v0.0.7",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
