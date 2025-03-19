@@ -22,7 +22,7 @@ else
   privileged_without_host_devices = true
   pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-blk.options]
-    ConfigPath = "/usr/share/defaults/kata-containersconfiguration-blk.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-blk.toml"
 EOF
 
   echo "kata-blk runtime added to containerd config"
