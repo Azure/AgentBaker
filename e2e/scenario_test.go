@@ -1359,6 +1359,43 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	})
 }
 
+func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKubeletConfig_Scriptless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			ServerTLSBootstrapping: true,
+		},
+		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// to force kubelet config file
+				config.KubeletConfig = &aksnodeconfigv1.KubeletConfig{
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						FailSwapOn:           to.Ptr(true),
+						AllowedUnsafeSysctls: []string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
+						RotateCertificates:   true,
+					},
+				}
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				if vmss.Tags == nil {
+					vmss.Tags = map[string]*string{}
+				}
+				vmss.Tags["aks-disable-kubelet-serving-certificate-rotation"] = to.Ptr("true")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsCertFile\": \"/etc/kubernetes/certs/kubeletserver.crt\"")
+				ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"tlsPrivateKeyFile\": \"/etc/kubernetes/certs/kubeletserver.key\"")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
+				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
+				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+			},
+		},
+	})
+}
+
 func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDisabled(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{

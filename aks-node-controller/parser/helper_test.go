@@ -19,11 +19,14 @@ package parser
 import (
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/google/go-cmp/cmp"
 )
 
 var expectedKubeletConfigFlags = "--address=0.0.0.0" +
@@ -82,12 +85,10 @@ var expectedKubeletJSON = `{
         },
         "webhook": {
             "enabled": true
-        },
-        "anonymous": {}
+        }
     },
     "authorization": {
-        "mode": "Webhook",
-        "webhook": {}
+        "mode": "Webhook"
     },
     "eventRecordQPS": 0,
     "clusterDomain": "cluster.local",
@@ -167,9 +168,9 @@ net.ipv4.tcp_retries2=8`)),
 			name: "SysctlConfig with custom values",
 			args: args{
 				s: &aksnodeconfigv1.SysctlConfig{
-					NetIpv4TcpMaxSynBacklog: ToPtr(int32(9999)),
-					NetCoreRmemDefault:      ToPtr(int32(9999)),
-					NetIpv4IpLocalPortRange: ToPtr("32768 62535"),
+					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
+					NetCoreRmemDefault:      to.Ptr(int32(9999)),
+					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
@@ -373,7 +374,7 @@ func Test_getContainerdConfig(t *testing.T) {
 			name: "Default Containerd Configurations",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: ToPtr(true),
+					NeedsCgroupv2: to.Ptr(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
@@ -401,9 +402,9 @@ oom_score = -999
 			name: "Containerd Configurations with bool noGpu set to false",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: ToPtr(true),
+					NeedsCgroupv2: to.Ptr(true),
 					GpuConfig: &aksnodeconfigv1.GpuConfig{
-						EnableNvidia: ToPtr(true),
+						EnableNvidia: to.Ptr(true),
 					},
 				},
 				noGpu: false,
@@ -433,7 +434,7 @@ oom_score = -999
 			name: "Containerd Configurations with bool noGpu set to true",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: ToPtr(true),
+					NeedsCgroupv2: to.Ptr(true),
 				},
 				noGpu: true,
 			},
@@ -1235,8 +1236,84 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 			name: "Default KubeletConfig",
 			args: args{
 				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
-					KubeletConfigFileContent: &aksnodeconfigv1.KubeletConfigFileContent{
-						Kind: "KubeletConfiguration",
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						Kind:              "KubeletConfiguration",
+						ApiVersion:        "kubelet.config.k8s.io/v1beta1",
+						StaticPodPath:     "/etc/kubernetes/manifests",
+						Address:           "0.0.0.0",
+						ReadOnlyPort:      10255,
+						TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
+						TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
+						TlsCipherSuites: []string{
+							"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+							"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+							"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+							"TLS_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_RSA_WITH_AES_128_GCM_SHA256",
+						},
+						RotateCertificates: true,
+						ServerTlsBootstrap: true,
+						Authentication: &aksnodeconfigv1.KubeletAuthentication{
+							X509: &aksnodeconfigv1.KubeletX509Authentication{
+								ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+							},
+							Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
+								Enabled: true,
+							},
+						},
+						Authorization: &aksnodeconfigv1.KubeletAuthorization{
+							Mode: "Webhook",
+						},
+						EventRecordQps: to.Ptr(int32(0)),
+						ClusterDomain:  "cluster.local",
+						ClusterDns: []string{
+							"10.0.0.10",
+						},
+						StreamingConnectionIdleTimeout: "4h0m0s",
+						NodeStatusUpdateFrequency:      "10s",
+						ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
+						ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
+						CgroupsPerQos:                  to.Ptr(true),
+						CpuManagerPolicy:               "static",
+						TopologyManagerPolicy:          "best-effort",
+						MaxPods:                        to.Ptr(int32(110)),
+						PodPidsLimit:                   to.Ptr(int32(12345)),
+						ResolvConf:                     "/etc/resolv.conf",
+						CpuCfsQuota:                    to.Ptr(false),
+						CpuCfsQuotaPeriod:              "200ms",
+						EvictionHard: map[string]string{
+							"memory.available":  "750Mi",
+							"nodefs.available":  "10%",
+							"nodefs.inodesFree": "5%",
+						},
+						ProtectKernelDefaults: true,
+						FeatureGates: map[string]bool{
+							"CustomCPUCFSQuotaPeriod":        true,
+							"RotateKubeletServerCertificate": true,
+							"DynamicKubeletConfig":           false,
+						},
+						FailSwapOn:           to.Ptr(false),
+						ContainerLogMaxSize:  "1000M",
+						ContainerLogMaxFiles: to.Ptr(int32(99)),
+						SystemReserved: map[string]string{
+							"cpu":    "2",
+							"memory": "1Gi",
+						},
+						KubeReserved: map[string]string{
+							"cpu":    "100m",
+							"memory": "1638Mi",
+						},
+						EnforceNodeAllocatable: []string{
+							"pods",
+						},
+						AllowedUnsafeSysctls: []string{
+							"kernel.msg*",
+							"net.ipv4.route.min_pmtu",
+						},
+						SeccompDefault: true,
 					},
 				},
 			},
@@ -1246,8 +1323,21 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getKubeletConfigFileContent(tt.args.kubeletConfig); got != tt.want {
-				t.Errorf("getKubeletConfigFileContent() = %v, want %v", got, tt.want)
+				// Normalize JSON strings to avoid any formatting differences such as space, indent, line breaking
+				var gotJSON, wantJSON map[string]any
+				if err := json.Unmarshal([]byte(got), &gotJSON); err != nil {
+					t.Fatalf("Failed to unmarshal generated JSON: %v", err)
+				}
+				if err := json.Unmarshal([]byte(tt.want), &wantJSON); err != nil {
+					t.Fatalf("Failed to unmarshal expected JSON: %v", err)
+				}
+				if diff := cmp.Diff(wantJSON, gotJSON); diff != "" {
+					t.Errorf("Generated JSON does not match expected JSON (-want +got):\n%s", diff)
+					t.Errorf("Generated config file: %s", got)
+					t.Errorf("Expected config file: %s", tt.want)
+				}
 			}
+
 		})
 	}
 }

@@ -21,7 +21,6 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -32,6 +31,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -617,8 +617,15 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 	if kubeletConfig == nil {
 		return ""
 	}
-	str := kubeletConfig.GetKubeletConfigFileContent()
-	configStringByte, _ := json.MarshalIndent(str, "", "    ")
+	str := kubeletConfig.GetKubeletConfigFileConfig()
+	configStringByte, err := protojson.MarshalOptions{
+		Multiline: true,
+		Indent:    "    ",
+	}.Marshal(str)
+	if err != nil {
+		log.Printf("error marshalling kubelet config file content: %v", err)
+		return ""
+	}
 	return string(configStringByte)
 }
 

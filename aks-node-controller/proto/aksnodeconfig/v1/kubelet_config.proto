@@ -17,7 +17,7 @@ message KubeletConfig {
   bool enable_kubelet_config_file = 4;
 
   // content of the kubelet config file.
-  KubeletConfigFileConfig kubelet_config_file_content = 5;
+  KubeletConfigFileConfig kubelet_config_file_config = 5;
 
   // Kubelet client private key
   string kubelet_client_key = 6;
@@ -120,7 +120,7 @@ message KubeletConfigFileConfig {
   // must be enabled when setting this field.
   // Default: false
   // +optional
-  bool server_tls_bootstrap = 10;
+  bool server_tls_bootstrap = 10 [json_name = "serverTLSBootstrap"];
 
   /* authentication specifies how requests to the Kubelet's server are authenticated
      Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
@@ -152,7 +152,7 @@ message KubeletConfigFileConfig {
      event creations.
      Default: 5
      +optional. */
-  optional int32 event_record_qps = 13;
+  optional int32 event_record_qps = 13 [json_name = "eventRecordQPS"];
 
   /* clusterDomain is the DNS domain for this cluster. If set, kubelet will
      configure all containers to search this domain in addition to the
@@ -171,7 +171,7 @@ message KubeletConfigFileConfig {
      the node is recommended before changing this field.
      Default: nil
      +optional. */
-  repeated string cluster_dns = 15;
+  repeated string cluster_dns = 15 [json_name = "clusterDNS"];
 
   /* streamingConnectionIdleTimeout is the maximum time a streaming connection
      can be idle before the connection is automatically closed.
@@ -215,7 +215,7 @@ message KubeletConfigFileConfig {
      on the node.
      Default: 85
      +optional. */
-  optional int32 image_gc_high_threshold_percent = 19;
+  optional int32 image_gc_high_threshold_percent = 19 [json_name = "imageGCHighThresholdPercent"];
 
   /* imageGCLowThresholdPercent is the percent of disk usage before which
      image garbage collection is never run. Lowest disk usage to garbage
@@ -225,7 +225,7 @@ message KubeletConfigFileConfig {
      on the node.
      Default: 80
      +optional. */
-  optional int32 image_gc_low_threshold_percent = 20;
+  optional int32 image_gc_low_threshold_percent = 20 [json_name = "imageGCLowThresholdPercent"];
 
   /* Enable QoS based Cgroup hierarchy: top level cgroups for QoS Classes
      And all Burstable and BestEffort pods are brought up under their
@@ -234,7 +234,7 @@ message KubeletConfigFileConfig {
      reboot. It is safest to keep this value the same as the local config.
      Default: true
      +optional. */
-  optional bool cgroups_per_qos = 21;
+  optional bool cgroups_per_qos = 21 [json_name = "cgroupsPerQOS"];
 
   /* CPUManagerPolicy is the name of the policy to use.
      Requires the CPUManager feature gate to be enabled.
@@ -268,16 +268,16 @@ message KubeletConfigFileConfig {
      lowering it may prevent container processes from forking after the change.
      Default: -1
      +optional. */
-  optional int64 pod_pids_limit = 25;
+  optional int32 pod_pids_limit = 25;
 
-  /* ResolverConfig is the resolver configuration file used as the basis
+  /* ResolvConf is the resolver configuration file used as the basis
      for the container DNS resolution configuration.
      Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
      changes will only take effect on Pods created after the update. Draining
      the node is recommended before changing this field.
      Default: "/etc/resolv.conf"
      +optional. */
-  string resolver_config = 26;
+  string resolv_conf = 26;
 
   /* cpuCFSQuota enables CPU CFS quota enforcement for containers that
      specify CPU limits.
@@ -285,7 +285,7 @@ message KubeletConfigFileConfig {
      disabling it may reduce node stability.
      Default: true
      +optional. */
-  optional bool cpu_cfs_quota = 27;
+  optional bool cpu_cfs_quota = 27 [json_name = "cpuCFSQuota"];
 
   /* CPUCFSQuotaPeriod is the CPU CFS quota period value, cpu.cfs_period_us.
      Dynamic Kubelet Config (beta): If dynamically updating this field, consider that
@@ -293,7 +293,7 @@ message KubeletConfigFileConfig {
      will trigger container restarts on the node being reconfigured.
      Default: "100ms"
      +optional. */
-  string cpu_cfs_quota_period = 28;
+  string cpu_cfs_quota_period = 28 [json_name = "cpuCFSQuotaPeriod"];
 
   /* Map of signal names to quantities that defines hard eviction thresholds. For example: {"memory.available": "300Mi"}.
      To explicitly disable, pass a 0% or 100% threshold on an arbitrary resource.
@@ -434,7 +434,7 @@ message KubeletX509Authentication {
      signed by one of the authorities in the bundle is authenticated with a username corresponding to the CommonName,
      and groups corresponding to the Organization in the client certificate.
      +optional. */
-  string client_ca_file = 1;
+  string client_ca_file = 1 [json_name = "clientCAFile"];
 }
 
 message KubeletWebhookAuthentication {
