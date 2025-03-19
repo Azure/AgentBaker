@@ -1332,7 +1332,6 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-  snapshotter = "tardev"
   runtime_type = "io.containerd.kata.v2"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
@@ -1447,7 +1446,6 @@ root = "{{GetDataDir}}"{{- end}}
 {{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
-  snapshotter = "tardev"
   runtime_type = "io.containerd.kata.v2"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
