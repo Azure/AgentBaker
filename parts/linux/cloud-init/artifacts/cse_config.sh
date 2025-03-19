@@ -258,6 +258,8 @@ EOF
         chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
         echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
+        cat "devin: Printing kubelet config file"
+        cat "${KUBELET_CONFIG_JSON_PATH}"
         set -x
         KUBELET_CONFIG_DROP_IN="/etc/systemd/system/kubelet.service.d/10-componentconfig.conf"
         touch "${KUBELET_CONFIG_DROP_IN}"

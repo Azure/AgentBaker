@@ -1371,6 +1371,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
 				// to force kubelet config file
 				config.KubeletConfig = &aksnodeconfigv1.KubeletConfig{
+					EnableKubeletConfigFile: true,
 					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
 						FailSwapOn:           to.Ptr(true),
 						AllowedUnsafeSysctls: []string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
