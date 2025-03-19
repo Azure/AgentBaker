@@ -130,6 +130,7 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"PROXY_VARS":                                     getProxyVariables(config.GetHttpProxyConfig()),
 		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                fmt.Sprintf("%v", getEnableSecureTLSBootstrap(config.GetBootstrappingConfig())),
 		"CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID":  getCustomSecureTLSBootstrapAADServerAppID(config.GetBootstrappingConfig()),
+		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":    fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetRotateCertificates()),
 		"DHCPV6_SERVICE_FILEPATH":                        getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                         getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                    config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),

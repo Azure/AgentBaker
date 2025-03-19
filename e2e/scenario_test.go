@@ -1369,15 +1369,16 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				// to force kubelet config file
-				config.KubeletConfig = &aksnodeconfigv1.KubeletConfig{
-					EnableKubeletConfigFile: true,
-					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
-						FailSwapOn:           to.Ptr(true),
-						AllowedUnsafeSysctls: []string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-						RotateCertificates:   true,
-					},
-				}
+				// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
+				// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
+				// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
+				config.KubeletConfig = baseKubeletConfig
+
+				config.KubeletConfig.EnableKubeletConfigFile = true
+				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
+				config.KubeletConfig.KubeletConfigFileConfig.AllowedUnsafeSysctls = []string{"kernel.msg*", "net.ipv4.route.min_pmtu"}
+				config.KubeletConfig.KubeletConfigFileConfig.RotateCertificates = true
+
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				if vmss.Tags == nil {
