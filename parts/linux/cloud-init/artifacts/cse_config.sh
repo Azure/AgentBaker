@@ -141,6 +141,7 @@ configureHTTPProxyCA() {
 
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
+    # This path is used by the Custom CA Trust feature only
     chmod 1755 /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         # declare dynamically and use "!" to avoid bad substition errors
