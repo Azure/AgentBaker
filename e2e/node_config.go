@@ -35,7 +35,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 	KubeletNodeLabels: map[string]string{
 		"agentpool":                               "nodepool2",
 		"kubernetes.azure.com/agentpool":          "nodepool2",
-		"kubelnetes.azure.com/cluster":            "test-cluster",
+		"kubernetes.azure.com/cluster":            "test-cluster",
 		"kubernetes.azure.com/mode":               "system",
 		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
 	},
