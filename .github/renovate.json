@@ -52,8 +52,6 @@
         "azure-policy/policy-kubernetes-addon-prod",
         "azure-policy/policy-kubernetes-webhook",
         "oss/kubernetes/kube-proxy",
-        "moby-runc",
-        "moby-containerd",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
         "oss/binaries/deislabs/containerd-wasm-shims",
@@ -153,12 +151,64 @@
     },
     {
       "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "runc-containerd-minor",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "azure-cni",
         "containernetworking/azure-cni",
-        "containernetworking/cilium/cilium",
         "containernetworking/azure-ipam"
       ],
       "groupName": "azure-cni-cilium-ipam",
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/cilium/cilium"
+      ],
+      "groupName": "azure-cni-cilium-ipam",
+      "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -329,8 +379,7 @@
     },
     {
       "matchPackageNames": [
-        "aks/aks-gpu-cuda",
-        "aks/aks-gpu-grid"
+        "aks/aks-gpu-cuda"
       ],
       "groupName": "nvidia-gpu",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",

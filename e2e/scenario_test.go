@@ -33,6 +33,9 @@ func Test_AzureLinuxV2(t *testing.T) {
 func Test_AzureLinuxV2_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
@@ -91,6 +94,9 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD on ARM64 architecture can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
@@ -115,7 +121,6 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 
@@ -263,7 +268,8 @@ func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "AzureLinux V2 (CgroupV2) gpu scenario on cluster configured with Azure CNI",
 		Tags: Tags{
-			GPU: true,
+			Scriptless: true,
+			GPU:        true,
 		},
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
@@ -372,7 +378,6 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 			Cluster: ClusterKubenetAirgap,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 
@@ -395,27 +400,16 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 	})
 }
 
-func Test_MarinerV2_AzureCNI(t *testing.T) {
+// Merge test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
+func Test_MarinerV2_AzureCNI_ChronyRestarts(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "marinerv2 scenario on a cluster configured with Azure CNI",
+		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
 		Config: Config{
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-			},
-		},
-	})
-}
-
-func Test_MarinerV2_ChronyRestarts(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDCBLMarinerV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -426,13 +420,18 @@ func Test_MarinerV2_ChronyRestarts(t *testing.T) {
 	})
 }
 
-func Test_MarinerV2_ChronyRestarts_Scriptless(t *testing.T) {
+// Merge scriptless test case MarinerV2 AzureCNI with MarinerV2 ChronyRestarts
+func Test_MarinerV2_AzureCNI_ChronyRestarts_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that the chrony service restarts if it is killed",
+		Description: "Test marinerv2 scenario on a cluster configured with Azure CNI and the chrony service restarts if it is killed",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
-			Cluster: ClusterKubenet,
+			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDCBLMarinerV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
@@ -605,6 +604,9 @@ func Test_Ubuntu1804_ChronyRestarts(t *testing.T) {
 func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using self contained installer can be properly bootstrapped",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -620,9 +622,7 @@ func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "testing that a new ubuntu 2404 node using self contained installer can be properly bootstrapped",
 		Tags: Tags{
-			Name: config.VHDUbuntu2404Gen2Containerd.Name,
-			OS:   string(config.VHDUbuntu2404Gen2Containerd.OS),
-			Arch: config.VHDUbuntu2404Gen2Containerd.Arch,
+			Scriptless: true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -831,6 +831,9 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "tests that a new ubuntu 2204 node using artifact streaming can be properly bootstrapepd",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -866,6 +869,9 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that the chrony service restarts if it is killed. Also tests taints and tolerations",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -884,7 +890,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 
 func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
 	RunScenario(t, &Scenario{
-		Description: "Tests that a node using the Azure Linux VHD can be properly bootstrapped and custom CA was correctly added",
+		Description: "Tests that a node using the Azure Linux 2204 VHD can be properly bootstrapped and custom CA was correctly added",
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
@@ -925,6 +931,9 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using the Ubuntu 2204 VHD can be properly bootstrapped and custom CA was correctly added",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -992,6 +1001,9 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 	}
 	RunScenario(t, &Scenario{
 		Description: "tests that an ubuntu 2204 VHD can be properly bootstrapped when supplied custom node config that contains custom sysctl settings",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1063,7 +1075,8 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests scriptless installer that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
 		Tags: Tags{
-			GPU: true,
+			Scriptless: true,
+			GPU:        true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1147,7 +1160,8 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD opting for skipping gpu driver installation can be properly bootstrapped",
 		Tags: Tags{
-			GPU: true,
+			Scriptless: true,
+			GPU:        true,
 		},
 		Config: Config{
 			Cluster: ClusterKubenet,
@@ -1216,6 +1230,9 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 	RunScenario(t, &Scenario{
 		Description: `tests that a node using the Ubuntu 2204 VHD with the ContainerdPackageURL override the provided URL and not the components.json containerd version,
 		              tests that the imds restriction filter table is properly set`,
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1240,7 +1257,6 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerdVersion = "1.6.9"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
@@ -1547,6 +1563,9 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 can be bootstrapped and message of the day is added to the node",
+		Tags: Tags{
+			Scriptless: true,
+		},
 		Config: Config{
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,

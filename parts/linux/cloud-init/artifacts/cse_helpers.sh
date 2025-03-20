@@ -412,7 +412,8 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    service=$1; timeout=$2    
+    systemctl_restart 100 5 $2 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
@@ -724,6 +725,32 @@ removeKubeletNodeLabel() {
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING},/}"
     elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
+    fi
+}
+
+# generate kubenode binary registry url from acs-mirror url
+updateKubeBinaryRegistryURL() {
+    # if rp already passes registry url, then directly use the registry url that rp passes
+    # this path should have not catch for now, but keep it for future 
+    if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+        echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+    else
+        # however, the kubelet and kubectl binary version may different with kubernetes version due to hotfix or beta
+        # so that we still need to extract the binary version from kube_binary_url
+        url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+        if [[ -n ${KUBE_BINARY_URL} ]]; then
+            binary_version="v${KUBERNETES_VERSION}" # by default use Kubernetes versions
+            if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                # Extract the version part
+                binary_version="${version_with_prefix%%/*}"
+                echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+            else
+                echo "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: $binary_version"
+            fi
+        fi
+        KUBE_BINARY_REGISTRY_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
     fi
 }
 

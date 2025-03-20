@@ -98,7 +98,7 @@ listInstalledPackages() {
 # disable and mask all UU timers/services
 disableDNFAutomatic() {
     # Make sure dnf-automatic is running with the notify timer rather than the auto install timer
-    systemctlEnableAndStart dnf-automatic-notifyonly.timer || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart dnf-automatic-notifyonly.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
 
     # Ensure the automatic install timer is disabled. 
     # systemctlDisableAndStop adds .service to the end which doesn't work on timers.
@@ -117,7 +117,7 @@ disableTimesyncd() {
     systemctl mask systemd-timesyncd || exit 1
     
     # Before we return, make sure that chronyd is running
-    systemctlEnableAndStart chronyd || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # Regardless of UU mode, ensure check-restart is running
@@ -127,7 +127,7 @@ enableCheckRestart() {
   # At 8:000:00 UTC check if a reboot-required package was installed
   # Touch /var/run/reboot-required if a reboot required package was installed.
   # This helps avoid a Mariner/AzureLinux specific reboot check command in kured.
-  systemctlEnableAndStart check-restart.timer || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart check-restart.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 # There are several issues in default file permissions when trying to run AMA and ASA extensions.
