@@ -257,6 +257,7 @@ EOF
         touch "${KUBELET_CONFIG_JSON_PATH}"
         chmod 0600 "${KUBELET_CONFIG_JSON_PATH}"
         chown root:root "${KUBELET_CONFIG_JSON_PATH}"
+        echo "devin:KUBELET_CONFIG_FILE_CONTENT: ${KUBELET_CONFIG_FILE_CONTENT}"
         echo "${KUBELET_CONFIG_FILE_CONTENT}" | base64 -d > "${KUBELET_CONFIG_JSON_PATH}"
         echo "devin: Printing kubelet config file"
         cat "${KUBELET_CONFIG_JSON_PATH}"
