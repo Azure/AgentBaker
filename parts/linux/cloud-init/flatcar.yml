@@ -396,7 +396,7 @@ storage:
         AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
   {{- end}}
 
-  {{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
+  {{ if (or EnableSecureTLSBootstrapping GetTLSBootstrapTokenForKubeConfig) -}}
   - path: /var/lib/kubelet/bootstrap-kubeconfig
     mode: 0644
     user:
