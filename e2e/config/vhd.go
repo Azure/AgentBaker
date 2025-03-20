@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 )
 
 const (
@@ -20,12 +22,28 @@ var (
 		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
 		Name:              Config.GalleryNameLinux,
 	}
+
+	flatcarNotGallery = &Gallery{
+		SubscriptionID:    Config.GallerySubscriptionIDLinux,
+		ResourceGroupName: "<not-a-gallery>",
+		Name:              "<not-a-gallery>",
+		Publisher:         "kinvolk",
+		Offer:             "flatcar-container-linux-corevm-amd64",
+		SKU:               "stable-gen2",
+		Version:           "latest",
+		Location:          Config.Location,
+	}
 )
 
 type Gallery struct {
 	SubscriptionID    string
 	ResourceGroupName string
 	Name              string
+	Publisher         string
+	Offer             string
+	SKU               string
+	Version           string
+	Location          string
 }
 
 type OS string
@@ -35,9 +53,17 @@ var (
 	OSUbuntu     OS = "ubuntu"
 	OSMariner    OS = "mariner"
 	OSAzureLinux OS = "azurelinux"
+	OSFlatcar    OS = "flatcar"
 )
 
 var (
+	NoVHDFlatcar = &Image{
+		Name:    "flatcar",
+		OS:      OSFlatcar,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSFlatcarGen2,
+		Gallery: flatcarNotGallery,
+	}
 	VHDUbuntu1804Gen2Containerd = &Image{
 		Name:    "1804gen2containerd",
 		OS:      OSUbuntu,
@@ -210,9 +236,30 @@ func (i *Image) String() string {
 	return fmt.Sprintf("%s %s %s %s", i.OS, i.Name, i.Version, i.Arch)
 }
 
+func (i *Image) ToImageRef(ctx context.Context, t *testing.T) *armcompute.ImageReference {
+	i.VHDResourceID(ctx, t)
+	switch {
+	case i.OS == OSFlatcar:
+		return &armcompute.ImageReference{
+			Publisher: to.Ptr(i.Gallery.Publisher),
+			Offer:     to.Ptr(i.Gallery.Offer),
+			SKU:       to.Ptr(i.Gallery.SKU),
+			Version:   to.Ptr(i.Gallery.Version),
+		}
+	default:
+		return &armcompute.ImageReference{
+			ID: to.Ptr(string(i.vhd)),
+		}
+	}
+}
+
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
+		case i.OS == OSFlatcar:
+			i.vhd = VHDResourceID(fmt.Sprintf("/Subscriptions/%s/Providers/Microsoft.Compute/Locations/%s/Publishers/%s/ArtifactTypes/VMImage/Offers/%s/Skus/%s/Versions/%s",
+				i.Gallery.SubscriptionID, i.Gallery.Location, i.Gallery.Publisher, i.Gallery.Offer, i.Gallery.SKU, i.Gallery.Version))
+			i.vhdErr = nil
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
 			if i.vhd != "" {

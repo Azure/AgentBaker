@@ -174,9 +174,8 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	if vmss.Properties.VirtualMachineProfile.StorageProfile == nil {
 		vmss.Properties.VirtualMachineProfile.StorageProfile = &armcompute.VirtualMachineScaleSetStorageProfile{}
 	}
-	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = &armcompute.ImageReference{
-		ID: to.Ptr(string(resourceID)),
-	}
+
+	vmss.Properties.VirtualMachineProfile.StorageProfile.ImageReference = s.VHD.ToImageRef(ctx, t)
 
 	// don't clean up VMSS in other tests
 	if config.Config.KeepVMSS {
