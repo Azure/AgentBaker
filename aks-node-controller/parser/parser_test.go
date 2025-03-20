@@ -317,7 +317,7 @@ oom_score = -999
 					AssignedIdentityId:     "userAssignedID",
 				},
 				NetworkConfig: &aksnodeconfigv1.NetworkConfig{
-					VnetCniPluginsUrl: "https://acs-mirror.azureedge.net/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
+					VnetCniPluginsUrl: "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
 				},
 				GpuConfig: &aksnodeconfigv1.GpuConfig{
 					ConfigGpuDriver: true,
