@@ -620,7 +620,7 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 	str := kubeletConfig.GetKubeletConfigFileConfig()
 	configStringByte, err := protojson.MarshalOptions{
 		Multiline: true,
-		Indent:    "    ",
+		Indent:    "  ",
 	}.Marshal(str)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)

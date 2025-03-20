@@ -57,7 +57,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 			"TLS_RSA_WITH_AES_128_GCM_SHA256",
 		},
 		RotateCertificates: false,
-		ServerTlsBootstrap: true,
+		ServerTlsBootstrap: false,
 		Authentication: &aksnodeconfigv1.KubeletAuthentication{
 			X509: &aksnodeconfigv1.KubeletX509Authentication{
 				ClientCaFile: "/etc/kubernetes/certs/ca.crt",

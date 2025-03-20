@@ -15,39 +15,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
-func Test_AzureLinuxV2(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
-			},
-		},
-	})
-}
-
-func Test_AzureLinuxV2_Scriptless(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
-		Tags: Tags{
-			Scriptless: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDAzureLinuxV2Gen2,
-			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
-			},
-		},
-	})
-}
-
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -1629,6 +1596,33 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+			},
+		},
+	})
+}
+
+func Test_AzureLinuxV2_KubeletCustomConfig_Scpritless(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Tags: Tags{
+			KubeletCustomConfig: true,
+			Scriptless:          true,
+		},
+		Description: "tests that a node on azure linux v2 bootstrapped with kubelet custom config for seccomp set to non default values",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDAzureLinuxV2Gen2,
+			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig = baseKubeletConfig
+				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
+				config.KubeletConfig.KubeletConfigFileConfig.TlsCertFile = "/etc/kubernetes/certs/kubeletserver.crt"
+				config.KubeletConfig.KubeletConfigFileConfig.TlsPrivateKeyFile = "/etc/kubernetes/certs/kubeletserver.key"
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
+				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
+				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
 			},
 		},
 	})
