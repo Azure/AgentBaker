@@ -101,7 +101,6 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 			"kernel.msg*",
 			"net.ipv4.route.min_pmtu",
 		},
-		SeccompDefault: true,
 	},
 }
 
