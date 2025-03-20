@@ -127,6 +127,8 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
+ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -857,6 +859,38 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+get_localdns_cluster_listener_ip() {
+    # This file contains the environment variables used by localdns systemd unit.
+    # This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+    local localdns_env_file_path="/etc/default/localdns.envfile"
+    local localdns_cluster_listener_ip
+
+    # LOCALDNS_CLUSTER_LISTENER_IP should match the field name in localdns.envfile.
+    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$localdns_env_file_path")
+    if [[ -n "$localdns_cluster_listener_ip" ]]; then
+        echo "$localdns_cluster_listener_ip"
+        return 0
+    else
+        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${localdns_env_file_path}"
+        return 1
+    fi
+}
+
+should_enable_localdns() {
+    # This file contains the environment variables used by localdns systemd unit.
+    # This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+    local localdns_env_file_path="/etc/default/localdns.envfile"
+    local enable_localdns
+
+    # SHOULD_ENABLE_LOCALDNS should match the field name in localdns.envfile.
+    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$localdns_env_file_path")
+    if [ "$enable_localdns" = "true" ]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 #HELPERSEOF

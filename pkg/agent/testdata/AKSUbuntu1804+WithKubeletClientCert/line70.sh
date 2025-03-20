@@ -626,6 +626,12 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
+    if should_enable_localdns; then
+        if localdns_cluster_listener_ip=$(get_localdns_cluster_listener_ip) && ! grep -q -- "--cluster-dns=${localdns_cluster_listener_ip}" "${KUBELET_DEFAULT_FILE}"; then
+            sed -i "s/--cluster-dns=[^ \n]\+/--cluster-dns=${localdns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
+        fi
+    fi
+
     systemctlEnableAndStart kubelet 30 || exit $ERR_KUBELET_START_FAIL
 }
 
@@ -777,7 +783,7 @@ validateGPUDrivers() {
     fi
 
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    which nvidia-smi
+    command -v nvidia-smi
     if [[ $? == 0 ]]; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
@@ -889,6 +895,10 @@ setKubeletNodeIPFlag() {
             KUBELET_FLAGS="$KUBELET_FLAGS --node-ip=$nodeIPArg"
         fi
     fi
+}
+
+ensureLocalDNS() {
+    systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
 }
 
 #EOF

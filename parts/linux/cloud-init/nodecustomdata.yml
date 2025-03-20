@@ -429,3 +429,25 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+{{if ShouldEnableLocalDNS}}
+- path: /opt/azure/containers/localdns/localdns.corefile
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetGeneratedLocalDNSCoreFile}}
+
+- path: /etc/default/localdns.envfile
+  permissions: "0744"
+  owner: root
+  content: |
+    SHOULD_ENABLE_LOCALDNS={{ShouldEnableLocalDNS}}
+    LOCALDNS_IMAGE_VERSION={{GetLocalDNSImageVersion}}
+    LOCALDNS_NODE_LISTENER_IP={{GetLocalDNSNodeListenerIP}}
+    LOCALDNS_CLUSTER_LISTENER_IP={{GetLocalDNSClusterListenerIP}}
+    LOCALDNS_CPU_LIMIT_IN_MILLI_CORES={{GetLocalDNSCPULimitInMilliCores}}
+    LOCALDNS_MEMORY_LIMIT_IN_MB={{GetLocalDNSMemoryLimitInMB}}
+    LOCALDNS_SHUTDOWN_DELAY=5
+    LOCALDNS_PID_FILE="/run/localdns.pid"
+{{- end}}

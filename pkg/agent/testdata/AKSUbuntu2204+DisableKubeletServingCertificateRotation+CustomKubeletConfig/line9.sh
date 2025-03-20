@@ -119,6 +119,8 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 
 
+ERR_LOCALDNS_FAIL=216 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -809,6 +811,32 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+get_localdns_cluster_listener_ip() {
+    local localdns_env_file_path="/etc/default/localdns.envfile"
+    local localdns_cluster_listener_ip
+
+    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$localdns_env_file_path")
+    if [[ -n "$localdns_cluster_listener_ip" ]]; then
+        echo "$localdns_cluster_listener_ip"
+        return 0
+    else
+        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${localdns_env_file_path}"
+        return 1
+    fi
+}
+
+should_enable_localdns() {
+    local localdns_env_file_path="/etc/default/localdns.envfile"
+    local enable_localdns
+
+    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$localdns_env_file_path")
+    if [ "$enable_localdns" = "true" ]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 #HELPERSEOF

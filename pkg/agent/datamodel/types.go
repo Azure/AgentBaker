@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net"
 	neturl "net/url"
 	"sort"
 	"strings"
@@ -809,6 +810,79 @@ type ComponentConfiguration struct {
 	DownloadURL *string
 }
 
+// LocalDNSProfile represents localdns configuration for agentpool nodes.
+type LocalDNSProfile struct {
+	GoalState            string                       `json:"goalState,omitempty"`
+	CPULimitInMilliCores int                          `json:"cpuLimitInMilliCores,omitempty"`
+	MemoryLimitInMB      int                          `json:"memoryLimitInMB,omitempty"`
+	ImageVersion         string                       `json:"imageVersion,omitempty"`
+	VnetDNSOverrides     map[string]LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
+	KubeDNSOverrides     map[string]LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
+	NodeListenerIP       string                       `json:"nodeListenerIP,omitempty"`
+	ClusterListenerIP    string                       `json:"clusterListenerIP,omitempty"`
+	CoreDNSServiceIP     string                       `json:"coreDNSServiceIP,omitempty"`
+}
+
+// LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
+// VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+// KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+type LocalDNSOverrides struct {
+	QueryLogging                string `json:"queryLogging,omitempty"`
+	Protocol                    string `json:"protocol,omitempty"`
+	ForwardDestination          string `json:"forwardDestination,omitempty"`
+	ForwardPolicy               string `json:"forwardPolicy,omitempty"`
+	MaxConcurrent               int    `json:"maxConcurrent,omitempty"`
+	CacheDurationInSeconds      int    `json:"cacheDurationInSeconds,omitempty"`
+	ServeStaleDurationInSeconds int    `json:"serveStaleDurationInSeconds,omitempty"`
+	ServeStale                  string `json:"serveStale,omitempty"`
+}
+
+// ShouldEnableLocalDNS returns true if LocalDNSProfile is not nil and GoalState is 'Enable'.
+func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
+	return a != nil && a.LocalDNSProfile != nil &&
+		strings.EqualFold(a.LocalDNSProfile.GoalState, LocalDNSEnable)
+}
+
+// GetLocalDNSImageVersion returns CoreDNS image that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSImageVersion() string {
+	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.ImageVersion != "" {
+		return a.LocalDNSProfile.ImageVersion
+	}
+	return DefaultLocalDNSImageVersion
+}
+
+// GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSNodeListenerIP() string {
+	if a.ShouldEnableLocalDNS() && net.ParseIP(a.LocalDNSProfile.NodeListenerIP) != nil {
+		return a.LocalDNSProfile.NodeListenerIP
+	}
+	return DefaultLocalDNSNodeListenerIP
+}
+
+// GetLocalDNSClusterListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSClusterListenerIP() string {
+	if a.ShouldEnableLocalDNS() && net.ParseIP(a.LocalDNSProfile.ClusterListenerIP) != nil {
+		return a.LocalDNSProfile.ClusterListenerIP
+	}
+	return DefaultLocalDNSClusterListenerIP
+}
+
+// GetLocalDNSCPULimitInMilliCores returns CPU limit in milli cores that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSCPULimitInMilliCores() int {
+	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.CPULimitInMilliCores >= 0 {
+		return a.LocalDNSProfile.CPULimitInMilliCores
+	}
+	return DefaultLocalDNSCPULimitInMilliCores
+}
+
+// GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() int {
+	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.MemoryLimitInMB >= 0 {
+		return a.LocalDNSProfile.MemoryLimitInMB
+	}
+	return DefaultLocalDNSMemoryLimitInMB
+}
+
 // AgentPoolProfile represents an agent pool definition.
 type AgentPoolProfile struct {
 	Name                  string               `json:"name"`
@@ -830,6 +904,7 @@ type AgentPoolProfile struct {
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	LocalDNSProfile       *LocalDNSProfile     `json:"localDNSProfile,omitempty"`
 	/* This is a new property and all old agent pools do no have this field. We need to keep the default
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`

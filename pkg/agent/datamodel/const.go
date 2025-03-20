@@ -131,3 +131,19 @@ const (
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
 )
+
+// LocalDNS related flag.
+const (
+	// LocalDNSEnable is a string constant for 'Enable'.
+	LocalDNSEnable = "Enable"
+	// DefaultLocalDNSImageVersion sepcifies the default coredns image version used in localdns.
+	DefaultLocalDNSImageVersion = "v1.12.0-1"
+	// DefaultLocalDNSNodeListenerIP sepcifies the default nodelistener APIPA-IP used in localdns.
+	DefaultLocalDNSNodeListenerIP = "169.254.10.10"
+	// DefaultLocalDNSClusterListenerIP sepcifies the default clusterlistener APIPA-IP used in localdns.
+	DefaultLocalDNSClusterListenerIP = "169.254.10.11"
+	// DefaultLocalDNSCPULimitInMilliCores sepcifies the default CPU limit used in akslocaldns.
+	DefaultLocalDNSCPULimitInMilliCores = 2000
+	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
+	DefaultLocalDNSMemoryLimitInMB = 128
+)

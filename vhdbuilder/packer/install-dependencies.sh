@@ -609,6 +609,64 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
+# This function extracts CoreDNS binaries from cached coredns images and copies them to -
+# /opt/azure/containers/localdns/<corednsImageTag>/coredns. The binary is later used by localdns systemd unit.
+# The function also handles the cleanup of temporary directories and unmounting of images.
+extractAndCacheCoreDNSBinaries() {
+  # Get the list of CoreDNS images that is already pulled and cached on the node.
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+    echo "Error: No coredns images found."
+    exit 1
+  fi
+  # When localdns is started, it will look for the coredns binary in the following path - 
+  # /opt/azure/containers/localdns/<corednsImageTag>/coredns.
+  local dest_path="/opt/azure/containers/localdns"
+  mkdir -p "${dest_path}"
+
+  # Set a trap to clean up temp directory if anything fails.
+  function cleanup_coredns_imports {
+    # Disable error handling so that we don't get into a recursive loop.
+    set +e
+    if [[ -n "$ctr_temp" ]]; then
+      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+      rm -rf "${ctr_temp}"
+    fi
+  }
+  # Set trap to clean up on failure.
+  trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
+
+  for coredns_image_url in "${coredns_image_list[@]}"; do
+    ctr_temp="$(mktemp -d)"
+    if ! ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
+      echo "Failed to mount ${coredns_image_url}"
+      rm -rf "${ctr_temp}"
+      continue
+    fi
+
+    # Extract coredns image tag after `:`
+    local coredns_image_tag="${coredns_image_url##*:}"
+    local tagged_path="${dest_path}/${coredns_image_tag}"
+    # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
+    local coredns_binary="${ctr_temp}/usr/bin/coredns"
+    if [[ -f "$coredns_binary" ]]; then
+      mkdir -p "${tagged_path}"
+      cp "$coredns_binary" "${tagged_path}/coredns"
+      echo "Copied coredns binary to ${tagged_path}/coredns" >> "${VHD_LOGS_FILEPATH}"
+    else
+      echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
+    fi
+
+    # Clean up the temporary directory and unmount the image.
+    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+    rm -rf "${ctr_temp}"
+  done
+  # Clear the trap after success.
+  trap - EXIT ABRT ERR INT PIPE QUIT TERM
+}
+
+extractAndCacheCoreDNSBinaries
+
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true

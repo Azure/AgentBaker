@@ -1005,6 +1005,31 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
+		"ShouldEnableLocalDNS": func() bool {
+			return profile.ShouldEnableLocalDNS()
+		},
+		"GetGeneratedLocalDNSCoreFile": func() string {
+			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
+			if err != nil {
+				panic(err)
+			}
+			return output
+		},
+		"GetLocalDNSImageVersion": func() string {
+			return profile.GetLocalDNSImageVersion()
+		},
+		"GetLocalDNSNodeListenerIP": func() string {
+			return profile.GetLocalDNSNodeListenerIP()
+		},
+		"GetLocalDNSClusterListenerIP": func() string {
+			return profile.GetLocalDNSClusterListenerIP()
+		},
+		"GetLocalDNSCPULimitInMilliCores": func() int {
+			return profile.GetLocalDNSCPULimitInMilliCores()
+		},
+		"GetLocalDNSMemoryLimitInMB": func() int {
+			return profile.GetLocalDNSMemoryLimitInMB()
+		},
 	}
 }
 
@@ -1728,3 +1753,127 @@ func containerdConfigFromTemplate(
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
+
+// Parse and generate localdns Corefile from template and LocalDNSProfile.
+func GenerateLocalDNSCoreFile(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+	funcMapForHasSuffix := template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}
+	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
+
+	// Generate the Corefile content.
+	var corefileBuffer bytes.Buffer
+	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, profile.LocalDNSProfile); err != nil {
+		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
+	}
+
+	// Return gzipped base64 encoded Corefile. Used in nodecustomdata.
+	return getBase64EncodedGzippedCustomScriptFromStr(corefileBuffer.String()), nil
+}
+
+// Template to create corefile that will be used by localdns service.
+const localDNSCoreFileTemplateString = `
+# ***********************************************************************************
+# WARNING : Changes made to this file will be OVERWRITTEN and will NOT be persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+{{- range $domain, $override := $.VnetDNSOverrides -}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $fwdToCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "clustercoredns")}}
+{{$domain}}:53 {
+    {{$override.QueryLogging}}
+    bind {{$.NodeListenerIP}}
+    {{- if $isRootDomain}}
+    forward . Vnet_DNS_Server {
+    {{- else}}
+    {{- if $fwdToCoreDNS}}
+    forward . {{$.CoreDNSServiceIP}} {
+    {{- else}}
+    forward . Vnet_DNS_Server {
+    {{- end}}
+	{{- end}}
+        {{- if eq $override.Protocol "forcetcp"}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.NodeListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "disable"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+    {{- if $isRootDomain}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+{{- range $domain, $override := $.KubeDNSOverrides}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $fwdToCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "clustercoredns")}}
+{{$domain}}:53 {
+    {{$override.QueryLogging}}
+    bind {{$.ClusterListenerIP}}
+    {{- if $fwdToCoreDNS}}
+    forward . {{$.CoreDNSServiceIP}} {
+    {{- else}}
+    forward . Vnet_DNS_Server {
+    {{- end}}
+        {{- if eq $override.Protocol "forcetcp"}}
+        force_tcp
+        {{- end}}
+        policy {{$override.ForwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.ClusterListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "disable"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
+        {{- end}}
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    {{- if $isRootDomain}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+`
