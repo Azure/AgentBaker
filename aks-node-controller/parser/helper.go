@@ -618,10 +618,12 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 		return ""
 	}
 	str := kubeletConfig.GetKubeletConfigFileConfig()
+	log.Printf("devin: kubeletConfig.GetKubeletConfigFileConfig() = %s", str)
 	configStringByte, err := protojson.MarshalOptions{
 		Multiline: true,
 		Indent:    "  ",
 	}.Marshal(str)
+	log.Printf("devin: configStringByte = %s", configStringByte)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
@@ -633,6 +635,8 @@ func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletCon
 	if kubeletConfig == nil {
 		return ""
 	}
+	log.Printf("devin: getKubeletConfigFileContent(kubeletConfig) = %s", getKubeletConfigFileContent(kubeletConfig))
+	log.Printf("devin: base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig))) = %s", base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig))))
 	return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig)))
 }
 
