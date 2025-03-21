@@ -613,30 +613,51 @@ fi
 # /opt/azure/containers/localdns/<corednsImageTag>/coredns. The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDNSBinaries() {
-  # Get the list of CoreDNS images that is already pulled and cached on the node.
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
     echo "Error: No coredns images found."
     exit 1
   fi
-  # When localdns is started, it will look for the coredns binary in the following path - 
-  # /opt/azure/containers/localdns/<corednsImageTag>/coredns.
-  local dest_path="/opt/azure/containers/localdns"
+
+  local dest_path="/opt/azure/containers/localdns/binary"
   mkdir -p "${dest_path}"
 
-  # Set a trap to clean up temp directory if anything fails.
-  function cleanup_coredns_imports {
-    # Disable error handling so that we don't get into a recursive loop.
+  cleanup_coredns_imports() {
     set +e
     if [[ -n "$ctr_temp" ]]; then
       ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
       rm -rf "${ctr_temp}"
     fi
   }
-  # Set trap to clean up on failure.
   trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
 
+  # Extract image tags and sort them in descending order
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version and latest from previous major-minor release
+  local latest_tag="${sorted_coredns_tags[0]}"
+  local latest_mm="${latest_tag%-*}"  # Extracts major.minor.patch (removes -revision)
+
+  local previous_tag=""
+  for tag in "${sorted_coredns_tags[@]}"; do
+    local mm="${tag%-*}"  # Extracts major.minor.patch
+    if [[ "$mm" != "$latest_mm" ]]; then
+      previous_tag="$tag"
+      break
+    fi
+  done
+
+  if [[ -z "$previous_tag" ]]; then
+    echo "No previous major-minor release found, skipping extraction."
+    return
+  fi
+
+  # Extract the CoreDNS binary for the selected version
   for coredns_image_url in "${coredns_image_list[@]}"; do
+    if [[ "${coredns_image_url##*:}" != "$previous_tag" ]]; then
+      continue
+    fi
+
     ctr_temp="$(mktemp -d)"
     if ! ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
       echo "Failed to mount ${coredns_image_url}"
@@ -644,24 +665,18 @@ extractAndCacheCoreDNSBinaries() {
       continue
     fi
 
-    # Extract coredns image tag after `:`
-    local coredns_image_tag="${coredns_image_url##*:}"
-    local tagged_path="${dest_path}/${coredns_image_tag}"
-    # For coredns images built using dalec, coredns binary is placed in this path /usr/bin/coredns.
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [[ -f "$coredns_binary" ]]; then
-      mkdir -p "${tagged_path}"
-      cp "$coredns_binary" "${tagged_path}/coredns"
-      echo "Copied coredns binary to ${tagged_path}/coredns" >> "${VHD_LOGS_FILEPATH}"
+      cp "$coredns_binary" "${dest_path}/coredns"
+      echo "Copied coredns binary to ${dest_path}/coredns" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
 
-    # Clean up the temporary directory and unmount the image.
     ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
     rm -rf "${ctr_temp}"
   done
-  # Clear the trap after success.
+
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
 }
 

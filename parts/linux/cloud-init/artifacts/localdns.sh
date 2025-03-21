@@ -58,9 +58,9 @@ fi
 # --------------------------------------------------------------------------------------------------------------------
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 
-# Coredns binary is extracted from cached coredns image(s) and pre-installed in the VHD -
-# /opt/azure/containers/localdns/<version>/coredns.
-COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/${LOCALDNS_IMAGE_VERSION}/coredns"
+# Coredns binary is extracted from cached coredns image and pre-installed in the VHD -
+# /opt/azure/containers/localdns/binary/coredns.
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
 if [ ! -x "${COREDNS_BINARY_PATH}" ]; then
     printf "Error: coredns binary not found at %s.\n" "${COREDNS_BINARY_PATH}"
     exit 1
