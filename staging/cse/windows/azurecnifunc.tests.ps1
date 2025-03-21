@@ -225,6 +225,12 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'AzureCNIOverlay is enabled' {
+        BeforeEach {
+            $hnsServiceName = "hns"
+            Mock Get-Service -MockWith { return $hnsServiceName }
+            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        }
+
         It "Should not include Cluster CIDR when AzureCNIOverlay is enabled" {
             Set-Default-AzureCNI "AzureCNI.Default.Overlay.conflist"
 
@@ -263,6 +269,12 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'SwiftCNI' {
+        BeforeEach {
+            $hnsServiceName = "hns"
+            Mock Get-Service -MockWith { return $hnsServiceName }
+            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        }
+
         It "Should has hnsTimeoutDurationInSeconds and enableLoopbackDSR" {
             Set-Default-AzureCNI  "AzureCNI.Default.Swift.conflist"
 
