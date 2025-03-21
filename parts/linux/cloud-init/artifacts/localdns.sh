@@ -85,6 +85,7 @@ fi
 
 # Replace Vnet_DNS_Server in corefile with VNET DNS Server IPs.
 # --------------------------------------------------------------------------------------------------------------------
+UPSTREAM_VNET_DNS_SERVERS=$(awk '/nameserver/ {print $2}' /run/systemd/resolve/resolv.conf | paste -sd' ')
 # Get the upstream VNET DNS servers from /run/systemd/resolve/resolv.conf.
 if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]]; then
     printf "Error: No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf.\n"
@@ -194,8 +195,6 @@ printf "adding iptables rules to skip conntrack for queries to localdns.\n"
 for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
-
-printf "..%s.." "$LOCALDNS_CORE_FILE"
 
 # Start localdns.
 # --------------------------------------------------------------------------------------------------------------------
