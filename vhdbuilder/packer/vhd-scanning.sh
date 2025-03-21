@@ -116,6 +116,7 @@ TIMESTAMP=$(date +%s%3N)
 TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
 CVE_DIFF_UPLOAD_REPORT_NAME="cve-diff-${BUILD_ID}-${TIMESTAMP}.txt"
+CVE_LIST_UPLOAD_REPORT_NAME="cve-list-${BUILD_ID}-${TIMESTAMP}.txt"
 
 # Extract date, revision from build number
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
@@ -161,6 +162,7 @@ az vm run-command invoke \
         "BUILDID"=${BUILD_ID} \
         "IMAGE_VERSION"=${IMAGE_VERSION} \
         "CVE_DIFF_UPLOAD_REPORT_NAME"=${CVE_DIFF_UPLOAD_REPORT_NAME} \
+        "CVE_LIST_UPLOAD_REPORT_NAME"=${CVE_LIST_UPLOAD_REPORT_NAME} \
         "SCAN_RESOURCE_PREFIX"=${SCAN_RESOURCE_PREFIX}
 
 capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
@@ -168,15 +170,23 @@ capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_DIFF_UPLOAD_REPORT_NAME} --file  cve-diff.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_LIST_UPLOAD_REPORT_NAME} --file  cve-list.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_DIFF_UPLOAD_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_LIST_UPLOAD_REPORT_NAME} --auth-mode login
 
 capture_benchmark "${SCRIPT_NAME}_download_and_delete_blobs"
 
 echo "=== CVEs fixed in version: ${IMAGE_VERSION}" >> ${RELEASE_NOTES_FILEPATH}
 cat cve-diff.txt >> ${RELEASE_NOTES_FILEPATH}
+
+# error if cve-list.txt non-empty
+if [ -s cve-list.txt ]; then
+    printf "##vso[task.logissue type=error]Error: cve-list.txt is not empty. Please address the listed CVEs.\n%s\n" "$(cat cve-list.txt)"
+    echo "##vso[task.complete result=SucceededWithIssues;]"
+fi
 
 echo -e "Trivy Scan Script Completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true
