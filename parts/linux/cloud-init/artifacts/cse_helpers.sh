@@ -788,6 +788,10 @@ verify_DNS_health(){
     echo "DNS health check passed"
 }
 
+validate_packages_source_url() {
+    
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
