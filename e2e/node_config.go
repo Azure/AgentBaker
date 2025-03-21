@@ -134,7 +134,6 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
-	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	config := &aksnodeconfigv1.Configuration{
@@ -180,91 +179,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
 		OutboundCommand: helpers.GetDefaultOutboundCommand(),
-		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
-			KubeletClientKey: base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
-			KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
-				Kind:              "KubeletConfiguration",
-				ApiVersion:        "kubelet.config.k8s.io/v1beta1",
-				StaticPodPath:     "/etc/kubernetes/manifests",
-				Address:           "0.0.0.0",
-				ReadOnlyPort:      10255,
-				TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
-				TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
-				TlsCipherSuites: []string{
-					"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-					"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-					"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
-					"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-					"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
-					"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-					"TLS_RSA_WITH_AES_256_GCM_SHA384",
-					"TLS_RSA_WITH_AES_128_GCM_SHA256",
-				},
-				RotateCertificates: true,
-				ServerTlsBootstrap: true,
-				Authentication: &aksnodeconfigv1.KubeletAuthentication{
-					X509: &aksnodeconfigv1.KubeletX509Authentication{
-						ClientCaFile: "/etc/kubernetes/certs/ca.crt",
-					},
-					Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
-						Enabled: true,
-					},
-				},
-				Authorization: &aksnodeconfigv1.KubeletAuthorization{
-					Mode: "Webhook",
-				},
-				EventRecordQps: to.Ptr(int32(0)),
-				ClusterDomain:  "cluster.local",
-				ClusterDns: []string{
-					"10.0.0.10",
-				},
-				StreamingConnectionIdleTimeout: "4h0m0s",
-				NodeStatusUpdateFrequency:      "10s",
-				ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
-				ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
-				CgroupsPerQos:                  to.Ptr(true),
-				CpuManagerPolicy:               "static",
-				TopologyManagerPolicy:          "best-effort",
-				MaxPods:                        to.Ptr(int32(110)),
-				PodPidsLimit:                   to.Ptr(int32(12345)),
-				ResolvConf:                     "/etc/resolv.conf",
-				CpuCfsQuota:                    to.Ptr(false),
-				CpuCfsQuotaPeriod:              "200ms",
-				EvictionHard: map[string]string{
-					"memory.available":  "750Mi",
-					"nodefs.available":  "10%",
-					"nodefs.inodesFree": "5%",
-				},
-				ProtectKernelDefaults: true,
-				FeatureGates: map[string]bool{
-					"CustomCPUCFSQuotaPeriod":        true,
-					"RotateKubeletServerCertificate": true,
-					"DynamicKubeletConfig":           false,
-				},
-				FailSwapOn:           to.Ptr(false),
-				ContainerLogMaxSize:  "1000M",
-				ContainerLogMaxFiles: to.Ptr(int32(99)),
-				SystemReserved: map[string]string{
-					"cpu":    "2",
-					"memory": "1Gi",
-				},
-				KubeReserved: map[string]string{
-					"cpu":    "100m",
-					"memory": "1638Mi",
-				},
-				EnforceNodeAllocatable: []string{
-					"pods",
-				},
-				AllowedUnsafeSysctls: []string{
-					"kernel.msg*",
-					"net.ipv4.route.min_pmtu",
-				},
-				SeccompDefault: true,
-			},
-			EnableKubeletConfigFile: false,
-			KubeletFlags:            helpers.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:       helpers.GetKubeletNodeLabels(agentPool),
-		},
 		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
 			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
 		},
