@@ -1613,10 +1613,11 @@ func Test_AzureLinuxV2_KubeletCustomConfig_Scpritless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
+				// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
+				// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
 				config.KubeletConfig = baseKubeletConfig
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
-				config.KubeletConfig.KubeletConfigFileConfig.TlsCertFile = "/etc/kubernetes/certs/kubeletserver.crt"
-				config.KubeletConfig.KubeletConfigFileConfig.TlsPrivateKeyFile = "/etc/kubernetes/certs/kubeletserver.key"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
