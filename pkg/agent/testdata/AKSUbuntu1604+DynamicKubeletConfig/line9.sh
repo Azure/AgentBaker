@@ -813,25 +813,25 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-get_localdns_cluster_listener_ip() {
-    local localdns_env_file_path="/etc/default/localdns.envfile"
+LOCALDNS_ENV_FILE_PATH="/etc/default/localdns.envfile"
+
+getLocalDNSClusterListenerIP() {
     local localdns_cluster_listener_ip
 
-    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$localdns_env_file_path")
+    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
     if [[ -n "$localdns_cluster_listener_ip" ]]; then
         echo "$localdns_cluster_listener_ip"
         return 0
     else
-        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${localdns_env_file_path}"
+        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${LOCALDNS_ENV_FILE_PATH}"
         return 1
     fi
 }
 
-should_enable_localdns() {
-    local localdns_env_file_path="/etc/default/localdns.envfile"
+shouldEnableLocalDNS() {
     local enable_localdns
 
-    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$localdns_env_file_path")
+    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
     if [ "$enable_localdns" = "true" ]; then
         return 0
     else

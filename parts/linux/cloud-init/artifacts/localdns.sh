@@ -51,6 +51,8 @@ fi
 : "${LOCALDNS_SHUTDOWN_DELAY:?LOCALDNS_SHUTDOWN_DELAY is not set}"
 # PID file.
 : "${LOCALDNS_PID_FILE:?LOCALDNS_PID_FILE is not set}"
+# Cluster CoreDNS service IP.
+: "${COREDNS_SERVICE_IP:?COREDNS_SERVICE_IP is not set}"
 
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------
@@ -83,15 +85,22 @@ fi
 
 # Replace Vnet_DNS_Server in corefile with VNET DNS Server IPs.
 # --------------------------------------------------------------------------------------------------------------------
-UPSTREAM_VNET_DNS_SERVERS="$(</run/systemd/resolve/resolv.conf awk '/nameserver/ {print $2}' | paste -sd' ')"
-if [ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]; then
+# Get the upstream VNET DNS servers from /run/systemd/resolve/resolv.conf.
+if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]]; then
     printf "Error: No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf.\n"
     exit 1
 fi
-# Replace all occurrences of Vnet_DNS_Server with UPSTREAM_VNET_DNS_SERVERS in localdns corefile.
+
 # Based on customer input, corefile was generated with Vnet_DNS_Server as placeholder in pkg/agent/baker.go.
-sed -i "s/Vnet_DNS_Server/${UPSTREAM_VNET_DNS_SERVERS}/g" \
-    "${LOCALDNS_CORE_FILE}" || { echo "Error: updating localdns corefile failed"; exit 1; }
+# Replace all occurrences of VnetDNS_Server_IP, CoreDNS_Service_IP Node_Listener_IP and Cluster_Listener_IP in localdns corefile.
+sed -i -e "
+    s/VnetDNS_Server_IP/${UPSTREAM_VNET_DNS_SERVERS}/g;
+    s/CoreDNS_Service_IP/${COREDNS_SERVICE_IP}/g;
+    s/Node_Listener_IP/${LOCALDNS_NODE_LISTENER_IP}/g;
+    s/Cluster_Listener_IP/${LOCALDNS_CLUSTER_LISTENER_IP}/g
+" "${LOCALDNS_CORE_FILE}" || { echo "Error: updating corefile failed"; exit 1; }
+
+cat "${LOCALDNS_CORE_FILE}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
@@ -185,6 +194,8 @@ printf "adding iptables rules to skip conntrack for queries to localdns.\n"
 for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
+
+printf "..%s.." "$LOCALDNS_CORE_FILE"
 
 # Start localdns.
 # --------------------------------------------------------------------------------------------------------------------

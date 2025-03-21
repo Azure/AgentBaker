@@ -134,8 +134,8 @@ const (
 
 // LocalDNS related flag.
 const (
-	// LocalDNSEnable is a string constant for 'Enable'.
-	LocalDNSEnable = "Enable"
+	// LocalDNSEnabled is a string constant for 'Enabled'.
+	LocalDNSEnabled = "Enabled"
 	// DefaultLocalDNSImageVersion sepcifies the default coredns image version used in localdns.
 	DefaultLocalDNSImageVersion = "v1.12.0-1"
 	// DefaultLocalDNSNodeListenerIP sepcifies the default nodelistener APIPA-IP used in localdns.
@@ -143,7 +143,9 @@ const (
 	// DefaultLocalDNSClusterListenerIP sepcifies the default clusterlistener APIPA-IP used in localdns.
 	DefaultLocalDNSClusterListenerIP = "169.254.10.11"
 	// DefaultLocalDNSCPULimitInMilliCores sepcifies the default CPU limit used in akslocaldns.
-	DefaultLocalDNSCPULimitInMilliCores = 2000
+	DefaultLocalDNSCPULimitInMilliCores int32 = 2000
 	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
-	DefaultLocalDNSMemoryLimitInMB = 128
+	DefaultLocalDNSMemoryLimitInMB int32 = 128
+	// DefaultDNSServerIP sepcifies the default DNS server IP used in localdns.
+	DefaultDNSServerIP = "10.0.0.10"
 )

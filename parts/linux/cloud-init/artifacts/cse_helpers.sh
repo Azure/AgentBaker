@@ -861,31 +861,32 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-get_localdns_cluster_listener_ip() {
-    # This file contains the environment variables used by localdns systemd unit.
-    # This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-    local localdns_env_file_path="/etc/default/localdns.envfile"
+# This file contains the environment variables used by localdns systemd unit.
+# This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_ENV_FILE_PATH="/etc/default/localdns.envfile"
+
+# This function is called in cse_config.sh to get localdns cluster listener ip, which will replace --cluster-dns flag in kubelet config.
+# This is done to point application pods to cluster listener ip.
+getLocalDNSClusterListenerIP() {
     local localdns_cluster_listener_ip
 
     # LOCALDNS_CLUSTER_LISTENER_IP should match the field name in localdns.envfile.
-    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$localdns_env_file_path")
+    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
     if [[ -n "$localdns_cluster_listener_ip" ]]; then
         echo "$localdns_cluster_listener_ip"
         return 0
     else
-        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${localdns_env_file_path}"
+        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${LOCALDNS_ENV_FILE_PATH}"
         return 1
     fi
 }
 
-should_enable_localdns() {
-    # This file contains the environment variables used by localdns systemd unit.
-    # This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-    local localdns_env_file_path="/etc/default/localdns.envfile"
+# This function is called in cse_main.sh to determine if localdns should be enabled or not based on SHOULD_ENABLE_LOCALDNS env variable.
+shouldEnableLocalDNS() {
     local enable_localdns
 
     # SHOULD_ENABLE_LOCALDNS should match the field name in localdns.envfile.
-    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$localdns_env_file_path")
+    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
     if [ "$enable_localdns" = "true" ]; then
         return 0
     else

@@ -1008,6 +1008,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldEnableLocalDNS": func() bool {
 			return profile.ShouldEnableLocalDNS()
 		},
+		"GetCoreDNSServiceIP": func() string {
+			return profile.GetCoreDNSServiceIP()
+		},
 		"GetGeneratedLocalDNSCoreFile": func() string {
 			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
 			if err != nil {
@@ -1024,10 +1027,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSClusterListenerIP": func() string {
 			return profile.GetLocalDNSClusterListenerIP()
 		},
-		"GetLocalDNSCPULimitInMilliCores": func() int {
+		"GetLocalDNSCPULimitInMilliCores": func() int32 {
 			return profile.GetLocalDNSCPULimitInMilliCores()
 		},
-		"GetLocalDNSMemoryLimitInMB": func() int {
+		"GetLocalDNSMemoryLimitInMB": func() int32 {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
 	}
@@ -1779,44 +1782,60 @@ func GenerateLocalDNSCoreFile(
 }
 
 // Template to create corefile that will be used by localdns service.
+// Using VnetDNS_Server_IP, CoreDNS_Service_IP, Node_Listener_IP and Cluster_Listener_IP as a placeholder
+// which will be replaced by the actuals in localdns.sh file.
 const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
-# WARNING : Changes made to this file will be OVERWRITTEN and will NOT be persisted.
+# WARNING: Changes to this file will be overwritten and not persisted.
 # ***********************************************************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
-    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    bind Node_Listener_IP Cluster_Listener_IP
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 {{- range $domain, $override := $.VnetDNSOverrides -}}
 {{- $isRootDomain := eq $domain "." -}}
-{{- $fwdToCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "clustercoredns")}}
+{{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
+{{- $forwardPolicy := "sequential" -}}
+{{- if eq $override.ForwardPolicy "RoundRobin" -}}
+    {{- $forwardPolicy = "round_robin" -}}
+{{- else if eq $override.ForwardPolicy "Random" -}}
+    {{- $forwardPolicy = "random" -}}
+{{- end }}
 {{$domain}}:53 {
-    {{$override.QueryLogging}}
-    bind {{$.NodeListenerIP}}
+	{{- if eq $override.QueryLogging "Error" }}
+    errors
+    {{- else if eq $override.QueryLogging "Log" }}
+    log
+    {{- end }}
+    bind Node_Listener_IP
     {{- if $isRootDomain}}
-    forward . Vnet_DNS_Server {
+    forward . VnetDNS_Server_IP {
     {{- else}}
-    {{- if $fwdToCoreDNS}}
-    forward . {{$.CoreDNSServiceIP}} {
+    {{- if $fwdToClusterCoreDNS}}
+    forward . CoreDNS_Service_IP {
     {{- else}}
-    forward . Vnet_DNS_Server {
+    forward . VnetDNS_Server_IP {
     {{- end}}
 	{{- end}}
-        {{- if eq $override.Protocol "forcetcp"}}
+        {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
-        policy {{$override.ForwardPolicy}}
+        policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
-    ready {{$.NodeListenerIP}}:8181
+    ready Node_Listener_IP:8181
     cache {{$override.CacheDurationInSeconds}}s {
         success 9984
         denial 9984
-        {{- if ne $override.ServeStale "disable"}}
-        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
-        {{- end}}
+        {{- if ne $override.ServeStale "Disable"}}
+        {{- if eq $override.ServeStale "Verify"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
+        {{- else if eq $override.ServeStale "Immediate"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
+        {{- end }}
+        {{- end }}
         servfail 0
     }
     loop
@@ -1837,28 +1856,43 @@ health-check.localdns.local:53 {
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 {{- range $domain, $override := $.KubeDNSOverrides}}
 {{- $isRootDomain := eq $domain "." -}}
-{{- $fwdToCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "clustercoredns")}}
+{{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
+{{- $forwardPolicy := "" }}
+{{- $forwardPolicy := "sequential" -}}
+{{- if eq $override.ForwardPolicy "RoundRobin" -}}
+    {{- $forwardPolicy = "round_robin" -}}
+{{- else if eq $override.ForwardPolicy "Random" -}}
+    {{- $forwardPolicy = "random" -}}
+{{- end }}
 {{$domain}}:53 {
-    {{$override.QueryLogging}}
-    bind {{$.ClusterListenerIP}}
-    {{- if $fwdToCoreDNS}}
-    forward . {{$.CoreDNSServiceIP}} {
+	{{- if eq $override.QueryLogging "Error" }}
+    errors
+    {{- else if eq $override.QueryLogging "Log" }}
+    log
+    {{- end }}
+    bind Cluster_Listener_IP
+    {{- if $fwdToClusterCoreDNS}}
+    forward . CoreDNS_Service_IP {
     {{- else}}
-    forward . Vnet_DNS_Server {
+    forward . VnetDNS_Server_IP {
     {{- end}}
-        {{- if eq $override.Protocol "forcetcp"}}
+        {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
         {{- end}}
-        policy {{$override.ForwardPolicy}}
+        policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
-    ready {{$.ClusterListenerIP}}:8181
+    ready Cluster_Listener_IP:8181
     cache {{$override.CacheDurationInSeconds}}s {
         success 9984
         denial 9984
-        {{- if ne $override.ServeStale "disable"}}
-        serve_stale {{$override.ServeStaleDurationInSeconds}}s {{$override.ServeStale}}
-        {{- end}}
+        {{- if ne $override.ServeStale "Disable"}}
+        {{- if eq $override.ServeStale "Verify"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
+        {{- else if eq $override.ServeStale "Immediate"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
+        {{- end }}
+        {{- end }}
         servfail 0
     }
     loop
