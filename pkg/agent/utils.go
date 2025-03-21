@@ -682,3 +682,13 @@ func addFeatureGateString(featureGates string, key string, value bool) string {
 	}
 	return strings.Join(pairs, ",")
 }
+
+type cloudInit struct {
+	WriteFiles []struct {
+		Path        string `yaml:"path"`
+		Permissions string `yaml:"permissions"`
+		Encoding    string `yaml:"encoding,omitempty"`
+		Owner       string `yaml:"owner"`
+		Content     string `yaml:"content"`
+	} `yaml:"write_files"`
+}

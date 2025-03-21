@@ -2955,16 +2955,6 @@ func getDecodedFilesFromCustomdata(data []byte) (map[string]*decodedValue, error
 	return files, nil
 }
 
-type cloudInit struct {
-	WriteFiles []struct {
-		Path        string `yaml:"path"`
-		Permissions string `yaml:"permissions"`
-		Encoding    string `yaml:"encoding,omitempty"`
-		Owner       string `yaml:"owner"`
-		Content     string `yaml:"content"`
-	} `yaml:"write_files"`
-}
-
 var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 	It("should return the correct normalized resource group name", func() {
 		Expect(normalizeResourceGroupNameForLabel("hello")).To(Equal("hello"))
