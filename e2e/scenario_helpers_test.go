@@ -120,6 +120,11 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
+
+		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
+		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
+		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
+		nodeconfig.KubeletConfig = baseKubeletConfig
 		s.AKSNodeConfigMutator(nodeconfig)
 		s.Runtime.AKSNodeConfig = nodeconfig
 	}
