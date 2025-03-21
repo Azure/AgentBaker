@@ -1617,6 +1617,7 @@ func Test_AzureLinuxV2_KubeletCustomConfig_Scpritless(t *testing.T) {
 				// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
 				// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
 				config.KubeletConfig = baseKubeletConfig
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.KubeletConfig.KubeletConfigFileConfig.SeccompDefault = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
