@@ -2726,8 +2726,46 @@ type IgnitionFile struct {
 type IgnitionStorage struct {
 	Files []IgnitionFile `json:"files"`
 }
+type IgnitionConfig struct {
+	Replace IgnitionFileContents `json:"replace"`
+}
+type IgnitionIgnition struct {
+	Config IgnitionConfig `json:"config"`
+}
 type Ignition struct {
-	Storage IgnitionStorage `json:"storage"`
+	Ignition IgnitionIgnition `json:"ignition"`
+	Storage  IgnitionStorage  `json:"storage"`
+}
+
+func ignitionUnwrapEnvelope(ignitionFile []byte) []byte {
+	// Unwrap the Ignition envelope
+	var outer Ignition
+	err := json.Unmarshal(ignitionFile, &outer)
+	if err != nil {
+		panic(err)
+	}
+	innerencoded := outer.Ignition.Config.Replace
+	inner, err := ignitionDecodeFileContents(innerencoded)
+	if err != nil {
+		panic(err)
+	}
+	return inner
+}
+
+func ignitionDecodeFileContents(input IgnitionFileContents) ([]byte, error) {
+	// Decode data url format
+	decodeddata, err := dataurl.DecodeString(input.Source)
+	if err != nil {
+		return nil, err
+	}
+	contents := decodeddata.Data
+	if input.Compression == "gzip" {
+		contents, err = getGzipDecodedValue(contents)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return contents, nil
 }
 
 func convertJsonToLines(folder string) error {
@@ -2751,11 +2789,13 @@ func convertJsonToLines(folder string) error {
 	if err != nil {
 		return err
 	}
-	ignitionJson := json.RawMessage(ignitionFile)
+	ignitionInner := ignitionUnwrapEnvelope(ignitionFile)
+	ignitionJson := json.RawMessage(ignitionInner)
 	ignitionIndented, err := json.MarshalIndent(ignitionJson, "", "  ")
 	if err != nil {
 		return err
 	}
+	os.WriteFile(fmt.Sprintf("%s/CustomData.inner", folder), ignitionIndented, 0644)
 	// Split the string into lines. If a line starts with "path":, extract the path and line number.
 	// Store the path and line number in a map[string]int
 	lines := strings.Split(string(ignitionIndented), "\n")
@@ -2768,7 +2808,7 @@ func convertJsonToLines(folder string) error {
 		}
 	}
 	var ignition Ignition
-	err = json.Unmarshal(ignitionFile, &ignition)
+	err = json.Unmarshal(ignitionJson, &ignition)
 	if err != nil {
 		return err
 	}
@@ -2777,16 +2817,9 @@ func convertJsonToLines(folder string) error {
 		linenumber := pathToLineNumber[file.Path]
 		fileName := fmt.Sprintf("%s/line%d.sh", folder, linenumber)
 		// Decode data url format
-		decodeddata, err := dataurl.DecodeString(file.Contents.Source)
+		contents, err := ignitionDecodeFileContents(file.Contents)
 		if err != nil {
 			return err
-		}
-		contents := decodeddata.Data
-		if file.Contents.Compression == "gzip" {
-			contents, err = getGzipDecodedValue(contents)
-			if err != nil {
-				return err
-			}
 		}
 		err = os.WriteFile(fileName, contents, 0644)
 		if err != nil {
