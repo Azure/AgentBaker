@@ -56,7 +56,9 @@ var expectedKubeletConfigFlags = "--address=0.0.0.0" +
 	" --streaming-connection-idle-timeout=4h0m0s" +
 	" --system-reserved=cpu=2,memory=1Gi" +
 	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
-	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" +
+	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256," +
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305," +
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" +
 	" --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key"
 
 var expectedKubeletJSON = `{
@@ -1337,7 +1339,6 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 					t.Errorf("Expected config file: %s", tt.want)
 				}
 			}
-
 		})
 	}
 }
