@@ -21,12 +21,16 @@ write_files:
 )
 
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
-	nbcJSON, err := json.Marshal(cfg)
+	aksNodeConfigJSON, err := json.Marshal(cfg)
+	//println partial aksNodeConfigJSON from 0 to 6000
+	println("devin: aksNodeConfigJSON: ", string(aksNodeConfigJSON[:6000]))
+
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal nbc, error: %w", err)
 	}
-	encodedNBCJson := base64.StdEncoding.EncodeToString(nbcJSON)
-	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedNBCJson)
+	encodedAksNodeConfigJSON := base64.StdEncoding.EncodeToString(aksNodeConfigJSON)
+	println("devin: encodedAksNodeConfigJSON: ", encodedAksNodeConfigJSON)
+	customDataYAML := fmt.Sprintf(cloudConfigTemplate, encodedAksNodeConfigJSON)
 	return base64.StdEncoding.EncodeToString([]byte(customDataYAML)), nil
 }
 
