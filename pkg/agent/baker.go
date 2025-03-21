@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -16,8 +17,10 @@ import (
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/go-autorest/autorest/to"
+	base0_5 "github.com/coreos/butane/base/v0_5"
 	butane "github.com/coreos/butane/config"
 	butanecommon "github.com/coreos/butane/config/common"
+	flatcar1_1 "github.com/coreos/butane/config/flatcar/v1_1"
 )
 
 // TemplateGenerator represents the object that performs the template generation.
@@ -91,15 +94,44 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 	if e != nil {
 		panic(fmt.Errorf("butane -> ignition: error: %w", e))
 	}
-
 	if report.IsFatal() {
 		panic(fmt.Errorf("butane -> ignition: report: %s", report.String()))
 	}
-
 	if len(report.Entries) > 0 {
 		panic(fmt.Errorf("butane -> ignition: warning: %s", report.String()))
 	}
-	escstr := escapeSingleLine(string(ignc))
+	compressed := string(getGzippedBufferFromBytes(ignc))
+
+	envelope := flatcar1_1.Config{
+		Config: base0_5.Config{
+			Variant: "flatcar",
+			Version: "1.1.0",
+			Ignition: base0_5.Ignition{
+				Config: base0_5.IgnitionConfig{
+					Replace: base0_5.Resource{
+						Inline:      &compressed,
+						Compression: to.StringPtr("gzip"),
+					},
+				},
+			},
+		},
+	}
+	wrapped, report, e := envelope.ToIgn3_4(butanecommon.TranslateOptions{})
+	if e != nil {
+		panic(fmt.Errorf("butane -> ignition: error: %w", e))
+	}
+	if report.IsFatal() {
+		panic(fmt.Errorf("butane -> ignition: report: %s", report.String()))
+	}
+	if len(report.Entries) > 0 {
+		panic(fmt.Errorf("butane -> ignition: warning: %s", report.String()))
+	}
+	// Marshal the Ignition config to JSON
+	enc, err := json.Marshal(wrapped)
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal Ignition config: %w", err))
+	}
+	escstr := escapeSingleLine(string(enc))
 
 	return fmt.Sprintf("{\"customData\": \"%s\"}", escstr)
 }
