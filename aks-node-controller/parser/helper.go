@@ -613,11 +613,11 @@ func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
 
-func marshalToJson(v any) ([]byte, error) {
+func marshalToJSON(v any) ([]byte, error) {
 	// Originally we can set the Multiline here and it will marshal to a JSON we can use.
 	// However the protojson team intentionally randomly add extra whitespace after the key in the key-value.
 	// E.g., Sometimes it is "key": "value" and sometimes it is "key":  "value".
-	// They did it intentionally to make the output formot not reliable,
+	// They did it intentionally to make the output format not reliable,
 	// because they think it is not a good idea to rely on the JSON output format.
 	// ref: https://github.com/protocolbuffers/protobuf-go/commit/582ab3de426ef0758666e018b422dd20390f7f26
 	marshaler := &protojson.MarshalOptions{
@@ -640,8 +640,10 @@ func marshalToJson(v any) ([]byte, error) {
 			return nil, err
 		}
 		return jsonByte, nil
+	default:
+		return nil, fmt.Errorf("unsupported type: %T", v)
 	}
-	return nil, fmt.Errorf("unsupported type: %T", v)
+
 }
 
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
@@ -650,7 +652,7 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 		return ""
 	}
 	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
-	kubeletConfigFileConfigByte, err := marshalToJson(kubeletConfigFileConfig)
+	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
