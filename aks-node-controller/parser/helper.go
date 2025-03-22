@@ -643,7 +643,6 @@ func marshalToJSON(v any) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type: %T", v)
 	}
-
 }
 
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
