@@ -68,6 +68,7 @@ func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.KubeBinaryConfig.CustomKubeBinaryUrl = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				config.VmSize = "Standard_D2pds_V5"
 			},
@@ -242,6 +243,7 @@ func Test_AzureLinuxV2_GPUAzureCNI_Scriptless(t *testing.T) {
 			Cluster: ClusterAzureNetwork,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.NetworkConfig.NetworkPlugin = aksnodeconfigv1.NetworkPlugin_NETWORK_PLUGIN_AZURE
 				config.VmSize = "Standard_NC6s_v3"
 				config.GpuConfig.ConfigGpuDriver = true
@@ -582,6 +584,7 @@ func Test_Ubuntu2204_ScriptlessInstaller(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 			},
 		},
 	})
@@ -600,6 +603,7 @@ func Test_Ubuntu2404_ScriptlessInstaller(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.log", "aks-node-controller finished successfully")
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 			},
 		},
 	})
@@ -808,6 +812,7 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.EnableArtifactStreaming = true
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -846,6 +851,7 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations_Scriptless(t *testing
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.KubeletConfig.KubeletFlags["--register-with-taints"] = "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -908,6 +914,7 @@ func Test_Ubuntu2204_CustomCATrust_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.CustomCaCerts = []string{encodedTestCert}
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
@@ -978,6 +985,7 @@ func Test_Ubuntu2204_CustomSysctls_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				customLinuxOsConfig := &aksnodeconfigv1.CustomLinuxOsConfig{
 					SysctlConfig: &aksnodeconfigv1.SysctlConfig{
 						NetNetfilterNfConntrackMax:     to.Ptr(toolkit.StrToInt32(customSysctls["net.netfilter.nf_conntrack_max"])),
@@ -1061,6 +1069,7 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 			},
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.VmSize = "Standard_NV6ads_A10_v5"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
@@ -1137,6 +1146,7 @@ func Test_Ubuntu2204_GPUNoDriver_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.VmSize = "Standard_NC6s_v3"
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
@@ -1207,6 +1217,7 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable_Scriptless(t *test
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.ContainerdConfig.ContainerdPackageUrl = "https://packages.microsoft.com/ubuntu/22.04/prod/pool/main/m/moby-containerd/moby-containerd_1.6.9+azure-ubuntu22.04u1_amd64.deb"
 				config.ImdsRestrictionConfig = &aksnodeconfigv1.ImdsRestrictionConfig{
 					EnableImdsRestriction:                  true,
@@ -1535,6 +1546,7 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
+				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
