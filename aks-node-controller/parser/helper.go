@@ -21,6 +21,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -612,23 +613,53 @@ func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
 
+// pass the type of v as an input arguem
+func marshalToJson(v any) ([]byte, error) {
+	// Originally we can set the Multiline here and it will marshal to a JSON we can use.
+	// However the protojson team intentionally randomly add extra whitespace after the key in the key-value.
+	// E.g., Sometimes it is "key": "value" and sometimes it is "key":  "value".
+	// They did it intentionally to make the output formot not reliable,
+	// because they think it is not a good idea to rely on the JSON output format.
+	// ref: https://github.com/protocolbuffers/protobuf-go/commit/582ab3de426ef0758666e018b422dd20390f7f26
+	marshaler := &protojson.MarshalOptions{
+		Indent: "",
+	}
+
+	// Therefore, we have to implement our own re-formatting to make the output reliable as we expected.
+	switch v := v.(type) {
+	case *aksnodeconfigv1.KubeletConfigFileConfig:
+		data, err := marshaler.Marshal(v)
+		if err != nil {
+			log.Printf("error marshalling: %v", err)
+			return nil, err
+		}
+
+		var rawMessage json.RawMessage = data
+		jsonByte, err := json.MarshalIndent(rawMessage, "", "  ")
+		if err != nil {
+			log.Printf("error marshalling kubelet config file content: %v", err)
+			return nil, err
+		}
+		jsonByte = append(jsonByte, '\n')
+		return jsonByte, nil
+	}
+	return nil, fmt.Errorf("unsupported type: %T", v)
+}
+
 // getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
 func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	if kubeletConfig == nil {
 		return ""
 	}
-	str := kubeletConfig.GetKubeletConfigFileConfig()
-	log.Printf("devin: kubeletConfig.GetKubeletConfigFileConfig() = %s", str)
-	configStringByte, err := protojson.MarshalOptions{
-		Multiline: true,
-		Indent:    "  ",
-	}.Marshal(str)
-	log.Printf("devin: configStringByte = %s", configStringByte)
+	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
+	log.Printf("devin: kubeletConfig.GetKubeletConfigFileConfig() = %s", kubeletConfigFileConfig)
+	kubeletConfigFileConfigByte, err := marshalToJson(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
 	}
-	return string(configStringByte)
+	log.Printf("devin: configStringByte = %s", kubeletConfigFileConfigByte)
+	return string(kubeletConfigFileConfigByte)
 }
 
 func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
