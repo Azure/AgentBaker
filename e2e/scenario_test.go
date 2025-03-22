@@ -1546,7 +1546,6 @@ func Test_AzureLinuxV2_MessageOfTheDay_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = false
 				config.MessageOfTheDay = "Zm9vYmFyDQo=" // base64 for foobar
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
