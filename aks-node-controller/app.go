@@ -86,6 +86,8 @@ func (a *App) run(ctx context.Context, args []string) error {
 
 func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	inputJSON, err := os.ReadFile(flags.ProvisionConfig)
+	// log inputJSON
+	slog.Info("devin:inputJSON", "devin:inputJSON", string(inputJSON))
 	if err != nil {
 		return fmt.Errorf("open provision file %s: %w", flags.ProvisionConfig, err)
 	}
