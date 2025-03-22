@@ -116,12 +116,19 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 
 	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
+		// deep copy the nbc so that we can mutate it without affecting the original
+		clonedNbc, err := deepcopy.Anything(nbc)
+		if err != nil {
+			s.T.Fatalf("failed to deep copy node config: %v", err)
+		}
+
+		// Pass the cloned nbc to BootstrapConfigMutator so that it can mutate the properties but not affecting the original one.
+		// Without this, it will cause a race condition when running multiple tests in parallel.
+		s.BootstrapConfigMutator(clonedNbc.(*datamodel.NodeBootstrappingConfiguration))
+		s.Runtime.NBC = clonedNbc.(*datamodel.NodeBootstrappingConfiguration)
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
-		s.T.Log("devin: **nodeconfig.KubeletConfig: ", nodeconfig.KubeletConfig)
 
 		// deep copy the node config so that we can mutate it without affecting the original
 		clonedNodeConfig, err := deepcopy.Anything(nodeconfig)

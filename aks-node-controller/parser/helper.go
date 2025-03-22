@@ -613,7 +613,6 @@ func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
 	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
 }
 
-// pass the type of v as an input arguem
 func marshalToJson(v any) ([]byte, error) {
 	// Originally we can set the Multiline here and it will marshal to a JSON we can use.
 	// However the protojson team intentionally randomly add extra whitespace after the key in the key-value.
@@ -640,7 +639,6 @@ func marshalToJson(v any) ([]byte, error) {
 			log.Printf("error marshalling kubelet config file content: %v", err)
 			return nil, err
 		}
-		jsonByte = append(jsonByte, '\n')
 		return jsonByte, nil
 	}
 	return nil, fmt.Errorf("unsupported type: %T", v)
@@ -652,22 +650,15 @@ func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) s
 		return ""
 	}
 	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
-	log.Printf("devin: kubeletConfig.GetKubeletConfigFileConfig() = %s", kubeletConfigFileConfig)
 	kubeletConfigFileConfigByte, err := marshalToJson(kubeletConfigFileConfig)
 	if err != nil {
 		log.Printf("error marshalling kubelet config file content: %v", err)
 		return ""
 	}
-	log.Printf("devin: configStringByte = %s", kubeletConfigFileConfigByte)
 	return string(kubeletConfigFileConfigByte)
 }
 
 func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
-	if kubeletConfig == nil {
-		return ""
-	}
-	log.Printf("devin: getKubeletConfigFileContent(kubeletConfig) = %s", getKubeletConfigFileContent(kubeletConfig))
-	log.Printf("devin: base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig))) = %s", base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig))))
 	return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig)))
 }
 
