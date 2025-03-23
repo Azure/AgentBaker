@@ -24,7 +24,7 @@ pr:
       - vhdbuilder/packer/cleanup.sh
       - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
       - vhdbuilder/packer/generate-vhd-publishing-info.sh
-      - vhdbuilder/packer/init-variables.sh
+      - vhdbuilder/packer/produce-packer-settings.sh
       - vhdbuilder/packer/windows/
       - parts/common/components.json
       - parts/windows
