@@ -52,16 +52,6 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 		customData = nodeBootstrapping.CustomData
 	}
 
-	if nodeBootstrapping != nil && nodeBootstrapping.SigImageConfig != nil {
-		s.T.Logf("vhd sub id %s", config.Config.SubscriptionID)
-		s.T.Logf("vhd rgr id %s", config.ResourceGroupName)
-		s.T.Logf("vhd galler %s", config.Config.GalleryNameWindows)
-		s.T.Logf("vhd versio %s", nodeBootstrapping.SigImageConfig.Version)
-		s.T.Logf("vhd defini %s", nodeBootstrapping.SigImageConfig.Definition)
-	} else {
-		s.T.Logf("nbc or sigimageconfig is nil")
-	}
-
 	model := getBaseVMSSModel(s, customData, cse)
 	if s.Tags.NonAnonymousACR {
 		// add acr pull identity
