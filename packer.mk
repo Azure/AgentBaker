@@ -87,7 +87,7 @@ endif
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/init-variables.sh
+	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
