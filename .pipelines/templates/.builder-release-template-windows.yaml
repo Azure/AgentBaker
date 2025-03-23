@@ -90,28 +90,42 @@ steps:
   - bash: |
       set -e
       m="windowsVhdMode"
-      echo "SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
-      echo "SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX}"
-      echo "SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
-      
-      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then
-          echo "Non prod build"
-          sigImageName="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
-          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
-          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
-      else
-          echo "prod build"
-          sigImageName="windows-${WINDOWS_SKU}-$(date +"%H%M%S")-$RANDOM"
-          WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
-          sigGalleryName="WSGallery$(date +"%y%m%d")"
-          echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$sigGalleryName"
-          echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]1.0.0"
-          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
-          echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
-      fi
       echo "Set build mode to $m"
-      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$sigImageName"
       echo "##vso[task.setvariable variable=MODE]$m"
+
+      echo "Original SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
+      echo "Original SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX}"
+      echo "Original SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
+      
+      # -n is "not empty"
+      if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then
+          echo If the Name, Prefix, and Version have been set, then we don't overwrite them.
+          SIG_IMAGE_NAME="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
+      else
+          echo At least on of the name, prefix or version are empty. Overwriting all values. 
+          # For the version, we use a timestamp followed by a random number"
+          SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM
+          SIG_IMAGE_NAME="${WINDOWS_SKU}"
+          SIG_GALLERY_NAME="WSGallery$(date +"%y%m%d")"
+          SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+
+          WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
+      
+          # This enables the VHD to be uploaded to a classic storage account if DRY_RUN is false.
+          echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
+      fi
+      
+      echo "Modified SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
+      echo "Modified SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}"
+      echo "Modified SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
+
+      echo "##vso[task.setvariable variable=SIG_GALLERY_NAME]$SIG_GALLERY_NAME"
+      echo "##vso[task.setvariable variable=SIG_IMAGE_NAME]$SIG_IMAGE_NAME"
+      echo "##vso[task.setvariable variable=SIG_IMAGE_VERSION]$SIG_IMAGE_VERSION"
+  
+      echo "##vso[task.setvariable variable=SKIPVALIDATEREOFFERUPDATE]True"
+
       if [[ "${USE_RELEASE_DATE}" = "False" ]]; then 
         echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d")
       else 
