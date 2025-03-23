@@ -21,11 +21,12 @@ var (
 		Name:              Config.GalleryNameLinux,
 	}
 
-	windowsGallery = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDWindows,
-		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-		Name:              Config.GalleryNameWindows,
-	}
+	windowsGallery = linuxGallery
+	//&Gallery{
+	//	SubscriptionID:    Config.GallerySubscriptionIDWindows,
+	//	ResourceGroupName: Config.GalleryResourceGroupNameWindows,
+	//	Name:              Config.GalleryNameWindows,
+	//}
 )
 
 type Gallery struct {
