@@ -102,6 +102,7 @@ function Get-HNSManagementIP {
     if ($IsDualStackEnabled) {
         $managementIP = (Get-HnsNetwork | Where-Object {$_.IPv6 -eq $true}).ManagementIPv6
     } else {
+        (Get-HnsNetwork | where {$_.Name -eq 'ext'}) >> $global:LogPath
         $managementIP = (Get-HnsNetwork | where {$_.Name -eq 'ext'}).ManagementIP
     }
     return $managementIP
