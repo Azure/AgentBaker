@@ -1,6 +1,6 @@
 module github.com/Azure/agentbaker/e2e
 
-go 1.23.0
+go 1.23.7
 
 toolchain go1.24.1
 

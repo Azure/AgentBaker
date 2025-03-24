@@ -1,8 +1,6 @@
 module github.com/Azure/agentbaker/aks-node-controller
 
-go 1.22.12
-
-toolchain go1.23.7
+go 1.23.7
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
