@@ -619,8 +619,8 @@ extractAndCacheCoreDNSBinaries() {
     exit 1
   fi
 
-  local dest_path="/opt/azure/containers/localdns/binary"
-  mkdir -p "${dest_path}"
+  local dest_binary_path="/opt/azure/containers/localdns/binary"
+  mkdir -p "${dest_binary_path}" || exit 1
 
   cleanup_coredns_imports() {
     set +e
@@ -631,44 +631,47 @@ extractAndCacheCoreDNSBinaries() {
   }
   trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
 
-  # Extract image tags and sort them in descending order
+  # Extract available coredns image tags and sort them in descending order.
   local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Determine latest version and latest from previous major-minor release
-  local latest_tag="${sorted_coredns_tags[0]}"
-  local latest_mm="${latest_tag%-*}"  # Extracts major.minor.patch (removes -revision)
+  # Determine latest version and latest from previous major-minor version.
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  # Extract major.minor.patch (removes -revision).
+  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
 
-  local previous_tag=""
+  local previous_coredns_tag=""
+  # Iterate through the sorted list to find the next highest major-minor version.
   for tag in "${sorted_coredns_tags[@]}"; do
-    local mm="${tag%-*}"  # Extracts major.minor.patch
-    if [[ "$mm" != "$latest_mm" ]]; then
-      previous_tag="$tag"
+    vMajorMinorPatch="${tag%-*}"
+    if [[ "$vMajorMinorPatch" != "$latest_vMajorMinorPatch" ]]; then
+      previous_coredns_tag="$tag"
+      # Break the loop after next highest major-minor version is found.
       break
     fi
   done
 
-  if [[ -z "$previous_tag" ]]; then
-    echo "No previous major-minor release found, skipping extraction."
-    return
+  if [[ -z "$previous_coredns_tag" ]]; then
+    echo "n-1 major-minor tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
+    previous_coredns_tag="$latest_coredns_tag"
   fi
 
-  # Extract the CoreDNS binary for the selected version
+  # Extract the CoreDNS binary for the selected version.
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [[ "${coredns_image_url##*:}" != "$previous_tag" ]]; then
+    if [[ "${coredns_image_url##*:}" != "$previous_coredns_tag" ]]; then
       continue
     fi
 
     ctr_temp="$(mktemp -d)"
     if ! ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
-      echo "Failed to mount ${coredns_image_url}"
+      echo "Failed to mount ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
       rm -rf "${ctr_temp}"
       continue
     fi
 
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [[ -f "$coredns_binary" ]]; then
-      cp "$coredns_binary" "${dest_path}/coredns"
-      echo "Copied coredns binary to ${dest_path}/coredns" >> "${VHD_LOGS_FILEPATH}"
+      cp "$coredns_binary" "${dest_binary_path}/coredns"
+      echo "Copied coredns binary of "$previous_coredns_tag" to ${dest_binary_path}/coredns" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
@@ -677,6 +680,7 @@ extractAndCacheCoreDNSBinaries() {
     rm -rf "${ctr_temp}"
   done
 
+  # Clear the trap.
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
 }
 
