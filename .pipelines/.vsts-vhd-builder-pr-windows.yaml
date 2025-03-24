@@ -45,7 +45,7 @@ variables:
   LOCATION: $(PACKER_BUILD_LOCATION)
   POOL_NAME: $(AZURE_POOL_NAME)
   # TODO - move this to variables rather than being in code
-  E2E_SUBSCRIPTION_ID: "df8ed6e2-7bc3-4600-b141-5d9619382df1"
+  E2E_SUBSCRIPTION_ID: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
