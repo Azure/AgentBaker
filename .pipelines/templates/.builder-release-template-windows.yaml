@@ -106,7 +106,7 @@ steps:
           echo At least on of the name, prefix or version are empty. Overwriting all values. 
           # For the version, we use a timestamp followed by a random number"
           SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM
-          SIG_IMAGE_NAME="${WINDOWS_SKU}"
+          SIG_IMAGE_NAME="aks-windows-${WINDOWS_SKU}"
           SIG_GALLERY_NAME="WSGallery$(date +"%y%m%d")"
           SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 
