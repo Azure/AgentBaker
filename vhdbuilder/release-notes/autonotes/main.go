@@ -192,12 +192,12 @@ func getReleaseNotesWindows(sku, path string, fl *flags) error {
 	parentDirectory := filepath.Dir(artifactsDirOut)
 	fmt.Printf("\n")
 	fmt.Printf("Creating parent directory for sku'%s': '%s'\n", sku, parentDirectory)
-	if err := os.MkdirAll(parentDirectory, 0644); err != nil {
+	if err := os.MkdirAll(parentDirectory, 0744); err != nil {
 		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	fmt.Printf("Creating directory for sku '%s': '%s'\n", sku, artifactsDirOut)
-	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
+	if err := os.MkdirAll(artifactsDirOut, 0744); err != nil {
 		return fmt.Errorf("failed to create directory %s with error: %s", artifactsDirOut, err)
 	}
 
