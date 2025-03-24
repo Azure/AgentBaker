@@ -366,24 +366,33 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 }
 
 func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
-	t.Logf("Looking up images for subscription %s resource group %s gallery %s image name %s version %s ",
-		image.Gallery.SubscriptionID,
-		image.Gallery.ResourceGroupName,
-		image.Gallery.Name,
-		image.Name,
-		image.Version)
+	t.Logf("Looking up images in %s", image.azurePortalImageUrl())
 
-	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
-	if err != nil {
-		return "", fmt.Errorf("create a new images client: %v", err)
+	imagesClient, imagesClientErr := armcompute.NewGalleryImagesClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if imagesClientErr != nil {
+		return "", fmt.Errorf("failed to create a new images client: %v", imagesClientErr)
 	}
-	pager := galleryImageVersion.NewListByGalleryImagePager(image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, nil)
+
+	_, getImageError := imagesClient.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, &armcompute.GalleryImagesClientGetOptions{})
+	if getImageError != nil {
+		return "", fmt.Errorf("image does not exist in galery: %v", getImageError)
+	}
+
+	imageVersionsClient, imageVersionsClientErr := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
+	if imageVersionsClientErr != nil {
+		return "", fmt.Errorf("failed to create a new image versions client: %v", imageVersionsClientErr)
+	}
+
+	pager := imageVersionsClient.NewListByGalleryImagePager(image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, nil)
+	// this is ugly. The pager doesn't have any error capability so we can't tell if the image gallery exists or not. This case should be caught by the code above, but who knows.
+	var hasAny bool = false
 	var latestVersion *armcompute.GalleryImageVersion
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return "", fmt.Errorf("failed to get next page: %w", err)
 		}
+		hasAny = true
 		versions := page.Value
 		for _, version := range versions {
 			// skip images tagged with the no-selection tag, indicating they
@@ -409,15 +418,15 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			}
 		}
 	}
+	if !hasAny {
+		return "", fmt.Errorf("no versions found in gallery - likely image or gallery don't exist: %s", image.azurePortalImageUrl())
+	}
+
 	if latestVersion == nil {
-		t.Logf("Could not find VHD with tag %s=%s in subscription %s resource group %s gallery %s image name %s version %s",
+		t.Logf("Could not find VHD with tag %s=%s in %s",
 			tagName,
 			tagValue,
-			image.Gallery.SubscriptionID,
-			image.Gallery.ResourceGroupName,
-			image.Gallery.Name,
-			image.Name,
-			image.Version)
+			image.azurePortalImageUrl())
 		return "", ErrNotFound
 	}
 
