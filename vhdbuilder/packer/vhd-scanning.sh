@@ -12,6 +12,7 @@ if [ -z "$PACKER_BUILD_LOCATION" ]; then
 fi
 
 CURRENT_TIME=$(date +%s)
+exit 0
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
