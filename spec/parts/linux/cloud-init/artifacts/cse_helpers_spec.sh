@@ -277,7 +277,7 @@ Describe 'cse_helpers.sh'
             The output line 1 should equal "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
         End
         It 'returns expected output from KUBE_BINARY_URL'
-            KUBE_BINARY_URL="https://packages.aks.azure.com/kubernetes/v1.30.0-hotfix20241209/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBE_BINARY_URL="https://${PACKAGE_DOWNLOAD_BASE_URL}/kubernetes/v1.30.0-hotfix20241209/binaries/kubernetes-nodes-linux-amd64.tar.gz"
             KUBERNETES_VERSION="1.30.0"
 
             updateKubeBinaryRegistryURL
