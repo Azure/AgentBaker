@@ -223,22 +223,40 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
 			if i.vhd != "" {
-				t.Logf("got version vid %s: %s", i.Version, i.vhd)
+				t.Logf("Got image by version: %s", i.azurePortalImageVersionUrl())
 			}
 		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
 			if i.vhd != "" {
-				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhd)
+				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			} else {
+				t.Logf("Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
 			}
 		}
 		if i.vhdErr != nil {
-			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("Failed to find the image. Sub=%s rg=%s gallary=%s version for with err %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhdErr)
-		} else {
-			t.Logf("Found the image. Sub=%s rg=%s gallary=%s version for with id %s", i.Gallery.SubscriptionID, i.Gallery.ResourceGroupName, i.Gallery.Name, i.vhd.Short())
+			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.azurePortalImageUrl(), Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 		}
 	})
 	return i.vhd, i.vhdErr
+}
+
+func (i *Image) azurePortalImageUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+	)
+}
+
+func (i *Image) azurePortalImageVersionUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/versions/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+		i.Version,
+	)
 }
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
