@@ -2811,3 +2811,110 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentPoolProfileLocalDNS(t *testing.T) {
+	cases := []struct {
+		name                      string
+		agentPoolProfile          *AgentPoolProfile
+		expectedState             bool
+		expectedCPU               *int32
+		expectedMemory            *int32
+		expectedListenerIP        string
+		expectedClusterListenerIP string
+		expectedDNSServiceIP      string
+	}{
+		{
+			name:             "AgentPoolProfile nil",
+			agentPoolProfile: nil,
+			expectedState:    false,
+		},
+		{
+			name: "LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectedState: false,
+		},
+		{
+			name: "LocalDNSProfile Invalid",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State: "Invalid",
+				},
+			},
+			expectedState: false,
+		},
+		{
+			name: "LocalDNSProfile disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State: "Disabled",
+				},
+			},
+			expectedState: false,
+		},
+		{
+			name: "LocalDNSProfile enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State:                "Enabled",
+					CPULimitInMilliCores: to.Int32Ptr(1000),
+					MemoryLimitInMB:      to.Int32Ptr(2048),
+				},
+			},
+			expectedState:             true,
+			expectedCPU:               to.Int32Ptr(1000),
+			expectedMemory:            to.Int32Ptr(2048),
+			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
+			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
+		},
+		{
+			name: "LocalDNSProfile enabled, CPU and memory not set",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State: "Enabled",
+				},
+				KubernetesConfig: &KubernetesConfig{
+					DNSServiceIP: "10.0.0.10",
+				},
+			},
+			expectedState:             true,
+			expectedCPU:               to.Int32Ptr(2000),
+			expectedMemory:            to.Int32Ptr(128),
+			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
+			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
+			expectedDNSServiceIP:      "10.0.0.10",
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			actualLocaldnsState := c.agentPoolProfile.ShouldEnableLocalDNS()
+			actualCPU := c.agentPoolProfile.GetLocalDNSCPULimitInMilliCores()
+			actualMemory := c.agentPoolProfile.GetLocalDNSMemoryLimitInMB()
+			actualListenerIP := c.agentPoolProfile.GetLocalDNSNodeListenerIP()
+			actualClusterListenerIP := c.agentPoolProfile.GetLocalDNSClusterListenerIP()
+
+			if c.expectedState != actualLocaldnsState {
+				t.Fatalf("test case: %s, expected localdns state: %v. Got: %v", c.name, c.expectedState, actualLocaldnsState)
+			}
+
+			if c.expectedState == true {
+				if *c.expectedCPU != actualCPU {
+					t.Fatalf("test case: %s, expected CPU: %d. Got: %d.", c.name, c.expectedCPU, actualCPU)
+				}
+				if *c.expectedMemory != actualMemory {
+					t.Fatalf("test case: %s, expected memory: %d. Got: %d.", c.name, c.expectedMemory, actualMemory)
+				}
+				if c.expectedListenerIP != actualListenerIP {
+					t.Fatalf("test case: %s, expected listener IP: %s. Got: %s.", c.name, c.expectedListenerIP, actualListenerIP)
+				}
+				if c.expectedClusterListenerIP != actualClusterListenerIP {
+					t.Fatalf("test case: %s, expected cluster listener IP: %s. Got: %s.", c.name, c.expectedClusterListenerIP, actualClusterListenerIP)
+				}
+			}
+		})
+	}
+}

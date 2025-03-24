@@ -785,6 +785,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
 					},
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
@@ -1196,6 +1197,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 		},
 	})
