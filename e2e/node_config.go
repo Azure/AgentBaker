@@ -56,7 +56,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 			"TLS_RSA_WITH_AES_256_GCM_SHA384",
 			"TLS_RSA_WITH_AES_128_GCM_SHA256",
 		},
-		RotateCertificates: false,
+		RotateCertificates: true,
 		ServerTlsBootstrap: false,
 		Authentication: &aksnodeconfigv1.KubeletAuthentication{
 			X509: &aksnodeconfigv1.KubeletX509Authentication{
