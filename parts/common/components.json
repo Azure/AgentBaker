@@ -75,18 +75,7 @@
       "downloadURL": "mcr.microsoft.com/windows/servercore/iis:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
-      "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
-          "latestVersion": "windowsservercore-ltsc2022",
-          "windowsSkuMatch": "2022-containerd*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
-          "latestVersion": "windowsservercore-ltsc2022",
-          "windowsSkuMatch": "23H2*"
-        }
-      ]
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
