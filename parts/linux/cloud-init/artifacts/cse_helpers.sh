@@ -791,7 +791,7 @@ verify_DNS_health(){
 resolve_packages_source_url() {
     echo "Ensuring connectivity to packages.aks.azure.com..."
 
-    response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 packages.aks.azure.com)
+    response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
 
     if [ ${response_code} -eq 200 ]; then
       PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
