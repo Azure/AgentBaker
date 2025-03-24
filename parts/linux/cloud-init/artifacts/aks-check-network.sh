@@ -34,7 +34,7 @@ declare -A URL_LIST=(
     ["eastus.data.mcr.microsoft.com"]="FQDN *.data.mcr.microsoft.com is required for MCR storage backed by the Azure content delivery network (CDN)."\
     ["login.microsoftonline.com"]="This is equired for Microsoft Entra authentication."\
     ["packages.microsoft.com"]="This is required to download packages (like Moby, PowerShell, and Azure CLI) using cached apt-get operations."\
-    ["acs-mirror.azureedge.net"]="This is required to download and install required binaries like kubenet and Azure CNI."\
+    ["packages.aks.azure.com"]="This is required to download and install required binaries like kubenet and Azure CNI."\
 )
 
 function logs_to_events {
