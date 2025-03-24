@@ -47,6 +47,7 @@ variables:
   # TODO - move this to variables rather than being in code
   E2E_SUBSCRIPTION_ID: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
   SUBSCRIPTION_ID: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+  AZURE_BUILD_SUBSCRIPTION_ID: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
