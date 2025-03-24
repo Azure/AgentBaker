@@ -788,8 +788,18 @@ verify_DNS_health(){
     echo "DNS health check passed"
 }
 
-validate_packages_source_url() {
-    
+resolve_packages_source_url() {
+    echo "Ensuring connectivity to packages.aks.azure.com..."
+
+    response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 packages.aks.azure.com)
+
+    if [ ${response_code} -eq 200 ]; then
+      PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
+    else
+      PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
+    fi
 }
 
 oras_login_with_kubelet_identity() {
