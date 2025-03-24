@@ -609,8 +609,8 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
-# This function extracts CoreDNS binaries from cached coredns images and copies them to -
-# /opt/azure/containers/localdns/<corednsImageTag>/coredns. The binary is later used by localdns systemd unit.
+# This function extracts CoreDNS binary from cached coredns image (n-1) and copies it to -
+# /opt/azure/containers/localdns/binary/coredns. The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDNSBinaries() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))

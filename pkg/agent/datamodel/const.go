@@ -136,8 +136,6 @@ const (
 const (
 	// LocalDNSEnabled is a string constant for 'Enabled'.
 	LocalDNSEnabled = "Enabled"
-	// DefaultLocalDNSImageVersion sepcifies the default coredns image version used in localdns.
-	DefaultLocalDNSImageVersion = "v1.12.0-1"
 	// DefaultLocalDNSNodeListenerIP sepcifies the default nodelistener APIPA-IP used in localdns.
 	DefaultLocalDNSNodeListenerIP = "169.254.10.10"
 	// DefaultLocalDNSClusterListenerIP sepcifies the default clusterlistener APIPA-IP used in localdns.

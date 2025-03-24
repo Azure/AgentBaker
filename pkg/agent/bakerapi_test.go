@@ -56,7 +56,6 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 							State:                "Enabled",
 							CPULimitInMilliCores: to.Int32Ptr(2000),
 							MemoryLimitInMB:      to.Int32Ptr(128),
-							ImageVersion:         "v1.11.3-6",
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 								".": {
 									QueryLogging:                "Log",

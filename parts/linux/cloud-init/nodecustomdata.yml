@@ -444,7 +444,6 @@ write_files:
   content: |
     SHOULD_ENABLE_LOCALDNS={{ShouldEnableLocalDNS}}
     COREDNS_SERVICE_IP={{GetCoreDNSServiceIP}}
-    LOCALDNS_IMAGE_VERSION={{GetLocalDNSImageVersion}}
     LOCALDNS_NODE_LISTENER_IP={{GetLocalDNSNodeListenerIP}}
     LOCALDNS_CLUSTER_LISTENER_IP={{GetLocalDNSClusterListenerIP}}
     LOCALDNS_CPU_LIMIT_IN_MILLI_CORES={{GetLocalDNSCPULimitInMilliCores}}

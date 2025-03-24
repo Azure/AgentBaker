@@ -814,7 +814,6 @@ type LocalDNSProfile struct {
 	State                string                        `json:"state,omitempty"`
 	CPULimitInMilliCores *int32                        `json:"cpuLimitInMilliCores,omitempty"`
 	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
-	ImageVersion         string                        `json:"imageVersion,omitempty"`
 	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
 	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
 }
@@ -837,14 +836,6 @@ type LocalDNSOverrides struct {
 func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
 	return a != nil && a.LocalDNSProfile != nil &&
 		strings.EqualFold(a.LocalDNSProfile.State, LocalDNSEnabled)
-}
-
-// GetLocalDNSImageVersion returns CoreDNS image that will be used in localdns systemd unit.
-func (a *AgentPoolProfile) GetLocalDNSImageVersion() string {
-	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.ImageVersion != "" {
-		return a.LocalDNSProfile.ImageVersion
-	}
-	return DefaultLocalDNSImageVersion
 }
 
 // GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.

@@ -1018,9 +1018,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return output
 		},
-		"GetLocalDNSImageVersion": func() string {
-			return profile.GetLocalDNSImageVersion()
-		},
 		"GetLocalDNSNodeListenerIP": func() string {
 			return profile.GetLocalDNSNodeListenerIP()
 		},

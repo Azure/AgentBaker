@@ -37,8 +37,6 @@ fi
 # Load environment variables from envfile.
 # Each of the below variables must match the field name defined in parts/linux/cloud-init/nodecustomdata.yml.
 # --------------------------------------------------------------------------------------------------------------------
-# CoreDNS image version used to start localdns.
-: "${LOCALDNS_IMAGE_VERSION:?LOCALDNS_IMAGE_VERSION is not set}"
 # This is the IP that localdns service should bind to for node traffic; an APIPA address.
 : "${LOCALDNS_NODE_LISTENER_IP:?LOCALDNS_NODE_LISTENER_IP is not set}"
 # This is the IP that localdns service should bind to for pod traffic; an APIPA address.

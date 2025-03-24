@@ -286,7 +286,6 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 							State:                "Enabled",
 							CPULimitInMilliCores: to.Ptr(int32(2000)),
 							MemoryLimitInMB:      to.Ptr(int32(128)),
-							ImageVersion:         "v1.11.3-6",
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 								".": {
 									QueryLogging:                "Log",
@@ -440,7 +439,6 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 				State:                "Enabled",
 				CPULimitInMilliCores: to.Ptr(int32(2000)),
 				MemoryLimitInMB:      to.Ptr(int32(128)),
-				ImageVersion:         "v1.11.3-6",
 				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 					".": {
 						QueryLogging:                "Log",
