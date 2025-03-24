@@ -53,12 +53,12 @@ stages:
       vhddebug: False
       dryrun: False
       buildVmSize: Standard_D4ds_v5
-      build2019containerd: True
+      build2019containerd: False
       build2022containerd: False
-      build2022containerdgen2: True
-      build23H2: False
-      build23H2gen2: True
+      build2022containerdgen2: False
+      build23H2: True
+      build23H2gen2: False
       overrideBranch: master
       useOverrides: False
       build2025: False
-      build2025gen2: True
+      build2025gen2: False
