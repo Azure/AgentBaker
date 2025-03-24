@@ -188,7 +188,7 @@ function Test-CompareSingleDir {
         $rootPathExceptions = @("cri-tools")
         # When proxy location is not correctly defined in MoonCake, we will get 404 error when downloading files from MoonCake.
         # This valiation should including files in excludeHashComparisionListInAzureChinaCloud.
-        if ($URL.StartsWith("https://packages.aks.azure.com/") -and ($rootPathExceptions -notcontains $URL)) {
+        if ($URL.StartsWith("https://$PACKAGE_DOWNLOAD_BASE_URL}/") -and ($rootPathExceptions -notcontains $URL)) {
             $supportedProxyLocations = @(
                 "aks",
                 "kubernetes",
