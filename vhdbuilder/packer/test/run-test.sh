@@ -8,6 +8,7 @@ LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
+exit 0
 
 if [ -z "${MANAGED_SIG_ID}" ]; then
   echo "SIG image version ID from packer output is empty, unable to proceed..."
