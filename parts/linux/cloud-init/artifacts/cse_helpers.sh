@@ -790,7 +790,7 @@ verify_DNS_health(){
 
 resolve_packages_source_url() {
     echo "Ensuring connectivity to packages.aks.azure.com..."
-    
+
     local retries=3
     local wait_sleep=1
 
@@ -798,7 +798,7 @@ resolve_packages_source_url() {
         response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
         if [ ${response_code} -ne 200 ]; then
             if [ $i -eq $retries ]; then
-                echo "Executed curl to packages.aks.azure.com $i times"
+                echo "Executed curl to packages.aks.azure.com $i times. Response code is $response_code"
                 break
             else
                 sleep $wait_sleep
