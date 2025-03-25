@@ -652,11 +652,11 @@ updatePackageDownloadURL() {
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
     #otherwise get the downloadURL from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.packagesURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
         return
     fi
-    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
+    downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.packagesURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
     return    
 }
@@ -738,6 +738,20 @@ verify_DNS_health(){
         return $ERR_DNS_HEALTH_FAIL
     fi
     echo "DNS health check passed"
+}
+
+resolve_packages_source_url() {
+    echo "Ensuring connectivity to packages.aks.azure.com..."
+
+    response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
+
+    if [ ${response_code} -eq 200 ]; then
+      PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
+    else
+      PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
+    fi
 }
 
 oras_login_with_kubelet_identity() {
