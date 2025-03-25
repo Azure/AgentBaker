@@ -1207,6 +1207,10 @@ checkPerformanceData() {
   return 0
 }
 
+testPackageDownloadURLFallbackLogic() {
+  
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
