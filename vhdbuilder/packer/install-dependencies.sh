@@ -652,7 +652,7 @@ extractAndCacheCoreDNSBinaries() {
   done
 
   if [[ -z "${previous_coredns_tag}" ]]; then
-    echo "n-1 major-minor tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
+    echo "Previous version (ie n-1, n being the latest version) tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
     previous_coredns_tag="$latest_coredns_tag"
   fi
 
