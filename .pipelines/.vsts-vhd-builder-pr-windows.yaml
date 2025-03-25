@@ -24,7 +24,7 @@ pr:
       - vhdbuilder/packer/cleanup.sh
       - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
       - vhdbuilder/packer/generate-vhd-publishing-info.sh
-      - vhdbuilder/packer/init-variables.sh
+      - vhdbuilder/packer/produce-packer-settings.sh
       - vhdbuilder/packer/windows/
       - parts/common/components.json
       - parts/windows
@@ -35,13 +35,23 @@ pr:
       - e2e/scenario_test.go
 
 pool:
-  name: $(AZURE_POOL_NAME)
+  name: $(NODE_SIG_TEST_POOL_NAME)
 
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
-  VHD_BUILD_ID: $(Build.BuildId)
-  LOCATION: $(PACKER_BUILD_LOCATION)
-  POOL_NAME: $(AZURE_POOL_NAME)
+  - name: VHD_BUILD_ID
+    value: $(Build.BuildId)
+  - name: LOCATION
+    value: $(PACKER_BUILD_LOCATION)
+  - name: POOL_NAME
+    value: $(NODE_SIG_TEST_POOL_NAME)
+  # TODO - move this to variables rather than being in code
+  - name: E2E_SUBSCRIPTION_ID
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+  - name: SUBSCRIPTION_ID
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+  - name: AZURE_BUILD_SUBSCRIPTION_ID
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -53,12 +63,12 @@ stages:
       vhddebug: False
       dryrun: False
       buildVmSize: Standard_D4ds_v5
-      build2019containerd: True
+      build2019containerd: False
       build2022containerd: False
-      build2022containerdgen2: True
-      build23H2: False
-      build23H2gen2: True
+      build2022containerdgen2: False
+      build23H2: True
+      build23H2gen2: False
       overrideBranch: master
       useOverrides: False
       build2025: False
-      build2025gen2: True
+      build2025gen2: False
