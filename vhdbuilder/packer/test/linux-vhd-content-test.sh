@@ -1208,7 +1208,26 @@ checkPerformanceData() {
 }
 
 testPackageDownloadURLFallbackLogic() {
+  local test="testPackageDownloadURLFallbackLogic"
+
+  echo "$test: Start"
+
+  resolve_packages_source_url
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "packages.aks.azure.com" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
+  fi
   
+  IP_ADDRESS=$(dig +tries=5 +timeout=5 +short packages.aks.azure.com | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+  sudo iptables -A INPUT -s "$IP_ADDRESS" -j DROP
+
+  resolve_packages_source_url
+    if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "acs-mirror.azureedge.net" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to acs-mirror.azureedge.net after failure to connect to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to acs-mirror.azureedge.net"
+  fi
+
+  echo "$test: Finish"
 }
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
@@ -1253,3 +1272,4 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testPackageDownloadURLFallbackLogic
