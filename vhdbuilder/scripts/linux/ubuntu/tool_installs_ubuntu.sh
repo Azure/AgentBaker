@@ -151,6 +151,15 @@ disableNtpAndTimesyncdInstallChrony() {
         systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
     fi
 
+    # Set the udev rules to add /dev/ptp_hyperv symlink
+    cat > /etc/udev/rules.d/99-ptp_hyperv.rules <<EOF
+ACTION!="add", GOTO="ptp_hyperv"
+SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK += "ptp_hyperv"
+LABEL="ptp_hyperv"
+EOF
+    udevadm control --reload
+    udevadm trigger --subsystem-match=ptp --action=add
+
     # Install chrony
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
     apt_get_install 20 30 120 chrony || exit $ERR_CHRONY_INSTALL_TIMEOUT
@@ -198,7 +207,7 @@ maxupdateskew 100.0
 rtcsync
 
 # Settings come from: https://docs.microsoft.com/en-us/azure/virtual-machines/linux/time-sync
-refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0 stratum 2
 makestep 1.0 -1
 EOF
 
