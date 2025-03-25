@@ -188,6 +188,7 @@ const (
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSUbuntuArm64Containerd2404Gen2    Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
+	AKSUbuntuContainerd2404CVMGen2      Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
 	AKSAzureLinuxV3Arm64Gen2            Distro = "aks-azurelinux-v3-arm64-gen2"
@@ -198,6 +199,8 @@ const (
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
 	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
 	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -217,6 +220,10 @@ const (
 	AKSWindows23H2 Distro = "aks-windows-23H2"
 	// AKSWindows23H2Gen2 stands for distro for windows 23H2 Gen 2 SIG image.
 	AKSWindows23H2Gen2 Distro = "aks-windows-23H2-gen2"
+	// AKSWindows2025 stands for distro for windows server 2025 SIG image.
+	AKSWindows2025 Distro = "aks-windows-2025"
+	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
+	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
@@ -272,8 +279,10 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
+	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
@@ -283,6 +292,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
+	AKSUbuntuContainerd2404TLGen2,
 }
 
 type CustomConfigurationComponent string

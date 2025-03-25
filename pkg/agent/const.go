@@ -73,6 +73,7 @@ const (
 	migPartitionScript                  = "linux/cloud-init/artifacts/mig-partition.sh"
 	migPartitionSystemdService          = "linux/cloud-init/artifacts/mig-partition.service"
 	ensureIMDSRestrictionScript         = "linux/cloud-init/artifacts/ensure_imds_restriction.sh"
+	validateKubeletCredentialsScript    = "linux/cloud-init/artifacts/validate-kubelet-credentials.sh"
 
 	// scripts and service for enabling ipv6 dual stack.
 	dhcpv6SystemdService            = "linux/cloud-init/artifacts/dhcpv6.service"
@@ -87,7 +88,6 @@ const (
 	containerdKubeletDropin = "linux/cloud-init/artifacts/10-containerd.conf"
 	cgroupv2KubeletDropin   = "linux/cloud-init/artifacts/10-cgroupv2.conf"
 	componentConfigDropin   = "linux/cloud-init/artifacts/10-componentconfig.conf"
-	tlsBootstrapDropin      = "linux/cloud-init/artifacts/10-tlsbootstrap.conf"
 	bindMountDropin         = "linux/cloud-init/artifacts/10-bindmount.conf"
 	httpProxyDropin         = "linux/cloud-init/artifacts/10-httpproxy.conf"
 	componentManifestFile   = "linux/cloud-init/artifacts/manifest.json"
