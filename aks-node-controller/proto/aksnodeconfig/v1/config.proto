@@ -150,4 +150,7 @@ message Configuration {
 
   // IMDS restriction configuration
   ImdsRestrictionConfig imds_restriction_config = 39;
+
+  // Kubelet Config File Content
+  string kubelet_config_file_content = 40;
 }

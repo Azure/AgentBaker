@@ -1,14 +1,12 @@
 module github.com/Azure/agentbaker/aks-node-controller
 
-go 1.22.12
-
-toolchain go1.23.7
+go 1.23.7
 
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	google.golang.org/protobuf v1.35.2
 )
 
