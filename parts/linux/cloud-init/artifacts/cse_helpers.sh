@@ -795,15 +795,17 @@ resolve_packages_source_url() {
     local wait_sleep=1
 
     for i in $(seq 1 $retries); do
-        response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
-        if [ ${response_code} -ne 200 ]; then
-            if [ $i -eq $retries ]; then
-                echo "Executed curl to packages.aks.azure.com $i times. Response code is $response_code"
-                break
-            else
-                sleep $wait_sleep
-            fi
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
+      if [ ${response_code} -eq 200 ]; then
+        break
+      else
+        if [ $i -eq $retries ]; then
+          echo "Executed curl to packages.aks.azure.com $i times. Response code is $response_code"
+          break
+        else
+          sleep $wait_sleep
         fi
+      fi
     done
 
     if [ ${response_code} -eq 200 ]; then
