@@ -1218,6 +1218,7 @@ testPackageDownloadURLFallbackLogic() {
     err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
   fi
   
+  # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
   IP_ADDRESS=$(dig +tries=5 +timeout=5 +short packages.aks.azure.com | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
   sudo iptables -A INPUT -s "$IP_ADDRESS" -j DROP
 
