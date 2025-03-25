@@ -37,25 +37,23 @@ pr:
       - e2e/scenario_test.go
 
 pool:
-  name: $(POOL_NAME)
+  name: $(NODE_SIG_TEST_POOL_NAME)
 
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
-  - group: ab-windows-ms-tenant
-
   - name: VHD_BUILD_ID
     value: $(Build.BuildId)
   - name: LOCATION
     value: $(PACKER_BUILD_LOCATION)
-#  - name: POOL_NAME
-#    value: $(AZURE_POOL_NAME)
+  - name: POOL_NAME
+    value: $(NODE_SIG_TEST_POOL_NAME)
   # TODO - move this to variables rather than being in code
-#  - name: E2E_SUBSCRIPTION_ID
-#    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
-#  - name: SUBSCRIPTION_ID
-#    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
-#  - name: AZURE_BUILD_SUBSCRIPTION_ID
-#    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+  - name: E2E_SUBSCRIPTION_ID
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+  - name: SUBSCRIPTION_ID
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+  - name: AZURE_BUILD_SUBSCRIPTION_ID
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
