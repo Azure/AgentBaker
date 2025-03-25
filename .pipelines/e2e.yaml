@@ -21,6 +21,8 @@ pr:
       - parts/linux
       - parts/common/components.json
       - pkg/agent
+      - go.mod
+      - go.sum
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
