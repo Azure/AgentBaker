@@ -15,6 +15,7 @@ ERR_STOP_OR_DISABLE_SYSTEMD_TIMESYNCD_TIMEOUT=12 {{/* Timeout waiting for system
 ERR_STOP_OR_DISABLE_NTP_TIMEOUT=13 {{/* Timeout waiting for ntp stop */}}
 ERR_CHRONY_INSTALL_TIMEOUT=14 {{/*Unable to install CHRONY */}}
 ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
+ERR_UDEV_RULE_RELOAD=16 {{/* Unable to reload udev after ptp_hyperv rule install */}}
 
 
 echo "Sourcing tool_installs_ubuntu.sh"
@@ -151,14 +152,19 @@ disableNtpAndTimesyncdInstallChrony() {
         systemctl disable ntp || exit $ERR_STOP_OR_DISABLE_NTP_TIMEOUT
     fi
 
-    # Set the udev rules to add /dev/ptp_hyperv symlink
-    cat > /etc/udev/rules.d/99-ptp_hyperv.rules <<EOF
+    # Set the udev rules to add /dev/ptp_hyperv symlink if the distro doesn't already have it
+    # This is required because chrony won't start otherwise.
+    # -h checks that the file exists and is a symlink.
+    # This rule is in /usr/lib/udev/rules.d/50-udev-default.rules on newer distributions
+    if [ ! -h /dev/ptp_hyperv ]; then
+	cat > /etc/udev/rules.d/99-ptp_hyperv.rules <<EOF
 ACTION!="add", GOTO="ptp_hyperv"
 SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK += "ptp_hyperv"
 LABEL="ptp_hyperv"
 EOF
-    udevadm control --reload
-    udevadm trigger --subsystem-match=ptp --action=add
+	udevadm control --reload || exit $ERR_UDEV_RULE_RELOAD
+	udevadm trigger --subsystem-match=ptp --action=add || exit $ERR_UDEV_RULE_RELOAD
+    fi
 
     # Install chrony
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
