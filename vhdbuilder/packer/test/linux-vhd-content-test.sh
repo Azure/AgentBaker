@@ -275,7 +275,7 @@ testPackageInAzureChinaCloud() {
     return
   fi
 
-  mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  mcURL="${downloadURL/https:\/\/packages.aks.azure.com/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
   echo "Validating: $mcURL"
   isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
   if [[ "$isExist" == "404" ]]; then
