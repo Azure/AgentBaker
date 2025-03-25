@@ -19,6 +19,8 @@ pr:
     - packer.mk
     - aks-node-controller/**
     - parts/common/components.json
+    - go.mod
+    - go.sum
     exclude:
     - schemas/windows_settings.cue
     - vhdbuilder/release-notes

@@ -28,6 +28,8 @@ pr:
       - vhdbuilder/packer/windows/
       - parts/common/components.json
       - parts/windows
+      - go.mod
+      - go.sum
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
