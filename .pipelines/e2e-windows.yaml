@@ -22,6 +22,8 @@ pr:
       - pkg/agent
       - parts/common/components.json
       - staging/cse/windows/
+      - go.mod
+      - go.sum
     exclude:
       - pkg/agent/datamodel/sig_config*.go # SIG config changes
       - pkg/agent/datamodel/*.json # SIG version changes
