@@ -68,7 +68,21 @@ func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
 		"set -ex",
 		"sudo nvidia-modprobe",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "cound not execute nvidia-modprobe command")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-modprobe command")
+}
+
+func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Capture the license status output, or continue silently if not found
+		"license_status=$(sudo nvidia-smi -q | grep 'License Status' | grep 'Licensed' || true)",
+		// If the output is empty, print an error message and exit with a nonzero code
+		"if [ -z \"$license_status\" ]; then echo 'License status not valid or not found'; exit 1; fi",
+		// Check that nvidia-gridd is active by capturing its is-active output
+		"active_status=$(sudo systemctl is-active nvidia-gridd)",
+		"if [ \"$active_status\" != \"active\" ]; then echo \"nvidia-gridd is not active: $active_status\"; exit 1; fi",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-smi license state or nvidia-gridd service status")
 }
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
