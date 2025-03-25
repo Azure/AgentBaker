@@ -609,8 +609,10 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
   done
 fi
 
-# This function extracts CoreDNS binary from cached coredns image (n-1) and copies it to -
-# /opt/azure/containers/localdns/binary/coredns. The binary is later used by localdns systemd unit.
+LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
+# This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
+# and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDNSBinaries() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
@@ -619,12 +621,11 @@ extractAndCacheCoreDNSBinaries() {
     exit 1
   fi
 
-  local dest_binary_path="/opt/azure/containers/localdns/binary"
-  mkdir -p "${dest_binary_path}" || exit 1
+  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
 
   cleanup_coredns_imports() {
     set +e
-    if [[ -n "$ctr_temp" ]]; then
+    if [[ -n "${ctr_temp}" ]]; then
       ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
       rm -rf "${ctr_temp}"
     fi
@@ -642,7 +643,7 @@ extractAndCacheCoreDNSBinaries() {
   local previous_coredns_tag=""
   # Iterate through the sorted list to find the next highest major-minor version.
   for tag in "${sorted_coredns_tags[@]}"; do
-    vMajorMinorPatch="${tag%-*}"
+    local vMajorMinorPatch="${tag%-*}"
     if [[ "$vMajorMinorPatch" != "$latest_vMajorMinorPatch" ]]; then
       previous_coredns_tag="$tag"
       # Break the loop after next highest major-minor version is found.
@@ -650,7 +651,7 @@ extractAndCacheCoreDNSBinaries() {
     fi
   done
 
-  if [[ -z "$previous_coredns_tag" ]]; then
+  if [[ -z "${previous_coredns_tag}" ]]; then
     echo "n-1 major-minor tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
     previous_coredns_tag="$latest_coredns_tag"
   fi
@@ -669,9 +670,9 @@ extractAndCacheCoreDNSBinaries() {
     fi
 
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
-    if [[ -f "$coredns_binary" ]]; then
-      cp "$coredns_binary" "${dest_binary_path}/coredns"
-      echo "Copied coredns binary of "$previous_coredns_tag" to ${dest_binary_path}/coredns" >> "${VHD_LOGS_FILEPATH}"
+    if [[ -f "${coredns_binary}" ]]; then
+      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns"
+      echo "Copied coredns binary of ${previous_coredns_tag} to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
