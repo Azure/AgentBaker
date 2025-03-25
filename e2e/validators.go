@@ -85,6 +85,17 @@ func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-smi license state or nvidia-gridd service status")
 }
 
+func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Check that nvidia-persistenced.service is active by capturing its is-active output
+		"active_status=$(sudo systemctl is-active nvidia-persistenced.service)",
+		"if [ \"$active_status\" != \"active\" ]; then echo \"nvidia-gridd is not active: $active_status\"; exit 1; fi",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
+}
+
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	command := []string{
 		"set -ex",
