@@ -1038,7 +1038,7 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 }
 
 
-func runScenarioUbuntuGRID(t *testing.T, vmSize string, vhdType *config.Image) {
+func runScenarioUbuntuGRID(t *testing.T, vmSize string, vhdType *Image) {
 	RunScenario(t, &Scenario{
 		Description: fmt.Sprintf("Tests that a GPU-enabled node with VM size %s using an Ubuntu %s VHD can be properly bootstrapped, and that the GRID license is valid", vmSize, vhdType.Name),
 		Tags: Tags{
