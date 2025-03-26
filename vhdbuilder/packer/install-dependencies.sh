@@ -621,6 +621,7 @@ extractAndCacheCoreDNSBinaries() {
     exit 1
   fi
 
+  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
   mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
 
   cleanup_coredns_imports() {
@@ -652,7 +653,7 @@ extractAndCacheCoreDNSBinaries() {
   done
 
   if [[ -z "${previous_coredns_tag}" ]]; then
-    echo "Previous version (ie n-1, n being the latest version) tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
+    echo "Warning: Previous version (ie n-1, n being the latest version) tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
     previous_coredns_tag="$latest_coredns_tag"
   fi
 
@@ -663,10 +664,21 @@ extractAndCacheCoreDNSBinaries() {
     fi
 
     ctr_temp="$(mktemp -d)"
-    if ! ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
-      echo "Failed to mount ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
+    local max_retries=3
+    local retry_count=0
+    while [[ $retry_count -lt $max_retries ]]; do
+      if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
+        break
+      fi
+      echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
+      sleep 2
+      ((retry_count++))
+    done
+
+    if [[ $retry_count -eq $max_retries ]]; then
+      echo "Error: Failed to mount ${coredns_image_url} after $max_retries attempts." >> "${VHD_LOGS_FILEPATH}"
       rm -rf "${ctr_temp}"
-      continue
+      exit 1
     fi
 
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
