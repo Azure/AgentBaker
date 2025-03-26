@@ -804,7 +804,8 @@
                 "previousLatestVersion": "Prev"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/win-cse-scripts-v${version}.zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/win-cse-scripts-v${version}.zip",
+            "packagesURL": ""
           }
         }
       }
@@ -827,7 +828,8 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
+            "packagesURL": ""
           },
           "ws2022": {
             "versionsV2": [
@@ -841,7 +843,8 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
+            "packagesURL": ""
           },
           "default": {
             "versionsV2": [
@@ -851,7 +854,8 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
+            "packagesURL": ""
           }
         },
         "default": {
@@ -882,7 +886,8 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
-            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip"
+            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip",
+            "windowsPackagesURL": ""
           }
         }
       }
