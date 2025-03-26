@@ -303,12 +303,12 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.1.6-hotfix.20240116"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
+          "latestVersion": "v0.30.3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
@@ -516,33 +516,33 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.9",
-          "previousLatestVersion": "v1.30.8"
+          "latestVersion": "v1.30.10",
+          "previousLatestVersion": "v1.30.9"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.5",
-          "previousLatestVersion": "v1.31.4"
+          "latestVersion": "v1.31.6",
+          "previousLatestVersion": "v1.31.5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.32.0"
+          "latestVersion": "v1.32.1"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.9-windows-hp",
-          "previousLatestVersion": "v1.30.8-windows-hp"
+          "latestVersion": "v1.30.10-windows-hp",
+          "previousLatestVersion": "v1.30.9-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.5-windows-hp",
-          "previousLatestVersion": "v1.31.4-windows-hp"
+          "latestVersion": "v1.31.6-windows-hp",
+          "previousLatestVersion": "v1.31.5-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.32.0-windows-hp"
+          "latestVersion": "v1.32.1-windows-hp"
         }
       ]
     },
@@ -586,16 +586,16 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.7",
-          "previousLatestVersion": "v1.24.6"
+          "latestVersion": "v1.24.8",
+          "previousLatestVersion": "v1.24.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.25.3"
+          "latestVersion": "v1.25.4"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.26.0"
+          "latestVersion": "v1.26.1"
         }
       ],
       "windowsVersions": []
@@ -1184,7 +1184,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.31.1"
+                "latestVersion": "1.32.0"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
