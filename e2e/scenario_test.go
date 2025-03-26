@@ -1068,11 +1068,11 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string, vhdType *Image) {
 	})
 }
 
-func Test_Ubuntu2204_GPUA10(t *testing.T) {
+func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5", config.VHDUbuntu2204Gen2Containerd)
 }
 
-func Test_Ubuntu2404_GPUA10(t *testing.T) {
+func Test_Ubuntu2404_GPUGridDriver(t *testing.T) {
 	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5", config.VHDUbuntu2404Gen2Containerd)
 }
 
@@ -1100,33 +1100,6 @@ func Test_Ubuntu2204_GPUA10_Scriptless(t *testing.T) {
 				config.GpuConfig.ConfigGpuDriver = true
 				config.GpuConfig.GpuDevicePlugin = false
 				config.GpuConfig.EnableNvidia = to.Ptr(true)
-			},
-		},
-	})
-}
-
-func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that a GPU-enabled node using the Ubuntu 2204 VHD with grid driver can be properly bootstrapped",
-		Tags: Tags{
-			GPU: true,
-		},
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2204Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.AgentPoolProfile.VMSize = "Standard_NV6ads_A10_v5"
-				nbc.ConfigGPUDriverIfNeeded = true
-				nbc.EnableGPUDevicePluginIfNeeded = false
-				nbc.EnableNvidia = true
-			},
-			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
-				vmss.SKU.Name = to.Ptr("Standard_NV6ads_A10_v5")
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateNvidiaModProbeInstalled(ctx, s)
-				ValidateKubeletHasNotStopped(ctx, s)
-				ValidateNvidiaSMIInstalled(ctx, s)
 			},
 		},
 	})
