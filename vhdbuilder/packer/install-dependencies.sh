@@ -692,7 +692,6 @@ extractAndCacheCoreDnsBinary() {
 
     if [[ $retry_count -eq $max_retries ]]; then
       echo "Error: Failed to mount ${coredns_image_url} after $max_retries attempts." >> "${VHD_LOGS_FILEPATH}"
-      rm -rf "${ctr_temp}"
       exit 1
     fi
 
