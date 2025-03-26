@@ -140,7 +140,7 @@ $global:IsAzureCNIOverlayEnabled = $false
 $global:CiliumDataplaneEnabled = $false
 
 # Kubelet credential provider
-$global:CredentialProviderURL = "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.0/binaries/azure-acr-credential-provider-windows-amd64-v1.29.0.tar.gz"
+$global:CredentialProviderURL = "https://packages.aks.azure.com/cloud-provider-azure/v1.29.0/binaries/azure-acr-credential-provider-windows-amd64-v1.29.0.tar.gz"
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("false");

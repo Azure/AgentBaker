@@ -144,7 +144,7 @@ $global:CredentialProviderURL = ""
 
 # CSI Proxy settings
 $global:EnableCsiProxy = [System.Convert]::ToBoolean("true");
-$global:CsiProxyUrl = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz";
+$global:CsiProxyUrl = "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz";
 
 # Hosts Config Agent settings
 $global:EnableHostsConfigAgent = [System.Convert]::ToBoolean("false");
