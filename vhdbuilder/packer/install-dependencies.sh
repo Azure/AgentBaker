@@ -699,9 +699,10 @@ extractAndCacheCoreDNSBinary() {
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [[ -f "${coredns_binary}" ]]; then
       cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
-        echo "Error: Failed to copy coredns binary for ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1
       }
+      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
