@@ -656,7 +656,7 @@ updatePackageDownloadURL() {
             downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.packagesURL" -r)
             [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
             return
-        else
+        elif [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL") != "null" ]]; then
             downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
             [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
             return
