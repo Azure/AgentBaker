@@ -303,12 +303,12 @@
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.1.6-hotfix.20240116"
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
+          "latestVersion": "v0.30.3"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
@@ -1198,7 +1198,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.31.1"
+                "latestVersion": "1.32.0"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz",
