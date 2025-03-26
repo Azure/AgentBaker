@@ -163,6 +163,7 @@ testPackagesInstalled() {
       continue
     fi
 
+    resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
