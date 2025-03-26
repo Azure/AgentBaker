@@ -1207,6 +1207,27 @@ checkPerformanceData() {
   return 0
 }
 
+testCoreDnsBinaryExtractedAndCached() {
+  local test="CoreDNSBinaryExtractedAndCached"
+  local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
+  local binaryPath="$localdnsBinaryDir/coredns"
+
+  echo "$test: Checking for existence of coredns binary at $binaryPath"
+  
+  if [[ ! -f "$binaryPath" ]]; then
+    err "$test: coredns binary does not exist at $binaryPath"
+    return 1
+  fi
+  
+  if [[ ! -x "$binaryPath" ]]; then
+    err "$test: coredns binary exists but is not executable at $binaryPath"
+    return 1
+  fi
+  
+  echo "$test: coredns binary is properly extracted and cached at $binaryPath"
+  return 0
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1249,3 +1270,4 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testCoreDnsBinaryExtractedAndCached

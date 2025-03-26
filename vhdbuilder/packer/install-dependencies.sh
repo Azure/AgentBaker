@@ -614,7 +614,7 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
-extractAndCacheCoreDNSBinaries() {
+extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
     echo "Error: No coredns images found."
@@ -633,18 +633,33 @@ extractAndCacheCoreDNSBinaries() {
   }
   trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
 
-  # Extract available coredns image tags and sort them in descending order.
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
   local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
 
-  # Determine latest version and latest from previous major-minor version.
+  # Function to check version format (vMajor.Minor.Patch).
+  validate_version_format() {
+    local version=$1
+    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Error: Invalid coredns version format. Expected vMajor.Minor.Patch, got $version" >> "${VHD_LOGS_FILEPATH}"
+      return 1
+    fi
+    return 0
+  }
+
+  # Determine latest version (eg. v1.12.0-1).
   local latest_coredns_tag="${sorted_coredns_tags[0]}"
-  # Extract major.minor.patch (removes -revision).
+  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
   local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
 
   local previous_coredns_tag=""
   # Iterate through the sorted list to find the next highest major-minor version.
   for tag in "${sorted_coredns_tags[@]}"; do
+    # Extract major.minor.patch (eg - v1.12.0).
     local vMajorMinorPatch="${tag%-*}"
+    if ! validate_version_format "$vMajorMinorPatch"; then
+      exit 1
+    fi
+
     if [[ "$vMajorMinorPatch" != "$latest_vMajorMinorPatch" ]]; then
       previous_coredns_tag="$tag"
       # Break the loop after next highest major-minor version is found.
@@ -653,7 +668,7 @@ extractAndCacheCoreDNSBinaries() {
   done
 
   if [[ -z "${previous_coredns_tag}" ]]; then
-    echo "Warning: Previous version (ie n-1, n being the latest version) tag not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
+    echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
     previous_coredns_tag="$latest_coredns_tag"
   fi
 
@@ -683,8 +698,11 @@ extractAndCacheCoreDNSBinaries() {
 
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
     if [[ -f "${coredns_binary}" ]]; then
-      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns"
-      echo "Copied coredns binary of ${previous_coredns_tag} to ${LOCALDNS_BINARY_PATH}/coredns" >> "${VHD_LOGS_FILEPATH}"
+      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        exit 1
+      }
+      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
     else
       echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
     fi
@@ -697,7 +715,7 @@ extractAndCacheCoreDNSBinaries() {
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
 }
 
-extractAndCacheCoreDNSBinaries
+extractAndCacheCoreDnsBinary
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
