@@ -614,7 +614,7 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # and copies it to - /opt/azure/containers/localdns/binary/coredns.
 # The binary is later used by localdns systemd unit.
 # The function also handles the cleanup of temporary directories and unmounting of images.
-extractAndCacheCoreDNSBinary() {
+extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
     echo "Error: No coredns images found."
@@ -692,7 +692,6 @@ extractAndCacheCoreDNSBinary() {
 
     if [[ $retry_count -eq $max_retries ]]; then
       echo "Error: Failed to mount ${coredns_image_url} after $max_retries attempts." >> "${VHD_LOGS_FILEPATH}"
-      rm -rf "${ctr_temp}"
       exit 1
     fi
 
@@ -715,7 +714,7 @@ extractAndCacheCoreDNSBinary() {
   trap - EXIT ABRT ERR INT PIPE QUIT TERM
 }
 
-extractAndCacheCoreDNSBinary
+extractAndCacheCoreDnsBinary
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
