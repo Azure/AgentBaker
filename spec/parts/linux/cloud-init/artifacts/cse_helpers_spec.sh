@@ -182,7 +182,7 @@ Describe 'cse_helpers.sh'
                 return 1
             }
             retrycmd_get_access_token_for_oras(){
-                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+                echo "failed to retrieve kubelet identity token from IMDS, http code: 400, msg: {\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
                 return $ERR_ORAS_PULL_UNAUTHORIZED
             }
 
@@ -191,7 +191,7 @@ Describe 'cse_helpers.sh'
             local tenant_id="mytenantID"
             When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
             The status should be failure
-            The stdout should include "Failed to retrieve kubelet identity token"
+            The stdout should include "failed to retrieve kubelet identity token"
         End  
         It 'should fail if refresh token is an error'
             retrycmd_can_oras_ls_acr() {
