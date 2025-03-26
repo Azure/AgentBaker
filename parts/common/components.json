@@ -953,8 +953,7 @@
                 "latestVersion": "1.2.2"
               }
             ],
-            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz",
-            "packagesURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
+            "downloadURL": "https://github.com/oras-project/oras/releases/download/v${version}/oras_${version}_linux_${CPU_ARCH}.tar.gz"
           }
         }
       }
@@ -1253,8 +1252,7 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
-            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip",
-            "packagesURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}"
+            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip"
           }
         }
       }
@@ -1293,8 +1291,7 @@
                 "latestVersion": "v1.32.3"
               }
             ],
-            "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}",
-            "packagesURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
+            "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/azure-acr-credential-provider:${version}-linux-${CPU_ARCH}"
           }
         }
       }
@@ -1324,8 +1321,7 @@
                 "latestVersion": "v0.8.0"
               }
             ],
-            "downloadURL": "mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:${version}-linux-${CPU_ARCH}",
-            "packagesURL": "mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:${version}-linux-${CPU_ARCH}"
+            "downloadURL": "mcr.microsoft.com/oss/binaries/deislabs/containerd-wasm-shims:${version}-linux-${CPU_ARCH}"
           }
         }
       }
