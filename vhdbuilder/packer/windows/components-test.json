@@ -805,7 +805,7 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/win-cse-scripts-v${version}.zip",
-            "packagesURL": ""
+            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -829,7 +829,7 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
-            "packagesURL": ""
+            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
           },
           "ws2022": {
             "versionsV2": [
@@ -844,7 +844,7 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
-            "packagesURL": ""
+            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
           },
           "default": {
             "versionsV2": [
@@ -855,7 +855,7 @@
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
-            "packagesURL": ""
+            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
           }
         },
         "default": {
@@ -887,7 +887,7 @@
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
             "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip",
-            "windowsPackagesURL": ""
+            "windowsPackagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
           }
         }
       }
