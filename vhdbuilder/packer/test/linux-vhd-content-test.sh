@@ -1208,23 +1208,70 @@ checkPerformanceData() {
 }
 
 testCoreDnsBinaryExtractedAndCached() {
-  local test="CoreDNSBinaryExtractedAndCached"
+  local test="CoreDnsBinaryExtractedAndCached"
   local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
   local binaryPath="$localdnsBinaryDir/coredns"
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
 
-  echo "$test: Checking for existence of coredns binary at $binaryPath"
-  
-  if [[ ! -f "$binaryPath" ]]; then
-    err "$test: coredns binary does not exist at $binaryPath"
+  echo "$test: Checking for existence of coredns binary at ${binaryPath}"
+
+  if [[ ! -f "${binaryPath}" ]]; then
+    err "$test: coredns binary does not exist at ${binaryPath}"
     return 1
   fi
-  
-  if [[ ! -x "$binaryPath" ]]; then
-    err "$test: coredns binary exists but is not executable at $binaryPath"
+
+  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+    err "$test: No CoreDNS images found in the local container images"
     return 1
   fi
-  
-  echo "$test: coredns binary is properly extracted and cached at $binaryPath"
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version (eg. v1.12.0-1).
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
+  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+
+  local previous_coredns_tag=""
+  # Iterate through the sorted list to find the next highest major-minor version.
+  for tag in "${sorted_coredns_tags[@]}"; do
+    # Extract major.minor.patch (eg - v1.12.0).
+    local vMajorMinorPatch="${tag%-*}"
+    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
+      previous_coredns_tag="$tag"
+      # Break the loop after the next highest major-minor version is found.
+      break
+    fi
+  done
+
+  if [[ -z "${previous_coredns_tag}" ]]; then
+    echo "$test: Warning: Previous version not found, using the latest version: $latest_coredns_tag"
+    previous_coredns_tag="$latest_coredns_tag"
+  fi
+
+  local expectedVersion="$previous_coredns_tag"
+  local expectedVersionWithoutV="${expectedVersion#v}"
+  echo "$test: Expected CoreDNS version (n-1 latest revision): ${expectedVersionWithoutV}"
+
+  # Get the actual version from the extracted CoreDNS binary
+  local actualVersion
+  actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
+
+  local actualVersionWithoutV="${actualVersion#v}"
+  if [[ -z "${actualVersionWithoutV}" ]]; then
+    err "$test: Failed to retrieve CoreDNS version from $binaryPath"
+    return 1
+  fi
+
+  echo "$test: Verify extracted CoreDNS version: ${actualVersionWithoutV}"
+
+  if [[ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]]; then
+    echo "$test: Extracted CoreDNS version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+    return 1
+  fi
+
+  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
   return 0
 }
 
