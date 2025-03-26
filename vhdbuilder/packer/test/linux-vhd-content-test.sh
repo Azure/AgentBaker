@@ -71,6 +71,7 @@ source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.s
 source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
 
 validateDownloadPackage() {
+  resolve_packages_source_url
   local downloadURL=$1
   local downloadedPackage=$2
   fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
@@ -215,7 +216,6 @@ testPackagesInstalled() {
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
-      resolve_packages_source_url
       validateDownloadPackage "$downloadURL" $downloadedPackage
       if [[ $? -ne 0 ]]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
