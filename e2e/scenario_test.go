@@ -1069,7 +1069,7 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string, vhdType *Image) {
 }
 
 func Test_Ubuntu2204_GPUA10(t *testing.T) {
-	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5", config.VHDUbuntu2204Gen2Containerd)
+	runScenarioUbuntuGRID(t, "Standard_NV6ads_A10_v5")
 }
 
 func Test_Ubuntu2404_GPUA10(t *testing.T) {
