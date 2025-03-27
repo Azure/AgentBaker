@@ -1601,6 +1601,23 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 	})
 }
 
+// To verify that eviction threshold are set to expected value
+func Test_Ubuntu2204VanillaK8S129EvictionThreshold(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the eviction hard threshold is set to default value 100Mi for 1.29.0+",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen1Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				evictionHardConfig := "memory.available<100Mi"
+				ValidateKubeletHasCLIFlag(ctx, s, "eviction-hard", evictionHardConfig)
+			},
+		},
+	})
+}
+
 func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Tags: Tags{
@@ -1767,6 +1784,28 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
+				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
+				ValidateContainerd2Properties(ctx, s, containerdVersions)
+				ValidateRunc12Properties(ctx, s, runcVersions)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2404Gen2_Cilium(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests Ubuntu 2404 VHD containerd v2 with cilium network plugin",
+		Config: Config{
+			Cluster: ClusterAzureNetwork,
+			VHD:     config.VHDUbuntu2404Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = "cilium"
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+				nbc.AgentPoolProfile.KubernetesConfig.NetworkPolicy = "cilium"
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
