@@ -4,10 +4,10 @@ on:
   pull_request:
     branches:
       - master
-    # paths:
-    #   - go.mod
-    #   - e2e/go.mod
-    #   - aks-node-controller/go.mod
+    paths:
+      - go.mod
+      - e2e/go.mod
+      - aks-node-controller/go.mod
 
 permissions:
     id-token: write
@@ -50,7 +50,6 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ github.head_ref }}
-          persist-credentials: false
 
       - run: |
           set -e
@@ -67,4 +66,4 @@ jobs:
           commit_message: "chore: auto-tidy"
           commit_user_name: "${{ steps.app-token.outputs.app-slug }}[bot]"
           commit_user_email: "${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
-          commit_author: "${{ steps.app-token.outputs.app-slug }}[bot]"
+          commit_author: "${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>"
