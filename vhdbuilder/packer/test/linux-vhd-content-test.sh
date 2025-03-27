@@ -1216,7 +1216,7 @@ testCoreDnsBinaryExtractedAndCached() {
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
   if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
     # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
-    echo "$test: CoreDNS ${expectedVersionWithoutV} is not supported on OS version: ${os_version}"
+    echo "$test: CoreDNS is not supported on OS version: ${os_version}"
     return 0
   fi
 
