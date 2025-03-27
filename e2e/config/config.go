@@ -12,6 +12,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// alison dummy commit
+
 var (
 	Config                = mustLoadConfig()
 	Azure                 = mustNewAzureClient()
