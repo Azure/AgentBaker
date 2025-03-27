@@ -1208,6 +1208,16 @@ checkPerformanceData() {
 }
 
 testCoreDnsBinaryExtractedAndCached() {
+    # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Therefore, we skip the test for these OS versions here.
+  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
+  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+    echo "$test: CoreDNS ${expectedVersionWithoutV} is not supported on OS version: ${os_version}"
+    return 0
+  fi
+
   local test="CoreDnsBinaryExtractedAndCached"
   local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
   local binaryPath="$localdnsBinaryDir/coredns"
@@ -1253,16 +1263,6 @@ testCoreDnsBinaryExtractedAndCached() {
   local expectedVersion="$previous_coredns_tag"
   local expectedVersionWithoutV="${expectedVersion#v}"
   echo "$test: Expected CoreDNS version (n-1 latest revision): ${expectedVersionWithoutV}"
-
-  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
-  # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
-  # Therefore, we skip the test for these OS versions here.
-  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
-    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
-    echo "$test: CoreDNS ${expectedVersionWithoutV} is not supported on OS version: ${os_version}"
-    return 0
-  fi
 
   # Get the actual version from the extracted CoreDNS binary
   local actualVersion
