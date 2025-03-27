@@ -1212,12 +1212,12 @@ testCoreDnsBinaryExtractedAndCached() {
   local test="CoreDnsBinaryExtractedAndCached"
   local os_version=$1
   # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
-  # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
   if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
     # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
-    echo "$test: CoreDNS is not supported on OS version: ${os_version}"
+    echo "$test: coredns is not supported on OS version: ${os_version}"
     return 0
   fi
 
@@ -1233,7 +1233,7 @@ testCoreDnsBinaryExtractedAndCached() {
   fi
 
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
-    err "$test: No CoreDNS images found in the local container images"
+    err "$test: No coredns images found in the local container images"
     return 1
   fi
 
@@ -1264,7 +1264,7 @@ testCoreDnsBinaryExtractedAndCached() {
 
   local expectedVersion="$previous_coredns_tag"
   local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected CoreDNS version (n-1 latest revision): ${expectedVersionWithoutV}"
+  echo "$test: Expected coredns version (n-1 latest revision): ${expectedVersionWithoutV}"
 
   # Get the actual version from the extracted CoreDNS binary
   local actualVersion
@@ -1272,14 +1272,14 @@ testCoreDnsBinaryExtractedAndCached() {
 
   local actualVersionWithoutV="${actualVersion#v}"
   if [[ -z "${actualVersionWithoutV}" ]]; then
-    err "$test: Failed to retrieve CoreDNS version from $binaryPath"
+    echo "$test: Failed to retrieve coredns version from $binaryPath"
     return 1
   fi
 
-  echo "$test: Verify extracted CoreDNS version: ${actualVersionWithoutV}"
+  echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
 
   if [[ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]]; then
-    echo "$test: Extracted CoreDNS version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+    echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
     return 1
   fi
 
@@ -1302,7 +1302,7 @@ testLocalDNSScriptsAndConfigs() {
   for file in "${!localDNSfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
     if [ ! -f "${file}" ]; then
-      err "$test: localDNSfile - ${file} not found"
+      echo "$test: localDNSfile - ${file} not found"
       return 1
     fi
     
