@@ -660,7 +660,7 @@ extractAndCacheCoreDnsBinary() {
       exit 1
     fi
 
-    if [[ "$vMajorMinorPatch" != "$latest_vMajorMinorPatch" ]]; then
+    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
       previous_coredns_tag="$tag"
       # Break the loop after next highest major-minor version is found.
       break
@@ -674,7 +674,7 @@ extractAndCacheCoreDnsBinary() {
 
   # Extract the CoreDNS binary for the selected version.
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [[ "${coredns_image_url##*:}" != "$previous_coredns_tag" ]]; then
+    if [[ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]]; then
       continue
     fi
 
@@ -691,7 +691,7 @@ extractAndCacheCoreDnsBinary() {
     done
 
     if [[ $retry_count -eq $max_retries ]]; then
-      echo "Error: Failed to mount ${coredns_image_url} after $max_retries attempts." >> "${VHD_LOGS_FILEPATH}"
+      echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
       exit 1
     fi
 

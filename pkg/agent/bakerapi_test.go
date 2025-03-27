@@ -320,6 +320,84 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 			_, err = agentBaker.GetNodeBootstrapping(context.Background(), config)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should not return an error processing localdns profile data", func() {
+			config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+				State:                "Enabled",
+				CPULimitInMilliCores: to.Int32Ptr(2000),
+				MemoryLimitInMB:      to.Int32Ptr(128),
+				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+					".": {
+						QueryLogging:                "Log",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "VnetDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Int32Ptr(1000),
+						CacheDurationInSeconds:      to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  "Verify",
+					},
+					"cluster.local": {
+						QueryLogging:                "Error",
+						Protocol:                    "ForceTCP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Int32Ptr(1000),
+						CacheDurationInSeconds:      to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  "Disable",
+					},
+					"testdomain456.com": {
+						QueryLogging:                "Log",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Int32Ptr(1000),
+						CacheDurationInSeconds:      to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  "Verify",
+					},
+				},
+				KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+					".": {
+						QueryLogging:                "Error",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Int32Ptr(1000),
+						CacheDurationInSeconds:      to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  "Verify",
+					},
+					"cluster.local": {
+						QueryLogging:                "Log",
+						Protocol:                    "ForceTCP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "RoundRobin",
+						MaxConcurrent:               to.Int32Ptr(1000),
+						CacheDurationInSeconds:      to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  "Disable",
+					},
+					"testdomain567.com": {
+						QueryLogging:                "Error",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "VnetDNS",
+						ForwardPolicy:               "Random",
+						MaxConcurrent:               to.Int32Ptr(1000),
+						CacheDurationInSeconds:      to.Int32Ptr(3600),
+						ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+						ServeStale:                  "Immediate",
+					},
+				},
+			}
+			agentBaker, err := NewAgentBaker()
+			Expect(err).NotTo(HaveOccurred())
+
+			nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(context.Background(), config)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nodeBootStrapping).NotTo(BeNil())
+		})
 	})
 
 	Context("GetLatestSigImageConfig", func() {
