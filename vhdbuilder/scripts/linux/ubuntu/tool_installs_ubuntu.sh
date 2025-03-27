@@ -23,11 +23,10 @@ installAscBaseline() {
    echo "Installing ASC Baseline tools..."
    ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
    retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   sudo cp /opt/microsoft/asc-baseline/baselines/*.xml /opt/microsoft/asc-baseline/
    cd /opt/microsoft/asc-baseline
-   sudo ./ascbaseline -d .
-   sudo ./ascremediate -d . -m all
-   sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL"
+   sudo ./ascbaseline -d baselines
+   sudo ./ascremediate -d baselines -m all
+   sudo ./ascbaseline -d baselines | grep -B2 -A6 "FAIL"
    cd -
    echo "Check UDF"
    cat /etc/modprobe.d/*.conf | grep udf
