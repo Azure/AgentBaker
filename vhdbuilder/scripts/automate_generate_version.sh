@@ -5,6 +5,7 @@ VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
 get_image_version_from_publishing_info() {
     local unique_image_version=""
+    local artifacts_with_version_mismatch=""
 
     for artifact in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
         if [[ $artifact == *"publishing-info"* ]]; then
@@ -21,17 +22,22 @@ get_image_version_from_publishing_info() {
             if [ "$version" != "$unique_image_version" ]; then
                 # this is to ensure that all publishing-infos coming from the same VHD build specify the same image_version,
                 # mismatching image_versions will cause problems downstream in the release process
-                echo "mismatched image version for VHD build with ID: $VHD_BUILD_ID"
-                echo "expected publishing info artifact $artifact to have image_version $unique_image_version, but had: $version"
-                echo "a new VHD build will be required"
-                exit 1
+                echo "$artifact has image version $version, though expected all publishing info artifacts to have image version $unique_image_version for VHD build with ID: $VHD_BUILD_ID"
+                artifacts_with_version_mismatch="${artifacts_with_version_mismatch} $artifact"
             fi
         fi
     done
 
+    if [ -n "$artifacts_with_version_mismatch" ]; then
+        echo "expected all publishing info aritfacts to have image version $unique_image_version for VHD build with ID: $VHD_BUILD_ID"
+        echo "the following publishing info artifacts had mismatching image versions: $artifacts_with_version_mismatch"
+        echo "##vso[task.logissue type=error]image version mismatch: A NEW VHD BUILD WILL BE REQUIRED!"
+        exit 1
+    fi
+
     if [ -z "$unique_image_version" ]; then
         echo "unable to find image version from publishing-info artifacts downloaded from VHD build with ID: $VHD_BUILD_ID"
-        return 1
+        exit 1
     fi
 
     # remove any dangling publishing info
