@@ -50,7 +50,6 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ github.head_ref }}
-          persist-credentials: false
 
       - run: |
           set -e
