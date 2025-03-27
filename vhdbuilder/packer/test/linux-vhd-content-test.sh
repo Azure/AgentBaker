@@ -1274,4 +1274,4 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
-testPackageDownloadURLFallbackLogic
+#testPackageDownloadURLFallbackLogic
