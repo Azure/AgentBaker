@@ -1207,10 +1207,11 @@ checkPerformanceData() {
   return 0
 }
 
+#------------------------ Start of test code related to localdns ------------------------
 testCoreDnsBinaryExtractedAndCached() {
   local test="CoreDnsBinaryExtractedAndCached"
   local os_version=$1
-    # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
   # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
@@ -1286,6 +1287,38 @@ testCoreDnsBinaryExtractedAndCached() {
   return 0
 }
 
+testLocalDNSScriptsAndConfigs() {
+  local test="testLocalDNSScriptsAndConfigs"
+  
+  declare -A localDNSfiles=(
+    ["/opt/azure/containers/localdns/localdns.sh"]=755
+    ["/etc/systemd/system/localdns.service"]=644
+    ["/etc/systemd/system/localdns.slice"]=644
+    ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+    ["/etc/systemd/resolved.conf.d/70-aks-dns.conf"]=644
+    ["/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf"]=644
+  )
+  
+  for file in "${!localDNSfiles[@]}"; do
+    echo "$test: Checking existence of ${file}"
+    if [ ! -f "${file}" ]; then
+      err "$test: localDNSfile - ${file} not found"
+      return 1
+    fi
+    
+    echo "$test: Checking permissions of ${file}"
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${localDNSfiles[$file]}" ]; then
+      echo "$test: localDNSfile $file has incorrect permissions. Expected ${localDNSfiles[$file]}, got $permissions"
+      return 1
+    fi
+  done
+  
+  echo "$test: All localDNSfile exist with correct permissions"
+  return 0
+}
+#------------------------ End of test code related to localdns ------------------------
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1329,3 +1362,4 @@ testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCoreDnsBinaryExtractedAndCached $OS_VERSION
+testLocalDNSScriptsAndConfigs

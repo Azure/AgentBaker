@@ -586,6 +586,36 @@
       "destination": "/home/packer/NOTICE.txt"
     },
     {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.sh",
+      "destination": "/home/packer/localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.service",
+      "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.slice",
+      "destination": "/home/packer/localdns.slice"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
+      "destination": "/home/packer/localdns-delegate.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-resolved.conf",
+      "destination": "/home/packer/localdns-resolved.conf"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/05-aks-keepconfig.conf",
+      "destination": "/home/packer/05-aks-keepconfig.conf"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} TELEPORTD_PLUGIN_DOWNLOAD_URL={{user `teleportd_plugin_download_url`}} ENABLE_FIPS={{user `enable_fips`}} SGX_INSTALL={{user `sgx_install`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -ux /home/packer/pre-install-dependencies.sh"
