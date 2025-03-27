@@ -4,10 +4,10 @@ on:
   pull_request:
     branches:
       - master
-    paths:
-      - go.mod
-      - e2e/go.mod
-      - aks-node-controller/go.mod
+    # paths:
+    #   - go.mod
+    #   - e2e/go.mod
+    #   - aks-node-controller/go.mod
 
 permissions:
     contents: read
