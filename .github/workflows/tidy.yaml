@@ -10,6 +10,7 @@ on:
     #   - aks-node-controller/go.mod
 
 permissions:
+    id-token: write
     contents: read
 jobs:
   tidy:
@@ -40,6 +41,7 @@ jobs:
           repositories: AgentBaker
 
       - id: get-user-id
+        name: Get app user ID
         run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
