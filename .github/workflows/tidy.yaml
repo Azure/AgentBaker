@@ -1,4 +1,4 @@
-name: tidy
+name: auto-tidy
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ permissions:
     id-token: write
     contents: read
 jobs:
-  tidy:
+  auto-tidy:
     runs-on: ubuntu-latest
     environment: test
     steps:
