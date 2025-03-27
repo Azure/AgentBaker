@@ -49,6 +49,7 @@ $UserAssignedClientID="{{ GetVariable "userAssignedIdentityID" }}"
 $TargetEnvironment="{{ GetTargetEnvironment }}"
 $AADClientId="{{ GetParameter "servicePrincipalClientId" }}"
 $NetworkAPIVersion="2018-08-01"
+$global:PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
 
 # Do not parse the start time from $LogFile to simplify the logic
 $StartTime=Get-Date
