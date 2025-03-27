@@ -1,7 +1,9 @@
 name: auto-tidy
 
 on:
-  pull_request:
+  # to support dependabot need to use pull_request_target
+  # https://github.blog/changelog/2021-02-19-github-actions-workflows-triggered-by-dependabot-prs-will-run-with-read-only-permissions/
+  pull_request_target:
     branches:
       - master
     paths:
@@ -15,6 +17,8 @@ permissions:
 jobs:
   auto-tidy:
     runs-on: ubuntu-latest
+    # for now only allow dependabot to trigger the workflow since we're using pull_request_target
+    if: github.actor == 'dependabot[bot]'
     environment: test
     steps:
       - uses: azure/login@v2
