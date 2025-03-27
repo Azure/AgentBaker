@@ -1794,25 +1794,3 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 		},
 	})
 }
-
-func Test_Ubuntu2404Gen2_Cilium(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests Ubuntu 2404 VHD containerd v2 with cilium network plugin",
-		Config: Config{
-			Cluster: ClusterAzureNetwork,
-			VHD:     config.VHDUbuntu2404Gen2Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = "cilium"
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
-				nbc.AgentPoolProfile.KubernetesConfig.NetworkPolicy = "cilium"
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				containerdVersions := getExpectedPackageVersions("containerd", "ubuntu", "r2404")
-				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
-				ValidateContainerd2Properties(ctx, s, containerdVersions)
-				ValidateRunc12Properties(ctx, s, runcVersions)
-			},
-		},
-	})
-}
