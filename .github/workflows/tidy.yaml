@@ -14,6 +14,7 @@ permissions:
 jobs:
   tidy:
     runs-on: ubuntu-latest
+    environment: test
     steps:
       - uses: azure/login@v2
         with:
@@ -27,7 +28,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
               # https://github.com/actions/create-github-app-token?tab=readme-ov-file#inputs
-              private_key=$(az keyvault secret show --vault-name ${{ secrets.VAULT_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
+              private_key=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KV_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
               echo "::add-mask::$private_key"
               echo "private-key=$private_key" >> $GITHUB_OUTPUT
 
