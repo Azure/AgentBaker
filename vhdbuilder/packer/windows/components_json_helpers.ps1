@@ -118,7 +118,14 @@ function GetPackagesFromComponentsJson
             }
         }
 
-        $downloadUrl = $part.windowsDownloadUrl
+        if ($part.windowsPackagesURL -ne $null)
+        {
+            $downloadUrl = $part.windowsPackagesUrl
+        }
+        else
+        {
+            $downloadUrl = $part.windowsDownloadUrl
+        }
         $items = $part.versionsV2
 
         # no specific windows download url means fall back to regular windows spots.
