@@ -1208,6 +1208,7 @@ checkPerformanceData() {
 }
 
 testCoreDnsBinaryExtractedAndCached() {
+  local test="CoreDnsBinaryExtractedAndCached"
   local os_version=$1
     # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
   # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
@@ -1219,7 +1220,6 @@ testCoreDnsBinaryExtractedAndCached() {
     return 0
   fi
 
-  local test="CoreDnsBinaryExtractedAndCached"
   local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
   local binaryPath="$localdnsBinaryDir/coredns"
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
