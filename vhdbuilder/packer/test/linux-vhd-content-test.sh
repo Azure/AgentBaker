@@ -1208,6 +1208,7 @@ checkPerformanceData() {
 }
 
 testCoreDnsBinaryExtractedAndCached() {
+  local os_version=$1
     # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
   # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
@@ -1327,4 +1328,4 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
-testCoreDnsBinaryExtractedAndCached
+testCoreDnsBinaryExtractedAndCached $OS_VERSION
