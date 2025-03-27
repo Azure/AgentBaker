@@ -1220,8 +1220,7 @@ testPackageDownloadURLFallbackLogic() {
   fi
   
   # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
-  IP_ADDRESS=$(dig +tries=5 +timeout=5 +short packages.aks.azure.com | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
-  sudo iptables -A INPUT -s "$IP_ADDRESS" -j DROP
+  echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
 
   resolve_packages_source_url
     if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "acs-mirror.azureedge.net" ]; then
