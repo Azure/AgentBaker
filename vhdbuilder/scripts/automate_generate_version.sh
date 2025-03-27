@@ -22,7 +22,7 @@ get_image_version_from_publishing_info() {
                 # this is to ensure that all publishing-infos coming from the same VHD build specify the same image_version,
                 # mismatching image_versions will cause problems downstream in the release process
                 echo "mismatched image veasdfasdfasdfrsion for VHD build with ID: $VHD_BUILD_ID"
-                echo "expected publishing info artifact $artifact to have image_version $unique_image_version, but had: $version"
+                echo "expected publishing info artiasdfasdfsdfact $artifact to have image_version $unique_image_version, but had: $version"
                 echo "a new VHD build will be required"
                 exit 1
             fi
