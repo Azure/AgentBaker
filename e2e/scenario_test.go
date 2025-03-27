@@ -1777,3 +1777,20 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 		},
 	})
 }
+
+// To verify that eviction threshold are set to expected value
+func Test_Ubuntu2204VanillaK8S129EvictionThreshold(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that the eviction hard threshold is set to default value 100Mi for 1.29.0+",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2404Gen1Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				evictionHardConfig := "memory.available<750Mi"
+				ValidateKubeletHasCLIFlag(ctx, s, "eviction-hard", evictionHardConfig)
+			},
+		},
+	})
+}
