@@ -17,8 +17,8 @@ permissions:
 jobs:
   auto-tidy:
     runs-on: ubuntu-latest
-    # for now only allow dependabot to trigger the workflow since we're using pull_request_target
-    if: github.actor == 'dependabot[bot]'
+    # prevent actors that aren't dependabot from triggering from forks
+    if: github.actor == 'dependabot[bot]' || github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
     environment: test
     steps:
       - uses: azure/login@v2
