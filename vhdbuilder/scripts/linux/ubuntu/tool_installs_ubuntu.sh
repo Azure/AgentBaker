@@ -32,6 +32,7 @@ installAscBaseline() {
    echo "Check UDF"
    cat /etc/modprobe.d/*.conf | grep udf
    echo "Finished Setting up ASC Baseline"
+   apt_get_purge 20 30 120 asc-baseline || exit $ERR_APT_PURGE_TIMEOUT
 }
 
 installBcc() {
