@@ -690,8 +690,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.10.0",
-          "previousLatestVersion": "1.9.1"
+          "latestVersion": "1.10.1",
+          "previousLatestVersion": "1.10.0"
         }
       ],
       "windowsVersions": []
