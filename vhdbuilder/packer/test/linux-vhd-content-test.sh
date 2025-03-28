@@ -1208,6 +1208,85 @@ checkPerformanceData() {
   return 0
 }
 
+testCoreDnsBinaryExtractedAndCached() {
+  local test="CoreDnsBinaryExtractedAndCached"
+  local os_version=$1
+    # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Therefore, we skip the test for these OS versions here.
+  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
+  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+    echo "$test: CoreDNS is not supported on OS version: ${os_version}"
+    return 0
+  fi
+
+  local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
+  local binaryPath="$localdnsBinaryDir/coredns"
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+
+  echo "$test: Checking for existence of coredns binary at ${binaryPath}"
+
+  if [[ ! -f "${binaryPath}" ]]; then
+    err "$test: coredns binary does not exist at ${binaryPath}"
+    return 1
+  fi
+
+  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+    err "$test: No CoreDNS images found in the local container images"
+    return 1
+  fi
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version (eg. v1.12.0-1).
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
+  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+
+  local previous_coredns_tag=""
+  # Iterate through the sorted list to find the next highest major-minor version.
+  for tag in "${sorted_coredns_tags[@]}"; do
+    # Extract major.minor.patch (eg - v1.12.0).
+    local vMajorMinorPatch="${tag%-*}"
+    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
+      previous_coredns_tag="$tag"
+      # Break the loop after the next highest major-minor version is found.
+      break
+    fi
+  done
+
+  if [[ -z "${previous_coredns_tag}" ]]; then
+    echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
+    previous_coredns_tag="$latest_coredns_tag"
+  fi
+
+  local expectedVersion="$previous_coredns_tag"
+  local expectedVersionWithoutV="${expectedVersion#v}"
+  echo "$test: Expected CoreDNS version (n-1 latest revision): ${expectedVersionWithoutV}"
+
+  # Get the actual version from the extracted CoreDNS binary
+  local actualVersion
+  actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
+
+  local actualVersionWithoutV="${actualVersion#v}"
+  if [[ -z "${actualVersionWithoutV}" ]]; then
+    err "$test: Failed to retrieve CoreDNS version from $binaryPath"
+    return 1
+  fi
+
+  echo "$test: Verify extracted CoreDNS version: ${actualVersionWithoutV}"
+
+  if [[ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]]; then
+    echo "$test: Extracted CoreDNS version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+    return 1
+  fi
+
+  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+  return 0
+}
+
 testPackageDownloadURLFallbackLogic() {
   local test="testPackageDownloadURLFallbackLogic"
 
@@ -1273,4 +1352,5 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testCoreDnsBinaryExtractedAndCached $OS_VERSION
 #testPackageDownloadURLFallbackLogic
