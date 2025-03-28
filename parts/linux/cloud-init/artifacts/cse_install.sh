@@ -582,13 +582,15 @@ extractKubeBinaries() {
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
-            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+            # use `test` instead so that we can mock it in unit tests.
+            if test ! -f "${k8s_tgz_tmp}"; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
             # download the kube package from the default URL
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+            # use `test` instead so that we can mock it in unit tests.
+            if test ! -f "${k8s_tgz_tmp}"; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
