@@ -44,13 +44,7 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ steps.app-private-key.outputs.private-key }}
           repositories: AgentBaker
-
-      - id: get-user-id
-        name: Get app user ID
-        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-
+          
       - uses: actions/checkout@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -69,7 +63,7 @@ jobs:
       - run: |
           set -e
           for mod_dir in ./ e2e/ aks-node-controller/; do
-            echo "removing any toolchain lains from go.mod in ${mod_dir}"
+            echo "removing any toolchain lines from go.mod in ${mod_dir}"
             pushd $mod_dir
                 # this pains me greatly, though adding the toolchain line seems to break our other workflows,
                 # we don't want to be constantly blocking dependabot PRs on failing workflows
@@ -81,6 +75,3 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-tidy"
-          commit_user_name: "${{ steps.app-token.outputs.app-slug }}[bot]"
-          commit_user_email: "${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
-          commit_author: "${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>"
