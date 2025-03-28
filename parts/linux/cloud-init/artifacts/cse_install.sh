@@ -539,10 +539,6 @@ extractKubeBinariesToUsrLocalBin() {
     local k8s_version=$2
     local is_private_url=$3
 
-    if [[ ! -f "${k8s_tgz_tmp}" ]]; then
-        exit "$ERR_ORAS_PULL_K8S_FAIL"
-    fi
-
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
         --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
     if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
@@ -586,9 +582,15 @@ extractKubeBinaries() {
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
+            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+                exit "$ERR_ORAS_PULL_K8S_FAIL"
+            fi
         else
             # download the kube package from the default URL
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+                exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
+            fi
         fi
     fi
 
