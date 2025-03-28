@@ -1217,7 +1217,7 @@ testCorednsBinaryExtractedAndCached() {
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
   if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
     # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
-    echo "$test: coredns is not supported on OS version: ${os_version}"
+    echo "$test: Coredns is not supported on OS version: ${os_version}"
     return 0
   fi
 
@@ -1228,7 +1228,7 @@ testCorednsBinaryExtractedAndCached() {
   echo "$test: Checking for existence of coredns binary at ${binaryPath}"
 
   if [[ ! -f "${binaryPath}" ]]; then
-    err "$test: coredns binary does not exist at ${binaryPath}"
+    err "$test: Coredns binary does not exist at ${binaryPath}"
     return 1
   fi
 
@@ -1310,14 +1310,14 @@ checkLocaldnsScriptsAndConfigs() {
   for file in "${!localdnsfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
     if [ ! -f "${file}" ]; then
-      echo "$test: localdnsfile - ${file} not found"
+      echo "$test: Localdnsfile - ${file} not found"
       return 1
     fi
     
     echo "$test: Checking permissions of ${file}"
     permissions=$(stat -c "%a" "$file")
     if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
-      echo "$test: localdnsfile $file has incorrect permission. Expected ${localdnsfiles[$file]}, got $permissions"
+      echo "$test: Localdnsfile $file has incorrect permission. Expected ${localdnsfiles[$file]}, got $permissions"
       return 1
     fi
   done
