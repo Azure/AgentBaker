@@ -1228,8 +1228,20 @@ checkCoreDNSBinaryExtractedAndCached() {
   return 0
 }
 
-testCoreDnsBinaryExtractedAndCached() {
-  local test="CoreDnsBinaryExtractedAndCached"
+#------------------------ Start of test code related to localdns ------------------------
+testCorednsBinaryExtractedAndCached() {
+  local test="testCorednsBinaryExtractedAndCached"
+  local os_version=$1
+  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Therefore, we skip the test for these OS versions here.
+  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
+  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+    echo "$test: Coredns is not supported on OS version: ${os_version}"
+    return 0
+  fi
+
   local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
   local binaryPath="$localdnsBinaryDir/coredns"
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
@@ -1237,12 +1249,12 @@ testCoreDnsBinaryExtractedAndCached() {
   echo "$test: Checking for existence of coredns binary at ${binaryPath}"
 
   if [[ ! -f "${binaryPath}" ]]; then
-    err "$test: coredns binary does not exist at ${binaryPath}"
+    err "$test: Coredns binary does not exist at ${binaryPath}"
     return 1
   fi
 
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
-    err "$test: No CoreDNS images found in the local container images"
+    err "$test: No coredns images found in the local container images"
     return 1
   fi
 
@@ -1273,16 +1285,15 @@ testCoreDnsBinaryExtractedAndCached() {
 
   local expectedVersion="$previous_coredns_tag"
   local expectedVersionWithoutV="${expectedVersion#v}"
-  echo "$test: Expected CoreDNS version (n-1 latest revision): ${expectedVersionWithoutV}"
+  echo "$test: Expected coredns version (n-1 latest): ${expectedVersionWithoutV}"
 
-  # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
-  # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
-  # Therefore, we skip the test for these OS versions here.
-  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
-    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
-    echo "$test: CoreDNS ${expectedVersionWithoutV} is not supported on OS version: ${os_version}"
-    return 0
+  local builtInPlugins
+  builtInPlugins=$("$binaryPath" --plugins)
+  if [ $? -eq 0 ]; then
+    echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
+  else
+    echo "$test: Failed to execute coredns --plugins command from $binaryPath"
+    return 1
   fi
 
   # Get the actual version from the extracted CoreDNS binary
@@ -1291,20 +1302,52 @@ testCoreDnsBinaryExtractedAndCached() {
 
   local actualVersionWithoutV="${actualVersion#v}"
   if [[ -z "${actualVersionWithoutV}" ]]; then
-    err "$test: Failed to retrieve CoreDNS version from $binaryPath"
+    echo "$test: Failed to retrieve coredns version from $binaryPath"
     return 1
   fi
 
-  echo "$test: Verify extracted CoreDNS version: ${actualVersionWithoutV}"
+  echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
 
   if [[ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]]; then
-    echo "$test: Extracted CoreDNS version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+    echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
     return 1
   fi
 
   echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
   return 0
 }
+
+checkLocaldnsScriptsAndConfigs() {
+  local test="checkLocaldnsScriptsAndConfigs"
+  
+  declare -A localdnsfiles=(
+    ["/opt/azure/containers/localdns/localdns.sh"]=755
+    ["/etc/systemd/system/localdns.service"]=644
+    ["/etc/systemd/system/localdns.slice"]=644
+    ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
+    ["/etc/systemd/resolved.conf.d/70-aks-dns.conf"]=644
+    ["/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf"]=644
+  )
+  
+  for file in "${!localdnsfiles[@]}"; do
+    echo "$test: Checking existence of ${file}"
+    if [ ! -f "${file}" ]; then
+      echo "$test: Localdnsfile - ${file} not found"
+      return 1
+    fi
+    
+    echo "$test: Checking permissions of ${file}"
+    permissions=$(stat -c "%a" "$file")
+    if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
+      echo "$test: Localdnsfile $file has incorrect permission. Expected ${localdnsfiles[$file]}, got $permissions"
+      return 1
+    fi
+  done
+  
+  echo "$test: All localdnsfiles exist with correct permissions"
+  return 0
+}
+#------------------------ End of test code related to localdns ------------------------
 
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
@@ -1348,5 +1391,5 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
-checkCoreDNSBinaryExtractedAndCached
-testCoreDnsBinaryExtractedAndCached
+testCorednsBinaryExtractedAndCached $OS_VERSION
+checkLocaldnsScriptsAndConfigs

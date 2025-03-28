@@ -64,6 +64,13 @@ if [ ! -x "${COREDNS_BINARY_PATH}" ]; then
     exit 1
 fi
 
+# Check if --plugins command runs successfully.
+builtInPlugins=$("${COREDNS_BINARY_PATH}" --plugins)
+if [ $? -ne 0 ]; then
+    printf "Error: Failed to execute '%s --plugins'.\n" "${COREDNS_BINARY_PATH}"
+    exit 1
+fi
+
 # Configure CPU and Memory limit.
 # --------------------------------------------------------------------------------------------------------------------
 # Takes a percentage value, suffixed with "%". The percentage specifies how much CPU time the unit shall get at maximum, 
