@@ -3,7 +3,7 @@ name: auto-tidy
 on:
   # to support dependabot need to use pull_request_target
   # https://github.blog/changelog/2021-02-19-github-actions-workflows-triggered-by-dependabot-prs-will-run-with-read-only-permissions/
-  pull_request_target:
+  pull_request:
     branches:
       - master
     paths:
@@ -44,7 +44,7 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ steps.app-private-key.outputs.private-key }}
           repositories: AgentBaker
-          
+
       - uses: actions/checkout@v4
         with:
           token: ${{ steps.app-token.outputs.token }}
