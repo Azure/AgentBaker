@@ -1024,10 +1024,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetLocalDNSClusterListenerIP": func() string {
 			return profile.GetLocalDNSClusterListenerIP()
 		},
-		"GetLocalDNSCPULimitInMilliCores": func() int32 {
-			return profile.GetLocalDNSCPULimitInMilliCores()
+		"GetLocalDNSCPULimitInPercentage": func() string {
+			return profile.GetLocalDNSCPULimitInPercentage()
 		},
-		"GetLocalDNSMemoryLimitInMB": func() int32 {
+		"GetLocalDNSMemoryLimitInMB": func() string {
 			return profile.GetLocalDNSMemoryLimitInMB()
 		},
 	}

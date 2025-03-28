@@ -848,18 +848,20 @@ func (a *AgentPoolProfile) GetLocalDNSClusterListenerIP() string {
 	return DefaultLocalDNSClusterListenerIP
 }
 
-// GetLocalDNSCPULimitInMilliCores returns CPU limit in milli cores that will be used in localdns systemd unit.
-func (a *AgentPoolProfile) GetLocalDNSCPULimitInMilliCores() int32 {
+// GetLocalDNSCPULimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
 	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.CPULimitInMilliCores != nil {
-		return int32(*a.LocalDNSProfile.CPULimitInMilliCores)
+		// Convert milli-cores to percentage and return as formatted string
+		return fmt.Sprintf("%.1f%%", float64(*a.LocalDNSProfile.CPULimitInMilliCores)/10.0)
 	}
-	return DefaultLocalDNSCPULimitInMilliCores
+	return DefaultLocalDNSCPULimitInPercentage
 }
 
 // GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
-func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() int32 {
+func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
 	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.MemoryLimitInMB != nil {
-		return int32(*a.LocalDNSProfile.MemoryLimitInMB)
+		// Return memory limit as a string with "M" suffix
+		return fmt.Sprintf("%dM", *a.LocalDNSProfile.MemoryLimitInMB)
 	}
 	return DefaultLocalDNSMemoryLimitInMB
 }

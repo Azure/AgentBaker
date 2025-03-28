@@ -2817,8 +2817,8 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 		name                      string
 		agentPoolProfile          *AgentPoolProfile
 		expectedState             bool
-		expectedCPU               *int32
-		expectedMemory            *int32
+		expectedCPU               string
+		expectedMemory            string
 		expectedListenerIP        string
 		expectedClusterListenerIP string
 		expectedDNSServiceIP      string
@@ -2863,8 +2863,23 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 				},
 			},
 			expectedState:             true,
-			expectedCPU:               to.Int32Ptr(1000),
-			expectedMemory:            to.Int32Ptr(2048),
+			expectedCPU:               "100.0%",
+			expectedMemory:            "2048M",
+			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
+			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
+		},
+		{
+			name: "LocalDNSProfile enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State:                "Enabled",
+					CPULimitInMilliCores: to.Int32Ptr(5069),
+					MemoryLimitInMB:      to.Int32Ptr(1048),
+				},
+			},
+			expectedState:             true,
+			expectedCPU:               "506.9%",
+			expectedMemory:            "1048M",
 			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
 			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
 		},
@@ -2879,8 +2894,8 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 				},
 			},
 			expectedState:             true,
-			expectedCPU:               to.Int32Ptr(2000),
-			expectedMemory:            to.Int32Ptr(128),
+			expectedCPU:               "200.0%",
+			expectedMemory:            "128M",
 			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
 			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
 			expectedDNSServiceIP:      "10.0.0.10",
@@ -2892,7 +2907,7 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			actualLocaldnsState := c.agentPoolProfile.ShouldEnableLocalDNS()
-			actualCPU := c.agentPoolProfile.GetLocalDNSCPULimitInMilliCores()
+			actualCPU := c.agentPoolProfile.GetLocalDNSCPULimitInPercentage()
 			actualMemory := c.agentPoolProfile.GetLocalDNSMemoryLimitInMB()
 			actualListenerIP := c.agentPoolProfile.GetLocalDNSNodeListenerIP()
 			actualClusterListenerIP := c.agentPoolProfile.GetLocalDNSClusterListenerIP()
@@ -2902,11 +2917,11 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			}
 
 			if c.expectedState == true {
-				if *c.expectedCPU != actualCPU {
-					t.Fatalf("test case: %s, expected CPU: %d. Got: %d.", c.name, c.expectedCPU, actualCPU)
+				if c.expectedCPU != actualCPU {
+					t.Fatalf("test case: %s, expected CPU: %s. Got: %s.", c.name, c.expectedCPU, actualCPU)
 				}
-				if *c.expectedMemory != actualMemory {
-					t.Fatalf("test case: %s, expected memory: %d. Got: %d.", c.name, c.expectedMemory, actualMemory)
+				if c.expectedMemory != actualMemory {
+					t.Fatalf("test case: %s, expected memory: %s. Got: %s.", c.name, c.expectedMemory, actualMemory)
 				}
 				if c.expectedListenerIP != actualListenerIP {
 					t.Fatalf("test case: %s, expected listener IP: %s. Got: %s.", c.name, c.expectedListenerIP, actualListenerIP)

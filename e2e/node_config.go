@@ -284,7 +284,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						AgentPoolWindowsProfile: nil,
 						LocalDNSProfile: &datamodel.LocalDNSProfile{
 							State:                "Enabled",
-							CPULimitInMilliCores: to.Ptr(int32(2000)),
+							CPULimitInMilliCores: to.Ptr(int32(2008)),
 							MemoryLimitInMB:      to.Ptr(int32(128)),
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 								".": {
@@ -437,7 +437,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			},
 			LocalDNSProfile: &datamodel.LocalDNSProfile{
 				State:                "Enabled",
-				CPULimitInMilliCores: to.Ptr(int32(2000)),
+				CPULimitInMilliCores: to.Ptr(int32(2008)),
 				MemoryLimitInMB:      to.Ptr(int32(128)),
 				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 					".": {

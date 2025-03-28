@@ -140,10 +140,10 @@ const (
 	DefaultLocalDNSNodeListenerIP = "169.254.10.10"
 	// DefaultLocalDNSClusterListenerIP sepcifies the default clusterlistener APIPA-IP used in localdns.
 	DefaultLocalDNSClusterListenerIP = "169.254.10.11"
-	// DefaultLocalDNSCPULimitInMilliCores sepcifies the default CPU limit used in akslocaldns.
-	DefaultLocalDNSCPULimitInMilliCores int32 = 2000
+	// DefaultLocalDNSCPULimitInPercentage sepcifies the default CPU limit used in akslocaldns.
+	DefaultLocalDNSCPULimitInPercentage string = "200.0%"
 	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
-	DefaultLocalDNSMemoryLimitInMB int32 = 128
+	DefaultLocalDNSMemoryLimitInMB string = "128M"
 	// DefaultDNSServerIP sepcifies the default DNS server IP used in localdns.
 	DefaultDNSServerIP = "10.0.0.10"
 )

@@ -438,6 +438,21 @@ write_files:
   content: !!binary |
     {{GetGeneratedLocalDNSCoreFile}}
 
+- path: /etc/systemd/system/localdns.slice
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=Local DNS Slice
+    DefaultDependencies=no
+    Before=slices.target
+    Requires=system.slice
+    After=system.slice
+
+    [Slice]
+    MemoryMax={{GetLocalDNSMemoryLimitInMB}}M
+    CPUQuota={{GetLocalDNSCPULimitInPercentage}}
+
 - path: /etc/default/localdns.envfile
   permissions: "0744"
   owner: root
@@ -446,8 +461,6 @@ write_files:
     COREDNS_SERVICE_IP={{GetCoreDNSServiceIP}}
     LOCALDNS_NODE_LISTENER_IP={{GetLocalDNSNodeListenerIP}}
     LOCALDNS_CLUSTER_LISTENER_IP={{GetLocalDNSClusterListenerIP}}
-    LOCALDNS_CPU_LIMIT_IN_MILLI_CORES={{GetLocalDNSCPULimitInMilliCores}}
-    LOCALDNS_MEMORY_LIMIT_IN_MB={{GetLocalDNSMemoryLimitInMB}}
     LOCALDNS_SHUTDOWN_DELAY=5
     LOCALDNS_PID_FILE="/run/localdns.pid"
 {{- end}}

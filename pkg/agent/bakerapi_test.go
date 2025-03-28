@@ -54,7 +54,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 						Distro:              datamodel.AKSUbuntu1604,
 						LocalDNSProfile: &datamodel.LocalDNSProfile{
 							State:                "Enabled",
-							CPULimitInMilliCores: to.Int32Ptr(2000),
+							CPULimitInMilliCores: to.Int32Ptr(2008),
 							MemoryLimitInMB:      to.Int32Ptr(128),
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 								".": {
@@ -324,7 +324,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 		It("should not return an error processing localdns profile data", func() {
 			config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 				State:                "Enabled",
-				CPULimitInMilliCores: to.Int32Ptr(2000),
+				CPULimitInMilliCores: to.Int32Ptr(2008),
 				MemoryLimitInMB:      to.Int32Ptr(128),
 				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 					".": {

@@ -239,67 +239,67 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
-		Describe(".GetLocalDNSCPULimitInMilliCores()", func() {
-			// Expect default int32 CPULimitInMilliCores constant to be returned.
-			It("returns default int32 CPULimitInMilliCores - 2000", func() {
+		Describe(".GetLocalDNSCPULimitInPercentage()", func() {
+			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned.
+			It("returns default CPULimit - 200.0%", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
-				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInMilliCores()).To(BeEquivalentTo(2000))
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
 			})
-			// Expect default int32 CPULimitInMilliCores constant to be returned if CPULimitInMilliCores is nil.
-			It("returns default int32 CPULimitInMilliCores - 2000", func() {
+			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned if CPULimitInMilliCores is nil.
+			It("returns default CPULimit - 200.0% when CPULimitInMilliCores is nil", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Enabled",
 					CPULimitInMilliCores: nil,
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInMilliCores()).To(BeEquivalentTo(2000))
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
 			})
-			// Expect default int32 CPULimitInMilliCores constant to be returned if State is not Enabled.
-			It("returns default int32 CPULimitInMilliCores - 2000", func() {
+			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned if State is not Enabled.
+			It("returns default CPULimit - 200.0% when State is not Enabled", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Disabled",
-					CPULimitInMilliCores: to.Int32Ptr(2000),
+					CPULimitInMilliCores: to.Int32Ptr(5000),
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInMilliCores()).To(BeEquivalentTo(2000))
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
 			})
-			// Expect input int32 CPULimitInMilliCores constant to be returned if State is Enabled.
+			// Expect correct CPULimit to be returned if State is Enabled.
 			It("returns default int32 CPULimitInMilliCores - 3500", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(3500),
+					CPULimitInMilliCores: to.Int32Ptr(4897),
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInMilliCores()).To(BeEquivalentTo(3500))
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("489.7%"))
 			})
 		})
 
 		Describe(".GetLocalDNSMemoryLimitInMB()", func() {
-			// Expect default int32 MemoryLimitInMB constant to be returned.
-			It("returns default int32 MemoryLimitInMB - 128", func() {
+			// Expect default MemoryLimitInMB constant to be returned.
+			It("returns default MemoryLimitInMB - 128M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
-				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(BeEquivalentTo(128))
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
 			})
-			// Expect default int32 MemoryLimitInMB constant to be returned if MemoryLimitInMB is nil.
-			It("returns default int32 MemoryLimitInMB - 128", func() {
+			// Expect default MemoryLimitInMB constant to be returned if MemoryLimitInMB is nil.
+			It("returns default MemoryLimitInMB - 128M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:           "Enabled",
 					MemoryLimitInMB: nil,
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(BeEquivalentTo(128))
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
 			})
-			// Expect default int32 MemoryLimitInMB constant to be returned if State is not Enabled.
-			It("returns default int32 MemoryLimitInMB - 128", func() {
+			// Expect default MemoryLimitInMB constant to be returned if State is not Enabled.
+			It("returns default MemoryLimitInMB - 128M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:           "Disabled",
 					MemoryLimitInMB: to.Int32Ptr(128),
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(BeEquivalentTo(128))
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
 			})
-			// Expect input int32 MemoryLimitInMB constant to be returned if State is Enabled.
-			It("returns default int32 MemoryLimitInMB - 1024", func() {
+			// Expect input MemoryLimitInMB constant to be returned if State is Enabled.
+			It("returns default MemoryLimitInMB - 1024M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:           "Enabled",
 					MemoryLimitInMB: to.Int32Ptr(1024),
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(BeEquivalentTo(1024))
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("1024M"))
 			})
 		})
 
@@ -322,7 +322,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(2000),
+					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides:     nil,
 					KubeDNSOverrides:     nil,
@@ -360,7 +360,7 @@ health-check.localdns.local:53 {
 			It("handles empty LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(2000),
+					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
 					KubeDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
@@ -398,7 +398,7 @@ health-check.localdns.local:53 {
 			It("handles empty KubeDNSOverrides and non-empty VnetDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(2000),
+					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 						".": {
@@ -529,7 +529,7 @@ testdomain456.com:53 {
 			It("generates a valid localdnsCorefile", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
 					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(2000),
+					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 						".": {
@@ -777,7 +777,7 @@ testdomain567.com:53 {
 						Distro:              datamodel.AKSUbuntu1604,
 						LocalDNSProfile: &datamodel.LocalDNSProfile{
 							State:                "Enabled",
-							CPULimitInMilliCores: to.Int32Ptr(2000),
+							CPULimitInMilliCores: to.Int32Ptr(2008),
 							MemoryLimitInMB:      to.Int32Ptr(128),
 							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
 								".": {
