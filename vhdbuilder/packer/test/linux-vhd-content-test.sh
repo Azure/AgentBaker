@@ -1266,6 +1266,14 @@ testCorednsBinaryExtractedAndCached() {
   local expectedVersionWithoutV="${expectedVersion#v}"
   echo "$test: Expected coredns version (n-1 latest revision): ${expectedVersionWithoutV}"
 
+  local builtInPlugins
+  builtInPlugins=$("$binaryPath" --plugins)
+  if [ $? -eq 0 ]; then
+    echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
+  else
+    echo "$test: Failed to execute coredns --plugins command from $binaryPath"
+  fi
+
   # Get the actual version from the extracted CoreDNS binary
   local actualVersion
   actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
