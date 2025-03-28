@@ -470,7 +470,11 @@ installCNI() {
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://packages.aks.azure.com/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz"
+        return_code=$?
+        if [  $return_code != 0 ]; then
+            retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz"
+        fi
         tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
         return 
     fi
@@ -591,6 +595,7 @@ extractKubeBinaries() {
 
 installKubeletKubectlAndKubeProxy() {
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
+    echo "testing: KUBE BINARY URL is: ${KUBE_BINARY_URL}"
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
     echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
@@ -626,6 +631,7 @@ installKubeletKubectlAndKubeProxy() {
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
+                echo "testing: the kube binary URL is: ${KUBE_BINARY_URL}"
             fi
         fi
     fi

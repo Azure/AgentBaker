@@ -240,8 +240,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		k8sComponents := &datamodel.K8sComponents{}
 
 		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
-			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
-			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
+			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
+			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
 		}
 
 		kubeletConfig := map[string]string{
@@ -1328,8 +1328,8 @@ oom_score = -999
 					ContainerRuntime: datamodel.Containerd,
 				}
 				config.ContainerService.Properties.OrchestratorProfile.OrchestratorType = "azure"
-				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/1.22.2/binaries/kubernetes-node-linux-arm64.tar.gz" //nolint:lll
-				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"                                           //nolint:lll
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://packages.aks.azure.com/kubernetes/1.22.2/binaries/kubernetes-node-linux-arm64.tar.gz" //nolint:lll
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"                                         //nolint:lll
 				config.IsARM64 = true
 				config.KubeletConfig = map[string]string{}
 			}, nil),
@@ -1339,8 +1339,8 @@ oom_score = -999
 					ContainerRuntime: datamodel.Containerd,
 				}
 				config.ContainerService.Properties.OrchestratorProfile.OrchestratorType = datamodel.Kubernetes
-				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/1.22.2/binaries/kubernetes-node-linux-arm64.tar.gz" //nolint:lll
-				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"                                           //nolint:lll
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://packages.aks.azure.com/kubernetes/1.22.2/binaries/kubernetes-node-linux-arm64.tar.gz" //nolint:lll
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/kubernetes/kube-proxy:v1.22.2"                                         //nolint:lll
 				config.IsARM64 = true
 				config.KubeletConfig = map[string]string{}
 			}, nil),
@@ -1815,7 +1815,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					AdminUsername: "azureuser",
 				},
 				WindowsProfile: &datamodel.WindowsProfile{
-					ProvisioningScriptsPackageURL: "https://acs-mirror.azureedge.net/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip",
+					ProvisioningScriptsPackageURL: "https://packages.aks.azure.com/aks-engine/windows/provisioning/signedscripts-v0.0.4.zip",
 					WindowsPauseImageURL:          "mcr.microsoft.com/oss/kubernetes/pause:1.4.0",
 					AdminUsername:                 "azureuser",
 					AdminPassword:                 "replacepassword1234",
@@ -1854,8 +1854,8 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 
 		if IsKubernetesVersionGe(k8sVersion, "1.29.0") {
 			// This is test only, credential provider version does not align with k8s version
-			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
-			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://acs-mirror.azureedge.net/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
+			k8sComponents.WindowsCredentialProviderURL = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-windows-amd64-v%s.tar.gz", k8sVersion, k8sVersion) //nolint:lll
+			k8sComponents.LinuxCredentialProviderURL = fmt.Sprintf("https://packages.aks.azure.com/cloud-provider-azure/v%s/binaries/azure-acr-credential-provider-linux-amd64-v%s.tar.gz", k8sVersion, k8sVersion)     //nolint:lll
 		}
 
 		kubeletConfig := map[string]string{
@@ -1986,7 +1986,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 		Entry("AKSWindows2019 with k8s version 1.19", "AKSWindows2019+K8S119", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
 		}),
 		Entry("AKSWindows2019 with k8s version 1.19 + CSI", "AKSWindows2019+K8S119+CSI", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {
-			config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "https://acs-mirror.azureedge.net/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz"
+			config.ContainerService.Properties.WindowsProfile.CSIProxyURL = "https://packages.aks.azure.com/csi-proxy/v0.1.0/binaries/csi-proxy.tar.gz"
 			config.ContainerService.Properties.WindowsProfile.EnableCSIProxy = to.BoolPtr(true)
 		}),
 		Entry("AKSWindows2019 with CustomVnet", "AKSWindows2019+CustomVnet", "1.19.0", func(config *datamodel.NodeBootstrappingConfiguration) {

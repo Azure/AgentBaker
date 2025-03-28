@@ -649,16 +649,29 @@ updatePackageDownloadURL() {
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     
-    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
+    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL/packagesURL from there.
     #otherwise get the downloadURL from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+        if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.packagesURL") != "null" ]]; then
+            downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.packagesURL" -r)
+            [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+            return
+        elif [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL") != "null" ]]; then
+            downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
+            [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
+            return
+        fi
+    fi
+
+    if [[ $(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.packagesURL") != "null" ]]; then
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.packagesURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
         return
     fi
+
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return    
+    return
 }
 
 addKubeletNodeLabel() {
@@ -691,6 +704,7 @@ updateKubeBinaryRegistryURL() {
     if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
         echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
         KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+        echo "testing: the kube binary URL is $KUBE_BINARY_URL"
     else
         url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
         if [[ -n ${KUBE_BINARY_URL} ]]; then
@@ -738,6 +752,35 @@ verify_DNS_health(){
         return $ERR_DNS_HEALTH_FAIL
     fi
     echo "DNS health check passed"
+}
+
+resolve_packages_source_url() {
+    echo "Ensuring connectivity to packages.aks.azure.com..."
+
+    local retries=5
+    local wait_sleep=1
+
+    for i in $(seq 1 $retries); do
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
+      if [ ${response_code} -eq 200 ]; then
+        break
+      else
+        if [ $i -eq $retries ]; then
+          echo "Executed curl to packages.aks.azure.com $i times. Response code is $response_code"
+          break
+        else
+          sleep $wait_sleep
+        fi
+      fi
+    done
+
+    if [ ${response_code} -eq 200 ]; then
+      PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
+    else
+      PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
+    fi
 }
 
 oras_login_with_kubelet_identity() {

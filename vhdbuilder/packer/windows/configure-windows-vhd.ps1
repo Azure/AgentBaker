@@ -14,6 +14,7 @@ param(
     [string]
     $customizedDiskSizeParam
 )
+$global:PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
 
 if (![string]::IsNullOrEmpty($windowsSKUParam))
 {
