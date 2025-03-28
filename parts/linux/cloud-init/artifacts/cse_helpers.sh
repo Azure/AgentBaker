@@ -748,6 +748,7 @@ updateKubeBinaryRegistryURL() {
     if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
         echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
         KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+        echo "testing: the kube binary URL is $KUBE_BINARY_URL"
     else
         # however, the kubelet and kubectl binary version may different with kubernetes version due to hotfix or beta
         # so that we still need to extract the binary version from kube_binary_url
