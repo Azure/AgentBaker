@@ -265,8 +265,7 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
 
-# Below files will be shipped in VHD for enabling localdns systemd unit.
-# ---------------------------------------------------------------------------------------------------
+# ------------------------- Files related to localdns -----------------------------------------------
   LOCALDNS_SCRIPT_SRC=/home/packer/localdns.sh
   LOCALDNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns.sh
   cpAndMode $LOCALDNS_SCRIPT_SRC $LOCALDNS_SCRIPT_DEST 0755
@@ -282,16 +281,6 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
-
-  LOCALDNS_RESOLVED_SRC=/home/packer/localdns-resolved.conf
-  LOCALDNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf
-  cpAndMode $LOCALDNS_RESOLVED_SRC $LOCALDNS_RESOLVED_DEST 0644
-  chmod -R ugo+rX /opt/azure/containers/localdns /etc/systemd/resolved.conf.d
-
-  AKS_NETWORKD_KEEPCONFIG_SRC=/home/packer/05-aks-keepconfig.conf
-  AKS_NETWORKD_KEEPCONFIG_DEST=/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf
-  cpAndMode $AKS_NETWORKD_KEEPCONFIG_SRC $AKS_NETWORKD_KEEPCONFIG_DEST 0644
-  chmod -R ugo+rX /etc/systemd/network
 # ---------------------------------------------------------------------------------------------------
 
   # Install AKS log collector
