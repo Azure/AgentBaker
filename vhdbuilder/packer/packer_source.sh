@@ -281,16 +281,6 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
-
-  LOCALDNS_RESOLVED_SRC=/home/packer/localdns-resolved.conf
-  LOCALDNS_RESOLVED_DEST=/etc/systemd/resolved.conf.d/70-aks-dns.conf
-  cpAndMode $LOCALDNS_RESOLVED_SRC $LOCALDNS_RESOLVED_DEST 0644
-  chmod -R ugo+rX /opt/azure/containers/localdns /etc/systemd/resolved.conf.d
-
-  AKS_NETWORKD_KEEPCONFIG_SRC=/home/packer/05-aks-keepconfig.conf
-  AKS_NETWORKD_KEEPCONFIG_DEST=/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf
-  cpAndMode $AKS_NETWORKD_KEEPCONFIG_SRC $AKS_NETWORKD_KEEPCONFIG_DEST 0644
-  chmod -R ugo+rX /etc/systemd/network
 # ---------------------------------------------------------------------------------------------------
 
   # Install AKS log collector

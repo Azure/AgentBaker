@@ -6,6 +6,8 @@ set -euo pipefail
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
 # This file contains the environment variables used by localdns systemd unit.
@@ -20,7 +22,7 @@ fi
 
 # This file contains generated Corefile used by localdns systemd unit.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
+LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
     printf "Error: localdns corefile either does not exist or is empty at %s.\n" "${LOCALDNS_CORE_FILE}"
     exit 1
@@ -54,8 +56,6 @@ fi
 
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------
-LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
-
 # Coredns binary is extracted from cached coredns image and pre-installed in the VHD -
 # /opt/azure/containers/localdns/binary/coredns.
 COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
@@ -110,7 +110,7 @@ cat "${LOCALDNS_CORE_FILE}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
-# These rules skip conntrack for DNS traffic to save conntrack table space. 
+# These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space. 
 # OUTPUT rules affect node services and hostNetwork: true pods.
 # PREROUTING rules affect traffic from regular pods.
 IPTABLES='iptables -w -t raw -m comment --comment "Local DNS: skip conntrack"'
