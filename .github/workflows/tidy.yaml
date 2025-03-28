@@ -10,6 +10,7 @@ on:
       - go.mod
       - e2e/go.mod
       - aks-node-controller/go.mod
+      - .github/workflows/tidy.yaml
 
 permissions:
     id-token: write
