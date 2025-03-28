@@ -1353,4 +1353,4 @@ testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCoreDnsBinaryExtractedAndCached $OS_VERSION
-#testPackageDownloadURLFallbackLogic
+testPackageDownloadURLFallbackLogic
