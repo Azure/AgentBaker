@@ -347,8 +347,8 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 // ValidateKubeletHasCLIFlag checks kubelet is started with the right flags and configs.
 func ValidateKubeletHasCLIFlag(ctx context.Context, s *Scenario, flagName, flagValue string) {
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
-	configFileFlags := fmt.Sprintf("FLAG: --%s=\"%s\"", flagName, flagValue)
-	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
+	configFileFlags := fmt.Sprintf("FLAG: --%s=\"%s", flagName, flagValue)
+	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s=%s, but not found", flagName, flagValue)
 }
 
 func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
