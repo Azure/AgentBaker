@@ -65,6 +65,18 @@ jobs:
           done
         name: Run go mod tidy
 
+      - run: |
+          set -e
+          for mod_dir in ./ e2e/ aks-node-controller/; do
+            echo "removing any toolchain lains from go.mod in ${mod_dir}"
+            pushd $mod_dir
+                # this pains me greatly, though adding the toolchain line seems to break our other workflows,
+                # we don't want to be constantly blocking dependabot PRs on failing workflows
+                awk 'BEGIN { skip=0 } { if (skip && $0 ~ /^[[:space:]]*$/) { next } else if (skip) { skip=0 } if ($0 ~ /^toolchain/) { skip=1; next } print }' go.mod > tmp && mv tmp go.mod
+            popd
+          done
+        name: Remove toolchain lines
+
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-tidy"
