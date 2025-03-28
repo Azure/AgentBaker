@@ -595,6 +595,7 @@ extractKubeBinaries() {
 
 installKubeletKubectlAndKubeProxy() {
     # when both, custom and private urls for kubernetes packages are set, custom url will be used and private url will be ignored
+    echo "testing: KUBE BINARY URL is: ${KUBE_BINARY_URL}"
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
     echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
