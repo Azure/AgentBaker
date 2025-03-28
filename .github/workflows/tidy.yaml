@@ -69,7 +69,7 @@ jobs:
       - run: |
           set -e
           for mod_dir in ./ e2e/ aks-node-controller/; do
-            echo "removing any toolchain lains from go.mod in ${mod_dir}"
+            echo "removing any toolchain lines from go.mod in ${mod_dir}"
             pushd $mod_dir
                 # this pains me greatly, though adding the toolchain line seems to break our other workflows,
                 # we don't want to be constantly blocking dependabot PRs on failing workflows
