@@ -819,7 +819,7 @@ oras_login_with_kubelet_identity() {
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
     ret_code=$? 
-    if [ $ret_code -ne 0 ] || [[ "$raw_access_token" == *"error"* ]]; then
+    if [ $ret_code -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
     fi
