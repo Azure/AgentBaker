@@ -124,6 +124,7 @@ Describe 'cse_install.sh'
         k8s_downloads_dir="/opt/kubernetes/downloads"
         ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
         CPU_ARCH="amd64"
+        KUBE_BINARY_URL=""
         
         # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
         extractKubeBinariesToUsrLocalBin() {
@@ -139,6 +140,15 @@ Describe 'cse_install.sh'
         retrycmd_get_tarball() {
             echo "mock retrycmd_get_tarball calling with $1 $2 $3 $4 $5"
         }
+
+        # mock test
+        test() {
+            if [[ "$1" == "!" && "$2" == "-f" && "$3" == "${k8s_tgz_tmp}" ]]; then
+                return 1  # Simulate that the file does exist
+            fi
+            /usr/bin/test "$@"  # Call the original test command for other cases
+        }
+
         It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
             kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:FakeTag"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
