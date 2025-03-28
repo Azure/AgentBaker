@@ -83,7 +83,7 @@ var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
 		PodPidsLimit:                   to.Ptr(int32(-1)),
 		ResolvConf:                     "/run/systemd/resolve/resolv.conf",
 		EvictionHard: map[string]string{
-			"memory.available":  "100Mi",
+			"memory.available":  "750Mi",
 			"nodefs.available":  "10%",
 			"nodefs.inodesFree": "5%",
 		},
