@@ -557,7 +557,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	}
 
 	// EvictionHard.
-	// default: "memory.available<100Mi,nodefs.available<10%,nodefs.inodesFree<5%".
+	// default: "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%".
 	if eh, ok := kc["--eviction-hard"]; ok && eh != "" {
 		kubeletConfig.EvictionHard = strKeyValToMap(eh, ",", "<")
 	}
