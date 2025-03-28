@@ -35,6 +35,14 @@ err() {
 # The remote branch will be something like 'refs/heads/branch/name' or 'refs/pull/number/head'. Using the same name
 # for the local branch has weird semantics, so we replace '/' with '-' for the local branch name.
 LOCAL_GIT_BRANCH=${GIT_BRANCH//\//-}
+
+# Git is not present in the base image, so we need to install it.
+if [[ "$OS_SKU" == "Ubuntu" ]]; then
+  sudo apt-get install -y git
+else
+  sudo tdnf install -y git
+fi
+
 echo "Cloning AgentBaker repo and checking out remote branch '${GIT_BRANCH}' into local branch '${LOCAL_GIT_BRANCH}'"
 COMMAND="git clone --quiet https://github.com/Azure/AgentBaker.git"
 if ! ${COMMAND}; then
