@@ -1208,8 +1208,8 @@ checkPerformanceData() {
 }
 
 #------------------------ Start of test code related to localdns ------------------------
-testCoreDnsBinaryExtractedAndCached() {
-  local test="CoreDnsBinaryExtractedAndCached"
+testCorednsBinaryExtractedAndCached() {
+  local test="testCorednsBinaryExtractedAndCached"
   local os_version=$1
   # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
   # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
@@ -1287,10 +1287,10 @@ testCoreDnsBinaryExtractedAndCached() {
   return 0
 }
 
-testLocalDNSScriptsAndConfigs() {
-  local test="testLocalDNSScriptsAndConfigs"
+checkLocaldnsScriptsAndConfigs() {
+  local test="checkLocaldnsScriptsAndConfigs"
   
-  declare -A localDNSfiles=(
+  declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
     ["/etc/systemd/system/localdns.slice"]=644
@@ -1299,22 +1299,22 @@ testLocalDNSScriptsAndConfigs() {
     ["/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf"]=644
   )
   
-  for file in "${!localDNSfiles[@]}"; do
+  for file in "${!localdnsfiles[@]}"; do
     echo "$test: Checking existence of ${file}"
     if [ ! -f "${file}" ]; then
-      echo "$test: localDNSfile - ${file} not found"
+      echo "$test: localdnsfile - ${file} not found"
       return 1
     fi
     
     echo "$test: Checking permissions of ${file}"
     permissions=$(stat -c "%a" "$file")
-    if [ "$permissions" != "${localDNSfiles[$file]}" ]; then
-      echo "$test: localDNSfile $file has incorrect permissions. Expected ${localDNSfiles[$file]}, got $permissions"
+    if [ "$permissions" != "${localdnsfiles[$file]}" ]; then
+      echo "$test: localdnsfile $file has incorrect permission. Expected ${localdnsfiles[$file]}, got $permissions"
       return 1
     fi
   done
   
-  echo "$test: All localDNSfile exist with correct permissions"
+  echo "$test: All localdnsfiles exist with correct permissions"
   return 0
 }
 #------------------------ End of test code related to localdns ------------------------
@@ -1361,5 +1361,5 @@ testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
-testCoreDnsBinaryExtractedAndCached $OS_VERSION
-testLocalDNSScriptsAndConfigs
+testCorednsBinaryExtractedAndCached $OS_VERSION
+checkLocaldnsScriptsAndConfigs
