@@ -2,8 +2,6 @@ module github.com/Azure/agentbaker/e2e
 
 go 1.23.7
 
-toolchain go1.24.1
-
 require (
 	github.com/Azure/agentbaker v0.20240503.0
 	github.com/Azure/agentbaker/aks-node-controller v0.0.0-20241215075802-f13a779d5362
