@@ -11,7 +11,7 @@ health-check.localdns.local:53 {
 .:53 {
     log
     bind 169.254.10.10
-    forward . VnetDNS_Server_IP {
+    forward . 168.63.129.16 {
         policy sequential
         max_concurrent 1000
     }
@@ -118,7 +118,7 @@ cluster.local:53 {
 testdomain567.com:53 {
     errors
     bind 169.254.10.11
-    forward . VnetDNS_Server_IP {
+    forward . 168.63.129.16 {
         policy random
         max_concurrent 1000
     }

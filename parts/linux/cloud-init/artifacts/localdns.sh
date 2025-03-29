@@ -75,14 +75,19 @@ if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]]; then
     exit 1
 fi
 
-# Based on customer input, corefile was generated with Vnet_DNS_Server as placeholder in pkg/agent/baker.go.
-# Replace all occurrences of VnetDNS_Server_IP in localdns corefile.
-sed -i -e "s|VnetDNS_Server_IP|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || { echo "Error: updating corefile failed"; exit 1; }
+# Based on customer input, corefile was generated in pkg/agent/baker.go.
+# Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
+if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
+    sed -i -e "s|168.63.129.16|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
+        echo "Error: updating corefile failed"
+        exit 1
+    }
+fi
 cat "${LOCALDNS_CORE_FILE}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
-# These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space. 
+# These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
 # OUTPUT rules affect node services and hostNetwork: true pods.
 # PREROUTING rules affect traffic from regular pods.
 IPTABLES='iptables -w -t raw -m comment --comment "Local DNS: skip conntrack"'
@@ -178,7 +183,7 @@ function cleanup {
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
 # Always cleanup when exiting.
-trap "printf 'executing cleanup function.\n'; cleanup || printf 'Cleanup failed with error code: $?.\n'" EXIT
+trap 'printf "executing cleanup function.\n"; cleanup || printf "Cleanup failed with error code: $?."\n' EXIT
 
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------

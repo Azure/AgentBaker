@@ -458,7 +458,6 @@ write_files:
   owner: root
   content: |
     SHOULD_ENABLE_LOCALDNS={{ShouldEnableLocalDNS}}
-    COREDNS_SERVICE_IP={{GetCoreDNSServiceIP}}
     LOCALDNS_NODE_LISTENER_IP={{GetLocalDNSNodeListenerIP}}
     LOCALDNS_CLUSTER_LISTENER_IP={{GetLocalDNSClusterListenerIP}}
     LOCALDNS_SHUTDOWN_DELAY=5

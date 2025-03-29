@@ -823,6 +823,7 @@ type LocalDNSCoreFileData struct {
 	NodeListenerIP    string
 	ClusterListenerIP string
 	CoreDNSServiceIP  string
+	AzureDNSIP        string
 }
 
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
@@ -847,12 +848,17 @@ func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
 
 // GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
 func (a *AgentPoolProfile) GetLocalDNSNodeListenerIP() string {
-	return DefaultLocalDNSNodeListenerIP
+	return LocalDNSNodeListenerIP
 }
 
 // GetLocalDNSClusterListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
 func (a *AgentPoolProfile) GetLocalDNSClusterListenerIP() string {
-	return DefaultLocalDNSClusterListenerIP
+	return LocalDNSClusterListenerIP
+}
+
+// GetAzureDNSIP returns 168.63.129.16 address.
+func (a *AgentPoolProfile) GetAzureDNSIP() string {
+	return AzureDNSIP
 }
 
 // GetLocalDNSCPULimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
@@ -874,10 +880,10 @@ func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
 }
 
 func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
-	if a.KubernetesConfig != nil && a.KubernetesConfig.DNSServiceIP != "" {
+	if a.ShouldEnableLocalDNS() && a.KubernetesConfig != nil && a.KubernetesConfig.DNSServiceIP != "" {
 		return a.KubernetesConfig.DNSServiceIP
 	}
-	return DefaultDNSServerIP
+	return DefaultCoreDNSServiceIP
 }
 
 // GetLocalDNSCoreFileData returns the object that will be used to generate localdns corefile.
@@ -888,6 +894,7 @@ func (a *AgentPoolProfile) GetLocalDNSCoreFileData() (LocalDNSCoreFileData, erro
 			NodeListenerIP:    a.GetLocalDNSNodeListenerIP(),
 			ClusterListenerIP: a.GetLocalDNSClusterListenerIP(),
 			CoreDNSServiceIP:  a.GetCoreDNSServiceIP(),
+			AzureDNSIP:        a.GetAzureDNSIP(),
 		}
 		return localdnsCoreFileData, nil
 	}

@@ -2821,7 +2821,8 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 		expectedMemory            string
 		expectedListenerIP        string
 		expectedClusterListenerIP string
-		expectedDNSServiceIP      string
+		expectedCoreDNSServiceIP  string
+		expectedAzureDNSIP        string
 	}{
 		{
 			name:             "AgentPoolProfile nil",
@@ -2865,11 +2866,13 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			expectedState:             true,
 			expectedCPU:               "100.0%",
 			expectedMemory:            "2048M",
-			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
-			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
+			expectedListenerIP:        LocalDNSNodeListenerIP,
+			expectedClusterListenerIP: LocalDNSClusterListenerIP,
+			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
+			expectedAzureDNSIP:        AzureDNSIP,
 		},
 		{
-			name: "LocalDNSProfile enabled",
+			name: "LocalDNSProfile enabled with custom CPU and memory",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
 					State:                "Enabled",
@@ -2880,8 +2883,10 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			expectedState:             true,
 			expectedCPU:               "506.9%",
 			expectedMemory:            "1048M",
-			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
-			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
+			expectedListenerIP:        LocalDNSNodeListenerIP,
+			expectedClusterListenerIP: LocalDNSClusterListenerIP,
+			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
+			expectedAzureDNSIP:        AzureDNSIP,
 		},
 		{
 			name: "LocalDNSProfile enabled, CPU and memory not set",
@@ -2896,9 +2901,10 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			expectedState:             true,
 			expectedCPU:               "200.0%",
 			expectedMemory:            "128M",
-			expectedListenerIP:        DefaultLocalDNSNodeListenerIP,
-			expectedClusterListenerIP: DefaultLocalDNSClusterListenerIP,
-			expectedDNSServiceIP:      "10.0.0.10",
+			expectedListenerIP:        LocalDNSNodeListenerIP,
+			expectedClusterListenerIP: LocalDNSClusterListenerIP,
+			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
+			expectedAzureDNSIP:        AzureDNSIP,
 		},
 	}
 
@@ -2911,6 +2917,8 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			actualMemory := c.agentPoolProfile.GetLocalDNSMemoryLimitInMB()
 			actualListenerIP := c.agentPoolProfile.GetLocalDNSNodeListenerIP()
 			actualClusterListenerIP := c.agentPoolProfile.GetLocalDNSClusterListenerIP()
+			actualCoreDNSServiceIP := c.agentPoolProfile.GetCoreDNSServiceIP()
+			actualAzureDNSIP := c.agentPoolProfile.GetAzureDNSIP()
 
 			if c.expectedState != actualLocaldnsState {
 				t.Fatalf("test case: %s, expected localdns state: %v. Got: %v", c.name, c.expectedState, actualLocaldnsState)
@@ -2928,6 +2936,12 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 				}
 				if c.expectedClusterListenerIP != actualClusterListenerIP {
 					t.Fatalf("test case: %s, expected cluster listener IP: %s. Got: %s.", c.name, c.expectedClusterListenerIP, actualClusterListenerIP)
+				}
+				if c.expectedCoreDNSServiceIP != actualCoreDNSServiceIP {
+					t.Fatalf("test case: %s, expected AzureDNSIP: %s. Got: %s.", c.name, c.expectedCoreDNSServiceIP, actualAzureDNSIP)
+				}
+				if c.expectedAzureDNSIP != actualAzureDNSIP {
+					t.Fatalf("test case: %s, expected AzureDNSIP: %s. Got: %s.", c.name, c.expectedAzureDNSIP, actualAzureDNSIP)
 				}
 			}
 		})

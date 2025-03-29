@@ -1785,8 +1785,6 @@ func GenerateLocalDNSCoreFile(
 }
 
 // Template to create corefile that will be used by localdns service.
-// Using VnetDNS_Server_IP as a placeholder
-// which will be replaced by the actuals in localdns.sh file.
 const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
 # WARNING: Changes to this file will be overwritten and not persisted.
@@ -1814,12 +1812,12 @@ health-check.localdns.local:53 {
     {{- end }}
     bind {{$.NodeListenerIP}}
     {{- if $isRootDomain}}
-    forward . VnetDNS_Server_IP {
+    forward . {{$.AzureDNSIP}} {
     {{- else}}
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
-    forward . VnetDNS_Server_IP {
+    forward . {{$.AzureDNSIP}} {
     {{- end}}
 	{{- end}}
         {{- if eq $override.Protocol "ForceTCP"}}
@@ -1877,7 +1875,7 @@ health-check.localdns.local:53 {
     {{- if $fwdToClusterCoreDNS}}
     forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
-    forward . VnetDNS_Server_IP {
+    forward . {{$.AzureDNSIP}} {
     {{- end}}
         {{- if eq $override.Protocol "ForceTCP"}}
         force_tcp
