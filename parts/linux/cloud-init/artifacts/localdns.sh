@@ -8,6 +8,8 @@ set -euo pipefail
 
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 AZURE_DNS_IP="168.63.129.16"
+LOCALDNS_SHUTDOWN_DELAY=5
+LOCALDNS_PID_FILE="/run/localdns.pid"
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
@@ -44,10 +46,6 @@ fi
 : "${LOCALDNS_NODE_LISTENER_IP:?LOCALDNS_NODE_LISTENER_IP is not set}"
 # This is the IP that localdns service should bind to for pod traffic; an APIPA address.
 : "${LOCALDNS_CLUSTER_LISTENER_IP:?LOCALDNS_CLUSTER_LISTENER_IP is not set}"
-# Delay coredns shutdown to allow connections to finish.
-: "${LOCALDNS_SHUTDOWN_DELAY:?LOCALDNS_SHUTDOWN_DELAY is not set}"
-# PID file.
-: "${LOCALDNS_PID_FILE:?LOCALDNS_PID_FILE is not set}"
 
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------

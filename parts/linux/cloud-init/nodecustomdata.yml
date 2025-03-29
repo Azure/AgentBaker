@@ -460,6 +460,4 @@ write_files:
     SHOULD_ENABLE_LOCALDNS={{ShouldEnableLocalDNS}}
     LOCALDNS_NODE_LISTENER_IP={{GetLocalDNSNodeListenerIP}}
     LOCALDNS_CLUSTER_LISTENER_IP={{GetLocalDNSClusterListenerIP}}
-    LOCALDNS_SHUTDOWN_DELAY=5
-    LOCALDNS_PID_FILE="/run/localdns.pid"
 {{- end}}
