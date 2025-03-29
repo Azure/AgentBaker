@@ -1,1 +1,0 @@
-netsh trace stop

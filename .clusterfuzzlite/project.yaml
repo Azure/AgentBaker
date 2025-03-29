@@ -1,5 +1,0 @@
-language: go
-fuzzing_engines:
-- libfuzzer
-sanitizers:
-- address
