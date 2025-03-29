@@ -189,7 +189,8 @@ function cleanup {
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
 # Always cleanup when exiting.
-trap 'printf "executing cleanup function.\n"; cleanup || printf "Cleanup failed with error code: $?."\n' EXIT
+trap 'printf "executing cleanup function.\n"
+cleanup || printf "Cleanup failed with error code: %d.\n" $?' EXIT
 
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
@@ -215,11 +216,11 @@ if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
 fi
 
 printf "starting localdns: %s.\n" "${COREDNS_COMMAND}"
-rm -f ${LOCALDNS_PID_FILE}
+rm -f "${LOCALDNS_PID_FILE}"
 ${COREDNS_COMMAND} &
 
 # Wait until the PID file is created.
-until [ -f ${LOCALDNS_PID_FILE} ]; do
+until [ -f "${LOCALDNS_PID_FILE}" ]; do
     sleep 0.1
 done
 
