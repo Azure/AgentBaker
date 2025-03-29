@@ -110,7 +110,10 @@ function cleanup {
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
             eval "${IPTABLES}" -D "${RULE}"
-            printf "Removed iptables rule: %s.\n" "${RULE}"
+            if [ $? -ne 0 ]; then
+                printf "Failed to remove iptables rule: %s.\n" "${RULE}"
+                return 1
+            fi
         fi
     done
 
@@ -118,7 +121,16 @@ function cleanup {
     if [ -f ${NETWORK_DROPIN_FILE} ]; then
         printf "Reverting DNS configuration by removing %s.\n" "${NETWORK_DROPIN_FILE}"
         /bin/rm -f ${NETWORK_DROPIN_FILE}
-        networkctl reload
+        if [ $? -eq 0 ]; then
+            networkctl reload
+            if [ $? -ne 0 ]; then
+                printf "Failed to reload network after removing the DNS configuration.\n"
+                return 1
+            fi
+        else
+            printf "Failed to remove %s.\n" "${NETWORK_DROPIN_FILE}"
+            return 1
+        fi
     fi
 
     # Trigger localdns shutdown, if running.
@@ -133,10 +145,17 @@ function cleanup {
 
             # Send SIGINT to localdns to trigger shutdown.
             kill -SIGINT ${COREDNS_PID}
+            if [ $? -ne 0 ]; then
+                printf "Failed to send SIGINT to localdns.\n"
+                return 1
+            fi
 
             # Wait for localdns to shut down.
-            wait -f ${COREDNS_PID}
-            printf "localdns terminated.\n"
+            wait ${COREDNS_PID}
+            if [ $? -ne 0 ]; then
+                printf "localdns failed to terminate properly.\n"
+                return 1
+            fi
         fi
     fi
 
@@ -144,13 +163,21 @@ function cleanup {
     if ip link show dev localdns >/dev/null 2>&1; then
         printf "removing localdns dummy interface.\n"
         ip link del name localdns
+        if [ $? -ne 0 ]; then
+            printf "Failed to remove localdns dummy interface.\n"
+            return 1
+        fi
     fi
+
+    # Indicate successful cleanup
+    printf "Successfully cleanup localdns related configurations.\n"
+    return 0
 }
 
 # Enable the cleanup function now that we have a coredns binary.
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
-trap "printf 'executing cleanup function.\n'; cleanup" EXIT # Always cleanup when you're exiting.
+trap "printf 'executing cleanup function.\n'; cleanup || printf 'Cleanup failed with error code: $?.\n'" EXIT # Always cleanup when exiting.
 
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
