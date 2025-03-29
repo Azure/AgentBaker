@@ -77,14 +77,8 @@ if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]]; then
 fi
 
 # Based on customer input, corefile was generated with Vnet_DNS_Server as placeholder in pkg/agent/baker.go.
-# Replace all occurrences of VnetDNS_Server_IP, CoreDNS_Service_IP Node_Listener_IP and Cluster_Listener_IP in localdns corefile.
-sed -i -e "
-    s/VnetDNS_Server_IP/${UPSTREAM_VNET_DNS_SERVERS}/g;
-    s/CoreDNS_Service_IP/${COREDNS_SERVICE_IP}/g;
-    s/Node_Listener_IP/${LOCALDNS_NODE_LISTENER_IP}/g;
-    s/Cluster_Listener_IP/${LOCALDNS_CLUSTER_LISTENER_IP}/g
-" "${LOCALDNS_CORE_FILE}" || { echo "Error: updating corefile failed"; exit 1; }
-
+# Replace all occurrences of VnetDNS_Server_IP in localdns corefile.
+sed -i -e "s|VnetDNS_Server_IP|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || { echo "Error: updating corefile failed"; exit 1; }
 cat "${LOCALDNS_CORE_FILE}"
 
 # Iptables: build rules.
