@@ -32,7 +32,7 @@ if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
 fi
 
 # This is slice file used by localdns systemd unit.
-# This should match with 'LOCALDNS_SLICE_DEST' defined in vhdbuilder/packer/packer_source.sh.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
 LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
 if [ ! -f "${LOCALDNS_SLICE_PATH}" ]; then
     printf "Error: localdns slice file does not exist at %s.\n" "${LOCALDNS_SLICE_PATH}"
@@ -113,7 +113,9 @@ function cleanup {
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
             eval "${IPTABLES}" -D "${RULE}"
-            if [ $? -ne 0 ]; then
+            if [ $? -eq 0 ]; then
+                printf "Successfully removed iptables rule: %s.\n" "${RULE}"
+            else
                 printf "Failed to remove iptables rule: %s.\n" "${RULE}"
                 return 1
             fi
@@ -148,14 +150,18 @@ function cleanup {
 
             # Send SIGINT to localdns to trigger shutdown.
             kill -SIGINT ${COREDNS_PID}
-            if [ $? -ne 0 ]; then
+            if [ $? -eq 0 ]; then
+                printf "Successfully sent SIGINT to localdns.\n"
+            else
                 printf "Failed to send SIGINT to localdns.\n"
                 return 1
             fi
 
             # Wait for localdns to shut down.
             wait ${COREDNS_PID}
-            if [ $? -ne 0 ]; then
+            if [ $? -eq 0 ]; then
+                printf "localdns terminated successfully.\n"
+            else
                 printf "localdns failed to terminate properly.\n"
                 return 1
             fi
@@ -166,7 +172,9 @@ function cleanup {
     if ip link show dev localdns >/dev/null 2>&1; then
         printf "removing localdns dummy interface.\n"
         ip link del name localdns
-        if [ $? -ne 0 ]; then
+        if [ $? -eq 0 ]; then
+            printf "Successfully removed localdns dummy interface.\n"
+        else
             printf "Failed to remove localdns dummy interface.\n"
             return 1
         fi
@@ -201,7 +209,6 @@ done
 # Start localdns.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
-
 if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
@@ -231,7 +238,6 @@ until [ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ];
         printf "ERROR: localdns failed to come online after %d attempts.\n" "$MAX_ATTEMPTS"
         exit 255
     fi
-
     # Check for timeout based on elapsed time.
     CURRENT_TIME=$(date +%s)
     ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
@@ -239,7 +245,6 @@ until [ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ];
         printf "ERROR: localdns failed to come online after %d seconds (timeout).\n" "$TIMEOUT"
         exit 255
     fi
-
     sleep 1
     ATTEMPTS+=1
 done
