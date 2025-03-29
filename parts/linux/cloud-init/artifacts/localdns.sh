@@ -8,6 +8,8 @@ set -euo pipefail
 
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 AZURE_DNS_IP="168.63.129.16"
+LOCALDNS_SHUTDOWN_DELAY=5
+LOCALDNS_PID_FILE="/run/localdns.pid"
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
@@ -44,10 +46,6 @@ fi
 : "${LOCALDNS_NODE_LISTENER_IP:?LOCALDNS_NODE_LISTENER_IP is not set}"
 # This is the IP that localdns service should bind to for pod traffic; an APIPA address.
 : "${LOCALDNS_CLUSTER_LISTENER_IP:?LOCALDNS_CLUSTER_LISTENER_IP is not set}"
-# Delay coredns shutdown to allow connections to finish.
-: "${LOCALDNS_SHUTDOWN_DELAY:?LOCALDNS_SHUTDOWN_DELAY is not set}"
-# PID file.
-: "${LOCALDNS_PID_FILE:?LOCALDNS_PID_FILE is not set}"
 
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------
@@ -75,14 +73,19 @@ if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]]; then
     exit 1
 fi
 
-# Based on customer input, corefile was generated with Vnet_DNS_Server as placeholder in pkg/agent/baker.go.
-# Replace all occurrences of VnetDNS_Server_IP in localdns corefile.
-sed -i -e "s|VnetDNS_Server_IP|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || { echo "Error: updating corefile failed"; exit 1; }
+# Based on customer input, corefile was generated in pkg/agent/baker.go.
+# Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
+if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
+    sed -i -e "s|168.63.129.16|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
+        echo "Error: updating corefile failed"
+        exit 1
+    }
+fi
 cat "${LOCALDNS_CORE_FILE}"
 
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
-# These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space. 
+# These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
 # OUTPUT rules affect node services and hostNetwork: true pods.
 # PREROUTING rules affect traffic from regular pods.
 IPTABLES='iptables -w -t raw -m comment --comment "Local DNS: skip conntrack"'
@@ -110,7 +113,12 @@ function cleanup {
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
             eval "${IPTABLES}" -D "${RULE}"
-            printf "Removed iptables rule: %s.\n" "${RULE}"
+            if [ $? -eq 0 ]; then
+                printf "Successfully removed iptables rule: %s.\n" "${RULE}"
+            else
+                printf "Failed to remove iptables rule: %s.\n" "${RULE}"
+                return 1
+            fi
         fi
     done
 
@@ -118,7 +126,16 @@ function cleanup {
     if [ -f ${NETWORK_DROPIN_FILE} ]; then
         printf "Reverting DNS configuration by removing %s.\n" "${NETWORK_DROPIN_FILE}"
         /bin/rm -f ${NETWORK_DROPIN_FILE}
-        networkctl reload
+        if [ $? -eq 0 ]; then
+            networkctl reload
+            if [ $? -ne 0 ]; then
+                printf "Failed to reload network after removing the DNS configuration.\n"
+                return 1
+            fi
+        else
+            printf "Failed to remove %s.\n" "${NETWORK_DROPIN_FILE}"
+            return 1
+        fi
     fi
 
     # Trigger localdns shutdown, if running.
@@ -133,10 +150,21 @@ function cleanup {
 
             # Send SIGINT to localdns to trigger shutdown.
             kill -SIGINT ${COREDNS_PID}
+            if [ $? -eq 0 ]; then
+                printf "Successfully sent SIGINT to localdns.\n"
+            else
+                printf "Failed to send SIGINT to localdns.\n"
+                return 1
+            fi
 
             # Wait for localdns to shut down.
-            wait -f ${COREDNS_PID}
-            printf "localdns terminated.\n"
+            wait ${COREDNS_PID}
+            if [ $? -eq 0 ]; then
+                printf "localdns terminated successfully.\n"
+            else
+                printf "localdns failed to terminate properly.\n"
+                return 1
+            fi
         fi
     fi
 
@@ -144,13 +172,24 @@ function cleanup {
     if ip link show dev localdns >/dev/null 2>&1; then
         printf "removing localdns dummy interface.\n"
         ip link del name localdns
+        if [ $? -eq 0 ]; then
+            printf "Successfully removed localdns dummy interface.\n"
+        else
+            printf "Failed to remove localdns dummy interface.\n"
+            return 1
+        fi
     fi
+
+    # Indicate successful cleanup
+    printf "Successfully cleanup localdns related configurations.\n"
+    return 0
 }
 
 # Enable the cleanup function now that we have a coredns binary.
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
-trap "printf 'executing cleanup function.\n'; cleanup" EXIT # Always cleanup when you're exiting.
+# Always cleanup when exiting.
+trap 'printf "executing cleanup function.\n"; cleanup || printf "Cleanup failed with error code: $?."\n' EXIT
 
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
@@ -170,7 +209,7 @@ done
 # Start localdns.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
-if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
+if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
@@ -178,24 +217,38 @@ fi
 printf "starting localdns: %s.\n" "${COREDNS_COMMAND}"
 rm -f ${LOCALDNS_PID_FILE}
 ${COREDNS_COMMAND} &
+
+# Wait until the PID file is created.
 until [ -f ${LOCALDNS_PID_FILE} ]; do
     sleep 0.1
 done
+
 COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
 printf "localdns PID is %s.\n" "${COREDNS_PID}"
 
 # Wait to direct traffic to localdns until it's ready.
 declare -i ATTEMPTS=0
+MAX_ATTEMPTS=60
+TIMEOUT=60
+START_TIME=$(date +%s)
+
 printf "waiting for localdns to start and be able to serve traffic.\n"
 until [ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ]; do
-    if [ $ATTEMPTS -ge 60 ]; then
-        printf "ERROR: localdns failed to come online.\n"
+    if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+        printf "ERROR: localdns failed to come online after %d attempts.\n" "$MAX_ATTEMPTS"
+        exit 255
+    fi
+    # Check for timeout based on elapsed time.
+    CURRENT_TIME=$(date +%s)
+    ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+    if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+        printf "ERROR: localdns failed to come online after %d seconds (timeout).\n" "$TIMEOUT"
         exit 255
     fi
     sleep 1
     ATTEMPTS+=1
 done
-printf "localdns online and ready to serve node traffic.\n"
+printf "localdns is online and ready to serve traffic.\n"
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
