@@ -450,7 +450,7 @@ write_files:
     After=system.slice
 
     [Slice]
-    MemoryMax={{GetLocalDNSMemoryLimitInMB}}M
+    MemoryMax={{GetLocalDNSMemoryLimitInMB}}
     CPUQuota={{GetLocalDNSCPULimitInPercentage}}
 
 - path: /etc/default/localdns.envfile

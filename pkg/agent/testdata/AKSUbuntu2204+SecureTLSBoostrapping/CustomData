@@ -355,7 +355,7 @@ write_files:
     After=system.slice
 
     [Slice]
-    MemoryMax=128MM
+    MemoryMax=128M
     CPUQuota=200.8%
 
 - path: /etc/default/localdns.envfile

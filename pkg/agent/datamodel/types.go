@@ -809,6 +809,7 @@ type ComponentConfiguration struct {
 	DownloadURL *string
 }
 
+// ----------------------- Start of Changed related to localdns ------------------------------------------
 // LocalDNSProfile represents localdns configuration for agentpool nodes.
 type LocalDNSProfile struct {
 	State                string                        `json:"state,omitempty"`
@@ -900,6 +901,8 @@ func (a *AgentPoolProfile) GetLocalDNSCoreFileData() (LocalDNSCoreFileData, erro
 	}
 	return LocalDNSCoreFileData{}, fmt.Errorf("LocalDNSProfile is nil or State is Disabled")
 }
+
+// ----------------------- End of Changed related to localdns ------------------------------------------
 
 // AgentPoolProfile represents an agent pool definition.
 type AgentPoolProfile struct {

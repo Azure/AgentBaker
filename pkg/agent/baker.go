@@ -1008,9 +1008,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldEnableLocalDNS": func() bool {
 			return profile.ShouldEnableLocalDNS()
 		},
-		"GetCoreDNSServiceIP": func() string {
-			return profile.GetCoreDNSServiceIP()
-		},
 		"GetGeneratedLocalDNSCoreFile": func() string {
 			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
 			if err != nil {

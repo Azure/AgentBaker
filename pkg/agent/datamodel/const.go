@@ -132,7 +132,7 @@ const (
 	EnableWinDSR          = "EnableWinDSR"
 )
 
-// LocalDNS related flag.
+// localdns related constants.
 const (
 	// LocalDNSEnabled is a string constant for 'Enabled'.
 	LocalDNSEnabled string = "Enabled"
