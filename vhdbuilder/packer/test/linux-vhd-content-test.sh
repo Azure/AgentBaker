@@ -1302,7 +1302,6 @@ checkLocaldnsScriptsAndConfigs() {
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
-    ["/etc/systemd/system/localdns.slice"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
   )
   

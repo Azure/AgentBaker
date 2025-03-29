@@ -29,7 +29,7 @@ if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
 fi
 
 # This is slice file used by localdns systemd unit.
-# This should match with 'LOCALDNS_SLICE_DEST' defined in vhdbuilder/packer/packer_source.sh.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
 LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
 if [ ! -f "${LOCALDNS_SLICE_PATH}" ]; then
     printf "Error: localdns slice file does not exist at %s.\n" "${LOCALDNS_SLICE_PATH}"
@@ -43,10 +43,6 @@ fi
 : "${LOCALDNS_NODE_LISTENER_IP:?LOCALDNS_NODE_LISTENER_IP is not set}"
 # This is the IP that localdns service should bind to for pod traffic; an APIPA address.
 : "${LOCALDNS_CLUSTER_LISTENER_IP:?LOCALDNS_CLUSTER_LISTENER_IP is not set}"
-# CPU limit for localdns service.
-: "${LOCALDNS_CPU_LIMIT_IN_MILLI_CORES:?LOCALDNS_CPU_LIMIT_IN_MILLI_CORES is not set}"
-# Memory limit in MB for localdns service.
-: "${LOCALDNS_MEMORY_LIMIT_IN_MB:?LOCALDNS_MEMORY_LIMIT_IN_MB is not set}"
 # Delay coredns shutdown to allow connections to finish.
 : "${LOCALDNS_SHUTDOWN_DELAY:?LOCALDNS_SHUTDOWN_DELAY is not set}"
 # PID file.
@@ -68,23 +64,6 @@ fi
 builtInPlugins=$("${COREDNS_BINARY_PATH}" --plugins)
 if [ $? -ne 0 ]; then
     printf "Error: Failed to execute '%s --plugins'.\n" "${COREDNS_BINARY_PATH}"
-    exit 1
-fi
-
-# Configure CPU and Memory limit.
-# --------------------------------------------------------------------------------------------------------------------
-# Takes a percentage value, suffixed with "%". The percentage specifies how much CPU time the unit shall get at maximum, 
-# relative to the total CPU time available on one CPU. Use values > 100% for allotting CPU time on more than one CPU.
-CPU_QUOTA="$(echo "scale=1; ${LOCALDNS_CPU_LIMIT_IN_MILLI_CORES} / 10" | bc)%"
-
-CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
-if [ "${CGROUP_VERSION}" = "cgroup2fs" ] || [ "${CGROUP_VERSION}" = "tmpfs" ]; then
-    sed -i \
-        -e "s/^CPUQuota=[^ ]*/CPUQuota=${CPU_QUOTA}/" \
-        -e "s/^MemoryMax=[^ ]*/MemoryMax=${LOCALDNS_MEMORY_LIMIT_IN_MB}M/" \
-        "${LOCALDNS_SLICE_PATH}" || { echo "Error: updating localdns slice failed"; exit 1; }
-else
-    echo "Error: Unsupported cgroup version: ${CGROUP_VERSION}"
     exit 1
 fi
 

@@ -623,11 +623,6 @@
     },
     {
       "type": "file",
-      "source": "parts/linux/cloud-init/artifacts/localdns.slice",
-      "destination": "/home/packer/localdns.slice"
-    },
-    {
-      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
       "destination": "/home/packer/localdns-delegate.conf"
     },

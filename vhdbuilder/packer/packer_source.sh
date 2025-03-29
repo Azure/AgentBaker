@@ -265,7 +265,7 @@ copyPackerFiles() {
     SSHD_CONFIG_SRC=/home/packer/sshd_config_2204_fips
   fi
 
-# ------------------------- Files related to localdns -----------------------------------------------
+# ------------------------- Files related to localdns -----------------------------------
   LOCALDNS_SCRIPT_SRC=/home/packer/localdns.sh
   LOCALDNS_SCRIPT_DEST=/opt/azure/containers/localdns/localdns.sh
   cpAndMode $LOCALDNS_SCRIPT_SRC $LOCALDNS_SCRIPT_DEST 0755
@@ -274,14 +274,10 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DEST=/etc/systemd/system/localdns.service
   cpAndMode $LOCALDNS_SERVICE_SRC $LOCALDNS_SERVICE_DEST 0644
 
-  LOCALDNS_SLICE_SRC=/home/packer/localdns.slice
-  LOCALDNS_SLICE_DEST=/etc/systemd/system/localdns.slice
-  cpAndMode $LOCALDNS_SLICE_SRC $LOCALDNS_SLICE_DEST 0644
-
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644
-# ---------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
 
   # Install AKS log collector
   cpAndMode $AKS_LOG_COLLECTOR_SCRIPT_SRC $AKS_LOG_COLLECTOR_SCRIPT_DEST 755
