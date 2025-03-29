@@ -1,0 +1,9 @@
+[Unit]
+Description=Monitor the cert directory for changes
+
+[Path]
+PathModified=/opt/certs
+Unit=update_certs.service
+
+[Install]
+WantedBy=multi-user.target

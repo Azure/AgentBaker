@@ -1,0 +1,72 @@
+pool:
+  # uncomment this if the auto teardown pool is down.
+  # vmImage: ubuntu-22.04
+  name: $(AZURE_POOL_NAME)
+
+parameters:
+- name: ImageBump
+  displayName: Image Bump
+  type: boolean
+  default: false
+- name: ReleaseNotes
+  displayName: Release Notes
+  type: boolean
+  default: false
+- name: PRTargetBranch
+  displayName: PR Target Branch
+  type: string
+  default: master
+
+variables:
+  - group: "AKS Dev Assistant (KV)"
+
+stages:
+  - stage: bump_image_version
+    dependsOn: []
+    condition: eq('${{ parameters.ImageBump }}', true)
+    jobs:
+      - job: bump_image_version
+        steps:
+          - template: ./templates/.configure-azdevops-template.yaml
+            parameters:
+              ADO_PAT: $(PAT-aksdevassistant)
+          - template: ./templates/.generate-github-token.yaml
+          - bash: |
+              set -ex
+              echo "Bumping windows VHD base image version"
+              /bin/bash vhdbuilder/scripts/windows/automate_version_bump.sh "$GITHUB_TOKEN" "$CHERRY_PICK_COMMIT_ID"
+            env:
+              GITHUB_TOKEN: $(GITHUB_TOKEN)
+              CHERRY_PICK_COMMIT_ID: $(CHERRY_PICK_COMMIT_ID)
+            displayName: 'Image Version Bumping'
+
+  - stage: release_notes
+    dependsOn: []
+    condition: eq('${{ parameters.ReleaseNotes }}', true)
+    jobs:
+      - job: release_notes
+        steps:
+        - template: ./templates/.configure-azdevops-template.yaml
+          parameters:
+            ADO_PAT: $(PAT-aksdevassistant)
+        - template: ./templates/.generate-github-token.yaml
+        - bash: |
+            set -e
+            echo "PR for Release Notes"
+            cd vhdbuilder/release-notes/autonotes
+            VER=$(go version)
+            echo "Go version is $VER"
+            go install .
+            cd ../../..
+            echo "go run autonotes to shuffle release note files from Azure Pipelines into the AgentBaker repo structure"
+            # TODO: enable WS2025 release notes when we enable WS2025. There is a pipeline bug downloading the WS2025 release notes, so that'll have to be fixed too.
+            # to re-enable, add ",2025,2025-gen2" to the end of the --include below.
+            go run vhdbuilder/release-notes/autonotes/main.go --build $BUILD_ID --include 2019-containerd,2022-containerd,2022-containerd-gen2,23H2,23H2-gen2
+            echo "run bash to create pull request for the shuffled release note files"
+            /bin/bash vhdbuilder/scripts/windows/automate_release_notes.sh "$GITHUB_TOKEN" "$BUILD_ID"
+          env:
+            GITHUB_TOKEN: $(GITHUB_TOKEN)
+            BUILD_ID: $(BUILD_ID)
+            PR_TARGET_BRANCH: ${{ parameters.PRTargetBranch }}
+          displayName: 'Release Notes'
+          condition: eq('${{ parameters.ReleaseNotes }}', true)

@@ -1,0 +1,36 @@
+parameters:
+  - name: overrideBranch
+    type: string
+    default: master
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+    default: false
+
+steps:
+  - checkout: self
+    # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
+    # "s/AgentBaker", but most of the pipeline variables still refer to "s" and many of the scripts below fail.
+    path: s
+    fetchTags: false
+    fetchDepth: 1
+
+  - checkout: git://CloudNativeCompute/aks-rp@${{ parameters.overrideBranch }}
+    path: aks-rp
+    condition: and(succeeded(), eq('${{ parameters.useOverrides }}', true))
+    fetchDepth: 1
+    fetchTags: false
+    lfs: false
+
+  - template: ./.template-copy-file.yaml
+    parameters:
+      enabled: ${{ parameters.useOverrides }}
+      sourceFile: $(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
+      destinationFile: ./parts/common/components.json
+
+  - template: ./.template-copy-file.yaml
+    parameters:
+      enabled: ${{ parameters.useOverrides }}
+      sourceFile: $(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/windows_settings.json
+      destinationFile: ./vhdbuilder/packer/windows/windows_settings.json
+

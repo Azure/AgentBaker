@@ -1,0 +1,91 @@
+name: Release_$(Date:yyyyMMdd)$(Rev:.r)_$(Build.SourceBranchName)_$(BuildID)
+trigger: none
+
+pool:
+  name: $(AZURE_POOL_NAME)
+
+# Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
+variables:
+  VHD_BUILD_ID: $(Build.BuildId)
+  LOCATION: $(PACKER_BUILD_LOCATION)
+  POOL_NAME: $(AZURE_POOL_NAME)
+
+parameters:
+  - name: build2019containerd
+    displayName: Build 2019 containerd
+    type: boolean
+    default: True
+  - name: build2022containerd
+    displayName: Build 2022 containerd
+    type: boolean
+    default: True
+  - name: build2022containerdgen2
+    displayName: Build 2022 containerd Gen 2
+    type: boolean
+    default: True
+  - name: build23H2
+    displayName: Build 23H2
+    type: boolean
+    default: True
+  - name: build23H2gen2
+    displayName: Build 23H2 Gen 2
+    type: boolean
+    default: True
+  - name: build2025
+    displayName: Build 2025
+    type: boolean
+    default: True
+  - name: build2025gen2
+    displayName: Build 2025 Gen 2
+    type: boolean
+    default: True
+  - name: dryrun
+    displayName: Dry run
+    type: boolean
+    default: False
+  - name: vhddebug
+    displayName: VHD Debug
+    type: boolean
+    default: False
+  - name: skipExtensionCheck
+    displayName: Skip Extension Check
+    type: boolean
+    default: False
+  - name: installOpenSshServer
+    displayName: Install Open SSH Server
+    type: boolean
+    default: True
+  - name: buildVmSize
+    displayName: Build VM Size
+    type: string
+    default: Standard_D4ds_v5
+  - name: useOverrides
+    displayName: Use component overrides
+    type: boolean
+    default: false
+  - name: overrideBranch
+    displayName: Branch in aks-rp to use for overrides
+    type: string
+    default: master
+
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
+
+stages:
+  - template: ./templates/.build-and-test-windows-vhds-template.yaml
+    parameters:
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build2019containerd: ${{ parameters.build2019containerd }}
+      build2022containerd: ${{ parameters.build2022containerd }}
+      build2022containerdgen2: ${{ parameters.build2022containerdgen2 }}
+      build23H2: ${{ parameters.build23H2 }}
+      build23H2gen2: ${{ parameters.build23H2gen2 }}
+      build2025:  ${{ parameters.build2025 }}
+      build2025gen2:  ${{ parameters.build2025gen2 }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}

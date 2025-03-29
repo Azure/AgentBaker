@@ -1,0 +1,43 @@
+/var/log/syslog
+/var/log/messages
+/var/log/secure
+/var/log/kern.log
+{
+  rotate 5
+  daily
+  maxsize 300M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+  postrotate
+      systemctl kill -s HUP rsyslog.service
+  endscript
+}
+
+/var/log/mail.info
+/var/log/mail.warn
+/var/log/mail.err
+/var/log/mail.log
+/var/log/daemon.log
+/var/log/auth.log
+/var/log/user.log
+/var/log/lpr.log
+/var/log/cron.log
+/var/log/cron
+/var/log/debug
+/var/log/warn
+{
+  rotate 7
+  daily
+  maxsize 50M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+  postrotate
+      systemctl kill -s HUP rsyslog.service
+  endscript
+}
