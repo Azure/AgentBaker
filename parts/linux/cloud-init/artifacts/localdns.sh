@@ -177,7 +177,8 @@ function cleanup {
 # Enable the cleanup function now that we have a coredns binary.
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
 trap "exit 1" ABRT ERR INT PIPE                            # Exit with code 1 on a bad signal.
-trap "printf 'executing cleanup function.\n'; cleanup || printf 'Cleanup failed with error code: $?.\n'" EXIT # Always cleanup when exiting.
+# Always cleanup when exiting.
+trap "printf 'executing cleanup function.\n'; cleanup || printf 'Cleanup failed with error code: $?.\n'" EXIT
 
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
@@ -197,7 +198,8 @@ done
 # Start localdns.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
-if [[ ! -z "${SYSTEMD_EXEC_PID:-}" ]]; then
+
+if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
@@ -205,24 +207,40 @@ fi
 printf "starting localdns: %s.\n" "${COREDNS_COMMAND}"
 rm -f ${LOCALDNS_PID_FILE}
 ${COREDNS_COMMAND} &
+
+# Wait until the PID file is created.
 until [ -f ${LOCALDNS_PID_FILE} ]; do
     sleep 0.1
 done
+
 COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
 printf "localdns PID is %s.\n" "${COREDNS_PID}"
 
 # Wait to direct traffic to localdns until it's ready.
 declare -i ATTEMPTS=0
+MAX_ATTEMPTS=60
+TIMEOUT=60
+START_TIME=$(date +%s)
+
 printf "waiting for localdns to start and be able to serve traffic.\n"
 until [ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ]; do
-    if [ $ATTEMPTS -ge 60 ]; then
-        printf "ERROR: localdns failed to come online.\n"
+    if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+        printf "ERROR: localdns failed to come online after %d attempts.\n" "$MAX_ATTEMPTS"
         exit 255
     fi
+
+    # Check for timeout based on elapsed time.
+    CURRENT_TIME=$(date +%s)
+    ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+    if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+        printf "ERROR: localdns failed to come online after %d seconds (timeout).\n" "$TIMEOUT"
+        exit 255
+    fi
+
     sleep 1
     ATTEMPTS+=1
 done
-printf "localdns online and ready to serve node traffic.\n"
+printf "localdns is online and ready to serve traffic.\n"
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
