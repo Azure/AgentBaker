@@ -4,18 +4,18 @@
 # ***********************************************************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
-    bind Node_Listener_IP Cluster_Listener_IP
+    bind 169.254.10.10 169.254.10.11
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 .:53 {
     log
-    bind Node_Listener_IP
+    bind 169.254.10.10
     forward . VnetDNS_Server_IP {
         policy sequential
         max_concurrent 1000
     }
-    ready Node_Listener_IP:8181
+    ready 169.254.10.10:8181
     cache 3600s {
         success 9984
         denial 9984
@@ -36,13 +36,13 @@ health-check.localdns.local:53 {
 }
 cluster.local:53 {
     errors
-    bind Node_Listener_IP
-    forward . CoreDNS_Service_IP {
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
         force_tcp
         policy sequential
         max_concurrent 1000
     }
-    ready Node_Listener_IP:8181
+    ready 169.254.10.10:8181
     cache 3600s {
         success 9984
         denial 9984
@@ -54,12 +54,12 @@ cluster.local:53 {
 }
 testdomain456.com:53 {
     log
-    bind Node_Listener_IP
-    forward . CoreDNS_Service_IP {
+    bind 169.254.10.10
+    forward . 10.0.0.10 {
         policy sequential
         max_concurrent 1000
     }
-    ready Node_Listener_IP:8181
+    ready 169.254.10.10:8181
     cache 3600s {
         success 9984
         denial 9984
@@ -73,12 +73,12 @@ testdomain456.com:53 {
 # KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
 .:53 {
     errors
-    bind Cluster_Listener_IP
-    forward . CoreDNS_Service_IP {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
         policy sequential
         max_concurrent 1000
     }
-    ready Cluster_Listener_IP:8181
+    ready 169.254.10.11:8181
     cache 3600s {
         success 9984
         denial 9984
@@ -99,13 +99,13 @@ testdomain456.com:53 {
 }
 cluster.local:53 {
     log
-    bind Cluster_Listener_IP
-    forward . CoreDNS_Service_IP {
+    bind 169.254.10.11
+    forward . 10.0.0.10 {
         force_tcp
         policy round_robin
         max_concurrent 1000
     }
-    ready Cluster_Listener_IP:8181
+    ready 169.254.10.11:8181
     cache 3600s {
         success 9984
         denial 9984
@@ -117,12 +117,12 @@ cluster.local:53 {
 }
 testdomain567.com:53 {
     errors
-    bind Cluster_Listener_IP
+    bind 169.254.10.11
     forward . VnetDNS_Server_IP {
         policy random
         max_concurrent 1000
     }
-    ready Cluster_Listener_IP:8181
+    ready 169.254.10.11:8181
     cache 3600s {
         success 9984
         denial 9984

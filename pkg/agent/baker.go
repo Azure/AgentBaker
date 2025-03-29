@@ -1763,6 +1763,12 @@ func GenerateLocalDNSCoreFile(
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+
+	localDNSCoreFileData, err := profile.GetLocalDNSCoreFileData()
+	if err != nil {
+		return "", fmt.Errorf("failed to get localdns corefile data: %w", err)
+	}
+
 	funcMapForHasSuffix := template.FuncMap{
 		"hasSuffix": strings.HasSuffix,
 	}
@@ -1770,7 +1776,7 @@ func GenerateLocalDNSCoreFile(
 
 	// Generate the Corefile content.
 	var corefileBuffer bytes.Buffer
-	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, profile.LocalDNSProfile); err != nil {
+	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, localDNSCoreFileData); err != nil {
 		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
 	}
 
@@ -1779,7 +1785,7 @@ func GenerateLocalDNSCoreFile(
 }
 
 // Template to create corefile that will be used by localdns service.
-// Using VnetDNS_Server_IP, CoreDNS_Service_IP, Node_Listener_IP and Cluster_Listener_IP as a placeholder
+// Using VnetDNS_Server_IP as a placeholder
 // which will be replaced by the actuals in localdns.sh file.
 const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
@@ -1787,7 +1793,7 @@ const localDNSCoreFileTemplateString = `
 # ***********************************************************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
-    bind Node_Listener_IP Cluster_Listener_IP
+    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -1806,12 +1812,12 @@ health-check.localdns.local:53 {
     {{- else if eq $override.QueryLogging "Log" }}
     log
     {{- end }}
-    bind Node_Listener_IP
+    bind {{$.NodeListenerIP}}
     {{- if $isRootDomain}}
     forward . VnetDNS_Server_IP {
     {{- else}}
     {{- if $fwdToClusterCoreDNS}}
-    forward . CoreDNS_Service_IP {
+    forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
     forward . VnetDNS_Server_IP {
     {{- end}}
@@ -1822,7 +1828,7 @@ health-check.localdns.local:53 {
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
-    ready Node_Listener_IP:8181
+    ready {{$.NodeListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}}s {
         success 9984
         denial 9984
@@ -1867,9 +1873,9 @@ health-check.localdns.local:53 {
     {{- else if eq $override.QueryLogging "Log" }}
     log
     {{- end }}
-    bind Cluster_Listener_IP
+    bind {{$.ClusterListenerIP}}
     {{- if $fwdToClusterCoreDNS}}
-    forward . CoreDNS_Service_IP {
+    forward . {{$.CoreDNSServiceIP}} {
     {{- else}}
     forward . VnetDNS_Server_IP {
     {{- end}}
@@ -1879,7 +1885,7 @@ health-check.localdns.local:53 {
         policy {{$forwardPolicy}}
         max_concurrent {{$override.MaxConcurrent}}
     }
-    ready Cluster_Listener_IP:8181
+    ready {{$.ClusterListenerIP}}:8181
     cache {{$override.CacheDurationInSeconds}}s {
         success 9984
         denial 9984

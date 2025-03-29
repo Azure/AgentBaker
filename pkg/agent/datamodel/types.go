@@ -818,6 +818,13 @@ type LocalDNSProfile struct {
 	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
 }
 
+type LocalDNSCoreFileData struct {
+	LocalDNSProfile
+	NodeListenerIP    string
+	ClusterListenerIP string
+	CoreDNSServiceIP  string
+}
+
 // LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
 // VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
 // KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
@@ -871,6 +878,20 @@ func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
 		return a.KubernetesConfig.DNSServiceIP
 	}
 	return DefaultDNSServerIP
+}
+
+// GetLocalDNSCoreFileData returns the object that will be used to generate localdns corefile.
+func (a *AgentPoolProfile) GetLocalDNSCoreFileData() (LocalDNSCoreFileData, error) {
+	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile != nil {
+		localdnsCoreFileData := LocalDNSCoreFileData{
+			LocalDNSProfile:   *a.LocalDNSProfile,
+			NodeListenerIP:    a.GetLocalDNSNodeListenerIP(),
+			ClusterListenerIP: a.GetLocalDNSClusterListenerIP(),
+			CoreDNSServiceIP:  a.GetCoreDNSServiceIP(),
+		}
+		return localdnsCoreFileData, nil
+	}
+	return LocalDNSCoreFileData{}, fmt.Errorf("LocalDNSProfile is nil or State is Disabled")
 }
 
 // AgentPoolProfile represents an agent pool definition.

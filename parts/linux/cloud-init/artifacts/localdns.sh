@@ -7,6 +7,7 @@ set -euo pipefail
 # It also upgrades to TCP for better reliability of upstream connections.
 
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+AZURE_DNS_IP="168.63.129.16"
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
@@ -94,7 +95,7 @@ done; done; done
 
 # Information variables.
 # --------------------------------------------------------------------------------------------------------------------
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get 168.63.129.16 | jq -r '.[0].dev')"
+DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" | jq -r '.[0].dev')"
 NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
@@ -145,12 +146,6 @@ function cleanup {
         ip link del name localdns
     fi
 }
-
-# If we're invoked with cleanup, run cleanup.
-if [[ $* == *--cleanup* ]]; then
-    cleanup
-    exit 0
-fi
 
 # Enable the cleanup function now that we have a coredns binary.
 trap "exit 0" QUIT TERM                                    # Exit with code 0 on a successful shutdown.
