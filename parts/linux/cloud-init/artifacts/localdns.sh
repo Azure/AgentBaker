@@ -47,8 +47,6 @@ fi
 : "${LOCALDNS_SHUTDOWN_DELAY:?LOCALDNS_SHUTDOWN_DELAY is not set}"
 # PID file.
 : "${LOCALDNS_PID_FILE:?LOCALDNS_PID_FILE is not set}"
-# Cluster CoreDNS service IP.
-: "${COREDNS_SERVICE_IP:?COREDNS_SERVICE_IP is not set}"
 
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------
