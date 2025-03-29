@@ -1,0 +1,36 @@
+syntax = "proto3";
+package aksnodeconfig.v1;
+
+option go_package = "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1;aksnodeconfigv1";
+
+message KubeletConfig {
+  // A map of kubelet flags to their values.
+  map<string, string> kubelet_flags = 1;
+
+  // A map of node labels to their values.
+  map<string, string> kubelet_node_labels = 2;
+
+  // The type of disk to use for the kubelet.
+  KubeletDisk kubelet_disk_type = 3;
+
+  // Whether kubelet config should be enabled.
+  bool enable_kubelet_config_file = 4;
+
+  // Base64 encoded content of the kubelet config file.
+  string kubelet_config_file_content = 5;
+
+  // Kubelet client private key
+  string kubelet_client_key = 6;
+
+  // The content of the kubelet client certificate file.
+  string kubelet_client_cert_content = 7;
+
+  // The path used to mount docker images, emptyDir volumes, and kubelet data.
+  string container_data_dir = 8;
+}
+
+enum KubeletDisk {
+  KUBELET_DISK_UNSPECIFIED = 0;
+  KUBELET_DISK_OS_DISK = 1;
+  KUBELET_DISK_TEMP_DISK = 2;
+}

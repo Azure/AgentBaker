@@ -1,0 +1,10 @@
+[Unit]
+Description=Syncs AKS pod log symlinks so that WALinuxAgent can include kube-system pod logs in the hourly upload.
+After=containerd.service
+
+[Service]
+ExecStart=/opt/azure/containers/sync-container-logs.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

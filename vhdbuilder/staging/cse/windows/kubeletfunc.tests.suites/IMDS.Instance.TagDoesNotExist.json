@@ -1,0 +1,124 @@
+{
+    "compute": {
+      "azEnvironment": "AzurePublicCloud",
+      "customData": "",
+      "evictionPolicy": "",
+      "isHostCompatibilityLayerVm": "false",
+      "licenseType": "",
+      "location": "eastus2",
+      "name": "name",
+      "offer": "",
+      "osProfile": {
+        "adminUsername": "azureuser",
+        "computerName": "computer",
+        "disablePasswordAuthentication": "false"
+      },
+      "osType": "Windows",
+      "placementGroupId": "placementGroupId",
+      "plan": {
+        "name": "",
+        "product": "",
+        "publisher": ""
+      },
+      "platformFaultDomain": "0",
+      "platformUpdateDomain": "0",
+      "priority": "",
+      "provider": "Microsoft.Compute",
+      "publicKeys": [
+        {
+          "keyData": "keyData",
+          "path": "path"
+        }
+      ],
+      "publisher": "",
+      "resourceGroupName": "resourceGroupName",
+      "resourceId": "resourceId",
+      "securityProfile": {
+        "secureBootEnabled": "false",
+        "virtualTpmEnabled": "false"
+      },
+      "sku": "",
+      "storageProfile": {
+        "dataDisks": [],
+        "imageReference": {
+          "id": "id",
+          "offer": "",
+          "publisher": "",
+          "sku": "",
+          "version": ""
+        },
+        "osDisk": {
+          "caching": "ReadWrite",
+          "createOption": "FromImage",
+          "diffDiskSettings": {
+            "option": ""
+          },
+          "diskSizeGB": "120",
+          "encryptionSettings": {
+            "enabled": "false"
+          },
+          "image": {
+            "uri": ""
+          },
+          "managedDisk": {
+            "id": "id",
+            "storageAccountType": "Premium_LRS"
+          },
+          "name": "name",
+          "osType": "Windows",
+          "vhd": {
+            "uri": ""
+          },
+          "writeAcceleratorEnabled": "false"
+        },
+        "resourceDisk": {
+          "size": "31744"
+        }
+      },
+      "subscriptionId": "subscriptionId",
+      "tagsList": [
+        {
+          "name": "aks-managed-consolidated-additional-properties",
+          "value": "value"
+        },
+        {
+          "name": "aks-managed-coordination",
+          "value": "true"
+        },
+        {
+          "name": "aks-managed-createOperationID",
+          "value": "value"
+        },
+        {
+          "name": "aks-managed-creationSource",
+          "value": "value"
+        },
+        {
+          "name": "aks-managed-enable-imds-restriction",
+          "value": "false"
+        },
+        {
+          "name": "aks-managed-kubeletIdentityClientID",
+          "value": "value"
+        },
+        {
+          "name": "aks-managed-orchestrator",
+          "value": "Kubernetes:1.29.7"
+        },
+        {
+          "name": "aks-managed-poolName",
+          "value": "np7"
+        },
+        {
+          "name": "aks-managed-resourceNameSuffix",
+          "value": "value"
+        }
+      ],
+      "userData": "",
+      "version": "version",
+      "vmId": "vmId",
+      "vmScaleSetName": "vmScaleSetName",
+      "vmSize": "Standard_DS2_v2",
+      "zone": ""
+    }
+}

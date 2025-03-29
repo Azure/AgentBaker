@@ -1,0 +1,9 @@
+[Unit]
+Description=Monitor the ContainerInsights syslog status file for changes
+
+[Path]
+PathModified=/var/run/mdsd-ci/update.status
+Unit=ci-syslog-watcher.service
+
+[Install]
+WantedBy=multi-user.target

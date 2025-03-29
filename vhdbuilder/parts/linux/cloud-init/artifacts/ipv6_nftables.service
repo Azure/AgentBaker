@@ -1,0 +1,13 @@
+[Unit]
+Description=Configure nftables rules for handling Azure SLB IPv6 health probe packets
+Before=kubelet.service
+
+[Service]
+Type=simple
+RemainAfterExit=true
+ExecStart=/bin/bash /opt/scripts/ipv6_nftables.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
