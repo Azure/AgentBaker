@@ -754,6 +754,10 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
 					},
 				}
+				// intentionally using private acr url to get kube binaries
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
+					"privateacre2ewestus3.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
