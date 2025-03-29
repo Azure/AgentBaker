@@ -274,10 +274,6 @@ copyPackerFiles() {
   LOCALDNS_SERVICE_DEST=/etc/systemd/system/localdns.service
   cpAndMode $LOCALDNS_SERVICE_SRC $LOCALDNS_SERVICE_DEST 0644
 
-  LOCALDNS_SLICE_SRC=/home/packer/localdns.slice
-  LOCALDNS_SLICE_DEST=/etc/systemd/system/localdns.slice
-  cpAndMode $LOCALDNS_SLICE_SRC $LOCALDNS_SLICE_DEST 0644
-
   LOCALDNS_SERVICE_DELEGATE_SRC=/home/packer/localdns-delegate.conf
   LOCALDNS_SERVICE_DELEGATE_DEST=/etc/systemd/system/localdns.service.d/delegate.conf
   cpAndMode $LOCALDNS_SERVICE_DELEGATE_SRC $LOCALDNS_SERVICE_DELEGATE_DEST 0644

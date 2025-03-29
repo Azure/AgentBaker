@@ -1323,10 +1323,7 @@ checkLocaldnsScriptsAndConfigs() {
   declare -A localdnsfiles=(
     ["/opt/azure/containers/localdns/localdns.sh"]=755
     ["/etc/systemd/system/localdns.service"]=644
-    ["/etc/systemd/system/localdns.slice"]=644
     ["/etc/systemd/system/localdns.service.d/delegate.conf"]=644
-    ["/etc/systemd/resolved.conf.d/70-aks-dns.conf"]=644
-    ["/etc/systemd/network/10-netplan-eth0.network.d/05-aks-keepconfig.conf"]=644
   )
   
   for file in "${!localdnsfiles[@]}"; do
