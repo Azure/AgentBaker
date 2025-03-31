@@ -1,0 +1,11 @@
+{
+  "go.testFlags": [
+    "-v",
+    "-count=1",
+    "-timeout=30s"
+  ],
+  "go.testEnvVars": {
+    "GO111MODULE": "on"
+  },
+  "go.testTimeout": "90m"
+}
