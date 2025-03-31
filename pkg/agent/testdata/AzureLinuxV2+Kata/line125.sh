@@ -44,6 +44,37 @@ if [ -n "${current_timestamp}" ]; then
     fi
 fi
 
+live_patching_repo_service=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}")
+private_ip_regex="^((10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|(172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})|(192\.168\.[0-9]{1,3}\.[0-9]{1,3}))$"
+if [[ -n "${live_patching_repo_service}" && ! "${live_patching_repo_service}" =~ $private_ip_regex ]]; then
+    echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
+    live_patching_repo_service=""
+fi
+for repo in mariner-official-base.repo \
+            mariner-microsoft.repo \
+            mariner-extras.repo \
+            mariner-nvidia.repo \
+            azurelinux-official-base.repo \
+            azurelinux-ms-non-oss.repo \
+            azurelinux-ms-oss.repo \
+            azurelinux-nvidia.repo; do
+    repo_path="/etc/yum.repos.d/${repo}"
+    if [ -f ${repo_path} ]; then
+        old_repo=$(cat ${repo_path})
+        if [ -z "${live_patching_repo_service}" ]; then
+            echo "live patching repo service is not set, use PMC repo"
+            sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/https:\/\/packages.microsoft.com/g' ${repo_path}
+        else
+            echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo" 
+            sed -i 's/https:\/\/packages.microsoft.com/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+        fi
+        new_repo=$(cat ${repo_path})
+        if [[ "${old_repo}" != "${new_repo}" ]]; then
+            echo "${repo_path} is updated"
+        fi
+    fi
+done
+
 if ! dnf_update; then
     echo "dnf_update failed"
     exit 1
