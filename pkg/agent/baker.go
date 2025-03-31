@@ -110,6 +110,7 @@ func (t *TemplateGenerator) getFlatcarLinuxNodeCustomDataJSONObject(config *data
 		newfile := base0_5.File{}
 		newfile.Path = file.Path
 		newfile.User.Name = &file.Owner
+		newfile.Overwrite = to.BoolPtr(true)
 		mode, e := strconv.ParseInt(file.Permissions, 8, 32)
 		if e != nil {
 			panic(fmt.Errorf("failed to parse file mode: %w", e))

@@ -18,6 +18,7 @@
     "files": [
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_source.sh",
         "user": {
           "name": "root"
@@ -31,6 +32,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_source_distro.sh",
         "user": {
           "name": "root"
@@ -44,6 +46,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_start.sh",
         "user": {
           "name": "root"
@@ -57,6 +60,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision.sh",
         "user": {
           "name": "root"
@@ -70,6 +74,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_installs.sh",
         "user": {
           "name": "root"
@@ -83,6 +88,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_redact_cloud_config.py",
         "user": {
           "name": "root"
@@ -96,6 +102,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_send_logs.py",
         "user": {
           "name": "root"
@@ -109,6 +116,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_installs_distro.sh",
         "user": {
           "name": "root"
@@ -122,6 +130,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/provision_configs.sh",
         "user": {
           "name": "root"
@@ -135,6 +144,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/manifest.json",
         "user": {
           "name": "root"
@@ -148,6 +158,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/reconcilePrivateHosts.sh",
         "user": {
           "name": "root"
@@ -161,6 +172,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/reconcile-private-hosts.service",
         "user": {
           "name": "root"
@@ -174,6 +186,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/kubelet.service",
         "user": {
           "name": "root"
@@ -187,6 +200,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/mig-partition.service",
         "user": {
           "name": "root"
@@ -200,6 +214,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/mig-partition.sh",
         "user": {
           "name": "root"
@@ -213,6 +228,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/ubuntu-snapshot-update.sh",
         "user": {
           "name": "root"
@@ -226,6 +242,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/snapshot-update.service",
         "user": {
           "name": "root"
@@ -239,6 +256,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/snapshot-update.timer",
         "user": {
           "name": "root"
@@ -252,6 +270,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/bind-mount.sh",
         "user": {
           "name": "root"
@@ -265,6 +284,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/bind-mount.service",
         "user": {
           "name": "root"
@@ -278,6 +298,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/dhcpv6.service",
         "user": {
           "name": "root"
@@ -291,6 +312,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/enable-dhcpv6.sh",
         "user": {
           "name": "root"
@@ -304,6 +326,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/docker.service.d/exec_start.conf",
         "user": {
           "name": "root"
@@ -317,6 +340,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/docker/daemon.json",
         "user": {
           "name": "root"
@@ -330,6 +354,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/containerd.service.d/exec_start.conf",
         "user": {
           "name": "root"
@@ -343,6 +368,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/crictl.yaml",
         "user": {
           "name": "root"
@@ -356,6 +382,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/ensure-no-dup.service",
         "user": {
           "name": "root"
@@ -369,6 +396,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/ensure-no-dup.sh",
         "user": {
           "name": "root"
@@ -382,6 +410,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/teleportd.service",
         "user": {
           "name": "root"
@@ -395,6 +424,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/nvidia-modprobe.service",
         "user": {
           "name": "root"
@@ -408,6 +438,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/default/kubelet",
         "user": {
           "name": "root"
@@ -421,6 +452,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/var/lib/kubelet/kubeconfig",
         "user": {
           "name": "root"
@@ -434,6 +466,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/kubelet.sh",
         "user": {
           "name": "root"
@@ -447,6 +480,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/ensure_imds_restriction.sh",
         "user": {
           "name": "root"
@@ -460,6 +494,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/validate-kubelet-credentials.sh",
         "user": {
           "name": "root"
@@ -473,6 +508,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/kubernetes/certs/ca.crt",
         "user": {
           "name": "root"
@@ -486,6 +522,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/azure/containers/setup-custom-search-domains.sh",
         "user": {
           "name": "root"
@@ -499,6 +536,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext",
         "user": {
           "name": "root"
@@ -512,6 +550,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/flatcar/update.conf",
         "user": {
           "name": "root"
@@ -525,6 +564,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/bin/.keep",
         "user": {
           "name": "root"
@@ -538,6 +578,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/opt/cni/downloads/.keep",
         "user": {
           "name": "root"
@@ -551,6 +592,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/var/log/azure/.keep",
         "user": {
           "name": "root"
@@ -564,6 +606,7 @@
       },
       {
         "group": {},
+        "overwrite": true,
         "path": "/etc/systemd/system/containerd.service.d/50-default-config.conf",
         "user": {
           "name": "root"
