@@ -171,29 +171,6 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
-# ------------------------------ Used by localdns -----------------------------------
-# Localdns script path.
-LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
-# Localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
-# This is slice file used by localdns systemd unit.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
-# Azure DNS IP.
-AZURE_DNS_IP="168.63.129.16"
-# Localdns node listener IP.
-LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
-# Localdns cluster listener IP.
-LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
-# Localdns shutdown delay.
-LOCALDNS_SHUTDOWN_DELAY=5
-# Localdns pid file.
-LOCALDNS_PID_FILE="/run/localdns.pid"
-# Path of coredns binary used by localdns.
-COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
-# ----------------------------------------------------------------------------------
-
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
@@ -892,6 +869,9 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
+# Localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # This function is called in cse_main.sh. 
 # It checks if the localdns corefile exists and is not empty.
 # If the corefile exists and is not empty, it returns 0 - localdns should be enabled.

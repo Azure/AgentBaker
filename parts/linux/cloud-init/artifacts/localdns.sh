@@ -6,9 +6,29 @@ set -euo pipefail
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
+# Localdns script path.
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+# Localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+# This is slice file used by localdns systemd unit.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
+# Azure DNS IP.
+AZURE_DNS_IP="168.63.129.16"
+# Localdns node listener IP.
+LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+# Localdns cluster listener IP.
+LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
+# Localdns shutdown delay.
+LOCALDNS_SHUTDOWN_DELAY=5
+# Localdns pid file.
+LOCALDNS_PID_FILE="/run/localdns.pid"
+# Path of coredns binary used by localdns.
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
+
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
-# All the paths and variables used in this file are defined in CSE helpers file.
 CSE_HELPERS_FILEPATH="/opt/azure/containers/provision_source.sh"
 if [ -f "${CSE_HELPERS_FILEPATH}" ]; then
     source "${CSE_HELPERS_FILEPATH}"
