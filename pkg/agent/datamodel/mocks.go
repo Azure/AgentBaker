@@ -126,7 +126,7 @@ var (
 			AzureCNIImageBase:      "mcr.microsoft.com/containernetworking/",
 			MCRKubernetesImageBase: "mcr.microsoft.com/",
 
-			KubeBinariesSASURLBase:               "https://packages.aks.azure.com/kubernetes/",
+			KubeBinariesSASURLBase:               "https://acs-mirror.azureedge.net/kubernetes/",
 			WindowsTelemetryGUID:                 "fb801154-36b9-41bc-89c2-f4d4f05472b0",
 			CNIPluginsDownloadURL:                "https://packages.aks.azure.com/cni/cni-plugins-amd64-v0.7.6.tgz",
 			VnetCNILinuxPluginsDownloadURL:       "https://packages.aks.azure.com/azure-cni/v1.1.3/binaries/azure-vnet-cni-linux-amd64-v1.1.3.tgz",
