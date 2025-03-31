@@ -1,9 +1,15 @@
 [Unit]
-Description=Add dedup ebtable rules for kubenet bridge in promiscuous mode
-After=containerd.service
-After=kubelet.service
+Description=teleportd teleport runtime
+After=network.target
 [Service]
-Restart=on-failure
-RestartSec=2
-ExecStart=/bin/bash /opt/azure/containers/ensure-no-dup.sh
+ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
+Delegate=yes
+KillMode=process
+Restart=always
+LimitNPROC=infinity
+LimitCORE=infinity
+LimitNOFILE=1048576
+TasksMax=infinity
+[Install]
+WantedBy=multi-user.target
 #EOF

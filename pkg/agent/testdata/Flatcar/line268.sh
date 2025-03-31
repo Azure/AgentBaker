@@ -1,9 +1,13 @@
 [Unit]
-Description=Runs snapshot update script periodically
+Description=Bind mount kubelet data
+Requires=mnt.mount
+After=mnt.mount
 
-[Timer]
-OnBootSec=10min
-OnUnitActiveSec=10min
+[Service]
+Restart=on-failure
+RemainAfterExit=yes
+Type=oneshot
+ExecStart=/bin/bash /opt/azure/containers/bind-mount.sh
 
 [Install]
 WantedBy=multi-user.target

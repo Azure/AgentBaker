@@ -1,10 +1,18 @@
-[Unit]
-Description=Installs and loads Nvidia GPU kernel module
-Before=kubelet.service
-[Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-[Install]
-WantedBy=multi-user.target kubelet.service
+apiVersion: v1
+kind: Config
+clusters:
+- name: localcluster
+  cluster:
+    certificate-authority: /etc/kubernetes/certs/ca.crt
+    server: https://:443
+users:
+- name: client
+  user:
+    client-certificate: /etc/kubernetes/certs/client.crt
+    client-key: /etc/kubernetes/certs/client.key
+contexts:
+- context:
+    cluster: localcluster
+    user: client
+  name: localclustercontext
+current-context: localclustercontext

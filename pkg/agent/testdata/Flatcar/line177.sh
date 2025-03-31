@@ -1,46 +1,37 @@
-#!/bin/bash
+[Unit]
+Description=Kubelet
+ConditionPathExists=/usr/local/bin/kubelet
+Wants=network-online.target containerd.service
+After=network-online.target containerd.service
 
-set -o nounset
-set -o pipefail
+[Service]
+Restart=always
+RestartSec=2
+EnvironmentFile=/etc/default/kubelet
+SuccessExitStatus=143
+ExecStartPre=/bin/bash /opt/azure/containers/kubelet.sh
+ExecStartPre=/bin/bash /opt/azure/containers/ensure_imds_restriction.sh
+ExecStartPre=/bin/mkdir -p /var/lib/kubelet
+ExecStartPre=/bin/mkdir -p /var/lib/cni
+ExecStartPre=/bin/bash -c "if [ $(mount | grep \"/var/lib/kubelet\" | wc -l) -le 0 ] ; then /bin/mount --bind /var/lib/kubelet /var/lib/kubelet ; fi"
+ExecStartPre=/bin/mount --make-shared /var/lib/kubelet
 
-get-apiserver-ip-from-tags() {
-  tags=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text")
-  if [ "$?" -eq 0 ]; then
-    IFS=";" read -ra tagList <<< "$tags"
-    for i in "${tagList[@]}"; do
-      tagKey=$(cut -d":" -f1 <<<$i)
-      tagValue=$(cut -d":" -f2 <<<$i)
-      if echo $tagKey | grep -iq "^aksAPIServerIPAddress$"; then
-        echo -n "$tagValue"
-        return
-      fi
-    done
-  fi
-  echo -n ""
-}
+ExecStartPre=-/sbin/ebtables -t nat --list
+ExecStartPre=-/sbin/iptables -t nat --numeric --list
 
-SLEEP_SECONDS=15
-clusterFQDN="${KUBE_API_SERVER_NAME}"
-if [[ $clusterFQDN != *.privatelink.* ]]; then
-  echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
-  exit 0
-fi
-echo "clusterFQDN: $clusterFQDN"
+ExecStartPre=/bin/bash /opt/azure/containers/validate-kubelet-credentials.sh
 
-while true; do
-  clusterIP=$(get-apiserver-ip-from-tags)
-  if [ -z $clusterIP ]; then
-    sleep "${SLEEP_SECONDS}"
-    continue
-  fi
-  if grep -q "$clusterIP $clusterFQDN" /etc/hosts; then
-    echo -n ""
-  else
-    sudo sed -i "/$clusterFQDN/d" /etc/hosts
-    echo "$clusterIP $clusterFQDN" | sudo tee -a /etc/hosts > /dev/null
-    echo "Updated $clusterFQDN to $clusterIP"
-  fi
-  sleep "${SLEEP_SECONDS}"
-done
+ExecStart=/usr/local/bin/kubelet \
+        --enable-server \
+        --node-labels="${KUBELET_NODE_LABELS}" \
+        --v=2 \
+        --volume-plugin-dir=/etc/kubernetes/volumeplugins \
+        $KUBELET_TLS_BOOTSTRAP_FLAGS \
+        $KUBELET_CONFIG_FILE_FLAGS \
+        $KUBELET_CONTAINERD_FLAGS \
+        $KUBELET_CONTAINER_RUNTIME_FLAG \
+        $KUBELET_CGROUP_FLAGS \
+        $KUBELET_FLAGS
 
-#EOF
+[Install]
+WantedBy=multi-user.target

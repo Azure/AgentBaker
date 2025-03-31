@@ -453,3 +453,49 @@ write_files:
     MemoryMax={{GetLocalDNSMemoryLimitInMB}}
     CPUQuota={{GetLocalDNSCPULimitInPercentage}}
 {{- end}}
+{{- if IsFlatcar }}
+- path: /etc/extensions/aks-sysext/usr/lib/extension-release.d/extension-release.aks-sysext
+  permissions: "0644"
+  owner: root
+  content: |
+    ID=flatcar
+    SYSEXT_LEVEL=1.0
+
+{{ if false }}
+// overwrite: true
+{{ end }}
+- path: /etc/flatcar/update.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    SERVER=disabled
+
+- path: /opt/bin/.keep
+  permissions: "0644"
+  owner: root
+  content: |
+
+- path: /opt/cni/downloads/.keep
+  permissions: "0644"
+  owner: root
+  content: |
+
+- path: /var/log/azure/.keep
+  permissions: "0644"
+  owner: root
+  content: |
+
+- path: /etc/systemd/system/containerd.service.d/50-default-config.conf
+  permissions: "0644"
+  owner: root
+  content: |
+    [Service]
+    Environment=CONTAINERD_CONFIG=/etc/containerd/config.toml
+
+{{ if false }}
+//  links:
+//  - path: /etc/extensions/aks-sysext/usr/local/bin
+//    target: /opt/bin
+//    hard: false
+{{ end }}
+{{end}}

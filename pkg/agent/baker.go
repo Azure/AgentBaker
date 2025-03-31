@@ -624,6 +624,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"IsNoneCNI": func() bool {
 			return cs.Properties.OrchestratorProfile.IsNoneCNI()
 		},
+		"IsFlatcar": func() bool {
+			return profile.IsFlatcar()
+		},
 		"IsMariner": func() bool {
 			// TODO(ace): do we care about both? 2nd one should be more general and catch custom VHD for mariner
 			return profile.Distro.IsAzureLinuxDistro() || isMariner(config.OSSKU)
