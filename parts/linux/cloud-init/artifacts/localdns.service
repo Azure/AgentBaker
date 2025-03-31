@@ -1,5 +1,5 @@
 [Unit]
-Description=Local DNS
+Description=Localdns service
 Wants=network.target
 After=network.target
 After=cloud-config.service
@@ -16,7 +16,6 @@ Restart=on-failure
 KillMode=mixed
 TimeoutStopSec=30
 Slice=localdns.slice
-EnvironmentFile=/etc/default/localdns.envfile
 ExecStart=/opt/azure/containers/localdns/localdns.sh
 
 [Install]
