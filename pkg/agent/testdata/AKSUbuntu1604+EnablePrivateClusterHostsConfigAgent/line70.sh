@@ -626,12 +626,6 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    if shouldEnableLocalDNS; then
-        if localdns_cluster_listener_ip=$(getLocalDNSClusterListenerIP) && ! grep -q -- "--cluster-dns=${localdns_cluster_listener_ip}" "${KUBELET_DEFAULT_FILE}"; then
-            sed -i "s/--cluster-dns=[^ \n]\+/--cluster-dns=${localdns_cluster_listener_ip}/" "${KUBELET_DEFAULT_FILE}"
-        fi
-    fi
-
     systemctlEnableAndStart kubelet 30 || exit $ERR_KUBELET_START_FAIL
 }
 
@@ -897,8 +891,36 @@ setKubeletNodeIPFlag() {
     fi
 }
 
-ensureLocalDNS() {
-    systemctlEnableAndStart localdns 30 || exit $ERR_LOCALDNS_FAIL
+enableLocaldns() {
+    shouldEnableLocaldns
+    local result=$?
+
+    if [ $result -eq 0 ]; then
+        systemctlEnableAndStart localdns 30
+        local systemctl_result=$?
+        if [ $systemctl_result -ne 0 ]; then
+            echo "Enable localdns failed due to error ${systemctl_result}."
+            return $systemctl_result
+        else
+            echo "Enable localdns succeeded."
+            return 0
+        fi
+    else
+        case $result in
+            $ERR_LOCALDNS_ENVFILE_NOTFOUND)
+                echo "Localdns envfile does not exist at ${LOCALDNS_ENV_FILE_PATH}."
+                return $ERR_LOCALDNS_ENVFILE_NOTFOUND
+                ;;
+            $ERR_LOCALDNS_ENVFILE_READ_FAIL)
+                echo "Failed to read variable from localdns envfile at ${LOCALDNS_ENV_FILE_PATH}."
+                return $ERR_LOCALDNS_ENVFILE_READ_FAIL
+                ;;
+            *)
+                echo "Localdns should not be enabled."
+                return 0
+                ;;
+        esac
+    fi
 }
 
 #EOF

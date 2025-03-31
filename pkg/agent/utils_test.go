@@ -673,6 +673,68 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 		actualStr := GetOrderedKubeletConfigFlagString(config)
 		Expect(expectedStr).To(Equal(actualStr))
 	})
+
+	It("should return localdns clusterlistenerIP value for --cluster-dns when localdns is enabled", func() {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+				"--cluster-dns":                  "10.0.0.10",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location:   "southcentralus",
+				Type:       "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{},
+			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
+		}
+
+		config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+			State:                "Enabled",
+			CPULimitInMilliCores: to.Int32Ptr(2008),
+			MemoryLimitInMB:      to.Int32Ptr(128),
+			VnetDNSOverrides:     nil,
+			KubeDNSOverrides:     nil,
+		}
+
+		actucalStr := GetOrderedKubeletConfigFlagString(config)
+		expectStr := "--cluster-dns=169.254.10.11 --event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
+		Expect(expectStr).To(Equal(actucalStr))
+	})
+
+	It("should return default value for --cluster-dns when localdns is disabled", func() {
+		config := &datamodel.NodeBootstrappingConfiguration{
+			KubeletConfig: map[string]string{
+				"--node-status-update-frequency": "10s",
+				"--node-status-report-frequency": "5m0s",
+				"--image-gc-high-threshold":      "85",
+				"--event-qps":                    "0",
+				"--cluster-dns":                  "10.0.0.10",
+			},
+			ContainerService: &datamodel.ContainerService{
+				Location:   "southcentralus",
+				Type:       "Microsoft.ContainerService/ManagedClusters",
+				Properties: &datamodel.Properties{},
+			},
+			EnableKubeletConfigFile: false,
+			AgentPoolProfile:        &datamodel.AgentPoolProfile{},
+		}
+
+		config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+			State:                "Disabled",
+			CPULimitInMilliCores: to.Int32Ptr(2008),
+			MemoryLimitInMB:      to.Int32Ptr(128),
+			VnetDNSOverrides:     nil,
+			KubeDNSOverrides:     nil,
+		}
+
+		actucalStr := GetOrderedKubeletConfigFlagString(config)
+		expectStr := "--cluster-dns=10.0.0.10 --event-qps=0 --image-gc-high-threshold=85 --node-status-update-frequency=10s "
+		Expect(expectStr).To(Equal(actucalStr))
+	})
 })
 
 var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", func() {

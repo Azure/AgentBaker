@@ -1207,27 +1207,6 @@ checkPerformanceData() {
   return 0
 }
 
-checkCoreDNSBinaryExtractedAndCached() {
-  local test="CoreDNSBinaryExtractedAndCached"
-  local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
-  local binaryPath="$localdnsBinaryDir/coredns"
-
-  echo "$test: Checking for existence of coredns binary at $binaryPath"
-  
-  if [[ ! -f "$binaryPath" ]]; then
-    err "$test: coredns binary does not exist at $binaryPath"
-    return 1
-  fi
-  
-  if [[ ! -x "$binaryPath" ]]; then
-    err "$test: coredns binary exists but is not executable at $binaryPath"
-    return 1
-  fi
-  
-  echo "$test: coredns binary is properly extracted and cached at $binaryPath"
-  return 0
-}
-
 #------------------------ Start of test code related to localdns ------------------------
 testCorednsBinaryExtractedAndCached() {
   local test="testCorednsBinaryExtractedAndCached"

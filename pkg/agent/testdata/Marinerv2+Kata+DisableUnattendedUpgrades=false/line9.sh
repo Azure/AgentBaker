@@ -120,6 +120,11 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 ERR_DNS_HEALTH_FAIL=215 
 
 ERR_LOCALDNS_FAIL=216 
+ERR_LOCALDNS_ENVFILE_NOTFOUND=217 
+ERR_LOCALDNS_ENVFILE_READ_FAIL=218 
+ERR_LOCALDNS_COREFILE_NOTFOUND=219 
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=220 
+ERR_LOCALDNS_BINARY_NOTFOUND=221 
 
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
@@ -815,26 +820,25 @@ oras_login_with_kubelet_identity() {
 
 LOCALDNS_ENV_FILE_PATH="/etc/default/localdns.envfile"
 
-getLocalDNSClusterListenerIP() {
-    local localdns_cluster_listener_ip
-
-    localdns_cluster_listener_ip=$(awk -F= '/^LOCALDNS_CLUSTER_LISTENER_IP=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
-    if [[ -n "$localdns_cluster_listener_ip" ]]; then
-        echo "$localdns_cluster_listener_ip"
-        return 0
-    else
-        echo "LOCALDNS_CLUSTER_LISTENER_IP not found in ${LOCALDNS_ENV_FILE_PATH}"
-        return 1
+shouldEnableLocaldns() {
+    if [ ! -f "${LOCALDNS_ENV_FILE_PATH}" ]; then
+        echo "Localdns envfile does not exist at ${LOCALDNS_ENV_FILE_PATH}."
+        return $ERR_LOCALDNS_ENVFILE_NOTFOUND
     fi
-}
 
-shouldEnableLocalDNS() {
     local enable_localdns
-
     enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
+
+    if [ -z "$enable_localdns" ]; then
+        echo "Failed to read SHOULD_ENABLE_LOCALDNS from localdns envfile at ${LOCALDNS_ENV_FILE_PATH}."
+        return $ERR_LOCALDNS_ENVFILE_READ_FAIL
+    fi
+
     if [ "$enable_localdns" = "true" ]; then
+        echo "Localdns should be enabled."
         return 0
     else
+        echo "Localdns should not be enabled."
         return 1
     fi
 }
