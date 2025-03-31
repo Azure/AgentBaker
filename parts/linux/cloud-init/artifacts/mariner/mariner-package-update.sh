@@ -71,10 +71,17 @@ for repo in mariner-official-base.repo \
         old_repo=$(cat ${repo_path})
         if [ -z "${live_patching_repo_service}" ]; then
             echo "live patching repo service is not set, use PMC repo"
+            # upgrade from live patching repo service to PMC repo
+            # e.g. replace http://10.224.0.5 with https://packages.microsoft.com
             sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/https:\/\/packages.microsoft.com/g' ${repo_path}
         else
             echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo" 
+            # upgrade from PMC to live patching repo service
+            # e.g. replace https://packages.microsoft.com with http://10.224.0.5
             sed -i 's/https:\/\/packages.microsoft.com/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+            # upgrade the old live patching repo service to the new one
+            # e.g. replace http://10.224.0.5 with http://10.224.0.6
+            sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
         fi
         new_repo=$(cat ${repo_path})
         if [[ "${old_repo}" != "${new_repo}" ]]; then

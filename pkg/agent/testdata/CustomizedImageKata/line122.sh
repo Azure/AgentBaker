@@ -88,6 +88,7 @@ else
     echo "live patching repo service is: ${live_patching_repo_service}"
     sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
     sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
 fi
 
 option=apt_preserve_sources_list

@@ -67,6 +67,7 @@ for repo in mariner-official-base.repo \
         else
             echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo" 
             sed -i 's/https:\/\/packages.microsoft.com/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+            sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
         fi
         new_repo=$(cat ${repo_path})
         if [[ "${old_repo}" != "${new_repo}" ]]; then

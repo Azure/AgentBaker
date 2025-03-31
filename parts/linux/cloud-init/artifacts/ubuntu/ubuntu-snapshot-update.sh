@@ -109,6 +109,9 @@ else
     # upgrade from one ubuntu repo timestamp to live patching repo service
     # e.g. replace https://snapshot.ubuntu.com/ubuntu/20250310T000000Z with http://10.224.0.5/ubuntu/
     sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    # upgrade the old live patching repo service to the new one
+    # e.g. replace http://10.224.0.5/ubuntu/ with http://10.224.0.6/ubuntu/
+    sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
 fi
 
 # preserve the sources.list changes
