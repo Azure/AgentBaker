@@ -123,6 +123,11 @@ function GetPackagesFromComponentsJson
             $PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
             $downloadUrl = $part.windowsPackagesUrl
         }
+        else if ($part.packagesURL -ne $null)
+        {
+            $PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+            $downloadUrl = $part.packagesUrl
+        }
         else
         {
             $downloadUrl = $part.windowsDownloadUrl
