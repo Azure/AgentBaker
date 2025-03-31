@@ -17,7 +17,7 @@ if [ -f "${CSE_HELPERS_FILEPATH}" ]; then
     source "${CSE_HELPERS_FILEPATH}"
 else
     printf "Localdns requires provision_source file, but it does not exist at %s.\n" "${CSE_HELPERS_FILEPATH}"
-    exit $ERR_LOCALDNS_CSE_HELPER_FILE_NOTFOUND
+    exit 255
 fi
 
 # This file contains the environment variables used by localdns systemd unit.

@@ -128,12 +128,11 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
-ERR_LOCALDNS_CSE_HELPER_FILE_NOTFOUND=217 # Localdns cse_helper.sh file not found.
-ERR_LOCALDNS_ENVFILE_NOTFOUND=218 # Localdns envfile not found.
-ERR_LOCALDNS_ENVFILE_READ_FAIL=219 # Localdns envfile read fail.
-ERR_LOCALDNS_COREFILE_NOTFOUND=220 # Localdns corefile not found.
-ERR_LOCALDNS_SLICEFILE_NOTFOUND=221 # Localdns slicefile not found.
-ERR_LOCALDNS_BINARY_NOTFOUND=222 # Localdns binary not found.
+ERR_LOCALDNS_ENVFILE_NOTFOUND=217 # Localdns envfile not found.
+ERR_LOCALDNS_ENVFILE_READ_FAIL=218 # Localdns envfile read fail.
+ERR_LOCALDNS_COREFILE_NOTFOUND=219 # Localdns corefile not found.
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=220 # Localdns slicefile not found.
+ERR_LOCALDNS_BINARY_NOTFOUND=221 # Localdns binary not found.
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
