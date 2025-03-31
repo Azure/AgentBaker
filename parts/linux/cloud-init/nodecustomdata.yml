@@ -452,12 +452,4 @@ write_files:
     [Slice]
     MemoryMax={{GetLocalDNSMemoryLimitInMB}}
     CPUQuota={{GetLocalDNSCPULimitInPercentage}}
-
-- path: /etc/default/localdns.envfile
-  permissions: "0744"
-  owner: root
-  content: |
-    SHOULD_ENABLE_LOCALDNS={{ShouldEnableLocalDNS}}
-    LOCALDNS_NODE_LISTENER_IP={{GetLocalDNSNodeListenerIP}}
-    LOCALDNS_CLUSTER_LISTENER_IP={{GetLocalDNSClusterListenerIP}}
 {{- end}}

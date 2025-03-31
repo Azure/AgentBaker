@@ -225,20 +225,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			})
 		})
 
-		Describe(".GetLocalDNSNodeListenerIP()", func() {
-			// Expect LocalDNSNodeListenerIP string constant to be returned.
-			It("returns LocalDNSNodeListenerIP - 169.254.10.10", func() {
-				Expect(config.AgentPoolProfile.GetLocalDNSNodeListenerIP()).To(ContainSubstring("169.254.10.10"))
-			})
-		})
-
-		Describe(".GetLocalDNSClusterListenerIP()", func() {
-			// Expect LocalDNSClusterListenerIP string constant to be returned.
-			It("returns LocalDNSClusterListenerIP - 169.254.10.11", func() {
-				Expect(config.AgentPoolProfile.GetLocalDNSClusterListenerIP()).To(ContainSubstring("169.254.10.11"))
-			})
-		})
-
 		Describe(".GetLocalDNSCPULimitInPercentage()", func() {
 			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned.
 			It("returns default CPULimit - 200.0%", func() {

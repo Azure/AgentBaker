@@ -127,12 +127,12 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
+# ------------------------------ Used by localdns -----------------------------------
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
-ERR_LOCALDNS_ENVFILE_NOTFOUND=217 # Localdns envfile not found.
-ERR_LOCALDNS_ENVFILE_READ_FAIL=218 # Localdns envfile read fail.
-ERR_LOCALDNS_COREFILE_NOTFOUND=219 # Localdns corefile not found.
-ERR_LOCALDNS_SLICEFILE_NOTFOUND=220 # Localdns slicefile not found.
-ERR_LOCALDNS_BINARY_NOTFOUND=221 # Localdns binary not found.
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
+ERR_LOCALDNS_BINARY_NOTFOUND=219 # Localdns binary not found.
+# ----------------------------------------------------------------------------------
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
@@ -170,6 +170,29 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
+
+# ------------------------------ Used by localdns -----------------------------------
+# Localdns script path.
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+# Localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+# This is slice file used by localdns systemd unit.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
+# Azure DNS IP.
+AZURE_DNS_IP="168.63.129.16"
+# Localdns node listener IP.
+LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+# Localdns cluster listener IP.
+LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
+# Localdns shutdown delay.
+LOCALDNS_SHUTDOWN_DELAY=5
+# Localdns pid file.
+LOCALDNS_PID_FILE="/run/localdns.pid"
+# Path of coredns binary used by localdns.
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
+# ----------------------------------------------------------------------------------
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -866,33 +889,17 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-# This file contains the environment variables used by localdns.
-# This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_ENV_FILE_PATH="/etc/default/localdns.envfile"
-
-# This function is called in cse_main.sh to determine if localdns should be enabled or not based on SHOULD_ENABLE_LOCALDNS env variable.
+# This function is called in cse_main.sh. 
+# It checks if the localdns corefile exists and is not empty.
+# If the corefile exists and is not empty, it returns 0 - localdns should be enabled.
+# If the corefile does not exist or is empty, it returns 1 - localdns should not be enabled.
 shouldEnableLocaldns() {
-    if [ ! -f "${LOCALDNS_ENV_FILE_PATH}" ]; then
-        echo "Localdns envfile does not exist at ${LOCALDNS_ENV_FILE_PATH}."
-        return $ERR_LOCALDNS_ENVFILE_NOTFOUND
-    fi
-
-    # SHOULD_ENABLE_LOCALDNS should match the field name in localdns.envfile.
-    local enable_localdns
-    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
-
-    # Check if the result from awk is empty or failed to read.
-    if [ -z "$enable_localdns" ]; then
-        echo "Failed to read SHOULD_ENABLE_LOCALDNS from localdns envfile at ${LOCALDNS_ENV_FILE_PATH}."
-        return $ERR_LOCALDNS_ENVFILE_READ_FAIL
-    fi
-
-    if [ "$enable_localdns" = "true" ]; then
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
+        return $ERR_LOCALDNS_COREFILE_NOTFOUND
+    else
         echo "Localdns should be enabled."
         return 0
-    else
-        echo "Localdns should not be enabled."
-        return 1
     fi
 }
 

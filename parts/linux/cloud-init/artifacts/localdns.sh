@@ -5,13 +5,10 @@ set -euo pipefail
 # --------------------------------------------------------------------------------------------------------------------
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
-LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
-AZURE_DNS_IP="168.63.129.16"
-LOCALDNS_SHUTDOWN_DELAY=5
-LOCALDNS_PID_FILE="/run/localdns.pid"
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
+# All the paths and variables used in this file are defined in CSE helpers file.
 CSE_HELPERS_FILEPATH="/opt/azure/containers/provision_source.sh"
 if [ -f "${CSE_HELPERS_FILEPATH}" ]; then
     source "${CSE_HELPERS_FILEPATH}"
@@ -20,39 +17,17 @@ else
     exit 255
 fi
 
-# This file contains the environment variables used by localdns systemd unit.
-# This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_ENV_FILE="/etc/default/localdns.envfile"
-if [ -f "${LOCALDNS_ENV_FILE}" ]; then
-    source "${LOCALDNS_ENV_FILE}"
-else
-    printf "Localdns envfile does not exist at %s.\n" "${LOCALDNS_ENV_FILE}"
-    exit $ERR_LOCALDNS_ENVFILE_NOTFOUND
-fi
-
-# This file contains generated Corefile used by localdns systemd unit.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+# This file contains generated corefile used by localdns systemd unit.
 if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
     printf "Localdns corefile either does not exist or is empty at %s.\n" "${LOCALDNS_CORE_FILE}"
     exit $ERR_LOCALDNS_COREFILE_NOTFOUND
 fi
 
 # This is slice file used by localdns systemd unit.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
 if [ ! -f "${LOCALDNS_SLICE_PATH}" ]; then
     printf "Localdns slice file does not exist at %s.\n" "${LOCALDNS_SLICE_PATH}"
     exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
 fi
-
-# Load environment variables from envfile.
-# Each of the below variables must match the field name defined in parts/linux/cloud-init/nodecustomdata.yml.
-# --------------------------------------------------------------------------------------------------------------------
-# This is the IP that localdns service should bind to for node traffic; an APIPA address.
-: "${LOCALDNS_NODE_LISTENER_IP:?LOCALDNS_NODE_LISTENER_IP is not set}"
-# This is the IP that localdns service should bind to for pod traffic; an APIPA address.
-: "${LOCALDNS_CLUSTER_LISTENER_IP:?LOCALDNS_CLUSTER_LISTENER_IP is not set}"
 
 # Check if coredns binary is cached in VHD.
 # --------------------------------------------------------------------------------------------------------------------

@@ -931,37 +931,23 @@ setKubeletNodeIPFlag() {
 }
 
 enableLocaldns() {
-    # Check if localdns should be enabled based on SHOULD_ENABLE_LOCALDNS env variable.
+    # Check if localdns should be enabled.
     shouldEnableLocaldns
     local result=$?
 
-    if [ $result -eq 0 ]; then
-        # Attempt to enable localdns systemd unit.
+    if [ "$result" -eq 0 ]; then
         systemctlEnableAndStart localdns 30
         local systemctl_result=$?
-        if [ $systemctl_result -ne 0 ]; then
+        
+        if [ "$systemctl_result" -ne 0 ]; then
             echo "Enable localdns failed due to error ${systemctl_result}."
-            return $systemctl_result
-        else
-            echo "Enable localdns succeeded."
-            return 0
+            return "$systemctl_result"
         fi
-    else
-        case $result in
-            $ERR_LOCALDNS_ENVFILE_NOTFOUND)
-                echo "Localdns envfile does not exist at ${LOCALDNS_ENV_FILE_PATH}."
-                return $ERR_LOCALDNS_ENVFILE_NOTFOUND
-                ;;
-            $ERR_LOCALDNS_ENVFILE_READ_FAIL)
-                echo "Failed to read variable from localdns envfile at ${LOCALDNS_ENV_FILE_PATH}."
-                return $ERR_LOCALDNS_ENVFILE_READ_FAIL
-                ;;
-            *)
-                echo "Localdns should not be enabled."
-                return 0
-                ;;
-        esac
+        echo "Enable localdns succeeded."
+        return 0
     fi
+    echo "Localdns should not be enabled."
+    return 0
 }
 
 #EOF
