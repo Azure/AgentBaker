@@ -14,6 +14,7 @@ param(
     [string]
     $customizedDiskSizeParam
 )
+# This variable is also defined in configure-windows-vhd.ps1
 $global:PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
 
 if (![string]::IsNullOrEmpty($windowsSKUParam))
