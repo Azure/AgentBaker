@@ -2,9 +2,11 @@ module github.com/Azure/agentbaker
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/Azure/go-autorest/autorest/to v0.4.1
-	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-cmp v0.7.0
