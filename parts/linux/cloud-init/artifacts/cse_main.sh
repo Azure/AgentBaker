@@ -411,6 +411,7 @@ if [ $VALIDATION_ERR -ne 0 ]; then
     exit $VALIDATION_ERR
 fi
 
+# Call enableLocaldns to enable localdns if localdns profile State is enabled.
 logs_to_events "AKS.CSE.enableLocaldns" enableLocaldns
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet

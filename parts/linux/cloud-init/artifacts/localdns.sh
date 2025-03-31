@@ -5,8 +5,6 @@ set -euo pipefail
 # --------------------------------------------------------------------------------------------------------------------
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
-
-source "${CSE_HELPERS_FILEPATH}"
 LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 AZURE_DNS_IP="168.63.129.16"
 LOCALDNS_SHUTDOWN_DELAY=5
@@ -14,6 +12,14 @@ LOCALDNS_PID_FILE="/run/localdns.pid"
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
+CSE_HELPERS_FILEPATH="/opt/azure/containers/provision_source.sh"
+if [ -f "${CSE_HELPERS_FILEPATH}" ]; then
+    source "${CSE_HELPERS_FILEPATH}"
+else
+    printf "Localdns requires provision_source file, but it does not exist at %s.\n" "${CSE_HELPERS_FILEPATH}"
+    exit $ERR_LOCALDNS_CSE_HELPER_FILE_NOTFOUND
+fi
+
 # This file contains the environment variables used by localdns systemd unit.
 # This path should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
 LOCALDNS_ENV_FILE="/etc/default/localdns.envfile"

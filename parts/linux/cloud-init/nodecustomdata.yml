@@ -443,7 +443,7 @@ write_files:
   owner: root
   content: |
     [Unit]
-    Description=Local DNS Slice
+    Description=localdns Slice
     DefaultDependencies=no
     Before=slices.target
     Requires=system.slice
