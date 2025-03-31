@@ -1228,12 +1228,12 @@ testCorednsBinaryExtractedAndCached() {
   echo "$test: Checking for existence of coredns binary at ${binaryPath}"
 
   if [[ ! -f "${binaryPath}" ]]; then
-    err "$test: Coredns binary does not exist at ${binaryPath}"
+    echo "$test: Coredns binary does not exist at ${binaryPath}"
     return 1
   fi
 
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
-    err "$test: No coredns images found in the local container images"
+    echo "$test: No coredns images found in the local container images"
     return 1
   fi
 
