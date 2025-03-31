@@ -1,8 +1,5 @@
 #!/bin/bash
-set -euo pipefail
-
-# this gives us logs_to_events
-source /opt/azure/containers/provision_source.sh
+set -uo pipefail
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
@@ -10,6 +7,36 @@ BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstr
 MAX_RETRIES=${VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES:-30}
 RETRY_DELAY_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS:-2}
 RETRY_TIMEOUT_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS:-5}
+
+# NOTE: this is available if we source /opt/azure/containers/provision_source.sh, though sourcing that file also runs other unrelated commands
+# which can have unintended consequences and increase latency. As a result, we simply duplicate the implementation of logs_to_events here directly.
+# TODO: move logs_to_events out of provision_source.sh to an independent script so other provisioning/runtime scripts can cleanly source it as needed.
+logs_to_events() {
+    local task=$1; shift
+    local eventsFileName=$(date +%s%3N)
+
+    local startTime=$(date +"%F %T.%3N")
+    ${@}
+    ret=$?
+    local endTime=$(date +"%F %T.%3N")
+
+    json_string=$( jq -n \
+        --arg Timestamp   "${startTime}" \
+        --arg OperationId "${endTime}" \
+        --arg Version     "1.23" \
+        --arg TaskName    "${task}" \
+        --arg EventLevel  "Informational" \
+        --arg Message     "Completed: $*" \
+        --arg EventPid    "0" \
+        --arg EventTid    "0" \
+        '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
+    )
+    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+}
 
 function validateBootstrapKubeconfig {
     local kubeconfig_path=$1
