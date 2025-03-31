@@ -120,11 +120,9 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 ERR_DNS_HEALTH_FAIL=215 
 
 ERR_LOCALDNS_FAIL=216 
-ERR_LOCALDNS_ENVFILE_NOTFOUND=217 
-ERR_LOCALDNS_ENVFILE_READ_FAIL=218 
-ERR_LOCALDNS_COREFILE_NOTFOUND=219 
-ERR_LOCALDNS_SLICEFILE_NOTFOUND=220 
-ERR_LOCALDNS_BINARY_NOTFOUND=221 
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 
+ERR_LOCALDNS_BINARY_NOTFOUND=219 
 
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
@@ -154,6 +152,16 @@ EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
+
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
+AZURE_DNS_IP="168.63.129.16"
+LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
+LOCALDNS_SHUTDOWN_DELAY=5
+LOCALDNS_PID_FILE="/run/localdns.pid"
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -818,28 +826,13 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-LOCALDNS_ENV_FILE_PATH="/etc/default/localdns.envfile"
-
 shouldEnableLocaldns() {
-    if [ ! -f "${LOCALDNS_ENV_FILE_PATH}" ]; then
-        echo "Localdns envfile does not exist at ${LOCALDNS_ENV_FILE_PATH}."
-        return $ERR_LOCALDNS_ENVFILE_NOTFOUND
-    fi
-
-    local enable_localdns
-    enable_localdns=$(awk -F= '/^SHOULD_ENABLE_LOCALDNS=/{print $2}' "$LOCALDNS_ENV_FILE_PATH")
-
-    if [ -z "$enable_localdns" ]; then
-        echo "Failed to read SHOULD_ENABLE_LOCALDNS from localdns envfile at ${LOCALDNS_ENV_FILE_PATH}."
-        return $ERR_LOCALDNS_ENVFILE_READ_FAIL
-    fi
-
-    if [ "$enable_localdns" = "true" ]; then
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
+        return $ERR_LOCALDNS_COREFILE_NOTFOUND
+    else
         echo "Localdns should be enabled."
         return 0
-    else
-        echo "Localdns should not be enabled."
-        return 1
     fi
 }
 
