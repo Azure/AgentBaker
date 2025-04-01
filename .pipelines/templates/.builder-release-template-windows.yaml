@@ -150,7 +150,13 @@ steps:
   - script: |
       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
-      make -f packer.mk run-packer-windows
+      
+      make -f paker.mk az-login 
+      
+      packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl | tee -a packer-output
+      packer version | tee -a packer-output
+      ./vhdbuilder/packer/produce-packer-settings.sh | tee -a packer-output
+      packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
     displayName: Building windows VHD
     env:
       BRANCH: $(Build.SourceBranch)
