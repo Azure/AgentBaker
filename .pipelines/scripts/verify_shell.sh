@@ -31,8 +31,11 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
 for file in $generatedTestData; do
     firstLine=$(awk 'NR==1 {print; exit}' ${file})
-    if [[ ${firstLine} =~ "#!/bin/bash" ]]; then
+    if [[ "${firstLine}" =~ "#!/bin/bash" || "${firstLine}" =~ "#!/usr/bin/env bash" ]]; then
+        echo "Will check file $file"
         filesToCheck+=(${file})
+    else
+         echo "Skipping file as wrong shell $file"
     fi
 done
 
