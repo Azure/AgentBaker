@@ -5,6 +5,7 @@ package datamodel
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -2819,7 +2820,7 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 		expectedState             bool
 		expectedCPU               string
 		expectedMemory            string
-		expectedListenerIP        string
+		expectedNodeListenerIP    string
 		expectedClusterListenerIP string
 		expectedCoreDNSServiceIP  string
 		expectedAzureDNSIP        string
@@ -2866,7 +2867,7 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			expectedState:             true,
 			expectedCPU:               "100.0%",
 			expectedMemory:            "2048M",
-			expectedListenerIP:        LocalDNSNodeListenerIP,
+			expectedNodeListenerIP:    LocalDNSNodeListenerIP,
 			expectedClusterListenerIP: LocalDNSClusterListenerIP,
 			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
 			expectedAzureDNSIP:        AzureDNSIP,
@@ -2883,7 +2884,7 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			expectedState:             true,
 			expectedCPU:               "506.9%",
 			expectedMemory:            "1048M",
-			expectedListenerIP:        LocalDNSNodeListenerIP,
+			expectedNodeListenerIP:    LocalDNSNodeListenerIP,
 			expectedClusterListenerIP: LocalDNSClusterListenerIP,
 			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
 			expectedAzureDNSIP:        AzureDNSIP,
@@ -2901,7 +2902,7 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 			expectedState:             true,
 			expectedCPU:               "200.0%",
 			expectedMemory:            "128M",
-			expectedListenerIP:        LocalDNSNodeListenerIP,
+			expectedNodeListenerIP:    LocalDNSNodeListenerIP,
 			expectedClusterListenerIP: LocalDNSClusterListenerIP,
 			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
 			expectedAzureDNSIP:        AzureDNSIP,
@@ -2931,8 +2932,8 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 				if c.expectedMemory != actualMemory {
 					t.Fatalf("test case: %s, expected memory: %s. Got: %s.", c.name, c.expectedMemory, actualMemory)
 				}
-				if c.expectedListenerIP != actualListenerIP {
-					t.Fatalf("test case: %s, expected listener IP: %s. Got: %s.", c.name, c.expectedListenerIP, actualListenerIP)
+				if c.expectedNodeListenerIP != actualListenerIP {
+					t.Fatalf("test case: %s, expected listener IP: %s. Got: %s.", c.name, c.expectedNodeListenerIP, actualListenerIP)
 				}
 				if c.expectedClusterListenerIP != actualClusterListenerIP {
 					t.Fatalf("test case: %s, expected cluster listener IP: %s. Got: %s.", c.name, c.expectedClusterListenerIP, actualClusterListenerIP)
@@ -2942,6 +2943,174 @@ func TestAgentPoolProfileLocalDNS(t *testing.T) {
 				}
 				if c.expectedAzureDNSIP != actualAzureDNSIP {
 					t.Fatalf("test case: %s, expected AzureDNSIP: %s. Got: %s.", c.name, c.expectedAzureDNSIP, actualAzureDNSIP)
+				}
+			}
+		})
+	}
+}
+
+func TestGetLocalDNSCoreFileData(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     LocalDNSCoreFileData
+		expectError      bool
+	}{
+		{
+			name:             "AgentPoolProfile nil",
+			agentPoolProfile: nil,
+			expectError:      true,
+		},
+		{
+			name: "LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectError: true,
+		},
+		{
+			name: "LocalDNSProfile disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State: "Disabled",
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "LocalDNSProfile enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State:                "Enabled",
+					CPULimitInMilliCores: to.Int32Ptr(2000),
+					MemoryLimitInMB:      to.Int32Ptr(4096),
+					VnetDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+					KubeDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+				},
+			},
+			expectedData: LocalDNSCoreFileData{
+				LocalDNSProfile: LocalDNSProfile{
+					State:                "Enabled",
+					CPULimitInMilliCores: to.Int32Ptr(2000),
+					MemoryLimitInMB:      to.Int32Ptr(4096),
+					VnetDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+					KubeDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+				},
+				NodeListenerIP:    LocalDNSNodeListenerIP,
+				ClusterListenerIP: LocalDNSClusterListenerIP,
+				CoreDNSServiceIP:  DefaultCoreDNSServiceIP,
+				AzureDNSIP:        AzureDNSIP,
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.agentPoolProfile == nil {
+				_, err := tt.agentPoolProfile.GetLocalDNSCoreFileData()
+				if err == nil {
+					t.Errorf("expected an error but got none")
+				}
+				return
+			}
+
+			actualData, err := tt.agentPoolProfile.GetLocalDNSCoreFileData()
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected an error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				if !reflect.DeepEqual(tt.expectedData, actualData) {
+					t.Errorf("expected %+v, got %+v", tt.expectedData, actualData)
 				}
 			}
 		})
