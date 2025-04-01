@@ -5,23 +5,26 @@ set -euo pipefail
 az login --identity --username "${E2E_AGENT_IDENTITY_ID}"
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
+#
+#GOLANG_VERSION="go1.22.4"
+#echo "Downloading ${GOLANG_VERSION}"
+#curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
+#
+#echo "unpacking go"
+#sudo mkdir -p /usr/local/go
+#sudo chown -R "$(whoami):$(whoami)" /usr/local/go
+#sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
+#rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
+#
+#export PATH="/usr/local/go/bin:$PATH"
+#GOPATH="/home/$(whoami)/go"
+#export GOPATH
 
-GOLANG_VERSION="go1.22.4"
-echo "Downloading ${GOLANG_VERSION}"
-curl -O "https://dl.google.com/go/${GOLANG_VERSION}.linux-amd64.tar.gz"
-
-echo "unpacking go"
-sudo mkdir -p /usr/local/go
-sudo chown -R "$(whoami):$(whoami)" /usr/local/go 
-sudo tar -xvf "${GOLANG_VERSION}.linux-amd64.tar.gz" -C /usr/local
-rm "${GOLANG_VERSION}.linux-amd64.tar.gz"
-
-export PATH="/usr/local/go/bin:$PATH"
-GOPATH="/home/$(whoami)/go"
-export GOPATH
+GOPATH="$(go env GOPATH)"
 
 go env
 go version
+#export PATH="/usr/local/go/bin:$PATH"
 
 LOGGING_DIR="scenario-logs-$(date +%s)"
 echo "setting logging dir to $LOGGING_DIR"
@@ -29,8 +32,6 @@ echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
 
 mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 
-export PATH="/usr/local/go/bin:$PATH"
-go version
 
 echo "VHD_BUILD_ID=$VHD_BUILD_ID"
 echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: $IGNORE_SCENARIOS_WITH_MISSING_VHD"
