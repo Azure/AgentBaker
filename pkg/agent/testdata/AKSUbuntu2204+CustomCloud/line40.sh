@@ -495,6 +495,7 @@ installAzureCNI() {
     chown -R root:root $CNI_BIN_DIR
 }
 
+<<<<<<< HEAD
 extractKubeBinariesToUsrLocalBin() {
     local k8s_tgz_tmp=$1
     local k8s_version=$2
@@ -510,12 +511,18 @@ extractKubeBinariesToUsrLocalBin() {
     fi
 }
 
+=======
+>>>>>>> master
 extractKubeBinaries() {
     local k8s_version="$1"
     k8s_version="${k8s_version#v}"
     local kube_binary_url="$2"
     local is_private_url="$3"
+<<<<<<< HEAD
     local k8s_downloads_dir=${4:-"/opt/kubernetes/downloads"}
+=======
+    local k8s_downloads_dir="$4"
+>>>>>>> master
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
@@ -532,23 +539,46 @@ extractKubeBinaries() {
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
+<<<<<<< HEAD
         
+=======
+>>>>>>> master
         if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
+<<<<<<< HEAD
             if test ! -f "${k8s_tgz_tmp}"; then
+=======
+            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+>>>>>>> master
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+<<<<<<< HEAD
             if test ! -f "${k8s_tgz_tmp}"; then
+=======
+            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+>>>>>>> master
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
     fi
 
+<<<<<<< HEAD
     extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
+=======
+    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
+    if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
+        exit $ERR_K8S_INSTALL_ERR
+    fi
+
+    if [[ $is_private_url == false ]]; then
+        rm -f "${k8s_tgz_tmp}"
+    fi
+>>>>>>> master
 }
 
 installKubeletKubectlAndKubeProxy() {
