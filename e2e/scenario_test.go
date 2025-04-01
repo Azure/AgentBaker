@@ -47,7 +47,7 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://packages.aks.azure.com/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
@@ -68,7 +68,7 @@ func Test_AzureLinuxV2_ARM64_Scriptless(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDAzureLinuxV2Gen2Arm64,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.KubeBinaryConfig.CustomKubeBinaryUrl = "https://packages.aks.azure.com/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				config.KubeBinaryConfig.CustomKubeBinaryUrl = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				config.VmSize = "Standard_D2pds_V5"
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
@@ -324,7 +324,7 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDCBLMarinerV2Gen2Arm64,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://packages.aks.azure.com/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
@@ -770,7 +770,7 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 			VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				// This needs to be set based on current CSE implementation...
-				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://packages.aks.azure.com/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
+				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.CustomKubeBinaryURL = "https://acs-mirror.azureedge.net/kubernetes/v1.24.9/binaries/kubernetes-node-linux-arm64.tar.gz"
 				nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
 				nbc.IsARM64 = true
 			},
