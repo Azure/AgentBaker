@@ -1,4 +1,4 @@
-function ResolvePackagesSourceURL {
+function ResolvePackagesSourceUrl {
   param (
     [string]$url
     [int]$maxAttempts = 5
@@ -34,7 +34,7 @@ function ResolvePackagesSourceURL {
   Write-Host "Packages source URL is $PACKAGES_DOWNLOAD_BASE_URL"
 }
 
-function ReplaceBaseURL {
+function ReplaceBaseUrl {
   param (
     [string]$url
     [string]$packagesUrl
