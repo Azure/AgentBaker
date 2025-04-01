@@ -351,6 +351,10 @@ downloadAzureCNI() {
         echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
         return
     fi
+
+    if [ $PACKAGES_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
+        VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"acs-mirror.azureedge.net"/$PACKAGES_DOWNLOAD_BASE_URL}"
+    fi
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
