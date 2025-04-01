@@ -790,6 +790,15 @@ resolve_packages_source_url() {
     fi
 }
 
+update_base_url() {
+    initial_url=$1
+    new_base=$2
+
+    if [ $new_base == "packages.aks.azure.com" ]; then
+        ${$initial_url//"acs-mirror.azureedge.net"/$new_base}
+    fi
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
