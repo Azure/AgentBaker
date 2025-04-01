@@ -32,6 +32,8 @@ function ResolvePackagesSourceUrl {
   }
 
   Write-Host "Packages source URL is $PACKAGES_DOWNLOAD_BASE_URL"
+
+  return $PACKAGES_DOWNLOAD_BASE_URL
 }
 
 function ReplaceBaseUrl {
