@@ -3,7 +3,7 @@ set -euo pipefail
 
 # localdns systemd unit.
 # --------------------------------------------------------------------------------------------------------------------
-# This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
+# This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries.
 # It also upgrades to TCP for better reliability of upstream connections.
 
 # Localdns script path.
@@ -104,21 +104,21 @@ done
 
 # Information variables.
 # --------------------------------------------------------------------------------------------------------------------
-# Get default route interface for the given AZURE_DNS_IP
+# Get default route interface for the given AZURE_DNS_IP.
 DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
 if [[ -z "${DEFAULT_ROUTE_INTERFACE}" ]]; then
     echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
     exit $ERR_LOCALDNS_FAIL
 fi
 
-# Get the network file associated with the default route interface
+# Get the network file associated with the default route interface.
 NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
 if [[ -z "${NETWORK_FILE}" ]]; then
     echo "Unable to determine network file for interface ${DEFAULT_ROUTE_INTERFACE}."
     exit $ERR_LOCALDNS_FAIL
 fi
 
-# Check and create the drop-in directory if it does not exist
+# Check and create the drop-in directory if it does not exist.
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
@@ -203,7 +203,7 @@ function cleanup {
         fi
     fi
 
-    # Indicate successful cleanup
+    # Indicate successful cleanup.
     printf "Successfully cleanup localdns related configurations.\n"
     return 0
 }
