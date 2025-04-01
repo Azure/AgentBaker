@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-az login --identity --client-id "${E2E_AGENT_IDENTITY_ID}"
+az login --identity --object-id "${E2E_AGENT_IDENTITY_ID}"
 az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 
