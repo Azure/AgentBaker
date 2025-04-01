@@ -31,4 +31,5 @@ function ResolvePackagesSourceURL {
     $PACKAGES_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
   }
 
+  Write-Host "Packages source URL is $PACKAGES_DOWNLOAD_BASE_URL"
 }
