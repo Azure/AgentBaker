@@ -148,10 +148,12 @@ steps:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
 
   - script: |
+      set -e
+      
       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
       
-      make -f paker.mk az-login 
+      make -f packer.mk az-login 
       
       packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl | tee -a packer-output
       packer version | tee -a packer-output
