@@ -33,3 +33,15 @@ function ResolvePackagesSourceURL {
 
   Write-Host "Packages source URL is $PACKAGES_DOWNLOAD_BASE_URL"
 }
+
+function ReplaceBaseURL {
+  param (
+    [string]$url
+    [string]$packagesUrl
+  )
+
+  if ($url.Contains("acs-mirror.azureedge.net"))
+  {
+    $url = $url.Replace("acs-mirror.azureedge.net", $packagesUrl)
+  }
+}
