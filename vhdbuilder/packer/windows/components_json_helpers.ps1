@@ -120,11 +120,7 @@ function GetPackagesFromComponentsJson
             }
         }
 
-        if ($part.windowsPackagesURL -ne $null)
-        {
-            $downloadUrl = $part.windowsPackagesUrl
-        }
-        elseif ($part.packagesURL -ne $null)
+        if ($part.packagesURL -ne $null)
         {
             $downloadUrl = $part.packagesUrl
         }
