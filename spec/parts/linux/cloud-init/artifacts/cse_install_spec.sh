@@ -125,6 +125,13 @@ Describe 'cse_install.sh'
         ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
         CPU_ARCH="amd64"
         KUBE_BINARY_URL=""
+
+        cleanup() {
+            #clean up $k8s_tgz_tmp if it exists
+            if [ -f "$k8s_tgz_tmp" ]; then
+                rm -f "$k8s_tgz_tmp"
+            fi
+        }
         
         # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
         extractKubeBinariesToUsrLocalBin() {
@@ -134,21 +141,17 @@ Describe 'cse_install.sh'
         # The real download is tested in e2e test.
         retrycmd_get_tarball_from_registry_with_oras() {
             echo "mock retrycmd_get_tarball_from_registry_with_oras calling with $1 $2 $3 $4"
+            # create a fake tarball
+            touch "$k8s_tgz_tmp"
         }
 
         # mock retrycmd_get_tarball as we don't really want to download the tarball
         retrycmd_get_tarball() {
             echo "mock retrycmd_get_tarball calling with $1 $2 $3 $4 $5"
+            touch "$k8s_tgz_tmp"
         }
 
-        # mock test
-        test() {
-            if [[ "$1" == "!" && "$2" == "-f" && "$3" == "${k8s_tgz_tmp}" ]]; then
-                return 1  # Simulate that the file does exist
-            fi
-            /usr/bin/test "$@"  # Call the original test command for other cases
-        }
-
+        AfterEach 'cleanup'
         It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
             kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:FakeTag"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir

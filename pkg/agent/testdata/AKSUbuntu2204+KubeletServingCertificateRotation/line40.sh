@@ -542,7 +542,7 @@ extractKubeBinaries() {
             fi
         else
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+            if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
