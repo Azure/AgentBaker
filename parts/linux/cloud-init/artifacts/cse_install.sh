@@ -380,8 +380,8 @@ downloadAzureCNI() {
         return
     fi
 
-    if [ $PACKAGES_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
-        VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"acs-mirror.azureedge.net"/$PACKAGES_DOWNLOAD_BASE_URL}"
+    if [ $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
+        VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
     fi
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
@@ -634,8 +634,8 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                if [  $PACKAGES_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
-                    KUBE_BINARY_URL="${KUBE_BINARY_URL//"acs-mirror.azureedge.net"/$PACKAGES_DOWNLOAD_BASE_URL}"
+                if [  $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
+                    KUBE_BINARY_URL="${KUBE_BINARY_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
                 fi
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
                 echo "testing: the kube binary URL is: ${KUBE_BINARY_URL}"

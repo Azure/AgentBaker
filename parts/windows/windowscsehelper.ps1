@@ -481,7 +481,7 @@ function ResolvePackagesSourceUrl {
   )
 
   $attempt = 0
-  $PACKAGES_DOWNLOAD_BASE_URL=""
+  $PACKAGE_DOWNLOAD_BASE_URL=""
 
   while ($attempt -lt $maxAttempts) 
   {
@@ -491,7 +491,7 @@ function ResolvePackagesSourceUrl {
 
       if ($response.StatusCode -eq 200) 
       {
-        $PACKAGES_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+        $PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
         break
       }
     }
@@ -502,14 +502,14 @@ function ResolvePackagesSourceUrl {
     }
   }
 
-  if (-not $PACKAGES_DOWNLOAD_BASE_URL) 
+  if (-not $PACKAGE_DOWNLOAD_BASE_URL) 
   {
-    $PACKAGES_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+    $PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
   }
 
-  Write-Host "Packages source URL is $PACKAGES_DOWNLOAD_BASE_URL"
+  Write-Host "Packages source URL is $PACKAGE_DOWNLOAD_BASE_URL"
 
-  return $PACKAGES_DOWNLOAD_BASE_URL
+  return $PACKAGE_DOWNLOAD_BASE_URL
 }
 
 function ReplaceBaseUrl {
