@@ -6,9 +6,29 @@ set -euo pipefail
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries. 
 # It also upgrades to TCP for better reliability of upstream connections.
 
+# Localdns script path.
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+# Localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+# This is slice file used by localdns systemd unit.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
+# Azure DNS IP.
+AZURE_DNS_IP="168.63.129.16"
+# Localdns node listener IP.
+LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+# Localdns cluster listener IP.
+LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
+# Localdns shutdown delay.
+LOCALDNS_SHUTDOWN_DELAY=5
+# Localdns pid file.
+LOCALDNS_PID_FILE="/run/localdns.pid"
+# Path of coredns binary used by localdns.
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
+
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
-# All the paths and variables used in this file are defined in CSE helpers file.
 CSE_HELPERS_FILEPATH="/opt/azure/containers/provision_source.sh"
 if [ -f "${CSE_HELPERS_FILEPATH}" ]; then
     source "${CSE_HELPERS_FILEPATH}"
@@ -57,7 +77,7 @@ fi
 # Based on customer input, corefile was generated in pkg/agent/baker.go.
 # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
 if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
-    sed -i -e "s|168.63.129.16|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
+    sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
         printf "Updating corefile failed"
         exit $ERR_LOCALDNS_FAIL
     }
@@ -69,18 +89,36 @@ cat "${LOCALDNS_CORE_FILE}"
 # These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
 # OUTPUT rules affect node services and hostNetwork: true pods.
 # PREROUTING rules affect traffic from regular pods.
-IPTABLES='iptables -w -t raw -m comment --comment "Local DNS: skip conntrack"'
+IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
 IPTABLES_RULES=()
+
+# Loop over chains, IPs, and protocols to create the rules
 for CHAIN in OUTPUT PREROUTING; do
-for IP in ${LOCALDNS_NODE_LISTENER_IP} ${LOCALDNS_CLUSTER_LISTENER_IP}; do
-for PROTO in tcp udp; do
-    IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
-done; done; done
+    for IP in ${LOCALDNS_NODE_LISTENER_IP} ${LOCALDNS_CLUSTER_LISTENER_IP}; do
+        for PROTO in tcp udp; do
+            # Add rule to IPTABLES_RULES array
+            IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
+        done
+    done
+done
 
 # Information variables.
 # --------------------------------------------------------------------------------------------------------------------
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" | jq -r '.[0].dev')"
-NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" | jq -r '.NetworkFile')"
+# Get default route interface for the given AZURE_DNS_IP
+DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
+if [[ -z "${DEFAULT_ROUTE_INTERFACE}" ]]; then
+    echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
+    exit $ERR_LOCALDNS_FAIL
+fi
+
+# Get the network file associated with the default route interface
+NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
+if [[ -z "${NETWORK_FILE}" ]]; then
+    echo "Unable to determine network file for interface ${DEFAULT_ROUTE_INTERFACE}."
+    exit $ERR_LOCALDNS_FAIL
+fi
+
+# Check and create the drop-in directory if it does not exist
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
@@ -104,15 +142,13 @@ function cleanup {
     done
 
     # Revert the changes made to the DNS configuration if present.
-    if [ -f ${NETWORK_DROPIN_FILE} ]; then
+    if [ -f "${NETWORK_DROPIN_FILE}" ]; then
         printf "Reverting DNS configuration by removing %s.\n" "${NETWORK_DROPIN_FILE}"
-        /bin/rm -f ${NETWORK_DROPIN_FILE}
-        if [ $? -eq 0 ]; then
-            networkctl reload
-            if [ $? -ne 0 ]; then
+        if /bin/rm -f "${NETWORK_DROPIN_FILE}"; then
+            networkctl reload || {
                 printf "Failed to reload network after removing the DNS configuration.\n"
                 return $ERR_LOCALDNS_FAIL
-            fi
+            }
         else
             printf "Failed to remove %s.\n" "${NETWORK_DROPIN_FILE}"
             return $ERR_LOCALDNS_FAIL
@@ -120,33 +156,39 @@ function cleanup {
     fi
 
     # Trigger localdns shutdown, if running.
-    if [ -n "${COREDNS_PID:-}" ]; then
-        if ps ${COREDNS_PID} >/dev/null; then
-            if [[ ${LOCALDNS_SHUTDOWN_DELAY} -gt 0 ]]; then
+    # COREDNS_PID should be non-empty and a valid PID number.
+    if [[ -n "${COREDNS_PID}" ]] && [[ "${COREDNS_PID}" =~ ^[0-9]+$ ]]; then
+        # The kill -0 command checks if the process exists. If it doesn't exist, this condition will fail,
+        # and the script will exit without trying to kill the process.
+        if kill -0 "${COREDNS_PID}" 2>/dev/null; then
+            if [[ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]]; then
                 # Wait after removing iptables rules and DNS configuration so that we can let connections transition.
                 printf "Sleeping %d seconds to allow connections to terminate.\n" "${LOCALDNS_SHUTDOWN_DELAY}"
-                sleep ${LOCALDNS_SHUTDOWN_DELAY}
+                sleep "${LOCALDNS_SHUTDOWN_DELAY}"
             fi
             printf "Sending SIGINT to localdns and waiting for it to terminate.\n"
 
-            # Send SIGINT to localdns to trigger shutdown.
-            kill -SIGINT ${COREDNS_PID}
-            if [ $? -eq 0 ]; then
+            # Send SIGINT to localdns to trigger a graceful shutdown.
+            kill -SIGINT "${COREDNS_PID}"
+            kill_status=$?
+            if [ $kill_status -eq 0 ]; then
                 printf "Successfully sent SIGINT to localdns.\n"
             else
-                printf "Failed to send SIGINT to localdns.\n"
+                printf "Failed to send SIGINT to localdns. Exit status: $kill_status.\n"
                 return $ERR_LOCALDNS_FAIL
             fi
 
-            # Wait for localdns to shut down.
-            wait ${COREDNS_PID}
-            if [ $? -eq 0 ]; then
+            # Wait for the process to terminate.
+            if wait "${COREDNS_PID}"; then
                 printf "Localdns terminated successfully.\n"
             else
                 printf "Localdns failed to terminate properly.\n"
-                return $ERR_LOCALDNS_FAIL
+                return "$ERR_LOCALDNS_FAIL"
             fi
         fi
+    else
+        printf "COREDNS_PID is not set or invalid.\n"
+        return $ERR_LOCALDNS_FAIL
     fi
 
     # Delete the dummy interface if present.
@@ -235,10 +277,27 @@ printf "Localdns is online and ready to serve traffic.\n"
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
 printf "Updating network DNS configuration to point to localdns via %s.\n" "${NETWORK_DROPIN_FILE}"
-mkdir -p ${NETWORK_DROPIN_DIR}
-printf "[Network]\nDNS=%s\n\n[DHCP]\nUseDNS=false\n" "${LOCALDNS_NODE_LISTENER_IP}" > "${NETWORK_DROPIN_FILE}"
-chmod -R ugo+rX ${NETWORK_DROPIN_DIR}
+mkdir -p "${NETWORK_DROPIN_DIR}"
+
+cat > "${NETWORK_DROPIN_FILE}" <<EOF
+# Set DNS server to localdns cluster listernerIP.
+[Network]
+DNS=${LOCALDNS_NODE_LISTENER_IP}
+
+# Disable DNS provided by DHCP to ensure local DNS is used.
+[DHCP]
+UseDNS=false
+EOF
+
+# Set permissions on the drop-in directory and file.
+chmod -R ugo+rX "${NETWORK_DROPIN_DIR}"
+
 networkctl reload
+if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to reload networkctl."
+    exit $ERR_LOCALDNS_FAIL
+fi
+
 printf "Startup complete - serving node and pod DNS traffic.\n"
 
 # systemd notify: send ready if service is Type=notify.
