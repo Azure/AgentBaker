@@ -76,6 +76,8 @@ fi
 
 # Based on customer input, corefile was generated in pkg/agent/baker.go.
 # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
+# Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination. 
+# Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
 if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
     sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
         printf "Updating corefile failed"
