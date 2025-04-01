@@ -150,9 +150,6 @@ steps:
   - script: |
       set -e
       
-      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-      export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
-      
       make -f packer.mk az-login 
       
       packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl | tee -a packer-output
@@ -164,7 +161,8 @@ steps:
       BRANCH: $(Build.SourceBranch)
       MODE: $(MODE)
       POOL_NAME: $(AZURE_POOL_NAME)
-      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
+      AZURE_BUILD_SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
       AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       AZURE_VM_SIZE: ${{ parameters.buildVmSize }}
