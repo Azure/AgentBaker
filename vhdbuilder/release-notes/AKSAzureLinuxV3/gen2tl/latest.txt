@@ -1,4 +1,4 @@
-Starting build on  Thu Mar 27 16:59:48 UTC 2025
+Starting build on  Fri Mar 21 14:19:26 UTC 2025
 Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):
   - oras version 1.2.2
   - containerd version 2.0.0-4.azl3
@@ -8,7 +8,7 @@ Components downloaded in this VHD build (some of the below components might get 
   - Azure CNI version 1.6.21
   - Azure CNI version 1.5.35
   - Azure CNI version 1.6.18
-  - crictl version 1.32.0
+  - crictl version 1.31.1
   - kubernetes-binaries version v1.27.102-akslts
   - kubernetes-binaries version v1.28.100-akslts
   - kubernetes-binaries version v1.29.15
@@ -52,8 +52,8 @@ containerd images pre-pulled:
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.6-250129
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.14.18-250107
   - mcr.microsoft.com/containernetworking/cilium/cilium:v1.16.5-250110
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3
-  - mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:v0.30.3-hotfix.20240819
+  - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.1.6-hotfix.20240116
+  - mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:v0.30.3-hotfix.20240819
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.8
   - mcr.microsoft.com/oss/kubernetes-csi/secrets-store/driver:v1.4.7
   - mcr.microsoft.com/oss/azure/secrets-store/provider-azure:v1.6.2
@@ -76,19 +76,19 @@ containerd images pre-pulled:
   - mcr.microsoft.com/oss/v2/kubernetes/autoscaler/cluster-proportional-autoscaler:v1.8.11-5
   - mcr.microsoft.com/aks/ip-masq-agent-v2:v0.1.15
   - mcr.microsoft.com/oss/v2/azure/ip-masq-agent-v2:v0.1.15-2
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.10
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.6
-  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.32.1
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.9
   - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.5
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.32.0
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.30.8
+  - mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.4
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.8
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.31.4
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.32.0
   - mcr.microsoft.com/oss/kubernetes-csi/azurefile-csi:v1.30.7
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.8
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.4
-  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.26.1
   - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.7
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.25.3
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.26.0
+  - mcr.microsoft.com/oss/kubernetes-csi/blob-csi:v1.24.6
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0
   - mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.15.0
   - mcr.microsoft.com/oss/kubernetes-csi/csi-node-driver-registrar:v2.12.0
@@ -116,11 +116,11 @@ containerd images pre-pulled:
   - bcc-tools
   - libbcc-examples
 kubelet/kubectl downloaded:
+-rwxr-xr-x 1 root   root    38693345 Aug 13  2024 /usr/local/bin/crictl
 -rwxr-xr-x 1 root   root   110649604 Oct 23 16:18 /usr/local/bin/kubelet-1.28.15
 -rwxr-xr-x 1 root   root    49623192 Oct 23 16:18 /usr/local/bin/kubectl-1.28.15
 -rwxr-xr-x 1 root   root   108712196 Oct 31 21:40 /usr/local/bin/kubelet-1.27.101-akslts
 -rwxr-xr-x 1 root   root    49066136 Oct 31 21:40 /usr/local/bin/kubectl-1.27.101-akslts
--rwxr-xr-x 1 root   root    40076447 Dec  9 09:09 /usr/local/bin/crictl
 -rwxr-xr-x 1 packer docker  10334343 Dec 17 09:51 /usr/local/bin/oras
 -rw-r--r-- 1 packer docker     11343 Dec 19 08:28 /usr/local/bin/LICENSE
 -rwxr-xr-x 1 root   root   108712196 Jan 28 23:01 /usr/local/bin/kubelet-1.27.102-akslts
@@ -143,14 +143,14 @@ kubelet/kubectl downloaded:
 -rwxr-xr-x 1 root   root    57323672 Mar 12 14:53 /usr/local/bin/kubectl-1.32.3
 -rwxr-xr-x 1 root   root   113107204 Mar 12 15:08 /usr/local/bin/kubelet-1.29.15
 -rwxr-xr-x 1 root   root    50765976 Mar 12 15:08 /usr/local/bin/kubectl-1.29.15
--rwxr-xr-x 1 root   root         705 Mar 27 16:59 /usr/local/bin/ci-syslog-watcher.sh
--rwxr-xr-x 1 root   root        9905 Mar 27 17:05 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
--rwxr-xr-x 1 root   root        9905 Mar 27 17:05 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
--rwxr-xr-x 1 root   root        9903 Mar 27 17:05 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
--rwxr-xr-x 1 root   root        9903 Mar 27 17:05 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
--rwxr-xr-x 1 root   root        9903 Mar 27 17:05 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
--rwxr-xr-x 1 root   root        9905 Mar 27 17:05 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
--rwxr-xr-x 1 root   root    63515504 Mar 27 17:05 /usr/local/bin/containerd-shim-spin-v2
+-rwxr-xr-x 1 root   root         705 Mar 21 14:19 /usr/local/bin/ci-syslog-watcher.sh
+-rwxr-xr-x 1 root   root        9903 Mar 21 14:25 /usr/local/bin/containerd-shim-spin-v0-5-1-v1
+-rwxr-xr-x 1 root   root        9903 Mar 21 14:25 /usr/local/bin/containerd-shim-spin-v0-8-0-v1
+-rwxr-xr-x 1 root   root        9903 Mar 21 14:25 /usr/local/bin/containerd-shim-slight-v0-5-1-v1
+-rwxr-xr-x 1 root   root        9903 Mar 21 14:25 /usr/local/bin/containerd-shim-slight-v0-3-0-v1
+-rwxr-xr-x 1 root   root        9905 Mar 21 14:25 /usr/local/bin/containerd-shim-slight-v0-8-0-v1
+-rwxr-xr-x 1 root   root        9905 Mar 21 14:25 /usr/local/bin/containerd-shim-spin-v0-3-0-v1
+-rwxr-xr-x 1 root   root    63515504 Mar 21 14:25 /usr/local/bin/containerd-shim-spin-v2
 === Installed Packages Begin
 filesystem-1.1-21.azl3.x86_64
 glibc-2.38-9.azl3.x86_64
@@ -564,10 +564,10 @@ SUPPORT_URL="https://aka.ms/azurelinux"
 === os-release End
 Using kernel:
 Linux version 6.6.78.1-3.azl3 (root@CBL-Mariner) (gcc (GCC) 13.2.0, GNU ld (GNU Binutils) 2.41) #1 SMP PREEMPT_DYNAMIC Tue Mar 11 16:11:42 UTC 2025
-Install completed successfully on  Thu Mar 27 17:07:47 UTC 2025
-VSTS Build NUMBER: 20250327.1_master_119350883
-VSTS Build ID: 119350883
-Commit: 39c110f8a39f0a15a575a37baac1506b2c7ad1d6
+Install completed successfully on  Fri Mar 21 14:29:53 UTC 2025
+VSTS Build NUMBER: 20250321.3_master_118719975
+VSTS Build ID: 118719975
+Commit: ca8e764958f374bbb67ddadf326f536f239a96a3
 Ubuntu version: 
 Hyperv generation: V2
 Feature flags: None
