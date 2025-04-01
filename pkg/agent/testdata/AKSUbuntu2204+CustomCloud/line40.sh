@@ -433,11 +433,7 @@ setupCNIDirs() {
 installCNI() {
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://packages.aks.azure.com/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz"
-        return_code=$?
-        if [  $return_code != 0 ]; then
-            retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz"
-        fi
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
         tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
         return 
     fi
@@ -548,7 +544,6 @@ extractKubeBinaries() {
 }
 
 installKubeletKubectlAndKubeProxy() {
-    echo "testing: KUBE BINARY URL is: ${KUBE_BINARY_URL}"
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
     echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
@@ -575,7 +570,6 @@ installKubeletKubectlAndKubeProxy() {
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
-                echo "testing: the kube binary URL is: ${KUBE_BINARY_URL}"
             fi
         fi
     fi
