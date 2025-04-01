@@ -1,13 +1,7 @@
 #!/bin/bash
-<<<<<<< HEAD
 set -uo pipefail
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
-=======
-set -euo pipefail
-
-source /opt/azure/containers/provision_source.sh
->>>>>>> 9656979da8 (latest test data)
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
 BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
@@ -16,7 +10,6 @@ MAX_RETRIES=${CREDENTIAL_VALIDATION_MAX_RETRIES:-30}
 RETRY_DELAY_SECONDS=${CREDENTIAL_VALIDATION_RETRY_DELAY_SECONDS:-2}
 RETRY_TIMEOUT_SECONDS=${CREDENTIAL_VALIDATION_RETRY_TIMEOUT_SECONDS:-5}
 
-<<<<<<< HEAD
 logs_to_events() {
     local task=$1; shift
     local eventsFileName=$(date +%s%3N)
@@ -45,10 +38,13 @@ logs_to_events() {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 validate() {
 =======
 =======
 >>>>>>> 9656979da8 (latest test data)
+=======
+>>>>>>> d125047ba1 (latest test data)
 function validateBootstrapKubeconfig {
 >>>>>>> bf6b8e97dc (latest test data)
     local kubeconfig_path=$1
