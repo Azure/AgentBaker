@@ -174,7 +174,7 @@ function cleanup {
             if [ $kill_status -eq 0 ]; then
                 printf "Successfully sent SIGINT to localdns.\n"
             else
-                printf "Failed to send SIGINT to localdns. Exit status: $kill_status.\n"
+                printf "Failed to send SIGINT to localdns. Exit status: %s.\n" "$kill_status"
                 return $ERR_LOCALDNS_FAIL
             fi
 

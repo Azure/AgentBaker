@@ -153,16 +153,6 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
-LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
-LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
-LOCALDNS_SLICE_PATH="/etc/systemd/system/localdns.slice"
-AZURE_DNS_IP="168.63.129.16"
-LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
-LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
-LOCALDNS_SHUTDOWN_DELAY=5
-LOCALDNS_PID_FILE="/run/localdns.pid"
-COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
-
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
