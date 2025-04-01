@@ -12,6 +12,9 @@ set -euo pipefail
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
 
+# In addition, the e2e test framework reads a whole lot of environment variables.
+# These are defined in: e2e/config/config.go
+
 # First, login.
 az login --identity --username "${E2E_AGENT_IDENTITY_ID}"
 az account set -s "${E2E_SUBSCRIPTION_ID}"
