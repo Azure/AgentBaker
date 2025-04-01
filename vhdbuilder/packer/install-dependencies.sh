@@ -502,7 +502,21 @@ while IFS= read -r imageToBePulled; do
     done
   done
 done <<< "$ContainerImages"
-wait ${image_pids[@]}
+
+declare -a failed_images_pids=()
+for image_pid in "${image_pids[@]}"; do
+  wait $image_pid
+  image_exit_code=$?
+  if [ $image_exit_code -ne 0 ]; then
+    echo "container image pull process $image_pid exited with non-zero exit code: $image_exit_code"
+    failed_images_pids+=($image_pid)
+  fi
+done
+
+if [ ${#failed_images_pids[@]} -gt 0 ]; then
+  echo "${#failed_images_pids[@]} image pull processes exited with non-zero exit code"
+  exit 1
+fi
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
 watcherBaseImg=$(echo $watcher | jq -r .downloadURL)
