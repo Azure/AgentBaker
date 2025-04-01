@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -x
 
 vmssResourceIds=""
 for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
