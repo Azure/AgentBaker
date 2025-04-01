@@ -53,7 +53,7 @@ variables:
   - name: SUBSCRIPTION_ID
     value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
   - name: AZURE_BUILD_SUBSCRIPTION_ID
-    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
+    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0"
   - name: AZURE_RESOURCE_GROUP_NAME
     value: aksvhdtestbuildrg
 
