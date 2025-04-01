@@ -55,7 +55,7 @@ variables:
   - name: AZURE_BUILD_SUBSCRIPTION_ID
     value: "c4c3550e-a965-4993-a50c-628fd38cd3e1"
   - name: AZURE_E2E_RESOURCE_GROUP_NAME
-    value: akswinvhdbuilderrg
+    value: aksvhdtestbuildrg
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
