@@ -42,7 +42,7 @@ function ReplaceBaseUrl {
     [string]$packagesUrl
   )
 
-  if ($url.Contains("acs-mirror.azureedge.net") -and $packagesUrl = "packages.aks.azure.com")
+  if ($url.Contains("acs-mirror.azureedge.net") -and $packagesUrl -eq "packages.aks.azure.com")
   {
     $url = $url.Replace("acs-mirror.azureedge.net", $packagesUrl)
   }
