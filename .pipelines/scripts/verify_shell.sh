@@ -26,6 +26,7 @@ else
 fi
 
 filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -not -path './vendor/*' -not -path './hack/tools/vendor/*' -not -path './.git/*' -not -path './hack/tools/bin/shellspecsrc/*' -not -path './spec/parts/linux/cloud-init/artifacts/*')
+echo "Base list of files: $filesToCheck"
 
 # also shell-check generated test data
 generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
@@ -36,7 +37,7 @@ for file in $generatedTestData; do
         echo "Will check file $file"
         filesToCheck+=(${file})
     else
-         echo "Skipping file as wrong shell $file"
+         echo "Skipping file as wrong shell $file : firstLine: $firstLine"
     fi
 done
 
