@@ -151,10 +151,10 @@ if [ -z "$rg_id" ]; then
 fi
 
 if [ "$MODE" != "linuxVhdMode" ]; then
-	avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
+	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
 	if $avail ; then
 		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-		az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
+		az storage account create -n "$STORAGE_ACCOUNT_NAME" -g "$AZURE_RESOURCE_GROUP_NAME" --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
 		echo "creating new container system"
 		az storage container create --name system --account-name=$STORAGE_ACCOUNT_NAME --auth-mode login
 	else
@@ -215,7 +215,7 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 	echo "SIG existence checking for $MODE"
 
 	is_need_create=true
-	state=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} | jq -r '.provisioningState') || state=""
+	state=$(az sig show --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" | jq -r '.provisioningState') || state=""
 
 	# {
 	#   "description": null,
