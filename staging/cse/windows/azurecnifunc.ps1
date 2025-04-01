@@ -99,13 +99,6 @@ function Set-AzureCNIConfig
             Write-Log "SourcePortPreservationForHostPort is set to 0"
             Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name SourcePortPreservationForHostPort -Type DWORD -Value 0
         }
-        # Restart hns service if it is exsting and running, to make the system regkey change effective.
-        $hnsServiceName = 'hns'
-        $hnsService = Get-Service -Name $hnsServiceName -ErrorAction SilentlyContinue
-        if ($hnsService -and $hnsService.Status -eq 'Running') {
-            Write-Log "hns service is already running. Restart hns."
-            Restart-Service -Name $hnsServiceName
-        }
     } else {
         # Fill in DNS information for kubernetes.
         $exceptionAddresses = @()
@@ -166,6 +159,18 @@ function Set-AzureCNIConfig
             }
         }
     }
+
+    # Set the SDNRemoteArpMacAddress RegKey for HNS when AzureCNI is enabled
+    Write-Log "Setting SDNRemoteArpMacAddress to 12-34-56-78-9a-bc for HNS"
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name SDNRemoteArpMacAddress -Value "12-34-56-78-9a-bc"
+    # Restart hns service if it is exsting and running, to make the system regkey changes effective.
+    $hnsServiceName = 'hns'
+    $hnsService = Get-Service -Name $hnsServiceName -ErrorAction SilentlyContinue
+    if ($hnsService -and $hnsService.Status -eq 'Running') {
+        Write-Log "HNS service is already running. Restart HNS."
+        Restart-Service -Name $hnsServiceName
+    }
+    Write-Log "Done configuring HNS"
 
     if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"

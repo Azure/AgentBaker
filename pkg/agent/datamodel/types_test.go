@@ -1504,7 +1504,7 @@ func TestLinuxProfile(t *testing.T) {
 		},
 	}
 
-	if !(l.HasSecrets() && l.HasSearchDomain()) {
+	if !l.HasSecrets() || !l.HasSearchDomain() {
 		t.Fatalf("Expected HasSecrets() and HasSearchDomain() to return true")
 	}
 }
@@ -1566,7 +1566,7 @@ func TestWindowsProfile(t *testing.T) {
 		AlwaysPullWindowsPauseImage: to.BoolPtr(true),
 	}
 
-	if !(w.HasSecrets() && w.HasCustomImage()) {
+	if !w.HasSecrets() || !w.HasCustomImage() {
 		t.Fatalf("Expected HasSecrets() and HasCustomImage() to return true")
 	}
 
