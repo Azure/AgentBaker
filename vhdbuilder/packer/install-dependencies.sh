@@ -473,7 +473,7 @@ else
 fi
 echo "Limit for parallel container image pulls set to $parallel_container_image_pull_limit"
 
-declare -a image_pids=()
+declare -A image_pids=()
 
 ContainerImages=$(jq ".ContainerImages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 while IFS= read -r imageToBePulled; do
@@ -495,7 +495,7 @@ while IFS= read -r imageToBePulled; do
   for version in ${versions}; do
     CONTAINER_IMAGE=$(string_replace $downloadURL $version)
     pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
-    image_pids+=($!)
+    image_pids["$CONTAINER_IMAGE"]=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
       wait -n
@@ -503,18 +503,19 @@ while IFS= read -r imageToBePulled; do
   done
 done <<< "$ContainerImages"
 
-declare -a failed_images_pids=()
-for image_pid in "${image_pids[@]}"; do
+declare -a failed_images=()
+for container_image in "${!image_pids[@]}"; do
+  image_pid=${image_pids["$container_image"]}
   wait $image_pid
-  image_exit_code=$?
-  if [ $image_exit_code -ne 0 ]; then
-    echo "container image pull process $image_pid exited with non-zero exit code: $image_exit_code"
-    failed_images_pids+=($image_pid)
+  code=$?
+  if [ $code -ne 0 ]; then
+    echo "container image pull process for $container_image exited with non-zero exit code: $code"
+    failed_images+=("$container_image")
   fi
 done
 
-if [ ${#failed_images_pids[@]} -gt 0 ]; then
-  echo "${#failed_images_pids[@]} image pull processes exited with non-zero exit code"
+if [ ${#failed_images[@]} -gt 0 ]; then
+  echo "failed to pull the following container images: ${failed_images[*]}"
   exit 1
 fi
 
