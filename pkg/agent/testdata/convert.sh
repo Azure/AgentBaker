@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <test-case-data-folder>"
