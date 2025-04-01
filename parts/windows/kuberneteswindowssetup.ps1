@@ -209,7 +209,7 @@ Expand-Archive scripts.zip -DestinationPath "C:\\AzureData\\" -Force
 # util functions only can be used after this line, for example, Write-Log
 
 $global:OperationId = New-Guid
-$global:PACKAGE_DOWNLOAD_BASE_URL= ResolvePackagesSourceUrl()
+$global:PACKAGE_DOWNLOAD_BASE_URL= ResolvePackagesSourceUrl
 
 try
 {
@@ -225,6 +225,7 @@ try
     Write-Log "private egress proxy address is '$global:PrivateEgressProxyAddress'"
     # TODO update to use proxy
 
+    ReplaceBaseUrl $CSEScriptsPackageUrl $PACKAGE_DOWNLOAD_BASE_URL
     $WindowsCSEScriptsPackage = "aks-windows-cse-scripts-v0.0.51.zip"
     Write-Log "CSEScriptsPackageUrl is $global:CSEScriptsPackageUrl"
     Write-Log "WindowsCSEScriptsPackage is $WindowsCSEScriptsPackage"
@@ -288,6 +289,7 @@ try
 
     Install-CredentialProvider -KubeDir $global:KubeDir -CustomCloudContainerRegistryDNSSuffix {{if IsAKSCustomCloud}}"{{ AKSCustomCloudContainerRegistryDNSSuffix }}"{{else}}""{{end}} 
 
+    ReplaceBaseUrl $global:KubeBinariesPackageSASURL $PACKAGE_DOWNLOAD_BASE_URL
     Get-KubePackage -KubeBinariesSASURL $global:KubeBinariesPackageSASURL
     
     $cniBinPath = $global:AzureCNIBinDir
@@ -297,6 +299,7 @@ try
         $cniConfigPath = $global:CNIConfigPath
     }
 
+    ReplaceBaseUrl $global:ContainerdUrl $PACKAGE_DOWNLOAD_BASE_URL
     Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
     
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
@@ -373,6 +376,7 @@ try
     Get-HnsPsm1 -HNSModule $global:HNSModule
     Import-Module $global:HNSModule
     
+    ReplaceBaseUrl $global:VNetCNIPluginsURL $PACKAGE_DOWNLOAD_BASE_URL
     Install-VnetPlugins -AzureCNIConfDir $global:AzureCNIConfDir `
         -AzureCNIBinDir $global:AzureCNIBinDir `
         -VNetCNIPluginsURL $global:VNetCNIPluginsURL
@@ -430,12 +434,14 @@ try
 
     Enable-FIPSMode -FipsEnabled $fipsEnabled
     if ($global:WindowsGmsaPackageUrl) {
+        ReplaceBaseUrl $global:WindowsGmsaPackageUrl $PACKAGE_DOWNLOAD_BASE_URL
         Install-GmsaPlugin -GmsaPackageUrl $global:WindowsGmsaPackageUrl
     }
 
     Check-APIServerConnectivity -MasterIP $MasterIP
 
     if ($global:WindowsCalicoPackageURL) {
+        ReplaceBaseUrl $global:WindowsCalicoPackageURL $PACKAGE_DOWNLOAD_BASE_URL
         Start-InstallCalico -RootDir "c:\" -KubeServiceCIDR $global:KubeServiceCIDR -KubeDnsServiceIp $KubeDnsServiceIp
     }
 
