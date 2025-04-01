@@ -875,7 +875,8 @@ LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
 # This function is called in cse_main.sh. 
 # It checks if the localdns corefile exists and is not empty.
 # If the corefile exists and is not empty, it returns 0 - localdns should be enabled.
-# If the corefile does not exist or is empty, it returns 217 - localdns should not be enabled.
+# If the corefile does not exist or is empty, 
+# it returns ERR_LOCALDNS_COREFILE_NOTFOUND exit code - localdns should not be enabled.
 shouldEnableLocaldns() {
     if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
         echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
