@@ -375,6 +375,9 @@ downloadAzureCNI() {
     # So, we will get the URL passed from install-depenencies.sh which is actually from components.json
     # At node provisioning time, if AKS-RP sets the VNET_CNI_PLUGINS_URL, then we will use that.
     VNET_CNI_PLUGINS_URL=${2:-$VNET_CNI_PLUGINS_URL}
+    if [ $PACKAGES_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
+        VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"acs-mirror.azureedge.net"/$PACKAGES_DOWNLOAD_BASE_URL}"
+    fi
     if [[ -z "$VNET_CNI_PLUGINS_URL" ]]; then
         echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
         return
