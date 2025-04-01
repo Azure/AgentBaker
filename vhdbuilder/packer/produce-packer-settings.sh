@@ -517,9 +517,9 @@ fi
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
-  "subscription_id":  "${SUBSCRIPTION_ID}",
-  "build_subscription_id":  "${AZURE_BUILD_SUBSCRIPTION_ID}",
-  "sig_gallery_subscription_id":  "${SUBSCRIPTION_ID}",
+  "subscription_id": "${SUBSCRIPTION_ID}",
+  "build_subscription_id": "${AZURE_BUILD_SUBSCRIPTION_ID}",
+  "sig_gallery_subscription_id": "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",
