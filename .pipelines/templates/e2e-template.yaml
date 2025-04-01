@@ -24,76 +24,29 @@ jobs:
         fetchTags: false
         fetchDepth: 1
 
-      - bash: |
-          set -ex
-          az login --identity --username $(E2E_AGENT_IDENTITY_ID)
-          az account set -s $(E2E_SUBSCRIPTION_ID)
-          echo "Using subscription $(E2E_SUBSCRIPTION_ID) for e2e tests"
-        displayName: Azure login
-      - bash: bash .pipelines/scripts/setup_go.sh
-        displayName: Setup go
-      - bash: |
-          set -ex
-          LOGGING_DIR="scenario-logs-$(date +%s)"
-          echo "setting logging dir to $LOGGING_DIR"
-          echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
-        displayName: Set logging directory
-      - bash: |
-          set -e
-          export PATH="/usr/local/go/bin:$PATH"
-          go version
-          
-          echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-          echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: $IGNORE_SCENARIOS_WITH_MISSING_VHD"
-          echo "LOGGING_DIR: $LOGGING_DIR"
-
-          if [ -n "${VHD_BUILD_ID}" ]; then
-            echo "VHD_BUILD_ID is specified (${VHD_BUILD_ID}). Running tests using VHDs from that build"
-            export SIG_VERSION_TAG_NAME=buildId
-            export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
-          else
-            echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
-          fi
-          
-          cd e2e
-          mkdir -p bin
-          GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
-          # Yes, we build first. That's because the exit code from "go test" below is eaten by the go-junit-report command. So if there are build problems
-          # then the tests pass. Bah.
-          go build -mod=readonly ./...
-          go test -v -parallel 100 -timeout 90m 2>&1 | ./bin/go-junit-report -iocopy -set-exit-code -out "$(Build.SourcesDirectory)/e2e/report.xml"
+      - bash: bash .pipelines/scripts/e2e_run.sh
         displayName: Run AgentBaker E2E
         env:
+          E2E_AGENT_IDENTITY_ID: $(E2E_AGENT_IDENTITY_ID)
+          E2E_SUBSCRIPTION_ID: $(E2E_SUBSCRIPTION_ID)
+          BUILD_SRC_DIR: $(System.DefaultWorkingDirectory)
+          DefaultWorkingDirectory: $(Build.SourcesDirectory)
           VHD_BUILD_ID: $(VHD_BUILD_ID)
           LOGGING_DIR: $(LOGGING_DIR)
           IGNORE_SCENARIOS_WITH_MISSING_VHD: ${{parameters.IgnoreScenariosWithMissingVhd}}
-      # Without this step next step may fail on successful run
-      - bash: |
-          set -ex
-          mkdir -p "$(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)"
-        condition: always()
-        displayName: Create folder for scenario logs
+
       - task: PublishTestResults@2
         displayName: Upload test results
         condition: succeededOrFailed()
         inputs:
           testRunner: JUnit
           testResultsFiles: "$(Build.SourcesDirectory)/e2e/report.xml"
+
       - publish: $(System.DefaultWorkingDirectory)/e2e/$(LOGGING_DIR)
         artifact: $(LOGGING_DIR)
         condition: always()
         continueOnError: true
-      - bash: |
-          set -x
-          
-          vmssResourceIds=""
-          for vmssModel in e2e/scenario-logs/*/vmssId.txt; do
-            resourceId=$(cat ${vmssModel})
-            vmssResourceIds="${vmssResourceIds} ${resourceId}"
-          done
-          
-          if [ -n "${vmssResourceIds// }" ]; then
-            az resource delete --ids ${vmssResourceIds}
-          fi
+
+      - bash: bash .pipelines/scripts/e2e_delete_vmss.sh
         displayName: ensure vmss deletion
         condition: always()
