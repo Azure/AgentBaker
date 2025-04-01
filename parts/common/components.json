@@ -1252,8 +1252,7 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
-            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip",
-            "windowsPackagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/kubernetes/${version}/windowszip/${version}-1int.zip"
+            "windowsDownloadURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/kubernetes/${version}/windowszip/${version}-1int.zip"
           }
         }
       }
