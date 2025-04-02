@@ -514,8 +514,10 @@ function ResolvePackagesSourceUrl {
 
 function ReplaceBaseUrl {
   param (
-    [string]$url
-    [string]$packagesUrl
+    [Parameter(Mandatory=$true)][string]
+    $url,
+    [Parameter(Mandatory=$true)][string]
+    $packagesUrl
   )
 
   if ($url.Contains("acs-mirror.azureedge.net") -and $packagesUrl -eq "packages.aks.azure.com")
