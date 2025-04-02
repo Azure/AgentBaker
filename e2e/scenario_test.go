@@ -15,6 +15,33 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
+func Test_FlatcarTL(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Test Flatcar Gallery TL image",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDFlatcarGen2TL,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+			},
+			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+				vmss.Properties.VirtualMachineProfile.DiagnosticsProfile = &armcompute.DiagnosticsProfile{
+					BootDiagnostics: &armcompute.BootDiagnostics{
+						Enabled: to.Ptr(true),
+					},
+				}
+				vmss.Properties.VirtualMachineProfile.SecurityProfile = &armcompute.SecurityProfile{
+					SecurityType: to.Ptr(armcompute.SecurityTypesTrustedLaunch),
+					UefiSettings: &armcompute.UefiSettings{
+						SecureBootEnabled: to.Ptr(true),
+						VTpmEnabled:       to.Ptr(true),
+					},
+				}
+			},
+		},
+	})
+}
 func Test_Flatcar(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Test Flatcar image",

@@ -17,6 +17,12 @@ const (
 )
 
 var (
+	flatcarTestGallery = &Gallery{
+		SubscriptionID:    "d38033ba-ec21-470c-96cf-4c6db9658d8b",
+		ResourceGroupName: "flatcar-image-gallery-publishing",
+		Name:              "flatcartrusted",
+	}
+
 	imageGallery = &Gallery{
 		SubscriptionID:    Config.GallerySubscriptionIDLinux,
 		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
@@ -81,6 +87,14 @@ var (
 		Distro:  datamodel.AKSFlatcarArm64Gen2,
 		Gallery: flatcarArm64NotGallery,
 	}
+	VHDFlatcarGen2TL = &Image{
+		Name:    "flatcar-alpha-amd64",
+		OS:      OSFlatcar,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSFlatcarGen2TL,
+		Gallery: flatcarTestGallery,
+	}
+
 	VHDUbuntu1804Gen2Containerd = &Image{
 		Name:    "1804gen2containerd",
 		OS:      OSUbuntu,
@@ -256,7 +270,7 @@ func (i *Image) String() string {
 func (i *Image) ToImageRef(ctx context.Context, t *testing.T) *armcompute.ImageReference {
 	i.VHDResourceID(ctx, t)
 	switch {
-	case i.OS == OSFlatcar:
+	case i == NoVHDFlatcar || i == NoVHDFlatcarArm64:
 		return &armcompute.ImageReference{
 			Publisher: to.Ptr(i.Gallery.Publisher),
 			Offer:     to.Ptr(i.Gallery.Offer),
@@ -273,7 +287,7 @@ func (i *Image) ToImageRef(ctx context.Context, t *testing.T) *armcompute.ImageR
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
-		case i.OS == OSFlatcar:
+		case i == NoVHDFlatcar || i == NoVHDFlatcarArm64:
 			i.vhd = VHDResourceID(fmt.Sprintf("/Subscriptions/%s/Providers/Microsoft.Compute/Locations/%s/Publishers/%s/ArtifactTypes/VMImage/Offers/%s/Skus/%s/Versions/%s",
 				i.Gallery.SubscriptionID, i.Gallery.Location, i.Gallery.Publisher, i.Gallery.Offer, i.Gallery.SKU, i.Gallery.Version))
 			i.vhdErr = nil
