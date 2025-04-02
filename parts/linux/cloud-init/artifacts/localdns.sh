@@ -27,16 +27,15 @@ LOCALDNS_PID_FILE="/run/localdns.pid"
 # Path of coredns binary used by localdns.
 COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
 
+# Also defined in cse_helper file. Not sourcing the entire cse_helper file here.
+# These exit codes will be handled in cse_config file.
+ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
+ERR_LOCALDNS_BINARY_NOTFOUND=219 # Localdns binary not found.
+
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
-CSE_HELPERS_FILEPATH="/opt/azure/containers/provision_source.sh"
-if [ -f "${CSE_HELPERS_FILEPATH}" ]; then
-    source "${CSE_HELPERS_FILEPATH}"
-else
-    printf "Localdns requires provision_source file, but it does not exist at %s.\n" "${CSE_HELPERS_FILEPATH}"
-    exit 255
-fi
-
 # This file contains generated corefile used by localdns systemd unit.
 if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
     printf "Localdns corefile either does not exist or is empty at %s.\n" "${LOCALDNS_CORE_FILE}"
