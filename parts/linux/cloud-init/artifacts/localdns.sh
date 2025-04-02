@@ -36,11 +36,14 @@ ERR_LOCALDNS_BINARY_NOTFOUND=219 # Localdns binary not found.
 
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
-# This file contains generated corefile used by localdns systemd unit.
-if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-    printf "Localdns corefile either does not exist or is empty at %s.\n" "${LOCALDNS_CORE_FILE}"
-    exit $ERR_LOCALDNS_COREFILE_NOTFOUND
-fi
+verify_localdns_corefile() {
+    # This file contains generated corefile used by localdns systemd unit.
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        printf "Localdns corefile either does not exist or is empty at %s.\n" "${LOCALDNS_CORE_FILE}"
+        exit $ERR_LOCALDNS_COREFILE_NOTFOUND
+    fi
+}
+verify_localdns_corefile
 
 # This is slice file used by localdns systemd unit.
 if [ ! -f "${LOCALDNS_SLICE_PATH}" ]; then
