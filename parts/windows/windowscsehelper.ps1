@@ -71,6 +71,11 @@ $global:WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION=64
 $global:WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER = 65 # exit code for installing credential provider
 $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER=66 # exit code for downloading credential provider failure
 $global:WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG=67 # exit code for checking credential provider config failure
+$global:WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE=68
+$global:WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG=69 # exit code for looking up nodepool/VM tags via IMDS
+# WINDOWS_CSE_ERROR_MAX_CODE is only used in unit tests to verify whether new error code name is added in $global:ErrorCodeNames
+# Please use the current value of WINDOWS_CSE_ERROR_MAX_CODE as the value of the new error code and increment it by 1
+$global:WINDOWS_CSE_ERROR_MAX_CODE=70
 
 # Please add new error code for downloading new packages in RP code too
 $global:ErrorCodeNames = @(
@@ -141,15 +146,17 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_GET_CONTAINERD_VERSION",
     "WINDOWS_CSE_ERROR_INSTALL_CREDENTIAL_PROVIDER",
     "WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER",
-    "WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG"
+    "WINDOWS_CSE_ERROR_CREDENTIAL_PROVIDER_CONFIG",
+    "WINDOWS_CSE_ERROR_ADJUST_PAGEFILE_SIZE",
+    "WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG"
 )
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
-# DEPRECATED: The contianerd package url will be set in AKS RP code. We will remove the following variables in the future.
-$global:StableContainerdPackage = "v1.6.21-azure.1/binaries/containerd-v1.6.21-azure.1-windows-amd64.tar.gz"
+# Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
+$global:StableContainerdPackage = "v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
-$global:LatestContainerdPackage = "v1.7.9-azure.1/binaries/containerd-v1.7.9-azure.1-windows-amd64.tar.gz"
+$global:LatestContainerdPackage = "v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
 
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
@@ -176,7 +183,8 @@ function DownloadFileOverHttp {
     )
 
     # First check to see if a file with the same name is already cached on the VHD
-    $fileName = [IO.Path]::GetFileName($Url)
+    $cleanUrl = $Url.Split('?')[0]
+    $fileName = [IO.Path]::GetFileName($cleanUrl)
 
     $search = @()
     if (Test-Path $global:CacheDir) {
