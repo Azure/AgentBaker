@@ -44,7 +44,6 @@
               "image_version": "{{user `windows_sigmode_source_image_version`}}"
             },
             "shared_image_gallery_destination": {
-                "subscription": "{{user `sig_gallery_subscription_id`}}",
                 "resource_group": "{{user `resource_group_name`}}",
                 "gallery_name": "{{user `sig_gallery_name`}}",
                 "image_name": "{{user `sig_image_name`}}",
