@@ -134,6 +134,7 @@ if [[ "${MODE}" == "linuxVhdMode" && "${DRY_RUN,,}" == "true" ]]; then
     echo "specified image-definition ${AZURE_RESOURCE_GROUP_NAME}/${SIG_GALLERY_NAME}/${SIG_IMAGE_NAME} does not exist, will not delete SIG image version"
   fi
 fi
+capture_benchmark "${SCRIPT_NAME}_dry_run_deletion"
 
 # attempt to clean up managed images and associated SIG versions created over a week ago
 if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY_RUN,,}" == "false" ]]; then
@@ -154,6 +155,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   else
     echo "Did not find any managed images eligible for deletion"
   fi
+  capture_benchmark "${SCRIPT_NAME}_managed_image_deletion"
 
   if [[ -n "${sig_version_ids}" ]]; then
     echo "Attempting to delete $(echo ${sig_version_ids} | wc -w) SIG image versions associated with old managed images..."
@@ -161,6 +163,7 @@ if [[ "${MODE}" == "linuxVhdMode" && -n "${AZURE_RESOURCE_GROUP_NAME}" && "${DRY
   else
     echo "Did not find any SIG versions associated with old managed images eligible for deletion"
   fi
+  capture_benchmark "${SCRIPT_NAME}_delete_sig_versions"
 
   old_sig_version_ids=""
   # we limit deletion to 15 SIG image versions per image definition
