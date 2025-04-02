@@ -4,12 +4,12 @@ go 1.23.0
 
 require (
 	github.com/Azure/go-autorest/autorest/to v0.4.1
-	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/handlers v1.5.2
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.36.3
 	github.com/pkg/errors v0.9.1
