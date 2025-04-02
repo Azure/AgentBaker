@@ -476,11 +476,12 @@ function Logs-To-Event {
 
 function ResolvePackagesSourceUrl {
   param (
-    [string]$url
-    [int]$maxAttempts = 5
+    [Parameter(Mandatory=$true)][string]
+    $url
   )
 
   $attempt = 0
+  $maxAttempts = 5
   $PACKAGE_DOWNLOAD_BASE_URL=""
 
   while ($attempt -lt $maxAttempts) 
