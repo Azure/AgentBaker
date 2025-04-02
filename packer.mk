@@ -105,9 +105,6 @@ generate-publishing-info: az-login
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
 
-test-building-vhd: az-login
-	@./vhdbuilder/packer/test/run-test.sh
-
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh
 
