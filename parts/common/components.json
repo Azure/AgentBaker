@@ -280,7 +280,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.44"
+          "latestVersion": "v1.5.45"
         }
       ],
       "windowsVersions": []
