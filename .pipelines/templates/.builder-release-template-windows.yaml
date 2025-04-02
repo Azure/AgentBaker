@@ -56,7 +56,7 @@ steps:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
-  - bash: bash ./pipelines/scripts/windows_build_vhd.sh
+  - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Validate Source Branch
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
