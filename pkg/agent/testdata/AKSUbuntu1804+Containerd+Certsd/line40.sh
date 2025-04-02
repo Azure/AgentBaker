@@ -560,7 +560,6 @@ extractKubeBinaries() {
 }
 
 installKubeletKubectlAndKubeProxy() {
-    echo "testing: KUBE BINARY URL is: ${KUBE_BINARY_URL}"
     CUSTOM_KUBE_BINARY_DOWNLOAD_URL="${CUSTOM_KUBE_BINARY_URL:=}"
     PRIVATE_KUBE_BINARY_DOWNLOAD_URL="${PRIVATE_KUBE_BINARY_URL:=}"
     echo "using private url: ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL}, custom url: ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL}"
@@ -590,7 +589,6 @@ installKubeletKubectlAndKubeProxy() {
                     KUBE_BINARY_URL="${KUBE_BINARY_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
                 fi
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
-                echo "testing: the kube binary URL is: ${KUBE_BINARY_URL}"
             fi
         fi
     fi
