@@ -804,8 +804,7 @@
                 "previousLatestVersion": "Prev"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/win-cse-scripts-v${version}.zip",
-            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/win-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -828,8 +827,7 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
-            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           },
           "ws2022": {
             "versionsV2": [
@@ -843,8 +841,7 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
-            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           },
           "default": {
             "versionsV2": [
@@ -854,8 +851,7 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz",
-            "packagesURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/win-cse-scripts-v${version}.zip"
+            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           }
         },
         "default": {
@@ -886,7 +882,7 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
-            "windowsDownloadURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/kubernetes/${version}/windowszip/${version}-1int.zip"
+            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip"
           }
         }
       }

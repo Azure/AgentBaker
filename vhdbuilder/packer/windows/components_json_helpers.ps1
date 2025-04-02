@@ -1,5 +1,3 @@
-# This variable is also defined in configure-windows-vhd.ps1
-$global:PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
 
 function SafeReplaceString {
     Param(
@@ -8,7 +6,7 @@ function SafeReplaceString {
     )
 
     $stringToReplace = &{
-        Clear-Variable -Name * -Exclude PACKAGE_DOWNLOAD_BASE_URL,version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
+        Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
         $executionContext.InvokeCommand.ExpandString($stringToReplace)
     }
 
@@ -120,14 +118,7 @@ function GetPackagesFromComponentsJson
             }
         }
 
-        if ($part.packagesURL -ne $null)
-        {
-            $downloadUrl = $part.packagesUrl
-        }
-        else
-        {
-            $downloadUrl = $part.windowsDownloadUrl
-        }
+        $downloadUrl = $part.windowsDownloadUrl
         $items = $part.versionsV2
 
         # no specific windows download url means fall back to regular windows spots.
