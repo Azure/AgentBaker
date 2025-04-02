@@ -96,7 +96,6 @@ generate-kubelet-flags:
 .PHONY: generate-manifest
 generate-manifest:
 	./hack/tools/bin/cue export ./schemas/manifest.cue > ./parts/linux/cloud-init/artifacts/manifest.json
-	@echo "#EOF" >> ./parts/linux/cloud-init/artifacts/manifest.json
 
 .PHONY: generate-testdata
 generate-testdata:
