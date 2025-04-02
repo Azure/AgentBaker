@@ -172,6 +172,9 @@ func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distr
 	if imageConfig, ok := sigConfig.SigUbuntuEdgeZoneImageConfig[distro]; ok {
 		return &imageConfig
 	}
+	if imageConfig, ok := sigConfig.SigFlatcarContainerLinuxImageConfig[distro]; ok {
+		return &imageConfig
+	}
 
 	return nil
 }

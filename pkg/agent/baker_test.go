@@ -915,6 +915,10 @@ testdomain567.com:53 {
 						GalleryName:   "AKSUbuntuEdgeZone",
 						ResourceGroup: "AKS-Ubuntu-EdgeZone",
 					},
+					"AKSFlatcarContainerLinux": {
+						GalleryName:   "aksflatcarcontainerlinux",
+						ResourceGroup: "resourcegroup",
+					},
 				},
 			},
 		}
@@ -2530,6 +2534,10 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 					"AKSUbuntuEdgeZone": {
 						GalleryName:   "AKSUbuntuEdgeZone",
 						ResourceGroup: "AKS-Ubuntu-EdgeZone",
+					},
+					"AKSFlatcarContainerLinux": {
+						GalleryName:   "aksflatcarcontainerlinux",
+						ResourceGroup: "resourcegroup",
 					},
 				},
 			},

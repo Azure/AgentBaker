@@ -16,14 +16,15 @@ const (
 /* TODO(tonyxu) merge this with AzureEnvironmentSpecConfig from aks-engine(pkg/api/azenvtypes.go) once
 it's moved into AKS RP. */
 type SIGAzureEnvironmentSpecConfig struct {
-	CloudName                    string                    `json:"cloudName,omitempty"`
-	SigTenantID                  string                    `json:"sigTenantID,omitempty"`
-	SubscriptionID               string                    `json:"subscriptionID,omitempty"`
-	SigUbuntuImageConfig         map[Distro]SigImageConfig `json:"sigUbuntuImageConfig,omitempty"`
-	SigCBLMarinerImageConfig     map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
-	SigAzureLinuxImageConfig     map[Distro]SigImageConfig `json:"sigAzureLinuxImageConfig,omitempty"`
-	SigWindowsImageConfig        map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
-	SigUbuntuEdgeZoneImageConfig map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
+	CloudName                           string                    `json:"cloudName,omitempty"`
+	SigTenantID                         string                    `json:"sigTenantID,omitempty"`
+	SubscriptionID                      string                    `json:"subscriptionID,omitempty"`
+	SigUbuntuImageConfig                map[Distro]SigImageConfig `json:"sigUbuntuImageConfig,omitempty"`
+	SigCBLMarinerImageConfig            map[Distro]SigImageConfig `json:"sigCBLMarinerImageConfig,omitempty"`
+	SigAzureLinuxImageConfig            map[Distro]SigImageConfig `json:"sigAzureLinuxImageConfig,omitempty"`
+	SigWindowsImageConfig               map[Distro]SigImageConfig `json:"sigWindowsImageConfig,omitempty"`
+	SigUbuntuEdgeZoneImageConfig        map[Distro]SigImageConfig `json:"sigUbuntuEdgeZoneImageConfig,omitempty"`
+	SigFlatcarContainerLinuxImageConfig map[Distro]SigImageConfig `json:"sigFlatcarContainerLinuxImageConfig,omitempty"`
 	// TODO(adadilli) add PIR constants as well
 }
 
@@ -797,6 +798,14 @@ var (
 		Version:       FrozenCBLMarinerV2KataGen2TLSIGImageVersion,
 	}
 
+	SIGFlatcarGen2TLImageConfigTemplate = SigImageConfigTemplate{
+		ResourceGroup: "flatcar-image-gallery-publishing",
+		Gallery:       "flatcartrusted",
+		Definition:    "flatcar-alpha-amd64",
+		// Version: 4284.0.0
+		Version: LinuxSIGImageVersion,
+	}
+
 	SIGWindows2019ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSWindowsResourceGroup,
 		Gallery:       AKSWindowsGalleryName,
@@ -952,6 +961,12 @@ func getSigAzureLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distr
 	}
 }
 
+func getSigFlatcarContainerLinuxImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
+	return map[Distro]SigImageConfig{
+		AKSFlatcarGen2TL: SIGFlatcarGen2TLImageConfigTemplate.WithOptions(opts...),
+	}
+}
+
 func getSigWindowsImageConfigMapWithOpts(opts ...SigImageConfigOpt) map[Distro]SigImageConfig {
 	return map[Distro]SigImageConfig{
 		AKSWindows2019:               SIGWindows2019ImageConfigTemplate.WithOptions(opts...),
@@ -1034,6 +1049,13 @@ func GetSIGAzureCloudSpecConfig(sigConfig SIGConfig, region string) (SIGAzureEnv
 		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSAzureLinux: %w", err)
 	}
 	c.SigAzureLinuxImageConfig = getSigAzureLinuxImageConfigMapWithOpts(fromACSAzureLinux)
+
+	fromACSFlatcarContainerLinux, err := withACSSIGConfig(sigConfig, "AKSFlatcarContainerLinux")
+	if err != nil {
+		panic(fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcarContainerLinux: %w", err))
+		return SIGAzureEnvironmentSpecConfig{}, fmt.Errorf("unexpected error while constructing env-aware sig configuration for AKSFlatcarContainerLinux: %w", err)
+	}
+	c.SigFlatcarContainerLinuxImageConfig = getSigFlatcarContainerLinuxImageConfigMapWithOpts(fromACSFlatcarContainerLinux)
 
 	fromACSWindows, err := withACSSIGConfig(sigConfig, "AKSWindows")
 	if err != nil {
