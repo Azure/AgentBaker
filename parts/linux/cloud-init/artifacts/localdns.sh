@@ -188,9 +188,6 @@ function cleanup {
                 return "$ERR_LOCALDNS_FAIL"
             fi
         fi
-    else
-        printf "COREDNS_PID is not set or invalid.\n"
-        return $ERR_LOCALDNS_FAIL
     fi
 
     # Delete the dummy interface if present.
