@@ -56,6 +56,11 @@ steps:
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
 
+  - bash: make -f packer.mk az-login
+    displayName: AZ Login
+    env:
+      MODE: "windowsVhdMode"
+
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
     env:
@@ -103,8 +108,8 @@ steps:
       echo "ARCHITECTURE: ${{ parameters.architecture }}"
       
       echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
-
-      make -f packer.mk test-building-vhd
+  
+      ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
     enabled: true
     env:
