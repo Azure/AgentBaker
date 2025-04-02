@@ -61,7 +61,6 @@ steps:
     env:
       WINDOWS_SKU: ${{ parameters.windowsSku }}
       BRANCH: $(Build.SourceBranch)
-      MODE: $(MODE)
       POOL_NAME: $(AZURE_POOL_NAME)
       SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
       AZURE_BUILD_SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)

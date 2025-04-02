@@ -41,8 +41,10 @@ if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
   fi
 else
   echo "This is a test build triggered from the test pipeline"
-  echo "##vso[task.setvariable variable=DRY_RUN]True";
+  export DRY_RUN=True
 fi
+
+echo "##vso[task.setvariable variable=DRY_RUN]True";
 
 # This next segment sets build variables - most importantly the VHD name and version we're building.
 # Merge gen1, gen2, and sig modes into one mode for Windows VHD builds - use sig only.
@@ -53,27 +55,26 @@ fi
 #     Task variable SIG_FOR_PRODUCTION is set to True and passed to the following steps.
 #     Built sig will be deleted because it has been converted to VHD, and thus not needed.
 
-m="windowsVhdMode"
-echo "Set build mode to $m"
-echo "##vso[task.setvariable variable=MODE]$m"
+export MODE="windowsVhdMode"
+echo "Set build mode to $MODE"
+echo "##vso[task.setvariable variable=MODE]$MODE"
 
 echo "Original SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "Original SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX}"
 echo "Original SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
-
 # -n is "not empty"
 if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then
     echo "All of Name, Prefix, and Version have been set"
-    SIG_IMAGE_NAME="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
+    export SIG_IMAGE_NAME="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
     echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
 else
     echo "At least on of the name, prefix or version are empty. Overwriting all values. "
-    SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM"
-    SIG_IMAGE_NAME="aks-windows-${WINDOWS_SKU}"
-    SIG_GALLERY_NAME="WSGallery$(date +"%y%m%d")"
-    SIG_GALLERY_NAME="PackerSigGalleryEastUS"
+    export SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM"
+    export SIG_IMAGE_NAME="aks-windows-${WINDOWS_SKU}"
+    export SIG_GALLERY_NAME="WSGallery$(date +"%y%m%d")"
+    export SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 
-    WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
+    export WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
 
     # This enables the VHD to be uploaded to a classic storage account if DRY_RUN is false.
     echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
@@ -88,12 +89,12 @@ else
     echo "The release date ${RELEASE_DATE} is not valid date. Release date format: YYMMDD."
     exit 1
   fi
-  BUILD_DATE=${RELEASE_DATE}
+  export BUILD_DATE=${RELEASE_DATE}
 fi
 echo "Default BUILD_DATE is $BUILD_DATE"
 if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then
   echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"
-  BUILD_DATE=${CUSTOM_BUILD_DATE}
+  export BUILD_DATE=${CUSTOM_BUILD_DATE}
 fi
 
 echo "Modified SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
