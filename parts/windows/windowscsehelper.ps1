@@ -476,8 +476,7 @@ function Logs-To-Event {
 
 function ResolvePackagesSourceUrl {
   param (
-    [Parameter(Mandatory=$true)][string]
-    $url
+    [Parameter(Mandatory=$true)][string]$url
   )
 
   $attempt = 0
