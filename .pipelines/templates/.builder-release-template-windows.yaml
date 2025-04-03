@@ -60,6 +60,7 @@ steps:
     displayName: AZ Login
     env:
       MODE: "windowsVhdMode"
+      SUBSCRIPTION_ID: $(SUBSCRIPTION_ID)
 
   - bash: bash ./.pipelines/scripts/windows_build_vhd.sh
     displayName: Build and save VHD
