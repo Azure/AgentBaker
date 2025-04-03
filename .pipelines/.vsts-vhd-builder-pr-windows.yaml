@@ -37,7 +37,7 @@ pr:
       - e2e/scenario_test.go
 
 pool:
-  name: $(NODE_SIG_TEST_POOL_NAME)
+  name: $(AZURE_POOL_NAME)
 
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
@@ -51,9 +51,9 @@ variables:
 #  - name: E2E_SUBSCRIPTION_ID
 #    # value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
 #    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
-  - name: SUBSCRIPTION_ID
+#  - name: SUBSCRIPTION_ID
     # value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
-    value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
+#    value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
     #value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
 #  - name: AZURE_BUILD_SUBSCRIPTION_ID
 #    # value: "109a5e88-712a-48ae-9078-9ca8b3c81345" #  AZURE_PROD_SUBSCRIPTION_ID (401)
