@@ -21,11 +21,12 @@ var (
 		Name:              Config.GalleryNameLinux,
 	}
 
-	windowsGallery = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDWindows,
-		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-		Name:              Config.GalleryNameWindows,
-	}
+	windowsGallery = linuxGallery
+	//&Gallery{
+	//	SubscriptionID:    Config.GallerySubscriptionIDWindows,
+	//	ResourceGroupName: Config.GalleryResourceGroupNameWindows,
+	//	Name:              Config.GalleryNameWindows,
+	//}
 )
 
 type Gallery struct {
@@ -144,7 +145,6 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -153,7 +153,6 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022Containerd,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -162,7 +161,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -171,7 +169,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -180,7 +177,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -189,7 +185,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 
@@ -198,7 +193,6 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
-		Latest:  true,
 		Gallery: windowsGallery,
 	}
 )
@@ -212,7 +206,6 @@ type Image struct {
 	OS      OS
 	Version string
 	Gallery *Gallery
-	Latest  bool // a hack to get the latest version of the image for windows, currently windows images are not tagged
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once
@@ -227,19 +220,43 @@ func (i *Image) String() string {
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
-		case i.Latest:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, "", "")
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
+			if i.vhd != "" {
+				t.Logf("Got image by version: %s", i.azurePortalImageVersionUrl())
+			}
 		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			if i.vhd != "" {
+				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			} else {
+				t.Logf("Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+			}
 		}
 		if i.vhdErr != nil {
-			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image version for %s", i.vhdErr)
+			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.azurePortalImageUrl(), Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 		}
 	})
 	return i.vhd, i.vhdErr
+}
+
+func (i *Image) azurePortalImageUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+	)
+}
+
+func (i *Image) azurePortalImageVersionUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/versions/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+		i.Version,
+	)
 }
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically

@@ -24,7 +24,7 @@ pr:
       - vhdbuilder/packer/cleanup.sh
       - vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
       - vhdbuilder/packer/generate-vhd-publishing-info.sh
-      - vhdbuilder/packer/init-variables.sh
+      - vhdbuilder/packer/produce-packer-settings.sh
       - vhdbuilder/packer/windows/
       - parts/common/components.json
       - parts/windows
@@ -41,9 +41,32 @@ pool:
 
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
-  VHD_BUILD_ID: $(Build.BuildId)
-  LOCATION: $(PACKER_BUILD_LOCATION)
-  POOL_NAME: $(AZURE_POOL_NAME)
+  - name: VHD_BUILD_ID
+    value: $(Build.BuildId)
+  - name: LOCATION
+    value: $(PACKER_BUILD_LOCATION)
+  - name: POOL_NAME
+    value: $(AZURE_POOL_NAME)
+
+# TODO - move this to variables rather than being in code
+#  - name: E2E_SUBSCRIPTION_ID
+#    # value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
+#    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
+
+  - name: SUBSCRIPTION_ID
+    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+#     value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
+#    value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
+#    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
+
+
+#  - name: AZURE_BUILD_SUBSCRIPTION_ID
+#    # value: "109a5e88-712a-48ae-9078-9ca8b3c81345" #  AZURE_PROD_SUBSCRIPTION_ID (401)
+#    # value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
+#    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
+#    # value: "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" # AZURE_E2E_SUBSCRIPTION_ID
+  - name: AZURE_RESOURCE_GROUP_NAME
+    value:  $(AZURE_BUILD_RESOURCE_GROUP_NAME)
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -55,12 +78,12 @@ stages:
       vhddebug: False
       dryrun: False
       buildVmSize: Standard_D4ds_v5
-      build2019containerd: True
+      build2019containerd: False
       build2022containerd: False
-      build2022containerdgen2: True
-      build23H2: False
-      build23H2gen2: True
+      build2022containerdgen2: False
+      build23H2: True
+      build23H2gen2: False
       overrideBranch: master
       useOverrides: False
       build2025: False
-      build2025gen2: True
+      build2025gen2: False

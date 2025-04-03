@@ -52,24 +52,6 @@ else
 endif
 endif
 
-build-packer-windows:
-ifeq (${MODE},windowsVhdMode)
-ifeq (${SIG_FOR_PRODUCTION},True)
-ifeq (${HYPERV_GENERATION},V1)
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Classic Storage Account"
-else
-	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Classic Storage Account"
-endif
-else
-ifeq (${HYPERV_GENERATION},V1)
-	@echo "${MODE}: Building with Hyper-v generation 1 VM and save to Shared Image Gallery"
-else
-	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
-endif
-endif
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
-endif
-
 az-login:
 ifeq (${MODE},windowsVhdMode)
 ifeq ($(origin MANAGED_IDENTITY_ID), undefined)
@@ -87,13 +69,10 @@ endif
 	@az account set -s ${SUBSCRIPTION_ID}
 
 init-packer:
-	@./vhdbuilder/packer/init-variables.sh
+	@./vhdbuilder/packer/produce-packer-settings.sh
 
 run-packer: az-login
 	@packer init ./vhdbuilder/packer/linux-packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer | tee -a packer-output)
-
-run-packer-windows: az-login
-	@packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl && packer version && ($(MAKE) -f packer.mk init-packer | tee packer-output) && ($(MAKE) -f packer.mk build-packer-windows | tee -a packer-output)
 
 cleanup: az-login
 	@./vhdbuilder/packer/cleanup.sh
@@ -107,9 +86,6 @@ generate-publishing-info: az-login
 
 convert-sig-to-classic-storage-account-blob: az-login
 	@./vhdbuilder/packer/convert-sig-to-classic-storage-account-blob.sh
-
-test-building-vhd: az-login
-	@./vhdbuilder/packer/test/run-test.sh
 
 scanning-vhd: az-login
 	@./vhdbuilder/packer/vhd-scanning.sh

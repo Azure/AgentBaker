@@ -5,26 +5,7 @@
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
       "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2019",
-          "windowsSkuMatch": "2019-containerd"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2022",
-          "windowsSkuMatch": "2022-containerd*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2022",
-          "windowsSkuMatch": "23H2*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2022",
-          "windowsSkuMatch": "2025*"
-        }
+
       ]
     },
     {
@@ -70,18 +51,7 @@
       "downloadURL": "mcr.microsoft.com/windows/servercore/iis:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
-      "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
-          "latestVersion": "windowsservercore-ltsc2022",
-          "windowsSkuMatch": "2022-containerd*"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
-          "latestVersion": "windowsservercore-ltsc2022",
-          "windowsSkuMatch": "23H2*"
-        }
-      ]
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
@@ -187,10 +157,6 @@
       "downloadURL": "mcr.microsoft.com/containernetworking/azure-cns:*",
       "amd64OnlyVersions": [],
       "windowsVersions": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.4.59"
-        },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
           "latestVersion": "v1.5.44"
@@ -361,18 +327,7 @@
         }
       ],
       "windowsVersions": [
-        {
-          "comment": "ciprod isn't supported on Win23H2 so is excluded as it makes the VHD too large",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.25",
-          "windowsSkuMatch": "2022*"
-        },
-        {
-          "comment": "ciprod isn't supported on Win23H2 so is excluded as it makes the VHD too large",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.25",
-          "windowsSkuMatch": "2019*"
-        }
+
       ]
     },
     {
@@ -608,16 +563,6 @@
       "downloadURL": "mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.14.0"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.15.0"
-        }
-      ],
-      "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/livenessprobe",
           "latestVersion": "v2.14.0"
