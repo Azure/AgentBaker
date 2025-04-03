@@ -587,6 +587,7 @@ installKubeletKubectlAndKubeProxy() {
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
                 if [  $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
                     KUBE_BINARY_URL="${KUBE_BINARY_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
+                    echo "Kube Binary URL is: $KUBE_BINARY_URL"
                 fi
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
