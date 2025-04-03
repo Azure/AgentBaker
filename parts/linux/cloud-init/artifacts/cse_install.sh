@@ -642,7 +642,7 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                if [  $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ]; then
+                if [  $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [  $KUBE_BINARY_URL == *"acs-mirror.azureedge.net" ]; then
                     echo "Node provided with acs-mirror.azureedge.net as base URL, but established connectivity to packages.aks.azure.com. Setting base URL to packages.aks.azure.com"
                     KUBE_BINARY_URL="${KUBE_BINARY_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
                 else [  $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [  $KUBE_BINARY_URL == *"packages.aks.azure.com" ]; then
