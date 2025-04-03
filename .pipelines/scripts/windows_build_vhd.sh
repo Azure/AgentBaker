@@ -111,7 +111,16 @@ echo "##vso[task.setvariable variable=DRY_RUN]${DRY_RUN}"
 
 # Finally, we invoke packer to build the VHD.
 make -f packer.mk az-login
-packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl | tee -a packer-output
-packer version | tee -a packer-output
-./vhdbuilder/packer/produce-packer-settings.sh | tee -a packer-output
-packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
+packer version
+./vhdbuilder/packer/produce-packer-settings.sh
+packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json | tee -a packer-output
+
+export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
+export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
+
+echo "Found OS_DISK_URI: ${OS_DISK_URI}"
+echo "Found MANAGED_SIG_ID: ${MANAGED_SIG_ID}"
+
+echo "##vso[task.setvariable variable=OS_DISK_URI]${OS_DISK_URI}"
+echo "##vso[task.setvariable variable=MANAGED_SIG_ID]${MANAGED_SIG_ID}"
