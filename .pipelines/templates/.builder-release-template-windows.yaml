@@ -99,8 +99,6 @@ steps:
   
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
-      # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
-      export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
       
@@ -112,8 +110,6 @@ steps:
     displayName: Run VHD cache test
     enabled: true
     env:
-      SUBSCRIPTION_ID: $(AZURE_BUILD_SUBSCRIPTION_ID)
-      AZURE_RESOURCE_GROUP_NAME: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       WINDOWS_SKU: ${{ parameters.windowsSku }}
       SKIP_EXTENSION_CHECK: ${{ parameters.skipExtensionCheck }}
