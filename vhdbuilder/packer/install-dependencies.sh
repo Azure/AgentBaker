@@ -31,16 +31,17 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 
 echo ""
 echo "Components downloaded in this VHD build (some of the below components might get deleted during cluster provisioning if they are not needed):" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_declare_variables_and_source_packer_files"
+capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "${UBUNTU_RELEASE}" == "20.04" ]] && [[ "$IMG_SKU" == "20_04-lts-cvm" ]]; then
+if [[ "$OS" == "$UBUNTU_OS_NAME" ]] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then 
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
+capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
   # disable and mask all UU timers/services
@@ -56,29 +57,27 @@ APT::Periodic::AutocleanInterval "0";
 APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
-capture_benchmark "${SCRIPT_NAME}_purge_and_reinstall_ubuntu"
 
-installDeps
 # If the IMG_SKU does not contain "minimal", installDeps normally
-#if [[ "$IMG_SKU" != *"minimal"* ]]; then
-#  installDeps
-#else
-#  updateAptWithMicrosoftPkg
-#  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
-#  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
-#  BLOBFUSE2_VERSION="2.3.2"
-#  if [ "${OS_VERSION}" == "18.04" ]; then
-#    # keep legacy version on ubuntu 18.04
-#    BLOBFUSE2_VERSION="2.2.0"
-#  fi
-#  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
-#  for apt_package in ${required_pkg_list[*]}; do
-#      if ! apt_get_install 30 1 600 $apt_package; then
-#          journalctl --no-pager -u $apt_package
-#          exit $ERR_APT_INSTALL_TIMEOUT
-#      fi
-#  done
-#fi
+if [[ "$IMG_SKU" != *"minimal"* ]]; then
+  installDeps
+else
+  updateAptWithMicrosoftPkg
+  # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
+  # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
+  BLOBFUSE2_VERSION="2.4.1"
+  if [ "${OS_VERSION}" == "18.04" ]; then
+    # keep legacy version on ubuntu 18.04
+    BLOBFUSE2_VERSION="2.2.0"
+  fi
+  required_pkg_list=("blobfuse2="${BLOBFUSE2_VERSION} fuse3)
+  for apt_package in ${required_pkg_list[*]}; do
+      if ! apt_get_install 30 1 600 $apt_package; then
+          journalctl --no-pager -u $apt_package
+          exit $ERR_APT_INSTALL_TIMEOUT
+      fi
+  done
+fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
@@ -100,7 +99,7 @@ SystemMaxUse=1G
 RuntimeMaxUse=1G
 ForwardToSyslog=yes
 EOF
-capture_benchmark "${SCRIPT_NAME}_install_dependencies"
+capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
 if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
@@ -108,10 +107,6 @@ if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
 fi
 
 if [[ $(isARM64) == 1 ]]; then
-  if [[ ${ENABLE_FIPS,,} == "true" ]]; then
-    echo "No FIPS support on arm64, exiting..."
-    exit 1
-  fi
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
@@ -129,7 +124,7 @@ if ! isMarinerOrAzureLinux "$OS"; then
   overrideNetworkConfig || exit 1
   disableNtpAndTimesyncdInstallChrony || exit 1
 fi
-capture_benchmark "${SCRIPT_NAME}_check_container_runtime_and_network_configurations"
+capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu_net_config"
 
 CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
 mkdir -p "${CONTAINERD_SERVICE_DIR}"
@@ -144,13 +139,69 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
+capture_benchmark "${SCRIPT_NAME}_set_ip_forwarding"
 
 echo "set read ahead size to 15380 KB"
 AWK_PATH=$(command -v awk)
 cat > /etc/udev/rules.d/99-nfs.rules <<EOF
 SUBSYSTEM=="bdi", ACTION=="add", PROGRAM="$AWK_PATH -v bdi=\$kernel 'BEGIN{ret=1} {if (\$4 == bdi){ret=0}} END{exit ret}' /proc/fs/nfsfs/volumes", ATTR{read_ahead_kb}="15380"
 EOF
+
+echo "install udev rules for v6 vm sku"
+cat > /etc/udev/rules.d/80-azure-disk.rules <<EOF
+ACTION!="add|change", GOTO="azure_disk_end"
+SUBSYSTEM!="block", GOTO="azure_disk_end"
+
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk", GOTO="azure_disk_nvme_direct_v1"
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="Microsoft NVMe Direct Disk v2", GOTO="azure_disk_nvme_direct_v2"
+KERNEL=="nvme*", ATTRS{nsid}=="?*", ENV{ID_MODEL}=="MSFT NVMe Accelerator v1.0", GOTO="azure_disk_nvme_remote_v1"
+ENV{ID_VENDOR}=="Msft", ENV{ID_MODEL}=="Virtual_Disk", GOTO="azure_disk_scsi"
+GOTO="azure_disk_end"
+
+LABEL="azure_disk_scsi"
+ATTRS{device_id}=="?00000000-0000-*", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_symlink"
+ENV{DEVTYPE}=="partition", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/../device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
+ENV{DEVTYPE}=="disk", PROGRAM="/bin/sh -c 'readlink /sys/class/block/%k/device|cut -d: -f4'", ENV{AZURE_DISK_LUN}="\$result"
+ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="0", ENV{AZURE_DISK_TYPE}="os", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781b-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781c-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781d-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_TYPE}="data", GOTO="azure_disk_symlink"
+
+# Use "resource" type for local SCSI because some VM skus offer NVMe local disks in addition to a SCSI resource disk, e.g. LSv3 family.
+# This logic is already in walinuxagent rules but we duplicate it here to avoid an unnecessary dependency for anyone requiring it.
+ATTRS{device_id}=="?00000000-0001-*", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+ATTRS{device_id}=="{f8b3781a-1e82-4818-a1c3-63d806ec15bb}", ENV{AZURE_DISK_LUN}=="1", ENV{AZURE_DISK_TYPE}="resource", ENV{AZURE_DISK_LUN}="", GOTO="azure_disk_symlink"
+GOTO="azure_disk_end"
+
+LABEL="azure_disk_nvme_direct_v1"
+LABEL="azure_disk_nvme_direct_v2"
+ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="local", ENV{AZURE_DISK_SERIAL}="\$env{ID_SERIAL_SHORT}"
+GOTO="azure_disk_nvme_id"
+
+LABEL="azure_disk_nvme_remote_v1"
+ATTRS{nsid}=="1", ENV{AZURE_DISK_TYPE}="os", GOTO="azure_disk_nvme_id"
+ATTRS{nsid}=="?*", ENV{AZURE_DISK_TYPE}="data", PROGRAM="/bin/sh -ec 'echo \$\$((%s{nsid}-2))'", ENV{AZURE_DISK_LUN}="\$result"
+
+LABEL="azure_disk_nvme_id"
+ATTRS{nsid}=="?*", IMPORT{program}="/usr/sbin/azure-nvme-id --udev"
+
+LABEL="azure_disk_symlink"
+# systemd v254 ships an updated 60-persistent-storage.rules that would allow
+# these to be deduplicated using \$env{.PART_SUFFIX}
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}"
+ENV{DEVTYPE}=="disk", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="os|resource|root", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_INDEX}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-index/\$env{AZURE_DISK_INDEX}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_LUN}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-lun/\$env{AZURE_DISK_LUN}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_NAME}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-name/\$env{AZURE_DISK_NAME}-part%n"
+ENV{DEVTYPE}=="partition", ENV{AZURE_DISK_TYPE}=="?*", ENV{AZURE_DISK_SERIAL}=="?*", SYMLINK+="disk/azure/\$env{AZURE_DISK_TYPE}/by-serial/\$env{AZURE_DISK_SERIAL}-part%n"
+LABEL="azure_disk_end"
+EOF
 udevadm control --reload
+capture_benchmark "${SCRIPT_NAME}_set_udev_rules"
 
 if isMarinerOrAzureLinux "$OS"; then
     disableSystemdResolvedCache
@@ -168,6 +219,7 @@ if isMarinerOrAzureLinux "$OS"; then
     enableCheckRestart
     activateNfConntrack
 fi
+capture_benchmark "${SCRIPT_NAME}_handle_azurelinux_configs"
 
 # doing this at vhd allows CSE to be faster with just mv 
 unpackTgzToCNIDownloadsDIR() {
@@ -192,9 +244,7 @@ downloadCNI() {
 
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
-capture_benchmark "${SCRIPT_NAME}_create_containerd_service_directory_and_configure_runtime_and_network"
-#echo 'catting components'
-#cat $COMPONENTS_FILEPATH
+capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f $COMPONENTS_FILEPATH ]; then
@@ -202,10 +252,7 @@ if [ ! -f $COMPONENTS_FILEPATH ]; then
   exit 1
 fi
 
-echo "echoing jq packages"
-packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --compact-output)
-echo $packages
-#packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
+packages=$(jq ".Packages" $COMPONENTS_FILEPATH | jq .[] --monochrome-output --compact-output)
 # Iterate over each element in the packages array
 while IFS= read -r p; do
   #getting metadata for each package
@@ -355,7 +402,7 @@ cliTool="ctr"
 
 INSTALLED_RUNC_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
 echo "  - runc version ${INSTALLED_RUNC_VERSION}" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_artifact_streaming_download"
+capture_benchmark "${SCRIPT_NAME}_configure_artifact_streaming_and_install_crictl"
 
 GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 
@@ -388,22 +435,11 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GP
 
   ctr -n k8s.io image pull "$NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG"
 
-  # Check for the "fullgpu" feature flag
-  if grep -q "fullgpu" <<< "$FEATURE_FLAGS"; then
-    bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
-    ret=$?
-    if [[ "$ret" != "0" ]]; then
-      echo "Failed to install GPU driver, exiting..."
-      exit $ret
-    fi
-  fi
-
     cat << EOF >> ${VHD_LOGS_FILEPATH}
   - nvidia-driver=${NVIDIA_DRIVER_IMAGE_TAG}
 EOF
 
 fi
-
 
 ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
 
@@ -421,7 +457,7 @@ PRESENT_DIR=$(pwd)
 BCC_PID=$!
 
 echo "${CONTAINER_RUNTIME} images pre-pulled:" >> ${VHD_LOGS_FILEPATH}
-capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_image_and_run_installBcc_in_subshell"
+capture_benchmark "${SCRIPT_NAME}_pull_nvidia_driver_and_start_ebpf_downloads"
 
 string_replace() {
   echo ${1//\*/$2}
@@ -481,60 +517,32 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 
 # can't use cliTool because crictl doesn't support retagging.
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
-capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
 if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart ipv6_nftables || exit 1
+  systemctlEnableAndStart ipv6_nftables 30 || exit 1
 fi
-capture_benchmark "${SCRIPT_NAME}_configure_networking_and_interface"
-
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # no ARM64 SKU with GPU now
-NVIDIA_DEVICE_PLUGIN_VERSION="v0.14.5"
-
-DEVICE_PLUGIN_CONTAINER_IMAGE="mcr.microsoft.com/oss/nvidia/k8s-device-plugin:${NVIDIA_DEVICE_PLUGIN_VERSION}"
-pullContainerImage ${cliTool} ${DEVICE_PLUGIN_CONTAINER_IMAGE}
-
-# GPU device plugin
-if grep -q "fullgpu" <<< "$FEATURE_FLAGS" && grep -q "gpudaemon" <<< "$FEATURE_FLAGS"; then
-  kubeletDevicePluginPath="/var/lib/kubelet/device-plugins"
-  mkdir -p $kubeletDevicePluginPath
-  echo "  - $kubeletDevicePluginPath" >> ${VHD_LOGS_FILEPATH}
-
-  DEST="/usr/local/nvidia/bin"
-  mkdir -p $DEST
-  ctr --namespace k8s.io run --rm --mount type=bind,src=${DEST},dst=${DEST},options=bind:rw --cwd ${DEST} $DEVICE_PLUGIN_CONTAINER_IMAGE plugingextract /bin/sh -c "cp /usr/bin/nvidia-device-plugin $DEST" || exit 1
-  chmod a+x $DEST/nvidia-device-plugin
-  echo "  - extracted nvidia-device-plugin..." >> ${VHD_LOGS_FILEPATH}
-  ls -ltr $DEST >> ${VHD_LOGS_FILEPATH}
-
-  systemctlEnableAndStart nvidia-device-plugin || exit 1
-  ctr --namespace k8s.io images rm $DEVICE_PLUGIN_CONTAINER_IMAGE || exit 1
-fi
-fi
-
-capture_benchmark "download_gpu_device_plugin"
+capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
 
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 # Disable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
 if ! isMarinerOrAzureLinux "$OS"; then
-  systemctlEnableAndStart cgroup-memory-telemetry.timer || exit 1
+  systemctlEnableAndStart cgroup-memory-telemetry.timer 30 || exit 1
   systemctl enable cgroup-memory-telemetry.service || exit 1
   systemctl restart cgroup-memory-telemetry.service
 fi
 
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
-  systemctlEnableAndStart cgroup-pressure-telemetry.timer || exit 1
+  systemctlEnableAndStart cgroup-pressure-telemetry.timer 30 || exit 1
   systemctl enable cgroup-pressure-telemetry.service || exit 1
   systemctl restart cgroup-pressure-telemetry.service
 fi
 
 cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
 rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
-
-capture_benchmark "${SCRIPT_NAME}_configure_telemetry_create_logging_directory"
+capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
 # if it is a kube-proxy package, extract image from the downloaded package
@@ -573,6 +581,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   # multi-user.target usually start at the end of the boot sequence
   sed -i 's/After=network-online.target/After=multi-user.target/g' /lib/systemd/system/motd-news.service
 fi
+capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
@@ -599,6 +608,113 @@ if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
     cacheKubePackageFromPrivateUrl "$private_url"
   done
 fi
+
+LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
+# This function extracts CoreDNS binary from cached coredns images (n-1 image version and latest revision version)
+# and copies it to - /opt/azure/containers/localdns/binary/coredns.
+# The binary is later used by localdns systemd unit.
+# The function also handles the cleanup of temporary directories and unmounting of images.
+extractAndCacheCoreDnsBinary() {
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+    echo "Error: No coredns images found."
+    exit 1
+  fi
+
+  rm -rf "${LOCALDNS_BINARY_PATH}" || exit 1
+  mkdir -p "${LOCALDNS_BINARY_PATH}" || exit 1
+
+  cleanup_coredns_imports() {
+    set +e
+    if [[ -n "${ctr_temp}" ]]; then
+      ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+      rm -rf "${ctr_temp}"
+    fi
+  }
+  trap cleanup_coredns_imports EXIT ABRT ERR INT PIPE QUIT TERM
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Function to check version format (vMajor.Minor.Patch).
+  validate_version_format() {
+    local version=$1
+    if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Error: Invalid coredns version format. Expected vMajor.Minor.Patch, got $version" >> "${VHD_LOGS_FILEPATH}"
+      return 1
+    fi
+    return 0
+  }
+
+  # Determine latest version (eg. v1.12.0-1).
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
+  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+
+  local previous_coredns_tag=""
+  # Iterate through the sorted list to find the next highest major-minor version.
+  for tag in "${sorted_coredns_tags[@]}"; do
+    # Extract major.minor.patch (eg - v1.12.0).
+    local vMajorMinorPatch="${tag%-*}"
+    if ! validate_version_format "$vMajorMinorPatch"; then
+      exit 1
+    fi
+
+    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
+      previous_coredns_tag="$tag"
+      # Break the loop after next highest major-minor version is found.
+      break
+    fi
+  done
+
+  if [[ -z "${previous_coredns_tag}" ]]; then
+    echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
+    previous_coredns_tag="$latest_coredns_tag"
+  fi
+
+  # Extract the CoreDNS binary for the selected version.
+  for coredns_image_url in "${coredns_image_list[@]}"; do
+    if [[ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]]; then
+      continue
+    fi
+
+    ctr_temp="$(mktemp -d)"
+    local max_retries=3
+    local retry_count=0
+    while [[ $retry_count -lt $max_retries ]]; do
+      if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
+        break
+      fi
+      echo "Warning: Failed to mount ${coredns_image_url}, retrying..." >> "${VHD_LOGS_FILEPATH}"
+      sleep 2
+      ((retry_count++))
+    done
+
+    if [[ $retry_count -eq $max_retries ]]; then
+      echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
+      exit 1
+    fi
+
+    local coredns_binary="${ctr_temp}/usr/bin/coredns"
+    if [[ -f "${coredns_binary}" ]]; then
+      cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
+        echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+        exit 1
+      }
+      echo "Successfully copied coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
+    else
+      echo "Coredns binary not found for ${coredns_image_url}" >> "${VHD_LOGS_FILEPATH}"
+    fi
+
+    ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
+    rm -rf "${ctr_temp}"
+  done
+
+  # Clear the trap.
+  trap - EXIT ABRT ERR INT PIPE QUIT TERM
+}
+
+extractAndCacheCoreDnsBinary
 
 rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"

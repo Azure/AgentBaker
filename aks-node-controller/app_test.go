@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -148,6 +149,17 @@ func TestApp_Provision(t *testing.T) {
 	}
 }
 
+func TestApp_Provision_DryRun(t *testing.T) {
+	app := &App{
+		cmdRunner: cmdRunner,
+	}
+	result := app.Run(context.Background(), []string{"aks-node-controller", "provision", "--provision-config=parser/testdata/test_aksnodeconfig.json", "--dry-run"})
+	assert.Equal(t, 0, result)
+	if reflect.ValueOf(app.cmdRunner).Pointer() != reflect.ValueOf(cmdRunnerDryRun).Pointer() {
+		t.Fatal("app.cmdRunner is expected to be cmdRunnerDryRun")
+	}
+}
+
 func TestApp_ProvisionWait(t *testing.T) {
 	testData := "hello world"
 
@@ -164,8 +176,8 @@ func TestApp_ProvisionWait(t *testing.T) {
 				// Run the test in a goroutine to simulate file creation after some delay
 				go func() {
 					time.Sleep(200 * time.Millisecond) // Simulate file creation delay
-					os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
-					os.Create(provisionStatusFiles.ProvisionCompleteFile)
+					_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+					_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 				}()
 			},
 		},
@@ -173,8 +185,8 @@ func TestApp_ProvisionWait(t *testing.T) {
 			name:     "wait for provision completion",
 			wantsErr: false,
 			setup: func(provisionStatusFiles ProvisionStatusFiles) {
-				os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
-				os.Create(provisionStatusFiles.ProvisionCompleteFile)
+				_ = os.WriteFile(provisionStatusFiles.ProvisionJSONFile, []byte(testData), 0644)
+				_, _ = os.Create(provisionStatusFiles.ProvisionCompleteFile)
 			},
 		},
 		{

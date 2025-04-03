@@ -12,7 +12,7 @@ Here is an example of how to retrieve node bootstrapping parameters and use the 
 
 ```go
 config := &aksnodeconfigv1.Configuration{
-    Version: "v0",
+    Version: "v1",
     // fill in the rest of the fields
 }
 customData, err := nodeconfigutils.CustomData(config)

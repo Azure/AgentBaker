@@ -4,22 +4,46 @@ set -uexo pipefail
 VHD_BUILD_ID="${VHD_BUILD_ID:-""}"
 
 get_image_version_from_publishing_info() {
-    # Note that we previously would specify potentially more than one build, rather than just VHD_BUILD_ID
-    # when doing so, we made sure that all publishing-info's coming from the different builds had the same image version.
-    # this was needed when we previously released VHDs as a single batch from multiple builds.
-    # if we ever need to do that again we should add back that validation.
+    local unique_image_version=""
+    local artifacts_with_version_mismatch=""
+
     for artifact in $(az pipelines runs artifact list --run-id $VHD_BUILD_ID | jq -r '.[].name'); do # Retrieve what artifacts were published
         if [[ $artifact == *"publishing-info"* ]]; then
-            # just take the image version from the first publishing-info we find (since they should all be the same)
-            # TODO(cameissner): add image version validation to separate validation template
-            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $VHD_BUILD_ID
-            GENERATED_IMAGE_VERSION=$(jq -r .image_version < vhd-publishing-info.json)
+            # remove publishing info downloaded from some previous iteration, if it exists
             rm -f vhd-publishing-info.json
-            return 0
+
+            az pipelines runs artifact download --artifact-name $artifact --path $(pwd) --run-id $VHD_BUILD_ID
+            version=$(jq -r .image_version < vhd-publishing-info.json)
+            if [ -z "$unique_image_version" ]; then
+                unique_image_version=$version
+                continue
+            fi
+
+            if [ "$version" != "$unique_image_version" ]; then
+                # this is to ensure that all publishing-infos coming from the same VHD build specify the same image_version,
+                # mismatching image_versions will cause problems downstream in the release process
+                echo "$artifact has image version $version, though expected all publishing info artifacts to have image version $unique_image_version for VHD build with ID: $VHD_BUILD_ID"
+                artifacts_with_version_mismatch="${artifacts_with_version_mismatch} $artifact"
+            fi
         fi
     done
-    echo "unable to find image version from publishing-info artifacts downloaded from VHD build with ID: $VHD_BUILD_ID"
-    return 1
+
+    if [ -n "$artifacts_with_version_mismatch" ]; then
+        echo "expected all publishing info aritfacts to have image version $unique_image_version for VHD build with ID: $VHD_BUILD_ID"
+        echo "the following publishing info artifacts had mismatching image versions: $artifacts_with_version_mismatch"
+        echo "##vso[task.logissue type=error]image version mismatch: A NEW VHD BUILD WILL BE REQUIRED!"
+        exit 1
+    fi
+
+    if [ -z "$unique_image_version" ]; then
+        echo "unable to find image version from publishing-info artifacts downloaded from VHD build with ID: $VHD_BUILD_ID"
+        exit 1
+    fi
+
+    # remove any dangling publishing info
+    rm -f vhd-publishing-info.json
+
+    GENERATED_IMAGE_VERSION=$unique_image_version
 }
 
 if [ -z "$VHD_BUILD_ID" ]; then

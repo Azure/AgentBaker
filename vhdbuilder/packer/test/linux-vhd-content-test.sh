@@ -13,6 +13,7 @@ ENABLE_FIPS="$3"
 OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
+FEATURE_FLAGS="$7"
 
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
@@ -135,6 +136,9 @@ testPackagesInstalled() {
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
+    if [[ "$downloadLocation" == "" ]]; then
+      continue
+    fi
     if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
       OS=$MARINER_OS_NAME
     elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
@@ -146,14 +150,15 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ ${name} == "kubernetes-binaries" ]; then
+    if [ "${name}" == "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
-      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]}"
+      # Intentionally remove leading 'v' from each element in the array
+      testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
       continue
     fi
-    if [ ${name} == "azure-acr-credential-provider" ]; then
+    if [ "${name}" == "azure-acr-credential-provider" ]; then
       # azure-acr-credential-provider is installed in a different way so we test it separately
-      testAcrCredentialProviderInstalled $PACKAGE_DOWNLOAD_URL "${PACKAGE_VERSIONS[@]}" 
+      testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
     fi
 
@@ -176,9 +181,14 @@ testPackagesInstalled() {
       local extractedPackageDir
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
+      # Validate whether package proxy path exists in Azure China cloud.
+      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
+        testPackageInAzureChinaCloud "$downloadURL"
+      fi
+
       # if there is a directory with expected name, we assume it's been downloaded and extracted properly
       # no wc (wordcount) -c on a dir. This is for downloads we've un tar'd and deleted from the vhd
-      if [ -d $extractedPackageDir ]; then
+      if [ -d "$extractedPackageDir" ]; then
         echo $test "[INFO] Directory ${extractedPackageDir} exists"
         continue
       fi
@@ -201,36 +211,87 @@ testPackagesInstalled() {
           continue
         fi
       fi
-      
+
       # if there isn't a directory, we check if the file exists and the size is correct
       # -L since some urls are redirects (i.e github)
-      validateDownloadPackage $downloadURL $downloadedPackage
+      # shellcheck disable=SC2086
+      validateDownloadPackage "$downloadURL" $downloadedPackage
       if [[ $? -ne 0 ]]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
       echo $test "[INFO] File ${downloadedPackage} exists and has the correct size ${fileSizeDownloaded} bytes"
-      # Validate whether package exists in Azure China cloud
-      if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
-        mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
-        echo "Validating: $mcURL"
-        isExist=$(curl -sLI $mcURL | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-        if [[ "$isExist" == "404" ]]; then
-          err "$mcURL is invalid"
-          continue
-        fi
 
-        fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
-        if [[ "$fileSizeInMC" != "$fileSizeDownloaded" ]]; then
-          err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - downloaded file size: ${fileSizeInMC}"
-          continue
-        fi
-      fi
     done
 
     echo "---"
   done <<<"$packages"
   echo "$test:Finish"
+}
+
+# Azure China Cloud uses a different proxy but the same path, and we want to verify the package URL
+# if defined in control plane, is accessible and has the same file size as the one in the public cloud.
+testPackageInAzureChinaCloud() {
+  # In Azure China Cloud, the proxy server proxies download URL to the storage account URL according to the root path, for example, 
+  # location /kubernetes/ {
+  #  proxy_pass https://kubernetesartifacts.blob.core.chinacloudapi.cn/kubernetes/;
+  # }
+
+  local downloadURL=$1
+
+  proxyLocation=$(echo "$downloadURL" | awk -F'/' '{print $4}')
+
+  # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+  rootPathExceptions=("cri-tools" "spinkube")
+  for rootPathException in "${rootPathExceptions[@]}"; do
+    if [ "$rootPathException" == "$proxyLocation" ]; then
+      return
+    fi
+  done
+
+  supportedProxyLocations=(
+    "aks"
+    "kubernetes"
+    "cni-plugins"
+    "azure-cni"
+    "csi-proxy"
+    "aks-engine"
+    "containerd"
+    "calico-node"
+    "ccgakvplugin"
+    "cloud-provider-azure"
+    )
+
+  foundLocation=false
+  for supportedProxyLocation in "${supportedProxyLocations[@]}"; do
+    if [ "$supportedProxyLocation" == "$proxyLocation" ]; then
+      foundLocation=true
+      break
+    fi
+  done
+
+  if [ "$foundLocation" == false ]; then
+    err "Proxy location $proxyLocation is not defined in mooncake for $downloadURL, please use root path 'aks' , or contact 'andyzhangx' for help"
+    return
+  fi
+
+  mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  echo "Validating: $mcURL"
+  isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
+  if [[ "$isExist" == "404" ]]; then
+    err "$mcURL is invalid"
+    return
+  fi
+
+  fileSizeInMC=$(curl -sLI $mcURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+  fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
+
+
+  if [[ "$fileSizeInMC" != "$fileSizeInRepo" ]]; then
+    err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - file size in Mooncake: ${fileSizeInMC}"
+    return
+  fi
+
 }
 
 testImagesPulled() {
@@ -404,13 +465,44 @@ testFips() {
   echo "$test:Finish"
 }
 
+testLtsKernel() {
+  test="testLtsKernel"
+  echo "$test:Start"
+  os_version=$1
+  os_sku=$2
+  enable_fips=$3
+
+  if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
+    echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
+    # Check the Ubuntu version and set the expected kernel version
+    if [[ "$os_version" == "2204" ]]; then
+      expected_kernel="5.15"
+    elif [[ "$os_version" == "2404" ]]; then
+      expected_kernel="6.8"
+    else
+      echo "LTS kernel not installed for: $os_version"
+    fi
+
+    kernel=$(uname -r)
+    echo "Current kernel version: $kernel"
+    if [[ "$kernel" == *"$expected_kernel"* ]]; then
+      echo "Kernel version is as expected ($expected_kernel)."
+    else
+      echo "Kernel version is not as expected. Expected $expected_kernel, found $kernel."
+    fi
+  else
+    echo "OS is not Ubuntu OR OS is Ubuntu and FIPS is true, skip LTS kernel test"
+  fi
+
+}
+
 testCloudInit() {
   test="testCloudInit"
   echo "$test:Start"
   os_sku=$1
 
-  # Limit this test only to Mariner or Azurelinux
-  if [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+  # Limit this test only to non-cvm Mariner or Azurelinux
+  if ! grep -q "cvm" <<< "$FEATURE_FLAGS" && [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
@@ -1058,7 +1150,6 @@ testWasmRuntimesInstalled() {
   local test="testWasmRuntimesInstalled"
   local wasm_runtimes_path=${1}
   local shim_version=${2}
-  shim_version="v${shim_version}"
 
   echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
 
@@ -1116,6 +1207,85 @@ checkPerformanceData() {
   return 0
 }
 
+testCoreDnsBinaryExtractedAndCached() {
+  local test="CoreDnsBinaryExtractedAndCached"
+  local os_version=$1
+    # Ubuntu 18.04 and 20.04 ship with GLIBC 2.27 and 2.31, respectively.
+  # CoreDNS binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
+  # Therefore, we skip the test for these OS versions here.
+  # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
+  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+    # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
+    echo "$test: CoreDNS is not supported on OS version: ${os_version}"
+    return 0
+  fi
+
+  local localdnsBinaryDir="/opt/azure/containers/localdns/binary"
+  local binaryPath="$localdnsBinaryDir/coredns"
+  local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
+
+  echo "$test: Checking for existence of coredns binary at ${binaryPath}"
+
+  if [[ ! -f "${binaryPath}" ]]; then
+    err "$test: coredns binary does not exist at ${binaryPath}"
+    return 1
+  fi
+
+  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+    err "$test: No CoreDNS images found in the local container images"
+    return 1
+  fi
+
+  # Extract available coredns image tags (v1.12.0-1 format) and sort them in descending order.
+  local sorted_coredns_tags=($(for image in "${coredns_image_list[@]}"; do echo "${image##*:}"; done | sort -V -r))
+
+  # Determine latest version (eg. v1.12.0-1).
+  local latest_coredns_tag="${sorted_coredns_tags[0]}"
+  # Extract major.minor.patch (removes -revision. eg - v1.12.0).
+  local latest_vMajorMinorPatch="${latest_coredns_tag%-*}"
+
+  local previous_coredns_tag=""
+  # Iterate through the sorted list to find the next highest major-minor version.
+  for tag in "${sorted_coredns_tags[@]}"; do
+    # Extract major.minor.patch (eg - v1.12.0).
+    local vMajorMinorPatch="${tag%-*}"
+    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
+      previous_coredns_tag="$tag"
+      # Break the loop after the next highest major-minor version is found.
+      break
+    fi
+  done
+
+  if [[ -z "${previous_coredns_tag}" ]]; then
+    echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
+    previous_coredns_tag="$latest_coredns_tag"
+  fi
+
+  local expectedVersion="$previous_coredns_tag"
+  local expectedVersionWithoutV="${expectedVersion#v}"
+  echo "$test: Expected CoreDNS version (n-1 latest revision): ${expectedVersionWithoutV}"
+
+  # Get the actual version from the extracted CoreDNS binary
+  local actualVersion
+  actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
+
+  local actualVersionWithoutV="${actualVersion#v}"
+  if [[ -z "${actualVersionWithoutV}" ]]; then
+    err "$test: Failed to retrieve CoreDNS version from $binaryPath"
+    return 1
+  fi
+
+  echo "$test: Verify extracted CoreDNS version: ${actualVersionWithoutV}"
+
+  if [[ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]]; then
+    echo "$test: Extracted CoreDNS version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
+    return 1
+  fi
+
+  echo "$test: Expected version: ${expectedVersionWithoutV} of coredns binary is extracted and cached at ${binaryPath}"
+  return 0
+}
+
 # As we call these tests, we need to bear in mind how the test results are processed by the
 # the caller in run-tests.sh. That code uses az vm run-command invoke to run this script
 # on a VM. It then looks at stderr to see if any errors were reported. Notably it doesn't
@@ -1157,3 +1327,5 @@ testUmaskSettings
 testContainerImagePrefetchScript
 testAKSNodeControllerBinary
 testAKSNodeControllerService
+testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
+testCoreDnsBinaryExtractedAndCached $OS_VERSION

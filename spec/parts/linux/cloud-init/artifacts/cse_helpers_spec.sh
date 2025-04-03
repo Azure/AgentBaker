@@ -168,4 +168,141 @@ Describe 'cse_helpers.sh'
             The variable KUBELET_NODE_LABELS should equal ''
         End
     End
+    Describe 'oras_login_with_kubelet_identity'
+        It 'should return if client_id or tenant_id is empty'
+            local acr_url="unneeded.azurecr.io"
+            local client_id=""
+            local tenant_id=""
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
+        End
+        It 'should fail if access token is an error'
+            retrycmd_can_oras_ls_acr() {
+                return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "failed to retrieve kubelet identity token from IMDS, http code: 400, msg: {\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+                return $ERR_ORAS_PULL_UNAUTHORIZED
+            }
+
+            local acr_url="unneeded.azurecr.io"
+            local client_id="failureClient"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve kubelet identity token"
+        End  
+        It 'should fail if refresh token is an error'
+            retrycmd_can_oras_ls_acr() {
+                return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"error\":\"invalid_request\",\"error_description\":\"Identity not found\"}"
+            }
+            local acr_url="unneeded.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="failureID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to retrieve refresh token"
+        End  
+        It 'should fail if oras cannot login'
+            retrycmd_can_oras_ls_acr() {
+                return 1
+            }
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 1
+            }
+            local acr_url="failed.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be failure
+            The stdout should include "failed to login to acr '$acr_url' with identity token"
+        End  
+        It 'should succeed if oras can login'
+            retrycmd_get_access_token_for_oras(){
+                echo "{\"access_token\":\"myAccessToken\"}"
+            }
+            retrycmd_get_refresh_token_for_oras(){
+                echo "{\"refresh_token\":\"myRefreshToken\"}"
+            }
+            retrycmd_oras_login(){
+                return 0
+            }
+            mock_retrycmd_can_oras_ls_acr_counter=0
+            retrycmd_can_oras_ls_acr() {
+                response_var=-1
+                ((mock_retrycmd_can_oras_ls_acr_counter++))
+                if [[ $mock_retrycmd_can_oras_ls_acr_counter -eq 1 ]]; then
+                    response_var=1
+                else
+                    response_var=0
+                fi
+                return $response_var
+            }
+
+            local acr_url="success.azurecr.io"
+            local client_id="myclientID"
+            local tenant_id="mytenantID"
+            When run oras_login_with_kubelet_identity $acr_url $client_id $tenant_id
+            The status should be success
+            The stdout should include "successfully logged in to acr '$acr_url' with identity token"
+            The stderr should be present
+        End
+    End
+
+    Describe 'updateKubeBinaryRegistryURL'
+        logs_to_events() {
+            echo "mock logs to events calling with $1"
+        }
+        K8S_REGISTRY_REPO="oss/binaries/kubernetes"
+        BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="mcr.microsoft.com"
+        CPU_ARCH="amd64"
+        It 'returns KUBE_BINARY_URL if it is already registry url'
+            KUBE_BINARY_URL="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
+
+            updateKubeBinaryRegistryURL
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$KUBE_BINARY_URL"
+            The output line 1 should equal "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        End
+        It 'returns expected output from KUBE_BINARY_URL'
+            KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v1.30.0-hotfix20241209/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBERNETES_VERSION="1.30.0"
+
+            updateKubeBinaryRegistryURL
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-hotfix20241209-linux-amd64"
+            The output line 1 should equal "Extracted version: v1.30.0-hotfix20241209 from KUBE_BINARY_URL: $KUBE_BINARY_URL"
+        End
+        It 'returns expected output for moonckae acs-mirror'
+            KUBE_BINARY_URL="https://acs-mirror.azureedge.cn/kubernetes/v1.30.0-alpha/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBERNETES_VERSION="1.30.0"
+
+            updateKubeBinaryRegistryURL
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-alpha-linux-amd64"
+            The output line 1 should equal "Extracted version: v1.30.0-alpha from KUBE_BINARY_URL: $KUBE_BINARY_URL"
+        End
+        It 'uses KUBENETES_VERSION if KUBE_BINARY_URL is invalid'
+            KUBE_BINARY_URL="https://invalidpath/v1.30.0-lts100/binaries/kubernetes-nodes-linux-amd64.tar.gz"
+            KUBERNETES_VERSION="1.30.0"
+
+            updateKubeBinaryRegistryURL
+            When call updateKubeBinaryRegistryURL
+            The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
+            The output line 1 should equal "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: v$KUBERNETES_VERSION"
+        End
+    End
 End

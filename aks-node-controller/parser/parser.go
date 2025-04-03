@@ -29,6 +29,7 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
+//nolint:funlen
 func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 	env := map[string]string{
 		"PROVISION_OUTPUT":                               "/var/log/azure/cluster-provision.log",
@@ -127,9 +128,9 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HTTPS_PROXY_URLS":                               config.GetHttpProxyConfig().GetHttpsProxy(),
 		"NO_PROXY_URLS":                                  getStringifiedStringArray(config.GetHttpProxyConfig().GetNoProxyEntries(), ","),
 		"PROXY_VARS":                                     getProxyVariables(config.GetHttpProxyConfig()),
-		"ENABLE_TLS_BOOTSTRAPPING":                       fmt.Sprintf("%v", getEnableTLSBootstrap(config.GetBootstrappingConfig())),
 		"ENABLE_SECURE_TLS_BOOTSTRAPPING":                fmt.Sprintf("%v", getEnableSecureTLSBootstrap(config.GetBootstrappingConfig())),
 		"CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID":  getCustomSecureTLSBootstrapAADServerAppID(config.GetBootstrappingConfig()),
+		"ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION":    fmt.Sprintf("%v", config.GetKubeletConfig().GetKubeletConfigFileConfig().GetServerTlsBootstrap()),
 		"DHCPV6_SERVICE_FILEPATH":                        getDHCPV6ServiceFilepath(),
 		"DHCPV6_CONFIG_FILEPATH":                         getDHCPV6ConfigFilepath(),
 		"THP_ENABLED":                                    config.GetCustomLinuxOsConfig().GetTransparentHugepageSupport(),
@@ -138,11 +139,12 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"KUBELET_CLIENT_CONTENT":                         config.GetKubeletConfig().GetKubeletClientKey(),
 		"KUBELET_CLIENT_CERT_CONTENT":                    config.GetKubeletConfig().GetKubeletClientCertContent(),
 		"KUBELET_CONFIG_FILE_ENABLED":                    fmt.Sprintf("%v", config.GetKubeletConfig().GetEnableKubeletConfigFile()),
-		"KUBELET_CONFIG_FILE_CONTENT":                    config.GetKubeletConfig().GetKubeletConfigFileContent(),
+		"KUBELET_CONFIG_FILE_CONTENT":                    getKubeletConfigFileContentBase64(config.GetKubeletConfig()),
 		"SWAP_FILE_SIZE_MB":                              fmt.Sprintf("%v", config.GetCustomLinuxOsConfig().GetSwapFileSize()),
 		"GPU_DRIVER_VERSION":                             getGpuDriverVersion(config.GetVmSize()),
 		"GPU_IMAGE_SHA":                                  getGpuImageSha(config.GetVmSize()),
 		"GPU_INSTANCE_PROFILE":                           config.GetGpuConfig().GetGpuInstanceProfile(),
+		"GPU_DRIVER_TYPE":                                getGpuDriverType(config.GetVmSize()),
 		"CUSTOM_SEARCH_DOMAIN_NAME":                      config.GetCustomSearchDomainConfig().GetDomainName(),
 		"CUSTOM_SEARCH_REALM_USER":                       config.GetCustomSearchDomainConfig().GetRealmUser(),
 		"CUSTOM_SEARCH_REALM_PASSWORD":                   config.GetCustomSearchDomainConfig().GetRealmPassword(),
@@ -150,13 +152,14 @@ func getCSEEnv(config *aksnodeconfigv1.Configuration) map[string]string {
 		"HAS_KUBELET_DISK_TYPE":                          fmt.Sprintf("%v", getHasKubeletDiskType(config.GetKubeletConfig())),
 		"NEEDS_CGROUPV2":                                 fmt.Sprintf("%v", config.GetNeedsCgroupv2()),
 		"TLS_BOOTSTRAP_TOKEN":                            getTLSBootstrapToken(config.GetBootstrappingConfig()),
-		"KUBELET_FLAGS":                                  createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletFlags(), " "),
+		"KUBELET_FLAGS":                                  getKubeletFlags(config.GetKubeletConfig()),
 		"NETWORK_POLICY":                                 getStringFromNetworkPolicyType(config.GetNetworkConfig().GetNetworkPolicy()),
 		"KUBELET_NODE_LABELS":                            createSortedKeyValuePairs(config.GetKubeletConfig().GetKubeletNodeLabels(), ","),
 		"AZURE_ENVIRONMENT_FILEPATH":                     getAzureEnvironmentFilepath(config),
 		"KUBE_CA_CRT":                                    config.GetKubernetesCaCert(),
 		"KUBENET_TEMPLATE":                               getKubenetTemplate(),
-		"CONTAINERD_CONFIG_CONTENT":                      getContainerdConfig(config),
+		"CONTAINERD_CONFIG_CONTENT":                      getContainerdConfigBase64(config),
+		"CONTAINERD_CONFIG_NO_GPU_CONTENT":               getNoGPUContainerdConfigBase64(config),
 		"IS_KATA":                                        fmt.Sprintf("%v", config.GetIsKata()),
 		"ARTIFACT_STREAMING_ENABLED":                     fmt.Sprintf("%v", config.GetEnableArtifactStreaming()),
 		"SYSCTL_CONTENT":                                 getSysctlContent(config.GetCustomLinuxOsConfig().GetSysctlConfig()),

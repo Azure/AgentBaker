@@ -113,14 +113,19 @@ ERR_CNI_VERSION_INVALID=206 # reference CNI (not azure cni) needs a valid versio
 # In AzureLinux 3.0, /etc/*-release are symlinks to /usr/lib/*-release, so the find command includes -type f,l.
 
 ERR_ORAS_PULL_K8S_FAIL=207 # Error pulling kube-node artifact via oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_1=208 # Error pulling artifact with oras from registry
+ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208 # Error pulling credential provider artifact with oras from registry
 ERR_ORAS_PULL_CONTAINERD_WASM=209 # Error pulling containerd wasm artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_3=210 # Error pulling artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_4=211 # Error pulling artifact with oras from registry
-ERR_ORAS_PULL_FAIL_RESERVE_5=212 # Error pulling artifact with oras from registry
+ERR_ORAS_IMDS_TIMEOUT=210 # Error timeout waiting for IMDS response
+ERR_ORAS_PULL_NETWORK_TIMEOUT=211 # Error pulling oras tokens for login
+ERR_ORAS_PULL_UNAUTHORIZED=212 # Error pulling artifact with oras from registry with authorization issue
 
 # Error checking nodepools tags for whether we need to disable kubelet serving certificate rotation
 ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
+
+# Error either getting the install mode or cleaning up container images
+ERR_CLEANUP_CONTAINER_IMAGES=214
+
+ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
@@ -237,7 +242,6 @@ retrycmd_get_tarball_from_registry_with_oras() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            # TODO: support private acr via kubelet identity
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $ORAS_OUTPUT
@@ -245,6 +249,52 @@ retrycmd_get_tarball_from_registry_with_oras() {
             sleep $wait_sleep
         fi
     done
+}
+retrycmd_get_access_token_for_oras() {
+    retries=$1; wait_sleep=$2; url=$3
+    for i in $(seq 1 $retries); do
+        response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
+        ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
+        http_code=$(echo "$response" | tail -n1)
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
+            echo "$ACCESS_TOKEN_OUTPUT"
+            return 0
+        fi
+        sleep $wait_sleep
+    done
+    if [ -n "$http_code" ]; then
+        echo "failed to retrieve kubelet identity token from IMDS, http code: $http_code, msg: $ACCESS_TOKEN_OUTPUT"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    echo "timeout waiting for IMDS response to retrieve kubelet identity token"
+    return $ERR_ORAS_IMDS_TIMEOUT
+}
+retrycmd_get_refresh_token_for_oras() {
+    retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
+    for i in $(seq 1 $retries); do
+        REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
+            https://$acr_url/oauth2/exchange)
+        if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
+            echo "$REFRESH_TOKEN_OUTPUT"
+            return 0
+        fi
+        sleep $wait_sleep
+    done
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+}
+retrycmd_oras_login() {
+    retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
+    for i in $(seq 1 $retries); do
+        ORAS_LOGIN_OUTPUT=$(oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
+        exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
+            echo "$ORAS_LOGIN_OUTPUT"
+            return 0
+        fi
+        sleep "$wait_sleep"
+    done
+    return $exit_code
 }
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
@@ -268,6 +318,22 @@ retrycmd_get_binary_from_registry_with_oras() {
         fi
     done
 }
+retrycmd_can_oras_ls_acr() {
+    retries=$1; wait_sleep=$2; url=$3
+    for i in $(seq 1 $retries); do
+        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        if [ $? -eq 0 ]; then
+            echo "acr is reachable"
+            return 0
+        fi
+        if [[ "$output" == *"unauthorized: authentication required"* ]]; then
+            echo "ACR is not reachable: $output"
+            return 1
+        fi
+    done
+    echo "unexpected response from acr: $output"
+    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+}
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
@@ -276,7 +342,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath 2>&1 | tee $CURL_OUTPUT >/dev/null
+            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -353,7 +419,8 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    service=$1; timeout=$2    
+    systemctl_restart 100 5 $2 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
@@ -483,7 +550,18 @@ should_disable_kubelet_serving_certificate_rotation() {
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
-    echo "$should_disable"
+    echo "${should_disable,,}"
+}
+
+should_skip_binary_cleanup() {
+    set -x
+    body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
+    ret=$?
+    if [ "$ret" != "0" ]; then
+      return $ret
+    fi
+    should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
+    echo "${should_skip,,}"
 }
 
 isMarinerOrAzureLinux() {
@@ -655,6 +733,133 @@ removeKubeletNodeLabel() {
     elif grep -e "${LABEL_STRING}" <<< "$KUBELET_NODE_LABELS" > /dev/null 2>&1; then
         KUBELET_NODE_LABELS="${KUBELET_NODE_LABELS/${LABEL_STRING}/}"
     fi
+}
+
+# generate kubenode binary registry url from acs-mirror url
+updateKubeBinaryRegistryURL() {
+    # if rp already passes registry url, then directly use the registry url that rp passes
+    # this path should have not catch for now, but keep it for future 
+    if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+        echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+    else
+        # however, the kubelet and kubectl binary version may different with kubernetes version due to hotfix or beta
+        # so that we still need to extract the binary version from kube_binary_url
+        url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+        if [[ -n ${KUBE_BINARY_URL} ]]; then
+            binary_version="v${KUBERNETES_VERSION}" # by default use Kubernetes versions
+            if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                # Extract the version part
+                binary_version="${version_with_prefix%%/*}"
+                echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+            else
+                echo "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: $binary_version"
+            fi
+        fi
+        KUBE_BINARY_REGISTRY_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+    fi
+}
+
+# removes the specified FLAG_STRING (which should be in the form of 'key=value') from KUBELET_FLAGS
+removeKubeletFlag() {
+    local FLAG_STRING=$1
+    if grep -e ",${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/,${FLAG_STRING}/}"
+    elif grep -e "${FLAG_STRING}," <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING},/}"
+    elif grep -e "${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
+        KUBELET_FLAGS="${KUBELET_FLAGS/${FLAG_STRING}/}"
+    fi
+}
+
+verify_DNS_health(){
+    local domain_name=$1
+    if [ -z "$domain_name" ]; then
+        echo "DNS domain is empty"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
+    if [ $? -ne 0 ]; then
+        echo "Failed to resolve root domain '.'"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+
+    dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
+    ret_code=$?
+    if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+        echo "Failed to resolve domain $domain_name return code: $ret_code"
+        return $ERR_DNS_HEALTH_FAIL
+    fi
+    echo "DNS health check passed"
+}
+
+oras_login_with_kubelet_identity() {
+    local acr_url=$1
+    local client_id=$2
+    local tenant_id=$3
+
+    if [ -z "$client_id" ] || [ -z "$tenant_id" ]; then
+        echo "client_id or tenant_id are not set. Oras login is not possible, proceeding with anonymous pull"
+        return 
+    fi
+
+    retrycmd_can_oras_ls_acr 10 5 $acr_url
+    ret_code=$? 
+    if [[ $ret_code -eq 0 ]]; then
+        echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
+        return
+    elif [[ $ret_code -ne 1 ]]; then
+        echo "failed with an error other than unauthorized, exiting.."
+        return $ret_code
+    fi
+
+    set +x 
+    access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
+    raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
+    ret_code=$? 
+    if [ $ret_code -ne 0 ]; then
+        echo $raw_access_token
+        return $ret_code
+    fi
+    ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
+    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
+        echo "failed to parse access token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
+    ret_code=$? 
+    if [ $ret_code -ne 0 ]; then
+        echo "failed to retrieve refresh token: $ret_code"
+        return $ret_code
+    fi
+    if [[ "$raw_refresh_token" == *"error"* ]]; then
+        echo "failed to retrieve refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
+    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" == "null" ]; then
+        echo "failed to parse refresh token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
+    if [ $? -ne 0 ]; then
+        echo "failed to login to acr '$acr_url' with identity token"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    unset ACCESS_TOKEN REFRESH_TOKEN  # Clears sensitive data from memory
+    set -x
+
+    retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
+    if [[ $? -ne 0 ]]; then
+        echo "failed to login to acr '$acr_url', pull is still unauthorized"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+
+    echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
 #HELPERSEOF

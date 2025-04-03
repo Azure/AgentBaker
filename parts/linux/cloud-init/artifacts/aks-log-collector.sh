@@ -145,7 +145,7 @@ if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDI
   echo "ERROR: Could not create temporary working directory."
   exit 1
 fi
-cd $WORKDIR
+cd $WORKDIR || { echo "Failed to change directory to $WORKDIR. Exiting." || exit 1
 echo "Created temporary directory: $WORKDIR"
 
 # Function to clean up the output directory and log termination
@@ -174,7 +174,7 @@ trap "cleanup" EXIT
 # any disk space aside from the ZIP file itself.
 # USAGE: collectToZip FILENAME CMDTORUN
 function collectToZip {
-  command -v "${2}" >/dev/null || { printf "${2} not found, skipping.\n"; return; }
+  command -v "${2}" >/dev/null || { printf "%s not found, skipping.\n" "${2}"; return; }
   mkfifo "${1}"
   ${@:2} >"${1}" 2>&1 &
   zip -gumDZ deflate --fifo "${ZIP}" "${1}"
@@ -191,7 +191,7 @@ zip -DZ deflate "${ZIP}" /proc/@(cmdline|cpuinfo|filesystems|interrupts|loadavg|
 collectToZip collect/file_listings.txt find /dev /etc /var/lib/waagent /var/log -ls
 
 # Collect system information
-collectToZip collect/blkid.txt blkid
+collectToZip collect/blkid.txt blkid $(find /dev -type b ! -name 'sr*')
 collectToZip collect/du_bytes.txt df -al
 collectToZip collect/du_inodes.txt df -ail
 collectToZip collect/diskinfo.txt lsblk

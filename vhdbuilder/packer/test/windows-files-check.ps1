@@ -9,10 +9,10 @@ param (
     $windowsSKU
 )
 
-# We use parameters for test script so we set environment variables before importing c:\windows-vhd-configuration.ps1 to reuse it
+# We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU=$windowsSKU
 
-. c:\windows-vhd-configuration.ps1
+. vhdbuilder/packer/windows/windows-vhd-configuration.ps1
 
 # We skip the signature validation of following scripts for known issues
 # Some scripts in aks-windows-cse-scripts-v0.0.31.zip and aks-windows-cse-scripts-v0.0.32.zip are not signed, and this issue is fixed in aks-windows-cse-scripts-v0.0.33.zip
@@ -23,6 +23,10 @@ $SkipMapForSignature=@{
 
 # MisMatchFiles is used to record files whose file sizes are different on Global and MoonCake
 $MisMatchFiles=@{}
+
+# ProxyLocationNotFoundInMooncakeFiles is used to record files who proxy location is not correctly defined MoonCake.
+# proxy location not found in Mooncake will lead to 404 error when downloading files from Mooncake.
+$ProxyLocationNotFoundInMooncakeFiles=@{}
 
 # NotSignedResult is used to record unsigned files that we think should be signed
 $NotSignedResult=@{}
@@ -179,6 +183,31 @@ function Test-CompareSingleDir {
     }
 
     foreach ($URL in $map[$dir]) {
+
+        # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
+        $rootPathExceptions = @("cri-tools")
+        # When proxy location is not correctly defined in MoonCake, we will get 404 error when downloading files from MoonCake.
+        # This valiation should including files in excludeHashComparisionListInAzureChinaCloud.
+        if ($URL.StartsWith("https://acs-mirror.azureedge.net/") -and ($rootPathExceptions -notcontains $URL)) {
+            $supportedProxyLocations = @(
+                "aks",
+                "kubernetes",
+                "azure-cni",
+                "cni-plugins",
+                "csi-proxy",
+                "aks-engine",
+                "containerd",
+                "calico-node",
+                "ccgakvplugin",
+                "cloud-provider-azure"
+            )
+            $proxyLocation = $URL.Split('/')[3]
+    
+            if ($supportedProxyLocations -notcontains $proxyLocation) {
+                $ProxyLocationNotFoundInMooncakeFiles[$URL]=$URL
+            }
+        }
+
         $fileName = [IO.Path]::GetFileName($URL)
         $dest = [IO.Path]::Combine($dir, $fileName)
 
@@ -214,9 +243,16 @@ function Test-CompareFiles {
         Test-CompareSingleDir $dir
     }
 
+    if ($ProxyLocationNotFoundInMooncakeFiles.Count -ne 0) {
+        $ProxyLocationNotFoundInMooncakeFiles = (echo $ProxyLocationNotFoundInMooncakeFiles | ConvertTo-Json -Compress)
+        Write-Error "The proxy location of the following files are not defined in mooncake, please use root path 'aks', or contact 'andyzhangx' for help: $ProxyLocationNotFoundInMooncakeFiles"
+        exit 1
+    }   
+
     if ($MisMatchFiles.Count -ne 0) {
         $MisMatchFiles = (echo $MisMatchFiles | ConvertTo-Json -Compress)
         Write-Error "The following files have different sizes on global and mooncake: $MisMatchFiles"
+        exit 1
     }
 }
 
@@ -294,24 +330,5 @@ function Install-Containerd {
     Start-Job -Name containerd -ScriptBlock { containerd.exe }
 }
 
-function Test-PullImages {
-    Write-Output "Install Containerd."
-
-    Install-Containerd
-
-    Write-Output "Test-PullImages."
-   
-    Write-Output "Pulling images for windows server $windowsSKU" # The variable $windowsSKU will be "2019-containerd", "2022-containerd", ...
-    foreach ($image in $imagesToPull) {
-        Write-Output "Pulling image $image"
-        Retry-Command -ScriptBlock {
-            & crictl.exe pull $image
-        } -ErrorMessage "Failed to pull image $image"
-
-        crictl.exe rmi $image
-    }
-}
-
 Test-CompareFiles
 Test-ValidateAllSignature
-Test-PullImages

@@ -1,5 +1,11 @@
-* @juan-lee @cameronmeissner @UtheMan @ganeshkumarashok @anujmaheshwari1 @AlisonB319 @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @jason1028kr @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+* @juan-lee @cameronmeissner @UtheMan @ganeshkumarashok @anujmaheshwari1 @AlisonB319 @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @jason1028kr @djsly @phealy @r2k1 @timmy-wright @zachary-bailey @bravebeaver @smith1511
 
 # Code owners for for cse_cmd.sh and nodecustomdata.yml. This is to ensure that the scriptless v-team is aware of the changes in order to sync with AKSNodeConfig.
 cse_cmd.sh @Devinwong @lilypan26 @r2k1 @timmy-wright
 nodecustomdata.yml @Devinwong @lilypan26 @r2k1 @timmy-wright
+
+# Code owners for the security patch release notes
+vhdbuilder/release-notes/security-patch/ @yagmurbaydogan @yewmsft @juan-lee @cameronmeissner @UtheMan @ganeshkumarashok @anujmaheshwari1 @AlisonB319 @Devinwong @lilypan26 @AbelHu @junjiezhang1997 @jason1028kr @djsly @phealy @r2k1 @timmy-wright @zachary-bailey
+
+# Set compponents.json to no code-owner so that it can be approved and merged by component owner.
+parts/common/components.json

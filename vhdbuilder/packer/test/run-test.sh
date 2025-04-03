@@ -5,7 +5,6 @@ source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
 LINUX_SCRIPT_PATH="linux-vhd-content-test.sh"
-WIN_CONFIGURATION_SCRIPT_PATH="generate-windows-vhd-configuration.ps1"
 WIN_SCRIPT_PATH="windows-vhd-content-test.ps1"
 TEST_RESOURCE_PREFIX="vhd-test"
 TEST_VM_ADMIN_USERNAME="azureuser"
@@ -40,7 +39,7 @@ else
 fi
 
 # Create the testing resource group
-az group create --name $TEST_VM_RESOURCE_GROUP_NAME --location ${AZURE_LOCATION} --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
+az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATION}" --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
@@ -48,7 +47,7 @@ function cleanup() {
     echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
-    az group delete --name $TEST_VM_RESOURCE_GROUP_NAME --yes --no-wait
+    az group delete --name "$TEST_VM_RESOURCE_GROUP_NAME" --yes --no-wait
   fi
 }
 trap cleanup EXIT
@@ -75,45 +74,50 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
+if [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+    # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
+    TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
+fi
+
 if [ "${OS_TYPE,,}" == "linux" ]; then
   # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
   PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
-  if [ -z "$(az network vnet subnet show --ids $PACKER_SUBNET_ID | jq -r '.id')" ]; then
+  if [ -z "$(az network vnet subnet show --ids "$PACKER_SUBNET_ID" | jq -r '.id')" ]; then
       echo "packer subnet $PACKER_SUBNET_ID seems to be missing, unable to create test VM"
       exit 1
   fi
-  TESTING_NIC_ID=$(az network nic create --resource-group $TEST_VM_RESOURCE_GROUP_NAME --name "testing$(date +%s)${RANDOM}" --subnet $PACKER_SUBNET_ID | jq -r '.NewNIC.id')
+  TESTING_NIC_ID=$(az network nic create --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" --name "testing$(date +%s)${RANDOM}" --subnet "$PACKER_SUBNET_ID" | jq -r '.NewNIC.id')
   if [ -z "$TESTING_NIC_ID" ]; then
       echo "unable to create new NIC for test VM"
       exit 1
   fi
   az vm create \
-      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $MANAGED_SIG_ID \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
-      --nics $TESTING_NIC_ID \
+      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --name "$VM_NAME" \
+      --image "$MANAGED_SIG_ID" \
+      --admin-username "$TEST_VM_ADMIN_USERNAME" \
+      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
+      --nics "$TESTING_NIC_ID" \
       ${TARGET_COMMAND_STRING}
 else
   az vm create \
-      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-      --name $VM_NAME \
-      --image $MANAGED_SIG_ID \
-      --admin-username $TEST_VM_ADMIN_USERNAME \
-      --admin-password $TEST_VM_ADMIN_PASSWORD \
+      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --name "$VM_NAME" \
+      --image "$MANAGED_SIG_ID" \
+      --admin-username "$TEST_VM_ADMIN_USERNAME" \
+      --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --public-ip-address "" \
       ${TARGET_COMMAND_STRING}
 fi
-    
+
 echo "VHD test VM username: $TEST_VM_ADMIN_USERNAME, password: $TEST_VM_ADMIN_PASSWORD"
 
-time az vm wait -g $TEST_VM_RESOURCE_GROUP_NAME -n $VM_NAME --created
+time az vm wait -g "$TEST_VM_RESOURCE_GROUP_NAME" -n "$VM_NAME" --created
 capture_benchmark "${SCRIPT_NAME}_create_test_vm"
 set -x
 
 FULL_PATH=$(realpath $0)
-CDIR=$(dirname $FULL_PATH)
+CDIR=$(dirname "$FULL_PATH")
 
 if [ "$OS_TYPE" == "Linux" ]; then
   if [ -z "${ENABLE_FIPS// }" ]; then
@@ -125,10 +129,10 @@ if [ "$OS_TYPE" == "Linux" ]; then
   SCRIPT_PATH="$CDIR/$LINUX_SCRIPT_PATH"
   for i in $(seq 1 3); do
     ret=$(az vm run-command invoke --command-id RunShellScript \
-      --name $VM_NAME \
-      --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-      --scripts @$SCRIPT_PATH \
-      --parameters ${CONTAINER_RUNTIME} ${OS_VERSION} ${ENABLE_FIPS} ${OS_SKU} ${GIT_BRANCH} ${IMG_SKU}) && break
+      --name "$VM_NAME" \
+      --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --scripts "@$SCRIPT_PATH" \
+      --parameters "${CONTAINER_RUNTIME}" "${OS_VERSION}" "${ENABLE_FIPS}" "${OS_SKU}" "${GIT_BRANCH}" "${IMG_SKU}" "${FEATURE_FLAGS}") && break
     echo "${i}: retrying az vm run-command"
   done
   # The error message for a Linux VM run-command is as follows:
@@ -143,26 +147,21 @@ if [ "$OS_TYPE" == "Linux" ]; then
   #    }
   #  ]
   #  We have extract the message field from the json, and get the errors outputted to stderr + remove \n
-  errMsg=$(echo -e $(echo $ret | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")'))
-  echo $errMsg
-  if [ $errMsg != '' ]; then
+  errMsg=$(echo -e "$(echo "$ret" | jq ".value[] | .message" | grep -oP '(?<=stderr]).*(?=\\n")')")
+  if [ "$errMsg" != '' ]; then
+    echo "Tests failed."
+    echo "Extracted error message: $errMsg"
+    echo "Test output is: "
+    echo "$ret"
     exit 1
   fi
 else
-  SCRIPT_PATH="$CDIR/../$WIN_CONFIGURATION_SCRIPT_PATH"
-  echo "Run $SCRIPT_PATH"
-  az vm run-command invoke --command-id RunPowerShellScript \
-    --name $VM_NAME \
-    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-    --scripts @$SCRIPT_PATH \
-    --output json
-
   SCRIPT_PATH="$CDIR/$WIN_SCRIPT_PATH"
   echo "Run $SCRIPT_PATH"
   ret=$(az vm run-command invoke --command-id RunPowerShellScript \
-    --name $VM_NAME \
-    --resource-group $TEST_VM_RESOURCE_GROUP_NAME \
-    --scripts @$SCRIPT_PATH \
+    --name "$VM_NAME" \
+    --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+    --scripts "@$SCRIPT_PATH" \
     --output json \
     --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}")
   # An example of failed run-command output:
@@ -196,9 +195,12 @@ else
   # we have to use `-E` to disable interpretation of backslash escape sequences, for jq cannot process string
   # with a range of control characters not escaped as shown in the error below:
   #   Invalid string: control characters from U+0000 through U+001F must be escaped
-  errMsg=$(echo -E $ret | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
+  errMsg=$(echo -E "$ret" | jq '.value[]  | select(.code == "ComponentStatus/StdErr/succeeded") | .message')
   # a successful errMsg should be '""' after parsed by `jq`
-  if [ $errMsg != \"\" ]; then
+  if [ "$errMsg" != \"\" ]; then
+        echo "Tests failed. errMsg is $errMsg"
+        echo "Test output is: "
+        echo "$ret"
     exit 1
   fi
 fi

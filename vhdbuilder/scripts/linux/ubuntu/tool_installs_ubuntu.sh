@@ -23,15 +23,15 @@ installAscBaseline() {
    echo "Installing ASC Baseline tools..."
    ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
    retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
-   sudo cp /opt/microsoft/asc-baseline/baselines/*.xml /opt/microsoft/asc-baseline/
    cd /opt/microsoft/asc-baseline
-   sudo ./ascbaseline -d .
-   sudo ./ascremediate -d . -m all
-   sudo ./ascbaseline -d . | grep -B2 -A6 "FAIL"
+   sudo ./ascbaseline -d baselines
+   sudo ./ascremediate -d baselines -m all
+   sudo ./ascbaseline -d baselines | grep -B2 -A6 "FAIL"
    cd -
    echo "Check UDF"
    cat /etc/modprobe.d/*.conf | grep udf
    echo "Finished Setting up ASC Baseline"
+   apt_get_purge 20 30 120 asc-baseline || exit $ERR_APT_PURGE_TIMEOUT
 }
 
 installBcc() {
@@ -202,7 +202,7 @@ refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
 makestep 1.0 -1
 EOF
 
-    systemctlEnableAndStart chrony || exit $ERR_CHRONY_START_TIMEOUT
+    systemctlEnableAndStart chrony 30 || exit $ERR_CHRONY_START_TIMEOUT
 }
 
 installFIPS() {

@@ -14,19 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/* All the helper functions should be hosted by another public repo later. (e.g. agentbaker)
-This action of populating cse_cmd.sh should happen in the Go binary on VHD.
-Therefore, Karpenter will not use these helper functions once the Go binary is ready. */
-
-// Parser helpers are used to get values of the env variables to populate cse_cmd.sh. For example, default values, values computed by others, etc.
-// It's the go binary parser who will call these functions.
-
+// Parser helpers are used to get values of the env variables and pass to the provision scripts execution. For example, default values, values computed by others, etc.
 package parser
 
 import (
 	"bytes"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
@@ -37,6 +32,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/pkg/agent"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -46,7 +42,13 @@ var (
 	containerdConfigTemplateText string
 	//nolint:gochecknoglobals
 	containerdConfigTemplate = template.Must(
-		template.New("containerdconfigforaksnodeconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
+		template.New("containerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
+	)
+	//go:embed  templates/containerd_no_GPU.toml.gtpl
+	containerdConfigNoGPUTemplateText string
+	//nolint:gochecknoglobals
+	containerdConfigNoGPUTemplate = template.Must(
+		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
 )
 
@@ -139,12 +141,13 @@ func getKubenetTemplate() string {
 	return base64.StdEncoding.EncodeToString(kubenetTemplateContent)
 }
 
-func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+// getContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	if aksnodeconfig == nil {
 		return ""
 	}
 
-	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig)
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, false)
 	if err != nil {
 		return fmt.Sprintf("error getting containerd config from node bootstrap variables: %v", err)
 	}
@@ -152,13 +155,33 @@ func getContainerdConfig(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
 }
 
-func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration) (string, error) {
+// getNoGPUContainerdConfigBase64 returns the base64 encoded containerd config depending on whether the node is with GPU or not.
+func getNoGPUContainerdConfigBase64(aksnodeconfig *aksnodeconfigv1.Configuration) string {
+	if aksnodeconfig == nil {
+		return ""
+	}
+
+	containerdConfig, err := containerdConfigFromAKSNodeConfig(aksnodeconfig, true)
+	if err != nil {
+		return fmt.Sprintf("error getting No GPU containerd config from node bootstrap variables: %v", err)
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(containerdConfig))
+}
+
+func containerdConfigFromAKSNodeConfig(aksnodeconfig *aksnodeconfigv1.Configuration, noGPU bool) (string, error) {
 	if aksnodeconfig == nil {
 		return "", fmt.Errorf("AKSNodeConfig is nil")
 	}
 
+	// the containerd config template is different based on whether the node is with GPU or not.
+	_template := containerdConfigTemplate
+	if noGPU {
+		_template = containerdConfigNoGPUTemplate
+	}
+
 	var buffer bytes.Buffer
-	if err := containerdConfigTemplate.Execute(&buffer, aksnodeconfig); err != nil {
+	if err := _template.Execute(&buffer, aksnodeconfig); err != nil {
 		return "", fmt.Errorf("error executing containerd config template for AKSNodeConfig: %w", err)
 	}
 
@@ -171,10 +194,6 @@ func getIsMIGNode(gpuInstanceProfile string) bool {
 
 func getCustomCACertsStatus(customCACerts []string) bool {
 	return len(customCACerts) > 0
-}
-
-func getEnableTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
-	return bootstrapConfig.GetTlsBootstrappingToken() != ""
 }
 
 func getEnableSecureTLSBootstrap(bootstrapConfig *aksnodeconfigv1.BootstrappingConfig) bool {
@@ -411,7 +430,7 @@ func getUlimitContent(u *aksnodeconfigv1.UlimitConfig) string {
 		m["LimitMEMLOCK"] = u.GetMaxLockedMemory()
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(header + createSortedKeyValuePairs(m, " ")))
+	return header + createSortedKeyValuePairs(m, " ")
 }
 
 // getPortRangeEndValue returns the end value of the port range where the input is in the format of "start end".
@@ -493,6 +512,10 @@ func getMaxLBRuleCount(lb *aksnodeconfigv1.LoadBalancerConfig) int32 {
 
 func getGpuImageSha(vmSize string) string {
 	return agent.GetAKSGPUImageSHA(vmSize)
+}
+
+func getGpuDriverType(vmSize string) string {
+	return agent.GetGPUDriverType(vmSize)
 }
 
 func getGpuDriverVersion(vmSize string) string {
@@ -584,6 +607,60 @@ func getServicePrincipalFileContent(authConfig *aksnodeconfigv1.AuthConfig) stri
 		return ""
 	}
 	return base64.StdEncoding.EncodeToString([]byte(authConfig.GetServicePrincipalSecret()))
+}
+
+func getKubeletFlags(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	return createSortedKeyValuePairs(kubeletConfig.GetKubeletFlags(), " ")
+}
+
+func marshalToJSON(v any) ([]byte, error) {
+	// Originally we can set the Multiline here and it will marshal to a JSON we can use.
+	// However the protojson team intentionally randomly add extra whitespace after the key in the key-value.
+	// E.g., Sometimes it is "key": "value" and sometimes it is "key":  "value".
+	// They did it intentionally to make the output format not reliable,
+	// because they think it is not a good idea to rely on the JSON output format.
+	// ref: https://github.com/protocolbuffers/protobuf-go/commit/582ab3de426ef0758666e018b422dd20390f7f26
+	marshaler := &protojson.MarshalOptions{
+		Indent: "",
+	}
+
+	// Therefore, we have to implement our own re-formatting to make the output reliable as we expected.
+	switch v := v.(type) {
+	case *aksnodeconfigv1.KubeletConfigFileConfig:
+		data, err := marshaler.Marshal(v)
+		if err != nil {
+			log.Printf("error marshalling: %v", err)
+			return nil, err
+		}
+
+		var rawMessage json.RawMessage = data
+		jsonByte, err := json.MarshalIndent(rawMessage, "", "  ")
+		if err != nil {
+			log.Printf("error marshalling kubelet config file content: %v", err)
+			return nil, err
+		}
+		return jsonByte, nil
+	default:
+		return nil, fmt.Errorf("unsupported type: %T", v)
+	}
+}
+
+// getKubeletConfigFileContent converts kubelet flags we set to a file, and return the json content.
+func getKubeletConfigFileContent(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	if kubeletConfig == nil {
+		return ""
+	}
+	kubeletConfigFileConfig := kubeletConfig.GetKubeletConfigFileConfig()
+	kubeletConfigFileConfigByte, err := marshalToJSON(kubeletConfigFileConfig)
+	if err != nil {
+		log.Printf("error marshalling kubelet config file content: %v", err)
+		return ""
+	}
+	return string(kubeletConfigFileConfigByte)
+}
+
+func getKubeletConfigFileContentBase64(kubeletConfig *aksnodeconfigv1.KubeletConfig) string {
+	return base64.StdEncoding.EncodeToString([]byte(getKubeletConfigFileContent(kubeletConfig)))
 }
 
 func getEnableSwapConfig(v *aksnodeconfigv1.CustomLinuxOsConfig) bool {

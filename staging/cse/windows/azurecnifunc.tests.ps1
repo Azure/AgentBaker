@@ -29,6 +29,7 @@ Describe 'Set-AzureCNIConfig' {
         $isDualStackEnabled = $false
         $KubeDnsServiceIp = "10.0.0.10"
         $global:IsDisableWindowsOutboundNat = $false
+        $global:CiliumDataplaneEnabled = $false
         $global:KubeproxyFeatureGates = @("WinDSR=true")
         $azureCNIConfigFile = [Io.path]::Combine($azureCNIConfDir, "10-azure.conflist")
 
@@ -55,8 +56,27 @@ Describe 'Set-AzureCNIConfig' {
         }
     }
 
-    Context 'WinDSR is enabled by default' {
-        It "Should remove ROUTE" {
+    Context 'Cilium (ebpf dataplane) is enabled' {
+        It "Should use azure-cns as IPAM" {
+            Set-Default-AzureCNI "AzureCNI.Default.conflist"
+
+            $global:CiliumDataplaneEnabled = $true
+            Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
+                -KubeDnsSearchPath $kubeDnsSearchPath `
+                -KubeClusterCIDR $kubeClusterCIDR `
+                -KubeServiceCIDR $kubeServiceCIDR `
+                -VNetCIDR $vNetCIDR `
+                -IsDualStackEnabled $isDualStackEnabled
+
+            $actualConfigJson = Read-Format-Json $azureCNIConfigFile
+            $expectedConfigJson = Read-Format-Json ([Io.path]::Combine($azureCNIConfDir, "AzureCNI.Expect.CiliumNodeSubnet.conflist"))
+            $difference = Compare-Object $actualConfigJson $expectedConfigJson
+            $difference | Should -Be $null
+        }
+    }
+
+    Context 'WinDSR is enabled, ebpf dataplane disabled by default' {
+        It "Should remove ROUTE and use azure-vnet-ipam for IPAM" {
             Set-Default-AzureCNI "AzureCNI.Default.conflist"
 
             Set-AzureCNIConfig -AzureCNIConfDir $azureCNIConfDir `
@@ -205,6 +225,12 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'AzureCNIOverlay is enabled' {
+        BeforeEach {
+            $hnsServiceName = "hns"
+            Mock Get-Service -MockWith { return $hnsServiceName }
+            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        }
+
         It "Should not include Cluster CIDR when AzureCNIOverlay is enabled" {
             Set-Default-AzureCNI "AzureCNI.Default.Overlay.conflist"
 
@@ -243,6 +269,12 @@ Describe 'Set-AzureCNIConfig' {
     }
 
     Context 'SwiftCNI' {
+        BeforeEach {
+            $hnsServiceName = "hns"
+            Mock Get-Service -MockWith { return $hnsServiceName }
+            Mock Restart-Service -MockWith { Write-Host "Restart-Service -Name $hnsServiceName" } -Verifiable
+        }
+
         It "Should has hnsTimeoutDurationInSeconds and enableLoopbackDSR" {
             Set-Default-AzureCNI  "AzureCNI.Default.Swift.conflist"
 

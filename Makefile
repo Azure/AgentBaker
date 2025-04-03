@@ -177,10 +177,10 @@ ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
 test: test-aks-node-controller
-	go test ./...
+	go build -mod=readonly ./... && go test ./...
 
 test-aks-node-controller:
-	pushd aks-node-controller && go test ./... && popd
+	pushd aks-node-controller && go build -mod=readonly ./... && go test ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
@@ -227,6 +227,8 @@ unit-tests:
 
 .PHONY: validate-components
 validate-components:
-	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/linux/cloud-init/artifacts/components.json
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./parts/common/components.json
+	@./hack/tools/bin/cue vet -c ./schemas/components.cue ./vhdbuilder/packer/windows/components-test.json
+	@./hack/tools/bin/cue vet -c ./schemas/windows_settings.cue ./vhdbuilder/packer/windows/windows_settings.json
 
 include versioning.mk

@@ -14,7 +14,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
-	"gopkg.in/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 type App struct {
@@ -25,6 +25,10 @@ type App struct {
 
 func cmdRunner(cmd *exec.Cmd) error {
 	return cmd.Run()
+}
+func cmdRunnerDryRun(cmd *exec.Cmd) error {
+	slog.Info("dry-run", "cmd", cmd.String())
+	return nil
 }
 
 type ProvisionFlags struct {
@@ -56,6 +60,7 @@ func (a *App) run(ctx context.Context, args []string) error {
 	case "provision":
 		fs := flag.NewFlagSet("provision", flag.ContinueOnError)
 		provisionConfig := fs.String("provision-config", "", "path to the provision config file")
+		dryRun := fs.Bool("dry-run", false, "print the command that would be run without executing it")
 		err := fs.Parse(args[2:])
 		if err != nil {
 			return fmt.Errorf("parse args: %w", err)
@@ -63,10 +68,14 @@ func (a *App) run(ctx context.Context, args []string) error {
 		if provisionConfig == nil || *provisionConfig == "" {
 			return errors.New("--provision-config is required")
 		}
+		if dryRun != nil && *dryRun {
+			a.cmdRunner = cmdRunnerDryRun
+		}
 		return a.Provision(ctx, ProvisionFlags{ProvisionConfig: *provisionConfig})
 	case "provision-wait":
 		provisionStatusFiles := ProvisionStatusFiles{ProvisionJSONFile: provisionJSONFilePath, ProvisionCompleteFile: provisionCompleteFilePath}
 		provisionOutput, err := a.ProvisionWait(ctx, provisionStatusFiles)
+		//nolint:forbidigo // stdout is part of the interface
 		fmt.Println(provisionOutput)
 		slog.Info("provision-wait finished", "provisionOutput", provisionOutput)
 		return err
@@ -85,8 +94,14 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal provision config: %w", err)
 	}
-	if config.Version != "v0" {
+	// TODO: "v0" were a mistake. We are not going to have different logic maintaining both v0 and v1
+	// Disallow "v0" after some time (allow some time to update consumers)
+	if config.Version != "v0" && config.Version != "v1" {
 		return fmt.Errorf("unsupported version: %s", config.Version)
+	}
+
+	if config.Version == "v0" {
+		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
 	cmd, err := parser.BuildCSECmd(ctx, config)

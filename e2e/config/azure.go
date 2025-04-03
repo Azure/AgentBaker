@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -364,7 +365,14 @@ func (a *AzureClient) assignRolesToVMIdentity(ctx context.Context, principalID *
 	return nil
 }
 
-func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing.T, image *Image, tagName, tagValue string) (VHDResourceID, error) {
+	t.Logf("Looking up images for subscription %s resource group %s gallery %s image name %s version %s ",
+		image.Gallery.SubscriptionID,
+		image.Gallery.ResourceGroupName,
+		image.Gallery.Name,
+		image.Name,
+		image.Version)
+
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
@@ -381,11 +389,14 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 			// skip images tagged with the no-selection tag, indicating they
 			// shouldn't be selected dynmically for running abe2e scenarios
 			if _, ok := version.Tags[noSelectionTagName]; ok {
+				t.Logf("Skipping version %s as it has no selection tag %s", *version.ID, noSelectionTagName)
 				continue
 			}
+
 			if tagName != "" {
 				tag, ok := version.Tags[tagName]
 				if !ok || tag == nil || *tag != tagValue {
+					t.Logf("Skipping version %s as it doesn't have tag %s=%s", *version.ID, tagName, tagValue)
 					continue
 				}
 			}
@@ -399,12 +410,22 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, image *Ima
 		}
 	}
 	if latestVersion == nil {
+		t.Logf("Could not find VHD with tag %s=%s in subscription %s resource group %s gallery %s image name %s version %s",
+			tagName,
+			tagValue,
+			image.Gallery.SubscriptionID,
+			image.Gallery.ResourceGroupName,
+			image.Gallery.Name,
+			image.Name,
+			image.Version)
 		return "", ErrNotFound
 	}
 
 	if err := a.ensureReplication(ctx, image, latestVersion); err != nil {
-		return "", fmt.Errorf("ensuring image replication: %w", err)
+		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
+
+	t.Logf("Using version %s", *latestVersion.ID)
 
 	return VHDResourceID(*latestVersion.ID), nil
 }
@@ -438,23 +459,33 @@ func (a *AzureClient) replicateImageVersionToCurrentRegion(ctx context.Context, 
 	return nil
 }
 
-func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, image *Image) (VHDResourceID, error) {
+func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, image *Image) (VHDResourceID, error) {
+	t.Logf("Looking up gallery images for subcription %s", image.Gallery.SubscriptionID)
 	galleryImageVersion, err := armcompute.NewGalleryImageVersionsClient(image.Gallery.SubscriptionID, a.Credential, a.ArmOptions)
 	if err != nil {
 		return "", fmt.Errorf("create a new images client: %v", err)
 	}
+	t.Logf("Looking up images for gallery subscription %s resource group %s gallery name %s image name %s ersion %s ",
+		image.Gallery.SubscriptionID,
+		image.Gallery.ResourceGroupName,
+		image.Gallery.Name,
+		image.Name,
+		image.Version)
+
 	resp, err := galleryImageVersion.Get(ctx, image.Gallery.ResourceGroupName, image.Gallery.Name, image.Name, image.Version, nil)
 	if err != nil {
 		return "", fmt.Errorf("getting live image version info: %w", err)
 	}
 
+	t.Logf("Found image with id %s", *resp.ID)
+
 	liveVersion := &resp.GalleryImageVersion
 	if err := ensureProvisioningState(liveVersion); err != nil {
-		return "", fmt.Errorf("ensuring image version provisioning state: %w", err)
+		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
 	}
 
 	if err := a.ensureReplication(ctx, image, liveVersion); err != nil {
-		return "", fmt.Errorf("ensuring image replication: %w", err)
+		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 
 	return VHDResourceID(*resp.ID), nil
@@ -490,4 +521,60 @@ func ensureProvisioningState(version *armcompute.GalleryImageVersion) error {
 		return fmt.Errorf("unexpected provisioning state: %q", *version.Properties.ProvisioningState)
 	}
 	return nil
+}
+
+func (a *AzureClient) CreateVMSSWithRetry(ctx context.Context, t *testing.T, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	t.Logf("creating VMSS %s in resource group %s", vmssName, resourceGroupName)
+	delay := 5 * time.Second
+	retryOn := func(err error) bool {
+		var respErr *azcore.ResponseError
+		// AllocationFailed sometimes happens for exotic SKUs (new GPUs) with limited availability, sometimes retrying helps
+		// It's not a quota issue
+		return errors.As(err, &respErr) && respErr.StatusCode == 200 && respErr.ErrorCode == "AllocationFailed"
+	}
+	attempt := 0
+	for {
+		attempt++
+		vmss, err := a.createVMSS(ctx, resourceGroupName, vmssName, parameters)
+		if err == nil {
+			t.Logf("created VMSS %s in resource group %s", vmssName, resourceGroupName)
+			return vmss, nil
+		}
+
+		// not a retryable error
+		if !retryOn(err) {
+			return nil, err
+		}
+
+		if attempt >= 10 {
+			return nil, fmt.Errorf("failed to create VMSS after 10 retries: %w", err)
+		}
+
+		t.Logf("failed to create VMSS: %v, attempt: %v, retrying in %v", err, attempt, delay)
+		select {
+		case <-ctx.Done():
+			return nil, err
+		case <-time.After(delay):
+		}
+	}
+
+}
+
+func (a *AzureClient) createVMSS(ctx context.Context, resourceGroupName string, vmssName string, parameters armcompute.VirtualMachineScaleSet) (*armcompute.VirtualMachineScaleSet, error) {
+	operation, err := a.VMSS.BeginCreateOrUpdate(
+		ctx,
+		resourceGroupName,
+		vmssName,
+		parameters,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	vmssResp, err := operation.PollUntilDone(ctx, DefaultPollUntilDoneOptions)
+	if err != nil {
+		return nil, err
+	}
+	return &vmssResp.VirtualMachineScaleSet, nil
+
 }

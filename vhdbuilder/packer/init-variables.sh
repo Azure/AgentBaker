@@ -1,5 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
 set -x
+set -e
+
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
@@ -69,6 +71,11 @@ fi
 if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
 	exit 1
+fi
+
+if grep -q "cvm" <<< "$FEATURE_FLAGS" && [ -n "${CVM_PACKER_BUILD_LOCATION}" ]; then
+	PACKER_BUILD_LOCATION="${CVM_PACKER_BUILD_LOCATION}"
+	echo "CVM: PACKER_BUILD_LOCATION is set to ${PACKER_BUILD_LOCATION}"
 fi
 
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
@@ -167,6 +174,8 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
+		elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+			SIG_IMAGE_NAME+="Specialized"
 		fi
 		echo "No input for SIG_IMAGE_NAME was provided, defaulting to: ${SIG_IMAGE_NAME}"
 	else
@@ -254,13 +263,13 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
-		if [[ ${ARCHITECTURE,,} == "arm64" ]] || [[ ${IMG_SKU} == "20_04-lts-cvm" ]] || [[ ${HYPERV_GENERATION} == "V1" ]]; then
-		  TARGET_COMMAND_STRING=""
-		  if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
-        TARGET_COMMAND_STRING+="--architecture Arm64"
-      elif [[ ${IMG_SKU} == "20_04-lts-cvm" ]]; then
-        TARGET_COMMAND_STRING+="--features SecurityType=ConfidentialVMSupported"
-      fi
+		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
+			TARGET_COMMAND_STRING=""
+			if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+				TARGET_COMMAND_STRING+="--architecture Arm64"
+			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
+			fi
 
       az sig image-definition create \
         --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
@@ -333,72 +342,35 @@ fi
 
 # shellcheck disable=SC2236
 if [ "$OS_TYPE" == "Windows" ]; then
-	imported_windows_image_name=""
-	source $CDIR/windows-image.env
 
-	echo "Set the base image sku and version from windows-image.env"
-	case "${WINDOWS_SKU}" in
-	"2019")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2019-imported-${CREATE_TIME}-${RANDOM}"
+	echo "Set the base image sku and version from windows_settings.json"
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2019_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Docker: ${WINDOWS_2019_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2019-containerd")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2019_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2019_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2019-containerd-imported-${CREATE_TIME}-${RANDOM}"
+	WINDOWS_IMAGE_SKU=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_sku" < $CDIR/windows/windows_settings.json`
+	WINDOWS_IMAGE_VERSION=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".base_image_version" < $CDIR/windows/windows_settings.json`
+	WINDOWS_IMAGE_NAME=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".windows_image_name" < $CDIR/windows/windows_settings.json`
+	OS_DISK_SIZE=`jq -r ".WindowsBaseVersions.\"${WINDOWS_SKU}\".os_disk_size" < $CDIR/windows/windows_settings.json`
+  if [ "null" != "${OS_DISK_SIZE}" ]; then
+    echo "Setting os_disk_size_gb to the value in windows-settings.json for ${WINDOWS_SKU}: ${OS_DISK_SIZE}"
+    os_disk_size_gb=${OS_DISK_SIZE}
+  else
+    os_disk_size_gb="30"
+  fi
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2019 Containerd: ${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2019_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		;;
-	"2022-containerd" | "2022-containerd-gen2")
-		WINDOWS_IMAGE_SKU=$WINDOWS_2022_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_2022_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-2022-containerd-imported-${CREATE_TIME}-${RANDOM}"
+  imported_windows_image_name="${WINDOWS_IMAGE_NAME}-imported-${CREATE_TIME}-${RANDOM}"
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 2022 Containerd: ${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_2022_CONTAINERD_OS_DISK_SIZE_GB}
-		fi
-		# Default: read from the official MCR image
-		if [[ $HYPERV_GENERATION == "V2" ]]; then
-			WINDOWS_IMAGE_SKU=$WINDOWS_2022_GEN2_BASE_IMAGE_SKU
-			WINDOWS_IMAGE_VERSION=$WINDOWS_2022_GEN2_BASE_IMAGE_VERSION
-		fi
-		;;
-	"23H2" | "23H2-gen2")
-		WINDOWS_IMAGE_SKU=$WINDOWS_23H2_BASE_IMAGE_SKU
-		WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_BASE_IMAGE_VERSION
-		imported_windows_image_name="windows-23H2-imported-${CREATE_TIME}-${RANDOM}"
+  echo "Got base image data: "
+  echo "  WINDOWS_IMAGE_SKU: ${WINDOWS_IMAGE_SKU}"
+  echo "  WINDOWS_IMAGE_VERSION: ${WINDOWS_IMAGE_VERSION}"
+  echo "  WINDOWS_IMAGE_NAME: ${WINDOWS_IMAGE_NAME}"
+  echo "  OS_DISK_SIZE: ${OS_DISK_SIZE}"
+  echo "  imported_windows_image_name: ${imported_windows_image_name}"
 
-		echo "Set OS disk size"
-		if [ -n "${WINDOWS_23H2_OS_DISK_SIZE_GB}" ]; then
-			echo "Setting os_disk_size_gb to the value in windows-image.env for 23H2: ${WINDOWS_23H2_OS_DISK_SIZE_GB}"
-			os_disk_size_gb=${WINDOWS_23H2_OS_DISK_SIZE_GB}
-		fi
-		# Default: read from the official MCR image
-		if [[ $HYPERV_GENERATION == "V2" ]]; then
-			WINDOWS_IMAGE_SKU=$WINDOWS_23H2_GEN2_BASE_IMAGE_SKU
-			WINDOWS_IMAGE_VERSION=$WINDOWS_23H2_GEN2_BASE_IMAGE_VERSION
-		fi
-		;;
-	*)
-		echo "unsupported windows sku: ${WINDOWS_SKU}"
-		exit 1
-		;;
-	esac
+	if [ "${WINDOWS_IMAGE_SKU}" = "null" ]; then
+    echo "unsupported windows sku: ${WINDOWS_SKU}"
+    exit 1
+  fi
 
-	# Create the sig image from the official images defined in windows-image.env by default
+	# Create the sig image from the official images defined in windows-settings.json by default
 	windows_sigmode_source_subscription_id=""
 	windows_sigmode_source_resource_group_name=""
 	windows_sigmode_source_gallery_name=""
@@ -418,7 +390,7 @@ if [ "$OS_TYPE" == "Windows" ]; then
 		echo "Copy Windows base image to ${WINDOWS_IMAGE_URL}"
 		export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 		export AZCOPY_MSI_RESOURCE_STRING="${AZURE_MSI_RESOURCE_STRING}"
-		azcopy-preview copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
+		azcopy copy "${WINDOWS_BASE_IMAGE_URL}" "${WINDOWS_IMAGE_URL}"
 		# https://www.packer.io/plugins/builders/azure/arm#image_url
 		# WINDOWS_IMAGE_URL to a custom VHD to use for your base image. If this value is set, image_publisher, image_offer, image_sku, or image_version should not be set.
 		WINDOWS_IMAGE_PUBLISHER=""
@@ -532,6 +504,8 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "vm_size": "${AZURE_VM_SIZE}",
   "create_time": "${CREATE_TIME}",
   "img_version": "${IMG_VERSION}",
+  "SKIP_EXTENSION_CHECK": "${SKIP_EXTENSION_CHECK}",
+  "INSTALL_OPEN_SSH_SERVER": "${INSTALL_OPEN_SSH_SERVER}",
   "vhd_build_timestamp": "${VHD_BUILD_TIMESTAMP}",
   "windows_image_publisher": "${WINDOWS_IMAGE_PUBLISHER}",
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",

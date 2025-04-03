@@ -292,14 +292,14 @@ write_files:
   content: |
     [Unit]
     Description=Installs and loads Nvidia GPU kernel module
+    Before=kubelet.service
     [Service]
     Type=oneshot
     RemainAfterExit=true
     ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
     ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
-    ExecStartPost=/bin/sh -c "sleep 10 && systemctl restart kubelet"
     [Install]
-    WantedBy=multi-user.target
+    WantedBy=multi-user.target kubelet.service
 
 - path: /etc/default/kubelet
   permissions: "0644"
@@ -320,7 +320,7 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
+{{ if (or EnableSecureTLSBootstrapping GetTLSBootstrapTokenForKubeConfig) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
@@ -409,6 +409,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
+- path: /opt/azure/containers/validate-kubelet-credentials.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "validateKubeletCredentialsScript"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64
@@ -422,13 +429,3 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
-
-{{- if (ne GetBootstrapProfileContainerRegistryServer "") }}
-# TODO(binxi): need to update for sovereign cloud.
-- path: /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml
-  permissions: "0644"
-  owner: root
-  content: |
-    [host."https://{{GetBootstrapProfileContainerRegistryServer}}"]
-      capabilities = ["pull", "resolve"]
-{{- end}}

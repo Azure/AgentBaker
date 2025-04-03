@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/require"
@@ -34,12 +35,19 @@ func ValidateWASM(ctx context.Context, s *Scenario, nodeName string) {
 }
 
 func ValidateCommonLinux(ctx context.Context, s *Scenario) {
-	execResult := execOnVMForScenario(ctx, s, "cat /etc/default/kubelet")
-	require.Equal(s.T, "0", execResult.exitCode, "cat /etc/default/kubelet failed with exit code %q", execResult.exitCode)
-	require.NotContains(s.T, execResult.stdout.String(), "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo cat /etc/default/kubelet", 0, "could not read kubelet config")
+	stdout := execResult.stdout.String()
+	require.NotContains(s.T, stdout, "--dynamic-config-dir", "kubelet flag '--dynamic-config-dir' should not be present in /etc/default/kubelet\nContents:\n%s")
+
+	kubeletLogs := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl").stdout.String()
+	require.True(
+		s.T,
+		!strings.Contains(kubeletLogs, "unable to validate bootstrap credentials") && strings.Contains(kubeletLogs, "kubelet bootstrap token credential is valid"),
+		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
+	)
 
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
-	// which happens as a side-effect of execOnVMForScenario, it's ugly but works.
+	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
 	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
 	logSSHInstructions(s)
 
@@ -62,8 +70,7 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		//"cloud-config.txt", // file with UserData
 	})
 
-	execResult = execOnVMForScenario(ctx, s, "curl http://168.63.129.16:32526/vmSettings")
-	require.Equal(s.T, "0", execResult.exitCode, "curl to wireserver failed")
+	_ = execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo curl http://168.63.129.16:32526/vmSettings", 0, "curl to wireserver failed")
 
 	execResult = execOnVMForScenarioOnUnprivilegedPod(ctx, s, "curl https://168.63.129.16/machine/?comp=goalstate -H 'x-ms-version: 2015-04-05' -s --connect-timeout 4")
 	require.Equal(s.T, "28", execResult.exitCode, "curl to wireserver should fail")
@@ -104,8 +111,10 @@ func ValidateLeakedSecrets(ctx context.Context, s *Scenario) {
 	}
 
 	for _, logFile := range []string{"/var/log/azure/cluster-provision.log", "/var/log/azure/aks-node-controller.log"} {
-		for secretName, secretValue := range secrets {
-			ValidateFileExcludesContent(ctx, s, logFile, secretValue, secretName)
+		for _, secretValue := range secrets {
+			if secretValue != "" {
+				ValidateFileExcludesContent(ctx, s, logFile, secretValue)
+			}
 		}
 	}
 }

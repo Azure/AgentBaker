@@ -333,7 +333,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// !!! WARNING !!!
 		// avoid mutation of the original config -- both functions mutate input.
 		// GetNodeBootstrappingPayload mutates the input so it's not the same as what gets passed to GetNodeBootstrappingCmd which causes bugs.
-		// unit tests should always rely on unmutated copies of the base config.
+		// unit tests should always rely on un-mutated copies of the base config.
 		configCustomDataInput, err := deepcopy.Anything(config)
 		Expect(err).To(BeNil())
 
@@ -345,7 +345,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err := ab.GetNodeBootstrapping(
 			context.Background(),
-			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCustomDataInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 
@@ -378,7 +378,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		Expect(err).To(BeNil())
 		nodeBootstrapping, err = ab.GetNodeBootstrapping(
 			context.Background(),
-			configCseInput.(*datamodel.NodeBootstrappingConfiguration),
+			configCseInput.(*datamodel.NodeBootstrappingConfiguration), //nolint:errcheck // this code been writen before linter was added
 		)
 		Expect(err).To(BeNil())
 		cseCommand := nodeBootstrapping.CSE
@@ -787,6 +787,32 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.KubeletConfig = map[string]string{}
 			}, nil),
 
+		Entry("AKSUbuntu1804 with kubelet client certificate", "AKSUbuntu1804+WithKubeletClientCert", "1.18.3",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.CertificateProfile = &datamodel.CertificateProfile{
+					ClientCertificate: "fooBarBaz",
+					ClientPrivateKey:  "fooBarBaz",
+					CaCertificate:     "fooBarBaz",
+				}
+			}, func(o *nodeBootstrappingOutput) {
+				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
+				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
+				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
+				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"].value
+
+				Expect(etcDefaultKubelet).NotTo(BeEmpty())
+				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(kubeletSh).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
+				Expect(caCRT).NotTo(BeEmpty())
+				Expect(kubeconfig).ToNot(BeEmpty())
+
+				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"]
+				Expect(bootstrapKubeconfig).To(BeNil())
+			}),
+
 		Entry("AKSUbuntu1804 with kubelet client TLS bootstrapping enabled", "AKSUbuntu1804+KubeletClientTLSBootstrapping", "1.18.3",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.KubeletClientTLSBootstrapToken = to.StringPtr("07401b.f395accd246ae52d")
@@ -798,19 +824,23 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				etcDefaultKubelet := o.files["/etc/default/kubelet"].value
 				etcDefaultKubeletService := o.files["/etc/systemd/system/kubelet.service"].value
 				kubeletSh := o.files["/opt/azure/containers/kubelet.sh"].value
+				validateCredentials := o.files["/opt/azure/containers/validate-kubelet-credentials.sh"].value
 				bootstrapKubeconfig := o.files["/var/lib/kubelet/bootstrap-kubeconfig"].value
 				caCRT := o.files["/etc/kubernetes/certs/ca.crt"].value
 
 				Expect(etcDefaultKubelet).NotTo(BeEmpty())
 				Expect(bootstrapKubeconfig).NotTo(BeEmpty())
 				Expect(kubeletSh).NotTo(BeEmpty())
-				Expect(tlsBootstrapDropin).ToNot(BeEmpty())
 				Expect(etcDefaultKubeletService).NotTo(BeEmpty())
+				Expect(validateCredentials).ToNot(BeEmpty())
 				Expect(caCRT).NotTo(BeEmpty())
 
 				Expect(bootstrapKubeconfig).To(ContainSubstring("token"))
 				Expect(bootstrapKubeconfig).To(ContainSubstring("07401b.f395accd246ae52d"))
 				Expect(bootstrapKubeconfig).ToNot(ContainSubstring("command: /opt/azure/tlsbootstrap/tls-bootstrap-client"))
+
+				kubeconfig := o.files["/var/lib/kubelet/kubeconfig"]
+				Expect(kubeconfig).To(BeNil())
 			}),
 
 		Entry("AKSUbuntu2204 with secure TLS bootstrapping enabled", "AKSUbuntu2204+SecureTLSBoostrapping", "1.25.6",
@@ -874,8 +904,6 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}, func(o *nodeBootstrappingOutput) {
 				Expect(o.vars["ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION"]).To(Equal("true"))
 				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--rotate-server-certificates=true")).To(BeTrue())
-				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--tls-cert-file")).To(BeFalse())
-				Expect(strings.Contains(o.vars["KUBELET_FLAGS"], "--tls-private-key-file")).To(BeFalse())
 			}),
 
 		Entry("AKSUbuntu2204 with kubelet serving certificate rotation disabled and custom kubelet config",
@@ -1054,6 +1082,8 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 			}
 		},
 			func(o *nodeBootstrappingOutput) {
+				Expect(o).ShouldNot(BeNil())
+				Expect(o.files["/opt/azure/containers/provision.sh"]).ShouldNot(BeNil())
 				Expect(o.files["/opt/azure/containers/provision.sh"].encoding).To(Equal(cseVariableEncodingGzip))
 				cseMain := o.files["/opt/azure/containers/provision.sh"].value
 				httpProxyStr := "export http_proxy=\"http://myproxy.server.com:8080/\""
@@ -1170,7 +1200,7 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1221,7 +1251,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedOverlaybdConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1344,7 +1374,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1387,7 +1417,7 @@ oom_score = 0
 				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))
 				Expect(err).To(BeNil())
 				expectedShimConfig := `version = 2
-oom_score = 0
+oom_score = -999
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = ""
   [plugins."io.containerd.grpc.v1.cri".containerd]
@@ -1546,6 +1576,10 @@ oom_score = 0
 					TransparentHugePageEnabled: "never",
 					TransparentHugePageDefrag:  "defer+madvise",
 					SwapFileSizeMB:             &swapFileSizeMB,
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: "75000",
+						NoFile:          "1048",
+					},
 				}
 			}, func(o *nodeBootstrappingOutput) {
 				kubeletConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["KUBELET_CONFIG_FILE_CONTENT"]))
@@ -1565,6 +1599,11 @@ oom_score = 0
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh2=8192"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.neigh.default.gc_thresh3=16384"))
 				Expect(sysctlContent).To(ContainSubstring("net.ipv4.ip_local_reserved_ports=65330"))
+
+				Expect(o.vars["SHOULD_CONFIG_CONTAINERD_ULIMITS"]).To(Equal("true"))
+				containerdUlimitContent := o.vars["CONTAINERD_ULIMITS"]
+				Expect(containerdUlimitContent).To(ContainSubstring("LimitNOFILE=1048"))
+				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
 			}),
 		Entry("AKSUbuntu2204 with k8s 1.31 and custom kubeletConfig and serializeImagePull flag", "AKSUbuntu2204+CustomKubeletConfig+SerializeImagePulls", "1.31.0",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
@@ -1598,11 +1637,7 @@ oom_score = 0
 						ContainerRegistryServer: "testserver.azurecr.io",
 					},
 				}
-			}, func(o *nodeBootstrappingOutput) {
-				containerdConfigFileContent := o.files["/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"].value
-				Expect(strings.Contains(containerdConfigFileContent, "[host.\"https://testserver.azurecr.io\"]")).To(BeTrue())
-				Expect(strings.Contains(containerdConfigFileContent, "capabilities = [\"pull\", \"resolve\"]")).To(BeTrue())
-			}),
+			}, nil),
 		Entry("AKSUbuntu2204 IMDSRestriction with enable restriction and insert to mangle table", "AKSUbuntu2204+IMDSRestrictionOnWithMangleTable", "1.24.2",
 			func(config *datamodel.NodeBootstrappingConfiguration) {
 				config.EnableIMDSRestriction = true
@@ -1625,6 +1660,110 @@ oom_score = 0
 			Expect(o.vars["ENABLE_IMDS_RESTRICTION"]).To(Equal("false"))
 			Expect(o.vars["INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE"]).To(Equal("false"))
 		}),
+		Entry("AKSUbuntu2404 with custom osConfig for Ulimit", "AKSUbuntu2404+CustomLinuxOSConfigUlimit", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].CustomLinuxOSConfig = &datamodel.CustomLinuxOSConfig{
+					UlimitConfig: &datamodel.UlimitConfig{
+						MaxLockedMemory: "75000",
+						NoFile:          "1048",
+					},
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+			}, func(o *nodeBootstrappingOutput) {
+				Expect(o.vars["SHOULD_CONFIG_CONTAINERD_ULIMITS"]).To(Equal("true"))
+				containerdUlimitContent := o.vars["CONTAINERD_ULIMITS"]
+				Expect(containerdUlimitContent).NotTo(ContainSubstring("LimitNOFILE=1048"))
+				Expect(containerdUlimitContent).To(ContainSubstring("LimitMEMLOCK=75000"))
+			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should have rename containerd runtime name", "AKSUbuntu2404+Teleport", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				// to have snapshotter features
+				config.EnableACRTeleportPlugin = true
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedContainerdV2CriConfig := `
+[plugins."io.containerd.cri.v1.images".pinned_images]
+  sandbox = ""
+`
+				deprecatedContainerdV1CriConfig := `
+[plugins."io.containerd.grpc.v1.cri"]
+  sandbox_image = ""
+`
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedContainerdV2CriConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedContainerdV1CriConfig))
+
+				expectedSnapshotterConfig := `
+[plugins."io.containerd.cri.v1.images"]
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
+`
+				deprecatedSnapshotterConfig := `
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  snapshotter = "teleportd"
+  disable_snapshot_annotations = false
+`
+				Expect(expectedSnapshotterConfig).NotTo(Equal(deprecatedSnapshotterConfig))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedSnapshotterConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedSnapshotterConfig))
+
+				expectedRuncConfig := `
+[plugins."io.containerd.cri.v1.runtime".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+`
+				deprecatedRuncConfig := `
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  default_runtime_name = "runc"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+`
+				Expect(expectedRuncConfig).NotTo(Equal(deprecatedRuncConfig))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedRuncConfig))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedRuncConfig))
+
+			}),
+		Entry("AKSUbuntu2404 containerd v2 CRI plugin config should not have deprecated cni features", "AKSUbuntu2404+NetworkPolicy", ">=1.32.x",
+			func(config *datamodel.NodeBootstrappingConfiguration) {
+				config.ContainerService.Properties.AgentPoolProfiles[0].KubernetesConfig = &datamodel.KubernetesConfig{
+					ContainerRuntime: datamodel.Containerd,
+				}
+				config.ContainerService.Properties.AgentPoolProfiles[0].Distro = datamodel.AKSUbuntuContainerd2404
+				config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.32.0"
+				// to have cni plugin non-default
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = NetworkPluginKubenet
+				config.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy = NetworkPolicyAntrea
+			}, func(o *nodeBootstrappingOutput) {
+				containerdConfigFileContent, err := getBase64DecodedValue([]byte(o.vars["CONTAINERD_CONFIG_CONTENT"]))
+				Expect(err).To(BeNil())
+				expectedCniV2Config := `
+[plugins."io.containerd.cri.v1.runtime".cni]
+  bin_dir = "/opt/cni/bin"
+  conf_dir = "/etc/cni/net.d"
+  conf_template = "/etc/containerd/kubenet_template.conf"
+`
+				deprecatedCniV1Config := `
+  [plugins."io.containerd.grpc.v1.cri".cni]
+    bin_dir = "/opt/cni/bin"
+    conf_dir = "/etc/cni/net.d"
+    conf_template = "/etc/containerd/kubenet_template.conf"
+`
+				Expect(expectedCniV2Config).NotTo(Equal(deprecatedCniV1Config))
+				Expect(containerdConfigFileContent).To(ContainSubstring(expectedCniV2Config))
+				Expect(containerdConfigFileContent).NotTo(ContainSubstring(deprecatedCniV1Config))
+			}),
 	)
 })
 
@@ -2159,18 +2298,18 @@ var _ = Describe("GetGPUDriverVersion", func() {
 	})
 })
 
-var _ = Describe("getGPUDriverType", func() {
+var _ = Describe("GetGPUDriverType", func() {
 
 	It("should use cuda with nc v3", func() {
-		Expect(getGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nc6_v3")).To(Equal("cuda"))
 	})
 	It("should use grid with nv v5", func() {
-		Expect(getGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
-		Expect(getGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("standard_nv6ads_a10_v5")).To(Equal("grid"))
+		Expect(GetGPUDriverType("Standard_nv36adms_A10_V5")).To(Equal("grid"))
 	})
 	// NV V1 SKUs were retired in September 2023, leaving this test just for safety
 	It("should use cuda with nv v1", func() {
-		Expect(getGPUDriverType("standard_nv6")).To(Equal("cuda"))
+		Expect(GetGPUDriverType("standard_nv6")).To(Equal("cuda"))
 	})
 })
 

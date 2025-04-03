@@ -1,0 +1,86 @@
+name: auto-tidy
+
+on:
+  # to support dependabot need to use pull_request_target
+  # https://github.blog/changelog/2021-02-19-github-actions-workflows-triggered-by-dependabot-prs-will-run-with-read-only-permissions/
+  pull_request_target:
+    branches:
+      - master
+    paths:
+      - go.mod
+      - e2e/go.mod
+      - aks-node-controller/go.mod
+      - .github/workflows/tidy.yaml
+
+permissions:
+    id-token: write
+    contents: read
+jobs:
+  auto-tidy:
+    runs-on: ubuntu-latest
+    # prevent actors that aren't dependabot from triggering from forks
+    if: github.actor == 'dependabot[bot]' || github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
+    environment: test
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
+      
+      - uses: azure/cli@v2
+        id: app-private-key
+        with:
+          azcliversion: latest
+          inlineScript: |
+              # https://github.com/actions/create-github-app-token?tab=readme-ov-file#inputs
+              private_key=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KV_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
+              echo "::add-mask::$private_key"
+              echo "private-key=$private_key" >> $GITHUB_OUTPUT
+
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ steps.app-private-key.outputs.private-key }}
+          repositories: AgentBaker
+
+      - id: get-user-id
+        name: Get app user ID
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ github.head_ref }}
+
+      - run: |
+          set -e
+          for mod_dir in ./ e2e/ aks-node-controller/; do
+            echo "running go mod tidy in ${mod_dir}"
+            pushd $mod_dir
+                go mod tidy
+            popd
+          done
+        name: Run go mod tidy
+
+      - run: |
+          set -e
+          for mod_dir in ./ e2e/ aks-node-controller/; do
+            echo "removing any toolchain lines from go.mod in ${mod_dir}"
+            pushd $mod_dir
+                # this pains me greatly, though adding the toolchain line seems to break our other workflows,
+                # we don't want to be constantly blocking dependabot PRs on failing workflows
+                awk 'BEGIN { skip=0 } { if (skip && $0 ~ /^[[:space:]]*$/) { next } else if (skip) { skip=0 } if ($0 ~ /^toolchain/) { skip=1; next } print }' go.mod > tmp && mv tmp go.mod
+            popd
+          done
+        name: Remove toolchain lines
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: auto-tidy"
+          commit_user_name: "${{ steps.app-token.outputs.app-slug }}[bot]"
+          commit_user_email: "${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+          commit_author: "${{ steps.app-token.outputs.app-slug }}[bot] <${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>"

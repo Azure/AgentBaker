@@ -4,6 +4,8 @@ set -euxo pipefail
 TRIVY_REPORT_DIRNAME=/opt/azure/containers
 TRIVY_REPORT_ROOTFS_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-rootfs.json
 TRIVY_REPORT_IMAGE_TABLE_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-images-table.txt
+CVE_DIFF_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-diff.txt
+CVE_LIST_QUERY_OUTPUT_PATH=${TRIVY_REPORT_DIRNAME}/cve-list.txt
 TRIVY_DB_REPOSITORIES="mcr.microsoft.com/mirror/ghcr/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db"
 
 TRIVY_VERSION="0.57.0"
@@ -39,6 +41,10 @@ export BUILD_SOURCEVERSION=${25}
 export SYSTEM_COLLECTIONURI=${26}
 export SYSTEM_TEAMPROJECT=${27}
 export BUILD_BUILDID=${28}
+export IMAGE_VERSION=${29}
+CVE_DIFF_UPLOAD_REPORT_NAME=${30}
+CVE_LIST_UPLOAD_REPORT_NAME=${31}
+SCAN_RESOURCE_PREFIX=${32}
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
@@ -186,12 +192,40 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
     fi
 done
 
+./vuln-to-kusto-vhd query-report query-diff 24h \
+    --vhd-vhdname=${VHD_ARTIFACT_NAME} \
+    --vhd-nodeimageversion=${IMAGE_VERSION} \
+    --severity="HIGH" \
+    --scan-resource-prefix=${SCAN_RESOURCE_PREFIX} \
+    --kusto-endpoint=${KUSTO_ENDPOINT} \
+    --kusto-database=${KUSTO_DATABASE} \
+    --kusto-table=${KUSTO_TABLE} \
+    --kusto-managed-identity-client-id=${UMSI_CLIENT_ID} >> ${CVE_DIFF_QUERY_OUTPUT_PATH}
+
+./vuln-to-kusto-vhd query-report query-list 24h \
+    --vhd-vhdname=${VHD_ARTIFACT_NAME} \
+    --vhd-nodeimageversion=${IMAGE_VERSION} \
+    --severity="HIGH" \
+    --scan-resource-prefix=${SCAN_RESOURCE_PREFIX} \
+    --kusto-endpoint=${KUSTO_ENDPOINT} \
+    --kusto-database=${KUSTO_DATABASE} \
+    --kusto-table=${KUSTO_TABLE} \
+    --kusto-managed-identity-client-id=${UMSI_CLIENT_ID} >> ${CVE_LIST_QUERY_OUTPUT_PATH}
+
 rm ./trivy
 
+chmod a+r "${CVE_DIFF_QUERY_OUTPUT_PATH}"
 chmod a+r "${TRIVY_REPORT_ROOTFS_JSON_PATH}"
 chmod a+r "${TRIVY_REPORT_IMAGE_TABLE_PATH}"
+chmod a+r "${CVE_LIST_QUERY_OUTPUT_PATH}"
 
 login_with_user_assigned_managed_identity ${AZURE_MSI_RESOURCE_STRING}
+
+az storage blob upload --file ${CVE_DIFF_QUERY_OUTPUT_PATH} \
+    --container-name ${SIG_CONTAINER_NAME} \
+    --name ${CVE_DIFF_UPLOAD_REPORT_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
+    --auth-mode login
 
 az storage blob upload --file ${TRIVY_REPORT_ROOTFS_JSON_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
@@ -202,5 +236,11 @@ az storage blob upload --file ${TRIVY_REPORT_ROOTFS_JSON_PATH} \
 az storage blob upload --file ${TRIVY_REPORT_IMAGE_TABLE_PATH} \
     --container-name ${SIG_CONTAINER_NAME} \
     --name ${TRIVY_UPLOAD_TABLE_NAME} \
+    --account-name ${STORAGE_ACCOUNT_NAME} \
+    --auth-mode login
+
+az storage blob upload --file ${CVE_LIST_QUERY_OUTPUT_PATH} \
+    --container-name ${SIG_CONTAINER_NAME} \
+    --name ${CVE_LIST_UPLOAD_REPORT_NAME} \
     --account-name ${STORAGE_ACCOUNT_NAME} \
     --auth-mode login

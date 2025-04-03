@@ -171,6 +171,7 @@ const (
 	AKSAzureLinuxV2Gen2Kata             Distro = "aks-azurelinux-v2-gen2-kata"
 	AKSCBLMarinerV2Gen2TL               Distro = "aks-cblmariner-v2-gen2-tl"
 	AKSAzureLinuxV2Gen2TL               Distro = "aks-azurelinux-v2-gen2-tl"
+	AKSAzureLinuxV3Gen2TL               Distro = "aks-azurelinux-v3-gen2-tl"
 	AKSCBLMarinerV2KataGen2TL           Distro = "aks-cblmariner-v2-kata-gen2-tl"
 	AKSUbuntuFipsContainerd1804         Distro = "aks-ubuntu-fips-containerd-18.04"
 	AKSUbuntuFipsContainerd1804Gen2     Distro = "aks-ubuntu-fips-containerd-18.04-gen2"
@@ -187,15 +188,19 @@ const (
 	AKSUbuntuContainerd2004CVMGen2      Distro = "aks-ubuntu-containerd-20.04-cvm-gen2"
 	AKSUbuntuArm64Containerd2204Gen2    Distro = "aks-ubuntu-arm64-containerd-22.04-gen2"
 	AKSUbuntuArm64Containerd2404Gen2    Distro = "aks-ubuntu-arm64-containerd-24.04-gen2"
+	AKSUbuntuContainerd2404CVMGen2      Distro = "aks-ubuntu-containerd-24.04-cvm-gen2"
 	AKSCBLMarinerV2Arm64Gen2            Distro = "aks-cblmariner-v2-arm64-gen2"
 	AKSAzureLinuxV2Arm64Gen2            Distro = "aks-azurelinux-v2-arm64-gen2"
 	AKSAzureLinuxV3Arm64Gen2            Distro = "aks-azurelinux-v3-arm64-gen2"
+	AKSAzureLinuxV3Arm64Gen2FIPS        Distro = "aks-azurelinux-v3-arm64-gen2-fips"
 	AKSUbuntuContainerd2204TLGen2       Distro = "aks-ubuntu-containerd-22.04-tl-gen2"
 	AKSUbuntuMinimalContainerd2204      Distro = "aks-ubuntu-minimal-containerd-22.04"
 	AKSUbuntuMinimalContainerd2204Gen2  Distro = "aks-ubuntu-minimal-containerd-22.04-gen2"
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
 	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
 	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -215,6 +220,10 @@ const (
 	AKSWindows23H2 Distro = "aks-windows-23H2"
 	// AKSWindows23H2Gen2 stands for distro for windows 23H2 Gen 2 SIG image.
 	AKSWindows23H2Gen2 Distro = "aks-windows-23H2-gen2"
+	// AKSWindows2025 stands for distro for windows server 2025 SIG image.
+	AKSWindows2025 Distro = "aks-windows-2025"
+	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
+	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
@@ -255,6 +264,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSAzureLinuxV2Gen2Kata,
 	AKSCBLMarinerV2Gen2TL,
 	AKSAzureLinuxV2Gen2TL,
+	AKSAzureLinuxV3Gen2TL,
 	AKSCBLMarinerV2KataGen2TL,
 	AKSUbuntuFipsContainerd1804,
 	AKSUbuntuFipsContainerd1804Gen2,
@@ -269,16 +279,20 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
+	AKSUbuntuContainerd2404CVMGen2,
 	AKSCBLMarinerV2Arm64Gen2,
 	AKSAzureLinuxV2Arm64Gen2,
 	AKSAzureLinuxV3Arm64Gen2,
+	AKSAzureLinuxV3Arm64Gen2FIPS,
 	AKSUbuntuContainerd2204TLGen2,
 	AKSUbuntuMinimalContainerd2204,
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
+	AKSUbuntuContainerd2404TLGen2,
 }
 
 type CustomConfigurationComponent string
@@ -620,6 +634,23 @@ type KubernetesAddon struct {
 	Data       string                    `json:"data,omitempty"`
 }
 
+// EbpfDataplane controls the eBPF networking dataplane.
+type EbpfDataplane int32
+
+//nolint:stylecheck // underscores in constant names are used for clarity in this context
+const (
+	// none means don't install an eBPF dataplane.
+	EbpfDataplane_none EbpfDataplane = 0
+	// cilium means use Cilium as the eBPF dataplane.
+	EbpfDataplane_cilium EbpfDataplane = 1
+	// unspecified means the cx didn't provide a value.
+	// This is used only during validation / defaulting, never written to the database.
+	EbpfDataplane_unspecified EbpfDataplane = 3
+	// invalid means the cx provided a value that isn't an enum in the API version.
+	// This will always be rejected by validation (and therefore never written to the database).
+	EbpfDataplane_invalid EbpfDataplane = 4
+)
+
 // KubernetesConfig contains the Kubernetes config structure, containing Kubernetes specific configuration.
 type KubernetesConfig struct {
 	KubernetesImageBase               string            `json:"kubernetesImageBase,omitempty"`
@@ -676,6 +707,7 @@ type KubernetesConfig struct {
 	MaximumLoadBalancerRuleCount      int               `json:"maximumLoadBalancerRuleCount,omitempty"`
 	PrivateAzureRegistryServer        string            `json:"privateAzureRegistryServer,omitempty"`
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
+	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
 }
 
 /*
@@ -1701,6 +1733,7 @@ type NodeBootstrappingConfiguration struct {
 	EnableGPUDevicePluginIfNeeded bool
 	EnableKubeletConfigFile       bool
 	EnableNvidia                  bool
+	EnableAMDGPU                  bool
 	EnableACRTeleportPlugin       bool
 	TeleportdPluginURL            string
 	EnableArtifactStreaming       bool

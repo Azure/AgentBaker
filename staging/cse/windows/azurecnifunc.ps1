@@ -45,12 +45,18 @@ function Set-AzureCNIConfig
         [Parameter(Mandatory=$false)][bool]
         $IsAzureCNIOverlayEnabled
     )
-    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.SetAzureCNIConfig" -TaskMessage "Start to set Azure CNI config. IsDualStackEnabled: $global:IsDualStackEnabled, IsAzureCNIOverlayEnabled: $global:IsAzureCNIOverlayEnabled, IsDisableWindowsOutboundNat: $global:IsDisableWindowsOutboundNat, CiliumDataplaneEnabled: $global:CiliumDataplaneEnabled"
 
     $fileName  = [Io.path]::Combine("$AzureCNIConfDir", "10-azure.conflist")
     $configJson = Get-Content $fileName | ConvertFrom-Json
     $configJson.plugins.dns.Nameservers[0] = $KubeDnsServiceIp
     $configJson.plugins.dns.Search[0] = $KubeDnsSearchPath
+    
+    if (Test-Path variable:global:CiliumDataplaneEnabled) {
+        if($global:CiliumDataplaneEnabled) {
+            $configJson.plugins.ipam.type = "azure-cns"
+        }
+    }
 
     if ($global:IsDisableWindowsOutboundNat) {
         # Replace OutBoundNAT with LoopbackDSR for IMDS acess if AKS cluster disabled Windows OutBoundNAT.
@@ -92,13 +98,6 @@ function Set-AzureCNIConfig
         } elseif ($osVersion -eq "ltsc2022") {
             Write-Log "SourcePortPreservationForHostPort is set to 0"
             Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name SourcePortPreservationForHostPort -Type DWORD -Value 0
-        }
-        # Restart hns service if it is exsting and running, to make the system regkey change effective.
-        $hnsServiceName = 'hns'
-        $hnsService = Get-Service -Name $hnsServiceName -ErrorAction SilentlyContinue
-        if ($hnsService -and $hnsService.Status -eq 'Running') {
-            Write-Log "hns service is already running. Restart hns."
-            Restart-Service -Name $hnsServiceName
         }
     } else {
         # Fill in DNS information for kubernetes.
@@ -160,6 +159,18 @@ function Set-AzureCNIConfig
             }
         }
     }
+
+    # Set the SDNRemoteArpMacAddress RegKey for HNS when AzureCNI is enabled
+    Write-Log "Setting SDNRemoteArpMacAddress to 12-34-56-78-9a-bc for HNS"
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name SDNRemoteArpMacAddress -Value "12-34-56-78-9a-bc"
+    # Restart hns service if it is exsting and running, to make the system regkey changes effective.
+    $hnsServiceName = 'hns'
+    $hnsService = Get-Service -Name $hnsServiceName -ErrorAction SilentlyContinue
+    if ($hnsService -and $hnsService.Status -eq 'Running') {
+        Write-Log "HNS service is already running. Restart HNS."
+        Restart-Service -Name $hnsServiceName
+    }
+    Write-Log "Done configuring HNS"
 
     if ($global:KubeproxyFeatureGates.Contains("WinDSR=true")) {
         Write-Log "Setting enableLoopbackDSR in Azure CNI conflist for WinDSR"

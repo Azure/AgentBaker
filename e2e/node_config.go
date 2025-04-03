@@ -14,6 +14,7 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Masterminds/semver"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -22,21 +23,106 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// this is a base kubelet config for Scriptless e2e test
+var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
+	EnableKubeletConfigFile: true,
+	KubeletFlags: map[string]string{
+		"--cloud-config":              "",
+		"--cloud-provider":            "external",
+		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+	},
+	KubeletNodeLabels: map[string]string{
+		"agentpool":                               "nodepool2",
+		"kubernetes.azure.com/agentpool":          "nodepool2",
+		"kubernetes.azure.com/cluster":            "test-cluster",
+		"kubernetes.azure.com/mode":               "system",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+	},
+	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+		Kind:              "KubeletConfiguration",
+		ApiVersion:        "kubelet.config.k8s.io/v1beta1",
+		StaticPodPath:     "/etc/kubernetes/manifests",
+		Address:           "0.0.0.0",
+		TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
+		TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
+		TlsCipherSuites: []string{
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_128_GCM_SHA256",
+		},
+		RotateCertificates: true,
+		ServerTlsBootstrap: false,
+		Authentication: &aksnodeconfigv1.KubeletAuthentication{
+			X509: &aksnodeconfigv1.KubeletX509Authentication{
+				ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+			},
+			Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
+				Enabled: true,
+			},
+		},
+		Authorization: &aksnodeconfigv1.KubeletAuthorization{
+			Mode: "Webhook",
+		},
+		EventRecordQps: to.Ptr(int32(0)),
+		ClusterDomain:  "cluster.local",
+		ClusterDns: []string{
+			"10.0.0.10",
+		},
+		StreamingConnectionIdleTimeout: "4h",
+		NodeStatusUpdateFrequency:      "10s",
+		ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
+		ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
+		CgroupsPerQos:                  to.Ptr(true),
+		MaxPods:                        to.Ptr(int32(110)),
+		PodPidsLimit:                   to.Ptr(int32(-1)),
+		ResolvConf:                     "/run/systemd/resolve/resolv.conf",
+		EvictionHard: map[string]string{
+			"memory.available":  "750Mi",
+			"nodefs.available":  "10%",
+			"nodefs.inodesFree": "5%",
+		},
+		ProtectKernelDefaults: true,
+		FeatureGates:          map[string]bool{},
+		FailSwapOn:            to.Ptr(false),
+		KubeReserved: map[string]string{
+			"cpu":    "100m",
+			"memory": "1638Mi",
+		},
+		EnforceNodeAllocatable: []string{
+			"pods",
+		},
+		AllowedUnsafeSysctls: []string{
+			"kernel.msg*",
+			"net.ipv4.route.min_pmtu",
+		},
+	},
+}
+
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
-	nbc := baseTemplateLinux(config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion)
+	var nbc *datamodel.NodeBootstrappingConfiguration
+
 	if vhd.Distro.IsWindowsDistro() {
-		nbc = baseTemplateWindows(config.Config.Location)
-		cert := cluster.Kube.clientCertificate()
-		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = cert
-		nbc.ContainerService.Properties.CertificateProfile.APIServerCertificate = string(cluster.ClusterParams.APIServerCert)
-		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = string(cluster.ClusterParams.ClientKey)
+		nbc = baseTemplateWindows(t, config.Config.Location)
+
+		// these aren't needed since we use TLS bootstrapping instead, though windows bootstrapping expects non-empty values
+		nbc.ContainerService.Properties.CertificateProfile.ClientCertificate = "none"
+		nbc.ContainerService.Properties.CertificateProfile.ClientPrivateKey = "none"
+
 		nbc.ContainerService.Properties.ClusterID = *cluster.Model.ID
 		nbc.SubscriptionID = config.Config.SubscriptionID
 		nbc.ResourceGroupName = *cluster.Model.Properties.NodeResourceGroup
 		nbc.TenantID = *cluster.Model.Identity.TenantID
+	} else {
+		nbc = baseTemplateLinux(t, config.Config.Location, *cluster.Model.Properties.CurrentKubernetesVersion, vhd.Arch)
 	}
-	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 
+	nbc.ContainerService.Properties.CertificateProfile.CaCertificate = string(cluster.ClusterParams.CACert)
 	nbc.KubeletClientTLSBootstrapToken = &cluster.ClusterParams.BootstrapToken
 	nbc.ContainerService.Properties.HostedMasterProfile.FQDN = cluster.ClusterParams.FQDN
 	nbc.ContainerService.Properties.AgentPoolProfiles[0].Distro = vhd.Distro
@@ -48,7 +134,6 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
-	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	config := &aksnodeconfigv1.Configuration{
@@ -94,13 +179,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
 		OutboundCommand: helpers.GetDefaultOutboundCommand(),
-		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
-			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
-			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
-			EnableKubeletConfigFile:  false,
-			KubeletFlags:             helpers.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:        helpers.GetKubeletNodeLabels(agentPool),
-		},
 		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
 			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
 		},
@@ -114,6 +192,10 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		NeedsCgroupv2: to.Ptr(true),
+		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
+		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
+		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
+		KubeletConfig: baseKubeletConfig,
 	}
 	return config
 }
@@ -122,8 +204,8 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 // TODO(ace): minimize the actual required defaults.
 // this is what we previously used for bash e2e from e2e/nodebootstrapping_template.json.
 // which itself was extracted from baker_test.go logic, which was inherited from aks-engine.
-func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootstrappingConfiguration {
-	return &datamodel.NodeBootstrappingConfiguration{
+func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch string) *datamodel.NodeBootstrappingConfiguration {
+	config := &datamodel.NodeBootstrappingConfiguration{
 		Version: "v0",
 		ContainerService: &datamodel.ContainerService{
 			ID:       "",
@@ -155,7 +237,7 @@ func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootst
 						UserAssignedClientID:              "",
 						CustomHyperkubeImage:              "",
 						CustomKubeProxyImage:              fmt.Sprintf("mcr.microsoft.com/oss/kubernetes/kube-proxy:v%s", k8sVersion),
-						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/binaries/kubernetes-node-linux-amd64.tar.gz", k8sVersion),
+						CustomKubeBinaryURL:               fmt.Sprintf("https://acs-mirror.azureedge.net/kubernetes/v%s/binaries/kubernetes-node-linux-%s.tar.gz", k8sVersion, arch),
 						MobyVersion:                       "",
 						ContainerdVersion:                 "",
 						WindowsNodeBinariesURL:            "",
@@ -448,18 +530,22 @@ func baseTemplateLinux(location string, k8sVersion string) *datamodel.NodeBootst
 		SSHStatus:                 0,
 		DisableCustomData:         false,
 	}
+	config, err := pruneKubeletConfig(k8sVersion, config)
+	require.NoError(t, err)
+	return config
 }
 
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
-func baseTemplateWindows(location string) *datamodel.NodeBootstrappingConfiguration {
+func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
 	kubernetesVersion := "1.29.9"
-	return &datamodel.NodeBootstrappingConfiguration{
+	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
 		ResourceGroupName: "resourcegroup",
 
 		ContainerService: &datamodel.ContainerService{
+			Location: location,
 			Properties: &datamodel.Properties{
 				HostedMasterProfile: &datamodel.HostedMasterProfile{},
 				CertificateProfile:  &datamodel.CertificateProfile{},
@@ -645,6 +731,9 @@ DXRqvV7TWO2hndliQq3BW385ZkiephlrmpUVM= r2k1@arturs-mbp.lan`,
 			},
 		},
 	}
+	config, err := pruneKubeletConfig(kubernetesVersion, config)
+	require.NoError(t, err)
+	return config
 }
 
 var uploadWindowsCSEOnce sync.Once
@@ -759,4 +848,20 @@ func zipWindowsCSE() (*os.File, error) {
 	}
 
 	return zipFile, nil
+}
+
+// k8s version > 1.30.0 contains deprecated kubelet flags
+func pruneKubeletConfig(kubernetesVersion string, datamodel *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrappingConfiguration, error) {
+	version, err := semver.NewVersion(kubernetesVersion)
+	if err != nil {
+		return nil, err
+	}
+	constraint, err := semver.NewConstraint(">= 1.30.0")
+	if err != nil {
+		return nil, err
+	}
+	if constraint.Check(version) {
+		delete(datamodel.KubeletConfig, "--azure-container-registry-config")
+	}
+	return datamodel, nil
 }

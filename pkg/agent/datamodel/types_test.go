@@ -995,6 +995,20 @@ func TestAgentPoolProfileIs2404VHDDistro(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "Ubuntu 2404 CVM VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404CVMGen2,
+			},
+			expected: true,
+		},
+		{
+			name: "24.04 Gen2 TL VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSUbuntuContainerd2404TLGen2,
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -1092,6 +1106,13 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "Azure Linux V3 Gen2 TrustedLaunch VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Gen2TL,
+			},
+			expected: true,
+		},
+		{
 			name: "Azure Linux V2 Gen2 Kata VHD distro",
 			ap: AgentPoolProfile{
 				Distro: AKSAzureLinuxV2Gen2Kata,
@@ -1132,6 +1153,20 @@ func TestAgentPoolProfileIsAzureLinuxCgroupV2VHDDistro(t *testing.T) {
 				Distro: AKSUbuntuContainerd1804,
 			},
 			expected: false,
+		},
+		{
+			name: "Azure Linux V3 Arm64 + FIPS VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3Arm64Gen2FIPS,
+			},
+			expected: true,
+		},
+		{
+			name: "Azure Linux V3 Gen2 CVM VHD distro",
+			ap: AgentPoolProfile{
+				Distro: AKSAzureLinuxV3CVMGen2,
+			},
+			expected: true,
 		},
 	}
 
@@ -1469,7 +1504,7 @@ func TestLinuxProfile(t *testing.T) {
 		},
 	}
 
-	if !(l.HasSecrets() && l.HasSearchDomain()) {
+	if !l.HasSecrets() || !l.HasSearchDomain() {
 		t.Fatalf("Expected HasSecrets() and HasSearchDomain() to return true")
 	}
 }
@@ -1531,7 +1566,7 @@ func TestWindowsProfile(t *testing.T) {
 		AlwaysPullWindowsPauseImage: to.BoolPtr(true),
 	}
 
-	if !(w.HasSecrets() && w.HasCustomImage()) {
+	if !w.HasSecrets() || !w.HasCustomImage() {
 		t.Fatalf("Expected HasSecrets() and HasCustomImage() to return true")
 	}
 

@@ -11,12 +11,8 @@ removeContainerd() {
 }
 
 installDeps() {
-    if [[ $(isARM64) == 1 ]]; then
-        wait_for_apt_locks
-        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-    else
-        retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-    fi
+    wait_for_apt_locks
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
@@ -35,7 +31,7 @@ installDeps() {
     OSVERSION=$(grep DISTRIB_RELEASE /etc/*-release| cut -f 2 -d "=")
     BLOBFUSE_VERSION="1.4.5"
     # Blobfuse2 has been upgraded in upstream, using this version for parity between 22.04 and 24.04
-    BLOBFUSE2_VERSION="2.3.2"
+    BLOBFUSE2_VERSION="2.4.1"
 
     # keep legacy version on ubuntu 16.04 and 18.04
     if [ "${OSVERSION}" == "18.04" ]; then
@@ -50,6 +46,10 @@ installDeps() {
         pkg_list+=(fuse3)
     else
         pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
+    fi
+
+    if [ "${OSVERSION}" == "24.04" ]; then
+        pkg_list+=(irqbalance)
     fi
 
     for apt_package in ${pkg_list[*]}; do

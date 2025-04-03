@@ -109,6 +109,8 @@ copyPackerFiles() {
   BLOCK_WIRESERVER_DEST=/opt/azure/containers/kubelet.sh
   ENSURE_IMDS_RESTRICTION_SRC=/home/packer/ensure_imds_restriction.sh
   ENSURE_IMDS_RESTRICTION_DEST=/opt/azure/containers/ensure_imds_restriction.sh
+  VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC=/home/packer/validate-kubelet-credentials.sh
+  VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST=/opt/azure/containers/validate-kubelet-credentials.sh
   RECONCILE_PRIVATE_HOSTS_SRC=/home/packer/reconcile-private-hosts.sh
   RECONCILE_PRIVATE_HOSTS_DEST=/opt/azure/containers/reconcilePrivateHosts.sh
   KUBELET_SERVICE_SRC=/home/packer/kubelet.service
@@ -290,6 +292,7 @@ copyPackerFiles() {
   cpAndMode $KUBELET_SERVICE_SRC $KUBELET_SERVICE_DEST 600
   cpAndMode $BLOCK_WIRESERVER_SRC $BLOCK_WIRESERVER_DEST 755
   cpAndMode $ENSURE_IMDS_RESTRICTION_SRC $ENSURE_IMDS_RESTRICTION_DEST 755
+  cpAndMode $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_SRC $VALIDATE_KUBELET_CREDENTIALS_SCRIPT_DEST 755
   cpAndMode $RECONCILE_PRIVATE_HOSTS_SRC $RECONCILE_PRIVATE_HOSTS_DEST 744
   cpAndMode $SYSCTL_CONFIG_SRC $SYSCTL_CONFIG_DEST 644
   cpAndMode $RSYSLOG_CONFIG_SRC $RSYSLOG_CONFIG_DEST 644
@@ -343,13 +346,6 @@ copyPackerFiles() {
     else
       cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
       cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
-    fi
-  fi
-
-  if grep -q "fullgpu" <<<"$FEATURE_FLAGS"; then
-    cpAndMode $NVIDIA_DOCKER_DAEMON_SRC $NVIDIA_DOCKER_DAEMON_DEST 644
-    if grep -q "gpudaemon" <<<"$FEATURE_FLAGS"; then
-      cpAndMode $NVIDIA_DEVICE_PLUGIN_SERVICE_SRC $NVIDIA_DEVICE_PLUGIN_SERVICE_DEST 644
     fi
   fi
 

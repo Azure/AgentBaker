@@ -14,7 +14,7 @@ configPrivateClusterHosts() {
 [Service]
 Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
-  systemctlEnableAndStart reconcile-private-hosts || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -135,6 +135,7 @@ configureHTTPProxyCA() {
 
 configureCustomCaCertificate() {
     mkdir -p /opt/certs
+    chmod 1755 /opt/certs
     for i in $(seq 0 $((${CUSTOM_CA_TRUST_COUNT} - 1))); do
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
@@ -153,14 +154,6 @@ EOF
 
   systemctl daemon-reload
   systemctl restart containerd
-}
-
-configureKubeletServerCert() {
-    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
-    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
-
-    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
-    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
 }
 
 configureK8s() {
@@ -237,10 +230,6 @@ EOF
     if [[ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]]; then
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
-    fi
-
-    if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
-        configureKubeletServerCert
     fi
 
     if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
@@ -327,6 +316,10 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
+  if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+    logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
+  fi
+
   tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF 
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1
@@ -335,15 +328,30 @@ net.bridge.bridge-nf-call-iptables = 1
 EOF
   retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
   systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
-  systemctlEnableAndStart containerd || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+}
+
+configureContainerdRegistryHost() {
+  MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE:=mcr.microsoft.com}"
+  MCR_REPOSITORY_BASE="${MCR_REPOSITORY_BASE%/}"
+  CONTAINERD_CONFIG_REGISTRY_HOST_MCR="/etc/containerd/certs.d/${MCR_REPOSITORY_BASE}/hosts.toml"
+  mkdir -p "$(dirname "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}")"
+  touch "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+  chmod 0644 "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}"
+  CONTAINER_REGISTRY_URL=$(sed 's@/@/v2/@1' <<< "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/")
+  tee "${CONTAINERD_CONFIG_REGISTRY_HOST_MCR}" > /dev/null <<EOF
+[host."https://${CONTAINER_REGISTRY_URL%/}"]
+  capabilities = ["pull", "resolve"]
+  override_path = true
+EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
-    systemctlEnableAndStart ensure-no-dup || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureTeleportd() {
-    systemctlEnableAndStart teleportd || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureArtifactStreaming() {
@@ -381,12 +389,12 @@ ensureDocker() {
         fi
     done
     systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker || exit $ERR_DOCKER_START_FAIL
+    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
 
 }
 
 ensureDHCPv6() {
-    systemctlEnableAndStart dhcpv6 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart dhcpv6 30 || exit $ERR_SYSTEMCTL_START_FAIL
     retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
 }
 
@@ -407,11 +415,26 @@ getPrimaryNicIP() {
     echo "$ip"
 }
 
-configureKubeletServingCertificateRotation() {
+generateSelfSignedKubeletServingCertificate() {
+    mkdir -p "/etc/kubernetes/certs"
+    
+    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
+    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
+
+    openssl genrsa -out $KUBELET_SERVER_PRIVATE_KEY_PATH 2048
+    openssl req -new -x509 -days 7300 -key $KUBELET_SERVER_PRIVATE_KEY_PATH -out $KUBELET_SERVER_CERT_PATH -subj "/CN=${NODE_NAME}" -addext "subjectAltName=DNS:${NODE_NAME}"
+}
+
+configureKubeletServing() {
     if [ "${ENABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" != "true" ]; then
-        echo "kubelet serving certificate rotation is disabled, nothing to configure"
+        echo "kubelet serving certificate rotation is disabled, generating self-signed serving certificate with openssl"
+        generateSelfSignedKubeletServingCertificate
         return 0
     fi
+
+    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+    KUBELET_SERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/kubeletserver.key"
+    KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
     export -f should_disable_kubelet_serving_certificate_rotation
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
@@ -420,25 +443,44 @@ configureKubeletServingCertificateRotation() {
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
-    KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL="kubernetes.azure.com/kubelet-serving-ca=cluster"
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "true" ]; then
+        echo "kubelet serving certificate rotation is disabled by nodepool tags"
 
-    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION,,}" == "true" ]; then
-        echo "kubelet serving certificate rotation is disabled by nodepool tags, reconfiguring kubelet flags and node labels"
-
+        echo "reconfiguring kubelet flags and config as needed"
         KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-
-        if [ "${KUBELET_CONFIG_FILE_ENABLED,,}" == "true" ]; then
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
             set -x
         fi
 
+        echo "generating self-signed serving certificate with openssl"
+        generateSelfSignedKubeletServingCertificate
+
+        echo "removing node label $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL"
         removeKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
-        return 0
+    else
+        echo "kubelet serving certificate rotation is enabled"
+
+        echo "removing --tls-cert-file and --tls-private-key-file from kubelet flags"
+        removeKubeletFlag "--tls-cert-file=$KUBELET_SERVER_CERT_PATH"
+        removeKubeletFlag "--tls-private-key-file=$KUBELET_SERVER_PRIVATE_KEY_PATH"
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+            set +x
+            KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'del(.tlsCertFile)' | jq 'del(.tlsPrivateKeyFile)' | base64)
+            set -x
+        fi
+
+        echo "adding node label $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL if needed"
+        addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
     fi
-    
-    echo "kubelet serving certificate rotation is enabled, will add node label if needed"
-    addKubeletNodeLabel $KUBELET_SERVING_CERTIFICATE_ROTATION_LABEL
+}
+
+ensureKubeCACert() {
+    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
+    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
+    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
+    chmod 0600 "${KUBE_CA_FILE}"
 }
 
 ensureKubelet() {
@@ -458,13 +500,8 @@ ensureKubelet() {
         echo "AZURE_ENVIRONMENT_FILEPATH=${AZURE_ENVIRONMENT_FILEPATH}" >> "${KUBELET_DEFAULT_FILE}"
     fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
-    
-    KUBE_CA_FILE="/etc/kubernetes/certs/ca.crt"
-    mkdir -p "$(dirname "${KUBE_CA_FILE}")"
-    echo "${KUBE_CA_CRT}" | base64 -d > "${KUBE_CA_FILE}"
-    chmod 0600 "${KUBE_CA_FILE}"
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -511,7 +548,7 @@ contexts:
   name: bootstrap-context
 current-context: bootstrap-context
 EOF
-    elif [ "${ENABLE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    elif [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         BOOTSTRAP_KUBECONFIG_FILE=/var/lib/kubelet/bootstrap-kubeconfig
         mkdir -p "$(dirname "${BOOTSTRAP_KUBECONFIG_FILE}")"
         touch "${BOOTSTRAP_KUBECONFIG_FILE}"
@@ -590,11 +627,11 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStart kubelet || exit $ERR_KUBELET_START_FAIL
+    systemctlEnableAndStart kubelet 30 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+    systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -604,7 +641,7 @@ ensureMigPartition(){
 [Service]
 Environment="GPU_INSTANCE_PROFILE=${GPU_INSTANCE_PROFILE}"
 EOF
-    systemctlEnableAndStart mig-partition
+    systemctlEnableAndStart mig-partition 300
 }
 
 ensureSysctl() {
@@ -770,7 +807,7 @@ ensureGPUDrivers() {
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
 
@@ -783,6 +820,7 @@ configCredentialProvider() {
     mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
     touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
     if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+        echo "configure credential provider for custom cloud"
         tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
@@ -799,8 +837,28 @@ providers:
     args:
       - /etc/kubernetes/azure.json
 EOF
+    elif [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+        echo "configure credential provider for network isolated cluster"
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+  - name: acr-credential-provider
+    matchImages:
+      - "*.azurecr.io"
+      - "*.azurecr.cn"
+      - "*.azurecr.de"
+      - "*.azurecr.us"
+      - "mcr.microsoft.com"
+    defaultCacheDuration: "10m"
+    apiVersion: credentialprovider.kubelet.k8s.io/v1
+    args:
+      - /etc/kubernetes/azure.json
+      - --registry-mirror=mcr.microsoft.com:$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER
+EOF
     else
-    tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
+        echo "configure credential provider with default settings"
+        tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
 kind: CredentialProviderConfig
 providers:
