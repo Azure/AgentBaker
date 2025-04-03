@@ -648,6 +648,7 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
+                echo "Kube Binary URL is: $KUBE_BINARY_URL"
                 logs_to_events "AKS.CSE.logDownloadURL" KUBE_BINARY_URL=$(update_base_url $KUBE_BINARY_URL)
                 echo "Kube Binary URL is: $KUBE_BINARY_URL"
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
