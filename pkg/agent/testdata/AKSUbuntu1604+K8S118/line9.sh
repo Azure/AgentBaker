@@ -769,24 +769,19 @@ resolve_packages_source_url() {
     for i in $(seq 1 $retries); do
       response_code=$(curl -s -o --noproxy /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
       if [ ${response_code} -eq 200 ]; then
+        PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+        echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
         break
       else
         if [ $i -eq $retries ]; then
-          echo "Executed curl to packages.aks.azure.com $i times. Response code is $response_code"
+          PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+          echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
           break
         else
           sleep $wait_sleep
         fi
       fi
     done
-
-    if [ ${response_code} -eq 200 ]; then
-      PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
-      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
-    else
-      PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
-      echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
-    fi
 }
 
 oras_login_with_kubelet_identity() {
