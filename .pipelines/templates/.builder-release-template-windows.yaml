@@ -102,8 +102,6 @@ steps:
       # because SUBSCRIPTION_ID is defined as a pipeline variable, setting this in the "env" section below doesn't work.
       export SUBSCRIPTION_ID=$(AZURE_BUILD_SUBSCRIPTION_ID)
 
-      export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
-      export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)" 
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
       
       echo "ARCHITECTURE: ${{ parameters.architecture }}"
