@@ -380,10 +380,10 @@ downloadAzureCNI() {
         return
     fi
 
-    if [  $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [  $KUBE_BINARY_URL == *"acs-mirror.azureedge.net" ]; then
+    if [ $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [ $KUBE_BINARY_URL == *"acs-mirror.azureedge.net" ]; then
         echo "Node provided with acs-mirror.azureedge.net as base URL, but established connectivity to packages.aks.azure.com. Setting base URL to packages.aks.azure.com"
         VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
-    else [  $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [  $KUBE_BINARY_URL == *"packages.aks.azure.com" ]; then
+    else [ $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [ $KUBE_BINARY_URL == *"packages.aks.azure.com" ]; then
         echo "Node provided with packages.aks.azure.com as base URL, but can not establish connectivity. Setting base URL to acs-mirror.azureedge.net"
         VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
     fi
