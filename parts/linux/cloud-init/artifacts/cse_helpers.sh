@@ -840,8 +840,7 @@ update_base_url() {
   elif [ $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [[ $initial_url == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
-
-  logs_to_events "AKS.CSE.logDownloadURL" installNetworkPlugin
+  
   echo "$initial_url"
 }
 
