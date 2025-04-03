@@ -33,6 +33,7 @@ if isMarinerOrAzureLinux "$OS"; then
 fi
 
 installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will not be available for this build."
+apt install rsyslog -y
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
