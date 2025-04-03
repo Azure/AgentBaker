@@ -352,15 +352,7 @@ downloadAzureCNI() {
         return
     fi
 
-    if [ $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [ $KUBE_BINARY_URL == *"acs-mirror.azureedge.net" ]; then
-        echo "Node provided with acs-mirror.azureedge.net as base URL, but established connectivity to packages.aks.azure.com. Setting base URL to packages.aks.azure.com"
-        VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
-    else [ $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [ $KUBE_BINARY_URL == *"packages.aks.azure.com" ]; then
-        echo "Node provided with packages.aks.azure.com as base URL, but can not establish connectivity. Setting base URL to acs-mirror.azureedge.net"
-        VNET_CNI_PLUGINS_URL="${VNET_CNI_PLUGINS_URL//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
-    fi
-
-    echo "VNET_CNI_PLUGINS_URL is: $VNET_CNI_PLUGINS_URL"
+    logs_to_events "AKS.CSE.logDownloadURL" VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
@@ -592,9 +584,7 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                echo "Kube Binary URL is: $KUBE_BINARY_URL"
                 logs_to_events "AKS.CSE.logDownloadURL" KUBE_BINARY_URL=$(update_base_url $KUBE_BINARY_URL)
-                echo "Kube Binary URL is: $KUBE_BINARY_URL"
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
         fi
