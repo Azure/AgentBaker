@@ -754,7 +754,7 @@ resolve_packages_source_url() {
     local wait_sleep=1
 
     for i in $(seq 1 $retries); do
-      response_code=$(curl -s -o --noproxy /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
       if [ ${response_code} -eq 200 ]; then
         PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
         echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
@@ -773,11 +773,13 @@ resolve_packages_source_url() {
 
 update_base_url() {
   initial_url=$1
-
-  if [ $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [[ $initial_url == *"acs-mirror.azureedge.net"* ]]; then
-    initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
-  elif [ $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [[ $initial_url == *"packages.aks.azure.com"* ]]; then
-    initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
+  
+  if [[ $initial_url == *"acs-mirror.azureedge.net"*  ]] || [[ $initial_url == *"packages.aks.azure.com"*  ]]
+    if [ $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [[ $initial_url == *"acs-mirror.azureedge.net"* ]]; then
+        initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
+    elif [ $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [[ $initial_url == *"packages.aks.azure.com"* ]]; then
+        initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
+    fi
   fi
   
   echo "$initial_url"
