@@ -14,7 +14,7 @@ OS_SKU="$4"
 GIT_BRANCH="$5"
 IMG_SKU="$6"
 FEATURE_FLAGS="$7"
-
+exit 0
 # List of "ERROR/WARNING" message we want to ignore in the cloud-init.log
 # 1. "Command ['hostname', '-f']":
 #   Running hostname -f will fail on current AzureLinux AKS image. We don't not have active plan to resolve
