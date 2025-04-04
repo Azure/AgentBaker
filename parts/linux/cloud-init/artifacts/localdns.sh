@@ -36,7 +36,6 @@ ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
 ERR_LOCALDNS_BINARY_NOTFOUND=219 # Localdns binary not found.
 
-
 # Verify the required files exists.
 # --------------------------------------------------------------------------------------------------------------------
 # This file contains generated corefile used by localdns systemd unit.
@@ -90,7 +89,6 @@ if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
 fi
 cat "${LOCALDNS_CORE_FILE}"
 
-
 # Iptables: build rules.
 # --------------------------------------------------------------------------------------------------------------------
 # These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
@@ -124,10 +122,8 @@ if [[ -z "${NETWORK_FILE}" ]]; then
     echo "Unable to determine network file for interface ${DEFAULT_ROUTE_INTERFACE}."
     exit $ERR_LOCALDNS_FAIL
 fi
-
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
-
 
 # Cleanup function will be run on script exit/crash to revert config.
 # --------------------------------------------------------------------------------------------------------------------
@@ -240,7 +236,6 @@ for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
 
-
 # Start localdns.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
@@ -285,7 +280,6 @@ until [ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ];
 done
 printf "Localdns is online and ready to serve traffic.\n"
 
-
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
 printf "Updating network DNS configuration to point to localdns via %s.\n" "${NETWORK_DROPIN_FILE}"
@@ -310,7 +304,6 @@ if [[ $? -ne 0 ]]; then
     exit $ERR_LOCALDNS_FAIL
 fi
 printf "Startup complete - serving node and pod DNS traffic.\n"
-
 
 # systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
@@ -338,7 +331,6 @@ if [[ -n "${NOTIFY_SOCKET:-}" && -n "${WATCHDOG_USEC:-}" ]]; then
 else
     wait ${COREDNS_PID}
 fi
-
 
 # The cleanup function is called on exit, so it will be run after the
 # wait ends (which will be when a signal is sent or localdns crashes) or the script receives a terminal signal.
