@@ -156,11 +156,13 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
     versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
     downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
     downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.logDownloadURL" downloadURLWasm=$(update_base_url $downloadURLWasm)
     logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
 
     versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
     downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
     downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.logDownloadURL" downloadURLSpinKube=$(update_base_url $downloadURLSpinKube)
     logs_to_events "AKS.CSE.installSpinKube" installSpinKube  "$downloadLocationSpinKube" "$downloadURLSpinKube" "$versionsSpinKube"
 fi
 
