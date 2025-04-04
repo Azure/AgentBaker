@@ -141,6 +141,7 @@ downloadCredentialProvider() {
     local cred_provider_url=$2
     if [[ -n $cred_provider_url ]]; then
         CREDENTIAL_PROVIDER_DOWNLOAD_URL=$cred_provider_url
+        logs_to_events "AKS.CSE.logDownloadURL" CREDENTIAL_PROVIDER_DOWNLOAD_URL=$(update_base_url $CREDENTIAL_PROVIDER_DOWNLOAD_URL)
     fi
 
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
