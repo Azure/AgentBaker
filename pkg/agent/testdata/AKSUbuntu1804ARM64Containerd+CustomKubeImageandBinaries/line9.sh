@@ -656,29 +656,16 @@ updatePackageDownloadURL() {
     updateRelease "${package}" "${os}" "${osVersion}"
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     
-    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL/packagesURL from there.
+    #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
     #otherwise get the downloadURL from .downloadURIs.default 
     if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
-        if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.packagesURL") != "null" ]]; then
-            downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.packagesURL" -r)
-            [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-            return
-        elif [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL") != "null" ]]; then
-            downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
-            [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-            return
-        fi
-    fi
-
-    if [[ $(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.packagesURL") != "null" ]]; then
-        downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.packagesURL" -r)
+        downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
         return
     fi
-
     downloadURL=$(echo "${package}" | jq ".downloadURIs.default.${RELEASE}.downloadURL" -r)
     [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
-    return
+    return    
 }
 
 addKubeletNodeLabel() {
