@@ -544,6 +544,7 @@ extractKubeBinaries() {
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
+            logs_to_events "AKS.CSE.logDownloadURL" kube_binary_url=$(update_base_url $kube_binary_url)
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
@@ -580,7 +581,6 @@ installKubeletKubectlAndKubeProxy() {
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                logs_to_events "AKS.CSE.logDownloadURL" KUBE_BINARY_URL=$(update_base_url $KUBE_BINARY_URL)
                 logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
             fi
         fi
