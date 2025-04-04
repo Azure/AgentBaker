@@ -304,6 +304,7 @@ installSpinKube(){
 
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        logs_to_events "AKS.CSE.logDownloadURL" containerd_spinkube_url=$(update_base_url $containerd_spinkube_url)
         downloadSpinKube $download_location $containerd_spinkube_url "$version"
     done
     wait ${SPINKUBEPIDS[@]}
