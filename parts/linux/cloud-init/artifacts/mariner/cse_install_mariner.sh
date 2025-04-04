@@ -19,6 +19,15 @@ installDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
       systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
     fi
+
+    # Install the package repo for the specific OS version.
+    # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
+    # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
+    if [[ $OS_VERSION == "3.0" ]]; then
+      sudo dnf install azurelinux-repos-cloud-native -y
+    else
+      sudo dnf install mariner-repos-cloud-native -y
+    fi
     
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
@@ -49,7 +58,6 @@ installKataDeps() {
 
 installCriCtlPackage() {
   version="${1:-}"
-  sudo tdnf install mariner-repos-cloud-native -y
   echo "Installing kubernetes-cri-tools=${version} with dnf"
   dnf_install 30 1 600 kubernetes-cri-tools-${version}* || exit $ERR_CRICTL_INSTALL_TIMEOUT
 }
