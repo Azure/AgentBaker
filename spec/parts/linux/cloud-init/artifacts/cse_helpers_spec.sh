@@ -305,4 +305,38 @@ Describe 'cse_helpers.sh'
             The output line 1 should equal "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: v$KUBERNETES_VERSION"
         End
     End
+
+    Describe 'shouldEnableLocaldns'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should return 217 if LOCALDNS_CORE_FILE does not exist'
+            rm -f "$LOCALDNS_CORE_FILE"
+            When run shouldEnableLocaldns
+            The status should be failure
+            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
+        End
+
+        It 'should return 217 if LOCALDNS_CORE_FILE is empty'
+            > "$LOCALDNS_CORE_FILE"
+            When run shouldEnableLocaldns
+            The status should be failure
+            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
+        End
+
+        It 'should return 0 if LOCALDNS_CORE_FILE exists and is not empty'
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When run shouldEnableLocaldns
+            The status should be success
+            The stdout should include "Localdns should be enabled."
+        End
+    End
+
 End
