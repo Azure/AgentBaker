@@ -240,7 +240,7 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        logs_to_events "AKS.CSE.logDownloadURL" containerd_wasm_url=$(update_base_url $containerd_wasm_urlL)
+        logs_to_events "AKS.CSE.logDownloadURL" containerd_wasm_url=$(update_base_url $containerd_wasm_url)
         downloadContainerdWasmShims $download_location $containerd_wasm_url "$version" "${shims_to_download[@]}"
     done
     # wait for file downloads to complete before updating file permissions
