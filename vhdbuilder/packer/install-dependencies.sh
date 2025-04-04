@@ -239,7 +239,6 @@ downloadCNI() {
     downloadDir=${1}
     mkdir -p $downloadDir
     CNI_PLUGINS_URL=${2}
-    CNI_PLUGINS_URL=$(update_base_url $CNI_PLUGINS_URL)
     cniTgzTmp=${CNI_PLUGINS_URL##*/}
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
