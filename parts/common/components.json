@@ -794,7 +794,7 @@
                 "latestVersion": "0.0.51"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
           }
         }
       }
@@ -811,7 +811,7 @@
                 "latestVersion": "1.1.5"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/ccgakvplugin/v1.1.5/binaries/windows-gmsa-ccgakvplugin-v${version}.zip"
           }
         }
       }
@@ -828,7 +828,7 @@
                 "latestVersion": "1.1.2-hotfix.20230807"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/csi-proxy/v${version}/binaries/csi-proxy-v${version}.tar.gz"
+            "downloadURL": "https://packages.aks.azure.com/csi-proxy/v${version}/binaries/csi-proxy-v${version}.tar.gz"
           }
         }
       }
@@ -857,7 +857,7 @@
                 "latestVersion": "1.32.3"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
+            "downloadURL": "https://packages.aks.azure.com/cloud-provider-azure/v${version}/binaries/azure-acr-credential-provider-windows-amd64-v${version}.tar.gz"
           }
         }
       }
@@ -874,7 +874,7 @@
                 "latestVersion": "3.24.0"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/calico-node/v${version}/binaries/calico-windows-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/calico-node/v${version}/binaries/calico-windows-v${version}.zip"
           }
         }
       }
@@ -896,7 +896,7 @@
                 "previousLatestVersion": "1.6.18"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-windows-amd64-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-windows-amd64-v${version}.zip"
           }
         }
       }
@@ -914,7 +914,7 @@
                 "previousLatestVersion": "1.4.58"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-swift-windows-amd64-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-swift-windows-amd64-v${version}.zip"
           }
         }
       }
@@ -932,7 +932,7 @@
                 "previousLatestVersion": "1.4.58"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-overlay-windows-amd64-v${version}.zip"
+            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-overlay-windows-amd64-v${version}.zip"
           }
         }
       }
@@ -1081,7 +1081,7 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           },
           "ws2022": {
             "versionsV2": [
@@ -1095,7 +1095,7 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           },
           "default": {
             "versionsV2": [
@@ -1105,7 +1105,7 @@
                 "previousLatestVersion": "v1.7.17-azure.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
           }
         },
         "default": {
@@ -1137,7 +1137,7 @@
                 "latestVersion": "1.6.2"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -1169,7 +1169,7 @@
                 "previousLatestVersion": "1.6.18"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -1191,7 +1191,7 @@
                 "latestVersion": "1.32.0"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
+            "downloadURL": "https://packages.aks.azure.com/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
           }
         }
       }
@@ -1242,7 +1242,7 @@
               }
             ],
             "downloadURL": "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:${version}-linux-${CPU_ARCH}",
-            "windowsDownloadURL": "https://acs-mirror.azureedge.net/kubernetes/${version}/windowszip/${version}-1int.zip"
+            "windowsDownloadURL": "https://${PACKAGE_DOWNLOAD_BASE_URL}/kubernetes/${version}/windowszip/${version}-1int.zip"
           }
         }
       }
@@ -1333,7 +1333,7 @@
                 "latestVersion": "0.15.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/spinkube/v${version}/linux/${CPU_ARCH}"
+            "downloadURL": "https://packages.aks.azure.com/spinkube/v${version}/linux/${CPU_ARCH}"
           }
         }
       }

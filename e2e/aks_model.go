@@ -554,6 +554,7 @@ func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, e
 	requiredDNSNames := []string{
 		"management.azure.com",
 		clusterFQDN,
+		"packages.aks.azure.com",
 	}
 	var rules []*armnetwork.SecurityRule
 	var priority int32 = 100
