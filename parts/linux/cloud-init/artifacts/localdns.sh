@@ -2,40 +2,60 @@
 set -euo pipefail
 
 # localdns systemd unit.
-# --------------------------------------------------------------------------------------------------------------------
 # This systemd unit runs coredns as a caching with serve-stale functionality for both pod DNS and node DNS queries.
 # It also upgrades to TCP for better reliability of upstream connections.
 
-# Localdns script path.
-LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
-# Localdns corefile is created only when localdns profile has state enabled.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
-# This is slice file used by localdns systemd unit.
-# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_SLICE_PATH="/etc/systemd/system"
-LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
-# Azure DNS IP.
-AZURE_DNS_IP="168.63.129.16"
-# Localdns node listener IP.
-LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
-# Localdns cluster listener IP.
-LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
-# Localdns shutdown delay.
-LOCALDNS_SHUTDOWN_DELAY=5
-# Localdns pid file.
-LOCALDNS_PID_FILE="/run/localdns.pid"
-# Path of coredns binary used by localdns.
-COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
-# Path to systemd resolv.
-RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 # Also defined in cse_helper file. Not sourcing the entire cse_helper file here.
 # These exit codes will be handled in cse_config file.
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
-ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found.
+ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 
+# Global constants used in this file. 
+# -------------------------------------------------------------------------------------------------
+# Localdns script path.
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+
+# Localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
+
+# This is slice file used by localdns systemd unit.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_SLICE_PATH="/etc/systemd/system"
+LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
+
+# Azure DNS IP.
+AZURE_DNS_IP="168.63.129.16"
+
+# Localdns node listener IP.
+LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+
+# Localdns cluster listener IP.
+LOCALDNS_CLUSTER_LISTENER_IP="169.254.10.11"
+
+# Localdns shutdown delay.
+LOCALDNS_SHUTDOWN_DELAY=5
+
+# Localdns pid file.
+LOCALDNS_PID_FILE="/run/localdns.pid"
+
+# Path of coredns binary used by localdns.
+COREDNS_BINARY_PATH="${LOCALDNS_SCRIPT_PATH}/binary/coredns"
+
+# Path to systemd resolv.
+RESOLV_CONF="/run/systemd/resolve/resolv.conf"
+
+# Curl check if localdns is running.
+# This is used by start_localdns_watchdog and wait_for_localdns_ready.
+CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
+
+
+# Function definitions used in this file. 
+# functions defined until "${__SOURCED__:+return}" are sourced and tested in -
+# spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
+# -------------------------------------------------------------------------------------------------
 verify_localdns_corefile() {
     if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
         echo "LOCALDNS_CORE_FILE is not set or is empty."
@@ -154,69 +174,38 @@ verify_network_dropin_dir() {
 }
 
 wait_for_localdns_ready() {
-    local MAX_ATTEMPTS=$1
-    local TIMEOUT=$2
-    local CURL_COMMAND=$3
-    declare -i ATTEMPTS=0
-    local START_TIME=$(date +%s)
+    local maxattempts=$1
+    local timeout_duration=$2
+    local curl_command=$3
+    declare -i attempts=0
+    local starttime=$(date +%s)
 
-    # echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$($CURL_COMMAND)" == "OK" ]; do
-        if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
-            echo "Localdns failed to come online after $MAX_ATTEMPTS attempts."
+    echo "Waiting for localdns to start and be able to serve traffic."
+    until [ "$($curl_command)" == "OK" ]; do
+        if [ $attempts -ge $maxattempts ]; then
+            echo "Localdns failed to come online after $maxattempts attempts."
             return 1
         fi
         # Check for timeout based on elapsed time.
-        CURRENT_TIME=$(date +%s)
-        ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
-        if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
-            echo "Localdns failed to come online after $TIMEOUT seconds (timeout)."
+        currenttime=$(date +%s)
+        elapsedtime=$((currenttime - starttime))
+        if [ $elapsedtime -ge $timeout_duration ]; then
+            echo "Localdns failed to come online after $timeout_duration seconds (timeout)."
             return 1
         fi
         sleep 1
-        ((ATTEMPTS++))
+        ((attempts++))
     done
-    # echo "Localdns is online and ready to serve traffic."
+    echo "Localdns is online and ready to serve traffic."
     return 0
 }
 
 ${__SOURCED__:+return}
 
-# Verify that generated corefile exists and is not empty.
-verify_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
-
-# Verify that slice file exists and is not empty.
-verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
-
-# Verify that coredns binary is cached in VHD and is executable.
-# Coredns binary is extracted from cached coredns image and pre-installed in the VHD -
-# /opt/azure/containers/localdns/binary/coredns.
-verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
-
-# Replace AzureDNSIP in corefile with VNET DNS Server IPs.
-replace_azurednsip_in_corefile || $ERR_LOCALDNS_FAIL
-
-# Iptables: build rules.
-IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
-IPTABLES_RULES=()
-build_localdns_iptable_rules
-
-# Get default route interface for the given azuredns_ip.
-DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
-verify_default_route_interface || exit $ERR_LOCALDNS_FAIL
-
-# Get the network file associated with the default route interface.
-NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
-verify_network_file || exit $ERR_LOCALDNS_FAIL
-
-NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
-NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
-
-# cleanup_localdns_configs function will be run on script exit/crash to revert config.
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
-
+    
     # Remove iptables rules to stop forwarding DNS traffic.
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
@@ -293,35 +282,107 @@ cleanup_localdns_configs() {
     return 0
 }
 
+add_iptable_rules_to_skip_conntrack_from_pods(){
+    # Check if the localdns interface already exists and delete it.
+    if ip link show localdns >/dev/null 2>&1; then
+        echo "Interface localdns already exists, deleting it."
+        ip link delete localdns
+    fi
+
+    ip link add name localdns type dummy
+    ip link set up dev localdns
+    ip addr add ${LOCALDNS_NODE_LISTENER_IP}/32 dev localdns
+    ip addr add ${LOCALDNS_CLUSTER_LISTENER_IP}/32 dev localdns
+
+    # Add IPtables rules that skip conntrack for DNS connections coming from pods.
+    echo "Adding iptables rules to skip conntrack for queries to localdns."
+    for RULE in "${IPTABLES_RULES[@]}"; do
+        eval "${IPTABLES}" -A "${RULE}"
+    done
+}
+
+start_localdns_watchdog() {
+    local curl_command=$1
+    local health_check_dns_request=$2
+
+    if [[ -n "${NOTIFY_SOCKET:-}" && -n "${WATCHDOG_USEC:-}" ]]; then
+        # Health check at 20% of WATCHDOG_USEC; this means that we should check.
+        # five times in every watchdog interval, and thus need to fail five checks to get restarted.
+        HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
+        echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
+
+        while true; do
+            if [[ "$($curl_command)" == "OK" ]]; then
+                if echo -e "${health_check_dns_request}" | dig +short +timeout=1 +tries=1; then
+                    systemd-notify WATCHDOG=1
+                fi
+            fi
+            sleep ${HEALTH_CHECK_INTERVAL}
+        done
+    else
+        wait ${COREDNS_PID}
+    fi
+}
+
+# --------------------------------------- Main Execution starts here ---------------------------------------------------
+
+# Verify localdns required files exists.
+# ---------------------------------------------------------------------------------------------------------------------
+# Verify that generated corefile exists and is not empty.
+verify_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
+
+# Verify that slice file exists and is not empty.
+verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
+
+# Verify that coredns binary is cached in VHD and is executable.
+# Coredns binary is extracted from cached coredns image and pre-installed in the VHD -
+# /opt/azure/containers/localdns/binary/coredns.
+verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
+
+
+# Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
+# ---------------------------------------------------------------------------------------------------------------------
+replace_azurednsip_in_corefile || $ERR_LOCALDNS_FAIL
+
+
+# Build IPtable rules.
+# ---------------------------------------------------------------------------------------------------------------------
+IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
+IPTABLES_RULES=()
+build_localdns_iptable_rules
+
+
+# Get required network environment variables.
+# ---------------------------------------------------------------------------------------------------------------------
+DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
+verify_default_route_interface || exit $ERR_LOCALDNS_FAIL
+
+# Get the network file associated with the default route interface.
+NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
+verify_network_file || exit $ERR_LOCALDNS_FAIL
+
+NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
+NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
+
+
+# Setup traps to trigger cleanup_localdns_configs if anything goes wrong.
+# ---------------------------------------------------------------------------------------------------------------------
+# cleanup_localdns_configs function will be run on script exit/crash to revert config.
 # Ensure cleanup runs before exiting on an error.
 trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
 
 # Always cleanup when exiting.
 trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
 
+
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
-# Create a dummy interface listening on the link-local IP and the cluster DNS service IP.
+# Create a dummy interface listening on the link-local IP and cluster DNS service IP.
 echo "Setting up localdns dummy interface with IPs ${LOCALDNS_NODE_LISTENER_IP} and ${LOCALDNS_CLUSTER_LISTENER_IP}."
+add_iptable_rules_to_skip_conntrack_from_pods
 
-# Check if the localdns interface already exists and delete it.
-if ip link show localdns >/dev/null 2>&1; then
-    echo "Interface localdns already exists, deleting it."
-    ip link delete localdns
-fi
 
-ip link add name localdns type dummy
-ip link set up dev localdns
-ip addr add ${LOCALDNS_NODE_LISTENER_IP}/32 dev localdns
-ip addr add ${LOCALDNS_CLUSTER_LISTENER_IP}/32 dev localdns
-
-# Add IPtables rules that skip conntrack for DNS connections coming from pods.
-echo "Adding iptables rules to skip conntrack for queries to localdns."
-for RULE in "${IPTABLES_RULES[@]}"; do
-    eval "${IPTABLES}" -A "${RULE}"
-done
-
-# Start localdns.
+# Start localdns service.
 # --------------------------------------------------------------------------------------------------------------------
 COREDNS_COMMAND="${COREDNS_BINARY_PATH} -conf ${LOCALDNS_CORE_FILE} -pidfile ${LOCALDNS_PID_FILE}"
 if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
@@ -341,11 +402,9 @@ done
 COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
 echo "Localdns PID is ${COREDNS_PID}."
 
-# Curl check if localdns is running.
-CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
-
 # Wait to direct traffic to localdns until it's ready.
 wait_for_localdns_ready 60 60 "$CURL_COMMAND" || exit $ERR_LOCALDNS_FAIL
+
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
@@ -373,36 +432,24 @@ if [[ $? -ne 0 ]]; then
     echo "Failed to reload networkctl."
     exit $ERR_LOCALDNS_FAIL
 fi
-printf "Startup complete - serving node and pod DNS traffic.\n"
+echo "Startup complete - serving node and pod DNS traffic."
 
-# systemd notify: send ready if service is Type=notify.
+
+# Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
 if [[ -n "${NOTIFY_SOCKET:-}" ]]; then 
    systemd-notify --ready 
 fi
 
-# systemd watchdog: send pings so we get restarted if we go unhealthy.
+# Systemd watchdog: send pings so we get restarted if we go unhealthy.
 # --------------------------------------------------------------------------------------------------------------------
-# If the watchdog is defined, we check pod status and pass success to systemd.
-if [[ -n "${NOTIFY_SOCKET:-}" && -n "${WATCHDOG_USEC:-}" ]]; then
-    # Health check at 20% of WATCHDOG_USEC; this means that we should check
-    # five times in every watchdog interval, and thus need to fail five checks to get restarted.
-    HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
-    HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
-    printf "Starting watchdog loop at %d second intervals.\n" "${HEALTH_CHECK_INTERVAL}"
-    while true; do
-        if [[ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ]]; then
-            if echo -e "${HEALTH_CHECK_DNS_REQUEST}" | dig +short +timeout=1 +tries=1; then
-                systemd-notify WATCHDOG=1
-            fi
-        fi
-        sleep ${HEALTH_CHECK_INTERVAL}
-    done
-else
-    wait ${COREDNS_PID}
-fi
+# The health check is a DNS request to the localdns service IPs.
+HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
+
+# If the watchdog is defined, we check status and pass success to systemd.
+start_localdns_watchdog "$CURL_COMMAND" "$HEALTH_CHECK_DNS_REQUEST"
 
 # The cleanup function is called on exit, so it will be run after the
 # wait ends (which will be when a signal is sent or localdns crashes) or the script receives a terminal signal.
-# --------------------------------------------------------------------------------------------------------------------
+# --------------------------------------- Main execution ends here ---------------------------------------------------
 # end of line

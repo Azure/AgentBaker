@@ -5,6 +5,10 @@ lsb_release() {
 }
 
 Describe 'localdns.sh'
+
+# This section tests - verify_localdns_corefile, verify_localdns_slicefile, verify_localdns_binary, replace_azurednsip_in_corefile.
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
     Describe 'verify_localdns_files'
         setup() {
             LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
@@ -187,15 +191,6 @@ EOF
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
-        # It 'should fail if unable to replace AzureDNSIP in corefile'
-        #     sudo chmod 444 "${LOCALDNS_CORE_FILE}"
-        #     When run replace_azurednsip_in_corefile
-        #     The status should be failure
-        #     The file "${LOCALDNS_CORE_FILE}" should exist
-        #     The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
-        #     The stdout should include "Updating corefile failed."
-        # End
-
         It 'should return failure if AZURE_DNS_IP is unset'
             unset AZURE_DNS_IP
             When run replace_azurednsip_in_corefile
@@ -204,6 +199,10 @@ EOF
         End
     End
 
+
+# This section tests - build_localdns_iptable_rules, verify_default_route_interface, verify_network_file, verify_network_dropin_dir.
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
     Describe 'build_localdns_iptable_rules_and_verify_network_file'
         setup() {
             DEFAULT_ROUTE_INTERFACE="eth0"
@@ -330,22 +329,28 @@ EOF
         End
     End
 
+
+# This section tests - wait_for_localdns_ready
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
     Describe 'wait_for_localdns_ready'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
-
         BeforeEach 'setup'
 
-        It 'wait_for_localdns_ready1'
+#------------------------- wait_for_localdns_ready -----------------------------------------------------------------
+        It 'should return success if localdns is ready'
             CURL_COMMAND="echo OK"
             MAX_ATTEMPTS=100
             TIMEOUT=5
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT "$CURL_COMMAND"
             The status should be success
+            The output should include "Waiting for localdns to start and be able to serve traffic."
+            The output should include "Localdns is online and ready to serve traffic."
         End
 
-        It 'should return failure, after timeout'
+        It 'should return failure if localdns is not ready, after timeout'
             CURL_COMMAND="echo NOTOK"
             MAX_ATTEMPTS=1000
             TIMEOUT=5
@@ -354,7 +359,7 @@ EOF
             The output should include "Localdns failed to come online after 5 seconds (timeout)."
         End
 
-        It 'should return failure, after max attempts'
+        It 'should return failure if localdns is not ready, after max attempts'
             CURL_COMMAND="echo NOTOK"
             MAX_ATTEMPTS=10
             TIMEOUT=50
@@ -364,6 +369,13 @@ EOF
         End
     End
 
+
+# This section tests - cleanup_localdns_configs
+# These functions is also defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+# But is not sourced from the above file. 
+# It is very hard to mock the scenarios in this function. 
+# So this tests a copy of the code that is defined in localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------------
     Describe "cleanup_localdns_configs"
         cleanup_localdns_configs() {
             # Disable error handling so that we don't get into a recursive loop.
