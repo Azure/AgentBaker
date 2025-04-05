@@ -7,9 +7,9 @@ set -euo pipefail
 # It also upgrades to TCP for better reliability of upstream connections.
 
 # Localdns script path.
+LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 # Localdns corefile is created only when localdns profile has state enabled.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
-LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
 LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
 # This is slice file used by localdns systemd unit.
 # This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
@@ -34,100 +34,186 @@ RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
-ERR_LOCALDNS_BINARY_NOTFOUND=219 # Localdns binary not found.
+ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found.
 
-# Verify the required files exists.
-# --------------------------------------------------------------------------------------------------------------------
-# This file contains generated corefile used by localdns systemd unit.
-if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-    printf "Localdns corefile either does not exist or is empty at %s.\n" "${LOCALDNS_CORE_FILE}"
-    exit $ERR_LOCALDNS_COREFILE_NOTFOUND
-fi
+verify_localdns_corefile() {
+    if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
+        echo "LOCALDNS_CORE_FILE is not set or is empty."
+        return 1
+    fi
 
-# This is slice file used by localdns systemd unit.
-if [ ! -f "${LOCALDNS_SLICE_FILE}" ] || [ ! -s "${LOCALDNS_SLICE_FILE}" ]; then
-    printf "Localdns slice file does not exist at %s.\n" "${LOCALDNS_SLICE_FILE}"
-    exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
-fi
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
+        return 1
+    fi
+}
 
-# Check if coredns binary is cached in VHD and is executable.
-# ----------------------------------------------------------------------------------------------------------------
-# Coredns binary is extracted from cached coredns image and pre-installed in the VHD -
-# /opt/azure/containers/localdns/binary/coredns.
-if [[ ! -f "${COREDNS_BINARY_PATH}" || ! -x "${COREDNS_BINARY_PATH}" ]]; then
-    printf "Coredns binary either doesn't exist or isn't executable at %s.\n" "${COREDNS_BINARY_PATH}"
-    exit $ERR_LOCALDNS_BINARY_NOTFOUND
-fi
+verify_localdns_slicefile() {
+    if [ -z "${LOCALDNS_SLICE_FILE:-}" ]; then
+        echo "LOCALDNS_SLICE_FILE is not set or is empty."
+        return 1
+    fi
 
-if ! timeout 5s "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
-    printf "Failed to execute '%s --version'.\n" "${COREDNS_BINARY_PATH}"
-    exit $ERR_LOCALDNS_FAIL
-fi
+    if [ ! -f "${LOCALDNS_SLICE_FILE}" ] || [ ! -s "${LOCALDNS_SLICE_FILE}" ]; then
+        echo "Localdns slice file does not exist at ${LOCALDNS_SLICE_FILE}."
+        return 1
+    fi
+}
 
-# Replace Vnet_DNS_Server in corefile with VNET DNS Server IPs.
-# -----------------------------------------------------------------------------------------------------------------
-if [[ ! -f "$RESOLV_CONF" ]]; then
-    printf "%s not found.\n" "$RESOLV_CONF"
-    exit $ERR_LOCALDNS_FAIL
-fi
-# Get the upstream VNET DNS servers from /run/systemd/resolve/resolv.conf.
-UPSTREAM_VNET_DNS_SERVERS=$(awk '/nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
-if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" ]]; then
-    printf "No Upstream VNET DNS servers found in %s.\n" "$RESOLV_CONF"
-    exit $ERR_LOCALDNS_FAIL
-fi
+verify_localdns_binary() {
+    if [ -z "${COREDNS_BINARY_PATH:-}" ]; then
+        echo "COREDNS_BINARY_PATH is not set or is empty."
+        return 1
+    fi
 
-# Based on customer input, corefile was generated in pkg/agent/baker.go.
-# Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
-# Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
-# Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
-if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
-    sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
-        printf "Updating corefile failed."
-        exit $ERR_LOCALDNS_FAIL
-    }
-fi
-cat "${LOCALDNS_CORE_FILE}"
+    if [[ ! -f "${COREDNS_BINARY_PATH}" || ! -x "${COREDNS_BINARY_PATH}" ]]; then
+        echo "Coredns binary either doesn't exist or isn't executable at ${COREDNS_BINARY_PATH}."
+        return 1
+    fi
 
-# Iptables: build rules.
-# --------------------------------------------------------------------------------------------------------------------
-# These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
-# OUTPUT rules affect node services and hostNetwork: true pods.
-# PREROUTING rules affect traffic from regular pods.
-IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
-IPTABLES_RULES=()
+    if ! timeout 5s "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
+        echo "Failed to execute '--version'."
+        return 1
+    fi
+}
 
-# Loop over chains, IPs, and protocols to create the rules
-for CHAIN in OUTPUT PREROUTING; do
-    for IP in ${LOCALDNS_NODE_LISTENER_IP} ${LOCALDNS_CLUSTER_LISTENER_IP}; do
-        for PROTO in tcp udp; do
-            # Add rule to IPTABLES_RULES array
-            IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
+replace_azurednsip_in_corefile() {
+    if [ -z "${RESOLV_CONF:-}" ]; then
+        echo "RESOLV_CONF is not set or is empty."
+        return 1
+    fi
+
+    if [ -z "${AZURE_DNS_IP:-}" ]; then
+        echo "AZURE_DNS_IP is not set or is empty."
+        return 1
+    fi
+
+    if [[ ! -f "$RESOLV_CONF" ]]; then
+        echo "$RESOLV_CONF not found."
+        return 1
+    fi
+
+    # Get the upstream VNET DNS servers from /run/systemd/resolve/resolv.conf.
+    UPSTREAM_VNET_DNS_SERVERS=$(awk '/nameserver/ {print $2}' "$RESOLV_CONF" | paste -sd' ')
+    if [[ -z "${UPSTREAM_VNET_DNS_SERVERS}" || "$UPSTREAM_VNET_DNS_SERVERS" == '""' ]]; then
+        echo "No Upstream VNET DNS servers found in $RESOLV_CONF."
+        return 1
+    fi
+
+    # Based on customer input, corefile was generated in pkg/agent/baker.go.
+    # Replace 168.63.129.16 with VNET DNS ServerIPs only if VNET DNS ServerIPs is not equal to 168.63.129.16.
+    # Corefile will have 168.63.129.16 when user input has VnetDNS value for forwarddestination.
+    # Note - For root domain under VnetDNSOverrides, all DNS traffic should be forwarded to VnetDNS.
+    if [[ "${UPSTREAM_VNET_DNS_SERVERS}" != "${AZURE_DNS_IP}" ]]; then
+        sed -i -e "s|${AZURE_DNS_IP}|${UPSTREAM_VNET_DNS_SERVERS}|g" "${LOCALDNS_CORE_FILE}" || {
+            echo "Replacing AzureDNSIP in corefile failed."
+            return 1 
+        }
+    fi
+}
+
+build_localdns_iptable_rules() {
+    # These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
+    # OUTPUT rules affect node services and hostNetwork: true pods.
+    # PREROUTING rules affect traffic from regular pods.
+    # Loop over chains, IPs, and protocols to create the rules
+    for CHAIN in OUTPUT PREROUTING; do
+        for IP in ${LOCALDNS_NODE_LISTENER_IP} ${LOCALDNS_CLUSTER_LISTENER_IP}; do
+            for PROTO in tcp udp; do
+                # Add rule to IPTABLES_RULES array
+                IPTABLES_RULES+=("${CHAIN} -p ${PROTO} -d ${IP} --dport 53 -j NOTRACK")
+            done
         done
     done
-done
+}
 
-# Information variables.
-# --------------------------------------------------------------------------------------------------------------------
-# Get default route interface for the given AZURE_DNS_IP.
+verify_default_route_interface() {
+    if [[ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]]; then
+        echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
+        return 1
+    fi
+}
+
+verify_network_file() {
+    if [[ ! -f "${NETWORK_FILE:-}" ]]; then
+        echo "Unable to determine network file for interface."
+        return 1
+    fi
+}
+
+verify_network_dropin_dir() {
+    if [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
+        echo "NETWORK_DROPIN_DIR is not set or is empty."
+        return 1
+    fi
+
+    if [[ ! -d "${NETWORK_DROPIN_DIR}" ]]; then
+        echo "Network drop-in directory does not exist."
+        return 1
+    fi
+}
+
+wait_for_localdns_ready() {
+    local MAX_ATTEMPTS=$1
+    local TIMEOUT=$2
+    local CURL_COMMAND=$3
+    declare -i ATTEMPTS=0
+    local START_TIME=$(date +%s)
+
+    # echo "Waiting for localdns to start and be able to serve traffic."
+    until [ "$($CURL_COMMAND)" == "OK" ]; do
+        if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+            echo "Localdns failed to come online after $MAX_ATTEMPTS attempts."
+            return 1
+        fi
+        # Check for timeout based on elapsed time.
+        CURRENT_TIME=$(date +%s)
+        ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+        if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
+            echo "Localdns failed to come online after $TIMEOUT seconds (timeout)."
+            return 1
+        fi
+        sleep 1
+        ((ATTEMPTS++))
+    done
+    # echo "Localdns is online and ready to serve traffic."
+    return 0
+}
+
+${__SOURCED__:+return}
+
+# Verify that generated corefile exists and is not empty.
+verify_localdns_corefile || exit $ERR_LOCALDNS_COREFILE_NOTFOUND
+
+# Verify that slice file exists and is not empty.
+verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
+
+# Verify that coredns binary is cached in VHD and is executable.
+# Coredns binary is extracted from cached coredns image and pre-installed in the VHD -
+# /opt/azure/containers/localdns/binary/coredns.
+verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
+
+# Replace AzureDNSIP in corefile with VNET DNS Server IPs.
+replace_azurednsip_in_corefile || $ERR_LOCALDNS_FAIL
+
+# Iptables: build rules.
+IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
+IPTABLES_RULES=()
+build_localdns_iptable_rules
+
+# Get default route interface for the given azuredns_ip.
 DEFAULT_ROUTE_INTERFACE="$(ip -j route get "${AZURE_DNS_IP}" 2>/dev/null | jq -r 'if type == "array" and length > 0 then .[0].dev else empty end')"
-if [[ -z "${DEFAULT_ROUTE_INTERFACE}" ]]; then
-    echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
-    exit $ERR_LOCALDNS_FAIL
-fi
+verify_default_route_interface || exit $ERR_LOCALDNS_FAIL
 
 # Get the network file associated with the default route interface.
 NETWORK_FILE="$(networkctl --json=short status "${DEFAULT_ROUTE_INTERFACE}" 2>/dev/null | jq -r '.NetworkFile')"
-if [[ -z "${NETWORK_FILE}" ]]; then
-    echo "Unable to determine network file for interface ${DEFAULT_ROUTE_INTERFACE}."
-    exit $ERR_LOCALDNS_FAIL
-fi
+verify_network_file || exit $ERR_LOCALDNS_FAIL
+
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
-# Cleanup function will be run on script exit/crash to revert config.
-# --------------------------------------------------------------------------------------------------------------------
-function cleanup {
+# cleanup_localdns_configs function will be run on script exit/crash to revert config.
+cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
 
@@ -136,25 +222,25 @@ function cleanup {
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
             eval "${IPTABLES}" -D "${RULE}"
             if [ $? -eq 0 ]; then
-                printf "Successfully removed iptables rule: %s.\n" "${RULE}"
+                echo "Successfully removed iptables rule: ${RULE}."
             else
-                printf "Failed to remove iptables rule: %s.\n" "${RULE}"
-                return $ERR_LOCALDNS_FAIL
+                echo "Failed to remove iptables rule: ${RULE}."
+                return 1
             fi
         fi
     done
 
     # Revert the changes made to the DNS configuration if present.
     if [ -f "${NETWORK_DROPIN_FILE}" ]; then
-        printf "Reverting DNS configuration by removing %s.\n" "${NETWORK_DROPIN_FILE}"
+        echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
         if /bin/rm -f "${NETWORK_DROPIN_FILE}"; then
             networkctl reload || {
-                printf "Failed to reload network after removing the DNS configuration.\n"
-                return $ERR_LOCALDNS_FAIL
+                echo "Failed to reload network after removing the DNS configuration."
+                return 1
             }
         else
-            printf "Failed to remove %s.\n" "${NETWORK_DROPIN_FILE}"
-            return $ERR_LOCALDNS_FAIL
+            echo "Failed to remove ${NETWORK_DROPIN_FILE}."
+            return 1
         fi
     fi
 
@@ -165,63 +251,62 @@ function cleanup {
         if ps -p "${COREDNS_PID}" 2>/dev/null; then
             if [[ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]]; then
                 # Wait after removing iptables rules and DNS configuration so that we can let connections transition.
-                printf "Sleeping %d seconds to allow connections to terminate.\n" "${LOCALDNS_SHUTDOWN_DELAY}"
+                echo "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
                 sleep "${LOCALDNS_SHUTDOWN_DELAY}"
             fi
-            printf "Sending SIGINT to localdns and waiting for it to terminate.\n"
+            echo "Sending SIGINT to localdns and waiting for it to terminate."
 
             # Send SIGINT to localdns to trigger a graceful shutdown.
             kill -SIGINT "${COREDNS_PID}"
             kill_status=$?
             if [ $kill_status -eq 0 ]; then
-                printf "Successfully sent SIGINT to localdns.\n"
+                echo "Successfully sent SIGINT to localdns."
             else
-                printf "Failed to send SIGINT to localdns. Exit status: %s.\n" "$kill_status"
-                return $ERR_LOCALDNS_FAIL
+                echo "Failed to send SIGINT to localdns. Exit status: $kill_status."
+                return 1
             fi
 
             # Wait for the process to terminate.
             if wait "${COREDNS_PID}"; then
-                printf "Localdns terminated successfully.\n"
+                echo "Localdns terminated successfully."
             else
-                printf "Localdns failed to terminate properly.\n"
-                return "$ERR_LOCALDNS_FAIL"
+                echo "Localdns failed to terminate properly."
+                return 1
             fi
         fi
     fi
 
     # Delete the dummy interface if present.
     if ip link show dev localdns >/dev/null 2>&1; then
-        printf "Removing localdns dummy interface.\n"
+        echo "Removing localdns dummy interface."
         ip link del name localdns
         if [ $? -eq 0 ]; then
-            printf "Successfully removed localdns dummy interface.\n"
+            echo "Successfully removed localdns dummy interface."
         else
-            printf "Failed to remove localdns dummy interface.\n"
-            return $ERR_LOCALDNS_FAIL
+            echo "Failed to remove localdns dummy interface."
+            return 1
         fi
     fi
 
     # Indicate successful cleanup.
-    printf "Successfully cleanup localdns related configurations.\n"
+    echo "Successfully cleanup localdns related configurations."
     return 0
 }
 
 # Ensure cleanup runs before exiting on an error.
-trap 'printf "Error occurred. Cleaning up...\n"; cleanup; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
+trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR_LOCALDNS_FAIL' ABRT ERR INT PIPE
 
 # Always cleanup when exiting.
-trap 'printf "Executing cleanup function.\n"; cleanup || printf "Cleanup failed with error code: %d.\n" $?' EXIT
-
+trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
 
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
 # Create a dummy interface listening on the link-local IP and the cluster DNS service IP.
-printf "Setting up localdns dummy interface with IPs %s and %s.\n" "${LOCALDNS_NODE_LISTENER_IP}" "${LOCALDNS_CLUSTER_LISTENER_IP}"
+echo "Setting up localdns dummy interface with IPs ${LOCALDNS_NODE_LISTENER_IP} and ${LOCALDNS_CLUSTER_LISTENER_IP}."
 
 # Check if the localdns interface already exists and delete it.
 if ip link show localdns >/dev/null 2>&1; then
-    printf "Interface localdns already exists, deleting it."
+    echo "Interface localdns already exists, deleting it."
     ip link delete localdns
 fi
 
@@ -231,7 +316,7 @@ ip addr add ${LOCALDNS_NODE_LISTENER_IP}/32 dev localdns
 ip addr add ${LOCALDNS_CLUSTER_LISTENER_IP}/32 dev localdns
 
 # Add IPtables rules that skip conntrack for DNS connections coming from pods.
-printf "Adding iptables rules to skip conntrack for queries to localdns.\n"
+echo "Adding iptables rules to skip conntrack for queries to localdns."
 for RULE in "${IPTABLES_RULES[@]}"; do
     eval "${IPTABLES}" -A "${RULE}"
 done
@@ -244,7 +329,7 @@ if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
 
-printf "Starting localdns: %s.\n" "${COREDNS_COMMAND}"
+echo "Starting localdns: ${COREDNS_COMMAND}."
 rm -f "${LOCALDNS_PID_FILE}"
 ${COREDNS_COMMAND} &
 
@@ -254,36 +339,21 @@ until [ -f "${LOCALDNS_PID_FILE}" ]; do
 done
 
 COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
-printf "Localdns PID is %s.\n" "${COREDNS_PID}"
+echo "Localdns PID is ${COREDNS_PID}."
+
+# Curl check if localdns is running.
+CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 
 # Wait to direct traffic to localdns until it's ready.
-declare -i ATTEMPTS=0
-MAX_ATTEMPTS=60
-TIMEOUT=60
-START_TIME=$(date +%s)
-
-printf "Waiting for localdns to start and be able to serve traffic.\n"
-until [ "$(curl -s "http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready")" == "OK" ]; do
-    if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
-        printf "Localdns failed to come online after %d attempts.\n" "$MAX_ATTEMPTS"
-        exit $ERR_LOCALDNS_FAIL
-    fi
-    # Check for timeout based on elapsed time.
-    CURRENT_TIME=$(date +%s)
-    ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
-    if [ $ELAPSED_TIME -ge $TIMEOUT ]; then
-        printf "Localdns failed to come online after %d seconds (timeout).\n" "$TIMEOUT"
-        exit $ERR_LOCALDNS_FAIL
-    fi
-    sleep 1
-    ((ATTEMPTS++))
-done
-printf "Localdns is online and ready to serve traffic.\n"
+wait_for_localdns_ready 60 60 "$CURL_COMMAND" || exit $ERR_LOCALDNS_FAIL
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
-printf "Updating network DNS configuration to point to localdns via %s.\n" "${NETWORK_DROPIN_FILE}"
+echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
+
 mkdir -p "${NETWORK_DROPIN_DIR}"
+# verify that the network drop-in directory was created successfully.
+verify_network_dropin_dir || exit $ERR_LOCALDNS_FAIL
 
 cat > "${NETWORK_DROPIN_FILE}" <<EOF
 # Set DNS server to localdns cluster listernerIP.

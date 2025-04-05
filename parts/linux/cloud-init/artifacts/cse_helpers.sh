@@ -131,7 +131,7 @@ ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
-ERR_LOCALDNS_BINARY_NOTFOUND=219 # Localdns binary not found.
+ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # ----------------------------------------------------------------------------------
 
 # For both Ubuntu and Mariner, /etc/*-release should exist.
