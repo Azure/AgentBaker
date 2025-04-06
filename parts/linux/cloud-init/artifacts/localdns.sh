@@ -51,6 +51,13 @@ RESOLV_CONF="/run/systemd/resolve/resolv.conf"
 # This is used by start_localdns_watchdog and wait_for_localdns_ready.
 CURL_COMMAND="curl -s http://${LOCALDNS_NODE_LISTENER_IP}:8181/ready"
 
+# Constant for networkctl reload command.
+# This is used by disable_dhcp_use_clusterlistener and cleanup_localdns_configs functions.
+NETWORKCTL_RELOAD_CMD="networkctl reload"
+
+# The health check is a DNS request to the localdns service IPs.
+HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
+
 
 # Function definitions used in this file. 
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -66,6 +73,7 @@ verify_localdns_corefile() {
         echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}."
         return 1
     fi
+    return 0
 }
 
 verify_localdns_slicefile() {
@@ -78,6 +86,7 @@ verify_localdns_slicefile() {
         echo "Localdns slice file does not exist at ${LOCALDNS_SLICE_FILE}."
         return 1
     fi
+    return 0
 }
 
 verify_localdns_binary() {
@@ -95,6 +104,7 @@ verify_localdns_binary() {
         echo "Failed to execute '--version'."
         return 1
     fi
+    return 0
 }
 
 replace_azurednsip_in_corefile() {
@@ -130,6 +140,7 @@ replace_azurednsip_in_corefile() {
             return 1 
         }
     fi
+    return 0
 }
 
 build_localdns_iptable_rules() {
@@ -152,6 +163,7 @@ verify_default_route_interface() {
         echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
         return 1
     fi
+    return 0
 }
 
 verify_network_file() {
@@ -159,6 +171,7 @@ verify_network_file() {
         echo "Unable to determine network file for interface."
         return 1
     fi
+    return 0
 }
 
 verify_network_dropin_dir() {
@@ -171,17 +184,45 @@ verify_network_dropin_dir() {
         echo "Network drop-in directory does not exist."
         return 1
     fi
+    return 0
+}
+
+start_localdns() {
+    echo "Starting localdns: ${COREDNS_COMMAND}."
+    rm -f "${LOCALDNS_PID_FILE}"
+    # '&' is needed to put the command in the background.
+    # This is because systemd will wait for the process to exit before continuing.
+    # This is not what we want, as we want to run in the background.
+    # The PID file will be created by coredns when it starts.
+    # The PID file is used to track the process ID of coredns.
+    # This is needed to send a SIGINT to coredns when we want to stop it.
+    ${COREDNS_COMMAND} &
+
+    # Wait until the PID file is created.
+    local timeout=10
+    local elapsed=0
+    while [ ! -f "${LOCALDNS_PID_FILE}" ]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if [ "$elapsed" -ge "$timeout" ]; then
+            echo "Timed out waiting for CoreDNS to create PID file at ${LOCALDNS_PID_FILE}."
+            return 1
+        fi
+    done
+
+    COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
+    echo "Localdns PID is ${COREDNS_PID}."
+    return 0
 }
 
 wait_for_localdns_ready() {
     local maxattempts=$1
     local timeout_duration=$2
-    local curl_command=$3
     declare -i attempts=0
     local starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$($curl_command)" == "OK" ]; do
+    until [ "$($CURL_COMMAND)" == "OK" ]; do
         if [ $attempts -ge $maxattempts ]; then
             echo "Localdns failed to come online after $maxattempts attempts."
             return 1
@@ -200,7 +241,50 @@ wait_for_localdns_ready() {
     return 0
 }
 
-${__SOURCED__:+return}
+add_iptable_rules_to_skip_conntrack_from_pods(){
+    # Check if the localdns interface already exists and delete it.
+    if ip link show localdns >/dev/null 2>&1; then
+        echo "Interface localdns already exists, deleting it."
+        ip link delete localdns
+    fi
+
+    ip link add name localdns type dummy
+    ip link set up dev localdns
+    ip addr add ${LOCALDNS_NODE_LISTENER_IP}/32 dev localdns
+    ip addr add ${LOCALDNS_CLUSTER_LISTENER_IP}/32 dev localdns
+
+    # Add IPtables rules that skip conntrack for DNS connections coming from pods.
+    echo "Adding iptables rules to skip conntrack for queries to localdns."
+    for RULE in "${IPTABLES_RULES[@]}"; do
+        eval "${IPTABLES}" -A "${RULE}"
+    done
+}
+
+disable_dhcp_use_clusterlistener() {
+    mkdir -p "${NETWORK_DROPIN_DIR}"
+    # verify that the network drop-in directory was created successfully.
+    verify_network_dropin_dir || return 1
+
+cat > "${NETWORK_DROPIN_FILE}" <<EOF
+# Set DNS server to localdns cluster listernerIP.
+[Network]
+DNS=${LOCALDNS_NODE_LISTENER_IP}
+
+# Disable DNS provided by DHCP to ensure local DNS is used.
+[DHCP]
+UseDNS=false
+EOF
+
+    # Set permissions on the drop-in directory and file.
+    chmod -R ugo+rX "${NETWORK_DROPIN_DIR}"
+
+    eval "$NETWORKCTL_RELOAD_CMD"
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to reload networkctl."
+        return 1
+    fi
+    return 0
+}
 
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
@@ -223,10 +307,11 @@ cleanup_localdns_configs() {
     if [ -f "${NETWORK_DROPIN_FILE}" ]; then
         echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
         if /bin/rm -f "${NETWORK_DROPIN_FILE}"; then
-            networkctl reload || {
+            eval "$NETWORKCTL_RELOAD_CMD"
+            if [[ $? -ne 0 ]]; then
                 echo "Failed to reload network after removing the DNS configuration."
                 return 1
-            }
+            fi
         else
             echo "Failed to remove ${NETWORK_DROPIN_FILE}."
             return 1
@@ -234,10 +319,9 @@ cleanup_localdns_configs() {
     fi
 
     # Trigger localdns shutdown, if running.
-    # COREDNS_PID should be non-empty and a valid PID number.
-    if [[ -n "${COREDNS_PID}" ]] && [[ "${COREDNS_PID}" =~ ^[0-9]+$ ]]; then
+    if [ ! -z "${COREDNS_PID:-}" ]; then
         # Check if the process exists by using `ps`.
-        if ps -p "${COREDNS_PID}" 2>/dev/null; then
+        if ps -p "${COREDNS_PID}" >/dev/null 2>&1; then
             if [[ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]]; then
                 # Wait after removing iptables rules and DNS configuration so that we can let connections transition.
                 echo "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
@@ -282,38 +366,17 @@ cleanup_localdns_configs() {
     return 0
 }
 
-add_iptable_rules_to_skip_conntrack_from_pods(){
-    # Check if the localdns interface already exists and delete it.
-    if ip link show localdns >/dev/null 2>&1; then
-        echo "Interface localdns already exists, deleting it."
-        ip link delete localdns
-    fi
-
-    ip link add name localdns type dummy
-    ip link set up dev localdns
-    ip addr add ${LOCALDNS_NODE_LISTENER_IP}/32 dev localdns
-    ip addr add ${LOCALDNS_CLUSTER_LISTENER_IP}/32 dev localdns
-
-    # Add IPtables rules that skip conntrack for DNS connections coming from pods.
-    echo "Adding iptables rules to skip conntrack for queries to localdns."
-    for RULE in "${IPTABLES_RULES[@]}"; do
-        eval "${IPTABLES}" -A "${RULE}"
-    done
-}
+${__SOURCED__:+return}
 
 start_localdns_watchdog() {
-    local curl_command=$1
-    local health_check_dns_request=$2
-
     if [[ -n "${NOTIFY_SOCKET:-}" && -n "${WATCHDOG_USEC:-}" ]]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
         # five times in every watchdog interval, and thus need to fail five checks to get restarted.
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
-
         while true; do
-            if [[ "$($curl_command)" == "OK" ]]; then
-                if echo -e "${health_check_dns_request}" | dig +short +timeout=1 +tries=1; then
+            if [[ "$($CURL_COMMAND)" == "OK" ]]; then
+                if echo -e "${HEALTH_CHECK_DNS_REQUEST}" | dig +short +timeout=1 +tries=1; then
                     systemd-notify WATCHDOG=1
                 fi
             fi
@@ -324,7 +387,7 @@ start_localdns_watchdog() {
     fi
 }
 
-# --------------------------------------- Main Execution starts here ---------------------------------------------------
+# --------------------------------------- Main Execution starts here --------------------------------------------------
 
 # Verify localdns required files exists.
 # ---------------------------------------------------------------------------------------------------------------------
@@ -389,51 +452,18 @@ if [[ -n "${SYSTEMD_EXEC_PID:-}" ]]; then
     # We're running in systemd, so pass the coredns output via systemd-cat.
     COREDNS_COMMAND="systemd-cat --identifier=localdns-coredns --stderr-priority=3 -- ${COREDNS_COMMAND}"
 fi
-
-echo "Starting localdns: ${COREDNS_COMMAND}."
-rm -f "${LOCALDNS_PID_FILE}"
-${COREDNS_COMMAND} &
-
-# Wait until the PID file is created.
-until [ -f "${LOCALDNS_PID_FILE}" ]; do
-    sleep 0.1
-done
-
-COREDNS_PID="$(cat ${LOCALDNS_PID_FILE})"
-echo "Localdns PID is ${COREDNS_PID}."
+# Start localdns.
+start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
-wait_for_localdns_ready 60 60 "$CURL_COMMAND" || exit $ERR_LOCALDNS_FAIL
+wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
 
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
 echo "Updating network DNS configuration to point to localdns via ${NETWORK_DROPIN_FILE}."
-
-mkdir -p "${NETWORK_DROPIN_DIR}"
-# verify that the network drop-in directory was created successfully.
-verify_network_dropin_dir || exit $ERR_LOCALDNS_FAIL
-
-cat > "${NETWORK_DROPIN_FILE}" <<EOF
-# Set DNS server to localdns cluster listernerIP.
-[Network]
-DNS=${LOCALDNS_NODE_LISTENER_IP}
-
-# Disable DNS provided by DHCP to ensure local DNS is used.
-[DHCP]
-UseDNS=false
-EOF
-
-# Set permissions on the drop-in directory and file.
-chmod -R ugo+rX "${NETWORK_DROPIN_DIR}"
-
-networkctl reload
-if [[ $? -ne 0 ]]; then
-    echo "Failed to reload networkctl."
-    exit $ERR_LOCALDNS_FAIL
-fi
+disable_dhcp_use_clusterlistener || exit $ERR_LOCALDNS_FAIL
 echo "Startup complete - serving node and pod DNS traffic."
-
 
 # Systemd notify: send ready if service is Type=notify.
 # --------------------------------------------------------------------------------------------------------------------
@@ -443,11 +473,8 @@ fi
 
 # Systemd watchdog: send pings so we get restarted if we go unhealthy.
 # --------------------------------------------------------------------------------------------------------------------
-# The health check is a DNS request to the localdns service IPs.
-HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
-
 # If the watchdog is defined, we check status and pass success to systemd.
-start_localdns_watchdog "$CURL_COMMAND" "$HEALTH_CHECK_DNS_REQUEST"
+start_localdns_watchdog
 
 # The cleanup function is called on exit, so it will be run after the
 # wait ends (which will be when a signal is sent or localdns crashes) or the script receives a terminal signal.

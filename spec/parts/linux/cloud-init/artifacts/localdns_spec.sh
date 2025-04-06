@@ -49,8 +49,7 @@ EOF
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
-
-#------------------------ verify_localdns_corefile -------------------------------------------------
+        #------------------------ verify_localdns_corefile -------------------------------------------------
         It 'should return success if localdns corefile exists and is not empty'
             When run verify_localdns_corefile
             The status should be success
@@ -77,7 +76,7 @@ EOF
             The stdout should include "LOCALDNS_CORE_FILE is not set or is empty."
         End
 
-#------------------------ verify_localdns_slicefile ------------------------------------------------
+        #------------------------ verify_localdns_slicefile ------------------------------------------------
         It 'should return success if localdns slicefile exists and is not empty'
             When run verify_localdns_slicefile
             The status should be success
@@ -104,7 +103,7 @@ EOF
             The stdout should include "LOCALDNS_SLICE_FILE is not set or is empty."
         End
 
-#------------------------- verify_localdns_binary -----------------------------------------------------
+        #------------------------- verify_localdns_binary -----------------------------------------------------
         It 'should return success if coredns binary exists and is executable'
             When run verify_localdns_binary
             The status should be success
@@ -133,7 +132,7 @@ EOF
             The stdout should include "Failed to execute '--version'."
         End
 
-#------------------------- replace_azurednsip_in_corefile -----------------------------------------------------
+        #------------------------- replace_azurednsip_in_corefile -----------------------------------------------------
         It 'should replace 168.63.129.16 with UpstreamDNSIP if it is not same as AzureDNSIP'
             When run replace_azurednsip_in_corefile
             The status should be success
@@ -227,16 +226,14 @@ EOF
 
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
-
         cleanup() {
             rm -rf "$NETWORK_FILE_DIR"
             rm -rf "$NETWORK_DROPIN_DIR"
         }
-
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-#------------------------- build_localdns_iptable_rules ------------------------------------------------------
+        #------------------------- build_localdns_iptable_rules ------------------------------------------------------
         It 'should build iptables rules correctly for OUTPUT and PREROUTING'
             When call build_localdns_iptable_rules
             The status should be success
@@ -272,7 +269,7 @@ EOF
             The value "${#IPTABLES_RULES[@]}" should equal "${#expected_rules[@]}"
         End
 
-#------------------------- verify_default_route_interface ------------------------------------------------------
+        #------------------------- verify_default_route_interface ------------------------------------------------------
         It 'should succeed if default route interface is found'
             When call verify_default_route_interface
             The status should be success
@@ -293,7 +290,7 @@ EOF
             The stdout should include "Unable to determine the default route interface"
         End
 
-#------------------------- verify_network_file -----------------------------------------------------------------
+        #------------------------- verify_network_file -----------------------------------------------------------------
         It 'should succeed if networkfile is found'
             When call verify_network_file
             The status should be success
@@ -314,7 +311,7 @@ EOF
             The stdout should include "Unable to determine network file for interface"
         End
 
-#------------------------- verify_network_dropin_dir -----------------------------------------------------------------
+        #------------------------- verify_network_dropin_dir -----------------------------------------------------------
         It 'should succeed if networkdir is found'
             When call verify_network_dropin_dir
             The status should be success
@@ -330,21 +327,67 @@ EOF
     End
 
 
+# This section tests - start_localdns
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#---------------------------------------------------------------------------------------------------------------
+    Describe 'start_localdns'
+        setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        cleanup() {
+            rm -f "${LOCALDNS_PID_FILE}"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+        #------------------------- start_localdns ----------------------------------------------------------------------
+        It 'should start localdns and create the PID file'
+            MOCK_SCRIPT="/tmp/mock-coredns.sh"
+            cat > "$MOCK_SCRIPT" <<EOF
+#!/bin/bash
+# Simulate a long-running process that creates the PID file.
+echo \$\$ > "${LOCALDNS_PID_FILE}"
+sleep 60
+EOF
+            chmod +x "$MOCK_SCRIPT"
+            COREDNS_COMMAND="$MOCK_SCRIPT"
+
+            When call start_localdns
+            The status should be success
+            The file "${LOCALDNS_PID_FILE}" should exist
+            The output should include "Localdns PID is"
+        End
+
+        It 'should fail if PID file is not created in time'
+            MOCK_SCRIPT="/tmp/mock-coredns.sh"
+        cat > "$MOCK_SCRIPT" <<EOF
+#!/bin/bash
+# Simulate a long-running process that doesn't create the PID file.
+sleep 60
+EOF
+            chmod +x "$MOCK_SCRIPT"
+            COREDNS_COMMAND="$MOCK_SCRIPT"
+
+            When call start_localdns
+            The status should be failure
+            The output should include "Timed out waiting for CoreDNS to create PID file"
+        End
+    End
+
+
 # This section tests - wait_for_localdns_ready
 # These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
-#------------------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------------
     Describe 'wait_for_localdns_ready'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
         BeforeEach 'setup'
-
-#------------------------- wait_for_localdns_ready -----------------------------------------------------------------
+    #------------------------- wait_for_localdns_ready -----------------------------------------------------------------
         It 'should return success if localdns is ready'
             CURL_COMMAND="echo OK"
             MAX_ATTEMPTS=100
             TIMEOUT=5
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT "$CURL_COMMAND"
+            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
             The status should be success
             The output should include "Waiting for localdns to start and be able to serve traffic."
             The output should include "Localdns is online and ready to serve traffic."
@@ -354,7 +397,7 @@ EOF
             CURL_COMMAND="echo NOTOK"
             MAX_ATTEMPTS=1000
             TIMEOUT=5
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT "$CURL_COMMAND"
+            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
             The status should be failure
             The output should include "Localdns failed to come online after 5 seconds (timeout)."
         End
@@ -363,194 +406,326 @@ EOF
             CURL_COMMAND="echo NOTOK"
             MAX_ATTEMPTS=10
             TIMEOUT=50
-            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT "$CURL_COMMAND"
+            When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
             The status should be failure
             The output should include "Localdns failed to come online after 10 attempts."
         End
     End
 
 
+# This section tests - add_iptable_rules_to_skip_conntrack_from_pods
+# This function is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#--------------------------------------------------------------------------------------------------------------------
+Describe 'add_iptable_rules_to_skip_conntrack_from_pods'
+    setup() {
+        Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        LOCALDNS_NODE_LISTENER_IP="10.0.0.1"
+        LOCALDNS_CLUSTER_LISTENER_IP="10.0.0.2"
+        IPTABLES_RULES=("raw -t raw -p udp --dport 53 -j NOTRACK" "raw -t raw -p tcp --dport 53 -j NOTRACK")
+        IPTABLES="echo iptables"
+    }
+    BeforeEach 'setup'
+    #------------------------- add_iptable_rules_to_skip_conntrack_from_pods ------------------------------------------
+    It 'should create dummy localdns interface and set IPs, and add iptables rules'
+        ip() {
+            case "$1 $2" in
+                "link show")
+                    return 1
+                    ;;
+                "link add")
+                    echo "Adding interface: $*"
+                    ;;
+                "link set")
+                    echo "Setting interface up: $*"
+                    ;;
+                "addr add")
+                    echo "Assigning IP: $*"
+                    ;;
+                *)
+                    echo "Unknown ip command: $*"
+                    ;;
+            esac
+        }
+        Path prepend "$(pwd)"
+        When call add_iptable_rules_to_skip_conntrack_from_pods
+        The output should include "Adding iptables rules to skip conntrack for queries to localdns."
+        The output should include "iptables -A raw -t raw -p udp --dport 53 -j NOTRACK"
+        The output should include "iptables -A raw -t raw -p tcp --dport 53 -j NOTRACK"
+    End
+
+    It 'should delete existing localdns interface'
+        ip() {
+            case "$1 $2" in
+                "link show")
+                    return 0
+                    ;;
+                "link delete")
+                    echo "Deleting interface: $*"
+                    ;;
+                *)
+                    return 0
+                    ;;
+            esac
+        }
+
+        Path prepend "$(pwd)"
+        When call add_iptable_rules_to_skip_conntrack_from_pods
+        The output should include "Interface localdns already exists, deleting it."
+        The output should include "Deleting interface: link delete localdns"
+    End
+End
+
+
+# This section tests - disable_dhcp_use_clusterlistener
+# These functions are defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#------------------------------------------------------------------------------------------------------------------------------
+    Describe 'disable_dhcp_use_clusterlistener'
+        setup() {
+            NETWORK_DROPIN_DIR="/tmp/test-systemd-network"
+            NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/10-localdns.conf"
+            LOCALDNS_NODE_LISTENER_IP="169.254.10.10"
+
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        cleanup() {
+            rm -rf "$NETWORK_DROPIN_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+        #------------------------- disable_dhcp_use_clusterlistener -----------------------------------------------------------
+            It 'should update network configuration and reload networkctl'
+                NETWORKCTL_RELOAD_CMD="true"
+                When call disable_dhcp_use_clusterlistener
+                The status should be success
+                The file "${NETWORK_DROPIN_FILE}" should exist
+                The contents of file "${NETWORK_DROPIN_FILE}" should include "UseDNS=false"
+                The contents of file "${NETWORK_DROPIN_FILE}" should include "DNS=169.254.10.10"
+            End
+
+            It 'should fail if networkctl reload fails'
+                NETWORKCTL_RELOAD_CMD="false"
+                When call disable_dhcp_use_clusterlistener
+                The status should be failure
+                The output should include "Failed to reload networkctl."
+            End
+        End
+
+
 # This section tests - cleanup_localdns_configs
-# These functions is also defined in parts/linux/cloud-init/artifacts/localdns.sh file.
-# But is not sourced from the above file. 
-# It is very hard to mock the scenarios in this function. 
-# So this tests a copy of the code that is defined in localdns.sh file.
-#------------------------------------------------------------------------------------------------------------------------------------
-    Describe "cleanup_localdns_configs"
-        cleanup_localdns_configs() {
-            # Disable error handling so that we don't get into a recursive loop.
-            set +e
-
-            # Remove iptables rules to stop forwarding DNS traffic.
-            for RULE in "${IPTABLES_RULES[@]}"; do
-                if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
-                    eval "${IPTABLES}" -D "${RULE}"
-                    if [ $? -eq 0 ]; then
-                        echo "Successfully removed iptables rule: ${RULE}."
-                    else
-                        echo "Failed to remove iptables rule: ${RULE}."
-                        return 1
-                    fi
-                fi
-            done
-
-            # Revert the changes made to the DNS configuration if present.
-            if [ -f "${NETWORK_DROPIN_FILE}" ]; then
-                echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
-                if /bin/rm -f "${NETWORK_DROPIN_FILE}"; then
-                    networkctl reload || {
-                        echo "Failed to reload network after removing the DNS configuration."
-                        return 1
-                    }
-                else
-                    echo "Failed to remove ${NETWORK_DROPIN_FILE}."
-                    return 1
-                fi
-            fi
-
-            # Trigger localdns shutdown, if running.
-            if [[ -n "${COREDNS_PID}" ]] && [[ "${COREDNS_PID}" =~ ^[0-9]+$ ]]; then
-                if mock_ps; then
-                    if [[ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]]; then
-                        echo "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
-                        sleep "${LOCALDNS_SHUTDOWN_DELAY}"
-                    fi
-                    echo "Sending SIGINT to localdns and waiting for it to terminate."
-
-                    mock_kill "${COREDNS_PID}"
-                    kill_status=$?
-                    if [ $kill_status -eq 0 ]; then
-                        echo "Successfully sent SIGINT to localdns."
-                    else
-                        echo "Failed to send SIGINT to localdns. Exit status: $kill_status."
-                        return 1
-                    fi
-
-                    if mock_wait "${COREDNS_PID}"; then
-                        echo "Localdns terminated successfully."
-                    else
-                        echo "Localdns failed to terminate properly."
-                        return 1
-                    fi
-                fi
-            fi
-
-            # Delete the dummy interface if present.
-            if mock_ip_link_show >/dev/null 2>&1; then
-                echo "Removing localdns dummy interface."
-                mock_ip_link_del $LOCALDNS_INTERFACE
-                if [ $? -eq 0 ]; then
-                    echo "Successfully removed localdns dummy interface."
-                else
-                    echo "Failed to remove localdns dummy interface."
-                    return 1
-                fi
-            fi
-
-            # Indicate successful cleanup.
-            echo "Successfully cleanup localdns related configurations."
-            return 0
-        }
-
-        mock_iptables() {
-            echo "iptables -C $1"
-            return 0
-        }
-
-        mock_kill() {
-            local pid=$1
-            if [[ "$pid" == "12345" ]]; then
-                return 0
-            else
-                return 1
-            fi
-        }
-
-        mock_ps() {
-            return 0
-        }
-
-        mock_wait() {
-            local pid=$1
-            if [[ "$pid" == "12345" ]]; then
-                return 0
-            else
-                return 1
-            fi
-        }
-
-        mock_ip_link_show() {
-            return 0
-        }
-
-        mock_ip_link_del() {
-            return 0
-        }
-
-        mock_networkdropin_command() {
-            echo '{"NetworkFile": "/etc/systemd/network/eth0.network.d/70-localdns.conf"}'
-        }
-
-        It "should clean up iptables rules"
-            IPTABLES_RULES=(
-            "OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "OUTPUT -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            "OUTPUT -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            "PREROUTING -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
-            "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
-            )
-            IPTABLES="mock_iptables"
-            LOCALDNS_INTERFACE="name localdns"
-            When call cleanup_localdns_configs
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Successfully removed iptables rule: PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK."
-            The stdout should include "Removing localdns dummy interface."
-            The stdout should include "Successfully cleanup localdns related configurations."
-        End
-
-        It "should not fail if DNS configuration file doesn't exist"
-            NETWORK_DROPIN_FILE=""
-            When call cleanup_localdns_configs
-            The stdout should include "Successfully cleanup localdns related configurations."
-        End
-
-        It "should successfully cleanup"
+# These functions is defined in parts/linux/cloud-init/artifacts/localdns.sh file.
+#---------------------------------------------------------------------------------------------------------------------------
+    Describe 'cleanup_localdns_configs'
+        setup() {
+            IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT" "OUTPUT -p udp --sport 53 -j ACCEPT")
+            NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
             COREDNS_PID="12345"
+            LOCALDNS_SHUTDOWN_DELAY=1
+            IPTABLES="iptables"
+
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+        }
+        cleanup() {
+            rm -rf "/tmp/test-network-dropin.conf"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+        #------------------------- cleanup_localdns_configs -----------------------------------------------------------------
+        It 'should successfully remove iptables rules and DNS configuration'
+            NETWORKCTL_RELOAD_CMD="true"
+            NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
+            touch "$NETWORK_DROPIN_FILE"
+
             When call cleanup_localdns_configs
             The status should be success
-            The stdout should include "Sending SIGINT to localdns and waiting for it to terminate."
-            The stdout should include "Successfully sent SIGINT to localdns."
-            The stdout should include "Localdns terminated successfully."
-            The stdout should include "Successfully cleanup localdns related configurations."
+            The output should include "Reverting DNS configuration by removing"
+            The output should include "Successfully cleanup localdns related configurations."
+            The file "${NETWORK_DROPIN_FILE}" should not exist
         End
 
-        It "should fail cleanup"
-            COREDNS_PID="54321"
+        It 'should return success if none of the objects are present'
             When call cleanup_localdns_configs
-            The status should be failure
-            The stdout should include "Sending SIGINT to localdns and waiting for it to terminate."
-            The stdout should include "Failed to send SIGINT to localdns. Exit status: 1."
-        End
-
-        It "should remove dummy interface if exists"
-            When call cleanup_localdns_configs
-            The stdout should include "Successfully removed localdns dummy interface"
-        End
-
-        It "should handle errors in iptables deletion"
-            LOCALDNS_INTERFACE="name localdns"
-            When call cleanup_localdns_configs
-            The stdout should include "Removing localdns dummy interface."
-            The stdout should include "Successfully removed localdns dummy interface."
+            The status should be success
+            The output should include "Successfully cleanup localdns related configurations."
         End
     End
 End
+
+
+
+    # Describe "cleanup_localdns_configs"
+    #     cleanup_localdns_configs() {
+    #         # Disable error handling so that we don't get into a recursive loop.
+    #         set +e
+
+    #         # Remove iptables rules to stop forwarding DNS traffic.
+    #         for RULE in "${IPTABLES_RULES[@]}"; do
+    #             if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
+    #                 eval "${IPTABLES}" -D "${RULE}"
+    #                 if [ $? -eq 0 ]; then
+    #                     echo "Successfully removed iptables rule: ${RULE}."
+    #                 else
+    #                     echo "Failed to remove iptables rule: ${RULE}."
+    #                     return 1
+    #                 fi
+    #             fi
+    #         done
+
+    #         # Revert the changes made to the DNS configuration if present.
+    #         if [ -f "${NETWORK_DROPIN_FILE}" ]; then
+    #             echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
+    #             if /bin/rm -f "${NETWORK_DROPIN_FILE}"; then
+    #                 networkctl reload || {
+    #                     echo "Failed to reload network after removing the DNS configuration."
+    #                     return 1
+    #                 }
+    #             else
+    #                 echo "Failed to remove ${NETWORK_DROPIN_FILE}."
+    #                 return 1
+    #             fi
+    #         fi
+
+    #         # Trigger localdns shutdown, if running.
+    #         if [[ -n "${COREDNS_PID}" ]] && [[ "${COREDNS_PID}" =~ ^[0-9]+$ ]]; then
+    #             if mock_ps; then
+    #                 if [[ "${LOCALDNS_SHUTDOWN_DELAY}" -gt 0 ]]; then
+    #                     echo "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
+    #                     sleep "${LOCALDNS_SHUTDOWN_DELAY}"
+    #                 fi
+    #                 echo "Sending SIGINT to localdns and waiting for it to terminate."
+
+    #                 mock_kill "${COREDNS_PID}"
+    #                 kill_status=$?
+    #                 if [ $kill_status -eq 0 ]; then
+    #                     echo "Successfully sent SIGINT to localdns."
+    #                 else
+    #                     echo "Failed to send SIGINT to localdns. Exit status: $kill_status."
+    #                     return 1
+    #                 fi
+
+    #                 if mock_wait "${COREDNS_PID}"; then
+    #                     echo "Localdns terminated successfully."
+    #                 else
+    #                     echo "Localdns failed to terminate properly."
+    #                     return 1
+    #                 fi
+    #             fi
+    #         fi
+
+    #         # Delete the dummy interface if present.
+    #         if mock_ip_link_show >/dev/null 2>&1; then
+    #             echo "Removing localdns dummy interface."
+    #             mock_ip_link_del $LOCALDNS_INTERFACE
+    #             if [ $? -eq 0 ]; then
+    #                 echo "Successfully removed localdns dummy interface."
+    #             else
+    #                 echo "Failed to remove localdns dummy interface."
+    #                 return 1
+    #             fi
+    #         fi
+
+    #         # Indicate successful cleanup.
+    #         echo "Successfully cleanup localdns related configurations."
+    #         return 0
+    #     }
+
+    #     mock_iptables() {
+    #         echo "iptables -C $1"
+    #         return 0
+    #     }
+
+    #     mock_kill() {
+    #         local pid=$1
+    #         if [[ "$pid" == "12345" ]]; then
+    #             return 0
+    #         else
+    #             return 1
+    #         fi
+    #     }
+
+    #     mock_ps() {
+    #         return 0
+    #     }
+
+    #     mock_wait() {
+    #         local pid=$1
+    #         if [[ "$pid" == "12345" ]]; then
+    #             return 0
+    #         else
+    #             return 1
+    #         fi
+    #     }
+
+    #     mock_ip_link_show() {
+    #         return 0
+    #     }
+
+    #     mock_ip_link_del() {
+    #         return 0
+    #     }
+
+    #     mock_networkdropin_command() {
+    #         echo '{"NetworkFile": "/etc/systemd/network/eth0.network.d/70-localdns.conf"}'
+    #     }
+
+    #     It "should clean up iptables rules"
+    #         IPTABLES_RULES=(
+    #         "OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
+    #         "OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
+    #         "OUTPUT -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
+    #         "OUTPUT -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
+    #         "PREROUTING -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK"
+    #         "PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK"
+    #         "PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK"
+    #         "PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK"
+    #         )
+    #         IPTABLES="mock_iptables"
+    #         LOCALDNS_INTERFACE="name localdns"
+    #         When call cleanup_localdns_configs
+    #         The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: OUTPUT -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: OUTPUT -p udp -d 169.254.10.11 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: PREROUTING -p tcp -d 169.254.10.10 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: PREROUTING -p udp -d 169.254.10.10 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: PREROUTING -p tcp -d 169.254.10.11 --dport 53 -j NOTRACK."
+    #         The stdout should include "Successfully removed iptables rule: PREROUTING -p udp -d 169.254.10.11 --dport 53 -j NOTRACK."
+    #         The stdout should include "Removing localdns dummy interface."
+    #         The stdout should include "Successfully cleanup localdns related configurations."
+    #     End
+
+    #     It "should not fail if DNS configuration file doesn't exist"
+    #         NETWORK_DROPIN_FILE=""
+    #         When call cleanup_localdns_configs
+    #         The stdout should include "Successfully cleanup localdns related configurations."
+    #     End
+
+    #     It "should successfully cleanup"
+    #         COREDNS_PID="12345"
+    #         When call cleanup_localdns_configs
+    #         The status should be success
+    #         The stdout should include "Sending SIGINT to localdns and waiting for it to terminate."
+    #         The stdout should include "Successfully sent SIGINT to localdns."
+    #         The stdout should include "Localdns terminated successfully."
+    #         The stdout should include "Successfully cleanup localdns related configurations."
+    #     End
+
+    #     It "should fail cleanup"
+    #         COREDNS_PID="54321"
+    #         When call cleanup_localdns_configs
+    #         The status should be failure
+    #         The stdout should include "Sending SIGINT to localdns and waiting for it to terminate."
+    #         The stdout should include "Failed to send SIGINT to localdns. Exit status: 1."
+    #     End
+
+    #     It "should remove dummy interface if exists"
+    #         When call cleanup_localdns_configs
+    #         The stdout should include "Successfully removed localdns dummy interface"
+    #     End
+
+    #     It "should handle errors in iptables deletion"
+    #         LOCALDNS_INTERFACE="name localdns"
+    #         When call cleanup_localdns_configs
+    #         The stdout should include "Removing localdns dummy interface."
+    #         The stdout should include "Successfully removed localdns dummy interface."
+    #     End
+    # End
