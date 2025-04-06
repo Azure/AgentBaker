@@ -63,6 +63,7 @@ HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTEN
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
 # spec/parts/linux/cloud-init/artifacts/localdns_spec.sh.
 # -------------------------------------------------------------------------------------------------
+# Verify that the localdns corefile exists and is not empty.
 verify_localdns_corefile() {
     if [ -z "${LOCALDNS_CORE_FILE:-}" ]; then
         echo "LOCALDNS_CORE_FILE is not set or is empty."
@@ -76,6 +77,7 @@ verify_localdns_corefile() {
     return 0
 }
 
+# Verify that the localdns slice file exists and is not empty.
 verify_localdns_slicefile() {
     if [ -z "${LOCALDNS_SLICE_FILE:-}" ]; then
         echo "LOCALDNS_SLICE_FILE is not set or is empty."
@@ -89,6 +91,7 @@ verify_localdns_slicefile() {
     return 0
 }
 
+# Verify that the localdns binary exists and is executable.
 verify_localdns_binary() {
     if [ -z "${COREDNS_BINARY_PATH:-}" ]; then
         echo "COREDNS_BINARY_PATH is not set or is empty."
@@ -100,13 +103,14 @@ verify_localdns_binary() {
         return 1
     fi
 
-    if ! timeout 5s "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
+    if ! "${COREDNS_BINARY_PATH}" --version >/dev/null 2>&1; then
         echo "Failed to execute '--version'."
         return 1
     fi
     return 0
 }
 
+# Replace AzureDNSIP in corefile with VNET DNS ServerIPs if necessary.
 replace_azurednsip_in_corefile() {
     if [ -z "${RESOLV_CONF:-}" ]; then
         echo "RESOLV_CONF is not set or is empty."
@@ -143,6 +147,7 @@ replace_azurednsip_in_corefile() {
     return 0
 }
 
+# Build iptables rules to skip conntrack for DNS traffic to localdns.
 build_localdns_iptable_rules() {
     # These rules skip conntrack for DNS traffic to the local DNS service IPs to save conntrack table space.
     # OUTPUT rules affect node services and hostNetwork: true pods.
@@ -158,6 +163,7 @@ build_localdns_iptable_rules() {
     done
 }
 
+# Verify that the default route interface is set and not empty.
 verify_default_route_interface() {
     if [[ -z "${DEFAULT_ROUTE_INTERFACE:-}" ]]; then
         echo "Unable to determine the default route interface for ${AZURE_DNS_IP}."
@@ -166,6 +172,7 @@ verify_default_route_interface() {
     return 0
 }
 
+# Verify that the network file exists and is not empty.
 verify_network_file() {
     if [[ ! -f "${NETWORK_FILE:-}" ]]; then
         echo "Unable to determine network file for interface."
@@ -174,6 +181,7 @@ verify_network_file() {
     return 0
 }
 
+# Verify that the network drop-in directory exists and is not empty.
 verify_network_dropin_dir() {
     if [ -z "${NETWORK_DROPIN_DIR:-}" ]; then
         echo "NETWORK_DROPIN_DIR is not set or is empty."
@@ -187,6 +195,7 @@ verify_network_dropin_dir() {
     return 0
 }
 
+# Start localdns service.
 start_localdns() {
     echo "Starting localdns: ${COREDNS_COMMAND}."
     rm -f "${LOCALDNS_PID_FILE}"
@@ -215,6 +224,7 @@ start_localdns() {
     return 0
 }
 
+# Wait for localdns to be ready to serve traffic.
 wait_for_localdns_ready() {
     local maxattempts=$1
     local timeout_duration=$2
@@ -241,6 +251,7 @@ wait_for_localdns_ready() {
     return 0
 }
 
+# Add iptables rules to skip conntrack for DNS traffic to localdns.
 add_iptable_rules_to_skip_conntrack_from_pods(){
     # Check if the localdns interface already exists and delete it.
     if ip link show localdns >/dev/null 2>&1; then
@@ -260,6 +271,7 @@ add_iptable_rules_to_skip_conntrack_from_pods(){
     done
 }
 
+# Disable DNS provided by DHCP and point the system at localdns.
 disable_dhcp_use_clusterlistener() {
     mkdir -p "${NETWORK_DROPIN_DIR}"
     # verify that the network drop-in directory was created successfully.
@@ -286,10 +298,12 @@ EOF
     return 0
 }
 
+# Cleanup function to remove localdns related configurations.
 cleanup_localdns_configs() {
     # Disable error handling so that we don't get into a recursive loop.
     set +e
     
+    IPTABLES_RULES=("${IPTABLES_RULES[@]:-}")
     # Remove iptables rules to stop forwarding DNS traffic.
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
@@ -306,14 +320,14 @@ cleanup_localdns_configs() {
     # Revert the changes made to the DNS configuration if present.
     if [ -f "${NETWORK_DROPIN_FILE}" ]; then
         echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
-        if /bin/rm -f "${NETWORK_DROPIN_FILE}"; then
-            eval "$NETWORKCTL_RELOAD_CMD"
-            if [[ $? -ne 0 ]]; then
-                echo "Failed to reload network after removing the DNS configuration."
-                return 1
-            fi
-        else
-            echo "Failed to remove ${NETWORK_DROPIN_FILE}."
+        rm -f "$NETWORK_DROPIN_FILE"
+        if [ $? -ne 0 ]; then
+            echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
+            return 1
+        fi        
+        eval "$NETWORKCTL_RELOAD_CMD"
+        if [[ $? -ne 0 ]]; then
+            echo "Failed to reload network after removing the DNS configuration."
             return 1
         fi
     fi
@@ -366,8 +380,13 @@ cleanup_localdns_configs() {
     return 0
 }
 
-${__SOURCED__:+return}
-
+# Start the localdns watchdog.
+# This function is used to check the health of localdns and restart it if necessary.
+# It uses systemd-notify to send a watchdog ping to the systemd service manager.
+# The watchdog interval is set in the systemd unit file and is passed to the script via the WATCHDOG_USEC environment variable.
+# The health check is a DNS request to the localdns service IPs.
+# The health check is run at 20% of the WATCHDOG_USEC interval.
+# If the health check fails, the script will exit and systemd will restart the service.
 start_localdns_watchdog() {
     if [[ -n "${NOTIFY_SOCKET:-}" && -n "${WATCHDOG_USEC:-}" ]]; then
         # Health check at 20% of WATCHDOG_USEC; this means that we should check.
@@ -387,6 +406,8 @@ start_localdns_watchdog() {
     fi
 }
 
+${__SOURCED__:+return}
+
 # --------------------------------------- Main Execution starts here --------------------------------------------------
 
 # Verify localdns required files exists.
@@ -402,18 +423,15 @@ verify_localdns_slicefile || exit $ERR_LOCALDNS_SLICEFILE_NOTFOUND
 # /opt/azure/containers/localdns/binary/coredns.
 verify_localdns_binary || exit $ERR_LOCALDNS_BINARY_ERR
 
-
 # Replace AzureDNSIP in corefile with VNET DNS ServerIPs.
 # ---------------------------------------------------------------------------------------------------------------------
 replace_azurednsip_in_corefile || $ERR_LOCALDNS_FAIL
-
 
 # Build IPtable rules.
 # ---------------------------------------------------------------------------------------------------------------------
 IPTABLES='iptables -w -t raw -m comment --comment "localdns: skip conntrack"'
 IPTABLES_RULES=()
 build_localdns_iptable_rules
-
 
 # Get required network environment variables.
 # ---------------------------------------------------------------------------------------------------------------------
@@ -427,7 +445,6 @@ verify_network_file || exit $ERR_LOCALDNS_FAIL
 NETWORK_DROPIN_DIR="${NETWORK_FILE}.d"
 NETWORK_DROPIN_FILE="${NETWORK_DROPIN_DIR}/70-localdns.conf"
 
-
 # Setup traps to trigger cleanup_localdns_configs if anything goes wrong.
 # ---------------------------------------------------------------------------------------------------------------------
 # cleanup_localdns_configs function will be run on script exit/crash to revert config.
@@ -437,13 +454,11 @@ trap 'echo "Error occurred. Cleaning up..."; cleanup_localdns_configs; exit $ERR
 # Always cleanup when exiting.
 trap 'echo "Executing cleanup function."; cleanup_localdns_configs || echo "Cleanup failed with error code: $ERR_LOCALDNS_FAIL."' EXIT
 
-
 # Configure interface listening on Node listener and cluster listener IPs.
 # --------------------------------------------------------------------------------------------------------------------
 # Create a dummy interface listening on the link-local IP and cluster DNS service IP.
 echo "Setting up localdns dummy interface with IPs ${LOCALDNS_NODE_LISTENER_IP} and ${LOCALDNS_CLUSTER_LISTENER_IP}."
 add_iptable_rules_to_skip_conntrack_from_pods
-
 
 # Start localdns service.
 # --------------------------------------------------------------------------------------------------------------------
@@ -457,7 +472,6 @@ start_localdns || exit $ERR_LOCALDNS_FAIL
 
 # Wait to direct traffic to localdns until it's ready.
 wait_for_localdns_ready 60 60 || exit $ERR_LOCALDNS_FAIL
-
 
 # Disable DNS from DHCP and point the system at localdns.
 # --------------------------------------------------------------------------------------------------------------------
