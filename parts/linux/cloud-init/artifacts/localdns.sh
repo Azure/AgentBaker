@@ -395,7 +395,7 @@ start_localdns_watchdog() {
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
         while true; do
             if [[ "$($CURL_COMMAND)" == "OK" ]]; then
-                if dig +short +timeout=1 +tries=1 -f<(printf "%s" "${HEALTH_CHECK_DNS_REQUEST}"); then
+                if dig +short +timeout=1 +tries=1 -f <(printf "%s" "$HEALTH_CHECK_DNS_REQUEST"); then
                     systemd-notify WATCHDOG=1
                 fi
             fi
