@@ -39,8 +39,13 @@ pr:
 pool:
   name: $(AZURE_POOL_NAME)
 
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
+# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
+# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
+
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
+  - group: ab-windows-ms-tenant
   - name: VHD_BUILD_ID
     value: $(Build.BuildId)
   - name: LOCATION
@@ -52,13 +57,14 @@ variables:
 
 # TODO - move this to variables rather than being in code
   - name: GALLERY_SUBSCRIPTION_ID
-#    # value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
+    value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
 #    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
-    value: "df8ed6e2-7bc3-4600-b141-5d9619382df1"
+#    value: "df8ed6e2-7bc3-4600-b141-5d9619382df1"
 #    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
 
   - name: SUBSCRIPTION_ID
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+    # try AZURE_PROD_SUBSCRIPTION_ID
 #     value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
 #    value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
 #    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
@@ -72,16 +78,16 @@ variables:
   - name: AZURE_RESOURCE_GROUP_NAME
     value:  $(AZURE_BUILD_RESOURCE_GROUP_NAME)
 
-# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
-# Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
-# Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
 
 stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
       vhddebug: False
       dryrun: False
-      buildVmSize: Standard_D4ds_v5
+      ${{ if eq( variables.PACKER_VM_SIZE, '') }}:
+        buildVmSize: Standard_D4ds_v5
+      ${{ else }}:
+        buildVmSize: ${{ variables.PACKER_VM_SIZE }}
       build2019containerd: False
       build2022containerd: False
       build2022containerdgen2: True
