@@ -800,7 +800,7 @@ resolve_packages_source_url() {
     local wait_sleep=1
 
     for i in $(seq 1 $retries); do
-      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 https://packages.aks.azure.com/acs-mirror/healthz)
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
       if [ ${response_code} -eq 200 ]; then
         PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
         echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
