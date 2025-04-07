@@ -11,17 +11,20 @@ Describe 'localdns.sh'
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'verify_localdns_files'
         setup() {
-            LOCALDNS_SCRIPT_PATH="/opt/azure/containers/localdns"
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh" 
+
+            TEST_DIR="/tmp/localdnstest"
+            LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             echo "forward . 168.63.129.16" >> "$LOCALDNS_CORE_FILE"
 
-            LOCALDNS_SLICE_PATH="/etc/systemd/system"
+            LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
             mkdir -p "$LOCALDNS_SLICE_PATH"
             echo "localdns slice file" >> "$LOCALDNS_SLICE_FILE"
 
-            COREDNS_BINARY_PATH="/opt/azure/containers/localdns/binary/coredns"
+            COREDNS_BINARY_PATH="${TEST_DIR}/opt/azure/containers/localdns/binary/coredns"
             mkdir -p "$(dirname "$COREDNS_BINARY_PATH")"
     cat <<EOF > "$COREDNS_BINARY_PATH"
 #!/bin/bash
@@ -31,14 +34,13 @@ if [[ "\$1" == "--version" ]]; then
 fi
 EOF
             chmod +x "$COREDNS_BINARY_PATH"
-            RESOLV_CONF="/run/systemd/resolve/resolv.conf"
+            RESOLV_CONF="${TEST_DIR}/run/systemd/resolve/resolv.conf"
             mkdir -p "$(dirname "$RESOLV_CONF")"
 cat <<EOF > "$RESOLV_CONF"
 nameserver 10.0.0.1
 nameserver 10.0.0.2
 EOF
 
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh" 
         }
         cleanup() {
             rm -rf "$LOCALDNS_SCRIPT_PATH"
@@ -139,21 +141,21 @@ EOF
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
         End
 
-        It 'should fail if /run/systemd/resolve/resolv.conf not found'
+        It 'should fail if resolv.conf not found'
             rm -f "$RESOLV_CONF"
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The stdout should include "/run/systemd/resolve/resolv.conf not found."
+            The stdout should include ""$RESOLV_CONF" not found."
         End
 
-        It 'should fail if UpstreamDNSIP is not found in /run/systemd/resolve/resolv.conf'
+        It 'should fail if UpstreamDNSIP is not found in resolv.conf'
 cat <<EOF > "$RESOLV_CONF"
 invalid
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The file "${LOCALDNS_CORE_FILE}" should exist
-            The stdout should include "No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf."
+            The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
@@ -164,7 +166,7 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The file "${LOCALDNS_CORE_FILE}" should exist
-            The stdout should include "No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf."
+            The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
@@ -175,7 +177,7 @@ EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
             The file "${LOCALDNS_CORE_FILE}" should exist
-            The stdout should include "No Upstream VNET DNS servers found in /run/systemd/resolve/resolv.conf."
+            The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
@@ -203,8 +205,10 @@ EOF
 #------------------------------------------------------------------------------------------------------------------------------------
     Describe 'build_localdns_iptable_rules_and_verify_network_file'
         setup() {
+            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            TEST_DIR="/tmp/localdnstest"
             DEFAULT_ROUTE_INTERFACE="eth0"
-            NETWORK_FILE_DIR="/etc/systemd/network"
+            NETWORK_FILE_DIR="${TEST_DIR}/etc/systemd/network"
             NETWORK_FILE="${NETWORK_FILE_DIR}/eth0.network"
             mkdir -p "$NETWORK_FILE_DIR"
             echo "[Network]" >> "$NETWORK_FILE"
@@ -222,8 +226,6 @@ DNS=${LOCALDNS_NODE_LISTENER_IP}
 [DHCP]
 UseDNS=false
 EOF
-
-            Include "./parts/linux/cloud-init/artifacts/localdns.sh"
         }
         cleanup() {
             rm -rf "$NETWORK_FILE_DIR"
@@ -289,7 +291,7 @@ EOF
         It 'should succeed if networkfile is found'
             When call verify_network_file
             The status should be success
-            The variable NETWORK_FILE should equal "/etc/systemd/network/eth0.network"
+            The variable NETWORK_FILE should equal "$NETWORK_FILE"
         End
 
         It 'should fail if no networkfile is found'
@@ -310,7 +312,7 @@ EOF
         It 'should succeed if networkdir is found'
             When call verify_network_dropin_dir
             The status should be success
-            The variable NETWORK_DROPIN_DIR should equal "/etc/systemd/network/eth0.network.d"
+            The variable NETWORK_DROPIN_DIR should equal "$NETWORK_DROPIN_DIR"
         End
 
         It 'should fail if no networkdir is found'
@@ -328,15 +330,17 @@ EOF
     Describe 'start_localdns'
         setup() {
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            LOCALDNS_PID_FILE="/tmp/localdns.pid"
         }
         cleanup() {
             rm -f "${LOCALDNS_PID_FILE}"
+            rm -f ./mock-coredns.sh
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
         #------------------------- start_localdns ------------------------------------------------------------------
         It 'should start localdns and create the PID file'
-            MOCK_SCRIPT="/tmp/mock-coredns.sh"
+            MOCK_SCRIPT="./mock-coredns.sh"
             cat > "$MOCK_SCRIPT" <<EOF
 #!/bin/bash
 # Simulate a long-running process that creates the PID file.
@@ -352,7 +356,7 @@ EOF
         End
 
         It 'should fail if PID file is not created in time'
-            MOCK_SCRIPT="/tmp/mock-coredns.sh"
+            MOCK_SCRIPT="./mock-coredns.sh"
         cat > "$MOCK_SCRIPT" <<EOF
 #!/bin/bash
 # Simulate a long-running process that doesn't create the PID file.
