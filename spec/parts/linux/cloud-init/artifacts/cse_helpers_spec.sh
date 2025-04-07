@@ -317,21 +317,21 @@ Describe 'cse_helpers.sh'
         BeforeEach 'setup'
         AfterEach 'cleanup'
 
-        It 'should return 217 if LOCALDNS_CORE_FILE does not exist'
+        It 'should return failure if localdns corefile does not exist'
             rm -f "$LOCALDNS_CORE_FILE"
             When run shouldEnableLocaldns
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
         End
 
-        It 'should return 217 if LOCALDNS_CORE_FILE is empty'
+        It 'should return failure if localdns corefile is empty'
             > "$LOCALDNS_CORE_FILE"
             When run shouldEnableLocaldns
             The status should be failure
             The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
         End
 
-        It 'should return 0 if LOCALDNS_CORE_FILE exists and is not empty'
+        It 'should return success if localdns corefile exists and is not empty'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
             When run shouldEnableLocaldns
             The status should be success
