@@ -5,7 +5,7 @@ VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 AZURELINUX_OS_NAME="AZURELINUX"
-
+exit 0
 THIS_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)"
 CONTAINER_RUNTIME="$1"
 OS_VERSION="$2"

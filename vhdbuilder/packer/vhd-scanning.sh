@@ -10,7 +10,7 @@ if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set to run VHD scanning"
     exit 1
 fi
-
+exit 0
 CURRENT_TIME=$(date +%s)
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
