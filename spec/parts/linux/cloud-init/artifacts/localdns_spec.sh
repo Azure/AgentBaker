@@ -662,9 +662,9 @@ EOF
         BeforeEach 'setup'
         #------------------------- start_localdns_watchdog ------------------------------------------------------------
         It 'should not do anything if NOTIFY_SOCKET and WATCHDOG_USEC are empty'
-            export NOTIFY_SOCKET=""
-            export WATCHDOG_USEC=""
-            export COREDNS_PID="12345"
+            NOTIFY_SOCKET=""
+            WATCHDOG_USEC=""
+            COREDNS_PID="12345"
             wait() { return 0; }
             When call start_localdns_watchdog
             The status should be success
