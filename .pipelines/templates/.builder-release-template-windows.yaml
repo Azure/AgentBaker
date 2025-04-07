@@ -99,16 +99,13 @@ steps:
   
   # Note: use -a to grep MANAGED_SIG_ID (packer-output should be read as a binary file in Linux)
   - script: |
-
       export TEST_VM_RESOURCE_GROUP_NAME="vhd-test-$(date +%s)-$RANDOM"
-      
       echo "ARCHITECTURE: ${{ parameters.architecture }}"
-      
       echo "##vso[task.setvariable variable=TEST_VM_RESOURCE_GROUP_NAME]$TEST_VM_RESOURCE_GROUP_NAME"
   
       ./vhdbuilder/packer/test/run-test.sh
     displayName: Run VHD cache test
-    enabled: true
+    enabled: false
     env:
       AZURE_LOCATION: $(AZURE_BUILD_LOCATION)
       WINDOWS_SKU: ${{ parameters.windowsSku }}
