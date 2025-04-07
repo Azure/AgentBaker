@@ -1755,14 +1755,13 @@ func GenerateLocalDNSCoreFile(
 	variables := getCustomDataVariables(config)
 	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
 
-	localDNSCoreFileData, err := profile.GetLocalDNSCoreFileData()
-	if err != nil {
-		return "", fmt.Errorf("failed to get localdns corefile data: %w", err)
+	if profile.LocalDNSProfile == nil {
+		return "", fmt.Errorf("localdns profile is nil")
 	}
-
 	funcMapForHasSuffix := template.FuncMap{
 		"hasSuffix": strings.HasSuffix,
 	}
+	localDNSCoreFileData := profile.GetLocalDNSCoreFileData()
 	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
 
 	// Generate the Corefile content.

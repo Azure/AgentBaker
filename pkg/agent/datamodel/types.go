@@ -888,8 +888,8 @@ func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
 }
 
 // GetLocalDNSCoreFileData returns the object that will be used to generate localdns corefile.
-func (a *AgentPoolProfile) GetLocalDNSCoreFileData() (LocalDNSCoreFileData, error) {
-	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile != nil {
+func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
+	if a.ShouldEnableLocalDNS() {
 		localdnsCoreFileData := LocalDNSCoreFileData{
 			LocalDNSProfile:   *a.LocalDNSProfile,
 			NodeListenerIP:    a.GetLocalDNSNodeListenerIP(),
@@ -897,9 +897,9 @@ func (a *AgentPoolProfile) GetLocalDNSCoreFileData() (LocalDNSCoreFileData, erro
 			CoreDNSServiceIP:  a.GetCoreDNSServiceIP(),
 			AzureDNSIP:        a.GetAzureDNSIP(),
 		}
-		return localdnsCoreFileData, nil
+		return localdnsCoreFileData
 	}
-	return LocalDNSCoreFileData{}, fmt.Errorf("LocalDNSProfile is nil or State is Disabled")
+	return LocalDNSCoreFileData{}
 }
 
 // ----------------------- End of Changed related to localdns ------------------------------------------

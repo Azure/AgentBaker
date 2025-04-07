@@ -3091,27 +3091,13 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.agentPoolProfile == nil {
-				_, err := tt.agentPoolProfile.GetLocalDNSCoreFileData()
-				if err == nil {
-					t.Errorf("expected an error but got none")
-				}
-				return
+			var actualData LocalDNSCoreFileData
+			if tt.agentPoolProfile != nil {
+				actualData = tt.agentPoolProfile.GetLocalDNSCoreFileData()
 			}
 
-			actualData, err := tt.agentPoolProfile.GetLocalDNSCoreFileData()
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected an error but got none")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if !reflect.DeepEqual(tt.expectedData, actualData) {
-					t.Errorf("expected %+v, got %+v", tt.expectedData, actualData)
-				}
+			if !reflect.DeepEqual(tt.expectedData, actualData) {
+				t.Errorf("expected %+v, got %+v", tt.expectedData, actualData)
 			}
 		})
 	}
