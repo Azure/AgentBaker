@@ -109,6 +109,10 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
+          "latestVersion": "v1.12.1-1"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
           "latestVersion": "v1.9.4-5"
         }
       ],
@@ -193,7 +197,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.22"
+          "latestVersion": "v1.6.23"
         }
       ],
       "multiArchVersionsV2": [
@@ -227,8 +231,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.22",
-          "previousLatestVersion": "v1.6.21",
+          "latestVersion": "v1.6.23",
+          "previousLatestVersion": "v1.6.22",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -280,7 +284,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-npm",
-          "latestVersion": "v1.5.44"
+          "latestVersion": "v1.5.45"
         }
       ],
       "windowsVersions": []
@@ -586,16 +590,16 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.24.8",
+          "latestVersion": "v1.24.9",
           "previousLatestVersion": "v1.24.7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.25.4"
+          "latestVersion": "v1.25.5"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/blob-csi",
-          "latestVersion": "v1.26.1"
+          "latestVersion": "v1.26.2"
         }
       ],
       "windowsVersions": []
