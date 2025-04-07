@@ -796,8 +796,6 @@ verify_DNS_health(){
 }
 
 resolve_packages_source_url() {
-    echo "Ensuring connectivity to packages.aks.azure.com..."
-
     local retries=5
     local wait_sleep=1
 
