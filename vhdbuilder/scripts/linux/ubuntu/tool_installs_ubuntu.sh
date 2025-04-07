@@ -239,7 +239,7 @@ listInstalledPackages() {
 
 attachUA() {
     echo "attaching ua..."
-    retrycmd_if_failure_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
+    retrycmd_if_failure_no_stats 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
     retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
