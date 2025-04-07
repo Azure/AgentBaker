@@ -51,6 +51,27 @@ steps:
         **/reference-info-base64**
       downloadPath: $(Build.SourcesDirectory)
 
+  - task: DownloadPipelineArtifact@2
+    condition: and(or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux')), eq(variables.IMG_OFFER, 'azure-linux-3'))
+    displayName: 'Download Kata CC AzureLinux3_0 UVM artifact'
+    inputs:
+      source: specific
+      project: CloudNativeCompute
+      pipeline: 318279
+      specificBuildWithTriggering: true
+      allowPartiallySucceededBuilds: true
+      buildVersionToDownload: 'latest'
+      downloadType: 'single'
+      artifactName: 'drop_container_job_sign_uvm'
+      itemPattern: |
+        **/kata-containers-igvm-debug.img**
+        **/igvm-measurement**
+        **/kata-containers-igvm.img**
+        **/kata-containers-cc.img**
+        **/kata-containers.img**
+        **/reference-info-base64**
+      downloadPath: $(Build.SourcesDirectory)
+
   - bash: |
       pwd
       ls -R
@@ -69,7 +90,7 @@ steps:
 
   - bash: |
       SKU_NAME=${OS_VERSION} && \
-      if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
+      if ['']; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
       if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
