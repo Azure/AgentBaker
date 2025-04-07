@@ -525,7 +525,7 @@ extractKubeBinaries() {
     local is_private_url="$3"
     local k8s_downloads_dir=${4:-"/opt/kubernetes/downloads"}
 
-    logs_to_events "AKS.CSE.logDownloadURLtesting" kube_binary_url=$(update_base_url $kube_binary_url)
+    logs_to_events "AKS.CSE.logDownloadURL" kube_binary_url=$(update_base_url $kube_binary_url)
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
     if [[ $is_private_url == true ]]; then
