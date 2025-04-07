@@ -21,11 +21,11 @@ az account set -s "${E2E_SUBSCRIPTION_ID}"
 echo "Using subscription ${E2E_SUBSCRIPTION_ID} for e2e tests"
 
 # Setup go
-GOPATH="$(go env GOPATH)"
+export GOPATH="$(go env GOPATH)"
 go version
 
 # specify the logging directory so logs go to the right place
-LOGGING_DIR="scenario-logs-$(date +%s)"
+export LOGGING_DIR="scenario-logs-$(date +%s)"
 echo "setting logging dir to $LOGGING_DIR"
 # tell DevOps to set the variable so later pipeline steps can use it.
 echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
@@ -51,7 +51,7 @@ fi
 # and see fancy test results.
 cd e2e
 mkdir -p bin
-GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
+export GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
 
 # Yes, we build first. That's because the exit code from "go test" below is eaten by the go-junit-report command. So if there are build problems
 # then the tests pass. Bah.
