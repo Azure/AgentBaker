@@ -83,6 +83,7 @@ stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
     parameters:
       vhddebug: False
+      skipExtensionCheck: true
       dryrun: False
       ${{ if eq( variables.PACKER_VM_SIZE, '') }}:
         buildVmSize: Standard_D4ds_v5
