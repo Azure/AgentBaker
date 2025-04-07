@@ -769,8 +769,6 @@ resolve_packages_source_url() {
         fi
       fi
     done
-
-    logs_to_events "AKS.CSE.setPackagesBaseURL" package_url=$(echo "$PACKAGE_DOWNLOAD_BASE_URL")
 }
 
 update_base_url() {
