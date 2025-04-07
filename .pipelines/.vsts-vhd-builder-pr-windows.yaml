@@ -52,7 +52,8 @@ variables:
   - name: E2E_SUBSCRIPTION_ID
 #    # value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
 #    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
-    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+    value: "df8ed6e2-7bc3-4600-b141-5d9619382df1"
+#    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
 
   - name: SUBSCRIPTION_ID
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
