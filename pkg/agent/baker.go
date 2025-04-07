@@ -1276,11 +1276,11 @@ oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.grpc.v1.cri"]
   sandbox_image = "{{GetPodInfraContainerSpec}}"
+  {{- if IsCDIEnabled }}
+  enable_cdi = true
+  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
+  {{- end }}
   [plugins."io.containerd.grpc.v1.cri".containerd]
-	{{- if IsCDIEnabled }}
-	enable_cdi = true
-	cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
-	{{- end }}
     {{- if TeleportEnabled }}
     snapshotter = "teleportd"
     disable_snapshot_annotations = false
@@ -1540,10 +1540,7 @@ root = "{{GetDataDir}}"{{- end}}
 [plugins."io.containerd.cri.v1.images".registry.headers]
   X-Meta-Source-Client = ["azure/aks"]
 
-{{ if IsCDIEnabled }}[plugins."io.containerd.cri.v1.runtime"]
-  enable_cdi = true
-  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi"]
-{{ end }}[plugins."io.containerd.cri.v1.runtime".containerd]
+[plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
   [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
     runtime_type = "io.containerd.runc.v2"
