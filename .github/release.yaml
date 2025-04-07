@@ -6,6 +6,6 @@ changelog:
       exclude:
         labels:
           - renovate
-    - title: Component Updates
+    - title: VHD Component Updates
       labels:
         - renovate
