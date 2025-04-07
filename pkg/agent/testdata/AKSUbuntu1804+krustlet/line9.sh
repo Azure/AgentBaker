@@ -180,7 +180,7 @@ retrycmd_nslookup() {
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
+        timeout $timeout "${@}" && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
