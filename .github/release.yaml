@@ -1,0 +1,11 @@
+changelog:
+  categories:
+    - title: Changes
+      labels:
+        - '*'
+      exclude:
+        labels:
+          - renovate
+    - title: Component Updates
+      labels:
+        - renovate
