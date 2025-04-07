@@ -151,7 +151,7 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
+        timeout --preserve-status $timeout "${@}" && break || \
         if [ $i -eq $retries ]; then
             echo Executed \"$@\" $i times;
             return 1
@@ -165,7 +165,7 @@ retrycmd_if_failure() {
 retrycmd_if_failure_silent() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
+        timeout --preserve-status $timeout "${@}" && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -192,7 +192,7 @@ retrycmd_nslookup() {
 retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
+        timeout --preserve-status $timeout ${@} && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
@@ -208,7 +208,7 @@ retrycmd_get_tarball() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
+            timeout --preserve-status 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
@@ -225,7 +225,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
         if [ $i -eq $tar_retries ]; then
             return 1
         else
-            timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+            timeout --preserve-status 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $ORAS_OUTPUT
             fi
@@ -236,7 +236,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
 retrycmd_get_access_token_for_oras() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
-        response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
+        response=$(timeout --preserve-status 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
         ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
         http_code=$(echo "$response" | tail -n1)
         if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
@@ -255,7 +255,7 @@ retrycmd_get_access_token_for_oras() {
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
     for i in $(seq 1 $retries); do
-        REFRESH_TOKEN_OUTPUT=$(timeout 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
+        REFRESH_TOKEN_OUTPUT=$(timeout --preserve-status 60 curl -v -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
             -d "grant_type=access_token&service=$acr_url&tenant=$tenant_id&access_token=$ACCESS_TOKEN" \
             https://$acr_url/oauth2/exchange)
         if [ -n "$REFRESH_TOKEN_OUTPUT" ]; then 
@@ -291,7 +291,7 @@ retrycmd_get_binary_from_registry_with_oras() {
             if [ $i -eq $binary_retries ]; then
                 return 1
             else
-                timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
+                timeout --preserve-status 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
                 if [[ $? != 0 ]]; then
                     cat $ORAS_OUTPUT
                 fi
@@ -303,7 +303,7 @@ retrycmd_get_binary_from_registry_with_oras() {
 retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
-        output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
+        output=$(timeout --preserve-status 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
         if [ $? -eq 0 ]; then
             echo "acr is reachable"
             return 0
@@ -324,7 +324,7 @@ retrycmd_curl_file() {
         if [ $i -eq $curl_retries ]; then
             return 1
         else
-            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
+            timeout --preserve-status $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
             if [[ $? != 0 ]]; then
                 cat $CURL_OUTPUT
             fi
