@@ -1385,16 +1385,18 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_type = "io.containerd.kata.v2"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+    NoPivotRoot = false
+    NoNewKeyring = false
+    ShimCgroup = ""
+    IoUid = 0
+    IoGid = 0
+    BinaryName = "/usr/bin/kata-runtime"
+    Root = ""
+    CriuPath = ""
+    SystemdCgroup = false
+    pod_annotations = ["io.katacontainers.*"]
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1408,6 +1410,8 @@ root = "{{GetDataDir}}"{{- end}}
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
+	//mheberling: double check with cameron if he needs privileged setting as true for kata as well?
+	// also check if he wants to add a debug config file for vanilla kata?
 	containerdV2ConfigTemplate ContainerdConfigTemplate = `version = 2
 oom_score = -999{{if HasDataDir }}
 root = "{{GetDataDir}}"{{- end}}
@@ -1505,15 +1509,16 @@ root = "{{GetDataDir}}"{{- end}}
   disable_snapshot_annotations = false
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
+    NoPivotRoot = false
+    NoNewKeyring = false
+    ShimCgroup = ""
+    IoUid = 0
+    IoGid = 0
+    BinaryName = "/usr/bin/kata-runtime"
+    Root = ""
+    SystemdCgroup = false
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1609,15 +1614,16 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_type = "io.containerd.kata.v2"
 [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
   runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  SystemdCgroup = false
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
+    NoPivotRoot = false
+    NoNewKeyring = false
+    ShimCgroup = ""
+    IoUid = 0
+    IoGid = 0
+    BinaryName = "/usr/bin/kata-runtime"
+    Root = ""
+    SystemdCgroup = false
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1705,18 +1711,19 @@ root = "{{GetDataDir}}"{{- end}}
 {{- if IsKata }}
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
   runtime_type = "io.containerd.kata.v2"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
-  runtime_type = "io.containerd.runc.v1"
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
-  NoPivotRoot = false
-  NoNewKeyring = false
-  ShimCgroup = ""
-  IoUid = 0
-  IoGid = 0
-  BinaryName = "/usr/bin/kata-runtime"
-  Root = ""
-  CriuPath = ""
-  SystemdCgroup = false
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli]
+    runtime_type = "io.containerd.runc.v1"
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.katacli.options]
+    NoPivotRoot = false
+    NoNewKeyring = false
+    ShimCgroup = ""
+    IoUid = 0
+    IoGid = 0
+    BinaryName = "/usr/bin/kata-runtime"
+    Root = ""
+    CriuPath = ""
+    SystemdCgroup = false
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
