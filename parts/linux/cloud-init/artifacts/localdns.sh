@@ -394,15 +394,15 @@ start_localdns_watchdog() {
         HEALTH_CHECK_INTERVAL=$((${WATCHDOG_USEC:-5000000} * 20 / 100 / 1000000))
         echo "Starting watchdog loop at ${HEALTH_CHECK_INTERVAL} second intervals."
         while true; do
-            if [[ "$($CURL_COMMAND)" == "OK" ]]; then
-                if dig +short +timeout=1 +tries=1 -f <(printf "%s" "$HEALTH_CHECK_DNS_REQUEST"); then
-                    systemd-notify WATCHDOG=1
-                fi
+            if [[ "$($CURL_COMMAND)" == "OK" ]] && dig +short +timeout=1 +tries=1 -f <(printf '%s\n' "$HEALTH_CHECK_DNS_REQUEST"); then
+                systemd-notify WATCHDOG=1
+            else
+                echo "Localdns health check failed - will be restarted."
             fi
-            sleep ${HEALTH_CHECK_INTERVAL}
+            sleep "${HEALTH_CHECK_INTERVAL}"
         done
     else
-        wait ${COREDNS_PID}
+        wait "${COREDNS_PID}"
     fi
 }
 
