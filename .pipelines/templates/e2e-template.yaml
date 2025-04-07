@@ -6,10 +6,6 @@ parameters:
   - name: IgnoreScenariosWithMissingVhd
     type: boolean
     displayName: Ignore tests where the VHD can't be loaded
-  - name: e2ePoolName
-    type: string
-    displayName: name to use for running the test
-    default: ""
 
 jobs:
   - job: e2e
@@ -17,10 +13,7 @@ jobs:
     variables:
       - group: ab-e2e # all variables prefixed with E2E_* come from this variable group
     pool:
-      ${{ if eq(parameters.e2ePoolName, '') }}:
-        name: $(E2E_POOL_NAME)
-      ${{ else }}:
-        name: ${{parameters.e2ePoolName}}
+      name: $(E2E_POOL_NAME)
     timeoutInMinutes: 90
     displayName: Run AgentBaker E2E ${{parameters.name}}
     steps:

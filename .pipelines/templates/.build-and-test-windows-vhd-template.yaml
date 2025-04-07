@@ -96,5 +96,4 @@ stages:
         parameters:
           name: For image ${{ parameters.imageName }}
           IgnoreScenariosWithMissingVhd: false
-          e2ePoolName: $(AZURE_POOL_NAME)
 
