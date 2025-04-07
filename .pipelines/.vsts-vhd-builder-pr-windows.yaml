@@ -47,6 +47,8 @@ variables:
     value: $(PACKER_BUILD_LOCATION)
   - name: POOL_NAME
     value: $(AZURE_POOL_NAME)
+  - name: E2E_POOL_NAME
+    value: $(AZURE_POOL_NAME)
 
 # TODO - move this to variables rather than being in code
   - name: GALLERY_SUBSCRIPTION_ID
