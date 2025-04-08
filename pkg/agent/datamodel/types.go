@@ -2318,7 +2318,7 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 
 // SecurityProfile end.
 
-// ----------------------- Start of Changed related to localdns ------------------------------------------.
+// ----------------------- Start of chnages related to localdns ------------------------------------------.
 // localdns related constants.
 const (
 	// LocalDNSEnabled is a string constant for 'Enabled'.
@@ -2395,7 +2395,7 @@ func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
 		// Convert milli-cores to percentage and return as formatted string
 		return fmt.Sprintf("%.1f%%", float64(*a.LocalDNSProfile.CPULimitInMilliCores)/10.0)
 	}
-	return DefaultLocalDNSCPULimitInPercentage
+	return ""
 }
 
 // GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
@@ -2404,7 +2404,7 @@ func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
 		// Return memory limit as a string with "M" suffix
 		return fmt.Sprintf("%dM", *a.LocalDNSProfile.MemoryLimitInMB)
 	}
-	return DefaultLocalDNSMemoryLimitInMB
+	return ""
 }
 
 func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
@@ -2429,4 +2429,4 @@ func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
 	return LocalDNSCoreFileData{}
 }
 
-// ----------------------- End of Changed related to localdns ------------------------------------------.
+// ----------------------- End of changes related to localdns ------------------------------------------.
