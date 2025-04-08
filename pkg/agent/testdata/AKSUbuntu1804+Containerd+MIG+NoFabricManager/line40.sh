@@ -371,7 +371,7 @@ downloadCrictl() {
     mkdir -p $downloadDir
     url=${2}
     logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
-    $url=$(update_base_url $url)
+    url=$(update_base_url $url)
     crictlTgzTmp=${url##*/}
     retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
