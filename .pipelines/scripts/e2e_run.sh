@@ -51,7 +51,7 @@ fi
 # and see fancy test results.
 cd e2e
 mkdir -p bin
-export GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
+GOBIN=`pwd`/bin/ go install github.com/jstemmer/go-junit-report/v2@latest
 
 # Yes, we build first. That's because the exit code from "go test" below is eaten by the go-junit-report command. So if there are build problems
 # then the tests pass. Bah.
