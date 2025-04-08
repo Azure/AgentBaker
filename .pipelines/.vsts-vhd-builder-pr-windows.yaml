@@ -79,6 +79,8 @@ variables:
 #    # value: "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" # AZURE_E2E_SUBSCRIPTION_ID
   - name: AZURE_RESOURCE_GROUP_NAME
     value:  $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+  - name: GALLERY_RESOURCE_GROUP
+    value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
 
 
 stages:
