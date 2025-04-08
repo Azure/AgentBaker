@@ -411,9 +411,12 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 			}
 
 			if err := ensureProvisioningState(version); err != nil {
+				t.Logf("Skipping version %s with tag %s=%s due to %s", *version.ID, tagName, tagValue, err)
 				continue
 			}
+
 			if latestVersion == nil || version.Properties.PublishingProfile.PublishedDate.After(*latestVersion.Properties.PublishingProfile.PublishedDate) {
+				t.Logf("Found version %s with tag %s=%s", *version.ID, tagName, tagValue)
 				latestVersion = version
 			}
 		}
