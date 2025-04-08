@@ -87,6 +87,7 @@ else
   # Enable ESM only for 18.04, 20.04, and FIPS
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     set +x
+    sudo apt-get install ubuntu-advantage-tools
     attachUA
     set -x
   fi
@@ -97,7 +98,6 @@ else
 
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
-  sudo apt-get install ubuntu-advantage-tools
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
