@@ -97,6 +97,7 @@ else
 
   # Run apt get update to refresh repo list
   # Run apt dist get upgrade to install packages/kernels
+  sudo apt-get install ubuntu-advantage-tools
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
