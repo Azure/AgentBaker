@@ -127,6 +127,13 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 # Error checking DNS health
 
+# ------------------------------ Used by localdns -----------------------------------
+ERR_LOCALDNS_FAIL=216 # Unable to start localdns systemd unit.
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 # Localdns corefile not found.
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 # Localdns slicefile not found.
+ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
+# ----------------------------------------------------------------------------------
+
 # For both Ubuntu and Mariner, /etc/*-release should exist.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
@@ -860,6 +867,24 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+# Localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
+# This function is called in cse_main.sh. 
+# It checks if the localdns corefile exists and is not empty.
+# If the corefile exists and is not empty, it returns 0 - localdns should be enabled.
+# If the corefile does not exist or is empty, 
+# it returns ERR_LOCALDNS_COREFILE_NOTFOUND exit code - localdns should not be enabled.
+shouldEnableLocaldns() {
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
+        return $ERR_LOCALDNS_COREFILE_NOTFOUND
+    else
+        echo "Localdns should be enabled."
+        return 0
+    fi
 }
 
 #HELPERSEOF
