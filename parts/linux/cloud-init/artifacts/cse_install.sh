@@ -590,13 +590,13 @@ extractKubeBinaries() {
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
-            logs_to_events "AKS.CSE.logDownloadURL" retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
+            logs_to_events "AKS.CSE.logDownloadURL" "retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url}" || exit $ERR_ORAS_PULL_K8S_FAIL
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
             # download the kube package from the default URL
-            logs_to_events "AKS.CSE.logDownloadURL" retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            logs_to_events "AKS.CSE.logDownloadURL" "retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url}" || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
