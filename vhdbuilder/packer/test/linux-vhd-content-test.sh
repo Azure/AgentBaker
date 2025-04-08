@@ -1297,6 +1297,29 @@ testCorednsBinaryExtractedAndCached() {
   return 0
 }
 
+testPackageDownloadURLFallbackLogic() {
+  local test="testPackageDownloadURLFallbackLogic"
+
+  echo "$test: Start"
+
+  resolve_packages_source_url
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "packages.aks.azure.com" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
+  fi
+  
+  # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
+  echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
+
+  resolve_packages_source_url
+    if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "acs-mirror.azureedge.net" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to acs-mirror.azureedge.net after failure to connect to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to acs-mirror.azureedge.net"
+  fi
+
+  echo "$test: Finish"
+}
+
 checkLocaldnsScriptsAndConfigs() {
   local test="checkLocaldnsScriptsAndConfigs"
   
@@ -1370,3 +1393,4 @@ testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
+testPackageDownloadURLFallbackLogic
