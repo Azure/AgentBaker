@@ -48,7 +48,7 @@ source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
 resolve_packages_source_url
-logs_to_events "AKS.CSE.setPackagesBaseURL" packagesBaseURL=$PACKAGE_DOWNLOAD_BASE_URL
+logs_to_events "AKS.CSE.setPackagesBaseURL" log_base_url $PACKAGE_DOWNLOAD_BASE_URL
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
