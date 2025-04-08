@@ -12,3 +12,11 @@ jobs:
     - run: |
         make shellspec
       name: Run shell/bash script unit tests with shellspec
+    - name: Generate test report
+      run: |
+        shellspec --format junit > shellspec-report.xml
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: shellspec-report
+        path: shellspec-report.xml
