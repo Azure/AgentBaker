@@ -93,13 +93,12 @@ stages:
         buildVmSize: Standard_D4ds_v5
       ${{ else }}:
         buildVmSize: ${{ variables.PACKER_VM_SIZE }}
-      build2019containerd: False
+      build2019containerd: True
       build2022containerd: False
       build2022containerdgen2: True
-      skipExtensionCheck: true
       build23H2: False
       build23H2gen2: True
       overrideBranch: master
       useOverrides: False
       build2025: False
-      build2025gen2: False
+      build2025gen2: True
