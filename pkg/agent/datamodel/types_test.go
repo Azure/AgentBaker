@@ -2813,7 +2813,7 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 	}
 }
 
-// ----------------------- Start of Changed related to localdns ------------------------------------------
+// ----------------------- Start of Changed related to localdns ------------------------------------------.
 func TestGetLocalDNSCoreFileData(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -2968,4 +2968,4 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 	}
 }
 
-// ----------------------- End of Changed related to localdns ------------------------------------------
+// ----------------------- End of Changed related to localdns ------------------------------------------.
