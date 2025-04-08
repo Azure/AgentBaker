@@ -24,7 +24,9 @@ set -e
 
 
 # First we validate the branch. DRY_RUN is only allowed to be false on release branches - which are of the form
-# windows/vYYYYMMDD.
+# windows/vYYYYMMDD. If we're on the release branch then we also override SIG_FOR_PRODUCTION, because this is a production build.
+# for dry runs, we set SIG_FOR_PRODUCTION to false.
+# SIG_FOR_PRODUCTION has the side effect of deleting the generated VHD.
 
 echo "Checking SourceBranch: ${BRANCH}"
 if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
@@ -38,22 +40,16 @@ if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
       echo "The branch ${BRANCH} is not release branch. Please use the release branch. Release branch name format: windows/vYYYYMMDD."
       exit 1
     fi
+    echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
   fi
 else
   echo "This is a test build triggered from the test pipeline"
   export DRY_RUN=True
+  echo "##vso[task.setvariable variable=DRY_RUN]$DRY_RUN";
+  echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
 fi
 
-echo "##vso[task.setvariable variable=DRY_RUN]True";
 
-# This next segment sets build variables - most importantly the VHD name and version we're building.
-# Merge gen1, gen2, and sig modes into one mode for Windows VHD builds - use sig only.
-# 1. If sig is for test purpose only, SIG_GALLERY_NAME, SIG_IMAGE_NAME_PREFIX, and SIG_IMAGE_VERSION are set.
-#     Task variable SIG_FOR_PRODUCTION is set to False and passed to the following steps.
-# 2. If sig is for production, we will hard-code the task variables SIG_GALLERY_NAME, SIG_IMAGE_NAME, and SIG_IMAGE_VERSION.
-#     $RANDOM is appended to avoid duplicate gallery name running concurrent builds.
-#     Task variable SIG_FOR_PRODUCTION is set to True and passed to the following steps.
-#     Built sig will be deleted because it has been converted to VHD, and thus not needed.
 
 export MODE="windowsVhdMode"
 echo "Set build mode to $MODE"
@@ -66,7 +62,6 @@ echo "Original SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
 if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then
     echo "All of Name, Prefix, and Version have been set"
     export SIG_IMAGE_NAME="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
-    echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]False"
 else
     echo "At least on of the name, prefix or version are empty. Overwriting all values. "
     export SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM"
@@ -75,9 +70,6 @@ else
     export SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 
     export WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
-
-    # This enables the VHD to be uploaded to a classic storage account if DRY_RUN is false.
-    echo "##vso[task.setvariable variable=SIG_FOR_PRODUCTION]True"
 fi
 
 if [[ "${USE_RELEASE_DATE}" = "False" ]]; then

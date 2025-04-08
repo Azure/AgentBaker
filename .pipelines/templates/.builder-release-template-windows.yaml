@@ -196,7 +196,7 @@ steps:
       export SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')"
       export IMAGE_NAME="$(cat packer-output | grep -a "ManagedImageName:" | cut -d " " -f 2)"
 
-      make -f packer.mk cleanup
+      ./vhdbuilder/packer/cleanup.sh
     displayName: Clean Up Packer Generated Resources
     condition: always()
     env:

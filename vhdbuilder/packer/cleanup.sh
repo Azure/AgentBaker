@@ -79,7 +79,7 @@ capture_benchmark "${SCRIPT_NAME}_cleanup_imported_image"
 #cleanup built sig image if the generated sig is for production only, but not for test purpose.
 #If SIG_FOR_PRODUCTION is set to true, the sig has been converted to VHD before this step.
 #And since we only need to upload the converted VHD to the classic storage account, there's no need to keep the built sig.
-if [ "${MODE}" = "windowsVhdMode" ] && [ "$SIG_FOR_PRODUCTION" = "True" ]; then
+if [ "${MODE}" = "windowsVhdMode" ] && [ "$SIG_FOR_PRODUCTION" = "True" && "$DRY_RUN" = "False" ]; then
   if [ -n "${SIG_IMAGE_NAME}" ]; then
     # Delete sig image version first
     echo "SIG_IMAGE_NAME is ${SIG_IMAGE_NAME}, deleting sig image version first"
