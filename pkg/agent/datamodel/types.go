@@ -2417,14 +2417,14 @@ func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
 // GetLocalDNSCoreFileData returns the object that will be used to generate localdns corefile.
 func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
 	if a.ShouldEnableLocalDNS() {
-		localdnsCoreFileData := LocalDNSCoreFileData{
+		localDNSCoreFileData := LocalDNSCoreFileData{
 			LocalDNSProfile:   *a.LocalDNSProfile,
 			NodeListenerIP:    a.GetLocalDNSNodeListenerIP(),
 			ClusterListenerIP: a.GetLocalDNSClusterListenerIP(),
 			CoreDNSServiceIP:  a.GetCoreDNSServiceIP(),
 			AzureDNSIP:        a.GetAzureDNSIP(),
 		}
-		return localdnsCoreFileData
+		return localDNSCoreFileData
 	}
 	return LocalDNSCoreFileData{}
 }
