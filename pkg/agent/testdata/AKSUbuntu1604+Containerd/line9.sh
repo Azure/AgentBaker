@@ -119,6 +119,11 @@ ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 
 
+ERR_LOCALDNS_FAIL=216 
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 
+ERR_LOCALDNS_BINARY_ERR=219 
+
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
     OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
@@ -812,6 +817,17 @@ oras_login_with_kubelet_identity() {
     fi
 
     echo "successfully logged in to acr '$acr_url' with identity token"
+}
+
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
+shouldEnableLocaldns() {
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
+        return $ERR_LOCALDNS_COREFILE_NOTFOUND
+    else
+        echo "Localdns should be enabled."
+        return 0
+    fi
 }
 
 #HELPERSEOF
