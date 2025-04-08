@@ -433,7 +433,7 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 		return "", ErrNotFound
 	}
 
-	if err := a.ensureReplication(ctx, image, latestVersion); err != nil {
+	if err := a.ensureReplication(ctx, t, image, latestVersion); err != nil {
 		return "", fmt.Errorf("failed ensuring image replication: %w", err)
 	}
 
@@ -442,10 +442,11 @@ func (a *AzureClient) LatestSIGImageVersionByTag(ctx context.Context, t *testing
 	return VHDResourceID(*latestVersion.ID), nil
 }
 
-func (a *AzureClient) ensureReplication(ctx context.Context, image *Image, version *armcompute.GalleryImageVersion) error {
+func (a *AzureClient) ensureReplication(ctx context.Context, t *testing.T, image *Image, version *armcompute.GalleryImageVersion) error {
 	if replicatedToCurrentRegion(version) {
 		return nil
 	}
+	t.Logf("Replicating to region %s: image version %s", Config.Location, *version.ID)
 	return a.replicateImageVersionToCurrentRegion(ctx, image, version)
 }
 
@@ -496,7 +497,7 @@ func (a *AzureClient) EnsureSIGImageVersion(ctx context.Context, t *testing.T, i
 		return "", fmt.Errorf("Failed ensuring image version provisioning state: %w", err)
 	}
 
-	if err := a.ensureReplication(ctx, image, liveVersion); err != nil {
+	if err := a.ensureReplication(ctx, t, image, liveVersion); err != nil {
 		return "", fmt.Errorf("Failed ensuring image replication: %w", err)
 	}
 
