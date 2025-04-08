@@ -195,7 +195,7 @@ downloadContainerdFromVersion() {
 
 downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$1
-    logs_to_events "AKS.CSE.logDownloadURL" update_base_url $CONTAINERD_DOWNLOAD_URL
+    logs_to_events "AKS.CSE.logDownloadURL" "update_base_url $CONTAINERD_DOWNLOAD_URL"
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
