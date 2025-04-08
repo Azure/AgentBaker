@@ -2318,7 +2318,7 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 
 // SecurityProfile end.
 
-// ----------------------- Start of chnages related to localdns ------------------------------------------.
+// ----------------------- Start of changes related to localdns ------------------------------------------.
 // localdns related constants.
 const (
 	// LocalDNSEnabled is a string constant for 'Enabled'.
