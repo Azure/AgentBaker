@@ -364,6 +364,7 @@ sleep 60
 EOF
             chmod +x "$MOCK_SCRIPT"
             COREDNS_COMMAND="$MOCK_SCRIPT"
+            START_LOCALDNS_TIMEOUT=2
             When call start_localdns
             The status should be failure
             The output should include "Timed out waiting for CoreDNS to create PID file"
@@ -393,19 +394,19 @@ EOF
         It 'should return failure if localdns is not ready, after timeout'
             CURL_COMMAND="echo NOTOK"
             MAX_ATTEMPTS=1000
-            TIMEOUT=5
+            TIMEOUT=2
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
             The status should be failure
-            The output should include "Localdns failed to come online after 5 seconds (timeout)."
+            The output should include "Localdns failed to come online after ${TIMEOUT} seconds (timeout)."
         End
 
         It 'should return failure if localdns is not ready, after max attempts'
             CURL_COMMAND="echo NOTOK"
-            MAX_ATTEMPTS=10
+            MAX_ATTEMPTS=2
             TIMEOUT=50
             When call wait_for_localdns_ready $MAX_ATTEMPTS $TIMEOUT
             The status should be failure
-            The output should include "Localdns failed to come online after 10 attempts."
+            The output should include "Localdns failed to come online after ${MAX_ATTEMPTS} attempts."
         End
     End
 
@@ -517,12 +518,12 @@ EOF
             IPTABLES_RULES=("INPUT -p udp --dport 53 -j ACCEPT" "OUTPUT -p udp --sport 53 -j ACCEPT")
             NETWORK_DROPIN_FILE="/tmp/test-network-dropin.conf"
             COREDNS_PID="12345"
-            LOCALDNS_SHUTDOWN_DELAY=1
             mock_iptables() {
                 echo "iptables -C $1"
                 return 0
             }
             Include "./parts/linux/cloud-init/artifacts/localdns.sh"
+            LOCALDNS_SHUTDOWN_DELAY=1
         }
         cleanup() {
             rm -rf "/tmp/test-network-dropin.conf"
@@ -596,7 +597,7 @@ EOF
             IPTABLES=""
             When call cleanup_localdns_configs
             The status should be failure
-            The output should include "Sleeping 5 seconds to allow connections to terminate."
+            The output should include "Sleeping ${LOCALDNS_SHUTDOWN_DELAY} seconds to allow connections to terminate."
             The output should include "Failed to send SIGINT to localdns"
         End
 

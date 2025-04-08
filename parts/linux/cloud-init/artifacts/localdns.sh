@@ -58,6 +58,7 @@ NETWORKCTL_RELOAD_CMD="networkctl reload"
 # The health check is a DNS request to the localdns service IPs.
 HEALTH_CHECK_DNS_REQUEST=$'health-check.localdns.local @'"${LOCALDNS_NODE_LISTENER_IP}"$'\nhealth-check.localdns.local @'"${LOCALDNS_CLUSTER_LISTENER_IP}"
 
+START_LOCALDNS_TIMEOUT=10
 
 # Function definitions used in this file. 
 # functions defined until "${__SOURCED__:+return}" are sourced and tested in -
@@ -208,12 +209,11 @@ start_localdns() {
     ${COREDNS_COMMAND} &
 
     # Wait until the PID file is created.
-    local timeout=10
     local elapsed=0
     while [ ! -f "${LOCALDNS_PID_FILE}" ]; do
         sleep 1
         elapsed=$((elapsed + 1))
-        if [ "$elapsed" -ge "$timeout" ]; then
+        if [ "$elapsed" -ge "$START_LOCALDNS_TIMEOUT" ]; then
             echo "Timed out waiting for CoreDNS to create PID file at ${LOCALDNS_PID_FILE}."
             return 1
         fi
