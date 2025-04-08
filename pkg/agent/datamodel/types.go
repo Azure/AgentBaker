@@ -2318,7 +2318,7 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 
 // SecurityProfile end.
 
-// ----------------------- Start of Changed related to localdns ------------------------------------------
+// ----------------------- Start of Changed related to localdns ------------------------------------------.
 // localdns related constants.
 const (
 	// LocalDNSEnabled is a string constant for 'Enabled'.
@@ -2429,4 +2429,4 @@ func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
 	return LocalDNSCoreFileData{}
 }
 
-// ----------------------- End of Changed related to localdns ------------------------------------------
+// ----------------------- End of Changed related to localdns ------------------------------------------.
