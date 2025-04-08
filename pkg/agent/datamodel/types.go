@@ -830,6 +830,7 @@ type AgentPoolProfile struct {
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	LocalDNSProfile       *LocalDNSProfile     `json:"localDNSProfile,omitempty"`
 	/* This is a new property and all old agent pools do no have this field. We need to keep the default
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
@@ -2316,3 +2317,116 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 }
 
 // SecurityProfile end.
+
+// ----------------------- Start of Changed related to localdns ------------------------------------------
+// localdns related constants.
+const (
+	// LocalDNSEnabled is a string constant for 'Enabled'.
+	LocalDNSEnabled string = "Enabled"
+	// LocalDNSNodeListenerIP sepcifies nodelistener APIPA-IP used in localdns.
+	LocalDNSNodeListenerIP string = "169.254.10.10"
+	// LocalDNSClusterListenerIP sepcifies clusterlistener APIPA-IP used in localdns.
+	LocalDNSClusterListenerIP string = "169.254.10.11"
+	// DefaultLocalDNSCPULimitInPercentage sepcifies the default CPU limit used in akslocaldns.
+	DefaultLocalDNSCPULimitInPercentage string = "200.0%"
+	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
+	DefaultLocalDNSMemoryLimitInMB string = "128M"
+	// DefaultLocalDNSServiceIP sepcifies the default coredns service IP.
+	DefaultCoreDNSServiceIP string = "10.0.0.10"
+	// AzureDNSIP is the default Azure DNS IP used in localdns.
+	AzureDNSIP string = "168.63.129.16"
+)
+
+// LocalDNSProfile represents localdns configuration for agentpool nodes.
+type LocalDNSProfile struct {
+	State                string                        `json:"state,omitempty"`
+	CPULimitInMilliCores *int32                        `json:"cpuLimitInMilliCores,omitempty"`
+	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
+	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
+	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
+}
+
+type LocalDNSCoreFileData struct {
+	LocalDNSProfile
+	NodeListenerIP    string
+	ClusterListenerIP string
+	CoreDNSServiceIP  string
+	AzureDNSIP        string
+}
+
+// LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
+// VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+// KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+type LocalDNSOverrides struct {
+	QueryLogging                string `json:"queryLogging,omitempty"`
+	Protocol                    string `json:"protocol,omitempty"`
+	ForwardDestination          string `json:"forwardDestination,omitempty"`
+	ForwardPolicy               string `json:"forwardPolicy,omitempty"`
+	MaxConcurrent               *int32 `json:"maxConcurrent,omitempty"`
+	CacheDurationInSeconds      *int32 `json:"cacheDurationInSeconds,omitempty"`
+	ServeStaleDurationInSeconds *int32 `json:"serveStaleDurationInSeconds,omitempty"`
+	ServeStale                  string `json:"serveStale,omitempty"`
+}
+
+// ShouldEnableLocalDNS returns true if LocalDNSProfile is not nil and GoalState is 'Enable'.
+func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
+	return a != nil && a.LocalDNSProfile != nil &&
+		strings.EqualFold(a.LocalDNSProfile.State, LocalDNSEnabled)
+}
+
+// GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSNodeListenerIP() string {
+	return LocalDNSNodeListenerIP
+}
+
+// GetLocalDNSClusterListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSClusterListenerIP() string {
+	return LocalDNSClusterListenerIP
+}
+
+// GetAzureDNSIP returns 168.63.129.16 address.
+func (a *AgentPoolProfile) GetAzureDNSIP() string {
+	return AzureDNSIP
+}
+
+// GetLocalDNSCPULimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
+	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.CPULimitInMilliCores != nil {
+		// Convert milli-cores to percentage and return as formatted string
+		return fmt.Sprintf("%.1f%%", float64(*a.LocalDNSProfile.CPULimitInMilliCores)/10.0)
+	}
+	return DefaultLocalDNSCPULimitInPercentage
+}
+
+// GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
+	if a.ShouldEnableLocalDNS() && a.LocalDNSProfile.MemoryLimitInMB != nil {
+		// Return memory limit as a string with "M" suffix
+		return fmt.Sprintf("%dM", *a.LocalDNSProfile.MemoryLimitInMB)
+	}
+	return DefaultLocalDNSMemoryLimitInMB
+}
+
+func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
+	if a.ShouldEnableLocalDNS() && a.KubernetesConfig != nil && a.KubernetesConfig.DNSServiceIP != "" {
+		return a.KubernetesConfig.DNSServiceIP
+	}
+	return DefaultCoreDNSServiceIP
+}
+
+// GetLocalDNSCoreFileData returns the object that will be used to generate localdns corefile.
+func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
+	if a.ShouldEnableLocalDNS() {
+		localdnsCoreFileData := LocalDNSCoreFileData{
+			LocalDNSProfile:   *a.LocalDNSProfile,
+			NodeListenerIP:    a.GetLocalDNSNodeListenerIP(),
+			ClusterListenerIP: a.GetLocalDNSClusterListenerIP(),
+			CoreDNSServiceIP:  a.GetCoreDNSServiceIP(),
+			AzureDNSIP:        a.GetAzureDNSIP(),
+		}
+		return localdnsCoreFileData
+	}
+	return LocalDNSCoreFileData{}
+}
+
+// ----------------------- End of Changed related to localdns ------------------------------------------

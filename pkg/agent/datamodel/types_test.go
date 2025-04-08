@@ -5,6 +5,7 @@ package datamodel
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -2811,3 +2812,160 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 		})
 	}
 }
+
+// ----------------------- Start of Changed related to localdns ------------------------------------------
+func TestGetLocalDNSCoreFileData(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     LocalDNSCoreFileData
+		expectError      bool
+	}{
+		{
+			name:             "AgentPoolProfile nil",
+			agentPoolProfile: nil,
+			expectError:      true,
+		},
+		{
+			name: "LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectError: true,
+		},
+		{
+			name: "LocalDNSProfile disabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State: "Disabled",
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "LocalDNSProfile enabled",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					State:                "Enabled",
+					CPULimitInMilliCores: to.Int32Ptr(2000),
+					MemoryLimitInMB:      to.Int32Ptr(4096),
+					VnetDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+					KubeDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+				},
+			},
+			expectedData: LocalDNSCoreFileData{
+				LocalDNSProfile: LocalDNSProfile{
+					State:                "Enabled",
+					CPULimitInMilliCores: to.Int32Ptr(2000),
+					MemoryLimitInMB:      to.Int32Ptr(4096),
+					VnetDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Log",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "VnetDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Error",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+					KubeDNSOverrides: map[string]*LocalDNSOverrides{
+						".": {
+							QueryLogging:                "Error",
+							Protocol:                    "PreferUDP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "Sequential",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Verify",
+						},
+						"cluster.local": {
+							QueryLogging:                "Log",
+							Protocol:                    "ForceTCP",
+							ForwardDestination:          "ClusterCoreDNS",
+							ForwardPolicy:               "RoundRobin",
+							MaxConcurrent:               to.Int32Ptr(1000),
+							CacheDurationInSeconds:      to.Int32Ptr(3600),
+							ServeStaleDurationInSeconds: to.Int32Ptr(3600),
+							ServeStale:                  "Disable",
+						},
+					},
+				},
+				NodeListenerIP:    LocalDNSNodeListenerIP,
+				ClusterListenerIP: LocalDNSClusterListenerIP,
+				CoreDNSServiceIP:  DefaultCoreDNSServiceIP,
+				AzureDNSIP:        AzureDNSIP,
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var actualData LocalDNSCoreFileData
+			if tt.agentPoolProfile != nil {
+				actualData = tt.agentPoolProfile.GetLocalDNSCoreFileData()
+			}
+
+			if !reflect.DeepEqual(tt.expectedData, actualData) {
+				t.Errorf("expected %+v, got %+v", tt.expectedData, actualData)
+			}
+		})
+	}
+}
+
+// ----------------------- End of Changed related to localdns ------------------------------------------
