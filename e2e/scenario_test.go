@@ -801,6 +801,7 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
 			},
 		},
 	})
@@ -824,6 +825,7 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
 			},
 		},
 	})
