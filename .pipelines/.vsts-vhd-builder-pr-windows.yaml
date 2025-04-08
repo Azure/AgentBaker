@@ -42,46 +42,27 @@ pool:
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
 # Use variable group "ab-windows-ms-tenant" and link it to the pipeline "[TEST All VHDs] AKS Windows VHD Build - Msft Tenant"
-
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
+
 variables:
-#  - group: ab-windows-ms-tenant
   - name: VHD_BUILD_ID
     value: $(Build.BuildId)
   - name: LOCATION
     value: $(PACKER_BUILD_LOCATION)
   - name: POOL_NAME
     value: $(AZURE_POOL_NAME)
-  - name: E2E_POOL_NAME
-    value: $(AZURE_POOL_NAME)
-  - name: SIG_FOR_PRODUCTION
-    value: False
-
-# TODO - move this to variables rather than being in code
-  - name: GALLERY_SUBSCRIPTION_ID
-    # value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
-#    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
-#    value: "df8ed6e2-7bc3-4600-b141-5d9619382df1"
-    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
-
   - name: SUBSCRIPTION_ID
     value: $(AZURE_BUILD_SUBSCRIPTION_ID)
-    # try AZURE_PROD_SUBSCRIPTION_ID
-#     value: "c4c3550e-a965-4993-a50c-628fd38cd3e1" # Linux SIG Gallery
-#    value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
-#    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
-
-
-#  - name: AZURE_BUILD_SUBSCRIPTION_ID
-#    # value: "109a5e88-712a-48ae-9078-9ca8b3c81345" #  AZURE_PROD_SUBSCRIPTION_ID (401)
-#    # value: "4be8920b-2978-43d7-ab14-04d8549c1d05" #  AZURE_E2E_IMAGE_SUBSCRIPTION_ID (403)
-#    value: "a15c116e-99e3-4c59-aebc-8f864929b4a0" # AZURE_BUILD_SUBSCRIPTION_ID (403)
-#    # value: "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8" # AZURE_E2E_SUBSCRIPTION_ID
+    # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  - name: SIG_FOR_PRODUCTION
+    value: False
+    # These next vars are used for the e2e tests
   - name: AZURE_RESOURCE_GROUP_NAME
     value:  $(AZURE_BUILD_RESOURCE_GROUP_NAME)
   - name: GALLERY_RESOURCE_GROUP
     value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
-
+  - name: GALLERY_SUBSCRIPTION_ID
+    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
 
 stages:
   - template: ./templates/.build-and-test-windows-vhds-template.yaml
