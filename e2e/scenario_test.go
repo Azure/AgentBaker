@@ -797,6 +797,10 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
 			},
 		},
 	})
