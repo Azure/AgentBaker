@@ -65,7 +65,7 @@ if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VE
 else
     echo "At least on of the name, prefix or version are empty. Overwriting all values. "
     export SIG_IMAGE_VERSION="$(date +"%y%m%d").$(date +"%H%M%S").$RANDOM"
-    export SIG_IMAGE_NAME="aks-windows-${WINDOWS_SKU}"
+    export SIG_IMAGE_NAME="windows-${WINDOWS_SKU}"
     export SIG_GALLERY_NAME="WSGallery$(date +"%y%m%d")"
     export SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 
