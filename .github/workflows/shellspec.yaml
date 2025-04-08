@@ -16,7 +16,7 @@ jobs:
       run: |
         shellspec --format junit > shellspec-report.xml
     - name: Upload test report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: shellspec-report
         path: shellspec-report.xml
