@@ -22,4 +22,4 @@ jobs:
       with:
         name: ShellSpec Tests
         path: shellspec-report.xml
-        reporter: junit
+        reporter: jest-junit
