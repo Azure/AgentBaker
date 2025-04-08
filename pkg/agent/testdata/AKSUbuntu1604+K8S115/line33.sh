@@ -47,7 +47,8 @@ echo $(date),$(hostname), startcustomscript>>/opt/m
 source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
-logs_to_events "AKS.CSE.setPackagesBaseURL" $(echo resolve_packages_source_url)
+resolve_packages_source_url
+logs_to_events "AKS.CSE.setPackagesBaseURL" packagesBaseURL=$PACKAGE_DOWNLOAD_BASE_URL
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
