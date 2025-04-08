@@ -836,6 +836,11 @@ update_base_url() {
   echo "$initial_url"
 }
 
+log_base_url() {
+    base_url=$1
+    echo "Packages Base URL set to: $base_url"
+}
+
 oras_login_with_kubelet_identity() {
     local acr_url=$1
     local client_id=$2
