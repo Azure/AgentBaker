@@ -79,7 +79,7 @@ validate-shell:
 
 .PHONY: shellspec # TODO: have this run in a container with a stable bash installation
 shellspec: bootstrap
-	@bash ./hack/tools/bin/shellspec --format junit > shellspec-report.xml
+	@bash ./hack/tools/bin/shellspec --format debug    # Debug format
 
 .PHONY: validate-image-version
 validate-image-version:

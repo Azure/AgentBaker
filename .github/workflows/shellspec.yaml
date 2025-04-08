@@ -12,14 +12,3 @@ jobs:
     - run: |
         make shellspec
       name: Run shell/bash script unit tests with shellspec
-    - name: Upload test report
-      uses: actions/upload-artifact@v4
-      with:
-        name: shellspec-report
-        path: shellspec-report.xml
-    - name: Display test report
-      uses: dorny/test-reporter@v1
-      with:
-        name: ShellSpec Tests
-        path: shellspec-report.xml
-        reporter: jest-junit
