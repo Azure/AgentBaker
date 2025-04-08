@@ -9,6 +9,7 @@ variables:
   VHD_BUILD_ID: $(Build.BuildId)
   LOCATION: $(PACKER_BUILD_LOCATION)
   POOL_NAME: $(AZURE_POOL_NAME)
+  SIG_FOR_PRODUCTION: True
 
 parameters:
   - name: build2019containerd
