@@ -21,6 +21,8 @@ import (
 	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	ctrruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // it's important to share context between tests to allow graceful shutdown
@@ -86,6 +88,7 @@ func RunScenario(t *testing.T, s *Scenario) {
 	s.T = t
 	t.Parallel()
 	ctx := newTestCtx(t)
+	ctrruntimelog.SetLogger(zap.New())
 
 	maybeSkipScenario(ctx, t, s)
 	cluster, err := s.Config.Cluster(ctx, s.T)
