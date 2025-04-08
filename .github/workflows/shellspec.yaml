@@ -17,3 +17,9 @@ jobs:
       with:
         name: shellspec-report
         path: shellspec-report.xml
+    - name: Display test report
+      uses: dorny/test-reporter@v1
+      with:
+        name: ShellSpec Tests
+        path: shellspec-report.xml
+        reporter: junit
