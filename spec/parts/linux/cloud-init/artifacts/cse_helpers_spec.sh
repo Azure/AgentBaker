@@ -272,7 +272,6 @@ Describe 'cse_helpers.sh'
         It 'returns KUBE_BINARY_URL if it is already registry url'
             KUBE_BINARY_URL="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
 
-            updateKubeBinaryRegistryURL
             When call updateKubeBinaryRegistryURL
             The variable KUBE_BINARY_REGISTRY_URL should equal "$KUBE_BINARY_URL"
             The output line 1 should equal "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
@@ -281,7 +280,6 @@ Describe 'cse_helpers.sh'
             KUBE_BINARY_URL="https://acs-mirror.azureedge.net/kubernetes/v1.30.0-hotfix20241209/binaries/kubernetes-nodes-linux-amd64.tar.gz"
             KUBERNETES_VERSION="1.30.0"
 
-            updateKubeBinaryRegistryURL
             When call updateKubeBinaryRegistryURL
             The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-hotfix20241209-linux-amd64"
             The output line 1 should equal "Extracted version: v1.30.0-hotfix20241209 from KUBE_BINARY_URL: $KUBE_BINARY_URL"
@@ -290,7 +288,6 @@ Describe 'cse_helpers.sh'
             KUBE_BINARY_URL="https://acs-mirror.azureedge.cn/kubernetes/v1.30.0-alpha/binaries/kubernetes-nodes-linux-amd64.tar.gz"
             KUBERNETES_VERSION="1.30.0"
 
-            updateKubeBinaryRegistryURL
             When call updateKubeBinaryRegistryURL
             The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-alpha-linux-amd64"
             The output line 1 should equal "Extracted version: v1.30.0-alpha from KUBE_BINARY_URL: $KUBE_BINARY_URL"
@@ -299,7 +296,6 @@ Describe 'cse_helpers.sh'
             KUBE_BINARY_URL="https://invalidpath/v1.30.0-lts100/binaries/kubernetes-nodes-linux-amd64.tar.gz"
             KUBERNETES_VERSION="1.30.0"
 
-            updateKubeBinaryRegistryURL
             When call updateKubeBinaryRegistryURL
             The variable KUBE_BINARY_REGISTRY_URL should equal "$BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER/oss/binaries/kubernetes/kubernetes-node:v1.30.0-linux-amd64"
             The output line 1 should equal "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: v$KUBERNETES_VERSION"
