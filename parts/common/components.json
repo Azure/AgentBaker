@@ -6,23 +6,28 @@
       "multiArchVersionsV2": [],
       "windowsVersions": [
         {
+          "comment": "should have latest version and natest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2019",
+          "latestVersion": "10.0.17763.7136",
+          "previousLatestVersion": "10.0.17763.7009",
           "windowsSkuMatch": "2019-containerd"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2022",
+          "latestVersion": "10.0.20348.3453",
+          "previousLatestVersion": "10.0.20348.3328",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2022",
+          "latestVersion": "10.0.20348.3453",
+          "previousLatestVersion": "10.0.20348.3328",
           "windowsSkuMatch": "23H2*"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "ltsc2022",
+          "latestVersion": "10.0.26100.3775",
+          "previousLatestVersion": "10.0.26100.3476",
           "windowsSkuMatch": "2025*"
         }
       ]
@@ -360,20 +365,7 @@
           "latestVersion": "3.1.25"
         }
       ],
-      "windowsVersions": [
-        {
-          "comment": "ciprod isn't supported on Win23H2 so is excluded as it makes the VHD too large",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.25",
-          "windowsSkuMatch": "2022*"
-        },
-        {
-          "comment": "ciprod isn't supported on Win23H2 so is excluded as it makes the VHD too large",
-          "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod",
-          "latestVersion": "3.1.25",
-          "windowsSkuMatch": "2019*"
-        }
-      ]
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azuremonitor/containerinsights/ciprod/prometheus-collector/images:*",
