@@ -37,6 +37,8 @@ echo "VHD_BUILD_ID=$VHD_BUILD_ID"
 echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: $IGNORE_SCENARIOS_WITH_MISSING_VHD"
 echo "LOGGING_DIR: $LOGGING_DIR"
 echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID}"
+echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
+echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
