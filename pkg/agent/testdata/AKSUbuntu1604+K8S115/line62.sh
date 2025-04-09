@@ -177,7 +177,6 @@ installStandaloneContainerd() {
 downloadContainerdFromVersion() {
     CONTAINERD_VERSION=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
-    updateAptWithMicrosoftPkg 
     apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
@@ -199,8 +198,7 @@ installMoby() {
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${MOBY_VERSION}; then
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
-        removeMoby
-        updateAptWithMicrosoftPkg
+        removeMoby        
         MOBY_CLI=${MOBY_VERSION}
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
@@ -252,5 +250,7 @@ ensureRunc() {
     fi
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
+
+updateAptWithMicrosoftPkg
 
 #EOF
