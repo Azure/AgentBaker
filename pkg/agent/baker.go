@@ -1008,12 +1008,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldEnableLocalDNS": func() bool {
 			return profile.ShouldEnableLocalDNS()
 		},
-		"GetGeneratedLocalDNSCoreFile": func() string {
+		"GetGeneratedLocalDNSCoreFile": func() (string, error) {
 			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
 			if err != nil {
-				panic(err)
+				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
 			}
-			return output
+			return output, nil
 		},
 		"GetLocalDNSCPULimitInPercentage": func() string {
 			return profile.GetLocalDNSCPULimitInPercentage()
