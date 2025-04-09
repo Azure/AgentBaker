@@ -362,6 +362,12 @@ func GetOrderedKubeletConfigFlagString(config *datamodel.NodeBootstrappingConfig
 	sort.Strings(keys)
 	var buf bytes.Buffer
 	for _, key := range keys {
+		/* Override --cluster-dns if LocalDNS is enabled for the agentpool.
+		If localdns is enabled for the agentpool,
+		then Kubelet's --cluster-dns flag should be pointed to localdns clusterlistenerIP address. */
+		if key == "--cluster-dns" && profile.ShouldEnableLocalDNS() {
+			k[key] = profile.GetLocalDNSClusterListenerIP()
+		}
 		buf.WriteString(fmt.Sprintf("%s=%s ", key, k[key]))
 	}
 	return buf.String()
