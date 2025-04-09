@@ -129,7 +129,7 @@ func Test_Windows2025(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "2025")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
@@ -149,7 +149,7 @@ func Test_Windows2025Gen2(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2")
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "2025")
+				ValidateWindowsDisplayVersion(ctx, s, "24H2")
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
 				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
 				ValidateCiliumIsNotRunningWindows(ctx, s)
