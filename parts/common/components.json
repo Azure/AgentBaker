@@ -1039,7 +1039,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.6.26-10.cm2"
+                "latestVersion": "1.6.26-11.cm2"
               }
             ]
           }
@@ -1059,7 +1059,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.0.0-4.azl3"
+                "latestVersion": "2.0.0-8.azl3"
               }
             ]
           }
