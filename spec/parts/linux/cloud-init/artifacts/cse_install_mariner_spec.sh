@@ -19,13 +19,13 @@ Describe 'cse_install_mariner.sh'
     Describe 'installDeps'
         It 'installs the required packages with installDeps for Mariner 2.0'
             OS_VERSION="2.0"
-            When run installDeps
-            The stdout should include "Installing mariner-repos-cloud-native"
+            When call installDeps
+            The output line 1 should include "Installing mariner-repos-cloud-native"
         End
         It 'installs the required packages with installDeps for AzureLinux 3.0'
             OS_VERSION="3.0"
-            When run installDeps
-            The stdout should include "Installing azurelinux-repos-cloud-native"
+            When call installDeps
+            The output line 1 should include "Installing azurelinux-repos-cloud-native"
         End
     End
 End
