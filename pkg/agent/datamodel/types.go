@@ -2329,6 +2329,10 @@ const (
 	DefaultCoreDNSServiceIP string = "10.0.0.10"
 	// AzureDNSIP is the default Azure DNS IP used in localdns.
 	AzureDNSIP string = "168.63.129.16"
+	// DefaultLocalDNSCPULimitInPercentage sepcifies the default CPU limit used in akslocaldns.
+	DefaultLocalDNSCPULimitInPercentage string = "200.0%"
+	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
+	DefaultLocalDNSMemoryLimitInMB string = "128M"
 )
 
 // LocalDNSProfile represents localdns configuration for agentpool nodes.
@@ -2391,7 +2395,7 @@ func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
 		// Convert milli-cores to percentage and return as formatted string.
 		return fmt.Sprintf("%.1f%%", float64(*a.LocalDNSProfile.CPULimitInMilliCores)/10.0)
 	}
-	return ""
+	return DefaultLocalDNSCPULimitInPercentage
 }
 
 // GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
@@ -2400,7 +2404,7 @@ func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
 		// Return memory limit as a string with "M" suffix.
 		return fmt.Sprintf("%dM", *a.LocalDNSProfile.MemoryLimitInMB)
 	}
-	return ""
+	return DefaultLocalDNSMemoryLimitInMB
 }
 
 func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {

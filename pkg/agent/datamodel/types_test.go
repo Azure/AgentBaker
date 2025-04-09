@@ -2895,23 +2895,23 @@ func TestLocalDNSProfileMethods(t *testing.T) {
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{},
 			},
-			expectedData: "",
+			expectedData: DefaultLocalDNSCPULimitInPercentage,
 		},
 		{
 			name: "GetLocalDNSCPULimitInPercentage - CPU limit set",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
-					CPULimitInMilliCores: to.Int32Ptr(2000),
+					CPULimitInMilliCores: to.Int32Ptr(1000),
 				},
 			},
-			expectedData: "200.0%",
+			expectedData: "100.0%",
 		},
 		{
 			name: "GetLocalDNSMemoryLimitInMB - Memory limit nil",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{},
 			},
-			expectedData: "",
+			expectedData: DefaultLocalDNSMemoryLimitInMB,
 		},
 		{
 			name: "GetLocalDNSMemoryLimitInMB - Memory limit set",
