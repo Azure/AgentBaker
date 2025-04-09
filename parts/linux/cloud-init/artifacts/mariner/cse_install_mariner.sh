@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Mariner"
-
 removeContainerd() {
     containerdPackageName="containerd"
     if [[ $OS_VERSION == "2.0" ]]; then
@@ -194,5 +192,10 @@ downloadContainerdFromVersion() {
 downloadContainerdFromURL() {
     echo "downloadContainerdFromURL not implemented for mariner"
 }
+
+# this directive is used to prevent the script under here from being run when shellspec includes it in the unit tests
+${__SOURCED__:+return}
+
+echo "Sourcing cse_install_distro.sh for Mariner"
 
 #EOF
