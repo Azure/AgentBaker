@@ -58,6 +58,7 @@ stages:
       build2019containerd: True
       build2022containerd: False
       build2022containerdgen2: True
+      skipExtensionCheck: true
       build23H2: False
       build23H2gen2: True
       overrideBranch: master
