@@ -16,9 +16,9 @@ installDeps() {
     fi
 
     if [[ $OS_VERSION == "3.0" ]]; then
-      sudo dnf install azurelinux-repos-cloud-native -y
+      dnf_install 30 1 600 azurelinux-repos-cloud-native
     else
-      sudo dnf install mariner-repos-cloud-native -y
+      dnf_install 30 1 600 mariner-repos-cloud-native
     fi
     
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
