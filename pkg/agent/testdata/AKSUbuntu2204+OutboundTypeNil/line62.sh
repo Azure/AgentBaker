@@ -76,7 +76,6 @@ cleanUpGPUDrivers() {
 
 installCriCtlPackage() {
     version="${1:-}"
-    updateAptWithMicrosoftPkg
     echo "Installing kubernetes-cri-tools=${version} with apt-get"
     apt_get_install 20 30 120 kubernetes-cri-tools=${version}* || exit $ERR_CRICTL_INSTALL_TIMEOUT
 }

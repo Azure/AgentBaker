@@ -22,7 +22,7 @@ installDeps() {
     # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
     # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
     if [[ $OS_VERSION == "3.0" ]]; then
-    echo "Installing azurelinux-repos-cloud-native"
+      echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
     else
       echo "Installing mariner-repos-cloud-native"
