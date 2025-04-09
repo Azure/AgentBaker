@@ -2391,7 +2391,7 @@ func (a *AgentPoolProfile) GetAzureDNSIP() string {
 
 // GetLocalDNSCPULimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
 func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
-	if a.LocalDNSProfile.CPULimitInMilliCores != nil {
+	if a.LocalDNSProfile != nil && a.LocalDNSProfile.CPULimitInMilliCores != nil {
 		// Convert milli-cores to percentage and return as formatted string.
 		return fmt.Sprintf("%.1f%%", float64(*a.LocalDNSProfile.CPULimitInMilliCores)/10.0)
 	}
@@ -2400,7 +2400,7 @@ func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
 
 // GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
 func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
-	if a.LocalDNSProfile.MemoryLimitInMB != nil {
+	if a.LocalDNSProfile != nil && a.LocalDNSProfile.MemoryLimitInMB != nil {
 		// Return memory limit as a string with "M" suffix.
 		return fmt.Sprintf("%dM", *a.LocalDNSProfile.MemoryLimitInMB)
 	}
