@@ -33,12 +33,13 @@ echo "##vso[task.setvariable variable=LOGGING_DIR]$LOGGING_DIR"
 mkdir -p "${DefaultWorkingDirectory}/e2e/${LOGGING_DIR}"
 
 # Echo some variables so that we have a chance of debugging the pipeline if it fails due to a pipeline issue
-echo "VHD_BUILD_ID=$VHD_BUILD_ID"
-echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: $IGNORE_SCENARIOS_WITH_MISSING_VHD"
-echo "LOGGING_DIR: $LOGGING_DIR"
-echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID}"
-echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP}"
-echo "TAGS_TO_RUN: ${TAGS_TO_RUN}"
+# use a default syntax in case the var is not set - as that causes the script to fail as we have set -u above.
+echo "VHD_BUILD_ID=${VHD_BUILD_ID:-}"
+echo "IGNORE_SCENARIOS_WITH_MISSING_VHD: ${IGNORE_SCENARIOS_WITH_MISSING_VHD:-}"
+echo "LOGGING_DIR: ${LOGGING_DIR:-}"
+echo "E2E_SUBSCRIPTION_ID: ${E2E_SUBSCRIPTION_ID:-}"
+echo "TAGS_TO_SKIP: ${TAGS_TO_SKIP:-}"
+echo "TAGS_TO_RUN: ${TAGS_TO_RUN:-}"
 
 # set variables that the go program expects if we are running a specific build
 if [ -n "${VHD_BUILD_ID}" ]; then
