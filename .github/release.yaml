@@ -1,0 +1,15 @@
+changelog:
+  categories:
+    - title: Changes
+      labels:
+        - '*'
+      exclude:
+        labels:
+          - renovate
+          - dependabot
+    - title: Dependabot Updates
+      labels:
+        - dependabot
+    - title: VHD Component Updates
+      labels:
+        - renovate
