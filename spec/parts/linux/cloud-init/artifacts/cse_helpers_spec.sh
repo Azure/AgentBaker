@@ -91,6 +91,31 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    Describe 'update_base_url'
+        It 'updates base url to packages.aks.azure.com when PACKAGE_DOWNLOAD_BASE_URL is packages.aks.azure.com and base url is acs-mirror.azureedge.net'
+            PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+            When call update_base_url "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+            The output should equal "https://packages.aks.azure.com/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+        End
+        It 'updates base url to acs-mirror.azureedge.net when PACKAGE_DOWNLOAD_BASE_URL is acs-mirror.azureedge.net and base url is packages.aks.azure.com'
+            PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+            When call update_base_url "https://packages.aks.azure.com/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+            The output should equal "https://acs-mirror.azureedge.net/azure-cni/v1.1.8/binaries/azure-vnet-cni-linux-amd64-v1.1.8.tgz"
+        End
+        It 'does not change URL when base is not acs-mirror.azureedge.net or packages.aks.azure.com'
+            PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+            When call update_base_url "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.27.102-akslts-linux-arm64"
+            The output should equal "mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:v1.27.102-akslts-linux-arm64"
+        End
+    End
+
+    Describe 'resolve_packages_source_url'
+        It 'sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally'
+            When call resolve_packages_source_url
+            The variable PACKAGE_DOWNLOAD_BASE_URL should equal "packages.aks.azure.com"
+        End
+    End       
+
     Describe 'pkgVersionsV2'
         It 'returns release version r2004 for package pkgVersionsV2 in UBUNTU 20.04'
             package=$(readPackage "pkgVersionsV2")
