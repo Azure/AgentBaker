@@ -13,6 +13,9 @@ Describe 'cse_install_mariner.sh'
             echo "dnf install $*"
             return 0
         }
+        function systemctl() {
+            return 0
+        }
     }
     BeforeAll 'setup'
     Include "./parts/linux/cloud-init/artifacts/mariner/cse_install_mariner.sh"
