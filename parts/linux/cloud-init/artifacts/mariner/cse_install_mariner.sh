@@ -58,8 +58,12 @@ installKataDeps() {
 
 installCriCtlPackage() {
   version="${1:-}"
-  echo "Installing kubernetes-cri-tools=${version} with dnf"
-  dnf_install 30 1 600 kubernetes-cri-tools-${version}* || exit $ERR_CRICTL_INSTALL_TIMEOUT
+  packageName="kubernetes-cri-tools-${version}"
+  if [[ -z $version ]]; then
+    echo "No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+  fi
+  echo "Installing ${packageName} with dnf"
+  dnf_install 30 1 600 ${packageName} || exit $ERR_CRICTL_INSTALL_TIMEOUT
 }
 
 downloadGPUDrivers() {

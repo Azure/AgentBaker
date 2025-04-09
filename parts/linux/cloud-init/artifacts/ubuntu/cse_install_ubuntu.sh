@@ -82,8 +82,13 @@ cleanUpGPUDrivers() {
 
 installCriCtlPackage() {
     version="${1:-}"
-    echo "Installing kubernetes-cri-tools=${version} with apt-get"
-    apt_get_install 20 30 120 kubernetes-cri-tools=${version}* || exit $ERR_CRICTL_INSTALL_TIMEOUT
+    packageName="kubernetes-cri-tools=${version}"
+    if [[ -z $version ]]; then
+        echo "No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+        exit $ERR_CRICTL_INSTALL_TIMEOUT
+    fi
+    echo "Installing packageName with apt-get"
+    apt_get_install 20 30 120 packageName || exit $ERR_CRICTL_INSTALL_TIMEOUT
 }
 
 installContainerd() {
