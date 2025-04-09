@@ -2,7 +2,7 @@
 # Timeout waiting for a file
 ERR_FILE_WATCH_TIMEOUT=6 
 CSE_PROGRESS_TIMEOUT_CODE=1
-trap 'echo main CSE timeout hit; exit $CSE_PROGRESS_TIMEOUT_CODE' SIGTERM
+trap 'echo main CSE timeout hit returning with $CSE_PROGRESS_TIMEOUT_CODE; exit $CSE_PROGRESS_TIMEOUT_CODE' SIGTERM
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -112,6 +112,7 @@ if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
 fi
 
 export -f should_skip_nvidia_drivers
+CSE_PROGRESS_TIMEOUT_CODE=$ERR_NVIDIA_DRIVER_INSTALL
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
 ret=$?
 if [[ "$ret" != "0" ]]; then
@@ -134,6 +135,7 @@ SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_
 # this needs better fix to separate logs and return value;
 FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
 ret=$?
+
 if [[ "$ret" != "0" ]]; then
     echo "Failed to get the install mode and cleanup container images"
     exit "$ERR_CLEANUP_CONTAINER_IMAGES"

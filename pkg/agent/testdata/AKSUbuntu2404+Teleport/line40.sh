@@ -149,17 +149,20 @@ downloadCredentialProvider() {
     if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
         local credential_provider_download_url_for_oras="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/azure-acr-credential-provider:v${cred_version_for_oras}-linux-${CPU_ARCH}"
         CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${credential_provider_download_url_for_oras}" || exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         return 
     elif isRegistryUrl "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}"; then
         local cred_version=$(echo "$CREDENTIAL_PROVIDER_DOWNLOAD_URL" | grep -oP 'v\d+(\.\d+)*' | head -n 1)
         CREDENTIAL_PROVIDER_TGZ_TMP="azure-acr-credential-provider-linux-${CPU_ARCH}-${cred_version}.tar.gz"
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         retrycmd_get_tarball_from_registry_with_oras 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" "${CREDENTIAL_PROVIDER_DOWNLOAD_URL}" || exit $ERR_ORAS_PULL_CREDENTIAL_PROVIDER
         return
     fi
 
     CREDENTIAL_PROVIDER_TGZ_TMP="${CREDENTIAL_PROVIDER_DOWNLOAD_URL##*/}" # Use bash builtin #
     echo "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP ... $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     retrycmd_get_tarball 120 5 "$CREDENTIAL_PROVIDER_DOWNLOAD_DIR/$CREDENTIAL_PROVIDER_TGZ_TMP" $CREDENTIAL_PROVIDER_DOWNLOAD_URL || exit $ERR_CREDENTIAL_PROVIDER_DOWNLOAD_TIMEOUT
     echo "Credential Provider downloaded successfully"
 }
@@ -246,7 +249,7 @@ downloadContainerdWasmShims() {
     if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
-
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_ORAS_PULL_CONTAINERD_WASM
         retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
         tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
         mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
@@ -321,6 +324,7 @@ installOras() {
 
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin #
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_ORAS_DOWNLOAD_ERROR
     retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
@@ -352,6 +356,7 @@ downloadAzureCNI() {
         return
     fi
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_CNI_DOWNLOAD_TIMEOUT
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
@@ -361,6 +366,7 @@ downloadCrictl() {
     mkdir -p $downloadDir
     url=${2}
     crictlTgzTmp=${url##*/}
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_CRICTL_DOWNLOAD_TIMEOUT
     retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
@@ -399,6 +405,7 @@ downloadTeleportdPlugin() {
         exit $ERR_TELEPORTD_DOWNLOAD_ERR
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
+    CSE_PROGRESS_TIMEOUT_CODE=${ERR_TELEPORTD_DOWNLOAD_ERR}
     retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
@@ -536,12 +543,14 @@ extractKubeBinaries() {
         if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
+            CSE_PROGRESS_TIMEOUT_CODE=$ERR_ORAS_PULL_K8S_FAIL
             retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
                 exit "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
-            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_DOWNLOAD_TIMEOUT
+            retrycmd_get_tarball 120 15 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi

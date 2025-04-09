@@ -1,6 +1,7 @@
 #!/bin/bash
 ERR_FILE_WATCH_TIMEOUT=6 
-trap 'echo "oops"; exit 20' SIGTERM
+CSE_PROGRESS_TIMEOUT_CODE=1
+trap 'echo main CSE timeout hit returning with $CSE_PROGRESS_TIMEOUT_CODE; exit $CSE_PROGRESS_TIMEOUT_CODE' SIGTERM
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -82,7 +83,8 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
         eval $PROXY_VARS
     fi
-    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_OUTBOUND_CONN_FAIL
+    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL
 else
     touch /var/run/outbound-check-skipped
 fi
@@ -100,6 +102,7 @@ if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
 fi
 
 export -f should_skip_nvidia_drivers
+CSE_PROGRESS_TIMEOUT_CODE=$ERR_NVIDIA_DRIVER_INSTALL
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
 ret=$?
 if [[ "$ret" != "0" ]]; then
@@ -121,6 +124,7 @@ export -f should_skip_binary_cleanup
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
 FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
 ret=$?
+
 if [[ "$ret" != "0" ]]; then
     echo "Failed to get the install mode and cleanup container images"
     exit "$ERR_CLEANUP_CONTAINER_IMAGES"
@@ -134,6 +138,7 @@ fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DEVICE_PLUGIN_START_FAIL  
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -172,6 +177,7 @@ ExecStart=
 ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
 EOF
         fi
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DEVICE_PLUGIN_START_FAIL  
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
@@ -181,6 +187,7 @@ EOF
         if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DRIVERS_START_FAIL
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
@@ -323,7 +330,8 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRY_TIMEOUT=600
     fi
-    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+    if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_nslookup 1 15 ${API_SERVER_DNS_RETRY_TIMEOUT} ${API_SERVER_NAME}")
         STS=$?
     else
@@ -339,9 +347,11 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     else
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             #TODO (djsly): remove this once 18.04 isn't supported anymore
-            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_API_SERVER_CONN_FAIL
+            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || exit $ERR_K8S_API_SERVER_CONN_FAIL
         else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_API_SERVER_CONN_FAIL 
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || exit $ERR_K8S_API_SERVER_CONN_FAIL
         fi
     fi
 else

@@ -454,6 +454,7 @@ configureKubeletServing() {
 
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
     export -f should_disable_kubelet_serving_certificate_rotation
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
     if [ $? -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"

@@ -12,7 +12,9 @@ removeContainerd() {
 
 installDeps() {
     wait_for_apt_locks
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
     retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_MS_PROD_DEB_PKG_ADD_FAIL
     retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
@@ -61,6 +63,7 @@ installDeps() {
 }
 
 updateAptWithMicrosoftPkg() {
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
     if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then {
@@ -71,6 +74,7 @@ updateAptWithMicrosoftPkg() {
     }
     fi
     
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
     apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
@@ -197,6 +201,7 @@ downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$1
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
@@ -228,6 +233,7 @@ ensureRunc() {
         mkdir -p $RUNC_DOWNLOADS_DIR
         RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
         RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_RUNC_DOWNLOAD_TIMEOUT
         retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
