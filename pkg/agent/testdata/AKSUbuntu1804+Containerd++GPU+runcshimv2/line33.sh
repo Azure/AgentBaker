@@ -1,5 +1,6 @@
 #!/bin/bash
 ERR_FILE_WATCH_TIMEOUT=6 
+trap 'echo "oops"; exit 20' SIGTERM
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."

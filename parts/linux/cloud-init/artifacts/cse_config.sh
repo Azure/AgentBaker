@@ -80,10 +80,15 @@ configureSwapFile() {
     fi
 
     echo "Swap file will be saved to: ${swap_location}"
+    
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_SWAP_CREATE_FAIL
     retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     chmod 600 ${swap_location}
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_SWAP_CREATE_FAIL
     retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_SWAP_CREATE_FAIL
     retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_SWAP_CREATE_FAIL
     retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
     echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
@@ -696,6 +701,7 @@ ensureK8sControlPlane() {
     if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
         return
     fi
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_RUNNING_TIMEOUT
     retrycmd_if_failure 120 5 25 $KUBECTL 2>/dev/null cluster-info || exit $ERR_K8S_RUNNING_TIMEOUT
 }
 
@@ -806,8 +812,10 @@ configGPUDrivers() {
     fi
     
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DRIVERS_INSTALL_TIMEOUT
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DRIVERS_INSTALL_TIMEOUT
         retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
 }

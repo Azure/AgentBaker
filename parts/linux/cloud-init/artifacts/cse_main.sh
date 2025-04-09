@@ -1,6 +1,8 @@
 #!/bin/bash
 # Timeout waiting for a file
 ERR_FILE_WATCH_TIMEOUT=6 
+CSE_PROGRESS_TIMEOUT_CODE=1
+trap 'echo main CSE timeout hit; exit $CSE_PROGRESS_TIMEOUT_CODE' SIGTERM
 set -x
 if [ -f /opt/azure/containers/provision.complete ]; then
       echo "Already ran to success exiting..."
@@ -90,7 +92,8 @@ if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
         eval $PROXY_VARS
     fi
-    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_OUTBOUND_CONN_FAIL
+    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL
 else
     # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
     touch /var/run/outbound-check-skipped
@@ -144,6 +147,7 @@ fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
+    CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DEVICE_PLUGIN_START_FAIL  
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -183,6 +187,7 @@ ExecStart=
 ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
 EOF
         fi
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DEVICE_PLUGIN_START_FAIL  
         logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
@@ -199,6 +204,7 @@ EOF
         if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_GPU_DRIVERS_START_FAIL
         logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
@@ -376,7 +382,8 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRY_TIMEOUT=600
     fi
-    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+    if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
+        CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_nslookup 1 15 ${API_SERVER_DNS_RETRY_TIMEOUT} ${API_SERVER_NAME}")
         STS=$?
     else
@@ -392,9 +399,11 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     else
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
             #TODO (djsly): remove this once 18.04 isn't supported anymore
-            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_API_SERVER_CONN_FAIL
+            logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || exit $ERR_K8S_API_SERVER_CONN_FAIL
         else
-            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || time curl -v --cacert /etc/kubernetes/certs/ca.crt "https://${API_SERVER_NAME}:443" || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
+            CSE_PROGRESS_TIMEOUT_CODE=$ERR_K8S_API_SERVER_CONN_FAIL 
+            logs_to_events "AKS.CSE.apiserverCurl" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 curl -v --cacert /etc/kubernetes/certs/ca.crt https://${API_SERVER_NAME}:443" || exit $ERR_K8S_API_SERVER_CONN_FAIL
         fi
     fi
 else
