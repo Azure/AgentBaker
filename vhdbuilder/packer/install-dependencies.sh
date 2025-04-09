@@ -41,6 +41,7 @@ if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
+updateAptWithMicrosoftPkg || exit $ERR_APT_UPDATE_TIMEOUT
 capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
 if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then

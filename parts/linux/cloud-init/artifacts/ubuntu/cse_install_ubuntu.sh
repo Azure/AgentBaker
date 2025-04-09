@@ -276,6 +276,4 @@ ensureRunc() {
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
-updateAptWithMicrosoftPkg
-
 #EOF
