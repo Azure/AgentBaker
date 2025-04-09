@@ -1745,6 +1745,7 @@ func containerdConfigFromTemplate(
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
 
+// ----------------------- Start of changes related to localdns ------------------------------------------.
 // Parse and generate localdns Corefile from template and LocalDNSProfile.
 func GenerateLocalDNSCoreFile(
 	config *datamodel.NodeBootstrappingConfiguration,
@@ -1758,6 +1759,10 @@ func GenerateLocalDNSCoreFile(
 	if profile.LocalDNSProfile == nil {
 		return "", fmt.Errorf("localdns profile is nil")
 	}
+	if !profile.ShouldEnableLocalDNS() {
+		return "", fmt.Errorf("EnableLocalDNS is set to false, corefile will not be generated")
+	}
+
 	funcMapForHasSuffix := template.FuncMap{
 		"hasSuffix": strings.HasSuffix,
 	}
@@ -1902,3 +1907,5 @@ health-check.localdns.local:53 {
 }
 {{- end}}
 `
+
+// ----------------------- End of changes related to localdns ------------------------------------------.

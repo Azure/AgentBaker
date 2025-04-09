@@ -122,7 +122,7 @@ ERR_DNS_HEALTH_FAIL=215
 ERR_LOCALDNS_FAIL=216 
 ERR_LOCALDNS_COREFILE_NOTFOUND=217 
 ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 
-ERR_LOCALDNS_BINARY_NOTFOUND=219 
+ERR_LOCALDNS_BINARY_ERR=219 
 
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')

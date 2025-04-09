@@ -193,6 +193,11 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		// ------------------------------- Start of tests related to Localdns ---------------------------------------
 		Describe(".ShouldEnableLocalDNS()", func() {
 			// Expect ShouldEnableLocalDNS func to return false if LocalDNSProfile is nil.
+			It("returns false when AgentPoolProfile is nil", func() {
+				config.AgentPoolProfile = nil
+				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
+			})
+			// Expect ShouldEnableLocalDNS func to return false if LocalDNSProfile is nil.
 			It("returns false when LocalDNSProfile is nil", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
 				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
@@ -202,55 +207,48 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{}
 				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
 			})
-			// Expect ShouldEnableLocalDNS func to return false if State is Invalid.
-			It("returns false when State is Invalid", func() {
+			// Expect ShouldEnableLocalDNS func to return false if EnableLocalDNS is false.
+			It("returns false when EnableLocalDNS is false", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State: "Invalid",
+					EnableLocalDNS: false,
 				}
 				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
 			})
-			// Expect ShouldEnableLocalDNS func to return false if State is Disabled.
-			It("returns false when State is Invalid", func() {
+			// Expect ShouldEnableLocalDNS func to return true if EnableLocalDNS is true.
+			It("returns true when EnableLocalDNS is true", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State: "Disabled",
-				}
-				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeFalse())
-			})
-			// Expect ShouldEnableLocalDNS func to return true if State is Enabled.
-			It("returns false when State is Invalid", func() {
-				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State: "Enabled",
+					EnableLocalDNS: true,
 				}
 				Expect(config.AgentPoolProfile.ShouldEnableLocalDNS()).To(BeTrue())
 			})
 		})
 
 		Describe(".GetLocalDNSCPULimitInPercentage()", func() {
-			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned.
+			// Expect default CPUlimit to be returned.
 			It("returns default CPULimit - 200.0%", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
 				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
 			})
-			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned if CPULimitInMilliCores is nil.
+			// Expect default CPUlimit to be returned if CPULimitInMilliCores is nil.
 			It("returns default CPULimit - 200.0% when CPULimitInMilliCores is nil", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: nil,
 				}
 				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
 			})
-			// Expect default DefaultLocalDNSCPULimitInPercentage constant to be returned if State is not Enabled.
-			It("returns default CPULimit - 200.0% when State is not Enabled", func() {
+			// Expect input value to be returned even if EnableLocalDNS is false.
+			It("returns input value of CPULimit - 500.0% even when EnableLocalDNS is false", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Disabled",
+					EnableLocalDNS:       false,
 					CPULimitInMilliCores: to.Int32Ptr(5000),
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("200.0%"))
+				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("500.0%"))
 			})
-			// Expect correct CPULimit to be returned if State is Enabled.
-			It("returns default int32 CPULimitInMilliCores - 3500", func() {
+			// Expect input value to be returned if EnableLocalDNS is true.
+			It("returns input value of CPULimit - 489.7%", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(4897),
 				}
 				Expect(config.AgentPoolProfile.GetLocalDNSCPULimitInPercentage()).To(ContainSubstring("489.7%"))
@@ -258,31 +256,31 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".GetLocalDNSMemoryLimitInMB()", func() {
-			// Expect default MemoryLimitInMB constant to be returned.
+			// Expect default memorylimit to be returned if LocalDNSProfile is nil.
 			It("returns default MemoryLimitInMB - 128M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
 				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
 			})
-			// Expect default MemoryLimitInMB constant to be returned if MemoryLimitInMB is nil.
+			// Expect default memorylimit to be returned if MemoryLimitInMB is nil.
 			It("returns default MemoryLimitInMB - 128M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:           "Enabled",
+					EnableLocalDNS:  true,
 					MemoryLimitInMB: nil,
 				}
 				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
 			})
-			// Expect default MemoryLimitInMB constant to be returned if State is not Enabled.
-			It("returns default MemoryLimitInMB - 128M", func() {
+			// Expect input value of memorylimit to be returned if EnableLocalDNS is false.
+			It("returns input value of MemoryLimitInMB - 438M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:           "Disabled",
-					MemoryLimitInMB: to.Int32Ptr(128),
+					EnableLocalDNS:  false,
+					MemoryLimitInMB: to.Int32Ptr(438),
 				}
-				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("128M"))
+				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("438M"))
 			})
-			// Expect input MemoryLimitInMB constant to be returned if State is Enabled.
-			It("returns default MemoryLimitInMB - 1024M", func() {
+			// Expect input value of memorylimit to be returned if EnableLocalDNS is true.
+			It("returns input value of MemoryLimitInMB - 1024M", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:           "Enabled",
+					EnableLocalDNS:  true,
 					MemoryLimitInMB: to.Int32Ptr(1024),
 				}
 				Expect(config.AgentPoolProfile.GetLocalDNSMemoryLimitInMB()).To(ContainSubstring("1024M"))
@@ -290,24 +288,47 @@ var _ = Describe("Assert generated customData and cseCmd", func() {
 		})
 
 		Describe(".GetGeneratedLocalDNSCoreFile()", func() {
-			// Expect an error if LocalDNSProfile is nil and GenerateLocalDNSCoreFile is invoked.
+			// Expect an error if LocalDNSProfile is nil and GenerateLocalDNSCoreFile is invoked somehow.
 			It("returns an error when LocalDNSProfile is nil", func() {
 				config.AgentPoolProfile.LocalDNSProfile = nil
 				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
 				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("localdns profile is nil"))
 			})
 
 			// Expect an error from GenerateLocalDNSCoreFile if template is invalid.
 			It("returns an error when template parsing fails", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       true,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				}
 				invalidTemplate := "{{.InvalidField}}"
 				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, invalidTemplate)
 				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("failed to execute localdns corefile template"))
+			})
+
+			// Expect an error from GenerateLocalDNSCoreFile if it is invoked when EnableLocalDNS is set to false.
+			It("returns an error when EnableLocalDNS is set to false", func() {
+				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: to.Int32Ptr(2008),
+					MemoryLimitInMB:      to.Int32Ptr(128),
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				}
+				_, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, localDNSCoreFileTemplateString)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("EnableLocalDNS is set to false, corefile will not be generated"))
 			})
 
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are nil.
 			It("handles nil LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides:     nil,
@@ -345,7 +366,7 @@ health-check.localdns.local:53 {
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
 			It("handles empty LocalDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides:     map[string]*datamodel.LocalDNSOverrides{},
@@ -383,7 +404,7 @@ health-check.localdns.local:53 {
 			// Expect no error and a non-empty corefile when LocalDNSOverrides are empty.
 			It("handles empty KubeDNSOverrides and non-empty VnetDNSOverrides", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
@@ -514,7 +535,7 @@ testdomain456.com:53 {
 			// Expect no error and correct localdns corefile.
 			It("generates a valid localdnsCorefile", func() {
 				config.AgentPoolProfile.LocalDNSProfile = &datamodel.LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(2008),
 					MemoryLimitInMB:      to.Int32Ptr(128),
 					VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
@@ -761,75 +782,6 @@ testdomain567.com:53 {
 						VnetSubnetID:        "/subscriptions/359833f5/resourceGroups/MC_rg/providers/Microsoft.Network/virtualNetworks/aks-vnet-07752737/subnet/subnet1",
 						AvailabilityProfile: datamodel.VirtualMachineScaleSets,
 						Distro:              datamodel.AKSUbuntu1604,
-						LocalDNSProfile: &datamodel.LocalDNSProfile{
-							State:                "Enabled",
-							CPULimitInMilliCores: to.Int32Ptr(2008),
-							MemoryLimitInMB:      to.Int32Ptr(128),
-							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
-								".": {
-									QueryLogging:                "Log",
-									Protocol:                    "PreferUDP",
-									ForwardDestination:          "VnetDNS",
-									ForwardPolicy:               "Sequential",
-									MaxConcurrent:               to.Int32Ptr(1000),
-									CacheDurationInSeconds:      to.Int32Ptr(3600),
-									ServeStaleDurationInSeconds: to.Int32Ptr(3600),
-									ServeStale:                  "Verify",
-								},
-								"cluster.local": {
-									QueryLogging:                "Error",
-									Protocol:                    "ForceTCP",
-									ForwardDestination:          "ClusterCoreDNS",
-									ForwardPolicy:               "Sequential",
-									MaxConcurrent:               to.Int32Ptr(1000),
-									CacheDurationInSeconds:      to.Int32Ptr(3600),
-									ServeStaleDurationInSeconds: to.Int32Ptr(3600),
-									ServeStale:                  "Disable",
-								},
-								"testdomain456.com": {
-									QueryLogging:                "Log",
-									Protocol:                    "PreferUDP",
-									ForwardDestination:          "ClusterCoreDNS",
-									ForwardPolicy:               "Sequential",
-									MaxConcurrent:               to.Int32Ptr(1000),
-									CacheDurationInSeconds:      to.Int32Ptr(3600),
-									ServeStaleDurationInSeconds: to.Int32Ptr(3600),
-									ServeStale:                  "Verify",
-								},
-							},
-							KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
-								".": {
-									QueryLogging:                "Error",
-									Protocol:                    "PreferUDP",
-									ForwardDestination:          "ClusterCoreDNS",
-									ForwardPolicy:               "Sequential",
-									MaxConcurrent:               to.Int32Ptr(1000),
-									CacheDurationInSeconds:      to.Int32Ptr(3600),
-									ServeStaleDurationInSeconds: to.Int32Ptr(3600),
-									ServeStale:                  "Verify",
-								},
-								"cluster.local": {
-									QueryLogging:                "Log",
-									Protocol:                    "ForceTCP",
-									ForwardDestination:          "ClusterCoreDNS",
-									ForwardPolicy:               "RoundRobin",
-									MaxConcurrent:               to.Int32Ptr(1000),
-									CacheDurationInSeconds:      to.Int32Ptr(3600),
-									ServeStaleDurationInSeconds: to.Int32Ptr(3600),
-									ServeStale:                  "Disable",
-								},
-								"testdomain567.com": {
-									QueryLogging:                "Error",
-									Protocol:                    "PreferUDP",
-									ForwardDestination:          "VnetDNS",
-									ForwardPolicy:               "Random",
-									MaxConcurrent:               to.Int32Ptr(1000),
-									CacheDurationInSeconds:      to.Int32Ptr(3600),
-									ServeStaleDurationInSeconds: to.Int32Ptr(3600),
-									ServeStale:                  "Immediate",
-								},
-							},
-						},
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -2728,6 +2680,7 @@ var _ = Describe("Assert generated customData and cseCmd for Windows", func() {
 				config.KubeletConfig["--image-credential-provider-bin-dir"] = "c:\\var\\lib\\kubelet\\credential-provider"
 			}),
 	)
+
 })
 
 func backfillCustomData(folder, customData string) {

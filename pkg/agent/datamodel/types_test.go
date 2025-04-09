@@ -5,7 +5,6 @@ package datamodel
 
 import (
 	"encoding/json"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -1505,7 +1504,7 @@ func TestLinuxProfile(t *testing.T) {
 		},
 	}
 
-	if !(l.HasSecrets() && l.HasSearchDomain()) {
+	if !l.HasSecrets() || !l.HasSearchDomain() {
 		t.Fatalf("Expected HasSecrets() and HasSearchDomain() to return true")
 	}
 }
@@ -1567,7 +1566,7 @@ func TestWindowsProfile(t *testing.T) {
 		AlwaysPullWindowsPauseImage: to.BoolPtr(true),
 	}
 
-	if !(w.HasSecrets() && w.HasCustomImage()) {
+	if !w.HasSecrets() || !w.HasCustomImage() {
 		t.Fatalf("Expected HasSecrets() and HasCustomImage() to return true")
 	}
 
@@ -2813,137 +2812,155 @@ func TestSecurityProfileGetPrivateEgressContainerRegistryServer(t *testing.T) {
 	}
 }
 
-func TestAgentPoolProfileLocalDNS(t *testing.T) {
-	cases := []struct {
-		name                      string
-		agentPoolProfile          *AgentPoolProfile
-		expectedState             bool
-		expectedCPU               string
-		expectedMemory            string
-		expectedNodeListenerIP    string
-		expectedClusterListenerIP string
-		expectedCoreDNSServiceIP  string
-		expectedAzureDNSIP        string
+// ----------------------- Start of changes related to localdns ------------------------------------------.
+func TestShouldEnableLocalDNS(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     bool
 	}{
 		{
-			name:             "AgentPoolProfile nil",
+			name:             "ShouldEnableLocalDNS - AgentPoolProfile nil",
 			agentPoolProfile: nil,
-			expectedState:    false,
+			expectedData:     false,
 		},
 		{
-			name: "LocalDNSProfile nil",
+			name: "ShouldEnableLocalDNS - LocalDNSProfile nil",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: nil,
 			},
-			expectedState: false,
+			expectedData: false,
 		},
 		{
-			name: "LocalDNSProfile Invalid",
+			name: "ShouldEnableLocalDNS - LocalDNSProfile disabled",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
-					State: "Invalid",
+					EnableLocalDNS: false,
 				},
 			},
-			expectedState: false,
+			expectedData: false,
 		},
 		{
-			name: "LocalDNSProfile disabled",
+			name: "ShouldEnableLocalDNS - LocalDNSProfile enabled",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
-					State: "Disabled",
+					EnableLocalDNS: true,
 				},
 			},
-			expectedState: false,
-		},
-		{
-			name: "LocalDNSProfile enabled",
-			agentPoolProfile: &AgentPoolProfile{
-				LocalDNSProfile: &LocalDNSProfile{
-					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(1000),
-					MemoryLimitInMB:      to.Int32Ptr(2048),
-				},
-			},
-			expectedState:             true,
-			expectedCPU:               "100.0%",
-			expectedMemory:            "2048M",
-			expectedNodeListenerIP:    LocalDNSNodeListenerIP,
-			expectedClusterListenerIP: LocalDNSClusterListenerIP,
-			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
-			expectedAzureDNSIP:        AzureDNSIP,
-		},
-		{
-			name: "LocalDNSProfile enabled with custom CPU and memory",
-			agentPoolProfile: &AgentPoolProfile{
-				LocalDNSProfile: &LocalDNSProfile{
-					State:                "Enabled",
-					CPULimitInMilliCores: to.Int32Ptr(5069),
-					MemoryLimitInMB:      to.Int32Ptr(1048),
-				},
-			},
-			expectedState:             true,
-			expectedCPU:               "506.9%",
-			expectedMemory:            "1048M",
-			expectedNodeListenerIP:    LocalDNSNodeListenerIP,
-			expectedClusterListenerIP: LocalDNSClusterListenerIP,
-			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
-			expectedAzureDNSIP:        AzureDNSIP,
-		},
-		{
-			name: "LocalDNSProfile enabled, CPU and memory not set",
-			agentPoolProfile: &AgentPoolProfile{
-				LocalDNSProfile: &LocalDNSProfile{
-					State: "Enabled",
-				},
-				KubernetesConfig: &KubernetesConfig{
-					DNSServiceIP: "10.0.0.10",
-				},
-			},
-			expectedState:             true,
-			expectedCPU:               "200.0%",
-			expectedMemory:            "128M",
-			expectedNodeListenerIP:    LocalDNSNodeListenerIP,
-			expectedClusterListenerIP: LocalDNSClusterListenerIP,
-			expectedCoreDNSServiceIP:  DefaultCoreDNSServiceIP,
-			expectedAzureDNSIP:        AzureDNSIP,
+			expectedData: true,
 		},
 	}
 
-	for _, c := range cases {
-		c := c
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			actualLocaldnsState := c.agentPoolProfile.ShouldEnableLocalDNS()
-			actualCPU := c.agentPoolProfile.GetLocalDNSCPULimitInPercentage()
-			actualMemory := c.agentPoolProfile.GetLocalDNSMemoryLimitInMB()
-			actualListenerIP := c.agentPoolProfile.GetLocalDNSNodeListenerIP()
-			actualClusterListenerIP := c.agentPoolProfile.GetLocalDNSClusterListenerIP()
-			actualCoreDNSServiceIP := c.agentPoolProfile.GetCoreDNSServiceIP()
-			actualAzureDNSIP := c.agentPoolProfile.GetAzureDNSIP()
-
-			if c.expectedState != actualLocaldnsState {
-				t.Fatalf("test case: %s, expected localdns state: %v. Got: %v", c.name, c.expectedState, actualLocaldnsState)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualData := false
+			if tt.agentPoolProfile != nil {
+				actualData = tt.agentPoolProfile.ShouldEnableLocalDNS()
 			}
+			assert.Equal(t, tt.expectedData, actualData)
+		})
+	}
+}
 
-			if c.expectedState == true {
-				if c.expectedCPU != actualCPU {
-					t.Fatalf("test case: %s, expected CPU: %s. Got: %s.", c.name, c.expectedCPU, actualCPU)
-				}
-				if c.expectedMemory != actualMemory {
-					t.Fatalf("test case: %s, expected memory: %s. Got: %s.", c.name, c.expectedMemory, actualMemory)
-				}
-				if c.expectedNodeListenerIP != actualListenerIP {
-					t.Fatalf("test case: %s, expected listener IP: %s. Got: %s.", c.name, c.expectedNodeListenerIP, actualListenerIP)
-				}
-				if c.expectedClusterListenerIP != actualClusterListenerIP {
-					t.Fatalf("test case: %s, expected cluster listener IP: %s. Got: %s.", c.name, c.expectedClusterListenerIP, actualClusterListenerIP)
-				}
-				if c.expectedCoreDNSServiceIP != actualCoreDNSServiceIP {
-					t.Fatalf("test case: %s, expected AzureDNSIP: %s. Got: %s.", c.name, c.expectedCoreDNSServiceIP, actualAzureDNSIP)
-				}
-				if c.expectedAzureDNSIP != actualAzureDNSIP {
-					t.Fatalf("test case: %s, expected AzureDNSIP: %s. Got: %s.", c.name, c.expectedAzureDNSIP, actualAzureDNSIP)
-				}
+func TestLocalDNSProfileMethods(t *testing.T) {
+	tests := []struct {
+		name             string
+		agentPoolProfile *AgentPoolProfile
+		expectedData     interface{}
+		expectedError    bool
+	}{
+		{
+			name: "GetLocalDNSNodeListenerIP",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: LocalDNSNodeListenerIP,
+		},
+		{
+			name: "GetLocalDNSClusterListenerIP",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: LocalDNSClusterListenerIP,
+		},
+		{
+			name: "GetAzureDNSIP",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: AzureDNSIP,
+		},
+		{
+			name: "GetLocalDNSCPULimitInPercentage - CPU limit nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: DefaultLocalDNSCPULimitInPercentage,
+		},
+		{
+			name: "GetLocalDNSCPULimitInPercentage - CPU limit set",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					CPULimitInMilliCores: to.Int32Ptr(1000),
+				},
+			},
+			expectedData: "100.0%",
+		},
+		{
+			name: "GetLocalDNSMemoryLimitInMB - Memory limit nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: DefaultLocalDNSMemoryLimitInMB,
+		},
+		{
+			name: "GetLocalDNSMemoryLimitInMB - Memory limit set",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					MemoryLimitInMB: to.Int32Ptr(4096),
+				},
+			},
+			expectedData: "4096M",
+		},
+		{
+			name: "GetCoreDNSServiceIP - DNSServiceIP in KubernetesConfig",
+			agentPoolProfile: &AgentPoolProfile{
+				KubernetesConfig: &KubernetesConfig{
+					DNSServiceIP: "10.0.0.53",
+				},
+			},
+			expectedData: "10.0.0.53",
+		},
+		{
+			name: "GetCoreDNSServiceIP - DNSServiceIP not set",
+			agentPoolProfile: &AgentPoolProfile{
+				KubernetesConfig: &KubernetesConfig{},
+			},
+			expectedData: DefaultCoreDNSServiceIP,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			switch tt.name {
+			case "GetCoreDNSServiceIP - DNSServiceIP in KubernetesConfig":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetCoreDNSServiceIP())
+			case "GetCoreDNSServiceIP - DNSServiceIP not set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetCoreDNSServiceIP())
+			case "GetLocalDNSNodeListenerIP":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSNodeListenerIP())
+			case "GetLocalDNSClusterListenerIP":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSClusterListenerIP())
+			case "GetAzureDNSIP":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetAzureDNSIP())
+			case "GetLocalDNSCPULimitInPercentage - CPU limit set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
+			case "GetLocalDNSCPULimitInPercentage - CPU limit nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
+			case "GetLocalDNSMemoryLimitInMB - Memory limit set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
+			case "GetLocalDNSMemoryLimitInMB - Memory limit nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
 			}
 		})
 	}
@@ -2959,29 +2976,49 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 		{
 			name:             "AgentPoolProfile nil",
 			agentPoolProfile: nil,
-			expectError:      true,
 		},
 		{
 			name: "LocalDNSProfile nil",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: nil,
 			},
-			expectError: true,
 		},
 		{
 			name: "LocalDNSProfile disabled",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
-					State: "Disabled",
+					EnableLocalDNS: false,
 				},
 			},
-			expectError: true,
+		},
+		{
+			name: "LocalDNSProfile disabled but has data",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: to.Int32Ptr(1000),
+					MemoryLimitInMB:      to.Int32Ptr(1024),
+				},
+			},
+			expectedData: LocalDNSCoreFileData{
+				LocalDNSProfile: LocalDNSProfile{
+					EnableLocalDNS:       false,
+					CPULimitInMilliCores: nil,
+					MemoryLimitInMB:      nil,
+					VnetDNSOverrides:     nil,
+					KubeDNSOverrides:     nil,
+				},
+				NodeListenerIP:    "",
+				ClusterListenerIP: "",
+				CoreDNSServiceIP:  "",
+				AzureDNSIP:        "",
+			},
 		},
 		{
 			name: "LocalDNSProfile enabled",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(2000),
 					MemoryLimitInMB:      to.Int32Ptr(4096),
 					VnetDNSOverrides: map[string]*LocalDNSOverrides{
@@ -3032,7 +3069,7 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 			},
 			expectedData: LocalDNSCoreFileData{
 				LocalDNSProfile: LocalDNSProfile{
-					State:                "Enabled",
+					EnableLocalDNS:       true,
 					CPULimitInMilliCores: to.Int32Ptr(2000),
 					MemoryLimitInMB:      to.Int32Ptr(4096),
 					VnetDNSOverrides: map[string]*LocalDNSOverrides{
@@ -3085,7 +3122,6 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 				CoreDNSServiceIP:  DefaultCoreDNSServiceIP,
 				AzureDNSIP:        AzureDNSIP,
 			},
-			expectError: false,
 		},
 	}
 
@@ -3095,10 +3131,9 @@ func TestGetLocalDNSCoreFileData(t *testing.T) {
 			if tt.agentPoolProfile != nil {
 				actualData = tt.agentPoolProfile.GetLocalDNSCoreFileData()
 			}
-
-			if !reflect.DeepEqual(tt.expectedData, actualData) {
-				t.Errorf("expected %+v, got %+v", tt.expectedData, actualData)
-			}
+			assert.Equal(t, tt.expectedData, actualData)
 		})
 	}
 }
+
+// ----------------------- End of changes related to localdns ------------------------------------------.

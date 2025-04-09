@@ -131,21 +131,3 @@ const (
 	EnableIPv6Only        = "EnableIPv6Only"
 	EnableWinDSR          = "EnableWinDSR"
 )
-
-// localdns related constants.
-const (
-	// LocalDNSEnabled is a string constant for 'Enabled'.
-	LocalDNSEnabled string = "Enabled"
-	// LocalDNSNodeListenerIP sepcifies nodelistener APIPA-IP used in localdns.
-	LocalDNSNodeListenerIP string = "169.254.10.10"
-	// LocalDNSClusterListenerIP sepcifies clusterlistener APIPA-IP used in localdns.
-	LocalDNSClusterListenerIP string = "169.254.10.11"
-	// DefaultLocalDNSCPULimitInPercentage sepcifies the default CPU limit used in akslocaldns.
-	DefaultLocalDNSCPULimitInPercentage string = "200.0%"
-	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
-	DefaultLocalDNSMemoryLimitInMB string = "128M"
-	// DefaultLocalDNSServiceIP sepcifies the default coredns service IP.
-	DefaultCoreDNSServiceIP string = "10.0.0.10"
-	// AzureDNSIP is the default Azure DNS IP used in localdns.
-	AzureDNSIP string = "168.63.129.16"
-)
