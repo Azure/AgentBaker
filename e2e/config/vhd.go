@@ -15,18 +15,11 @@ const (
 )
 
 var (
-	linuxGallery = &Gallery{
+	imageGallery = &Gallery{
 		SubscriptionID:    Config.GallerySubscriptionIDLinux,
 		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
 		Name:              Config.GalleryNameLinux,
 	}
-
-	windowsGallery = linuxGallery
-	//&Gallery{
-	//	SubscriptionID:    Config.GallerySubscriptionIDWindows,
-	//	ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-	//	Name:              Config.GalleryNameWindows,
-	//}
 )
 
 type Gallery struct {
@@ -50,49 +43,49 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd1804Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
 		Name:    "2204gen2containerd",
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
 		Name:    "AzureLinuxV2gen2arm64",
 		OS:      OSAzureLinux,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSAzureLinuxV2Arm64Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
 		Name:    "AzureLinuxV2gen2",
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV2Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
 		OS:      OSMariner,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSCBLMarinerV2Arm64Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
 		Name:    "CBLMarinerV2gen2",
 		OS:      OSMariner,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSCBLMarinerV2Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
@@ -103,7 +96,7 @@ var (
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -113,7 +106,7 @@ var (
 		Arch:    "amd64",
 		Version: "1.1725612526.29638",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -121,7 +114,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDUbuntu2404Gen2Containerd = &Image{
@@ -129,7 +122,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
@@ -137,7 +130,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -145,7 +138,7 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2022Containerd = &Image{
@@ -153,7 +146,7 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022Containerd,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2022ContainerdGen2 = &Image{
@@ -161,7 +154,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows23H2 = &Image{
@@ -169,7 +162,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows23H2Gen2 = &Image{
@@ -177,7 +170,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2025 = &Image{
@@ -185,7 +178,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2025Gen2 = &Image{
@@ -193,7 +186,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 )
 
