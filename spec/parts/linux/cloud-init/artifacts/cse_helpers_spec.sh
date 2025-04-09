@@ -112,6 +112,7 @@ Describe 'cse_helpers.sh'
     Describe 'resolve_packages_source_url'
         It 'sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally'
             When call resolve_packages_source_url
+            The output should equal "Setting PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com."
             The variable PACKAGE_DOWNLOAD_BASE_URL should equal "packages.aks.azure.com"
         End
     End       
