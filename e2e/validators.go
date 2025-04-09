@@ -169,6 +169,17 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
 }
+func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"set -ex",
+		// Print the service status for logging purposes
+		fmt.Sprintf("systemctl -n 5 status %s || true", serviceName),
+		// Verify the service is active
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, 
+		fmt.Sprintf("service %s is not running", serviceName))
+}
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
 	ulimitKeys := make([]string, 0, len(ulimits))
