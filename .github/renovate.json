@@ -43,6 +43,7 @@
       ]
     },
     {
+      "matchDatasources": ["docker"],
       "matchPackageNames": [
         "windows/servercore"
       ],
@@ -54,8 +55,8 @@
         "timmy-wright"
       ],
       "enabled": true,
-      "versioning": "regex:^(\\d+\\.\\d+\\.\\d+\\.\\d+)$",
-      "matchCurrentVersion": "^\\d+\\.\\d+\\.\\d+\\.(\\d+)$"
+      "versioning": "regex:^(10\\.\\0\\.\\d+\\.\\d+)$",
+      "matchCurrentVersion": "^\\10\\.\\0\\.\\d+\\.(\\d+)$"
     }
   ],
   "customManagers": [
