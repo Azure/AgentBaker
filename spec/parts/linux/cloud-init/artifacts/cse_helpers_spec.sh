@@ -302,7 +302,7 @@ Describe 'cse_helpers.sh'
         End
     End
 
-    Describe 'shouldEnableLocaldns'
+    Describe 'shouldEnableLocalDNS'
         setup() {
             TMP_DIR=$(mktemp -d)
             LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
@@ -315,23 +315,23 @@ Describe 'cse_helpers.sh'
 
         It 'should return failure if localdns corefile does not exist'
             rm -f "$LOCALDNS_CORE_FILE"
-            When run shouldEnableLocaldns
+            When run shouldEnableLocalDNS
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
+            The stdout should include "localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
         End
 
         It 'should return failure if localdns corefile is empty'
             > "$LOCALDNS_CORE_FILE"
-            When run shouldEnableLocaldns
+            When run shouldEnableLocalDNS
             The status should be failure
-            The stdout should include "Localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
+            The stdout should include "localdns corefile either does not exist or is empty at $LOCALDNS_CORE_FILE"
         End
 
         It 'should return success if localdns corefile exists and is not empty'
             echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
-            When run shouldEnableLocaldns
+            When run shouldEnableLocalDNS
             The status should be success
-            The stdout should include "Localdns should be enabled."
+            The stdout should include "localdns should be enabled."
         End
     End
 

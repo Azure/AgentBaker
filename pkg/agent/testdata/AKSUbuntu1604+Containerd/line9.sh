@@ -820,12 +820,12 @@ oras_login_with_kubelet_identity() {
 }
 
 LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-shouldEnableLocaldns() {
+shouldEnableLocalDNS() {
     if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
+        echo "localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
         return $ERR_LOCALDNS_COREFILE_NOTFOUND
     else
-        echo "Localdns should be enabled."
+        echo "localdns should be enabled."
         return 0
     fi
 }

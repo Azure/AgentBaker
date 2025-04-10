@@ -892,4 +892,25 @@ setKubeletNodeIPFlag() {
     fi
 }
 
+SYSTEMCTL_ENABLE_LOCALDNS_CMD="systemctlEnableAndStart localdns 30"
+enableLocalDNS() {
+    shouldEnableLocalDNS
+    local should_enable_result=$?
+
+    if [ "$should_enable_result" -eq 0 ]; then
+        eval "$SYSTEMCTL_ENABLE_LOCALDNS_CMD"
+        local enable_localdns_result=$?
+
+        if [ "$enable_localdns_result" -ne 0 ]; then
+            echo "Enable localdns failed due to error ${enable_localdns_result}."
+            return "$enable_localdns_result"
+        fi
+        echo "Enable localdns succeeded."
+        return 0
+    fi
+
+    echo "localdns should not be enabled."
+    return 0
+}
+
 #EOF

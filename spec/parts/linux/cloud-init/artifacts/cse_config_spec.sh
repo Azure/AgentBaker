@@ -338,4 +338,41 @@ Describe 'cse_config.sh'
             The output should not include "tee"
         End
     End
+
+    Describe 'enableLocalDNS'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            export LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should enable localdns successfully'
+            SYSTEMCTL_ENABLE_LOCALDNS_CMD="true"
+            When call enableLocalDNS
+            The status should be success
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        It 'should skip enabling localdns if corefile is not created'
+            rm -rf "$LOCALDNS_CORE_FILE"
+            When call enableLocalDNS
+            The status should be success
+            The output should include "localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
+            The output should include "localdns should not be enabled."
+        End
+
+        It 'should return error when systemctl fails to start localdns'
+            SYSTEMCTL_ENABLE_LOCALDNS_CMD="false"
+            When call enableLocalDNS
+            The status should equal 1
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns failed due to error"
+        End
+    End
 End
