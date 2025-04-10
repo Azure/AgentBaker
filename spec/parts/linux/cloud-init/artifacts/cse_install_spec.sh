@@ -129,7 +129,7 @@ Describe 'cse_install.sh'
         cleanup() {
             #clean up $k8s_tgz_tmp if it exists
             if [ -f "$k8s_tgz_tmp" ]; then
-                m -f "$k8s_tgz_tmp"
+                rm -f "$k8s_tgz_tmp"
             fi
         }
 
