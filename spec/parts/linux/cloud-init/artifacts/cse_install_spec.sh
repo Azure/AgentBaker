@@ -126,6 +126,7 @@ Describe 'cse_install.sh'
         CPU_ARCH="amd64"
         KUBE_BINARY_URL=""
 
+        Mock cleanup
         cleanup() {
             #clean up $k8s_tgz_tmp if it exists
             if [ -f "$k8s_tgz_tmp" ]; then
@@ -134,12 +135,14 @@ Describe 'cse_install.sh'
         }
 
         # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
+        Mock extractKubeBinariesToUsrLocalBin
         extractKubeBinariesToUsrLocalBin() {
             echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
         }
 
         # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
         # The real download is tested in e2e test.
+        Mock retrycmd_get_tarball_from_registry_with_oras
         retrycmd_get_tarball_from_registry_with_oras() {
             echo "mock retrycmd_get_tarball_from_registry_with_oras calling with $1 $2 $3 $4"
             # create a fake tarball
@@ -147,6 +150,7 @@ Describe 'cse_install.sh'
         }
 
         # mock retrycmd_get_tarball as we don't really want to download the tarball
+        Mock retrycmd_get_tarball
         retrycmd_get_tarball() {
             echo "mock retrycmd_get_tarball calling with $1 $2 $3 $4 $5"
             touch "$k8s_tgz_tmp"
