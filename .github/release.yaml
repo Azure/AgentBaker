@@ -7,6 +7,7 @@ changelog:
         labels:
           - renovate
           - dependabot
+          - ignore-for-release
     - title: Dependabot Updates
       labels:
         - dependabot
