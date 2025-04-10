@@ -82,7 +82,16 @@ function validateBootstrapKubeconfig {
 
         if [ $code -eq 000 ]; then
             echo "(retry=$retry_count) curl response code is $code, curl exited with code: $curl_code"
-            echo "will exit now without validating bootstrap credential"
+            echo "retrying once more to get a more detailed error response..."
+
+            curl -L \
+                -m $RETRY_TIMEOUT_SECONDS \
+                -H "Accept: application/json, */*" \
+                -H "Authorization: Bearer ${bootstrap_token//\"/}" \
+                --cacert "$cacert" \
+                "${apiserver_url}/version?timeout=${RETRY_TIMEOUT_SECONDS}s"
+
+            echo "proceeding to start kubelet..."
             exit 0
         fi
 
@@ -91,6 +100,7 @@ function validateBootstrapKubeconfig {
         retry_count=$(( $retry_count + 1 ))
         if [ $retry_count -eq $MAX_RETRIES ]; then
             echo "unable to validate bootstrap credentials after $retry_count attempts"
+            echo "proceeding to start kubleet..."
             exit 0
         fi
 
