@@ -152,10 +152,15 @@ Describe 'cse_install.sh'
             touch "$k8s_tgz_tmp"
         }
 
+        logs_to_events() {
+            echo "mock logging $1 $2"
+        }
+
         export -f cleanup
         export -f extractKubeBinariesToUsrLocalBin
         export -f retrycmd_get_tarball_from_registry_with_oras
         export -f retrycmd_get_tarball
+        export -f logs_to_events
 
         AfterEach 'cleanup'
         It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
