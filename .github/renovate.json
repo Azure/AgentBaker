@@ -347,7 +347,6 @@
     {
       "matchPackageNames": [
         "windows/nanoserver",
-        "windows/servercore",
         "windows/servercore/iis",
         "oss/v2/kubernetes/windows-gmsa-webhook"
       ],
@@ -358,6 +357,37 @@
       "reviewers": [
         "timmy-wright"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "windows/servercore"
+      ],
+      "groupName": "servercore",
+      "assignees": [
+        "timmy-wright"
+      ],
+      "reviewers": [
+        "timmy-wright"
+      ],
+      "enabled": true
+    },
+    {
+      "matchPackageNames": [
+        "windows/servercore"
+      ],
+      "groupName": "servercore",
+      "assignees": [
+        "timmy-wright"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major",
+        "patch"
+      ],
+      "reviewers": [
+        "timmy-wright"
+      ],
+      "enabled": false
     },
     {
       "matchDatasources": [
