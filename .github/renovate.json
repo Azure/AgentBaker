@@ -53,25 +53,9 @@
       "reviewers": [
         "timmy-wright"
       ],
-      "enabled": true
-    },
-    {
-      "matchPackageNames": [
-        "windows/servercore"
-      ],
-      "groupName": "servercore",
-      "assignees": [
-        "timmy-wright"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "major",
-        "patch"
-      ],
-      "reviewers": [
-        "timmy-wright"
-      ],
-      "enabled": false
+      "enabled": true,
+      "versioning": "regex:^(\\d+\\.\\d+\\.\\d+\\.\\d+)$",
+      "matchCurrentVersion": "^\\d+\\.\\d+\\.\\d+\\.(\\d+)$"
     }
   ],
   "customManagers": [
