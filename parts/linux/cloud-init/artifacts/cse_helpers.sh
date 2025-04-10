@@ -806,14 +806,16 @@ resolve_packages_source_url() {
     local retries=5
     local wait_sleep=1
 
+    PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
     for i in $(seq 1 $retries); do
+      # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
       response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
       if [ ${response_code} -eq 200 ]; then
-        PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
-        echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL."
+        echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
         break
       else
         if [ $i -eq $retries ]; then
+          # If we can not establish connectivity to packages.aks.azure.com, fallback to old CDN URL
           PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
           echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
           break
