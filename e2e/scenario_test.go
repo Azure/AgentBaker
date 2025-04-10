@@ -1721,3 +1721,50 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 		},
 	})
 }
+
+func Test_Ubuntu2204_LocalDNS(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Tests that a new ubuntu 2204 node with localdns enabled can be properly bootstrapped",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				// Validate that corefile is generated, binary exists.
+				ValidateDirectoryContent(ctx, s, "/opt/azure/containers/localdns/binary", []string{"coredns"})
+				ValidateDirectoryContent(ctx, s, "/opt/azure/containers/localdns", []string{"localdns.corefile", "localdns.sh"})
+
+				// Validate that the systemd unit files exists.
+				ValidateDirectoryContent(ctx, s, "/etc/systemd/system/localdns.service.d", []string{"delegate.conf"})
+				ValidateDirectoryContent(ctx, s, "/etc/systemd/system", []string{"localdns.service", "localdns.slice"})
+
+				// Validate the content of localdns slice file.
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/localdns.slice", "MemoryMax=")
+				ValidateFileHasContent(ctx, s, "/etc/systemd/system/localdns.slice", "CPUQuota=")
+
+				// Validate that coredns pid file is created.
+				ValidateDirectoryContent(ctx, s, "/run", []string{"localdns.pid"})
+
+				// Validate localdns corefile content.
+				ValidateFileHasContent(ctx, s, "/opt/azure/containers/localdns/localdns.corefile", "bind 169.254.10.10 169.254.10.11")
+
+				// Validate the content of network dropin file.
+				ValidateFileHasContent(ctx, s, "/run/systemd/network/10-netplan-eth0.network.d/70-localdns.conf", "DNS=169.254.10.10")
+				ValidateFileHasContent(ctx, s, "/run/systemd/network/10-netplan-eth0.network.d/70-localdns.conf", "UseDNS=false")
+
+				// Validate that the node is pointed to localdns node listener IP.
+				ValidateFileHasContent(ctx, s, "/etc/resolv.conf", "nameserver 169.254.10.10")
+
+				// Validate that kubelet has not stopped.
+				ValidateKubeletHasNotStopped(ctx, s)
+
+				// Validate DNS resolution to external domain from the node is working.
+				ValidateDNSResolution(ctx, s, "bing.com")
+
+				// Validate that localdns systemd unit is running.
+				LocalDNSServiceCanRestartValidator(ctx, s, "localdns", 10)
+			},
+		},
+	})
+}

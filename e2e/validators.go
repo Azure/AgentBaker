@@ -495,3 +495,30 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	}
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }
+
+func LocalDNSServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
+	steps := []string{
+		"set -ex",
+		// Verify the service is active.
+		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+
+		// Restart the service.
+		fmt.Sprintf("sudo systemctl restart %s", serviceName),
+
+		// sleep for restartTimeoutInSeconds to give the service time to restart.
+		fmt.Sprintf("sleep %d", restartTimeoutInSeconds),
+
+		// print the status of the service and then verify it is active.
+		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart localdns service failed")
+}
+
+func ValidateDNSResolution(ctx context.Context, s *Scenario, testdomain string) {
+	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
+	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
+	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+}
