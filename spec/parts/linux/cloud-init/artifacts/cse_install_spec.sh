@@ -138,8 +138,6 @@ Describe 'cse_install.sh'
             echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
         }
 
-        Mock extractKubeBinariesToUsrLocalBin 'echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"'
-
         # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
         # The real download is tested in e2e test.
         retrycmd_get_tarball_from_registry_with_oras() {
@@ -153,6 +151,11 @@ Describe 'cse_install.sh'
             echo "mock retrycmd_get_tarball calling with $1 $2 $3 $4 $5"
             touch "$k8s_tgz_tmp"
         }
+
+        export -f cleanup
+        export -f extractKubeBinariesToUsrLocalBin
+        export -f retrycmd_get_tarball_from_registry_with_oras
+        export -f retrycmd_get_tarball
 
         AfterEach 'cleanup'
         It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
