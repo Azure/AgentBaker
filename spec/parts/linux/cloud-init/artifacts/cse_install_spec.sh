@@ -119,7 +119,6 @@ Describe 'cse_install.sh'
         End
     End
     Describe 'extractKubeBinaries'
-        double '' ''
         k8s_version="1.31.5"        
         is_private_url="false"
         k8s_downloads_dir="/opt/kubernetes/downloads"
