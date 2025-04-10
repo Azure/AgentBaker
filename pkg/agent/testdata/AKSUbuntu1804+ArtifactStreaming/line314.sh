@@ -97,7 +97,7 @@ function validateBootstrapKubeconfig {
         retry_count=$(( $retry_count + 1 ))
         if [ $retry_count -eq $MAX_RETRIES ]; then
             echo "unable to validate bootstrap credentials after $retry_count attempts"
-            echo "proceeding to start kubleet..."
+            echo "proceeding to start kubelet..."
             exit 0
         fi
 
