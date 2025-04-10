@@ -118,30 +118,6 @@ Describe 'cse_install.sh'
             The output line 2 should equal "true"
         End
     End
-    cleanup() {
-        #clean up $k8s_tgz_tmp if it exists
-        if [ -f "$k8s_tgz_tmp" ]; then
-            m -f "$k8s_tgz_tmp"
-        fi
-    }
-
-    # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
-    extractKubeBinariesToUsrLocalBin() {
-        echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
-    }
-    # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
-    # The real download is tested in e2e test.
-    retrycmd_get_tarball_from_registry_with_oras() {
-        echo "mock retrycmd_get_tarball_from_registry_with_oras calling with $1 $2 $3 $4"
-        # create a fake tarball
-        touch "$k8s_tgz_tmp"
-    }
-
-    # mock retrycmd_get_tarball as we don't really want to download the tarball
-    retrycmd_get_tarball() {
-        echo "mock retrycmd_get_tarball calling with $1 $2 $3 $4 $5"
-        touch "$k8s_tgz_tmp"
-    }
     Describe 'extractKubeBinaries'
         k8s_version="1.31.5"        
         is_private_url="false"
@@ -149,6 +125,32 @@ Describe 'cse_install.sh'
         ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
         CPU_ARCH="amd64"
         KUBE_BINARY_URL=""
+
+        cleanup() {
+            #clean up $k8s_tgz_tmp if it exists
+            if [ -f "$k8s_tgz_tmp" ]; then
+                m -f "$k8s_tgz_tmp"
+            fi
+        }
+
+        # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
+        extractKubeBinariesToUsrLocalBin() {
+            echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
+        }
+
+        # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
+        # The real download is tested in e2e test.
+        retrycmd_get_tarball_from_registry_with_oras() {
+            echo "mock retrycmd_get_tarball_from_registry_with_oras calling with $1 $2 $3 $4"
+            # create a fake tarball
+            touch "$k8s_tgz_tmp"
+        }
+
+        # mock retrycmd_get_tarball as we don't really want to download the tarball
+        retrycmd_get_tarball() {
+            echo "mock retrycmd_get_tarball calling with $1 $2 $3 $4 $5"
+            touch "$k8s_tgz_tmp"
+        }
 
         AfterEach 'cleanup'
         It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
