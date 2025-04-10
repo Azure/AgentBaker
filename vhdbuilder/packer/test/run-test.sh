@@ -74,7 +74,7 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" != "True" ]; then
+if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" != "True" ] && ! grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
