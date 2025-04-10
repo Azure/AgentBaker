@@ -56,7 +56,8 @@
       ],
       "enabled": true,
       "versioning": "regex:^(10\\.\\0\\.\\d+\\.\\d+)$",
-      "matchCurrentVersion": "^\\10\\.\\0\\.\\d+\\.(\\d+)$"
+      "matchCurrentVersion": "^\\10\\.\\(0)\\.\\(d+)\\.(\\d+)$",
+      "matchUpdateTypes": ["patch"]
     }
   ],
   "customManagers": [
