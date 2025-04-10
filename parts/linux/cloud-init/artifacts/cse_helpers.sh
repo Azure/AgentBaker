@@ -829,9 +829,9 @@ resolve_packages_source_url() {
 update_base_url() {
   initial_url=$1
   
-  if [ $PACKAGE_DOWNLOAD_BASE_URL == "packages.aks.azure.com" ] && [[ $initial_url == *"acs-mirror.azureedge.net"* ]]; then
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" == "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
-  elif [ $PACKAGE_DOWNLOAD_BASE_URL == "acs-mirror.azureedge.net" ] && [[ $initial_url == *"packages.aks.azure.com"* ]]; then
+  elif [ "$PACKAGE_DOWNLOAD_BASE_URL" == "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
   
