@@ -138,6 +138,8 @@ Describe 'cse_install.sh'
             echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
         }
 
+        Mock extractKubeBinariesToUsrLocalBin 'echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"'
+
         # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
         # The real download is tested in e2e test.
         retrycmd_get_tarball_from_registry_with_oras() {
