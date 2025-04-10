@@ -57,6 +57,8 @@ function validateBootstrapKubeconfig {
         exit 0
     fi
 
+    echo "will check credential validity against apiserver url: $apiserver_url"
+
     local retry_count=0
     while true; do
         code=$(curl -sL \
@@ -68,9 +70,17 @@ function validateBootstrapKubeconfig {
             --cacert "$cacert" \
             "${apiserver_url}/version?timeout=${RETRY_TIMEOUT_SECONDS}s")
 
+        curl_code=$?
+
         if [ $code -ge 200 ] && [ $code -lt 400 ]; then
             echo "(retry=$retry_count) received valid HTTP status code from apiserver: $code"
             break
+        fi
+
+        if [ $code -eq 000 ]; then
+            echo "(retry=$retry_count) curl response code is $code, curl exited with code: $curl_code"
+            echo "will exit now without validating bootstrap credential"
+            exit 0
         fi
 
         echo "(retry=$retry_count) received invalid HTTP status code from apiserver: $code"
