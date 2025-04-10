@@ -79,7 +79,7 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" != "True" ] && ! 
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
   fi
-  TARGET_COMMAND_STRING+="--security-type Standard"
+  TARGET_COMMAND_STRING+="--security-type TrustedLaunch"
 fi
 
 if [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
