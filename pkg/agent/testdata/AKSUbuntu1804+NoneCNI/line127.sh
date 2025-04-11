@@ -75,7 +75,7 @@ old_source_list=$(cat ${source_list_path})
 
 live_patching_repo_service=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}")
 private_ip_regex="^((10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|(172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})|(192\.168\.[0-9]{1,3}\.[0-9]{1,3}))$"
-if [[ -n "${live_patching_repo_service}" && ! "${live_patching_repo_service}" =~ $private_ip_regex ]]; then
+if [ -n "${live_patching_repo_service}" ] && [[ ! "${live_patching_repo_service}" =~ $private_ip_regex ]]; then
     echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
     live_patching_repo_service=""
 fi
