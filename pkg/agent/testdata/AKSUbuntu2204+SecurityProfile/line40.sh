@@ -495,12 +495,27 @@ installAzureCNI() {
     chown -R root:root $CNI_BIN_DIR
 }
 
+extractKubeBinariesToUsrLocalBin() {
+    local k8s_tgz_tmp=$1
+    local k8s_version=$2
+    local is_private_url=$3
+
+    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
+    if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
+        exit $ERR_K8S_INSTALL_ERR
+    fi
+    if [[ $is_private_url == false ]]; then
+        rm -f "${k8s_tgz_tmp}"
+    fi
+}
+
 extractKubeBinaries() {
     local k8s_version="$1"
     k8s_version="${k8s_version#v}"
     local kube_binary_url="$2"
     local is_private_url="$3"
-    local k8s_downloads_dir="$4"
+    local k8s_downloads_dir=${4:-"/opt/kubernetes/downloads"}
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
@@ -517,6 +532,7 @@ extractKubeBinaries() {
     else
         k8s_tgz_tmp="${k8s_downloads_dir}/${k8s_tgz_tmp_filename}"
         mkdir -p ${k8s_downloads_dir}
+        
         if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
@@ -526,21 +542,13 @@ extractKubeBinaries() {
             fi
         else
             retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
-            if [[ ! -f "${k8s_tgz_tmp}" ]]; then
+            if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
                 exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
     fi
 
-    tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
-    if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
-        exit $ERR_K8S_INSTALL_ERR
-    fi
-
-    if [[ $is_private_url == false ]]; then
-        rm -f "${k8s_tgz_tmp}"
-    fi
+    extractKubeBinariesToUsrLocalBin "${k8s_tgz_tmp}" "${k8s_version}" "${is_private_url}"
 }
 
 installKubeletKubectlAndKubeProxy() {
@@ -562,9 +570,10 @@ installKubeletKubectlAndKubeProxy() {
         if [[ "$install_default_if_missing" == true ]]; then
             if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
                 echo "Detect Bootstrap profile artifact is Cache, will use oras to pull artifact binary"
-                registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:v${KUBERNETES_VERSION}-linux-${CPU_ARCH}"
+                updateKubeBinaryRegistryURL
+                
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" 
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} $registry_url false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then

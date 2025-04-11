@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tidwall/gjson"
 	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/stretchr/testify/assert"
@@ -67,8 +68,33 @@ func ValidateNvidiaModProbeInstalled(ctx context.Context, s *Scenario) {
 		"set -ex",
 		"sudo nvidia-modprobe",
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "cound not execute nvidia-modprobe command")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "could not execute nvidia-modprobe command")
 }
+
+func ValidateNvidiaGRIDLicenseValid(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Capture the license status output, or continue silently if not found
+		"license_status=$(sudo nvidia-smi -q | grep 'License Status' | grep 'Licensed' || true)",
+		// If the output is empty, print an error message and exit with a nonzero code
+		"if [ -z \"$license_status\" ]; then echo 'License status not valid or not found'; exit 1; fi",
+		// Check that nvidia-gridd is active by capturing its is-active output
+		"active_status=$(sudo systemctl is-active nvidia-gridd)",
+		"if [ \"$active_status\" != \"active\" ]; then echo \"nvidia-gridd is not active: $active_status\"; exit 1; fi",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-smi license state or nvidia-gridd service status")
+}
+
+func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
+	command := []string{
+		"set -ex",
+		// Check that nvidia-persistenced.service is active by capturing its is-active output
+		"active_status=$(sudo systemctl is-active nvidia-persistenced.service)",
+		"if [ \"$active_status\" != \"active\" ]; then echo \"nvidia-gridd is not active: $active_status\"; exit 1; fi",
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
+}
+
 
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	command := []string{
@@ -142,6 +168,17 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 	}
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
+}
+func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"set -ex",
+		// Print the service status for logging purposes
+		fmt.Sprintf("systemctl -n 5 status %s || true", serviceName),
+		// Verify the service is active
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, 
+		fmt.Sprintf("service %s is not running", serviceName))
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
@@ -301,7 +338,7 @@ func ValidateContainerdWASMShims(ctx context.Context, s *Scenario) {
 
 func ValidateKubeletHasNotStopped(ctx context.Context, s *Scenario) {
 	command := "sudo journalctl -u kubelet"
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not retrieve kubelet logs with journalctl")
 	assert.NotContains(s.T, execResult.stdout.String(), "Stopped Kubelet")
 	assert.Contains(s.T, execResult.stdout.String(), "Started Kubelet")
 }
@@ -314,7 +351,7 @@ func ValidateServicesDoNotRestartKubelet(ctx context.Context, s *Scenario) {
 
 // ValidateKubeletHasFlags checks kubelet is started with the right flags and configs.
 func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not get kubelet logs")
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
 }

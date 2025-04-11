@@ -185,6 +185,11 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/validate-kubelet-credentials.sh",
+      "destination": "/home/packer/validate-kubelet-credentials.sh"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cse_redact_cloud_config.py",
       "destination": "/home/packer/cse_redact_cloud_config.py"
     },
@@ -557,6 +562,21 @@
       "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.sh",
+      "destination": "/home/packer/localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.service",
+      "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
+      "destination": "/home/packer/localdns-delegate.conf"
     },
     {
       "type": "shell",

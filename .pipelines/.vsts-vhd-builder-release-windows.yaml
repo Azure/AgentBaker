@@ -31,6 +31,14 @@ parameters:
     displayName: Build 23H2 Gen 2
     type: boolean
     default: True
+  - name: build2025
+    displayName: Build 2025
+    type: boolean
+    default: True
+  - name: build2025gen2
+    displayName: Build 2025 Gen 2
+    type: boolean
+    default: True
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -75,6 +83,8 @@ stages:
       build2022containerdgen2: ${{ parameters.build2022containerdgen2 }}
       build23H2: ${{ parameters.build23H2 }}
       build23H2gen2: ${{ parameters.build23H2gen2 }}
+      build2025:  ${{ parameters.build2025 }}
+      build2025gen2:  ${{ parameters.build2025gen2 }}
       skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}

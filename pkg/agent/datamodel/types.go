@@ -199,6 +199,8 @@ const (
 	AKSUbuntuEgressContainerd2204Gen2   Distro = "aks-ubuntu-egress-containerd-22.04-gen2"
 	AKSUbuntuContainerd2404             Distro = "aks-ubuntu-containerd-24.04"
 	AKSUbuntuContainerd2404Gen2         Distro = "aks-ubuntu-containerd-24.04-gen2"
+	AKSAzureLinuxV3CVMGen2              Distro = "aks-azurelinux-v3-cvm-gen2"
+	AKSUbuntuContainerd2404TLGen2       Distro = "aks-ubuntu-containerd-24.04-tl-gen2"
 
 	RHEL              Distro = "rhel"
 	CoreOS            Distro = "coreos"
@@ -218,6 +220,10 @@ const (
 	AKSWindows23H2 Distro = "aks-windows-23H2"
 	// AKSWindows23H2Gen2 stands for distro for windows 23H2 Gen 2 SIG image.
 	AKSWindows23H2Gen2 Distro = "aks-windows-23H2-gen2"
+	// AKSWindows2025 stands for distro for windows server 2025 SIG image.
+	AKSWindows2025 Distro = "aks-windows-2025"
+	// AKSWindows2025Gen2 stands for distro for windows server 2025 Gen 2 SIG image.
+	AKSWindows2025Gen2 Distro = "aks-windows-2025-gen2"
 	// AKSWindows2019PIR stands for distro of windows server 2019 PIR image with docker.
 	AKSWindows2019PIR        Distro = "aks-windows-2019-pir"
 	CustomizedImage          Distro = "CustomizedImage"
@@ -273,6 +279,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
 	AKSUbuntuContainerd2004CVMGen2,
+	AKSAzureLinuxV3CVMGen2,
 	AKSUbuntuArm64Containerd2204Gen2,
 	AKSUbuntuArm64Containerd2404Gen2,
 	AKSUbuntuContainerd2404CVMGen2,
@@ -285,6 +292,7 @@ var AKSDistrosAvailableOnVHD = []Distro{
 	AKSUbuntuMinimalContainerd2204Gen2,
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
+	AKSUbuntuContainerd2404TLGen2,
 }
 
 type CustomConfigurationComponent string
@@ -822,6 +830,7 @@ type AgentPoolProfile struct {
 	CustomKubeletConfig   *CustomKubeletConfig `json:"customKubeletConfig,omitempty"`
 	CustomLinuxOSConfig   *CustomLinuxOSConfig `json:"customLinuxOSConfig,omitempty"`
 	MessageOfTheDay       string               `json:"messageOfTheDay,omitempty"`
+	LocalDNSProfile       *LocalDNSProfile     `json:"localDNSProfile,omitempty"`
 	/* This is a new property and all old agent pools do no have this field. We need to keep the default
 	behavior to reboot Windows node when it is nil. */
 	NotRebootWindowsNode    *bool                    `json:"notRebootWindowsNode,omitempty"`
@@ -2308,3 +2317,116 @@ func (s *SecurityProfile) GetPrivateEgressContainerRegistryServer() string {
 }
 
 // SecurityProfile end.
+
+// ----------------------- Start of changes related to localdns ------------------------------------------.
+// localdns related constants.
+const (
+	// LocalDNSNodeListenerIP sepcifies nodelistener APIPA-IP used in localdns.
+	LocalDNSNodeListenerIP string = "169.254.10.10"
+	// LocalDNSClusterListenerIP sepcifies clusterlistener APIPA-IP used in localdns.
+	LocalDNSClusterListenerIP string = "169.254.10.11"
+	// DefaultLocalDNSServiceIP sepcifies the default coredns service IP.
+	DefaultCoreDNSServiceIP string = "10.0.0.10"
+	// AzureDNSIP is the default Azure DNS IP used in localdns.
+	AzureDNSIP string = "168.63.129.16"
+	// DefaultLocalDNSCPULimitInPercentage sepcifies the default CPU limit used in akslocaldns.
+	DefaultLocalDNSCPULimitInPercentage string = "200.0%"
+	// DefaultLocalDNSMemoryLimitInMB sepcifies the default Memory limit used in akslocaldns.
+	DefaultLocalDNSMemoryLimitInMB string = "128M"
+)
+
+// LocalDNSProfile represents localdns configuration for agentpool nodes.
+type LocalDNSProfile struct {
+	EnableLocalDNS       bool                          `json:"enableLocalDNS,omitempty"`
+	CPULimitInMilliCores *int32                        `json:"cpuLimitInMilliCores,omitempty"`
+	MemoryLimitInMB      *int32                        `json:"memoryLimitInMB,omitempty"`
+	VnetDNSOverrides     map[string]*LocalDNSOverrides `json:"vnetDNSOverrides,omitempty"`
+	KubeDNSOverrides     map[string]*LocalDNSOverrides `json:"kubeDNSOverrides,omitempty"`
+}
+
+type LocalDNSCoreFileData struct {
+	LocalDNSProfile
+	NodeListenerIP    string
+	ClusterListenerIP string
+	CoreDNSServiceIP  string
+	AzureDNSIP        string
+}
+
+// LocalDNSOverrides represents DNS override settings for both VnetDNS and KubeDNS traffic.
+// VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+// KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+type LocalDNSOverrides struct {
+	QueryLogging                string `json:"queryLogging,omitempty"`
+	Protocol                    string `json:"protocol,omitempty"`
+	ForwardDestination          string `json:"forwardDestination,omitempty"`
+	ForwardPolicy               string `json:"forwardPolicy,omitempty"`
+	MaxConcurrent               *int32 `json:"maxConcurrent,omitempty"`
+	CacheDurationInSeconds      *int32 `json:"cacheDurationInSeconds,omitempty"`
+	ServeStaleDurationInSeconds *int32 `json:"serveStaleDurationInSeconds,omitempty"`
+	ServeStale                  string `json:"serveStale,omitempty"`
+}
+
+// ShouldEnableLocalDNS returns true if AgentPoolProfile, LocalDNSProfile is not nil and
+// EnableLocaDNS for the Agentpool is true. EnableLocaDNS boolean value is sent by AKS RP.
+// This will tell if localdns should be enabled for the agent pool or not.
+// If this function returns true only then we generate localdns systemd unit and corefile.
+func (a *AgentPoolProfile) ShouldEnableLocalDNS() bool {
+	return a != nil && a.LocalDNSProfile != nil && a.LocalDNSProfile.EnableLocalDNS
+}
+
+// GetLocalDNSNodeListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSNodeListenerIP() string {
+	return LocalDNSNodeListenerIP
+}
+
+// GetLocalDNSClusterListenerIP returns APIPA-IP address that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSClusterListenerIP() string {
+	return LocalDNSClusterListenerIP
+}
+
+// GetAzureDNSIP returns 168.63.129.16 address.
+func (a *AgentPoolProfile) GetAzureDNSIP() string {
+	return AzureDNSIP
+}
+
+// GetLocalDNSCPULimitInPercentage returns CPU limit in percentage unit that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSCPULimitInPercentage() string {
+	if a.LocalDNSProfile != nil && a.LocalDNSProfile.CPULimitInMilliCores != nil {
+		// Convert milli-cores to percentage and return as formatted string.
+		return fmt.Sprintf("%.1f%%", float64(*a.LocalDNSProfile.CPULimitInMilliCores)/10.0)
+	}
+	return DefaultLocalDNSCPULimitInPercentage
+}
+
+// GetLocalDNSMemoryLimitInMB returns memory limit in MB that will be used in localdns systemd unit.
+func (a *AgentPoolProfile) GetLocalDNSMemoryLimitInMB() string {
+	if a.LocalDNSProfile != nil && a.LocalDNSProfile.MemoryLimitInMB != nil {
+		// Return memory limit as a string with "M" suffix.
+		return fmt.Sprintf("%dM", *a.LocalDNSProfile.MemoryLimitInMB)
+	}
+	return DefaultLocalDNSMemoryLimitInMB
+}
+
+func (a *AgentPoolProfile) GetCoreDNSServiceIP() string {
+	if a.KubernetesConfig != nil && a.KubernetesConfig.DNSServiceIP != "" {
+		return a.KubernetesConfig.DNSServiceIP
+	}
+	return DefaultCoreDNSServiceIP
+}
+
+// GetLocalDNSCoreFileData returns the object that will be used to generate localdns corefile.
+func (a *AgentPoolProfile) GetLocalDNSCoreFileData() LocalDNSCoreFileData {
+	if a.ShouldEnableLocalDNS() {
+		localDNSCoreFileData := LocalDNSCoreFileData{
+			LocalDNSProfile:   *a.LocalDNSProfile,
+			NodeListenerIP:    a.GetLocalDNSNodeListenerIP(),
+			ClusterListenerIP: a.GetLocalDNSClusterListenerIP(),
+			CoreDNSServiceIP:  a.GetCoreDNSServiceIP(),
+			AzureDNSIP:        a.GetAzureDNSIP(),
+		}
+		return localDNSCoreFileData
+	}
+	return LocalDNSCoreFileData{}
+}
+
+// ----------------------- End of changes related to localdns ------------------------------------------.

@@ -28,6 +28,8 @@ pr:
       - vhdbuilder/packer/windows/
       - parts/common/components.json
       - parts/windows
+      - go.mod
+      - go.sum
     exclude:
       - vhdbuilder/release-notes
       - /**/*.md
@@ -56,7 +58,10 @@ stages:
       build2019containerd: True
       build2022containerd: False
       build2022containerdgen2: True
+      skipExtensionCheck: true
       build23H2: False
       build23H2gen2: True
       overrideBranch: master
       useOverrides: False
+      build2025: False
+      build2025gen2: True

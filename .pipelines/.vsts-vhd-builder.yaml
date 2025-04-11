@@ -19,6 +19,8 @@ pr:
     - packer.mk
     - aks-node-controller/**
     - parts/common/components.json
+    - go.mod
+    - go.sum
     exclude:
     - schemas/windows_settings.cue
     - vhdbuilder/release-notes
@@ -38,7 +40,7 @@ variables:
   - group: aks-vuln-to-kusto
   - group: "AKS Node SIG UA Token (KV)"
   - group: build_performance
-
+  - group: aks-vuln-to-kusto-tme
 stages:
   - stage: build
     jobs:
@@ -110,6 +112,29 @@ stages:
         - template: ./templates/.builder-release-template.yaml
           parameters:
             artifactName: azurelinuxv3-gen2
+    - job: buildAzureLinuxV3ARM64gen2fips
+      timeoutInMinutes: 180
+      steps:
+        - bash: |
+            echo '##vso[task.setvariable variable=OS_SKU]AzureLinux'
+            echo '##vso[task.setvariable variable=OS_VERSION]V3'
+            echo '##vso[task.setvariable variable=IMG_PUBLISHER]MicrosoftCBLMariner'
+            echo '##vso[task.setvariable variable=IMG_OFFER]azure-linux-3'
+            echo '##vso[task.setvariable variable=IMG_SKU]azure-linux-3-arm64-gen2-fips'
+            echo '##vso[task.setvariable variable=IMG_VERSION]latest'
+            echo '##vso[task.setvariable variable=HYPERV_GENERATION]V2'
+            echo '##vso[task.setvariable variable=AZURE_VM_SIZE]Standard_D16pds_v5'
+            echo '##vso[task.setvariable variable=FEATURE_FLAGS]None'
+            echo '##vso[task.setvariable variable=CONTAINER_RUNTIME]containerd'
+            echo '##vso[task.setvariable variable=ARCHITECTURE]ARM64'
+            echo '##vso[task.setvariable variable=ENABLE_FIPS]True'
+            echo '##vso[task.setvariable variable=ENABLE_TRUSTED_LAUNCH]False'
+            echo '##vso[task.setvariable variable=SGX_INSTALL]False'
+            echo '##vso[task.setvariable variable=ENABLE_CGROUPV2]True'
+          displayName: Setup Build Variables
+        - template: ./templates/.builder-release-template.yaml
+          parameters:
+            artifactName: azurelinuxv3-gen2-arm64-fips
     - job: buildMarinerV2gen2
       timeoutInMinutes: 180
       steps:

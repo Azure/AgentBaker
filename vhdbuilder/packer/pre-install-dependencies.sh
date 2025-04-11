@@ -45,29 +45,30 @@ else
     echo -e "\n*.*;mail.none;news.none            -/var/log/messages" >> ${RSYSLOG_CONFIG_FILEPATH}
 fi
 systemctl daemon-reload
-systemctlEnableAndStart systemd-journald || exit 1
-systemctlEnableAndStart rsyslog || exit 1
+systemctlEnableAndStart systemd-journald 30 || exit 1
+systemctlEnableAndStart rsyslog 30 || exit 1
 
-systemctlEnableAndStart disk_queue || exit 1
+systemctlEnableAndStart disk_queue 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_copy_packer_files_and_enable_logging"
 
+# This path is used by the Custom CA Trust feature only
 mkdir /opt/certs
-chmod 1666 /opt/certs
-systemctlEnableAndStart update_certs.path || exit 1
+chmod 1755 /opt/certs
+systemctlEnableAndStart update_certs.path 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_make_certs_directory_and_update_certs"
 
-systemctlEnableAndStart ci-syslog-watcher.path || exit 1
-systemctlEnableAndStart ci-syslog-watcher.service || exit 1
+systemctlEnableAndStart ci-syslog-watcher.path 30 || exit 1
+systemctlEnableAndStart ci-syslog-watcher.service 30 || exit 1
 
 # enable AKS log collector
 echo -e "\n# Disable WALA log collection because AKS Log Collector is installed.\nLogs.Collect=n" >> /etc/waagent.conf || exit 1
-systemctlEnableAndStart aks-log-collector.timer || exit 1
+systemctlEnableAndStart aks-log-collector.timer 30 || exit 1
 
 # enable the modified logrotate service and remove the auto-generated default logrotate cron job if present
-systemctlEnableAndStart logrotate.timer || exit 1
+systemctlEnableAndStart logrotate.timer 30 || exit 1
 rm -f /etc/cron.daily/logrotate
 
-systemctlEnableAndStart sync-container-logs.service || exit 1
+systemctlEnableAndStart sync-container-logs.service 30 || exit 1
 capture_benchmark "${SCRIPT_NAME}_enable_and_configure_logging_services"
 
 # enable aks-node-controller.service
