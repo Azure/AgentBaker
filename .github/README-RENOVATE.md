@@ -364,7 +364,7 @@ As of 01/23/2025,
 - All the container images are onboarded to Renovate for auto-update.
 - PMC hosted packages, namely `runc` and `containerd`, are configured as auto-merge patch version.
 - OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries`, `azure-acr-credential-provider` and `containerd-wasm-shims` are onboarded for auto-update.
-- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, etc., are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
+- For Linux, the cni-plugins, azure-cni, cri-tools binaries are hosted at packages.aks.azure.com and are not onboarded for auto-update yet. The team has been working on this. cri-tools package will soon be available, then cni-plugins and azure-cni.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.
 
