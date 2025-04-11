@@ -819,15 +819,4 @@ oras_login_with_kubelet_identity() {
     echo "successfully logged in to acr '$acr_url' with identity token"
 }
 
-LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
-shouldEnableLocaldns() {
-    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
-        echo "Localdns corefile either does not exist or is empty at ${LOCALDNS_CORE_FILE}"
-        return $ERR_LOCALDNS_COREFILE_NOTFOUND
-    else
-        echo "Localdns should be enabled."
-        return 0
-    fi
-}
-
 #HELPERSEOF
