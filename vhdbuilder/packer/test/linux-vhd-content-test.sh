@@ -162,6 +162,7 @@ testPackagesInstalled() {
       continue
     fi
 
+    resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
       if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
         echo "$test: skipping package ${name} verification as PACKAGE_DOWNLOAD_URL is empty"
@@ -275,7 +276,7 @@ testPackageInAzureChinaCloud() {
     return
   fi
 
-  mcURL="${downloadURL/https:\/\/acs-mirror.azureedge.net/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
+  mcURL="${downloadURL/https:\/\/packages.aks.azure.com/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
   echo "Validating: $mcURL"
   isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
   if [[ "$isExist" == "404" ]]; then
@@ -1296,6 +1297,29 @@ testCorednsBinaryExtractedAndCached() {
   return 0
 }
 
+testPackageDownloadURLFallbackLogic() {
+  local test="testPackageDownloadURLFallbackLogic"
+
+  echo "$test: Start"
+
+  resolve_packages_source_url
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "packages.aks.azure.com" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com"
+  fi
+  
+  # Block the IP on local vm to simulate cluster firewall blocking packages.aks.azure.com and retry test to see output
+  echo "127.0.0.1     packages.aks.azure.com" | sudo tee /etc/hosts > /dev/null
+
+  resolve_packages_source_url
+    if [ "$PACKAGE_DOWNLOAD_BASE_URL" != "acs-mirror.azureedge.net" ]; then
+    echo "PACKAGE_DOWNLOAD_BASE_URL was not set to acs-mirror.azureedge.net after failure to connect to packages.aks.azure.com"
+    err "$test: failed to set PACKAGE_DOWNLOAD_BASE_URL to acs-mirror.azureedge.net"
+  fi
+
+  echo "$test: Finish"
+}
+
 checkLocaldnsScriptsAndConfigs() {
   local test="checkLocaldnsScriptsAndConfigs"
   
@@ -1369,3 +1393,4 @@ testAKSNodeControllerService
 testLtsKernel $OS_VERSION $OS_SKU $ENABLE_FIPS
 testCorednsBinaryExtractedAndCached $OS_VERSION
 checkLocaldnsScriptsAndConfigs
+testPackageDownloadURLFallbackLogic
