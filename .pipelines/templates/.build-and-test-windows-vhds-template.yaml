@@ -150,9 +150,9 @@ stages:
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2025_v1
-      artifactName: 2025
+      artifactName: "2025"
       imageName: windows-2025
-      windowsSku: 2025
+      windowsSku: "2025"
       hyperVGeneration: V1
       architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}

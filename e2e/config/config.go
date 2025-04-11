@@ -37,11 +37,8 @@ type Configuration struct {
 	E2ELoggingDir                          string        `env:"LOGGING_DIR" envDefault:"scenario-logs"`
 	EnableAKSNodeControllerTest            bool          `env:"ENABLE_AKS_NODE_CONTROLLER_TEST"`
 	GalleryNameLinux                       string        `env:"GALLERY_NAME" envDefault:"PackerSigGalleryEastUS"`
-	GalleryNameWindows                     string        `env:"GALLERY_NAME_WINDOWS" envDefault:"AKSWindows"`
 	GalleryResourceGroupNameLinux          string        `env:"GALLERY_RESOURCE_GROUP" envDefault:"aksvhdtestbuildrg"`
-	GalleryResourceGroupNameWindows        string        `env:"GALLERY_RESOURCE_GROUP_WINDOWS" envDefault:"AKS-Windows"`
 	GallerySubscriptionIDLinux             string        `env:"GALLERY_SUBSCRIPTION_ID" envDefault:"c4c3550e-a965-4993-a50c-628fd38cd3e1"`
-	GallerySubscriptionIDWindows           string        `env:"GALLERY_SUBSCRIPTION_ID_WINDOWS" envDefault:"4be8920b-2978-43d7-ab14-04d8549c1d05"`
 	IgnoreScenariosWithMissingVHD          bool          `env:"IGNORE_SCENARIOS_WITH_MISSING_VHD"`
 	KeepVMSS                               bool          `env:"KEEP_VMSS"`
 	Location                               string        `env:"E2E_LOCATION" envDefault:"westus3"`
