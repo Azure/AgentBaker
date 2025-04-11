@@ -82,6 +82,7 @@ cleanUpGPUDrivers() {
 }
 
 installCriCtlPackage() {
+    updateAptWithMicrosoftPkg
     version="${1:-}"
     packageName="kubernetes-cri-tools=${version}"
     if [[ -z $version ]]; then
