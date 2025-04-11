@@ -58,6 +58,7 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
+updateAptWithMicrosoftPkg
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
