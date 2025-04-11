@@ -145,7 +145,7 @@ if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDI
   echo "ERROR: Could not create temporary working directory."
   exit 1
 fi
-cd $WORKDIR || { echo "Failed to change directory to $WORKDIR. Exiting." || exit 1
+cd $WORKDIR || { echo "Failed to change directory to $WORKDIR. Exiting."; exit 1; }
 echo "Created temporary directory: $WORKDIR"
 
 # Function to clean up the output directory and log termination
@@ -176,7 +176,7 @@ trap "cleanup" EXIT
 function collectToZip {
   command -v "${2}" >/dev/null || { printf "%s not found, skipping.\n" "${2}"; return; }
   mkfifo "${1}"
-  ${@:2} >"${1}" 2>&1 &
+  "${@:2}" >"${1}" 2>&1 &
   zip -gumDZ deflate --fifo "${ZIP}" "${1}"
 }
 
