@@ -892,4 +892,25 @@ setKubeletNodeIPFlag() {
     fi
 }
 
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
+enableLocalDNS() {
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "localdns should not be enabled."
+        return 0
+    fi
+
+    echo "localdns should be enabled."
+
+    systemctlEnableAndStart localdns 30
+    local enable_localdns_result=$?
+
+    if [ "$enable_localdns_result" -ne 0 ]; then
+        echo "Enable localdns failed due to error ${enable_localdns_result}."
+        return "$enable_localdns_result"
+    fi
+
+    echo "Enable localdns succeeded."
+    return 0
+}
+
 #EOF
