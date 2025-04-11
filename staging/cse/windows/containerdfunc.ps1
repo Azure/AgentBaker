@@ -145,7 +145,9 @@ function Install-Containerd {
   DownloadFileOverHttp -Url $ContainerdUrl -DestinationPath $tarfile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
   Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
   tar -xzf $tarfile -C $global:ContainerdInstallLocation
-
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to extract the '$tarfile' archive."
+  }
   mv -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
   Remove-Item -Path $tarfile -Force
   Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse

@@ -460,6 +460,9 @@ function Install-CredentialProvider {
         $credentialproviderbinaryPackage = "$tempDir\credentialprovider.tar.gz"
         DownloadFileOverHttp -Url $global:CredentialProviderURL -DestinationPath $credentialproviderbinaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CREDEDNTIAL_PROVIDER
         tar -xzf $credentialproviderbinaryPackage -C $tempDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract the '$credentialproviderbinaryPackage' archive."
+        }
         Create-Directory -FullPath $global:credentialProviderBinDir
         cp "$tempDir\azure-acr-credential-provider.exe" "$global:credentialProviderBinDir\acr-credential-provider.exe"
         # acr-credential-provider.exe cannot be found by kubelet through provider name before the fix https://github.com/kubernetes/kubernetes/pull/120291
@@ -487,6 +490,10 @@ function New-CsiProxyService {
     DownloadFileOverHttp -Url $CsiProxyPackageUrl -DestinationPath $binaryPackage -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CSI_PROXY_PACKAGE
 
     tar -xzf $binaryPackage -C $tempdir
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to extract the '$binaryPackage' archive."
+    }
+
     cp "$tempdir\bin\csi-proxy.exe" "$KubeDir\csi-proxy.exe"
 
     del $tempdir -Recurse
