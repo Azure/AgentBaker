@@ -412,7 +412,7 @@ if [ $VALIDATION_ERR -ne 0 ]; then
 fi
 
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-logs_to_events "AKS.CSE.enableLocaldns" enableLocalDNS
+logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
