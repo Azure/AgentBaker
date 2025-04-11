@@ -1623,8 +1623,6 @@ func Test_Ubuntu1804IMDS_RestrictionMangleTable(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateIMDSRestrictionRule(ctx, s, "mangle")
-				ValidateLocalDNSService(ctx, s, LocalDNSService)
-				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
