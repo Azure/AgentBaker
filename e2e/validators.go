@@ -496,20 +496,10 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
 }
 
-func LocalDNSServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
+func ValidateLocalDNSService(ctx context.Context, s *Scenario, serviceName string) {
 	steps := []string{
 		"set -ex",
-		// Verify the service is active.
-		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
-		fmt.Sprintf("systemctl is-active %s", serviceName),
-
-		// Restart the service.
-		fmt.Sprintf("sudo systemctl restart %s", serviceName),
-
-		// sleep for restartTimeoutInSeconds to give the service time to restart.
-		fmt.Sprintf("sleep %d", restartTimeoutInSeconds),
-
-		// print the status of the service and then verify it is active.
+		// Verify the localdns service is running and active.
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 	}
