@@ -15,6 +15,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
 )
 
+const LocalDNSService string = "localdns"
+const DNSTestDomain string = "bing.com"
+
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
 	RunScenario(t, &Scenario{
 		Description: "Tests that a node using a AzureLinuxV2 (CgroupV2) VHD can be properly bootstrapped",
@@ -35,6 +38,8 @@ func Test_AzureLinuxV2_AirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -53,6 +58,10 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -104,6 +113,8 @@ func Test_AzureLinuxV2_ARM64AirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -118,6 +129,10 @@ func Test_AzureLinuxV2_AzureCNI(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -135,6 +150,8 @@ func Test_AzureLinuxV2_ChronyRestarts(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -175,6 +192,8 @@ func Test_AzureLinuxV2_CustomSysctls(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -200,6 +219,8 @@ func Test_AzureLinuxV2_GPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -226,6 +247,8 @@ func Test_AzureLinuxV2_GPUAzureCNI(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -272,6 +295,8 @@ func Test_AzureLinuxV2_WASM(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -287,6 +312,8 @@ func Test_MarinerV2(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -312,6 +339,8 @@ func Test_MarinerV2_AirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -330,6 +359,10 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -362,6 +395,8 @@ func Test_MarinerV2_ARM64AirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -382,6 +417,8 @@ func Test_MarinerV2_AzureCNI_ChronyRestarts(t *testing.T) {
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "Restart=always")
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -444,6 +481,8 @@ func Test_MarinerV2_CustomSysctls(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -468,6 +507,8 @@ func Test_MarinerV2_GPU(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -494,6 +535,8 @@ func Test_MarinerV2_GPUAzureCNI(t *testing.T) {
 				vmss.SKU.Name = to.Ptr("Standard_NC6s_v3")
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -513,6 +556,8 @@ func Test_MarinerV2_WASM(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -670,6 +715,8 @@ func Test_Ubuntu2204(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
 				ValidateInstalledPackageVersion(ctx, s, "moby-runc", getExpectedPackageVersions("runc", "ubuntu", "r2204")[0])
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -695,6 +742,8 @@ func Test_Ubuntu2204_AirGap(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -732,6 +781,8 @@ func Test_Ubuntu2204_AirGap_NonAnonymousACR(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -759,6 +810,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
 					config.PrivateACRName,
 					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
@@ -782,6 +834,10 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
+			},
 		},
 	})
 }
@@ -802,6 +858,8 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
 				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -845,6 +903,8 @@ func Test_Ubuntu2204_ChronyRestarts_Taints_And_Tolerations(t *testing.T) {
 				ValidateFileHasContent(ctx, s, "/etc/systemd/system/chronyd.service.d/10-chrony-restarts.conf", "RestartSec=5")
 				ServiceCanRestartValidator(ctx, s, "chronyd", 10)
 				ValidateTaints(ctx, s, s.Runtime.NBC.KubeletConfig["--register-with-taints"])
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -887,6 +947,8 @@ func Test_AzureLinuxV2_CustomCATrust(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/share/pki/ca-trust-source/anchors")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -907,6 +969,8 @@ func Test_Ubuntu2204_CustomCATrust(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/usr/local/share/ca-certificates/certs")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -966,6 +1030,8 @@ func Test_Ubuntu2204_CustomSysctls(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateUlimitSettings(ctx, s, customContainerdUlimits)
 				ValidateSysctlConfig(ctx, s, customSysctls)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1050,6 +1116,8 @@ func runScenarioUbuntu2204GPU(t *testing.T, vmSize string) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1080,6 +1148,8 @@ func runScenarioUbuntuGRID(t *testing.T, vmSize string) {
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateServicesDoNotRestartKubelet(ctx, s)
 				ValidateNvidiaPersistencedRunning(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1136,6 +1206,8 @@ func Test_Ubuntu2204_GPUGridDriver(t *testing.T) {
 				ValidateNvidiaModProbeInstalled(ctx, s)
 				ValidateKubeletHasNotStopped(ctx, s)
 				ValidateNvidiaSMIInstalled(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1165,6 +1237,8 @@ func Test_Ubuntu2204_GPUNoDriver(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1210,6 +1284,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 		},
 	})
@@ -1234,6 +1309,8 @@ func Test_Ubuntu2204_ContainerdURL_IMDSRestrictionFilterTable(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "containerd", "1.6.9")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1274,6 +1351,8 @@ func Test_Ubuntu2204_ContainerdHasCurrentVersion(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "ubuntu", "r2204")[0])
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1290,6 +1369,8 @@ func Test_Ubuntu2204_WASM(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1310,6 +1391,8 @@ func Test_AzureLinux_Skip_Binary_Cleanup(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateMultipleKubeProxyVersionsExist(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1343,6 +1426,8 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags(t *testing
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1384,6 +1469,8 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1447,6 +1534,8 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "--rotate-server-certificates=true")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1483,6 +1572,8 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_AlreadyDis
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubelet", "kubernetes.azure.com/kubelet-serving-ca=cluster")
 				ValidateFileExcludesContent(ctx, s, "/etc/default/kubeletconfig.json", "\"serverTLSBootstrap\": true")
 				ValidateDirectoryContent(ctx, s, "/etc/kubernetes/certs", []string{"kubeletserver.crt", "kubeletserver.key"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1511,6 +1602,8 @@ func Test_Ubuntu2204_WASMAirGap(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateContainerdWASMShims(ctx, s)
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1530,6 +1623,8 @@ func Test_Ubuntu1804IMDS_RestrictionMangleTable(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateIMDSRestrictionRule(ctx, s, "mangle")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1547,6 +1642,8 @@ func Test_Ubuntu2204_MessageOfTheDay(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/update-motd.d/99-aks-custom-motd", "cat /etc/motd")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1564,6 +1661,8 @@ func Test_AzureLinuxV2_MessageOfTheDay(t *testing.T) {
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateFileHasContent(ctx, s, "/etc/motd", "foobar")
 				ValidateFileHasContent(ctx, s, "/etc/dnf/automatic.conf", "emit_via = stdio")
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1611,6 +1710,8 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1639,6 +1740,8 @@ func Test_AzureLinuxV2_KubeletCustomConfig(t *testing.T) {
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
 				ValidateInstalledPackageVersion(ctx, s, "moby-containerd", getExpectedPackageVersions("containerd", "mariner", "current")[0])
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1696,6 +1799,8 @@ func Test_Ubuntu2204ARM64_KubeletCustomConfig(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1715,6 +1820,8 @@ func Test_Ubuntu2404Gen2(t *testing.T) {
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
 				ValidateContainerRuntimePlugins(ctx, s)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1749,6 +1856,8 @@ func Test_Ubuntu2404Gen2_GPUNoDriver(t *testing.T) {
 				ValidateNvidiaSMINotInstalled(ctx, s)
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1767,6 +1876,8 @@ func Test_Ubuntu2404Gen1(t *testing.T) {
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -1788,6 +1899,8 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateLocalDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})

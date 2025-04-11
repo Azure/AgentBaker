@@ -95,7 +95,6 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
 }
 
-
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	command := []string{
 		"set -ex",
@@ -177,7 +176,7 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 		// Verify the service is active
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, 
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("service %s is not running", serviceName))
 }
 
@@ -530,4 +529,24 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 		}
 	}
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
+}
+
+// ValidateLocalDNSService checks if the localdns service is running and active.
+func ValidateLocalDNSService(ctx context.Context, s *Scenario, serviceName string) {
+	steps := []string{
+		"set -ex",
+		// Verify the localdns service is running and active.
+		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart localdns service failed")
+}
+
+// ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
+// It uses the 'dig' command to check the DNS resolution and expects a successful response.
+func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, testdomain string) {
+	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
+	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
+	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
 }
