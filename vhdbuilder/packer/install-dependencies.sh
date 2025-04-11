@@ -58,11 +58,11 @@ APT::Periodic::Unattended-Upgrade "0";
 EOF
 fi
 
-updateAptWithMicrosoftPkg
 # If the IMG_SKU does not contain "minimal", installDeps normally
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
+  updateAptWithMicrosoftPkg
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
   BLOBFUSE2_VERSION="2.4.1"
