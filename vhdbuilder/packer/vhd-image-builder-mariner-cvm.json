@@ -561,26 +561,6 @@
     },
     {
       "type": "file",
-      "source": "kata-containers-igvm-debug.img",
-      "destination": "/home/packer/kata-containers-igvm-debug.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-igvm.img",
-      "destination": "/home/packer/kata-containers-igvm.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-initrd-base.img",
-      "destination": "/home/packer/kata-containers-initrd-base.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers.img",
-      "destination": "/home/packer/kata-containers.img"
-    },
-    {
-      "type": "file",
       "source": "reference-info-base64",
       "destination": "/home/packer/reference-info-base64"
     },
