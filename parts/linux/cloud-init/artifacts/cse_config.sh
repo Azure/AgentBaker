@@ -933,32 +933,36 @@ setKubeletNodeIPFlag() {
     fi
 }
 
+# localdns corefile is created only when localdns profile has state enabled.
+# This should match with 'path' defined in parts/linux/cloud-init/nodecustomdata.yml.
+LOCALDNS_CORE_FILE="/opt/azure/containers/localdns/localdns.corefile"
+
 SYSTEMCTL_ENABLE_LOCALDNS_CMD="systemctlEnableAndStart localdns 30"
 # This function is called from cse_main.sh.
-# It first checks if localdns should be enabled by calling shouldEnableLocalDNS defined in cse_helper.sh.
+# It first checks if localdns should be enabled by checking for existence of corefile.
 # It returns 0 if localdns is enabled successfully or if it should not be enabled.
 # It also returns a non-zero value if localdns should be enabled but there was a failure in enabling it.
 enableLocalDNS() {
-    # Check if localdns should be enabled.
-    shouldEnableLocalDNS
-    local should_enable_result=$?
-
-    # If yes, then attempt to enable localdns.
-    if [ "$should_enable_result" -eq 0 ]; then
-        eval "$SYSTEMCTL_ENABLE_LOCALDNS_CMD"
-        local enable_localdns_result=$?
-
-        if [ "$enable_localdns_result" -ne 0 ]; then
-            echo "Enable localdns failed due to error ${enable_localdns_result}."
-            return "$enable_localdns_result"
-        fi
-        # Enabling localdns succeeded.
-        echo "Enable localdns succeeded."
+    # Check if the localdns corefile exists and is not empty.
+    # If the corefile exists and is not empty, localdns should be enabled.
+    # If the corefile does not exist or is empty, localdns should not be enabled.
+    if [ ! -f "${LOCALDNS_CORE_FILE}" ] || [ ! -s "${LOCALDNS_CORE_FILE}" ]; then
+        echo "localdns should not be enabled."
         return 0
     fi
 
-    # If no, then do not enable localdns.
-    echo "localdns should not be enabled."
+    # If the corefile exists and is not empty, attempt to enable localdns.
+    echo "localdns should be enabled."
+    eval "$SYSTEMCTL_ENABLE_LOCALDNS_CMD"
+    local enable_localdns_result=$?
+
+    if [ "$enable_localdns_result" -ne 0 ]; then
+        echo "Enable localdns failed due to error ${enable_localdns_result}."
+        return "$enable_localdns_result"
+    fi
+    
+    # Enabling localdns succeeded.
+    echo "Enable localdns succeeded."
     return 0
 }
 
