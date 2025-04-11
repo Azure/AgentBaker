@@ -414,6 +414,9 @@ if [ $VALIDATION_ERR -ne 0 ]; then
     exit $VALIDATION_ERR
 fi
 
+# Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
+logs_to_events "AKS.CSE.enableLocaldns" enableLocalDNS
+
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
