@@ -2891,14 +2891,21 @@ func TestLocalDNSProfileMethods(t *testing.T) {
 			expectedData: AzureDNSIP,
 		},
 		{
-			name: "GetLocalDNSCPULimitInPercentage - CPU limit nil",
+			name: "GetLocalDNSCPULimitInPercentage - LocalDNSProfile nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: nil,
+			},
+			expectedData: DefaultLocalDNSCPULimitInPercentage,
+		},
+		{
+			name: "GetLocalDNSCPULimitInPercentage - CPUlimit nil",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{},
 			},
 			expectedData: DefaultLocalDNSCPULimitInPercentage,
 		},
 		{
-			name: "GetLocalDNSCPULimitInPercentage - CPU limit set",
+			name: "GetLocalDNSCPULimitInPercentage - CPUlimit set",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
 					CPULimitInMilliCores: to.Int32Ptr(1000),
@@ -2907,14 +2914,21 @@ func TestLocalDNSProfileMethods(t *testing.T) {
 			expectedData: "100.0%",
 		},
 		{
-			name: "GetLocalDNSMemoryLimitInMB - Memory limit nil",
+			name: "GetLocalDNSMemoryLimitInMB - LocalDNSProfile nil",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{},
 			},
 			expectedData: DefaultLocalDNSMemoryLimitInMB,
 		},
 		{
-			name: "GetLocalDNSMemoryLimitInMB - Memory limit set",
+			name: "GetLocalDNSMemoryLimitInMB - Memorylimit nil",
+			agentPoolProfile: &AgentPoolProfile{
+				LocalDNSProfile: &LocalDNSProfile{},
+			},
+			expectedData: DefaultLocalDNSMemoryLimitInMB,
+		},
+		{
+			name: "GetLocalDNSMemoryLimitInMB - Memorylimit set",
 			agentPoolProfile: &AgentPoolProfile{
 				LocalDNSProfile: &LocalDNSProfile{
 					MemoryLimitInMB: to.Int32Ptr(4096),
@@ -2953,13 +2967,17 @@ func TestLocalDNSProfileMethods(t *testing.T) {
 				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSClusterListenerIP())
 			case "GetAzureDNSIP":
 				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetAzureDNSIP())
-			case "GetLocalDNSCPULimitInPercentage - CPU limit set":
+			case "GetLocalDNSCPULimitInPercentage - LocalDNSProfile nil":
 				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
-			case "GetLocalDNSCPULimitInPercentage - CPU limit nil":
+			case "GetLocalDNSCPULimitInPercentage - CPUlimit set":
 				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
-			case "GetLocalDNSMemoryLimitInMB - Memory limit set":
+			case "GetLocalDNSCPULimitInPercentage - CPUlimit nil":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSCPULimitInPercentage())
+			case "GetLocalDNSMemoryLimitInMB - LocalDNSProfile nil":
 				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
-			case "GetLocalDNSMemoryLimitInMB - Memory limit nil":
+			case "GetLocalDNSMemoryLimitInMB - Memorylimit set":
+				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
+			case "GetLocalDNSMemoryLimitInMB - Memorylimit nil":
 				assert.Equal(t, tt.expectedData, tt.agentPoolProfile.GetLocalDNSMemoryLimitInMB())
 			}
 		})
