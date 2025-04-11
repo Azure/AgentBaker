@@ -662,7 +662,8 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStart kubelet 30 || exit $ERR_KUBELET_START_FAIL
+    # 4-minute timeout to give enough time to all of kubelet's ExecStartPre scripts before hitting their own respective timeouts
+    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
