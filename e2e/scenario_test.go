@@ -94,6 +94,10 @@ func Test_AzureLinuxV2_ARM64(t *testing.T) {
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateDNSResolution(ctx, s, DNSTestDomain)
+			},
 		},
 	})
 }
@@ -160,6 +164,10 @@ func Test_AzureLinuxV2_AzureCNI(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
 				nbc.AgentPoolProfile.KubernetesConfig.NetworkPlugin = string(armcontainerservice.NetworkPluginAzure)
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -382,6 +390,10 @@ func Test_MarinerV2_ARM64(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
@@ -841,6 +853,10 @@ func Test_Ubuntu2204ARM64(t *testing.T) {
 			},
 			VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 				vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			},
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateLocalDNSService(ctx, s, LocalDNSService)
+				ValidateDNSResolution(ctx, s, DNSTestDomain)
 			},
 		},
 	})
