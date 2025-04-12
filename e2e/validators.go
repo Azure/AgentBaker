@@ -95,7 +95,6 @@ func ValidateNvidiaPersistencedRunning(ctx context.Context, s *Scenario) {
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate nvidia-persistenced.service status")
 }
 
-
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) {
 	command := []string{
 		"set -ex",
@@ -169,6 +168,7 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
 }
+
 func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
 	command := []string{
 		"set -ex",
@@ -177,8 +177,24 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 		// Verify the service is active
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, 
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
 		fmt.Sprintf("service %s is not running", serviceName))
+}
+
+func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"set -ex",
+		// Print the service status for logging purposes
+		fmt.Sprintf("systemctl --no-pager -n 5 status %s || true", serviceName),
+		fmt.Sprintf("systemctl is-failed %s", serviceName),
+	}
+	require.NotEqual(
+		s.T,
+		"0",
+		execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n")).exitCode,
+		`expected "systemctl is-failed" to exit with a non-zero exit code for unit %q, unit is in a failed state`,
+		serviceName,
+	)
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
@@ -222,7 +238,13 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 	execResult := execScriptOnVMForScenario(ctx, s, cmd)
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
-	require.Equal(s.T, expectedExitCodeStr, execResult.exitCode, "exec command failed with exit code %q, expected exit code %s\nCommand: %s\nAdditional detail: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage, execResult.stdout, execResult.stderr)
+	require.Equal(
+		s.T,
+		expectedExitCodeStr,
+		execResult.exitCode,
+		"exec command failed with exit code %q, expected exit code %s\nCommand: %s\nAdditional detail: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s",
+		execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage, execResult.stdout, execResult.stderr,
+	)
 
 	return execResult
 }
