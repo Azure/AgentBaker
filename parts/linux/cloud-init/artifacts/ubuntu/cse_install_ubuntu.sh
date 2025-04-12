@@ -85,10 +85,10 @@ installCriCtlPackage() {
     packageName="kubernetes-cri-tools=${version}"
     if [[ -z $version ]]; then
         echo "No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
-        exit $ERR_CRICTL_INSTALL_TIMEOUT
+        exit 1
     fi
-    echo "Installing packageName with apt-get"
-    apt_get_install 20 30 120 packageName || exit $ERR_CRICTL_INSTALL_TIMEOUT
+    echo "Installing ${packageName} with apt-get"
+    apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
 installContainerd() {
