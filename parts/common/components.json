@@ -110,7 +110,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
-          "latestVersion": "v1.11.3-6"
+          "latestVersion": "v1.11.3-7"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/coredns",
@@ -1129,7 +1129,7 @@
                 "latestVersion": "1.6.2"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://packages.aks.azure.com/cni-plugins/v${version}/binaries/cni-plugins-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -1161,7 +1161,7 @@
                 "previousLatestVersion": "1.6.18"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
+            "downloadURL": "https://packages.aks.azure.com/azure-cni/v${version}/binaries/azure-vnet-cni-linux-${CPU_ARCH}-v${version}.tgz"
           }
         }
       }
@@ -1358,7 +1358,7 @@
                 "latestVersion": "0.15.1"
               }
             ],
-            "downloadURL": "https://acs-mirror.azureedge.net/spinkube/v${version}/linux/${CPU_ARCH}"
+            "downloadURL": "https://packages.aks.azure.com/spinkube/v${version}/linux/${CPU_ARCH}"
           }
         }
       }

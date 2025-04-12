@@ -143,6 +143,9 @@ downloadCredentialProvider() {
         CREDENTIAL_PROVIDER_DOWNLOAD_URL=$cred_provider_url
     fi
 
+    logs_to_events "AKS.CSE.logDownloadURL" "echo $CREDENTIAL_PROVIDER_DOWNLOAD_URL"
+    CREDENTIAL_PROVIDER_DOWNLOAD_URL=$(update_base_url $CREDENTIAL_PROVIDER_DOWNLOAD_URL)
+
     mkdir -p $CREDENTIAL_PROVIDER_DOWNLOAD_DIR
 
     BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:=}"
@@ -217,6 +220,8 @@ installContainerdWasmShims(){
             shims_to_download+=("wws")
         fi
         containerd_wasm_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        logs_to_events "AKS.CSE.logDownloadURL" "echo $containerd_wasm_url"
+        containerd_wasm_url=$(update_base_url $containerd_wasm_url)
         downloadContainerdWasmShims $download_location $containerd_wasm_url "$version" "${shims_to_download[@]}"
     done
     wait ${WASMSHIMPIDS[@]}
@@ -279,6 +284,8 @@ installSpinKube(){
 
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
+        logs_to_events "AKS.CSE.logDownloadURL" "echo $containerd_spinkube_url"
+        containerd_spinkube_url=$(update_base_url $containerd_spinkube_url)
         downloadSpinKube $download_location $containerd_spinkube_url "$version"
     done
     wait ${SPINKUBEPIDS[@]}
@@ -351,6 +358,10 @@ downloadAzureCNI() {
         echo "VNET_CNI_PLUGINS_URL is not set. Exiting..."
         return
     fi
+
+    logs_to_events "AKS.CSE.logDownloadURL" "echo $VNET_CNI_PLUGINS_URL"
+    VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
+
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
     retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
@@ -360,6 +371,8 @@ downloadCrictl() {
     downloadDir=${1:-${CRICTL_DOWNLOAD_DIR}}
     mkdir -p $downloadDir
     url=${2}
+    logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
+    url=$(update_base_url $url)
     crictlTgzTmp=${url##*/}
     retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
@@ -412,6 +425,8 @@ installTeleportdPlugin() {
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${TARGET_VERSION}; then
         echo "currently installed teleportd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${TARGET_VERSION}. skipping installTeleportdPlugin."
     else
+        logs_to_events "AKS.CSE.logDownloadURL" "echo $TELEPORTD_PLUGIN_DOWNLOAD_URL"
+        TELEPORTD_PLUGIN_DOWNLOAD_URL=$(update_base_url $TELEPORTD_PLUGIN_DOWNLOAD_URL)
         downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
         mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
         chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
@@ -433,7 +448,7 @@ setupCNIDirs() {
 installCNI() {
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://acs-mirror.azureedge.net/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
         tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
         return 
     fi
@@ -516,6 +531,9 @@ extractKubeBinaries() {
     local kube_binary_url="$2"
     local is_private_url="$3"
     local k8s_downloads_dir=${4:-"/opt/kubernetes/downloads"}
+
+    logs_to_events "AKS.CSE.logDownloadURL" "echo $kube_binary_url"
+    kube_binary_url=$(update_base_url $kube_binary_url)
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
