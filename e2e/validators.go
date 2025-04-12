@@ -532,19 +532,21 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 }
 
 // ValidateLocalDNSService checks if the localdns service is running and active.
-func ValidateLocalDNSService(ctx context.Context, s *Scenario, serviceName string) {
+func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
+	serviceName := "localdns"
 	steps := []string{
 		"set -ex",
 		// Verify the localdns service is running and active.
 		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
 		fmt.Sprintf("systemctl is-active %s", serviceName),
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart localdns service failed")
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "localdns service is not up and running")
 }
 
 // ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
 // It uses the 'dig' command to check the DNS resolution and expects a successful response.
-func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, testdomain string) {
+func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
+	testdomain := "bing.com"
 	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
