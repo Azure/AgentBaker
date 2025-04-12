@@ -132,11 +132,12 @@ Describe 'cse_install.sh'
                 rm -f "$k8s_tgz_tmp"
             fi
         }
-        
+
         # mock extractKubeBinariesToUsrLocalBin as we don't really want to extract the binaries
         extractKubeBinariesToUsrLocalBin() {
             echo "mock extractKubeBinariesToUsrLocalBin calling with $1 $2 $3 $4"
         }
+
         # Mock retrycmd_get_tarball_from_registry_with_oras as we don't really want to download the tarball
         # The real download is tested in e2e test.
         retrycmd_get_tarball_from_registry_with_oras() {
@@ -151,21 +152,31 @@ Describe 'cse_install.sh'
             touch "$k8s_tgz_tmp"
         }
 
+        logs_to_events() {
+            echo "mock logging $1 $2"
+        }
+
+        export -f cleanup
+        export -f extractKubeBinariesToUsrLocalBin
+        export -f retrycmd_get_tarball_from_registry_with_oras
+        export -f retrycmd_get_tarball
+        export -f logs_to_events
+
         AfterEach 'cleanup'
         It 'should use retrycmd_get_tarball_from_registry_with_oras to download kube binaries' 
             kube_binary_url="mcr.microsoft.com/oss/binaries/kubernetes/kubernetes-node:FakeTag"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be success
-            The output line 1 should include "detect kube_binary_url"
-            The output line 2 should include "mock retrycmd_get_tarball_from_registry_with_oras calling"
-            The output line 3 should include "mock extractKubeBinariesToUsrLocalBin calling"
+            The output line 2 should include "detect kube_binary_url"
+            The output line 3 should include "mock retrycmd_get_tarball_from_registry_with_oras calling"
+            The output line 4 should include "mock extractKubeBinariesToUsrLocalBin calling"
         End
         It 'should use retrycmd_get_tarball to download kube binaries'
             kube_binary_url="https://acs-mirror.azureedge.net/kubernetes/v1.31.5/binaries/Fakefile"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be success
-            The output line 1 should include "mock retrycmd_get_tarball calling"
-            The output line 2 should include "mock extractKubeBinariesToUsrLocalBin calling"
+            The output line 2 should include "mock retrycmd_get_tarball calling"
+            The output line 3 should include "mock extractKubeBinariesToUsrLocalBin calling"
         End
         It 'should use a pre-cached private kube binary if available (this is an unavailable case)'
             is_private_url="true"
@@ -173,7 +184,7 @@ Describe 'cse_install.sh'
             kube_binary_url="https://acs-mirror.azureedge.net/kubernetes/fake/binaries/kubernetes-node-linux-amd64.tar.gz"
             When call extractKubeBinaries $k8s_version $kube_binary_url $is_private_url $k8s_downloads_dir
             The status should be failure
-            The output line 1 should include "cached package /opt/kubernetes/downloads/private-packages/kubernetes-node-linux-amd64.tar.gz not found"
+            The output line 2 should include "cached package /opt/kubernetes/downloads/private-packages/kubernetes-node-linux-amd64.tar.gz not found"
         End
     End
 End
