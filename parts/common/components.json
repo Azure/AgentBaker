@@ -1167,12 +1167,46 @@
       }
     },
     {
-      "name": "cri-tools",
+      "name": "kubernetes-cri-tools",
       "downloadLocation": "/opt/crictl/downloads",
       "downloadURIs": {
         "windows": {
           "default": {
             "versionsV2": []
+          }
+        },
+        "ubuntu": {
+          "r1804": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=18.04",
+                "latestVersion": "1.32.0-ubuntu18.04u3"
+              }
+            ]
+          },
+          "r2004": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=20.04",
+                "latestVersion": "1.32.0-ubuntu20.04u3"
+              }
+            ]
+          },
+          "r2204": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=22.04",
+                "latestVersion": "1.32.0-ubuntu22.04u3"
+              }
+            ]
+          },
+          "r2404": {
+            "versionsV2": [
+              {
+                "renovateTag": "name=kubernetes-cri-tools, os=ubuntu, release=24.04",
+                "latestVersion": "1.32.0-ubuntu24.04u3"
+              }
+            ]
           }
         },
         "default": {
@@ -1182,8 +1216,7 @@
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "1.32.0"
               }
-            ],
-            "downloadURL": "https://packages.aks.azure.com/cri-tools/v${version}/binaries/crictl-v${version}-linux-${CPU_ARCH}.tar.gz"
+            ]
           }
         }
       }

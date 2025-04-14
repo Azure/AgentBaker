@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Ubuntu"
-
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
@@ -78,6 +76,17 @@ updateAptWithMicrosoftPkg() {
 
 cleanUpGPUDrivers() {
     rm -Rf $GPU_DEST /opt/gpu
+}
+
+installCriCtlPackage() {
+    version="${1:-}"
+    packageName="kubernetes-cri-tools=${version}"
+    if [[ -z $version ]]; then
+        echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+        exit 1
+    fi
+    echo "Installing ${packageName} with apt-get"
+    apt_get_install 20 30 120 ${packageName} || exit 1
 }
 
 installContainerd() {

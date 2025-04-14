@@ -243,6 +243,26 @@ downloadCNI() {
     retrycmd_get_tarball 120 5 "$downloadDir/${cniTgzTmp}" ${CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
+downloadAndInstallCriTools() {
+  downloadDir=${1}
+  evaluatedURL=${2}
+  version=${3}
+
+  # if downloadDir and evaluatedURL are not empty, download and install crictl by this override, which is the old way to install
+  if [ ! -z "${downloadDir}" ] && [ ! -z "${evaluatedURL}" ]; then
+    downloadCrictl "${downloadDir}" "${evaluatedURL}"
+    echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
+    # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
+    # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
+    CRICTL_VERSION=${version} 
+    KUBERNETES_VERSION=$CRICTL_VERSION installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    return 0
+  fi
+
+  # this will call installCriCtlPackage function defined in cse_install_<OS>.sh based on the OS
+  installCriCtlPackage "${version}"
+}
+
 echo "VHD will be built with containerd as the container runtime"
 updateAptWithMicrosoftPkg
 capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
@@ -276,15 +296,10 @@ while IFS= read -r p; do
   downloadDir=$(echo "${p}" | jq .downloadLocation -r)
   #download the package
   case $name in
-    "cri-tools")
+    "kubernetes-cri-tools")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCrictl "${downloadDir}" "${evaluatedURL}"
-        echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
-        # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
-        # since we only have 1 entry in CRICTL_VERSIONS, we simply set both to the same value
-        CRICTL_VERSION=${version} 
-        CRICTL_VERSIONS=${version}
+        downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"
       done
       ;;
     "azure-cni")
@@ -393,8 +408,6 @@ fi
 if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
-
-KUBERNETES_VERSION=$CRICTL_VERSIONS installCrictl || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
 
 # k8s will use images in the k8s.io namespaces - create it
 ctr namespace create k8s.io
