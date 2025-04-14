@@ -181,8 +181,11 @@ function Check-APIServerConnectivity {
         try
         {
             $tcpClient = New-Object Net.Sockets.TcpClient
+            $tcpClient.SendTimeout = $ConnectTimeout*1000
+            $tcpClient.ReceiveTimeout  = $ConnectTimeout*1000
+
             Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
-            $tcpClient.ConnectAsync($MasterIP, 443).Wait($ConnectTimeout*1000)
+            $tcpClient.Connect($MasterIP, 443)
             if ($tcpClient.Connected)
             {
                 $tcpClient.Close()
