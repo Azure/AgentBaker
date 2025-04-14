@@ -552,9 +552,9 @@ func getRequiredSecurityRules(clusterFQDN string) ([]*armnetwork.SecurityRule, e
 	// https://learn.microsoft.com/en-us/azure/aks/outbound-rules-control-egress#azure-global-required-fqdn--application-rules
 	// note that we explicitly exclude packages.microsoft.com
 	requiredDNSNames := []string{
+		"packages.aks.azure.com",
 		"management.azure.com",
 		clusterFQDN,
-		"packages.aks.azure.com",
 	}
 	var rules []*armnetwork.SecurityRule
 	var priority int32 = 100
