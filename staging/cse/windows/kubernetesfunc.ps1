@@ -178,30 +178,30 @@ function Check-APIServerConnectivity {
     $retryCount=0
 
     do {
+        $retryString="${retryCount}/${MaxRetryCount}"
         try
         {
             $tcpClient = New-Object Net.Sockets.TcpClient
             $tcpClient.SendTimeout = $ConnectTimeout*1000
             $tcpClient.ReceiveTimeout  = $ConnectTimeout*1000
 
-            Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
+            Write-Log "Retry ${retryString}: Trying to connect to API server $MasterIP"
             $tcpClient.Connect($MasterIP, 443)
             if ($tcpClient.Connected)
             {
                 $tcpClient.Close()
-                Write-Log "Retry $retryCount : Connected to API server successfully"
+                Write-Log "Retry ${retryString}: Connected to API server successfully"
                 return
             }
             $tcpClient.Close()
         } catch [System.AggregateException] {
-            $ExStr = $_.Exception.ToString()
-            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. AggregateException: ${ExStr}"
+            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
         } catch {
-            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
+            Write-Log "Retry ${retryString}: Failed to connect to API server $MasterIP. Error: $_"
         }
 
         $retryCount++
-        Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
+        Write-Log "Retry ${retryString}: Sleep $RetryInterval and then retry to connect to API server"
         Sleep $RetryInterval
     } while ($retryCount -lt $MaxRetryCount)
 
