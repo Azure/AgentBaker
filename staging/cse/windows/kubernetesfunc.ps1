@@ -178,19 +178,24 @@ function Check-APIServerConnectivity {
     $retryCount=0
 
     do {
-        try {
-            $tcpClient=New-Object Net.Sockets.TcpClient
+        try
+        {
+            $tcpClient = New-Object Net.Sockets.TcpClient
             Write-Log "Retry $retryCount : Trying to connect to API server $MasterIP"
-            $tcpClient.ConnectAsync($MasterIP, 443).wait($ConnectTimeout*1000)
-            if ($tcpClient.Connected) {
+            $tcpClient.ConnectAsync($MasterIP, 443).Wait($ConnectTimeout*1000)
+            if ($tcpClient.Connected)
+            {
                 $tcpClient.Close()
                 Write-Log "Retry $retryCount : Connected to API server successfully"
                 return
             }
             $tcpClient.Close()
+        } catch [System.AggregateException] {
+            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
         } catch {
             Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
         }
+
         $retryCount++
         Write-Log "Retry $retryCount : Sleep $RetryInterval and then retry to connect to API server"
         Sleep $RetryInterval
