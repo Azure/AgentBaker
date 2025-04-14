@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Mariner"
-
 removeContainerd() {
     containerdPackageName="containerd"
     if [[ $OS_VERSION == "2.0" ]]; then
@@ -18,6 +16,17 @@ installDeps() {
     # this in 2.0.
     if [[ $OS_VERSION == "2.0" ]]; then
       systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+
+    # Install the package repo for the specific OS version.
+    # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
+    # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
+    if [[ $OS_VERSION == "3.0" ]]; then
+      echo "Installing azurelinux-repos-cloud-native"
+      dnf_install 30 1 600 azurelinux-repos-cloud-native
+    else
+      echo "Installing mariner-repos-cloud-native"
+      dnf_install 30 1 600 mariner-repos-cloud-native
     fi
     
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
@@ -45,6 +54,16 @@ installKataDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi
+}
+
+installCriCtlPackage() {
+  version="${1:-}"
+  packageName="kubernetes-cri-tools-${version}"
+  if [[ -z $version ]]; then
+    echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+  fi
+  echo "Installing ${packageName} with dnf"
+  dnf_install 30 1 600 ${packageName} || exit 1
 }
 
 downloadGPUDrivers() {
