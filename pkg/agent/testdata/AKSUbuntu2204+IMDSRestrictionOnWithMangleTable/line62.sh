@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Ubuntu"
-
 removeMoby() {
     apt_get_purge 10 5 300 moby-engine moby-cli
 }
