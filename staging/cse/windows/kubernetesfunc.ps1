@@ -191,7 +191,8 @@ function Check-APIServerConnectivity {
             }
             $tcpClient.Close()
         } catch [System.AggregateException] {
-            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. AggregateException: " + $_.Exception.ToString()
+            $ExStr = $_.Exception.ToString()
+            Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. AggregateException: ${ExStr}"
         } catch {
             Write-Log "Retry $retryCount : Failed to connect to API server $MasterIP. Error: $_"
         }
