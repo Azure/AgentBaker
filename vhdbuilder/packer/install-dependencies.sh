@@ -249,7 +249,7 @@ downloadAndInstallCriTools() {
   version=${3}
 
   # if downloadDir and evaluatedURL are not empty, download and install crictl by this override, which is the old way to install
-  if [[ "${downloadDir}" != "" && "${evaluatedURL}" != "" ]]; then
+  if [ ! -z "${downloadDir}" ] && [ ! -z "${evaluatedURL}" ]; then
     downloadCrictl "${downloadDir}" "${evaluatedURL}"
     echo "  - crictl version ${version}" >> ${VHD_LOGS_FILEPATH}
     # other steps are dependent on CRICTL_VERSION and CRICTL_VERSIONS
