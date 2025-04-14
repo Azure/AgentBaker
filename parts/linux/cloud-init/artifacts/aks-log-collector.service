@@ -5,4 +5,5 @@ Description=AKS Log Collector
 Type=oneshot
 Slice=aks-log-collector.slice
 ExecStart=/opt/azure/containers/aks-log-collector.sh
+Restart=on-failure
 RemainAfterExit=no
