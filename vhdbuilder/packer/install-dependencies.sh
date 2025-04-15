@@ -633,7 +633,7 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
-  if [ ${#coredns_image_list[@]} -eq 0 ]; then
+  if [ "${#coredns_image_list[@]}" -eq 0 ]; then
     echo "Error: No coredns images found."
     exit 1
   fi
