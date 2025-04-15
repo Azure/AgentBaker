@@ -528,13 +528,11 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.11-windows-hp",
-          "previousLatestVersion": "v1.30.10-windows-hp"
+          "latestVersion": "v1.30.11-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.7-windows-hp",
-          "previousLatestVersion": "v1.31.6-windows-hp"
+          "latestVersion": "v1.31.7-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
@@ -563,8 +561,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.9-windows-hp",
-          "previousLatestVersion": "v1.30.8-windows-hp"
+          "latestVersion": "v1.30.9-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
