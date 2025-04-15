@@ -1060,7 +1060,7 @@ testPam() {
 
   # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
-  if [ "${os_sku}" != "CBLMariner" [ && [ "${os_sku}" != "AzureLinux" ]; then
+  if [ "${os_sku}" != "CBLMariner" ] && [ "${os_sku}" != "AzureLinux" ]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
     # cd to the directory of the script
@@ -1252,7 +1252,7 @@ testCorednsBinaryExtractedAndCached() {
   # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [ "${os_version}" = "18.04" | "${os_version}" = "20.04" ]; then
+  if [ "${os_version}" = "18.04" ] || [ "${os_version}" = "20.04" ]; then
     # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
     echo "$test: Coredns is not supported on OS version: ${os_version}"
     return 0
