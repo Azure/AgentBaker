@@ -106,7 +106,7 @@ make -f packer.mk az-login
 packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
 packer version
 ./vhdbuilder/packer/produce-packer-settings.sh
-packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json | tee -a packer-output
+packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json | tee -a packer-output
 
 export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
 export MANAGED_SIG_ID="$(cat packer-output | grep -a "ManagedImageSharedImageGalleryId:" | cut -d " " -f 2)"
