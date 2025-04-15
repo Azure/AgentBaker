@@ -98,7 +98,7 @@ replaceOrAppendSetting() {
     # After replacement/append, there should be exactly one line that sets the setting,
     # and it must have the value we want.
     # If not, then there's something wrong with this script.
-    if [ $(grep -E "$SEARCH_PATTERN" "$FILE") != "$SETTING_LINE" ]; then
+    if [ "$(grep -E "$SEARCH_PATTERN" "$FILE" 2>/dev/null)" != "$SETTING_LINE" ]; then
         echo "replacement was wrong"
         exit $ERR_CIS_APPLY_PASSWORD_CONFIG
     fi
