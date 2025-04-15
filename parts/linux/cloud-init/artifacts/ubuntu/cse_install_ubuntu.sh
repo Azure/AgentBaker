@@ -18,7 +18,7 @@ installDeps() {
 
     pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
-    if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+    if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
         # bind9-dnsutils is not available in the 1804 pkg set
         pkg_list+=(dnsutils)
     else
@@ -32,7 +32,7 @@ installDeps() {
     BLOBFUSE2_VERSION="2.4.1"
 
     # keep legacy version on ubuntu 16.04 and 18.04
-    if [ "${OSVERSION}" == "18.04" ]; then
+    if [ "${OSVERSION}" = "18.04" ]; then
         BLOBFUSE2_VERSION="2.2.0"
     fi
 
@@ -40,13 +40,13 @@ installDeps() {
     # for 22.04, fuse3 is installed. for all others, fuse is installed
     # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
     pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
-    if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
+    if [ "${OSVERSION}" = "22.04" ] || [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(fuse3)
     else
         pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
     fi
 
-    if [ "${OSVERSION}" == "24.04" ]; then
+    if [ "${OSVERSION}" = "24.04" ]; then
         pkg_list+=(irqbalance)
     fi
 
@@ -61,10 +61,10 @@ installDeps() {
 updateAptWithMicrosoftPkg() {
     retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
     retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
-    if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then {
+    if [ "${UBUNTU_RELEASE}" = "18.04" ]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
-    elif [[ ${UBUNTU_RELEASE} == "20.04" || ${UBUNTU_RELEASE} == "22.04" || ${UBUNTU_RELEASE} == "24.04" ]]; then {
+    elif [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/${UBUNTU_RELEASE}/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
     fi
@@ -81,7 +81,7 @@ cleanUpGPUDrivers() {
 installCriCtlPackage() {
     version="${1:-}"
     packageName="kubernetes-cri-tools=${version}"
-    if [[ -z $version ]]; then
+    if [ -z "$version" ]; then
         echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
         exit 1
     fi
@@ -97,7 +97,7 @@ installContainerd() {
     eval containerdOverrideDownloadURL="${2:-}"
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
-    if [[ ! -z ${containerdOverrideDownloadURL} ]]; then
+    if [ ! -z "${containerdOverrideDownloadURL}" ]; then
         installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
@@ -134,7 +134,7 @@ installContainerdWithAptGet() {
     semverCompare "$currentVersion" "$containerdMajorMinorPatchVersion"
     hasGreaterVersion="$?"
 
-    if [[ "$hasGreaterVersion" == "0" ]] && [[ "$currentMajorMinor" == "$desiredMajorMinor" ]]; then
+    if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
         echo "currently installed containerd version ${currentVersion} matches major.minor with higher patch ${containerdMajorMinorPatchVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${containerdMajorMinorPatchVersion}"
@@ -143,13 +143,13 @@ installContainerdWithAptGet() {
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
         containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
-        if [[ -f "${containerdDebFile}" ]]; then
+        if [ -f "${containerdDebFile}" ]; then
             logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
         containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
-        if [[ -z "${containerdDebFile}" ]]; then
+        if [ -z "${containerdDebFile}" ]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
@@ -168,13 +168,13 @@ installStandaloneContainerd() {
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
-    if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
+    if [ ! -z "${CONTAINERD_PACKAGE_URL}" ]; then
         installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 
     #if there is no containerd_version input from RP, use hardcoded version
-    if [[ -z ${CONTAINERD_VERSION} ]]; then
+    if [ -z "${CONTAINERD_VERSION}" ]; then
         # pin 18.04 to 1.7.1
         CONTAINERD_VERSION="1.7.15"
         if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
@@ -223,7 +223,7 @@ installMoby() {
         removeMoby
         updateAptWithMicrosoftPkg
         MOBY_CLI=${MOBY_VERSION}
-        if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
+        if [ "${MOBY_CLI}" = "3.0.4" ]; then
             MOBY_CLI="3.0.3"
         fi
         apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
@@ -234,7 +234,7 @@ ensureRunc() {
     RUNC_PACKAGE_URL=${2:-""}
     RUNC_DOWNLOADS_DIR=${3:-$RUNC_DOWNLOADS_DIR}
     # the user-defined runc package URL is always picked first, and the other options won't be tried when this one fails
-    if [[ ! -z ${RUNC_PACKAGE_URL} ]]; then
+    if [ ! -z "${RUNC_PACKAGE_URL}" ]; then
         echo "Installing runc from user input: ${RUNC_PACKAGE_URL}"
         mkdir -p $RUNC_DOWNLOADS_DIR
         RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
@@ -249,8 +249,8 @@ ensureRunc() {
 
     TARGET_VERSION=${1:-""}
 
-    if [[ $(isARM64) == 1 ]]; then
-        if [[ ${TARGET_VERSION} == "1.0.0-rc92" || ${TARGET_VERSION} == "1.0.0-rc95" ]]; then
+    if [ "$(isARM64)" = 1 ]; then
+        if [ "${TARGET_VERSION}" = "1.0.0-rc92" ] || [ "${TARGET_VERSION}" = "1.0.0-rc95" ]; then
             # only moby-runc-1.0.3+azure-1 exists in ARM64 ubuntu repo now, no 1.0.0-rc92 or 1.0.0-rc95
             return
         fi
@@ -270,10 +270,10 @@ ensureRunc() {
         return
     fi
     # if on a vhd-built image, first check if we've cached the deb file
-    if [ -f $VHD_LOGS_FILEPATH ]; then
+    if [ -f "$VHD_LOGS_FILEPATH" ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+        if [ -f "${RUNC_DEB_FILE}" ]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi

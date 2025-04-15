@@ -18,11 +18,11 @@ EOF
 }
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
-    if [[ "${THP_ENABLED}" != "" ]]; then
+    if [ "${THP_ENABLED}" != "" ]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-    if [[ "${THP_DEFRAG}" != "" ]]; then
+    if [ "${THP_DEFRAG}" != "" ]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
@@ -54,10 +54,10 @@ configureSwapFile() {
     swap_location=""
     
     # Attempt to use the resource disk
-    if [[ -L /dev/disk/azure/resource-part1 ]]; then
+    if [ -L /dev/disk/azure/resource-part1 ]; then
         resource_disk_path=$(findmnt -nr -o target -S $(readlink -f /dev/disk/azure/resource-part1))
         disk_free_kb=$(df ${resource_disk_path} | sed 1d | awk '{print $4}')
-        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+        if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
             echo "Will use resource disk for swap file"
             swap_location=${resource_disk_path}/swapfile
         else
@@ -66,11 +66,11 @@ configureSwapFile() {
     fi
 
     # If we couldn't use the resource disk, attempt to use the OS disk
-    if [[ -z "${swap_location}" ]]; then
+    if [ -z "${swap_location}" ]; then
         # Directly check size on the root directory since we can't rely on 'root-part1' always being the correct label
         os_device=$(readlink -f /dev/disk/azure/root)
         disk_free_kb=$(df -P / | sed 1d | awk '{print $4}')
-        if [[ ${disk_free_kb} -gt ${swap_size_kb} ]]; then
+        if [ "${disk_free_kb}" -gt "${swap_size_kb}" ]; then
             echo "Will use OS disk for swap file"
             swap_location=/swapfile
         else
@@ -237,12 +237,12 @@ configureK8s() {
 }
 EOF
     set -x
-    if [[ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]]; then
+    if [ "${CLOUDPROVIDER_BACKOFF_MODE}" = "v2" ]; then
         sed -i "/cloudProviderBackoffExponent/d" /etc/kubernetes/azure.json
         sed -i "/cloudProviderBackoffJitter/d" /etc/kubernetes/azure.json
     fi
 
-    if [ "${IS_CUSTOM_CLOUD}" == "true" ]; then
+    if [ "${IS_CUSTOM_CLOUD}" = "true" ]; then
         set +x
         AKS_CUSTOM_CLOUD_JSON_PATH="/etc/kubernetes/${TARGET_ENVIRONMENT}.json"
         touch "${AKS_CUSTOM_CLOUD_JSON_PATH}"
@@ -253,7 +253,7 @@ EOF
         set -x
     fi
 
-    if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+    if [ "${KUBELET_CONFIG_FILE_ENABLED}" = "true" ]; then
         set +x
         KUBELET_CONFIG_JSON_PATH="/etc/default/kubeletconfig.json"
         touch "${KUBELET_CONFIG_JSON_PATH}"
@@ -279,12 +279,12 @@ configureCNI() {
 }
 
 configureCNIIPTables() {
-    if [[ "${NETWORK_PLUGIN}" = "azure" ]]; then
+    if [ "${NETWORK_PLUGIN}" = "azure" ]; then
         mv $CNI_BIN_DIR/10-azure.conflist $CNI_CONFIG_DIR/
         chmod 600 $CNI_CONFIG_DIR/10-azure.conflist
-        if [[ "${NETWORK_POLICY}" == "calico" ]]; then
+        if [ "${NETWORK_POLICY}" = "calico" ]; then
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
-        elif [[ "${NETWORK_POLICY}" == "" || "${NETWORK_POLICY}" == "none" ]] && [[ "${NETWORK_MODE}" == "transparent" ]]; then
+        elif [ "${NETWORK_POLICY}" = "" ] || [ "${NETWORK_POLICY}" = "none" ] && [ "${NETWORK_MODE}" = "transparent" ]; then
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
         fi
         /sbin/ebtables -t nat --list
@@ -295,7 +295,7 @@ disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s)
-    if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]]; then
+    if [ "${UBUNTU_RELEASE}" = "18.04" ] || [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
         [ -f /run/systemd/resolve/resolv.conf ] && sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
@@ -319,7 +319,7 @@ EOF
   fi
 
   mkdir -p /etc/containerd
-  if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+  if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" = "true" ]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
     echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   else
@@ -327,7 +327,7 @@ EOF
     echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
   fi
 
-  if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+  if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.configureContainerdRegistryHost" configureContainerdRegistryHost
   fi
 
@@ -415,9 +415,9 @@ getPrimaryNicIP() {
     local i=0
     local ip=""
 
-    while [[ $i -lt $maxRetries ]]; do
+    while [ "$i" -lt "$maxRetries" ]; do
         ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
-        if [[ -n "$ip" && $? -eq 0 ]]; then
+        if [ -n "$ip" ] && [ $? = 0 ]; then
             break
         fi
         sleep $sleepTime
@@ -455,7 +455,7 @@ configureKubeletServing() {
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
-    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "true" ]; then
+    if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" = "true" ]; then
         echo "kubelet serving certificate rotation is disabled by nodepool tags"
 
         # set --rotate-server-certificates flag and serverTLSBootstrap config file field to false
@@ -537,7 +537,7 @@ Environment="KUBELET_TLS_BOOTSTRAP_FLAGS=--kubeconfig /var/lib/kubelet/kubeconfi
 EOF
     fi
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
         AAD_RESOURCE="6dae42f8-4368-4678-94ff-3960e28e3630"
         if [ -n "$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID" ]; then
             AAD_RESOURCE=$CUSTOM_SECURE_TLS_BOOTSTRAP_AAD_SERVER_APP_ID
@@ -656,6 +656,7 @@ Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICT
 EOF
 
     # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
+    # shellcheck disable=SC3010
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
@@ -768,13 +769,13 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    if [ $OS = $UBUNTU_OS_NAME ]; then
         mkdir -p /opt/{actions,gpu}
-        if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+        if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
-            if [[ "$ret" != "0" ]]; then
+            if [ "$ret" != "0" ]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
@@ -782,7 +783,7 @@ configGPUDrivers() {
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
-            if [[ "$ret" != "0" ]]; then
+            if [ "$ret" != "0" ]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
@@ -806,7 +807,7 @@ configGPUDrivers() {
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
-    if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
+    if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
         retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
         retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
@@ -814,19 +815,20 @@ configGPUDrivers() {
 }
 
 validateGPUDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
+    if [ "$(isARM64)" = 1 ]; then
         return
     fi
 
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
-    if [[ $? == 0 ]]; then
+    if [ $? = 0 ]; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
-    if [[ $SMI_STATUS != 0 ]]; then
+    if [ "$SMI_STATUS" != 0 ]; then
+        # shellcheck disable=SC3010
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
             exit $ERR_GPU_INFO_ROM_CORRUPTED
         else
@@ -838,16 +840,16 @@ validateGPUDrivers() {
 }
 
 ensureGPUDrivers() {
-    if [[ $(isARM64) == 1 ]]; then
+    if [ "$(isARM64)" = 1 ]; then
         return
     fi
 
-    if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
+    if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    if [ $OS = $UBUNTU_OS_NAME ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
@@ -860,7 +862,7 @@ configCredentialProvider() {
     CREDENTIAL_PROVIDER_CONFIG_FILE=/var/lib/kubelet/credential-provider-config.yaml
     mkdir -p "$(dirname "${CREDENTIAL_PROVIDER_CONFIG_FILE}")"
     touch "${CREDENTIAL_PROVIDER_CONFIG_FILE}"
-    if [[ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]]; then
+    if [ -n "$AKS_CUSTOM_CLOUD_CONTAINER_REGISTRY_DNS_SUFFIX" ]; then
         echo "configure credential provider for custom cloud"
         tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
@@ -878,7 +880,7 @@ providers:
     args:
       - /etc/kubernetes/azure.json
 EOF
-    elif [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
+    elif [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         echo "configure credential provider for network isolated cluster"
         tee "${CREDENTIAL_PROVIDER_CONFIG_FILE}" > /dev/null <<EOF
 apiVersion: kubelet.config.k8s.io/v1
@@ -919,7 +921,7 @@ EOF
 
 setKubeletNodeIPFlag() {
     imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
-    if [[ $? -eq 0 ]]; then
+    if [ $? -eq 0 ]; then
         nodeIPAddrs=()
         ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
         [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")

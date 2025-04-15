@@ -47,7 +47,7 @@ if [ "$MODE" == "linuxVhdMode" ]; then
 fi
 
 # We use the provided SIG_IMAGE_VERSION if it's instantiated and we're running linuxVhdMode, otherwise we randomly generate one
-if [[ "${MODE}" == "linuxVhdMode" ]] && [[ -n "${SIG_IMAGE_VERSION}" ]]; then
+if [ "${MODE}" = "linuxVhdMode" ] && [ -n "${SIG_IMAGE_VERSION}" ]; then
 	CAPTURED_SIG_VERSION=${SIG_IMAGE_VERSION}
 else
 	CAPTURED_SIG_VERSION="1.${CREATE_TIME}.$RANDOM"
@@ -96,6 +96,7 @@ if [ -z "${VNET_RG_NAME}" ]; then
 		fi
 	fi
 	if [ "$MODE" == "windowsVhdMode" ]; then
+	    # shellcheck disable=SC3010
 		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
 			VNET_RG_NAME="nodesigprod-agent-pool"
 		else
@@ -151,21 +152,23 @@ echo "storage name: ${STORAGE_ACCOUNT_NAME}"
 # If SIG_GALLERY_NAME/SIG_IMAGE_NAME hasnt been provided in linuxVhdMode, use defaults
 # NOTE: SIG_IMAGE_NAME is the name of the image definition that Packer will use when delivering the
 # output image version to the staging gallery. This is NOT the name of the image definitions used in prod.
-if [[ "${MODE}" == "linuxVhdMode" ]]; then
+if [ "${MODE}" = "linuxVhdMode" ]; then
 	# Ensure the SIG name
-	if [[ -z "${SIG_GALLERY_NAME}" ]]; then
+	if [ -z "${SIG_GALLERY_NAME}" ]; then
 		SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 		echo "No input for SIG_GALLERY_NAME was provided, using auto-generated value: ${SIG_GALLERY_NAME}"
 	else
 		echo "Using provided SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 	fi
 
-	if [[ -z "${SIG_IMAGE_NAME}" ]]; then
+	if [ -z "${SIG_IMAGE_NAME}" ]; then
 		SIG_IMAGE_NAME=$SKU_NAME
+		# shellcheck disable=SC3010
 		if [[ "${IMG_OFFER,,}" == "cbl-mariner" ]]; then
 			# we need to add a distinction here since we currently use the same image definition names
 			# for both azlinux and cblmariner in prod galleries, though we only have one gallery which Packer
 			# is configured to deliver images to...
+			# shellcheck disable=SC3010
 			if [ "${ENABLE_CGROUPV2,,}" == "true" ]; then
 				SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 			else
@@ -183,6 +186,7 @@ if [[ "${MODE}" == "linuxVhdMode" ]]; then
 	fi
 fi
 
+# shellcheck disable=SC3010
 if [[ "${MODE}" == "windowsVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]]; then
 	# only append 'Arm64' in windows builds, for linux we either take what was provided
 	# or base the name off the the value of SKU_NAME (see above)
@@ -192,7 +196,7 @@ fi
 echo "Using finalized SIG_IMAGE_NAME: ${SIG_IMAGE_NAME}, SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 
 # If we're building a Linux VHD or we're building a windows VHD in windowsVhdMode, ensure SIG resources
-if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
+if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 	echo "SIG existence checking for $MODE"
 
 	is_need_create=true
@@ -217,7 +221,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -n "$state" ]; then
 		echo "Gallery ${SIG_GALLERY_NAME} exists in the resource group ${AZURE_RESOURCE_GROUP_NAME} location ${AZURE_LOCATION}"
 
-		if [[ $state == "Failed" ]]; then
+		if [ $state = "Failed" ]; then
 			echo "Gallery ${SIG_GALLERY_NAME} is in a failed state, deleting and recreating"
 
 			image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq -r '.[] | select(.osType == "Windows").name')
@@ -230,14 +234,14 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 				done
 				image_versions=$(az sig image-version list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} -i ${image_definition} | jq -r '.[].name')
 				echo "image versions are $image_versions"
-				if [[ -z "${image_versions}" ]]; then
+				if [ -z "${image_versions}" ]; then
 					echo "Deleting sig image-definition ${image_definition} from gallery ${SIG_GALLERY_NAME} rg ${AZURE_RESOURCE_GROUP_NAME}"
 					az sig image-definition delete --gallery-image-definition ${image_definition} -r ${SIG_GALLERY_NAME} -g ${AZURE_RESOURCE_GROUP_NAME} --no-wait false
 				fi
 			done
 			image_defs=$(az sig image-definition list -g ${AZURE_RESOURCE_GROUP_NAME} -r ${SIG_GALLERY_NAME} | jq -r '.[] | select(.osType == "Windows").name')
 
-			if [[ -n $image_defs ]]; then
+			if [ -n "$image_defs" ]; then
 				echo $image_defs
 			fi
 
@@ -263,8 +267,10 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
 	if [ -z "$id" ]; then
 		echo "Creating image definition ${SIG_IMAGE_NAME} in gallery ${SIG_GALLERY_NAME} resource group ${AZURE_RESOURCE_GROUP_NAME}"
 		# The following conditionals do not require NVMe tagging on disk controller type
+		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
+			# shellcheck disable=SC3010
 			if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
 				TARGET_COMMAND_STRING+="--architecture Arm64"
 			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -284,7 +290,7 @@ if [[ "$MODE" == "linuxVhdMode" || "$MODE" == "windowsVhdMode" ]]; then
         ${TARGET_COMMAND_STRING}
 		else
 		  # TL can only be enabled on Gen2 VMs, therefore if TL enabled = true, mark features for both TL and NVMe
-		  if [[ ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+		  if [ ${ENABLE_TRUSTED_LAUNCH} = "True" ]; then
 		    az sig image-definition create \
           --resource-group ${AZURE_RESOURCE_GROUP_NAME} \
           --gallery-name ${SIG_GALLERY_NAME} \

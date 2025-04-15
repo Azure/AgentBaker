@@ -21,6 +21,7 @@ VHD_IMAGE="$MANAGED_SIG_ID"
 SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
 
+# shellcheck disable=SC3010
 if [ "${ENVIRONMENT,,}" == "tme" ]; then
     ACCOUNT_NAME="$ACCOUNT_NAME_TME"
     KUSTO_DATABASE="$KUSTO_DATABASE_TME"
@@ -47,6 +48,7 @@ fi
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
 BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
+# shellcheck disable=SC3010
 if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
     STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
@@ -73,11 +75,12 @@ trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_OPTIONS="--size Standard_D8ds_v5"
+# shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D8pds_v5"
 fi
 
-if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 

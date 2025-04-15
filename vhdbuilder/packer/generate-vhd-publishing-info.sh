@@ -25,6 +25,7 @@ else
     # 1804 SKUs are not used as much since we defaulted to 22.04 with k8s 1.25 and the lowest supported k8s version supported is 1.25
     # We only support a certain set of functionalities for 2004(CVM, FIPs)
     # Therefore they dont need to be as high in number
+    # shellcheck disable=SC3010
     if [[ "${SKU_NAME,,}" != *"2204"* ]]; then
         REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
     fi
@@ -36,6 +37,7 @@ if [ "${HYPERV_GENERATION,,}" == "v1" ]; then
 fi
 
 for feature in "${feature_set[@]}"; do
+    # shellcheck disable=SC3010
     if [[ "${SKU_NAME,,}" == *"${feature}"* ]]; then
         REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
         break
@@ -77,6 +79,7 @@ fi
 # SIG image definition for AMD64/ARM64 has subtle difference, otherwise a SIG version cannot be used to create VM/VMSS of corresponding sku.
 # 'az sig image-definition create' will have a new property (--architecture Arm64|x64) for this soon. We need this in the publishing-info
 # in order that the VHD publish EV2 pipeline can create image-definition with right architecture.
+# shellcheck disable=SC3010
 if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
     IMAGE_ARCH="Arm64"
 else

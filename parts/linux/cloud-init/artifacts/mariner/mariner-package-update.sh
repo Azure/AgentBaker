@@ -12,7 +12,7 @@ KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 n=0
 while [ ! -f /var/lib/kubelet/kubeconfig ]; do
     echo 'Waiting for TLS bootstrapping'
-    if [[ $n -lt 100 ]]; then
+    if [ "$n" -lt 100 ]; then
         n=$((n+1))
         sleep 3
     else
@@ -42,7 +42,7 @@ current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annot
 if [ -n "${current_timestamp}" ]; then
     echo "current timestamp is: ${current_timestamp}"
 
-    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+    if [ "${golden_timestamp}" = "${current_timestamp}" ]; then
         echo "golden and current timestamp is the same, nothing to patch"
         exit 0
     fi

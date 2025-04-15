@@ -21,7 +21,7 @@ installBpftrace() {
 }
 
 addMarinerNvidiaRepo() {
-    if [[ $OS_VERSION == "2.0" ]]; then 
+    if [ $OS_VERSION = "2.0" ]; then 
         MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
         touch "${MARINER_NVIDIA_REPO_FILEPATH}"
         cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
@@ -37,7 +37,7 @@ sslverify=1
 EOF
     fi
 
-  if [[ $OS_VERSION == "3.0" ]]; then
+  if [ $OS_VERSION = "3.0" ]; then
         AZURELINUX_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia.repo"
         touch "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
         cat << EOF > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"

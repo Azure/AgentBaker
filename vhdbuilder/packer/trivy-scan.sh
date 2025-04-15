@@ -66,25 +66,25 @@ install_azure_cli() {
     ARCHITECTURE=${3}
     TEST_VM_ADMIN_USERNAME=${4}
 
-    if [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "20.04" ]]; then
+    if [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "20.04" ]; then
         sudo apt-get install -y azure-cli
-    elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "22.04" ]] && [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+    elif [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "22.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
         sudo apt update
         sudo apt install -y python3-pip
         pip install azure-cli
         export PATH="/home/$TEST_VM_ADMIN_USERNAME/.local/bin:$PATH"
         CHECKAZ=$(pip freeze | grep "azure-cli==")
-        if [[ -z $CHECKAZ ]]; then
+        if [ -z $CHECKAZ ]; then
             echo "Azure CLI is not installed properly."
             exit 1
         fi
-    elif [[ "$OS_SKU" == "Ubuntu" ]] && [[ "$OS_VERSION" == "24.04" ]] && [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+    elif [ "$OS_SKU" = "Ubuntu" ] && [ "$OS_VERSION" = "24.04" ] && [ "${ARCHITECTURE,,}" = "arm64" ]; then
         sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=arm64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
         sudo apt-get update -y && sudo apt-get upgrade -y
         sudo apt-get install -y azure-cli
-    elif [[ "$OS_SKU" == "Ubuntu" ]] && { [[ "$OS_VERSION" == "22.04" ]] || [[ "$OS_VERSION" == "24.04" ]]; } && [[ "${ARCHITECTURE,,}" != "arm64" ]]; then
+    elif [ "$OS_SKU" = "Ubuntu" ] && { [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "24.04" ]; } && [ "${ARCHITECTURE,,}" != "arm64" ]; then
         sudo apt-get install -y ca-certificates curl apt-transport-https lsb-release gnupg
         curl -sL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
         echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
@@ -147,7 +147,7 @@ export PATH="$(pwd):$PATH"
 # we do a delayed retry here since it's possible we'll get rate-limited by ghcr.io, which hosts the vulnerability DB
 retrycmd_if_failure 10 30 600 ./trivy --scanners vuln rootfs -f json --db-repository ${TRIVY_DB_REPOSITORIES} --skip-dirs /var/lib/containerd --ignore-unfixed --severity ${SEVERITY} -o "${TRIVY_REPORT_ROOTFS_JSON_PATH}" /
 
-if [[ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]]; then
+if [ -f ${TRIVY_REPORT_ROOTFS_JSON_PATH} ]; then
     ./vuln-to-kusto-vhd scan-report \
         --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
         --vhd-vhdname="${VHD_ARTIFACT_NAME}" \
@@ -175,7 +175,7 @@ for CONTAINER_IMAGE in $IMAGE_LIST; do
     TRIVY_REPORT_IMAGE_JSON_PATH=${TRIVY_REPORT_DIRNAME}/trivy-report-image-${BASE_CONTAINER_IMAGE}.json
     ./trivy --scanners vuln image -f json --ignore-unfixed --severity ${SEVERITY} --db-repository ${TRIVY_DB_REPOSITORIES} --skip-db-update -o ${TRIVY_REPORT_IMAGE_JSON_PATH} $CONTAINER_IMAGE || true
 
-    if [[ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]]; then
+    if [ -f ${TRIVY_REPORT_IMAGE_JSON_PATH} ]; then
         ./vuln-to-kusto-vhd scan-report \
             --vhd-buildrunnumber=${BUILD_RUN_NUMBER} \
             --vhd-vhdname="${VHD_ARTIFACT_NAME}" \

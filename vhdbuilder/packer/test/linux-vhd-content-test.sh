@@ -447,9 +447,10 @@ testFips() {
   os_version=$1
   enable_fips=$2
 
+  # shellcheck disable=SC3010
   if [[ (${os_version} == "18.04" || ${os_version} == "20.04" || ${os_version} == "22.04" || ${os_version} == "V2") && ${enable_fips,,} == "true" ]]; then
     kernel=$(uname -r)
-    if [[ -f /proc/sys/crypto/fips_enabled ]]; then
+    if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
       if [[ "${fips_enabled}" == "1" ]]; then
         echo "FIPS is enabled."
@@ -460,8 +461,8 @@ testFips() {
       err $test "FIPS is not enabled."
     fi
 
-    if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
-      if [[ -f /usr/src/linux-headers-${kernel}/Makefile ]]; then
+    if [ ${os_version} = "18.04" ] || [ ${os_version} = "20.04" ]; then
+      if [ -f /usr/src/linux-headers-${kernel}/Makefile ]; then
         echo "fips header files exist."
       else
         err $test "fips header files don't exist."
@@ -479,12 +480,13 @@ testLtsKernel() {
   os_sku=$2
   enable_fips=$3
 
+  # shellcheck disable=SC3010
   if [[ "$os_sku" == "Ubuntu" && ${enable_fips,,} != "true" ]]; then
     echo "OS is Ubuntu and FIPS is not enabled, check LTS kernel version"
     # Check the Ubuntu version and set the expected kernel version
-    if [[ "$os_version" == "2204" ]]; then
+    if [ "$os_version" = "2204" ]; then
       expected_kernel="5.15"
-    elif [[ "$os_version" == "2404" ]]; then
+    elif [ "$os_version" = "2404" ]; then
       expected_kernel="6.8"
     else
       echo "LTS kernel not installed for: $os_version"
@@ -492,6 +494,7 @@ testLtsKernel() {
 
     kernel=$(uname -r)
     echo "Current kernel version: $kernel"
+    # shellcheck disable=SC3010
     if [[ "$kernel" == *"$expected_kernel"* ]]; then
       echo "Kernel version is as expected ($expected_kernel)."
     else
@@ -509,13 +512,14 @@ testCloudInit() {
   os_sku=$1
 
   # Limit this test only to non-cvm Mariner or Azurelinux
-  if ! grep -q "cvm" <<< "$FEATURE_FLAGS" && [[ "${os_sku}" == "CBLMariner" || "${os_sku}" == "AzureLinux" ]]; then
+  if ! echo "$FEATURE_FLAGS" | grep -q "cvm" && { [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; }; then
     echo "Checking if cloud-init.log exists..."
     FILE=/var/log/cloud-init.log
     if test -f "$FILE"; then
       echo "Cloud-init log exists. Checking its content..."
       grep 'WARNING\|ERROR' $FILE | while read -r msg; do
         for pattern in "${CLOUD_INIT_LOG_MSG_IGNORE_LIST[@]}"; do
+            # shellcheck disable=SC3010
             if [[ "$msg" == *"$pattern"* ]]; then
                 echo "Ignoring WARNING/ERROR message from ignore list; '${msg}'"
             else
@@ -573,10 +577,12 @@ testKubeBinariesPresent() {
     #Test whether the installed binary version is indeed correct
     chmod a+x $kubeletDownloadLocation $kubectlDownloadLocation
     kubectlLongVersion=$(${kubectlDownloadLocation} version 2>/dev/null)
+    # shellcheck disable=SC3010
     if [[ ! $kubectlLongVersion =~ $k8sVersion ]]; then
       err $test "The kubectl version is not correct: expected kubectl version $k8sVersion existing: $kubectlLongVersion"
     fi
     kubeletLongVersion=$(${kubeletDownloadLocation} --version 2>/dev/null)
+    # shellcheck disable=SC3010
     if [[ ! $kubeletLongVersion =~ $k8sVersion ]]; then
       err $test "The kubelet version is not correct: expected kubelet version $k8sVersion existing: $kubeletLongVersion"
     fi
@@ -623,7 +629,7 @@ testCustomCAScriptExecutable() {
 
 testCustomCATimerNotStarted() {
   isUnitThere=$(systemctl list-units --type=timer | grep update_certs.timer)
-  if [[ -n "$isUnitThere" ]]; then
+  if [ -n "$isUnitThere" ]; then
     err $test "Custom CA timer was loaded, but shouldn't be"
   fi
 
@@ -632,7 +638,7 @@ testCustomCATimerNotStarted() {
 
 testCustomCATrustNodeCAWatcherRetagged() {
   isStaticTagImageThere=$(crictl images list | grep 'aks-node-ca-watcher' | grep 'static')
-  if [[ -z "$isStaticTagImageThere" ]]; then
+  if [ -z "$isStaticTagImageThere" ]; then
     err $test "Expected to find Node CA Watcher with static tag on the node"
   fi
 
@@ -730,7 +736,7 @@ testUmaskSettings() {
     echo "$test:Start"
 
     # If the settings file exists, it must just be a single line that sets umask properly.
-    if [[ -f "${settings_file}" ]]; then
+    if [ -f "${settings_file}" ]; then
         echo "${test}: Checking that the contents of ${settings_file} is exactly '${expected_settings_file_content}'"
 
         # Command substitution (like file_contents=$(cat "${settings_file}")) strips trailing newlines, so we use mapfile instead.
@@ -738,7 +744,7 @@ testUmaskSettings() {
         local file_contents_array=()
         mapfile <"${settings_file}" file_contents_array
         local file_contents="${file_contents_array[*]}"
-        if [[ "${file_contents}" != "${expected_settings_file_content}" ]]; then
+        if [ "${file_contents}" != "${expected_settings_file_content}" ]; then
             err $test "The content of the file '${settings_file}' is '${file_contents}', which does not exactly match '${expected_settings_file_content}'. "
         else
             echo "${test}: The content of the file '${settings_file}' exactly matches the expected contents '${expected_settings_file_content}'."
@@ -774,6 +780,7 @@ testCronPermissions() {
     '/etc/cron.deny'
   )
 
+  # shellcheck disable=SC3010
   if [[ "${image_sku}" != *"minimal"* ]]; then
     echo "$test: Checking required paths"
     for path in "${!required_paths[@]}"; do
@@ -835,9 +842,9 @@ testNfsServerService() {
   local is_enabled=
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [[ "${is_enabled}" == "masked" ]]; then
+  if [ "${is_enabled}" = "masked" ]; then
     echo "$test: $service_name is correctly masked"
-  elif [[ "${is_enabled}" == "" || "${is_enabled}" == "not-found" ]]; then
+  elif [ "${is_enabled}" = "" ] || [ "${is_enabled}" == "not-found" ]; then
     echo "$test: $service_name is not installed, which is fine"
   else
     err $test "$service_name is not masked"
@@ -857,7 +864,7 @@ testPamDSettings() {
 
   # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
+  if [ "${os_sku}" != "CBLMariner" ] && [ "${os_sku}" != "AzureLinux" ]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
 
@@ -961,6 +968,7 @@ testSettingFileFormat() {
   while read -r line; do
     line_num=$((line_num + 1))
     for regex in "$@"; do
+      # shellcheck disable=SC3010
       if [[ "$line" =~ $regex ]]; then
         valid=1
         break
@@ -1048,7 +1056,7 @@ testPam() {
 
   # We only want to run this test on Mariner/AzureLinux
   # So if it's anything else, report that we're skipping the test and bail.
-  if [[ "${os_sku}" != "CBLMariner" && "${os_sku}" != "AzureLinux" ]]; then
+  if [ "${os_sku}" != "CBLMariner" [ && [ "${os_sku}" != "AzureLinux" ]; then
     echo "$test: Skipping test on ${os_sku} ${os_version}"
   else
     # cd to the directory of the script
@@ -1144,7 +1152,7 @@ testAKSNodeControllerService() {
   echo "$test: Checking that $service_name is enabled"
   is_enabled=$(systemctl is-enabled $service_name 2>/dev/null)
   echo "$test: logging ${is_enabled} here"
-  if [[ "${is_enabled}" == "enabled" ]]; then
+  if [ "${is_enabled}" = "enabled" ]; then
     echo "$test: $service_name is correctly enabled"
   else
     err $test "$service_name is not enabled, instead in state $is_enabled"
@@ -1161,7 +1169,7 @@ testWasmRuntimesInstalled() {
   echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
 
   local shims_to_download=("spin" "slight")
-  if [[ "${shim_version}" == "0.8.0" ]]; then
+  if [ "${shim_version}" = "0.8.0" ]; then
     shims_to_download+=("wws")
   fi
 
@@ -1240,7 +1248,7 @@ testCorednsBinaryExtractedAndCached() {
   # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [[ ${os_version} == "18.04" || ${os_version} == "20.04" ]]; then
+  if [ ${os_version} = "18.04" | ${os_version} = "20.04" ]; then
     # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
     echo "$test: Coredns is not supported on OS version: ${os_version}"
     return 0
@@ -1252,11 +1260,12 @@ testCorednsBinaryExtractedAndCached() {
 
   echo "$test: Checking for existence of coredns binary at ${binaryPath}"
 
-  if [[ ! -f "${binaryPath}" ]]; then
+  if [ ! -f "${binaryPath}" ]; then
     echo "$test: Coredns binary does not exist at ${binaryPath}"
     return 1
   fi
 
+  # shellcheck disable=SC3010
   if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
     echo "$test: No coredns images found in the local container images"
     return 1
@@ -1275,14 +1284,14 @@ testCorednsBinaryExtractedAndCached() {
   for tag in "${sorted_coredns_tags[@]}"; do
     # Extract major.minor.patch (eg - v1.12.0).
     local vMajorMinorPatch="${tag%-*}"
-    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
+    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
       previous_coredns_tag="$tag"
       # Break the loop after the next highest major-minor version is found.
       break
     fi
   done
 
-  if [[ -z "${previous_coredns_tag}" ]]; then
+  if [ -z "${previous_coredns_tag}" ]; then
     echo "$test: Warning: Previous version not found, using the latest version: ${latest_coredns_tag}"
     previous_coredns_tag="$latest_coredns_tag"
   fi
@@ -1305,14 +1314,14 @@ testCorednsBinaryExtractedAndCached() {
   actualVersion=$("$binaryPath" --version | awk -F'-' '{print $2}')
 
   local actualVersionWithoutV="${actualVersion#v}"
-  if [[ -z "${actualVersionWithoutV}" ]]; then
+  if [ -z "${actualVersionWithoutV}" ]; then
     echo "$test: Failed to retrieve coredns version from $binaryPath"
     return 1
   fi
 
   echo "$test: Verify extracted coredns version: ${actualVersionWithoutV}"
 
-  if [[ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]]; then
+  if [ "${actualVersion%-*}" != "${expectedVersionWithoutV%-*}" ]; then
     echo "$test: Extracted coredns version: ${actualVersion} does not match expected version: ${expectedVersionWithoutV}"
     return 1
   fi

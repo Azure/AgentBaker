@@ -37,7 +37,7 @@ logs_to_events() {
     fi
 }
 
-function validateBootstrapKubeconfig {
+validateBootstrapKubeconfig() {
     local kubeconfig_path=$1
 
     cacert=$(grep -Po "(?<=certificate-authority: ).*$" < "$kubeconfig_path")
