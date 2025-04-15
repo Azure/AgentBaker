@@ -31,6 +31,22 @@ steps:
       downloadDirectory: vhdbuilder/packer
 
   - task: DownloadPipelineArtifact@2
+    condition: eq(variables.OS_SKU, 'Ubuntu')
+    displayName: 'Download CIS scanner'
+    inputs:
+      source: specific
+      project: One
+      pipeline: 414912
+      specificBuildWithTriggering: true
+      allowPartiallySucceededBuilds: true
+      buildVersionToDownload: 'latest'
+      downloadType: 'single'
+      artifactName: 'drop_build_stage_build_job'
+      itemPattern: |
+        **/cisassessor.tar.gz
+      downloadPath: vhdbuilder/packer
+
+  - task: DownloadPipelineArtifact@2
     condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
     displayName: 'Download Kata CC UVM artifact'
     inputs:
