@@ -202,15 +202,15 @@ testPackagesInstalled() {
       fi
 
       # if the downloadLocation is /usr/local/bin verify that the package is installed
-      if [ "$downloadLocation" == "/usr/local/bin" ]; then
+      if [ "$downloadLocation" = "/usr/local/bin" ]; then
         if command -v "$name" >/dev/null 2>&1; then
           echo "$name is installed."
           continue
-        elif [ "$name" == "containerd-wasm-shims" ]; then
+        elif [ "$name" = "containerd-wasm-shims" ]; then
           testWasmRuntimesInstalled $downloadLocation $version
           echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
-        elif [ "$name" == "spinkube" ]; then
+        elif [ "$name" = "spinkube" ]; then
           testSpinKubeInstalled $downloadLocation $version
           echo "$test $name binaries are in the expected location of $downloadLocation"
           continue
@@ -252,7 +252,7 @@ testPackageInAzureChinaCloud() {
   # root paths like cri-tools can be ignored since they are only cached in VHD and won't be referenced in control plane.
   rootPathExceptions=("cri-tools" "spinkube")
   for rootPathException in "${rootPathExceptions[@]}"; do
-    if [ "$rootPathException" == "$proxyLocation" ]; then
+    if [ "$rootPathException" = "$proxyLocation" ]; then
       return
     fi
   done
@@ -272,13 +272,13 @@ testPackageInAzureChinaCloud() {
 
   foundLocation=false
   for supportedProxyLocation in "${supportedProxyLocations[@]}"; do
-    if [ "$supportedProxyLocation" == "$proxyLocation" ]; then
+    if [ "$supportedProxyLocation" = "$proxyLocation" ]; then
       foundLocation=true
       break
     fi
   done
 
-  if [ "$foundLocation" == false ]; then
+  if [ "$foundLocation" = "false" ]; then
     err "Proxy location $proxyLocation is not defined in mooncake for $downloadURL, please use root path 'aks' , or contact 'andyzhangx' for help"
     return
   fi
@@ -307,9 +307,9 @@ testImagesPulled() {
   local componentsJsonContent="$2"
   echo "$test:Start"
   containerRuntime=$1
-  if [ $containerRuntime == 'containerd' ]; then
+  if [ $containerRuntime = 'containerd' ]; then
     pulledImages=$(ctr -n k8s.io image ls)
-  elif [ $containerRuntime == 'docker' ]; then
+  elif [ $containerRuntime = 'docker' ]; then
     pulledImages=$(docker images --format "{{.Repository}}:{{.Tag}}")
   else
     err $test "unsupported container runtime $containerRuntime"
@@ -353,10 +353,10 @@ testImagesPulled() {
 # check all the mcr images retagged for mooncake
 testImagesRetagged() {
   containerRuntime=$1
-  if [ $containerRuntime == 'containerd' ]; then
+  if [ $containerRuntime = 'containerd' ]; then
     # shellcheck disable=SC2207
     pulledImages=($(ctr -n k8s.io image ls))
-  elif [ $containerRuntime == 'docker' ]; then
+  elif [ $containerRuntime = 'docker' ]; then
     # shellcheck disable=SC2207
     pulledImages=($(docker images --format "{{.Repository}}:{{.Tag}}"))
   else
@@ -387,7 +387,7 @@ testAuditDNotPresent() {
   test="testAuditDNotPresent"
   echo "$test:Start"
   status=$(systemctl show -p SubState --value auditd.service)
-  if [ $status == 'dead' ]; then
+  if [ "$status" = 'dead' ]; then
     echo "AuditD is not present, as expected"
   else
     err $test "AuditD is active with status ${status}"
@@ -403,7 +403,7 @@ testChrony() {
   # ---- Test Setup ----
   # Test ntp is not active
   status=$(systemctl show -p SubState --value ntp)
-  if [ $status == 'dead' ]; then
+  if [ "$status" = 'dead' ]; then
     echo $test "ntp is removed, as expected"
   else
     err $test "ntp is active with status ${status}"
@@ -415,7 +415,7 @@ testChrony() {
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
-  if [ $status == 'running' ]; then
+  if [ "$status" = 'running' ]; then
     echo $test "$os_chrony is running, as expected"
   else
     err $test "$os_chrony is not running with status ${status}"
@@ -439,7 +439,7 @@ testChrony() {
     sleep 10
     echo "${i}: retrying: check if chrony modified the time"
   done
-  if (($i == 10)); then
+  if [ "$i" = 10 ]; then
     err $test "$os_chrony failed to readjust the system time"
   fi
   echo "$test:Finish"
@@ -848,7 +848,7 @@ testNfsServerService() {
   echo "$test: logging ${is_enabled} here"
   if [ "${is_enabled}" = "masked" ]; then
     echo "$test: $service_name is correctly masked"
-  elif [ "${is_enabled}" = "" ] || [ "${is_enabled}" == "not-found" ]; then
+  elif [ "${is_enabled}" = "" ] || [ "${is_enabled}" = "not-found" ]; then
     echo "$test: $service_name is not installed, which is fine"
   else
     err $test "$service_name is not masked"
