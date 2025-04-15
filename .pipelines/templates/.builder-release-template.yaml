@@ -30,6 +30,15 @@ steps:
       vstsPackageVersion: '1.1.0-268'
       downloadDirectory: vhdbuilder/packer
 
+  - task: UniversalPackages@0
+    displayName: Download CIS scanner
+    inputs:
+      command: download
+      vstsFeed: AzCoreLinux-Compliance
+      vstsFeedPackage: cisassessor
+      vstsPackageVersion: '0.0.17'
+      downloadDirectory: vhdbuilder/
+
   - task: DownloadPipelineArtifact@2
     condition: or(eq(variables.OS_SKU, 'CBLMariner'), eq(variables.OS_SKU, 'AzureLinux'))
     displayName: 'Download Kata CC UVM artifact'
