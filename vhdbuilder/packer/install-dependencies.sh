@@ -271,7 +271,7 @@ updateAptWithMicrosoftPkg
 capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 
 # check if COMPONENTS_FILEPATH exists
-if [ ! -f $COMPONENTS_FILEPATH ]; then
+if [ ! -f "$COMPONENTS_FILEPATH" ]; then
   echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
   exit 1
 fi
@@ -292,7 +292,7 @@ while IFS= read -r p; do
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
-  if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" == "<SKIP>" ]; then
+  if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
@@ -586,7 +586,7 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
-if [ $OS = $UBUNTU_OS_NAME ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
@@ -604,7 +604,7 @@ wait $BCC_PID
 BCC_EXIT_CODE=$?
 chmod 755 /var/log/bcc_installation.log
 
-if [ $BCC_EXIT_CODE -eq 0 ]; then
+if [ "$BCC_EXIT_CODE" -eq 0 ]; then
   echo "Bcc tools successfully installed."
   cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
@@ -708,7 +708,7 @@ extractAndCacheCoreDnsBinary() {
       ((retry_count++))
     done
 
-    if [ $retry_count = $max_retries ]; then
+    if [ "$retry_count" = "$max_retries" ]; then
       echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
       exit 1
     fi

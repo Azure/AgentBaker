@@ -635,7 +635,7 @@ updateMultiArchVersions() {
   local imageToBePulled="$1"
 
   #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]; then
+  if [ "$(echo "${imageToBePulled}" | jq .multiArchVersionsV2)" != "null" ]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
     for version in "${latestVersions[@]}"; do
