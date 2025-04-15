@@ -219,6 +219,27 @@ applyCIS() {
     addFailLockDir
 }
 
+scanCIS() {
+    if isMarinerOrAzureLinux "$OS"; then
+        echo "No CIS benchmark defined for Azure Linux"
+        return
+    fi
+
+    pushd /home/packer
+    tar xzf cisassessor.tar.gz
+    local versionid=$(. /etc/os-release; echo ${VERSION_ID})
+    local benchmark=$(find -name "*${versionid}*xccdf.xml")
+    cisassessor/bin/cisassessor -b "${benchmark}" -txt -json
+    local txtreport=$(find cisassessor/lib/app/reports -name "*.txt")
+    local jsonreport=$(find cisassessor/lib/app/reports -name "*.json")
+    cp "${txtreport}" /opt/azure/cis-report.txt
+    cp "${jsonreport}" /opt/azure/cis-report.json
+    chmod 0644 /opt/azure/cis-report.{txt,json}
+    ls -la /opt/azure/
+    popd
+}
+
 applyCIS
+scanCIS
 
 #EOF
