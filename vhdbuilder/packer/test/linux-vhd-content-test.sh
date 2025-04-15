@@ -955,7 +955,7 @@ testSettingFileFormat() {
 
   # If the file doesn't exist, everything is broken.
   echo "$test: Checking existence of $settings_file"
-  if [ ! -f $settings_file ]; then
+  if [ ! -f "$settings_file" ]; then
     err $test "File $settings_file not found"
     return 1
   fi
@@ -979,7 +979,7 @@ testSettingFileFormat() {
       fi
     done
 
-    if [ $valid -eq 0 ]; then
+    if [ "$valid" -eq 0 ]; then
       any_invalid=1
       err $test "Invalid line $line_num in $settings_file: '$line'"
     fi
@@ -987,11 +987,11 @@ testSettingFileFormat() {
     valid=0
   done <$settings_file
 
-  if [ $any_invalid -eq 0 ]; then
+  if [ "$any_invalid" -eq 0 ]; then
     echo "$test: $settings_file is valid"
   fi
 
-  return $any_invalid
+  return "$any_invalid"
 }
 
 # Tests an individual setting in a settings file, ensuring it's set with the correct value.
@@ -1170,7 +1170,7 @@ testWasmRuntimesInstalled() {
   local wasm_runtimes_path=${1}
   local shim_version=${2}
 
-  echo "$test: checking existance of Spin Wasm Runtime in $wasm_runtimes_path"
+  echo "$test: checking existence of Spin Wasm Runtime in $wasm_runtimes_path"
 
   local shims_to_download=("spin" "slight")
   if [ "${shim_version}" = "0.8.0" ]; then
@@ -1180,7 +1180,7 @@ testWasmRuntimesInstalled() {
   binary_version="$(echo "${shim_version}" | tr . -)"
   for shim in "${shims_to_download[@]}"; do
     binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
-    if [ ! -f "$binary_path_pattern" ]; then
+    if ! ls $binary_path_pattern >/dev/null 2>&1; then
       output=$(ls -la /usr/local/bin)
       err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
       return 1
