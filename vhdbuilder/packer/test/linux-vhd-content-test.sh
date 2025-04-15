@@ -1022,7 +1022,7 @@ testSetting() {
   fi
 
   # If the setting is present more than once, that's an error.
-  if [ $(echo "$value_lines" | wc -l) -gt 1 ]; then
+  if [ "$(echo "$value_lines" | wc -l)" -gt 1 ]; then
     err $test "Setting '$setting_name' found more than once in $settings_file. See below for lines."
     echo "$value_lines" >>/dev/stderr
     return 1

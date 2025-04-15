@@ -585,13 +585,13 @@ updateRelease() {
     #For MARINER, the release is always set to "current" now.
     #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
     if isMarinerOrAzureLinux "${os}"; then
-        if [ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.\"v${osVersion}\"") != "null" ]; then
+        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
             RELEASE="\"v${osVersion}\""
         fi
         return 0
     fi
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [ $(echo "${package}" | jq ".downloadURIs.ubuntu.r${osVersionWithoutDot}") != "null" ]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
         RELEASE="\"r${osVersionWithoutDot}\""
     fi
 }
@@ -605,7 +605,7 @@ updatePackageVersions() {
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
 
-    if [ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
         osLowerCase="default"
     fi
 
