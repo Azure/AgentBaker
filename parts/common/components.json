@@ -512,33 +512,31 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.10",
-          "previousLatestVersion": "v1.30.9"
+          "latestVersion": "v1.30.11",
+          "previousLatestVersion": "v1.30.10"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.6",
-          "previousLatestVersion": "v1.31.5"
+          "latestVersion": "v1.31.7",
+          "previousLatestVersion": "v1.31.6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.32.1"
+          "latestVersion": "v1.32.2"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.30.10-windows-hp",
-          "previousLatestVersion": "v1.30.9-windows-hp"
+          "latestVersion": "v1.30.11-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.31.6-windows-hp",
-          "previousLatestVersion": "v1.31.5-windows-hp"
+          "latestVersion": "v1.31.7-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azuredisk-csi",
-          "latestVersion": "v1.32.1-windows-hp"
+          "latestVersion": "v1.32.2-windows-hp"
         }
       ]
     },
@@ -563,8 +561,7 @@
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
-          "latestVersion": "v1.30.9-windows-hp",
-          "previousLatestVersion": "v1.30.8-windows-hp"
+          "latestVersion": "v1.30.9-windows-hp"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes-csi/azurefile-csi",
