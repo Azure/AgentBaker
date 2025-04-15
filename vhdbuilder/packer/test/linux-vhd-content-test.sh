@@ -75,7 +75,7 @@ validateDownloadPackage() {
   local downloadedPackage=$2
   fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
   fileSizeDownloaded=$(wc -c $downloadedPackage | awk '{print $1}' | tr -d '\r')
-  if [[ "$fileSizeInRepo" != "$fileSizeDownloaded" ]]; then
+  if [ "$fileSizeInRepo" != "$fileSizeDownloaded" ]; then
     return 1
   fi
   return 0
@@ -93,7 +93,7 @@ validateOrasOCIArtifact() {
   fileSizeDownloaded=$(wc -c "$downloadedPackage" | awk '{print $1}' | tr -d '\r')
   
   # Compare the sizes
-  if [[ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]]; then
+  if [ "$fileSizeInRegistry" != "$fileSizeDownloaded" ]; then
     echo "Error: File size mismatch. Expected $fileSizeInRegistry, but got $fileSizeDownloaded."
     return 1
   fi
@@ -115,7 +115,7 @@ testAcrCredentialProviderInstalled() {
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
-    if [[ $? -ne 0 ]]; then
+    if [ $? -ne 0 ]; then
       err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
@@ -126,7 +126,7 @@ testAcrCredentialProviderInstalled() {
 testPackagesInstalled() {
   test="testPackagesInstalled"
   containerRuntime=$1
-  if [[ $(isARM64) == 1 ]]; then
+  if [ "$(isARM64)" = 1 ]; then
     return
   fi
   CPU_ARCH="amd64"
@@ -136,12 +136,12 @@ testPackagesInstalled() {
   while IFS= read -r p; do
     name=$(echo "${p}" | jq .name -r)
     downloadLocation=$(echo "${p}" | jq .downloadLocation -r)
-    if [[ "$downloadLocation" == "" ]]; then
+    if [ "$downloadLocation" = "" ]; then
       continue
     fi
-    if [[ "$OS_SKU" == "CBLMariner" || ("$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "2.0") ]]; then
+    if [ "$OS_SKU" = "CBLMariner" ] || ( [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "2.0" ] ); then
       OS=$MARINER_OS_NAME
-    elif [[ "$OS_SKU" == "AzureLinux" && "$OS_VERSION" == "3.0" ]]; then
+    elif [ "$OS_SKU" = "AzureLinux" ] && [ "$OS_VERSION" = "3.0" ]; then
       OS=$AZURELINUX_OS_NAME
     else
       OS=$UBUNTU_OS_NAME
@@ -150,13 +150,13 @@ testPackagesInstalled() {
     updatePackageVersions "${p}" "${OS}" "${OS_VERSION}"
     PACKAGE_DOWNLOAD_URL=""
     updatePackageDownloadURL "${p}" "${OS}" "${OS_VERSION}"
-    if [ "${name}" == "kubernetes-binaries" ]; then
+    if [ "${name}" = "kubernetes-binaries" ]; then
       # kubernetes-binaries, namely, kubelet and kubectl are installed in a different way so we test them separately
       # Intentionally remove leading 'v' from each element in the array
       testKubeBinariesPresent "${PACKAGE_VERSIONS[@]#v}"
       continue
     fi
-    if [ "${name}" == "azure-acr-credential-provider" ]; then
+    if [ "${name}" = "azure-acr-credential-provider" ]; then
       # azure-acr-credential-provider is installed in a different way so we test it separately
       testAcrCredentialProviderInstalled "$PACKAGE_DOWNLOAD_URL" "${PACKAGE_VERSIONS[@]}"
       continue
@@ -164,7 +164,7 @@ testPackagesInstalled() {
 
     resolve_packages_source_url
     for version in "${PACKAGE_VERSIONS[@]}"; do
-      if [[ -z $PACKAGE_DOWNLOAD_URL ]]; then
+      if [ -z "$PACKAGE_DOWNLOAD_URL" ]; then
         # if $PACKAGE_DOWNLOAD_URL is empty, which means downloadURL in the package in components.json is not defined, it's actually using package management tool to download and install that package.
         # For example, in Ubuntu, we use apt-get to install packages.
         # We can simply execute the command to verify the package version.
@@ -189,6 +189,7 @@ testPackagesInstalled() {
       extractedPackageDir="$downloadLocation/${fileNameWithoutExt}"
 
       # Validate whether package proxy path exists in Azure China cloud.
+      # shellcheck disable=SC3010
       if [[ $downloadURL == https://acs-mirror.azureedge.net/* ]]; then
         testPackageInAzureChinaCloud "$downloadURL"
       fi
@@ -223,7 +224,7 @@ testPackagesInstalled() {
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
       validateDownloadPackage "$downloadURL" $downloadedPackage
-      if [[ $? -ne 0 ]]; then
+      if [ $? -ne 0 ]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
@@ -285,7 +286,7 @@ testPackageInAzureChinaCloud() {
   mcURL="${downloadURL/https:\/\/packages.aks.azure.com/https:\/\/kubernetesartifacts.blob.core.chinacloudapi.cn}"
   echo "Validating: $mcURL"
   isExist=$(curl -sLI "$mcURL" | grep -i "404 The specified blob does not exist." | awk '{print $2}')
-  if [[ "$isExist" == "404" ]]; then
+  if [ "$isExist" = "404" ]; then
     err "$mcURL is invalid"
     return
   fi
@@ -294,7 +295,7 @@ testPackageInAzureChinaCloud() {
   fileSizeInRepo=$(curl -sLI $downloadURL | grep -i Content-Length | tail -n1 | awk '{print $2}' | tr -d '\r')
 
 
-  if [[ "$fileSizeInMC" != "$fileSizeInRepo" ]]; then
+  if [ "$fileSizeInMC" != "$fileSizeInRepo" ]; then
     err "$mcURL is valid but the file size is different. Expected file size: ${fileSizeDownloaded} - file size in Mooncake: ${fileSizeInMC}"
     return
   fi
@@ -324,11 +325,11 @@ testImagesPulled() {
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
-    if [[ ${amd64OnlyVersionsStr} != null ]]; then
+    if [ "${amd64OnlyVersionsStr}" != "null" ]; then
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
-    if [[ $(isARM64) == 1 ]]; then
+    if [ "$(isARM64)" = 1 ]; then
       versions="${MULTI_ARCH_VERSIONS}"
     else
       versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
@@ -336,6 +337,7 @@ testImagesPulled() {
     for version in ${versions}; do
       download_URL=$(string_replace $downloadURL $version)
 
+      # shellcheck disable=SC3010
       if [[ $pulledImages =~ $downloadURL ]]; then
         echo "Image ${download_URL} pulled"
       else
@@ -364,14 +366,16 @@ testImagesRetagged() {
   mcrImagesNumber=0
   mooncakeMcrImagesNumber=0
   while IFS= read -r pulledImage; do
+    # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.microsoft.com"* ]]; then
       mcrImagesNumber=$((${mcrImagesNumber} + 1))
     fi
+    # shellcheck disable=SC3010
     if [[ $pulledImage == "mcr.azk8s.cn"* ]]; then
       mooncakeMcrImagesNumber=$((${mooncakeMcrImagesNumber} + 1))
     fi
   done <<<"$pulledImages"
-  if [[ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]]; then
+  if [ "${mcrImagesNumber}" != "${mooncakeMcrImagesNumber}" ]; then
     echo "the number of the mcr images & mooncake mcr images are not the same."
     echo "all the images are:"
     echo "${pulledImages[@]}"
@@ -407,7 +411,7 @@ testChrony() {
   #test chrony is running
   #if mariner/azurelinux check chronyd, else check chrony
   os_chrony="chrony"
-  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; then
     os_chrony="chronyd"
   fi
   status=$(systemctl show -p SubState --value $os_chrony)
@@ -418,7 +422,7 @@ testChrony() {
   fi
 
   #test if chrony corrects time
-  if [[ "$os_sku" == "CBLMariner" || "$os_sku" == "AzureLinux" ]]; then
+  if [ "$os_sku" = "CBLMariner" ] || [ "$os_sku" = "AzureLinux" ]; then
     echo $test "exiting without checking chrony time correction"
     echo $test "reenable after Mariner updates the chrony config in base image"
     echo "$test:Finish"
@@ -452,7 +456,7 @@ testFips() {
     kernel=$(uname -r)
     if [ -f /proc/sys/crypto/fips_enabled ]; then
       fips_enabled=$(cat /proc/sys/crypto/fips_enabled)
-      if [[ "${fips_enabled}" == "1" ]]; then
+      if [ "${fips_enabled}" = "1" ]; then
         echo "FIPS is enabled."
       else
         err $test "content of /proc/sys/crypto/fips_enabled is not 1."
@@ -1078,7 +1082,7 @@ testPam() {
     deactivate
     popd || (err ${test} "Failed to cd out of test dir"; return 1)
 
-    if [ $retval -ne 0 ]; then
+    if [ "$retval" -ne 0 ]; then
       err ${test} "$output"
       err ${test} "PAM configuration is not functional"
       retval=1
@@ -1106,7 +1110,7 @@ testContainerImagePrefetchScript() {
   chmod +x $container_image_prefetch_script_path
   errs=$(/bin/bash $container_image_prefetch_script_path 2>&1 >/dev/null)
   code=$?
-  if [ $code -ne 0 ]; then
+  if [ "$code" -ne 0 ]; then
     err "$test: container image prefetch script exited with code $code, stderr:\n$errs"
     return 1
   fi
@@ -1176,7 +1180,7 @@ testWasmRuntimesInstalled() {
   binary_version="$(echo "${shim_version}" | tr . -)"
   for shim in "${shims_to_download[@]}"; do
     binary_path_pattern="${wasm_runtimes_path}/containerd-shim-${shim}-${binary_version}-*"
-    if [ ! -f $binary_path_pattern ]; then
+    if [ ! -f "$binary_path_pattern" ]; then
       output=$(ls -la /usr/local/bin)
       err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
       return 1
@@ -1195,7 +1199,7 @@ testSpinKubeInstalled() {
 
   # v0.15.1 does not have a version encoded in the binary name
   binary_path_pattern="${spinKube_runtimes_path}/containerd-shim-spin-v2"
-  if [ ! -f $binary_path_pattern ]; then
+  if [ ! -f "$binary_path_pattern" ]; then
     output=$(ls -la /usr/local/bin)
     err "$test: Spin Wasm Runtime binary does not exist at $binary_path_pattern\n ls -la output:\n $output"
     return 1
@@ -1248,7 +1252,7 @@ testCorednsBinaryExtractedAndCached() {
   # coredns binary is built with GLIBC 2.32+, which is not compatible with 18.04 and 20.04 OS versions.
   # Therefore, we skip the test for these OS versions here.
   # Validation in AKS RP will be done to ensure localdns is not enabled for these OS versions.
-  if [ ${os_version} = "18.04" | ${os_version} = "20.04" ]; then
+  if [ "${os_version}" = "18.04" | "${os_version}" = "20.04" ]; then
     # For Ubuntu 18.04 and 20.04, the coredns binary is located in /opt/azure/containers/localdns/binary/coredns
     echo "$test: Coredns is not supported on OS version: ${os_version}"
     return 0
