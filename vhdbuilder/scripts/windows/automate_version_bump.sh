@@ -45,7 +45,7 @@ create_image_bump_pr() {
     else
         create_branch "$branch_name"
     fi
-    if [[ -n "$cherry_pick_commit_id" ]]; then
+    if [ -n "$cherry_pick_commit_id" ]; then
         cherry_pick "$cherry_pick_commit_id"
     fi
     update_image_version

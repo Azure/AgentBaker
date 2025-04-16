@@ -21,7 +21,7 @@ installBpftrace() {
 }
 
 addMarinerNvidiaRepo() {
-    if [[ $OS_VERSION == "2.0" ]]; then 
+    if [ $OS_VERSION = "2.0" ]; then 
         MARINER_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/mariner-nvidia.repo"
         touch "${MARINER_NVIDIA_REPO_FILEPATH}"
         cat << EOF > "${MARINER_NVIDIA_REPO_FILEPATH}"
@@ -37,7 +37,7 @@ sslverify=1
 EOF
     fi
 
-  if [[ $OS_VERSION == "3.0" ]]; then
+  if [ $OS_VERSION = "3.0" ]; then
         AZURELINUX_NVIDIA_REPO_FILEPATH="/etc/yum.repos.d/azurelinux-nvidia.repo"
         touch "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
         cat << EOF > "${AZURELINUX_NVIDIA_REPO_FILEPATH}"
@@ -185,7 +185,7 @@ installFIPS() {
     # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
     boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
     root_dev="$(df / | tail -1 | cut -d' ' -f1)"
-    if [ ! "$root_dev" == "$boot_dev" ]; then
+    if [ ! "$root_dev" = "$boot_dev" ]; then
         boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
 
         # Enable FIPS mode and modify boot directory

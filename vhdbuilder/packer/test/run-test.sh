@@ -21,7 +21,7 @@ set -x
 
 # For linux VHDs, override AZURE_LOCATION with PACKER_BUILD_LOCATION to make sure
 # we're in the correct region to access the image version from the staging gallery (PackerSigGalleryEastUS)
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
@@ -29,7 +29,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   AZURE_LOCATION=$PACKER_BUILD_LOCATION
 fi
 
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   TEST_VM_RESOURCE_GROUP_NAME="$TEST_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
 else
   if [ -z "$TEST_VM_RESOURCE_GROUP_NAME" ]; then
@@ -43,7 +43,7 @@ az group create --name "$TEST_VM_RESOURCE_GROUP_NAME" --location "${AZURE_LOCATI
 
 # defer function to cleanup resource group when VHD debug is not enabled
 function cleanup() {
-  if [ "$VHD_DEBUG" == "True" ]; then
+  if [ "$VHD_DEBUG" = "True" ]; then
     echo "VHD debug mode is enabled, please manually delete test vm resource group $RESOURCE_GROUP_NAME after debugging"
   else
     echo "Deleting resource group ${TEST_VM_RESOURCE_GROUP_NAME}"
@@ -60,13 +60,13 @@ set -x
 # otherwise 'root' is used by default but not allowed by the Windows Image. See the error image below:
 # ERROR: This user name 'root' meets the general requirements, but is specifically disallowed for this image. Please try a different value.
 TARGET_COMMAND_STRING=""
-if [ "${ARCHITECTURE,,}" == "arm64" ]; then
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
   TARGET_COMMAND_STRING+="--size Standard_D2pds_V5"
 else
   TARGET_COMMAND_STRING="--size Standard_D2ds_v5"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
   if [ -n "$TARGET_COMMAND_STRING" ]; then
     # To take care of Mariner Kata TL images
     TARGET_COMMAND_STRING+=" "
@@ -74,12 +74,12 @@ if [ "${OS_TYPE}" == "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]; then
   TARGET_COMMAND_STRING+="--security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the TARGET_COMMAND_STRING string here to ensure that no artifacts from earlier conditionals are included
     TARGET_COMMAND_STRING="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   # in linux mode, explicitly create the NIC referencing the existing packer subnet to be attached to the testing VM so we avoid creating ephemeral vnets
   PACKER_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/packer"
   if [ -z "$(az network vnet subnet show --ids "$PACKER_SUBNET_ID" | jq -r '.id')" ]; then
@@ -119,7 +119,7 @@ set -x
 FULL_PATH=$(realpath $0)
 CDIR=$(dirname "$FULL_PATH")
 
-if [ "$OS_TYPE" == "Linux" ]; then
+if [ "$OS_TYPE" = "Linux" ]; then
   if [ -z "${ENABLE_FIPS// }" ]; then
     ENABLE_FIPS="false"
   fi

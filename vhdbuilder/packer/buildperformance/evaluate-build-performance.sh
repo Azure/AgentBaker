@@ -6,22 +6,22 @@ log_and_exit () {
   local SHOW_FILE=${3:-false}
   echo "##vso[task.logissue type=warning;sourcepath=$(basename $0);]${FILE} ${ERR}. Skipping build performance evaluation."
   echo "##vso[task.complete result=SucceededWithIssues;]"
-  if [[ ${SHOW_FILE} == true ]]; then
+  if [ "${SHOW_FILE}" = "true" ]; then
     cat ${FILE}
   fi
   exit 0
 }
 
-if [[ ! -f ${PERFORMANCE_DATA_FILE} ]]; then
+if [ ! -f "${PERFORMANCE_DATA_FILE}" ]; then
   log_and_exit ${PERFORMANCE_DATA_FILE} "not found"
 fi
 
 SCRIPT_COUNT=$(jq -e 'keys | length' ${PERFORMANCE_DATA_FILE})
-if [[ $? -ne 0 ]]; then
+if [ $? -ne 0 ]; then
   log_and_exit ${PERFORMANCE_DATA_FILE} "contains invalid json" true
 fi
 
-if [[ ${SCRIPT_COUNT} -eq 0 ]]; then
+if [ "${SCRIPT_COUNT}" -eq 0 ]; then
   log_and_exit ${PERFORMANCE_DATA_FILE} "contains no data"
 fi
 
@@ -53,7 +53,7 @@ jq . -C ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
-if [ "${ENVIRONMENT,,}" == "test" ]; then
+if [ "${ENVIRONMENT,,}" = "test" ]; then
   mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
   pushd vhdbuilder/packer/buildperformance || exit 0
     echo -e "\nRunning build performance evaluation program...\n"
