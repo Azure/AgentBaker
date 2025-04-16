@@ -177,7 +177,7 @@ installStandaloneContainerd() {
     if [ -z "${CONTAINERD_VERSION}" ]; then
         # pin 18.04 to 1.7.1
         CONTAINERD_VERSION="1.7.15"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
         CONTAINERD_PATCH_VERSION="1"
@@ -265,7 +265,7 @@ ensureRunc() {
     CURRENT_VERSION=${CURRENT_VERSION%-*} # removes the -1 patch version (or similar)
     CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} # removes the -ubuntu22.04u1 (or similar) 
 
-    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+    if [ "${CURRENT_VERSION}" = "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi

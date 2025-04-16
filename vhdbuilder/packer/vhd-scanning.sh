@@ -22,7 +22,7 @@ SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
 
 # shellcheck disable=SC3010
-if [ "${ENVIRONMENT,,}" == "tme" ]; then
+if [ "${ENVIRONMENT,,}" = "tme" ]; then
     ACCOUNT_NAME="$ACCOUNT_NAME_TME"
     KUSTO_DATABASE="$KUSTO_DATABASE_TME"
     KUSTO_TABLE="$KUSTO_TABLE_TME"
@@ -84,7 +84,7 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
     VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi

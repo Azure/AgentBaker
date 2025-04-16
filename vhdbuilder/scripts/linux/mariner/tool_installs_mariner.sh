@@ -185,7 +185,7 @@ installFIPS() {
     # Add the boot= cmd line parameter if the boot dir is not the same as the root dir
     boot_dev="$(df /boot/ | tail -1 | cut -d' ' -f1)"
     root_dev="$(df / | tail -1 | cut -d' ' -f1)"
-    if [ ! "$root_dev" == "$boot_dev" ]; then
+    if [ ! "$root_dev" = "$boot_dev" ]; then
         boot_uuid="UUID=$(blkid $boot_dev -s UUID -o value)"
 
         # Enable FIPS mode and modify boot directory

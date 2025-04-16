@@ -35,7 +35,7 @@ configureSystemdUseDomains() {
         sed -i '/^\[DHCPv4\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
     fi
 
-    if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+    if [ "${IPV6_DUAL_STACK_ENABLED}" = "true" ]; then
         if awk '/^\[DHCPv6\]/{flag=1; next} /^\[/{flag=0} flag && /#UseDomains=no/' "$NETWORK_CONFIG_FILE"; then
             sed -i '/^\[DHCPv6\]/,/^\[/ s/#UseDomains=no/UseDomains=yes/' $NETWORK_CONFIG_FILE
         fi
@@ -305,7 +305,7 @@ disableSystemdResolved() {
 }
 
 ensureContainerd() {
-  if [ "${TELEPORT_ENABLED}" == "true" ]; then
+  if [ "${TELEPORT_ENABLED}" = "true" ]; then
     ensureTeleportd
   fi
   mkdir -p "/etc/systemd/system/containerd.service.d" 
@@ -314,7 +314,7 @@ ensureContainerd() {
 ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
-  if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
+  if [ "${ARTIFACT_STREAMING_ENABLED}" = "true" ]; then
     logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
   fi
 
@@ -464,7 +464,7 @@ configureKubeletServing() {
         # set --rotate-server-certificates flag and serverTLSBootstrap config file field to false
         echo "reconfiguring kubelet flags and config as needed"
         KUBELET_FLAGS="${KUBELET_FLAGS/--rotate-server-certificates=true/--rotate-server-certificates=false}"
-        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" = "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'if .serverTLSBootstrap == true then .serverTLSBootstrap = false else . end' | base64)
             set -x
@@ -485,7 +485,7 @@ configureKubeletServing() {
         echo "removing --tls-cert-file and --tls-private-key-file from kubelet flags"
         removeKubeletFlag "--tls-cert-file=$KUBELET_SERVER_CERT_PATH"
         removeKubeletFlag "--tls-private-key-file=$KUBELET_SERVER_PRIVATE_KEY_PATH"
-        if [ "${KUBELET_CONFIG_FILE_ENABLED}" == "true" ]; then
+        if [ "${KUBELET_CONFIG_FILE_ENABLED}" = "true" ]; then
             set +x
             KUBELET_CONFIG_FILE_CONTENT=$(echo "$KUBELET_CONFIG_FILE_CONTENT" | base64 -d | jq 'del(.tlsCertFile)' | jq 'del(.tlsPrivateKeyFile)' | base64)
             set -x
@@ -529,7 +529,7 @@ ensureKubelet() {
     fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ] || [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ] || [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"

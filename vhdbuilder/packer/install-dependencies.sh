@@ -108,15 +108,14 @@ if [ "${CONTAINER_RUNTIME:-}" != "containerd" ]; then
   exit 1
 fi
 
-if [ "$(isARM64)" == 1 ]; then
+if [ "$(isARM64)" = 1 ]; then
   # shellcheck disable=SC3010
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
   fi
 
-  # shellcheck disable=SC3010
-  if [[ ${CONTAINER_RUNTIME,,} == "docker" ]]; then
+  if [ "${CONTAINER_RUNTIME,,}" = "docker" ]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
@@ -392,9 +391,9 @@ installAndConfigureArtifactStreaming() {
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" == "deb" ]; then
+  if [ "$2" = "deb" ]; then
     apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$2" == "rpm" ]; then
+  elif [ "$2" = "rpm" ]; then
     dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
   rm $MIRROR_DOWNLOAD_PATH
@@ -403,12 +402,12 @@ installAndConfigureArtifactStreaming() {
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
 # TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ] && [ ${UBUNTU_RELEASE} != "24.04" ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)"  != 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
 # TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
-if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
+if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 

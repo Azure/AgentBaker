@@ -160,7 +160,7 @@ installStandaloneContainerd() {
     #if there is no containerd_version input from RP, use hardcoded version
     if [ -z "${CONTAINERD_VERSION}" ]; then
         CONTAINERD_VERSION="1.7.15"
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
             CONTAINERD_VERSION="1.7.1"
         fi
         CONTAINERD_PATCH_VERSION="1"
@@ -238,7 +238,7 @@ ensureRunc() {
     CURRENT_VERSION=${CURRENT_VERSION%-*} 
     CLEANED_TARGET_VERSION=${CLEANED_TARGET_VERSION%-*} 
 
-    if [ "${CURRENT_VERSION}" == "${CLEANED_TARGET_VERSION}" ]; then
+    if [ "${CURRENT_VERSION}" = "${CLEANED_TARGET_VERSION}" ]; then
         echo "target moby-runc version ${CLEANED_TARGET_VERSION} is already installed. skipping installRunc."
         return
     fi

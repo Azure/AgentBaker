@@ -53,7 +53,7 @@ jq . -C ${SIG_IMAGE_NAME}-build-performance.json
 echo "##[endgroup]"
 
 echo -e "\nENVIRONMENT is: ${ENVIRONMENT}"
-if [ "${ENVIRONMENT,,}" == "test" ]; then
+if [ "${ENVIRONMENT,,}" = "test" ]; then
   mv ${SIG_IMAGE_NAME}-build-performance.json vhdbuilder/packer/buildperformance
   pushd vhdbuilder/packer/buildperformance || exit 0
     echo -e "\nRunning build performance evaluation program...\n"

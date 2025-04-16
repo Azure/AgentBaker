@@ -84,9 +84,11 @@ SC2317
 shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
 
 # POSIX-Compliant checks
-# Only checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
+# Checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
+# Checking SC3014 that == in place of = is undefined in POSIX.
 # We can add more checks if needed.
 POSIX_CHECKS="
 SC3010
+SC3014
 "
-shellcheck "--shell=sh" $(printf -- "-i %s" $POSIX_CHECKS) $filesToCheck
+shellcheck "--shell=sh" $(printf -- "-i %s " $POSIX_CHECKS) $filesToCheck

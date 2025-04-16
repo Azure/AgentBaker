@@ -84,7 +84,7 @@ installContainerdWithComponentsJson() {
     packageVersion=${sortedPackageVersions[${last_index}]}
     containerdMajorMinorPatchVersion="$(echo "$packageVersion" | cut -d- -f1)"
     containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
-    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
+    if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" = "null" ] || [ "$containerdHotFixVersion" = "null" ]; then
         echo "invalid containerd version: $packageVersion"
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
@@ -106,7 +106,7 @@ installContainerdWithManifestJson() {
     fi
     containerd_patch_version="$(echo "$containerd_version" | cut -d- -f1)"
     containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
-    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
+    if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" = "null" ] || [ "$containerd_revision" = "null" ]; then
         echo "invalid container version: $containerd_version"
         exit $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
@@ -716,7 +716,7 @@ cleanupRetaggedImages() {
         fi
         if [ "${images_to_delete}" != "" ]; then
             echo "${images_to_delete}" | while read -r image; do
-                if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+                if [ "${NEEDS_CONTAINERD}" = "true" ]; then
                     removeContainerImage "ctr" ${image}
                 else
                     removeContainerImage "docker" ${image}
@@ -746,13 +746,13 @@ getInstallModeAndCleanupContainerImages() {
     local SKIP_BINARY_CLEANUP=$1
     local IS_VHD=$2
 
-    if [ ! -f $VHD_LOGS_FILEPATH ] && [ "${IS_VHD,,}" == "true" ]; then
+    if [ ! -f "$VHD_LOGS_FILEPATH" ] && [ "${IS_VHD,,}" = "true" ]; then
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
         exit $ERR_VHD_FILE_NOT_FOUND
     fi
 
     FULL_INSTALL_REQUIRED=true
-    if [ "${SKIP_BINARY_CLEANUP}" == "true" ]; then
+    if [ "${SKIP_BINARY_CLEANUP}" = "true" ]; then
         echo "binaries will not be cleaned up"
         echo "${FULL_INSTALL_REQUIRED,,}"
         return

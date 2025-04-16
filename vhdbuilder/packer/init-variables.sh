@@ -36,7 +36,7 @@ if [ -f "${VHD_BUILD_TIMESTAMP_JSON}" ]; then
 fi
 
 # Hard-code RG/gallery location to 'eastus' only for linux builds.
-if [ "$MODE" == "linuxVhdMode" ]; then
+if [ "$MODE" = "linuxVhdMode" ]; then
 	# In linux builds, this variable is only used for creating the resource group holding the
 	# staging "PackerSigGalleryEastUS" SIG, as well as the gallery itself. It's also used
 	# for creating any image definitions that might be missing from the gallery based on the particular
@@ -60,7 +60,7 @@ fi
 
 echo "POOL_NAME is set to $POOL_NAME"
 
-if [ "$MODE" == "linuxVhdMode" ] && [ -z "${SKU_NAME}" ]; then
+if [ "$MODE" = "linuxVhdMode" ] && [ -z "${SKU_NAME}" ]; then
 	echo "SKU_NAME must be set for linux VHD builds"
 	exit 1
 fi
@@ -68,7 +68,7 @@ fi
 # This variable is used within linux builds to inform which region that packer build itself will be running,
 # and subsequently the region in which the 1ES pool the build is running on is in.
 # Note that this variable is ONLY used for linux builds, windows builds simply use AZURE_LOCATION.
-if [ "$MODE" == "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
+if [ "$MODE" = "linuxVhdMode" ] && [ -z "${PACKER_BUILD_LOCATION}" ]; then
 	echo "PACKER_BUILD_LOCATION is not set, cannot compute VNET_RG_NAME for packer templates"
 	exit 1
 fi
@@ -81,21 +81,21 @@ fi
 # Currently only used for linux builds. This determines the environment in which the build is running (either prod or test).
 # Used to construct the name of the resource group in which the 1ES pool the build is running on lives in, which also happens.
 # to be the resource group in which the packer VNET lives in.
-if [ "$MODE" == "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
+if [ "$MODE" = "linuxVhdMode" ] && [ -z "${ENVIRONMENT}" ]; then
 	echo "ENVIRONMENT is not set, cannot compute VNET_RG_NAME or VNET_NAME for packer templates"
 	exit 1
 fi
 
 if [ -z "${VNET_RG_NAME}" ]; then
-	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
+	if [ "$MODE" = "linuxVhdMode" ]; then
+		if [ "${ENVIRONMENT,,}" = "prod" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-agent-pool"
 		else
 			VNET_RG_NAME="nodesig-${ENVIRONMENT}-${PACKER_BUILD_LOCATION}-packer-vnet-rg"
 		fi
 	fi
-	if [ "$MODE" == "windowsVhdMode" ]; then
+	if [ "$MODE" = "windowsVhdMode" ]; then
 	    # shellcheck disable=SC3010
 		if [[ "${POOL_NAME}" == *nodesigprod* ]]; then
 			VNET_RG_NAME="nodesigprod-agent-pool"
@@ -106,15 +106,15 @@ if [ -z "${VNET_RG_NAME}" ]; then
 fi
 
 if [ -z "${VNET_NAME}" ]; then
-	if [ "$MODE" == "linuxVhdMode" ]; then
-		if [ "${ENVIRONMENT,,}" == "prod" ]; then
+	if [ "$MODE" = "linuxVhdMode" ]; then
+		if [ "${ENVIRONMENT,,}" = "prod" ]; then
 			# TODO(cameissner): build out updated pool resources in prod so we don't have to pivot like this
 			VNET_NAME="nodesig-pool-vnet-${PACKER_BUILD_LOCATION}"
 		else
 			VNET_NAME="nodesig-packer-vnet-${PACKER_BUILD_LOCATION}"
 		fi
 	fi
-	if [ "$MODE" == "windowsVhdMode" ]; then
+	if [ "$MODE" = "windowsVhdMode" ]; then
 		VNET_NAME="nodesig-pool-vnet"
 	fi
 fi
@@ -164,17 +164,17 @@ if [ "${MODE}" = "linuxVhdMode" ]; then
 	if [ -z "${SIG_IMAGE_NAME}" ]; then
 		SIG_IMAGE_NAME=$SKU_NAME
 		# shellcheck disable=SC3010
-		if [[ "${IMG_OFFER,,}" == "cbl-mariner" ]]; then
+		if [ "${IMG_OFFER,,}" = "cbl-mariner" ]; then
 			# we need to add a distinction here since we currently use the same image definition names
 			# for both azlinux and cblmariner in prod galleries, though we only have one gallery which Packer
 			# is configured to deliver images to...
 			# shellcheck disable=SC3010
-			if [ "${ENABLE_CGROUPV2,,}" == "true" ]; then
+			if [ "${ENABLE_CGROUPV2,,}" = "true" ]; then
 				SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 			else
 				SIG_IMAGE_NAME="CBLMariner${SIG_IMAGE_NAME}"
 			fi
-		elif [[ "${IMG_OFFER,,}" == "azure-linux-3" ]]; then
+		elif [ "${IMG_OFFER,,}" = "azure-linux-3" ]; then
 			# for Azure Linux 3.0, only use AzureLinux prefix
 			SIG_IMAGE_NAME="AzureLinux${SIG_IMAGE_NAME}"
 		elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
@@ -347,7 +347,7 @@ if [ -n "${AZURE_MSI_RESOURCE_STRING}" ]; then
 fi
 
 # shellcheck disable=SC2236
-if [ "$OS_TYPE" == "Windows" ]; then
+if [ "$OS_TYPE" = "Windows" ]; then
 
 	echo "Set the base image sku and version from windows_settings.json"
 
@@ -480,14 +480,14 @@ fi
 # since windows doesn't currently distinguish between the 2.
 # also do this in cases where we're running a linux build in AME (for now)
 # TODO(cameissner): remove conditionals for prod once new pool config has been deployed to AME.
-if [ "$MODE" == "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" == "prod" ]; then
+if [ "$MODE" = "windowsVhdMode" ] || [ "${ENVIRONMENT,,}" = "prod" ]; then
 	PACKER_BUILD_LOCATION=$AZURE_LOCATION
 fi
 
 set +x
 UA_TOKEN="${UA_TOKEN:-}" # used to attach UA when building ESM-enabled Ubuntu SKUs
-if [ "$MODE" == "linuxVhdMode" ] && [ "${OS_SKU,,}" == "ubuntu" ]; then
-	if [ "${OS_VERSION}" == "18.04" ] || [ "${OS_VERSION}" == "20.04" ] || [ "${ENABLE_FIPS,,}" == "true" ]; then
+if [ "$MODE" = "linuxVhdMode" ] && [ "${OS_SKU,,}" = "ubuntu" ]; then
+	if [ "${OS_VERSION}" = "18.04" ] || [ "${OS_VERSION}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
 		echo "OS_VERSION: ${OS_VERSION}, ENABLE_FIPS: ${ENABLE_FIPS,,}, will use token for UA attachment"
 		if [ -z "${UA_TOKEN}" ]; then
 			echo "UA_TOKEN must be provided when building SKUs which require ESM"

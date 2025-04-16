@@ -21,14 +21,14 @@ do
     fi
 done
 
-if [ "${OS_TYPE,,}" == "windows" ]; then
+if [ "${OS_TYPE,,}" = "windows" ]; then
   if [ -z "$LOCATION" ]; then
     echo "LOCATION must be set for windows builds"
     exit 1
   fi
 fi
 
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
@@ -69,7 +69,7 @@ if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
       } \
     } \
   }"
-elif [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \

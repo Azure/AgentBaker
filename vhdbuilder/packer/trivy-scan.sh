@@ -90,7 +90,7 @@ install_azure_cli() {
         echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
         sudo apt-get update -y && sudo apt-get upgrade -y
         sudo apt-get install -y azure-cli
-    elif [ "$OS_SKU" == "CBLMariner" ] || [ "$OS_SKU" == "AzureLinux" ]; then
+    elif [ "$OS_SKU" = "CBLMariner" ] || [ "$OS_SKU" = "AzureLinux" ]; then
         sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
         sudo sh -c 'echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
         sudo dnf install -y azure-cli
@@ -104,7 +104,7 @@ login_with_user_assigned_managed_identity() {
     local USERNAME=$1
 
     LOGIN_FLAGS="--identity --username $USERNAME"
-    if [ "${ENABLE_TRUSTED_LAUNCH,,}" == "true" ]; then
+    if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
         LOGIN_FLAGS="$LOGIN_FLAGS --allow-no-subscriptions"
     fi
 
@@ -117,10 +117,10 @@ install_azure_cli $OS_SKU $OS_VERSION $ARCHITECTURE $TEST_VM_ADMIN_USERNAME
 login_with_user_assigned_managed_identity ${UMSI_PRINCIPAL_ID}
 
 arch="$(uname -m)"
-if [ "${arch,,}" == "arm64" ] || [ "${arch,,}" == "aarch64" ]; then
+if [ "${arch,,}" = "arm64" ] || [ "${arch,,}" = "aarch64" ]; then
     TRIVY_ARCH="Linux-ARM64"
     GO_ARCH="arm64"
-elif [ "${arch,,}" == "x86_64" ]; then
+elif [ "${arch,,}" = "x86_64" ]; then
     TRIVY_ARCH="Linux-64bit"
     GO_ARCH="amd64"
 else

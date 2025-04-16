@@ -232,7 +232,7 @@ wait_for_localdns_ready() {
     local starttime=$(date +%s)
 
     echo "Waiting for localdns to start and be able to serve traffic."
-    until [ "$($CURL_COMMAND)" == "OK" ]; do
+    until [ "$($CURL_COMMAND)" = "OK" ]; do
         if [ $attempts -ge $maxattempts ]; then
             echo "Localdns failed to come online after $maxattempts attempts."
             return 1

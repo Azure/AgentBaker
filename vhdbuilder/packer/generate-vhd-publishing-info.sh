@@ -31,7 +31,7 @@ else
     fi
 fi
 
-if [ "${HYPERV_GENERATION,,}" == "v1" ]; then
+if [ "${HYPERV_GENERATION,,}" = "v1" ]; then
     # Gen2 SKUs are more used as compared to Gen1 SKUs, therefore Gen1 SKUs do not warrant the same number of replicas
     REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
 fi
@@ -48,8 +48,8 @@ set +x
 for v in "${required_env_vars[@]}"
 do
     if [ -z "${!v}" ]; then
-        if [ "${OS_NAME,,}" == "linux" ]; then
-            if [ "$v" == "IMAGE_VERSION" ]; then
+        if [ "${OS_NAME,,}" = "linux" ]; then
+            if [ "$v" = "IMAGE_VERSION" ]; then
                 IMAGE_VERSION=$(date +%Y%m.%d.0)
                 echo "$v was not set, set it to ${!v}"
             else
@@ -64,7 +64,7 @@ do
 done
 
 # If building a linux-based VHD, correctly set the intermediate, or "captured" SIG image version resource ID so it can be used by AgentBaker E2E and release scripts.
-if [ "${OS_NAME,,}" == "linux" ]; then
+if [ "${OS_NAME,,}" = "linux" ]; then
     [ -z "$SUBSCRIPTION_ID" ] && echo "SUBSCRIPTION_ID must be set when generating publishing info for linux" && exit 1
     [ -z "$RESOURCE_GROUP_NAME" ] && echo "RESOURCE_GROUP_NAME must be set when generating publishing info for linux" && exit 1
     [ -z "$SIG_IMAGE_NAME" ] && echo "SIG_IMAGE_NAME must be set when generating publishing info for linux" && exit 1
@@ -90,7 +90,7 @@ vhd_url="${STORAGE_ACCT_BLOB_URL}/${VHD_NAME}"
 echo "COPY ME ---> ${vhd_url}"
 
 # Note: The offer_name is the value from OS_SKU (eg. Ubuntu)
-if [ "${OS_NAME,,}" == "linux" ]; then
+if [ "${OS_NAME,,}" = "linux" ]; then
     cat <<EOF > vhd-publishing-info.json
 {
     "vhd_url": "$vhd_url",

@@ -109,7 +109,7 @@ if [ $? != 0 ]; then
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
 
-if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" == "true" ]; then
+if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -127,7 +127,7 @@ if [ $? != 0 ]; then
     exit "$ERR_CLEANUP_CONTAINER_IMAGES"
 fi
 
-if [ "$OS" == "$UBUNTU_OS_NAME" ] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
@@ -154,7 +154,7 @@ if [ "${IS_KRUSTLET}" = "true" ]; then
     logs_to_events "AKS.CSE.installSpinKube" installSpinKube  "$downloadLocationSpinKube" "$downloadURLSpinKube" "$versionsSpinKube"
 fi
 
-if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
+if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ]; then
     logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
 fi
 
@@ -243,7 +243,7 @@ if [ "${MESSAGE_OF_THE_DAY}" != "" ]; then
     echo "${MESSAGE_OF_THE_DAY}" | base64 -d > /etc/motd
 fi
 
-if [ "${TARGET_CLOUD}" == "AzureChinaCloud" ]; then
+if [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; then
     retagMCRImagesForChina
 fi
 
@@ -259,7 +259,7 @@ if [ "${SHOULD_CONFIG_SWAP_FILE}" = "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
 
-if [ "${NEEDS_CGROUPV2}" == "true" ]; then
+if [ "${NEEDS_CGROUPV2}" = "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
 [Service]
 Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
@@ -293,7 +293,7 @@ fi
 
 logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
 
-if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
+if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
@@ -368,12 +368,12 @@ fi
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
-    if [ "$OS" == "$UBUNTU_OS_NAME" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         aptmarkWALinuxAgent unhold &
     fi
 else
     if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
             UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
             mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
             touch "${UU_CONFIG_DIR}"
@@ -389,8 +389,8 @@ else
         fi
         aptmarkWALinuxAgent unhold &
     elif isMarinerOrAzureLinux "$OS"; then
-        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
-            if [ "${IS_KATA}" == "true" ]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
+            if [ "${IS_KATA}" = "true" ]; then
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'
             else
                 systemctl disable dnf-automatic-notifyonly.timer
