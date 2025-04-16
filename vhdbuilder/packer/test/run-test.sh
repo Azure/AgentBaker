@@ -93,6 +93,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
   fi
   az vm create \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
+      --debug \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
@@ -101,6 +102,7 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
       ${TARGET_COMMAND_STRING}
 else
   az vm create \
+      --debug \
       --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
       --name "$VM_NAME" \
       --image "$MANAGED_SIG_ID" \
