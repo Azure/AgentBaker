@@ -108,7 +108,7 @@ if [ "${CONTAINER_RUNTIME:-}" != "containerd" ]; then
   exit 1
 fi
 
-if [ "$(isARM64)" = 1 ]; then
+if [ "$(isARM64)" -eq 1 ]; then
   # shellcheck disable=SC3010
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
@@ -402,12 +402,12 @@ installAndConfigureArtifactStreaming() {
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
 # TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)"  != 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)"  -ne 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
 # TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
-if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  != 1 ]; then
+if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  -ne 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
@@ -425,7 +425,7 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
 
-if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" != 1 ]; then  # No ARM64 SKU with GPU now
+if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" -ne 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
   while IFS= read -r imageToBePulled; do
@@ -502,7 +502,7 @@ while IFS= read -r imageToBePulled; do
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
 
-  if [ "$(isARM64)" = 1 ]; then
+  if [ "$(isARM64)" -eq 1 ]; then
     versions="${MULTI_ARCH_VERSIONS[*]}"
   else
     versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"

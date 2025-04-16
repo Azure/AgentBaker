@@ -79,8 +79,7 @@ fi
 # SIG image definition for AMD64/ARM64 has subtle difference, otherwise a SIG version cannot be used to create VM/VMSS of corresponding sku.
 # 'az sig image-definition create' will have a new property (--architecture Arm64|x64) for this soon. We need this in the publishing-info
 # in order that the VHD publish EV2 pipeline can create image-definition with right architecture.
-# shellcheck disable=SC3010
-if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+if [ "${ARCHITECTURE,,}" = "arm64" ]; then
     IMAGE_ARCH="Arm64"
 else
     IMAGE_ARCH="x64"

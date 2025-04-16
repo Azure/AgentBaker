@@ -126,7 +126,7 @@ testAcrCredentialProviderInstalled() {
 testPackagesInstalled() {
   test="testPackagesInstalled"
   containerRuntime=$1
-  if [ "$(isARM64)" = 1 ]; then
+  if [ "$(isARM64)" -eq 1 ]; then
     return
   fi
   CPU_ARCH="amd64"
@@ -329,7 +329,7 @@ testImagesPulled() {
       amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
     fi
 
-    if [ "$(isARM64)" = 1 ]; then
+    if [ "$(isARM64)" -eq 1 ]; then
       versions="${MULTI_ARCH_VERSIONS}"
     else
       versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS}"
