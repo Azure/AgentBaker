@@ -65,7 +65,7 @@ current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annot
 if [ -n "${current_timestamp}" ]; then
     echo "current timestamp is: ${current_timestamp}"
 
-    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+    if [ "${golden_timestamp}" = "${current_timestamp}" ]; then
         echo "golden and current timestamp is the same, nothing to patch"
         exit 0
     fi
@@ -79,7 +79,7 @@ option_value=true
 cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
 
 new_source_list=$(cat ${source_list_path})
-if [[ "${old_source_list}" != "${new_source_list}" ]]; then
+if [ "${old_source_list}" != "${new_source_list}" ]; then
     echo "$old_source_list" > ${source_list_backup_path}
     echo "/etc/apt/sources.list is updated:"
     diff ${source_list_backup_path} ${source_list_path} || true

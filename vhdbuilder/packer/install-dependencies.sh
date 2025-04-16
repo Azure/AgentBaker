@@ -37,14 +37,14 @@ capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 echo "Logging the kernel after purge and reinstall + reboot: $(uname -r)"
 # fix grub issue with cvm by reinstalling before other deps
 # other VHDs use grub-pc, not grub-efi
-if [[ "$OS" == "$UBUNTU_OS_NAME" ]] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then 
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && echo "$FEATURE_FLAGS" | grep -q "cvm"; then
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   wait_for_apt_locks
   apt_get_install 30 1 600 grub-efi || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
-if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # disable and mask all UU timers/services
   # save some background io/latency
   systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
@@ -60,6 +60,7 @@ EOF
 fi
 
 # If the IMG_SKU does not contain "minimal", installDeps normally
+# shellcheck disable=SC3010
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
@@ -67,7 +68,7 @@ else
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
   BLOBFUSE2_VERSION="2.4.1"
-  if [ "${OS_VERSION}" == "18.04" ]; then
+  if [ "${OS_VERSION}" = "18.04" ]; then
     # keep legacy version on ubuntu 18.04
     BLOBFUSE2_VERSION="2.2.0"
   fi
@@ -81,8 +82,8 @@ else
 fi
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
-if [[ "$OS" == "$UBUNTU_OS_NAME" ]]; then
-  if [ "${OS_VERSION}" == "18.04" ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  if [ "${OS_VERSION}" = "18.04" ]; then
     CHRONYD_DIR=/etc/systemd/system/chrony.service.d
   fi
 fi
@@ -102,18 +103,19 @@ ForwardToSyslog=yes
 EOF
 capture_benchmark "${SCRIPT_NAME}_install_deps_and_set_configs"
 
-if [[ ${CONTAINER_RUNTIME:-""} != "containerd" ]]; then
+if [ "${CONTAINER_RUNTIME:-}" != "containerd" ]; then
   echo "Unsupported container runtime. Only containerd is supported for new VHD builds."
   exit 1
 fi
 
-if [[ $(isARM64) == 1 ]]; then
+if [ "$(isARM64)" = 1 ]; then
+  # shellcheck disable=SC3010
   if [[ ${HYPERV_GENERATION,,} == "v1" ]]; then
     echo "No arm64 support on V1 VM, exiting..."
     exit 1
   fi
 
-  if [[ ${CONTAINER_RUNTIME,,} == "docker" ]]; then
+  if [ "${CONTAINER_RUNTIME,,}" = "docker" ]; then
     echo "No dockerd is allowed on arm64 vhd, exiting..."
     exit 1
   fi
@@ -268,7 +270,7 @@ updateAptWithMicrosoftPkg
 capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 
 # check if COMPONENTS_FILEPATH exists
-if [ ! -f $COMPONENTS_FILEPATH ]; then
+if [ ! -f "$COMPONENTS_FILEPATH" ]; then
   echo "Components file not found at $COMPONENTS_FILEPATH. Exiting..."
   exit 1
 fi
@@ -280,7 +282,7 @@ while IFS= read -r p; do
   name=$(echo "${p}" | jq .name -r)
   PACKAGE_VERSIONS=()
   os=${OS}
-  if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
+  if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
     os=${MARINER_KATA_OS_NAME}
   fi
   updatePackageVersions "${p}" "${os}" "${OS_VERSION}"
@@ -289,7 +291,7 @@ while IFS= read -r p; do
   echo "In components.json, processing components.packages \"${name}\" \"${PACKAGE_VERSIONS[@]}\" \"${PACKAGE_DOWNLOAD_URL}\""
 
   # if ${PACKAGE_VERSIONS[@]} count is 0 or if the first element of the array is <SKIP>, then skip and move on to next package
-  if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
+  if [ "${#PACKAGE_VERSIONS[@]}" -eq 0 ] || [ "${PACKAGE_VERSIONS[0]}" = "<SKIP>" ]; then
     echo "INFO: ${name} package versions array is either empty or the first element is <SKIP>. Skipping ${name} installation."
     continue
   fi
@@ -328,7 +330,7 @@ while IFS= read -r p; do
     "containerd")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        if [[ "${OS}" == "${UBUNTU_OS_NAME}" ]]; then
+        if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
           installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
         elif isMarinerOrAzureLinux "$OS"; then
           installStandaloneContainerd "${version}"
@@ -389,9 +391,9 @@ installAndConfigureArtifactStreaming() {
   MIRROR_DOWNLOAD_PATH="./$1.$2"
   MIRROR_PROXY_URL="https://acrstreamingpackage.blob.core.windows.net/bin/${MIRROR_PROXY_VERSION}/${PACKAGE_NAME}.${PACKAGE_EXTENSION}"
   retrycmd_curl_file 10 5 60 $MIRROR_DOWNLOAD_PATH $MIRROR_PROXY_URL || exit ${ERR_ARTIFACT_STREAMING_DOWNLOAD}
-  if [ "$2" == "deb" ]; then
+  if [ "$2" = "deb" ]; then
     apt_get_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
-  elif [ "$2" == "rpm" ]; then
+  elif [ "$2" = "rpm" ]; then
     dnf_install 30 1 600 $MIRROR_DOWNLOAD_PATH || exit $ERR_ARTIFACT_STREAMING_DOWNLOAD
   fi
   rm $MIRROR_DOWNLOAD_PATH
@@ -400,12 +402,12 @@ installAndConfigureArtifactStreaming() {
 UBUNTU_MAJOR_VERSION=$(echo $UBUNTU_RELEASE | cut -d. -f1)
 # Artifact Streaming currently not supported for 24.04, the deb file isnt present in acs-mirror
 # TODO(amaheshwari/aganeshkumar): Remove the conditional when Artifact Streaming is enabled for 24.04
-if [ $OS == $UBUNTU_OS_NAME ] && [ $(isARM64)  != 1 ] && [ $UBUNTU_MAJOR_VERSION -ge 20 ] && [ ${UBUNTU_RELEASE} != "24.04" ]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$(isARM64)"  != 1 ] && [ "$UBUNTU_MAJOR_VERSION" -ge 20 ] && [ "${UBUNTU_RELEASE}" != "24.04" ]; then
   installAndConfigureArtifactStreaming acr-mirror-${UBUNTU_RELEASE//.} deb
 fi
 
 # TODO(aadagarwal): Enable Artifact Streaming for AzureLinux 3.0
-if [ $OS == $MARINER_OS_NAME ]  && [ $OS_VERSION == "2.0" ] && [ $(isARM64)  != 1 ]; then
+if [ "$OS" = "$MARINER_OS_NAME" ]  && [ "$OS_VERSION" = "2.0" ] && [ "$(isARM64)"  != 1 ]; then
   installAndConfigureArtifactStreaming acr-mirror-mariner rpm
 fi
 
@@ -423,7 +425,7 @@ GPUContainerImages=$(jq  -c '.GPUContainerImages[]' $COMPONENTS_FILEPATH)
 NVIDIA_DRIVER_IMAGE=""
 NVIDIA_DRIVER_IMAGE_TAG=""
 
-if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GPU now
+if [ $OS = $UBUNTU_OS_NAME ] && [ "$(isARM64)" != 1 ]; then  # No ARM64 SKU with GPU now
   gpu_action="copy"
 
   while IFS= read -r imageToBePulled; do
@@ -431,7 +433,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GP
     # shellcheck disable=SC2001
     imageName=$(echo "$downloadURL" | sed 's/:.*$//')
 
-    if [[ "$imageName" == "mcr.microsoft.com/aks/aks-gpu-cuda" ]]; then
+    if [ "$imageName" = "mcr.microsoft.com/aks/aks-gpu-cuda" ]; then
       latestVersion=$(echo "${imageToBePulled}" | jq -r '.gpuVersion.latestVersion')
       NVIDIA_DRIVER_IMAGE="$imageName"
       NVIDIA_DRIVER_IMAGE_TAG="$latestVersion"
@@ -440,7 +442,7 @@ if [[ $OS == $UBUNTU_OS_NAME && $(isARM64) != 1 ]]; then  # No ARM64 SKU with GP
   done <<< "$GPUContainerImages"
 
   # Check if the NVIDIA_DRIVER_IMAGE and NVIDIA_DRIVER_IMAGE_TAG were found
-  if [[ -z "$NVIDIA_DRIVER_IMAGE" || -z "$NVIDIA_DRIVER_IMAGE_TAG" ]]; then
+  if [ -z "$NVIDIA_DRIVER_IMAGE" ] || [ -z "$NVIDIA_DRIVER_IMAGE_TAG" ]; then
     echo "Error: Unable to find aks-gpu-cuda image in components.json"
     exit 1
   fi
@@ -480,7 +482,7 @@ string_replace() {
 # Limit number of parallel pulls to 2 less than number of processor cores in order to prevent issues with network, CPU, and disk resources
 # Account for possibility that number of cores is 3 or less
 num_proc=$(nproc)
-if [[ $num_proc -gt 3 ]]; then
+if [ "$num_proc" -gt 3 ]; then
   parallel_container_image_pull_limit=$(nproc --ignore=2)
 else
   parallel_container_image_pull_limit=1
@@ -496,11 +498,11 @@ while IFS= read -r imageToBePulled; do
   MULTI_ARCH_VERSIONS=()
   updateMultiArchVersions "${imageToBePulled}"
   amd64OnlyVersions=""
-  if [[ ${amd64OnlyVersionsStr} != null ]]; then
+  if [ "${amd64OnlyVersionsStr}" != "null" ]; then
     amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
   fi
 
-  if [[ $(isARM64) == 1 ]]; then
+  if [ "$(isARM64)" = 1 ]; then
     versions="${MULTI_ARCH_VERSIONS[*]}"
   else
     versions="${amd64OnlyVersions} ${MULTI_ARCH_VERSIONS[*]}"
@@ -511,7 +513,7 @@ while IFS= read -r imageToBePulled; do
     pullContainerImage "${cliTool}" "${CONTAINER_IMAGE}" &
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
-    while [[ $(jobs -p | wc -l) -ge $parallel_container_image_pull_limit ]]; do
+    while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
       wait -n
     done
   done
@@ -533,7 +535,7 @@ watcherStaticImg=${watcherBaseImg//\*/static}
 retagContainerImage "ctr" ${watcherFullImg} ${watcherStaticImg}
 
 # IPv6 nftables rules are only available on Ubuntu or Mariner/AzureLinux
-if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
+if [ $OS = $UBUNTU_OS_NAME ] || isMarinerOrAzureLinux "$OS"; then
   systemctlEnableAndStart ipv6_nftables 30 || exit 1
 fi
 capture_benchmark "${SCRIPT_NAME}_pull_and_retag_container_images"
@@ -583,7 +585,7 @@ cacheKubePackageFromPrivateUrl() {
   fi
 }
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
@@ -601,7 +603,7 @@ wait $BCC_PID
 BCC_EXIT_CODE=$?
 chmod 755 /var/log/bcc_installation.log
 
-if [ $BCC_EXIT_CODE -eq 0 ]; then
+if [ "$BCC_EXIT_CODE" -eq 0 ]; then
   echo "Bcc tools successfully installed."
   cat << EOF >> ${VHD_LOGS_FILEPATH}
   - bcc-tools
@@ -614,7 +616,7 @@ fi
 capture_benchmark "${SCRIPT_NAME}_finish_installing_bcc_tools"
 
 # use the private_packages_url to download and cache packages
-if [[ -n ${PRIVATE_PACKAGES_URL} ]]; then
+if [ -n "${PRIVATE_PACKAGES_URL}" ]; then
   IFS=',' read -ra PRIVATE_URLS <<< "${PRIVATE_PACKAGES_URL}"
 
   for private_url in "${PRIVATE_URLS[@]}"; do
@@ -630,7 +632,7 @@ LOCALDNS_BINARY_PATH="/opt/azure/containers/localdns/binary"
 # The function also handles the cleanup of temporary directories and unmounting of images.
 extractAndCacheCoreDnsBinary() {
   local coredns_image_list=($(ctr -n k8s.io images list -q | grep coredns))
-  if [[ ${#coredns_image_list[@]} -eq 0 ]]; then
+  if [ "${#coredns_image_list[@]}" -eq 0 ]; then
     echo "Error: No coredns images found."
     exit 1
   fi
@@ -640,7 +642,7 @@ extractAndCacheCoreDnsBinary() {
 
   cleanup_coredns_imports() {
     set +e
-    if [[ -n "${ctr_temp}" ]]; then
+    if [ -n "${ctr_temp}" ]; then
       ctr -n k8s.io images unmount "${ctr_temp}" >/dev/null
       rm -rf "${ctr_temp}"
     fi
@@ -653,6 +655,7 @@ extractAndCacheCoreDnsBinary() {
   # Function to check version format (vMajor.Minor.Patch).
   validate_version_format() {
     local version=$1
+    # shellcheck disable=SC3010
     if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       echo "Error: Invalid coredns version format. Expected vMajor.Minor.Patch, got $version" >> "${VHD_LOGS_FILEPATH}"
       return 1
@@ -674,28 +677,28 @@ extractAndCacheCoreDnsBinary() {
       exit 1
     fi
 
-    if [[ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]]; then
+    if [ "${vMajorMinorPatch}" != "${latest_vMajorMinorPatch}" ]; then
       previous_coredns_tag="$tag"
       # Break the loop after next highest major-minor version is found.
       break
     fi
   done
 
-  if [[ -z "${previous_coredns_tag}" ]]; then
+  if [ -z "${previous_coredns_tag}" ]; then
     echo "Warning: Previous version not found, using the latest version: $latest_coredns_tag" >> "${VHD_LOGS_FILEPATH}"
     previous_coredns_tag="$latest_coredns_tag"
   fi
 
   # Extract the CoreDNS binary for the selected version.
   for coredns_image_url in "${coredns_image_list[@]}"; do
-    if [[ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]]; then
+    if [ "${coredns_image_url##*:}" != "${previous_coredns_tag}" ]; then
       continue
     fi
 
     ctr_temp="$(mktemp -d)"
     local max_retries=3
     local retry_count=0
-    while [[ $retry_count -lt $max_retries ]]; do
+    while [ $retry_count -lt $max_retries ]; do
       if ctr -n k8s.io images mount "${coredns_image_url}" "${ctr_temp}" >/dev/null; then
         break
       fi
@@ -704,13 +707,13 @@ extractAndCacheCoreDnsBinary() {
       ((retry_count++))
     done
 
-    if [[ $retry_count -eq $max_retries ]]; then
+    if [ "$retry_count" = "$max_retries" ]; then
       echo "Error: Failed to mount ${coredns_image_url} after ${max_retries} attempts." >> "${VHD_LOGS_FILEPATH}"
       exit 1
     fi
 
     local coredns_binary="${ctr_temp}/usr/bin/coredns"
-    if [[ -f "${coredns_binary}" ]]; then
+    if [ -f "${coredns_binary}" ]; then
       cp "${coredns_binary}" "${LOCALDNS_BINARY_PATH}/coredns" || {
         echo "Error: Failed to copy coredns binary of ${previous_coredns_tag}" >> "${VHD_LOGS_FILEPATH}"
         exit 1

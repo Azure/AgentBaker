@@ -97,17 +97,17 @@ function check_and_curl {
         # curl the url and capture the response code
         response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
 
-        if [ $response -ge 200 ] && [ $response -lt 400 ]; then
+        if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
-        elif [ $response -eq 400 ] && { [ "$url" == "packages.aks.azure.com" ] || [ "$url" == "acs-mirror.azureedge.net" ] || [ "$url" == "eastus.data.mcr.microsoft.com" ]; }; then
+        elif [ "$response" -eq 400 ] && { [ "$url" = "packages.aks.azure.com" ] || [ "$url" = "acs-mirror.azureedge.net" ] || [ "$url" = "eastus.data.mcr.microsoft.com" ]; }; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
             # if the response code is not within successful range, increment the error count
             i=$(( $i + 1 ))
             # if we have reached the maximum number of retries, log an error
-            if [[ $i -eq $MAX_RETRY ]]; then
+            if [ "$i" -eq "$MAX_RETRY" ]; then
                 logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
                 break
             fi

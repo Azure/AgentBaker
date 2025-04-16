@@ -141,7 +141,7 @@ command -v zip >/dev/null || {
 # Create a temporary directory to store results in
 WORKDIR="$(mktemp -d)"
 # check if tmp dir was created
-if [[ ! "$WORKDIR" || "$WORKDIR" == "/" || "$WORKDIR" == "/tmp" || ! -d "$WORKDIR" ]]; then
+if [ -z "$WORKDIR" ] || [ "$WORKDIR" = "/" ] || [ "$WORKDIR" = "/tmp" ] || [ ! -d "$WORKDIR" ]; then
   echo "ERROR: Could not create temporary working directory."
   exit 1
 fi
@@ -151,8 +151,9 @@ echo "Created temporary directory: $WORKDIR"
 # Function to clean up the output directory and log termination
 function cleanup {
   # Make sure WORKDIR is a proper temp directory so we don't rm something we shouldn't
+  # shellcheck disable=SC3010
   if [[ $WORKDIR =~ ^/tmp/tmp\.[a-zA-Z0-9]+$ ]]; then
-    if [[ "$DEBUG" != "1" ]]; then
+    if [ "$DEBUG" != "1" ]; then
       echo "Cleaning up $WORKDIR..."
       rm -rf "$WORKDIR"
     else
@@ -233,12 +234,12 @@ collectToZip collect/ip_netconf.json ip -d -j netconf show
 collectToZip collect/ip_netns.json ip -d -j netns show
 collectToZip collect/ip_rule.json ip -d -j rule show
 
-if [[ "${COLLECT_IPTABLES}" == "true" ]]; then
+if [ "${COLLECT_IPTABLES}" = "true" ]; then
   collectToZip collect/iptables.txt iptables -L -vn --line-numbers
   collectToZip collect/ip6tables.txt ip6tables -L -vn --line-numbers
 fi
 
-if [[ "${COLLECT_NFTABLES}" == "true" ]]; then
+if [ "${COLLECT_NFTABLES}" = "true" ]; then
   collectToZip collect/nftables.txt nft -n list ruleset 2>&1
 fi
 
@@ -246,7 +247,7 @@ collectToZip collect/ss.txt ss -anoempiO --cgroup
 collectToZip collect/ss_stats.txt ss -s
 
 # Collect network information from network namespaces
-if [[ "${COLLECT_NETNS}" == "true" ]]; then
+if [ "${COLLECT_NETNS}" = "true" ]; then
   for NETNS in $(ip -j netns list | jq -r '.[].name'); do
     mkdir -p "collect/ip_netns_${NETNS}/"
     collectToZip collect/ip_netns_${NETNS}/conntrack.txt ip netns exec "${NETNS}" conntrack -L
@@ -263,11 +264,11 @@ if [[ "${COLLECT_NETNS}" == "true" ]]; then
     collectToZip collect/ip_netns_${NETNS}/ip_netconf.json ip -n "${NETNS}" -d -j netconf show
     collectToZip collect/ip_netns_${NETNS}/ip_netns.json ip -n "${NETNS}" -d -j netns show
     collectToZip collect/ip_netns_${NETNS}/ip_rule.json ip -n "${NETNS}" -d -j rule show
-    if [[ "${COLLECT_IPTABLES}" == "true" ]]; then
+    if [ "${COLLECT_IPTABLES}" = "true" ]; then
       collectToZip collect/ip_netns_${NETNS}/iptables.txt ip netns exec "${NETNS}" iptables -L -vn --line-numbers
       collectToZip collect/ip_netns_${NETNS}/ip6tables.txt ip netns exec "${NETNS}" ip6tables -L -vn --line-numbers
     fi
-    if [[ "${COLLECT_NFTABLES}" == "true" ]]; then
+    if [ "${COLLECT_NFTABLES}" = "true" ]; then
       collectToZip collect/ip_netns_${NETNS}/nftables.txt nft -n list ruleset
     fi
     collectToZip collect/ip_netns_${NETNS}/ss.txt ip netns exec "${NETNS}" ss -anoempiO --cgroup
