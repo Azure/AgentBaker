@@ -709,7 +709,24 @@
     {
       "type": "shell",
       "inline": [
-        "sudo /bin/bash -eux /home/packer/cis.sh",
+        "sudo /bin/bash -eux /home/packer/cis.sh"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/cis-report.txt",
+      "destination": "cis-report.txt"
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/cis-report.html",
+      "destination": "cis-report.html"
+    },
+    {
+      "type": "shell",
+      "inline": [
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo /usr/sbin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
