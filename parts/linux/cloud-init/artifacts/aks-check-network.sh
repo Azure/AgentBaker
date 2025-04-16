@@ -107,7 +107,7 @@ function check_and_curl {
             # if the response code is not within successful range, increment the error count
             i=$(( $i + 1 ))
             # if we have reached the maximum number of retries, log an error
-            if [ "$i" = "$MAX_RETRY" ]; then
+            if [ "$i" -eq "$MAX_RETRY" ]; then
                 logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
                 break
             fi
