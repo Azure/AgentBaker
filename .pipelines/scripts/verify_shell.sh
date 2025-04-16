@@ -10,7 +10,7 @@ if [ "${installed}" -ne 0 ]; then
     echo "shellcheck not installed...trying to install."
     DISTRO="$(uname | tr "[:upper:]" "[:lower:]")"
     # override for custom kernels, wsl, etc.
-    if [ "${DISTRO}" == "Linux" ] || [ "${DISTRO}" == "linux" ]; then
+    if [ "${DISTRO}" = "Linux" ] || [ "${DISTRO}" = "linux" ]; then
         DISTRO="$(grep ^ID= < /etc/os-release | cut -d= -f2)"
     fi
     if [ "${DISTRO}" = "ubuntu" ]; then
