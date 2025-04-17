@@ -15,6 +15,8 @@ copyPackerFiles() {
   SSHD_CONFIG_DEST=/etc/ssh/sshd_config
   MODPROBE_CIS_SRC=/home/packer/modprobe-CIS.conf
   MODPROBE_CIS_DEST=/etc/modprobe.d/CIS.conf
+  FAILLOCK_CONF_SRC=/home/packer/faillock-CIS.conf
+  FAILLOCK_CONF_DEST=/etc/security/faillock.conf
   PWQUALITY_CONF_SRC=/home/packer/pwquality-CIS.conf
   PWQUALITY_CONF_DEST=/etc/security/pwquality.conf
   PAM_D_COMMON_ACCOUNT_SRC=/home/packer/pam-d-common-account
