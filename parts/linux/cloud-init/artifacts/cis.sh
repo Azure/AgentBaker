@@ -283,6 +283,10 @@ configurePam() {
     :
 }
 
+configureRootPath() {
+    sed -i -e 's|:/snap/bin||' /etc/sudoers /etc/environment
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -300,6 +304,7 @@ applyCIS() {
     configureSsh
     configureSudo
     configurePam
+    configureRootPath
 }
 
 scanCIS() {
