@@ -18,9 +18,10 @@ PERFORMANCE_DATA_FILE=/opt/azure/vhd-build-performance-data.json
 MAX_BLOCK_COUNT=30298176 # 30 GB
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [ $OS = $UBUNTU_OS_NAME ]; then
   # shellcheck disable=SC2021
   current_kernel="$(uname -r | cut -d- -f-2)"
+  # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "$current_kernel" | grep -v "fips" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
   else
@@ -37,6 +38,7 @@ if [[ $OS == $UBUNTU_OS_NAME ]]; then
   capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernels_and_packages"
 
   # Final step, if 18.04 or FIPS, log ua status, detach UA and clean up
+  # shellcheck disable=SC3010
   if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # 'ua status' for logging
     ua status
@@ -84,13 +86,14 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 } >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_finish_vhd_build_logs"
 
-if [[ $(isARM64) != 1 ]]; then
+if [ "$(isARM64)" -ne 1 ]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi
 capture_benchmark "${SCRIPT_NAME}_install_asc_baseline"
 
-if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [ $OS = $UBUNTU_OS_NAME ]; then
+  # shellcheck disable=SC3010
   if [[ ${ENABLE_FIPS,,} == "true" || ${CPU_ARCH} == "arm64" ]]; then
     relinkResolvConf
   fi

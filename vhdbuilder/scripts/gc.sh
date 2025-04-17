@@ -33,7 +33,7 @@ function cleanup_rgs() {
         group_object=$(az group show -g $group)
         tag_value=$(echo "$group_object" | jq -r --arg skipTagName $SKIP_TAG_NAME '.tags."\($skipTagName)"')
 
-        if [ "${tag_value,,}" == "$SKIP_TAG_VALUE" ]; then
+        if [ "${tag_value,,}" = "$SKIP_TAG_VALUE" ]; then
             now=$(echo "$group_object" | jq -r '.tags.now')
             if [ "$now" != "null" ] && [ $now -lt $WEEK_AGO ]; then
                 echo "resource group $group is tagged with $SKIP_TAG_NAME=$SKIP_TAG_VALUE but is more than 7 days old, will attempt to delete..."
@@ -50,7 +50,7 @@ function cleanup_rgs() {
 function delete_group() {
     local group=$1
 
-    if [ "${DRY_RUN,,}" == "true" ]; then
+    if [ "${DRY_RUN,,}" = "true" ]; then
         echo "DRY_RUN: az group delete -g $group --yes --no-wait"
         return 0
     fi
