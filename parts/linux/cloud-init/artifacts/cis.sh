@@ -209,6 +209,71 @@ function addFailLockDir() {
     fi
 }
 
+configureGrub() {
+    if ! grep -q apparmor /etc/default/grub.d/99-aks-cis.cfg; then
+        echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX apparmor=1 security=apparmor"' >>/etc/default/grub.d/99-aks-cis.cfg
+    fi
+    if ! grep -q superusers /etc/grub.d/40_custom; then
+        set +x
+        password=$(openssl rand -hex 64)
+        hash=$(echo -e "${password}\n${password}" | grub-mkpasswd-pbkdf2 | tail -n1 | sed -e 's/.*grub.pbkdf2/grub.pbkdf2/')
+        set -x
+        cat <<EOF >>/etc/grub.d/40_custom
+set superusers="root"
+password_pbkdf2 root ${hash}
+EOF
+    fi
+    update-grub2 || exit 1
+}
+
+prepareTmp() {
+    local changed=0
+    if ! grep -q /tmp /etc/fstab; then
+        echo 'tmpfs /tmp tmpfs nodev,nosuid,noexec,size=1G,mode=1777' >>/etc/fstab
+        changed=1
+    fi
+    if [[ "${changed}" = 1 ]]; then
+        # Normally the changes would be applied at next boot but we force them to be applied before scanning is done
+        /usr/lib/systemd/system-generators/systemd-fstab-generator /run/systemd/generator{,.early,.late}
+        systemctl daemon-reload
+        systemctl start tmp.mount
+    fi
+}
+
+configureSsh() {
+    cat <<EOF >/etc/ssh/sshd_config.d/99-aks-cis.conf
+ClientAliveInterval 120
+ClientAliveCountMax 3
+EOF
+    chmod 0600 -R /etc/ssh/sshd_config.d/
+    chmod 0755    /etc/ssh/sshd_config.d
+    chmod 0600    /etc/ssh/sshd_config
+    systemctl restart sshd
+}
+
+configureSudo() {
+    cat <<EOF >/etc/sudoers.d/99-cis
+Defaults logfile="/var/log/sudo.log"
+EOF
+    chmod 0440 /etc/sudoers.d/99-cis
+    cat <<EOF >/etc/logrotate.d/sudo
+/var/log/sudo.log {
+  rotate 5
+  daily
+  maxsize 50M
+  missingok
+  notifempty
+  compress
+  delaycompress
+  sharedscripts
+}
+EOF
+}
+
+configurePam() {
+    :
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -217,6 +282,15 @@ applyCIS() {
     fixUmaskSettings
     maskNfsServer
     addFailLockDir
+    if isMarinerOrAzureLinux "$OS"; then
+        echo "Further functions only work for Ubuntu"
+        return
+    fi
+    configureGrub
+    prepareTmp
+    configureSsh
+    configureSudo
+    configurePam
 }
 
 scanCIS() {
