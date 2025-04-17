@@ -101,6 +101,7 @@ RestartSec=5
 EOF
 
 tee -a /etc/systemd/journald.conf > /dev/null <<'EOF'
+Compress=yes
 Storage=persistent
 SystemMaxUse=1G
 RuntimeMaxUse=1G
