@@ -288,7 +288,7 @@ If the raw content from your `transformTemplates` is not in plain text but other
 Now we figured out the inputs, we can start work on the JSONata query.
 
 JSONata Exerciser is a good playground for us to try and error the query. This is a good example which queries the package name from the inputs. You can start playing around with this. https://try.jsonata.org/Gjq6mkXmg. Attaching a screenshot for reference in case the link is no longer available in the future.
-![alt text](.\images\JSONata_exerciser_example.png)
+![alt text](./images/JSONata_exerciser_example.png)
 
 # Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
