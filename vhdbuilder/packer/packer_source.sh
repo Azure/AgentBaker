@@ -358,6 +358,7 @@ copyPackerFiles() {
     cpAndMode $MPU_SH_SRC $MPU_SH_DEST 544
 
     # Mariner/AzureLinux uses system-auth and system-password instead of common-auth and common-password.
+    # TODO: redundant check
     if isMarinerOrAzureLinux "$OS"; then
       cpAndMode $PAM_D_SYSTEM_AUTH_SRC $PAM_D_SYSTEM_AUTH_DEST 644
       cpAndMode $PAM_D_SYSTEM_PASSWORD_SRC $PAM_D_SYSTEM_PASSWORD_DEST 644
