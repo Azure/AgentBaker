@@ -20,6 +20,8 @@ ERR_CHRONY_START_TIMEOUT=15 {{/* Unable to start CHRONY */}}
 echo "Sourcing tool_installs_ubuntu.sh"
 
 installAscBaseline() {
+   echo "Skipping ASC Baseline remediation"
+   return
    echo "Installing ASC Baseline tools..."
    ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
    retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
