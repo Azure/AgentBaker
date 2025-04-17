@@ -26,3 +26,4 @@ auth	required			pam_permit.so
 
 # 5.3.2 Ensure lockout for failed password attempts is configured
 auth required pam_faillock.so preauth silent audit deny=5 unlock_time=900
+auth [default=die] pam_faillock.so authfail audit deny=5 unlock_time=900
