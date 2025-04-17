@@ -287,6 +287,10 @@ EOF
 EOF
 }
 
+configureRootPath() {
+    sed -i -e 's|:/snap/bin||' /etc/sudoers /etc/environment
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -303,6 +307,7 @@ applyCIS() {
     prepareTmp
     configureSsh
     configureSudo
+    configureRootPath
 }
 
 applyCIS
