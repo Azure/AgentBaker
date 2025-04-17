@@ -249,7 +249,7 @@ if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
 fi
 
 if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
-    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
+    logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts || exit $ERR_SYSTEMCTL_START_FAIL
 fi
 
 if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
@@ -257,7 +257,7 @@ if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
 fi
 
 if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
-    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
+    logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile || exit $?
 fi
 
 if [ "${NEEDS_CGROUPV2}" == "true" ]; then
@@ -292,18 +292,18 @@ After=bind-mount.service
 EOF
 fi
 
-logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
 if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
+    logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge || exit $ERR_SYSTEMCTL_START_FAIL
 fi
 
 if [[ $OS == "$UBUNTU_OS_NAME" ]] || isMarinerOrAzureLinux "$OS"; then
-    logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
+    logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
 fi
 
 if [[ $FULL_INSTALL_REQUIRED == "true" ]]; then
@@ -356,9 +356,9 @@ if [ $VALIDATION_ERR -ne 0 ]; then
     exit $VALIDATION_ERR
 fi
 
-logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS
+logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
-logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet || exit $?
 
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"

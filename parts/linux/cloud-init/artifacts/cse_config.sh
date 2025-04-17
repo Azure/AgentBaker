@@ -75,16 +75,16 @@ configureSwapFile() {
             swap_location=/swapfile
         else
             echo "Insufficient disk space on OS device ${os_device} to create swap file: request ${swap_size_kb} free ${disk_free_kb}"
-            exit $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
+            return $ERR_SWAP_CREATE_INSUFFICIENT_DISK_SPACE
         fi
     fi
 
     echo "Swap file will be saved to: ${swap_location}"
-    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 fallocate -l ${swap_size_kb}K ${swap_location} || return $ERR_SWAP_CREATE_FAIL
     chmod 600 ${swap_location}
-    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
-    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || exit $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 mkswap ${swap_location} || return $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon ${swap_location} || return $ERR_SWAP_CREATE_FAIL
+    retrycmd_if_failure 24 5 25 swapon --show | grep ${swap_location} || return $ERR_SWAP_CREATE_FAIL
     echo "${swap_location} none swap sw 0 0" >> /etc/fstab
 }
 
@@ -358,7 +358,7 @@ EOF
 }
 
 ensureNoDupOnPromiscuBridge() {
-    systemctlEnableAndStart ensure-no-dup 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart ensure-no-dup 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureTeleportd() {
@@ -659,15 +659,15 @@ EOF
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
-        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
+        logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider || return $?
     fi
 
     # 4-minute timeout to give enough time to all of kubelet's ExecStartPre scripts before hitting their own respective timeouts
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    systemctlEnableAndStart kubelet 240 || return $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {
-    systemctlEnableAndStart snapshot-update.timer 30 || exit $ERR_SNAPSHOT_UPDATE_START_FAIL
+    systemctlEnableAndStart snapshot-update.timer 30 || return $ERR_SNAPSHOT_UPDATE_START_FAIL
 }
 
 ensureMigPartition(){
@@ -690,7 +690,7 @@ ensureSysctl() {
     touch "${SYSCTL_CONFIG_FILE}"
     chmod 0644 "${SYSCTL_CONFIG_FILE}"
     echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
-    retrycmd_if_failure 24 5 25 sysctl --system
+    retrycmd_if_failure 24 5 25 sysctl --system || return $ERR_SYSCTL_RELOAD
 }
 
 ensureK8sControlPlane() {
@@ -853,7 +853,7 @@ ensureGPUDrivers() {
 }
 
 disableSSH() {
-    systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
+    systemctlDisableAndStop ssh ||  return $ERR_DISABLE_SSH
 }
 
 configCredentialProvider() {
