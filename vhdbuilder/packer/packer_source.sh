@@ -17,6 +17,8 @@ copyPackerFiles() {
   MODPROBE_CIS_DEST=/etc/modprobe.d/CIS.conf
   PWQUALITY_CONF_SRC=/home/packer/pwquality-CIS.conf
   PWQUALITY_CONF_DEST=/etc/security/pwquality.conf
+  PAM_D_COMMON_ACCOUNT_SRC=/home/packer/pam-d-common-account
+  PAM_D_COMMON_ACCOUNT_DEST=/etc/pam.d/common-account
   PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth
   PAM_D_COMMON_AUTH_DEST=/etc/pam.d/common-auth
   PAM_D_COMMON_PASSWORD_SRC=/home/packer/pam-d-common-password
@@ -372,6 +374,7 @@ copyPackerFiles() {
   else
     cpAndMode $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_SRC $DOCKER_CLEAR_MOUNT_PROPAGATION_FLAGS_DEST 644
     cpAndMode $NVIDIA_MODPROBE_SERVICE_SRC $NVIDIA_MODPROBE_SERVICE_DEST 644
+    cpAndMode $PAM_D_COMMON_ACCOUNT_SRC $PAM_D_COMMON_ACCOUNT_DEST 644
     cpAndMode $PAM_D_COMMON_AUTH_SRC $PAM_D_COMMON_AUTH_DEST 644
     cpAndMode $PAM_D_COMMON_PASSWORD_SRC $PAM_D_COMMON_PASSWORD_DEST 644
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
