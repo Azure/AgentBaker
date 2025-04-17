@@ -304,11 +304,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/asc-baseline-1.1.0-268.amd64.deb",
-      "destination": "/home/packer/asc-baseline.deb"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/cisassessor.tar.gz",
       "destination": "/home/packer/cisassessor.tar.gz"
     },
