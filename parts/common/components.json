@@ -373,26 +373,26 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.15.0-main-02-21-2025-4acb2b4c"
+          "latestVersion": "6.16.0-main-04-15-2025-d78050c6"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.15.0-main-02-21-2025-4acb2b4c-targetallocator"
+          "latestVersion": "6.16.0-main-04-15-2025-d78050c6-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.15.0-main-02-21-2025-4acb2b4c-cfg"
+          "latestVersion": "6.16.0-main-04-15-2025-d78050c6-cfg"
         }
       ],
       "windowsVersions": []
     },
     {
-      "downloadURL": "mcr.microsoft.com/oss/kubernetes/kube-state-metrics:*",
+      "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/kube-state-metrics:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/kube-state-metrics",
-          "latestVersion": "v2.14.0"
+          "latestVersion": "v2.15.0-4"
         }
       ],
       "windowsVersions": []
