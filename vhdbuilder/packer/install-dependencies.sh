@@ -755,6 +755,9 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
   # remove snapd, which is not used by container stack
   apt_get_purge 20 30 120 snapd || exit 1
   apt_get_purge 20 30 120 apache2-utils || exit 1
+  # CIS: Ensure telnet (/ftp) client is not installed
+  # CIS: Ufw is not used but interferes with log_martians rule
+  apt_get_purge 20 30 120 telnet ftp ufw tnftp inetutils-telnet || exit 1
 
   apt-get -y autoclean || exit 1
   apt-get -y autoremove --purge || exit 1
