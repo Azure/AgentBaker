@@ -239,7 +239,7 @@ EOF
 prepareTmp() {
     local changed=0
     if ! grep -q /tmp /etc/fstab; then
-        echo 'tmpfs /tmp tmpfs nodev,nosuid,noexec,size=1G,mode=1777' >>/etc/fstab
+        echo 'tmpfs /tmp tmpfs nodev,nosuid,noexec,size=50%,mode=1777' >>/etc/fstab
         changed=1
     fi
     if [[ "${changed}" = 1 ]]; then
