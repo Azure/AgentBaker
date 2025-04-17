@@ -86,7 +86,7 @@ tee -a ${VHD_LOGS_FILEPATH} < /proc/version
 } >> ${VHD_LOGS_FILEPATH}
 capture_benchmark "${SCRIPT_NAME}_finish_vhd_build_logs"
 
-if [ "$(isARM64)" != 1 ]; then
+if [ "$(isARM64)" -ne 1 ]; then
   # no asc-baseline-1.1.0-268.arm64.deb
   installAscBaseline
 fi

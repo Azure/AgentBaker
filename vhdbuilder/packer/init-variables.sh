@@ -270,8 +270,7 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 		# shellcheck disable=SC3010
 		if [[ ${ARCHITECTURE,,} == "arm64" ]] || grep -q "cvm" <<< "$FEATURE_FLAGS" || [[ ${HYPERV_GENERATION} == "V1" ]]; then
 			TARGET_COMMAND_STRING=""
-			# shellcheck disable=SC3010
-			if [[ ${ARCHITECTURE,,} == "arm64" ]]; then
+			if [ "${ARCHITECTURE,,}" = "arm64" ]; then
 				TARGET_COMMAND_STRING+="--architecture Arm64"
 			elif grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 				TARGET_COMMAND_STRING+="--os-state Specialized --features SecurityType=ConfidentialVM"
