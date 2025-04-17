@@ -77,9 +77,17 @@ windows 23H2 gen1 and windows 23H2 gen2.
 
 ## Generate and Update current windows test images
 
-Currently, we use the latest test images "/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_E2E_IMAGE/versions/latest" (
-$WINDOWS_E2E_IMAGE could be 2019-containerd, 2022-containerd, 2022-containerd-gen2, 23H2, 23H2-gen2) as is referred
-by `IMAGE_REFERENCE` in `e2e-scenario.sh`.
+Currently, we use the latest test images `/subscriptions/$AZURE_E2E_IMAGE_SUBSCRIPTION_ID/resourceGroups/$AZURE_E2E_IMAGE_RESOURCE_GROUP_NAME/providers/Microsoft.Compute/galleries/$AZURE_E2E_IMAGE_GALLERY_NAME/images/windows-$WINDOWS_E2E_IMAGE/versions/latest`.
+
+supported versions of `$WINDOWS_E2E_IMAGE` are
+
+- 2019-containerd, 
+- 2022-containerd, 
+- 2022-containerd-gen2, 
+- 23H2, 
+- 23H2-gen2
+
+as is referred by `IMAGE_REFERENCE` in `e2e-scenario.sh`.
 
 To generate new windows test images, we can
 use [`[TEST All VHDs] AKS Windows VHD Build - Msft Tenant`](https://msazure.visualstudio.com/CloudNativeCompute/_build?definitionId=210712&_a=summary).
@@ -100,7 +108,13 @@ To obtain an example template, there are two ways:
   Enter MC resource group -> Enter the existing vmss -> Click `Export template` on the left bar. Then you can see the
   example template.
 - **From az cli**:
-    1. VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_RESOURCE_GROUP_NAME --name $MC_WIN_VMSS_NAME
-       --resource-type Microsoft.Compute/virtualMachineScaleSets --query id --output tsv)
-    1. az group export --resource-group $MC_RESOURCE_GROUP_NAME --resource-ids $VMSS_RESOURCE_Id
-       --include-parameter-default-value > template.json
+  ```
+  VMSS_RESOURCE_Id=$(az resource show --resource-group $MC_RESOURCE_GROUP_NAME \
+  --name $MC_WIN_VMSS_NAME  \
+  --resource-type Microsoft.Compute/virtualMachineScaleSets \
+  --query id --output tsv)
+  
+  az group export --resource-group $MC_RESOURCE_GROUP_NAME  \ 
+  --resource-ids $VMSS_RESOURCE_Id \
+  --include-parameter-default-value > template.json
+  ```
