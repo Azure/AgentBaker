@@ -213,6 +213,16 @@ configureGrub() {
     if ! grep -q apparmor /etc/default/grub.d/99-aks-cis.cfg; then
         echo 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX apparmor=1 security=apparmor"' >>/etc/default/grub.d/99-aks-cis.cfg
     fi
+    cat <<"EOF" >/etc/grub.d/09_unrestricted
+#!/bin/sh
+exec tail -n +3 $0
+# This file provides an easy way to add custom menu entries.  Simply type the
+# menu entries you want to add after this comment.  Be careful not to change
+# the 'exec tail' line above.
+
+menuentry_id_option="--unrestricted $menuentry_id_option"
+EOF
+    chmod +x /etc/grub.d/09_unrestricted
     if ! grep -q superusers /etc/grub.d/40_custom; then
         set +x
         password=$(openssl rand -hex 64)
