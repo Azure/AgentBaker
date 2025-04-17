@@ -99,7 +99,7 @@ steps:
   
   - bash: make -f packer.mk run-packer
     displayName: Build VHD
-    retryCountOnTaskFailure: 3
+    retryCountOnTaskFailure: 0
     env:
       OS_TYPE: Linux
       GIT_VERSION: $(Build.SourceVersion)
