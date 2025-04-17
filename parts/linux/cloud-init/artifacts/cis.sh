@@ -233,11 +233,9 @@ prepareTmp() {
         changed=1
     fi
     if [[ "${changed}" = 1 ]]; then
-        # Normally the changes would be applied at next boot but we force them to be applied before scanning is done
-        #/usr/lib/systemd/system-generators/systemd-fstab-generator /run/systemd/generator{,.early,.late}
-        #systemctl daemon-reload
-        #systemctl start tmp.mount
-        mount /tmp
+        # Interferes with packer
+        #mount /tmp
+        :
     fi
 }
 
