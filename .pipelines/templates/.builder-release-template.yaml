@@ -22,15 +22,6 @@ steps:
     displayName: Get Build Mode
 
   - task: UniversalPackages@0
-    displayName: Download Asc Baseline
-    inputs:
-      command: download
-      vstsFeed: ASMPackages
-      vstsFeedPackage: asc-baseline
-      vstsPackageVersion: '1.1.0-268'
-      downloadDirectory: vhdbuilder/packer
-
-  - task: UniversalPackages@0
     displayName: Download CIS scanner
     inputs:
       command: download
