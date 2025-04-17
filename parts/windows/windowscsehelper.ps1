@@ -160,13 +160,10 @@ $global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
 
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
-$global:MinimalKubernetesVersionWithLatestContainerd2 = "1.32.0" # Will change it to the correct version when we support new Windows containerd version
 # Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
 $global:StableContainerdPackage = "v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz"
 # The latest containerd version
 $global:LatestContainerdPackage = "v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz"
-# The latest containerd2 version
-$global:LatestContainerd2Package = "v2.0.1-azure.1/binaries/containerd-v2.0.1-azure.1-windows-amd64.tar.gz"
 
 $global:EventsLoggingDir = "C:\WindowsAzure\Logs\Plugins\Microsoft.Compute.CustomScriptExtension\Events\"
 $global:TaskName = ""
@@ -411,8 +408,9 @@ function Install-Containerd-Based-On-Kubernetes-Version {
     [Parameter(Mandatory = $true)][string]
     $KubernetesVersion
   )
-
-  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion"
+  # Get the current Windows version
+  $windowsVersion = Get-WindowsVersion
+  Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdBasedOnKubernetesVersion" -TaskMessage "Start to install ContainerD based on kubernetes version. ContainerdUrl: $global:ContainerdUrl, KubernetesVersion: $global:KubeBinariesVersion, Windows Version: $windowsVersion"
 
   # In the past, $global:ContainerdUrl is a full URL to download Windows containerd package.
   # Example: "https://acs-mirror.azureedge.net/containerd/windows/v0.0.46/binaries/containerd-v0.0.46-windows-amd64.tar.gz"
@@ -424,9 +422,11 @@ function Install-Containerd-Based-On-Kubernetes-Version {
   if ($ContainerdUrl.EndsWith("/")) {
     Write-Log "ContainerdURL is $ContainerdUrl"
     $containerdPackage=$global:StableContainerdPackage
-    if (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
+    
+    # Check if we have Windows Server 2025 (not official yet and hence the SKU, as opposed to official name like 23H2 ) and Kubernetes version >= 1.33.0
+    if ($windowsVersion -eq "test2025" -and ([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd2) -ge 0) {
         $containerdPackage = $global:LatestContainerd2Package
-        Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd2 so the latest containerd version 2.x $containerdPackage is used"
+        Write-Log "Using containerd 2.x ($containerdPackage) for Windows version $windowsVersion and Kubernetes version $KubernetesVersion"
     } elseif (([version]$KubernetesVersion).CompareTo([version]$global:MinimalKubernetesVersionWithLatestContainerd) -ge 0) {
         $containerdPackage=$global:LatestContainerdPackage
         Write-Log "Kubernetes version $KubernetesVersion is greater than or equal to $global:MinimalKubernetesVersionWithLatestContainerd so the latest containerd version $containerdPackage is used"
