@@ -12,7 +12,7 @@ for file in "$certSource"/*; do
   cp -a -- "$file" "$certDestination/$destPrefix${file##*/}"
 done
 
-if [[ -z $(ls -A "$certSource") ]]; then
+if [ -z "$(ls -A "$certSource" 2>/dev/null)" ]; then
   echo "Source dir "$certSource" was empty, attempting to remove cert files"
   ls "$certDestination" | grep -E '^'$destPrefix'[0-9]{14}' | while read -r line; do
     echo "removing "$line" in "$certDestination""
@@ -25,6 +25,7 @@ else
   currIterationTag=${currIterationCertFile:0:14}
   for file in "$certDestination/$destPrefix"*.crt; do
      currFile=${file##*/}
+     # shellcheck disable=SC3010
      if [[ "${currFile:${#destPrefix}:14}" != "${currIterationTag}" && -f "${file}" ]]; then
           echo "removing "$file" in "$certDestination""
           rm "${file}"
