@@ -676,7 +676,7 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 // this been crafted with a lot of trial and pain, some values are not needed, but it takes a lot of time to figure out which ones.
 // and we hope to move on to a different config, so I don't want to invest any more time in this-
 func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrappingConfiguration {
-	kubernetesVersion := "1.29.9"
+	kubernetesVersion := config.Config.KubernetsVersion
 	config := &datamodel.NodeBootstrappingConfiguration{
 		TenantID:          "tenantID",
 		SubscriptionID:    config.Config.SubscriptionID,
@@ -739,7 +739,7 @@ func baseTemplateWindows(t *testing.T, location string) *datamodel.NodeBootstrap
 					EnableCSIProxy:                 to.Ptr(true),
 					HnsRemediatorIntervalInMinutes: to.Ptr[uint32](1),
 					ImageVersion:                   "",
-					SSHEnabled:                     to.Ptr(true),
+					SSHEnabled:                     to.Ptr(config.Config.SSHEnabled),
 					WindowsDockerVersion:           "",
 					WindowsImageSourceURL:          "",
 					WindowsOffer:                   "aks-windows",
