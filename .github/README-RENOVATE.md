@@ -24,6 +24,7 @@
   - [Details on supporting the MAR OCI artifacts.](#details-on-supporting-the-mar-oci-artifacts)
   - [How to enable auto-merge for a component's patch version update?](#how-to-enable-auto-merge-for-a-components-patch-version-update)
   - [Why are some components' `minor version update` disabled?](#why-are-some-components-minor-version-update-disabled)
+  - [Debugging in local environment](#debugging-in-local-environment)
 # TL;DR
 This readme is mainly describing how the renovate.json is constructed and the reasoning behind. If you are adding a new component to be cached in VHD, please refer to this [Readme-components](../parts/linux/cloud-init/artifacts/README-COMPONENTS.md) for tutorial. If you are onboarding a newly added component to Renovate automatic updates, you can jump to the [Hands-on guide and FAQ](#hands-on-guide-and-faq).
 
@@ -314,22 +315,12 @@ Depending on what kind of component you are going to onboard.
   Fore more details, you can refer to Readme-components linked at the beginning of this document.
 
 - **Packages**: Now for datasource PMC (package.microsoft.com) we have 4 custom managers which will look up to the following 4 `defaultRegistryUrlTemplate`, based on different Ubuntu release, respectively.
-  - https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages
-  - https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages
-  - https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages
-  - https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/18.04/prod/dists/bionic/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages
+  - https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages
 
-  If the package you are going to onboard is managed by PMC (e.g., using `apt-get` to install and using PMC as the package list), like _containerd_ and _runc_, you are likely able to reuse the existing custom managers and custom datasources. The only thing you will need to do is just adding your package name to the array of `matchPackageNames` in this configuration
-  ```
-    {
-      "matchPackageNames": ["moby-runc", "moby-containerd"],
-      "extractVersion": "^v?(?<version>.+)$"
-    }
-  ```
-  This is to tell Renovate to extract x.y.z from vx.y.z for further processing.
-For more details about `extractVersion`, please read an [earlier section](#additional-string-operation-to-specific-component).
-
-  We will add support to OCI MCR which uses oras to pull package/binary soon.
+  Note: We need to specify one and only one datasource URL for each custom manager and here we are using the `amd64` ones. It could also be `arm64`. And we are assuming if `amd64` package is updated, `arm64` package is also updated. We know the assumption is not always valid. But even only `amd64` is updated but not `arm64`, we will still be able to catch it in the VHD build tests so it should be fine.
   
   If your package is not managed by PMC, you may need to create your own custom manager and custom datasource. If this is the case, you will need to go through this doc to understand how.
 
@@ -433,3 +424,79 @@ The config includes:
 
 ## Why are some components' `minor version update` disabled?
 For many components which have defined multiple versions cached in the components.json, we have disabled the `minor version update`. The reason is that Renovate would create many unncessary PRs. For example if a component has cached `v0.1.1` and `v0.2.1`, and `minor version update` is enabled, when a new minor version `v0.3.1` is released, Renovate will create 2 PRs, namely `v0.1.1 update to v0.3.1` and `v0.2.1 update to v0.3.1`. Both PRs will try to update to the same version `v0.3.1`. This is usually not intended because the onwers would like to cache multiple versions. Therefore, by default, we have disabled `minor version update` for such components.
+
+## Debugging in local environment
+To debug with verbose traces, it's recommended to set up a local environment for testing.
+Below are the steps to achieve this, using Windows PowerShell as an example. Other options, such as using a docker image, are also available, but you will need to figure out how to use them.
+1. Open a PowerShell terminal and navigate to the root directory of your source code.
+2. Set the LOG_LEVEL environment variable to the desired level. For example:
+   - `$Env:LOG_LEVEL = "debug"` for debug logs.
+   - `$Env:LOG_LEVEL = "trace"` for the most verbose logs. Refer to the official documentation for other options.
+3. Assuming you have `npm` installed, run this command 
+   ```
+   npx renovate --platform=local --dry-run=true`
+   ```
+   - where `dry-run=true` means that it will perform the data source lookup but not really creating a branch and PR.
+   - Renovate will automatically locate the required Renovate config file, which is `.github/renovate.json` in this case.
+
+**Example 1: Get log level `info` from a local environment.**
+```
+PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=true
+ WARN: cli config dryRun property has been changed to full
+ INFO: Repository started (repository=local)
+       "renovateVersion": "39.250.3"
+ INFO: Dependency extraction complete (repository=local)
+       "stats": {
+         "managers": {"regex": {"fileCount": 6, "depCount": 119}},
+         "total": {"fileCount": 6, "depCount": 119}
+       }
+ WARN: Package lookup failures (repository=local)
+       "warnings": [
+         "Failed to look up custom.deb1804 package kubernetes-cri-tools",
+         "Failed to look up custom.deb2004 package kubernetes-cri-tools",
+         "Failed to look up custom.deb2404 package kubernetes-cri-tools"
+       ],
+       "files": ["parts/common/components.json"]
+ INFO: DRY-RUN: Would ensure Dependency Dashboard (repository=local)
+       "title": "Dependency Dashboard"
+ INFO: DRY-RUN: Would save repository cache. (repository=local)
+ INFO: Repository finished (repository=local)
+       "cloned": undefined,
+       "durationMs": 54184
+ INFO: Renovate was run at log level "info". Set LOG_LEVEL=debug in environment variables to see extended debug logs.
+```
+This example reproduces what was observed on the Mend.io Renovate App. Then I change the LOG_LEVEL to `trace` for more detailed logs.
+
+**Example 2: Get log level `trace` from a local environment.**
+
+If the outputs are very large, you can pipe them to a file for better readability:
+```
+PS C:\Users\devinwon\git\AgentBaker> npx renovate --platform=local --dry-run=true >> output.txt
+```
+You won't see any progress in the terminal because all the outputs are piped to the file. Just wait until the process completes.
+In the `output.txt` of my case, I found this,
+```
+       "after": {"releases": {"version": "1.32.0-ubuntu18.04u3"}}
+DEBUG: Response has failed validation (repository=local)
+       "err": {
+         "message": "Schema error",
+         "stack": "ZodError: Schema error\n    at Object.get error [as error] 
+...
+...
+TRACE: Dependency lookup success (repository=local)
+       "dep": {
+         "versioning": "deb",
+         "updates": [],
+         "warnings": [
+           {
+             "topic": "kubernetes-cri-tools",
+             "message": "Failed to look up custom.deb1804 package kubernetes-cri-tools"
+           }
+         ]
+       }
+```
+where `{"releases": {"version": "1.32.0-ubuntu18.04u3"}}` is not the format I want. The correct format should be 
+```
+{"releases": [{"version": "1.32.0-ubuntu18.04u3"}]}
+```
+This demonstrates how to identify and debug issues in Renovate configurations.
