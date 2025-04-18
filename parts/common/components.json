@@ -312,16 +312,23 @@
       "windowsVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
+          "latestVersion": "v0.30.3-hotfix.20240819"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
           "latestVersion": "v0.30.3"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.30.3-hotfix.20240819"
         }
       ],
       "windowsVersions": []
