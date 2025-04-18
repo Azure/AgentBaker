@@ -245,15 +245,15 @@ mkdir -p "/etc/systemd/system/kubelet.service.d"
 
 # IMPORTANT NOTE: We do this here since this function can mutate kubelet flags and node labels, 
 # which is used by configureK8s and other functions. Thus, we need to make sure flag and label content is correct beforehand.
-logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing || exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
-logs_to_events "AKS.CSE.configureCNI" configureCNI
+logs_to_events "AKS.CSE.configureCNI" configureCNI || exit $ERR_MODPROBE_FAIL
 
 # configure and enable dhcpv6 for dual stack feature
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6 || exit $?
 fi
 
 # For systemd in Azure Linux, UseDomains= is by default disabled for security purposes. Enable this
@@ -264,9 +264,9 @@ fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
     # containerd should not be configured until cni has been configured first
-    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd || exit $?
 else
-    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker || exit $?
 fi
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then

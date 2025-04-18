@@ -78,6 +78,48 @@ Describe 'cse_helpers.sh'
         End
     End
 
+    # ensures that function returns correct codes during failure/success
+    Describe 'systemctlDisableAndStop'
+        serviceName="dummyService"
+        isServicePresent() {
+            return 0
+        }
+
+        It 'returns success when systemctl disable and stop are successful'
+            systemctl_stop() {
+                return 0
+            }
+            systemctl_disable() {
+                return 0
+            }
+            When call systemctlDisableAndStop "$serviceName"
+            The status should be success
+            The stdout should equal ""
+            The stderr should equal ""
+        End
+
+        It 'returns failure and a message when systemctl stop fails'
+            systemctl_stop() {
+                return 1
+            }
+            When call systemctlDisableAndStop "$serviceName"
+            The status should equal 1
+            The output should include "$serviceName could not be stopped"
+        End
+
+        It 'returns failure and a message when systemctl stop fails'
+            systemctl_stop() {
+                return 0
+            }
+            systemctl_disable() {
+                return 1
+            }
+            When call systemctlDisableAndStop "$serviceName"
+            The status should equal 1
+            The output should include "$serviceName could not be disabled"
+        End
+    End
+
     Describe 'evalPackageDownloadURL'
         It 'returns empty string for empty downloadURL'
             When call evalPackageDownloadURL ""

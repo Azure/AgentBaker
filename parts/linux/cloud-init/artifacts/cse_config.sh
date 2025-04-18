@@ -14,7 +14,7 @@ configPrivateClusterHosts() {
 [Service]
 Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
-  systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart reconcile-private-hosts 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -135,8 +135,8 @@ configureHTTPProxyCA() {
         update_cmd="update-ca-certificates"
     fi
     HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
-    $update_cmd || exit $ERR_UPDATE_CA_CERTS
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || return $ERR_UPDATE_CA_CERTS
+    $update_cmd || return $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -149,7 +149,7 @@ configureCustomCaCertificate() {
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
-    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs.service || return $ERR_UPDATE_CA_CERTS
     # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
     systemctl restart containerd
 }
@@ -273,7 +273,7 @@ EOF
 
 configureCNI() {
     # needed for the iptables rules to work on bridges
-    retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
+    retrycmd_if_failure 120 5 25 modprobe br_netfilter || return $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
 }
@@ -306,7 +306,7 @@ disableSystemdResolved() {
 
 ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
-    ensureTeleportd
+    ensureTeleportd || return $ERR_SYSTEMCTL_START_FAIL
   fi
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
@@ -315,16 +315,16 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || return $ERR_ARTIFACT_STREAMING_INSTALL
   fi
 
   mkdir -p /etc/containerd
   if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
-    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || return $ERR_FILE_WATCH_TIMEOUT
   else
     echo "Generating containerd config..."
-    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || return $ERR_FILE_WATCH_TIMEOUT
   fi
 
   if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
@@ -337,9 +337,9 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
-  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
-  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  retrycmd_if_failure 120 5 25 sysctl --system || return $ERR_SYSCTL_RELOAD
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || return $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
@@ -362,7 +362,7 @@ ensureNoDupOnPromiscuBridge() {
 }
 
 ensureTeleportd() {
-    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart teleportd 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureArtifactStreaming() {
@@ -394,19 +394,19 @@ ensureDocker() {
             jq '.' < $DOCKER_JSON_FILE && break
         fi
         if [ $i -eq 1200 ]; then
-            exit $ERR_FILE_WATCH_TIMEOUT
+            return $ERR_FILE_WATCH_TIMEOUT
         else
             sleep 1
         fi
     done
-    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || return $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
+    systemctlEnableAndStart docker 30 || return $ERR_DOCKER_START_FAIL
 
 }
 
 ensureDHCPv6() {
-    systemctlEnableAndStart dhcpv6 30 || exit $ERR_SYSTEMCTL_START_FAIL
-    retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
+    systemctlEnableAndStart dhcpv6 30 || return $ERR_SYSTEMCTL_START_FAIL
+    retrycmd_if_failure 120 5 25 modprobe ip6_tables || return $ERR_MODPROBE_FAIL
 }
 
 getPrimaryNicIP() {
@@ -452,7 +452,7 @@ configureKubeletServing() {
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
     if [ $? -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
-        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
+        return $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
     if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "true" ]; then
@@ -691,13 +691,6 @@ ensureSysctl() {
     chmod 0644 "${SYSCTL_CONFIG_FILE}"
     echo "${SYSCTL_CONTENT}" | base64 -d > "${SYSCTL_CONFIG_FILE}"
     retrycmd_if_failure 24 5 25 sysctl --system || return $ERR_SYSCTL_RELOAD
-}
-
-ensureK8sControlPlane() {
-    if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
-        return
-    fi
-    retrycmd_if_failure 120 5 25 $KUBECTL 2>/dev/null cluster-info || exit $ERR_K8S_RUNNING_TIMEOUT
 }
 
 createKubeManifestDir() {
