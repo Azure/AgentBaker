@@ -348,7 +348,7 @@ while IFS= read -r p; do
     "azure-acr-credential-provider")
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
+        downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}" || exit $?
         echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
