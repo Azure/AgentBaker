@@ -111,6 +111,9 @@ Describe 'cse_helpers.sh'
 
     Describe 'resolve_packages_source_url'
         It 'sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally'
+            curl() {
+                echo 200
+            }
             When call resolve_packages_source_url
             The output should equal "Established connectivity to packages.aks.azure.com."
             The variable PACKAGE_DOWNLOAD_BASE_URL should equal "packages.aks.azure.com"

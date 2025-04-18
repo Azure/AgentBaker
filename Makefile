@@ -77,9 +77,21 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
-.PHONY: shellspec # TODO: have this run in a container with a stable bash installation
-shellspec: bootstrap
-	@bash ./hack/tools/bin/shellspec --format d
+.PHONY: shellspec
+shellspec:
+	@docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec/shellspec:debian \
+		bash ./hack/tools/bin/shellspec --format d
+
+.PHONY: shellspec-docker
+shellspec-docker:
+	docker build --platform $(shell uname -m) -t shellspec-docker - < ./spec/shellspec.Dockerfile
+	docker run --rm \
+		-v $(CURDIR):/workspace \
+		-w /workspace \
+		shellspec-docker --shell bash --format d
 
 .PHONY: validate-image-version
 validate-image-version:
