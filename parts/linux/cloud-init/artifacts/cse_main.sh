@@ -432,7 +432,6 @@ if $REBOOTREQUIRED; then
     /bin/bash -c "shutdown -r 1 &"
     if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # logs_to_events should not be run on & commands
-        # TODO mumanski - how are return codes handled when using &?
         aptmarkWALinuxAgent unhold &
     fi
 else
