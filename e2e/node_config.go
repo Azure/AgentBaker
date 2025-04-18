@@ -23,6 +23,87 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// this is a base kubelet config for Scriptless e2e test
+var baseKubeletConfig = &aksnodeconfigv1.KubeletConfig{
+	EnableKubeletConfigFile: true,
+	KubeletFlags: map[string]string{
+		"--cloud-config":              "",
+		"--cloud-provider":            "external",
+		"--kubeconfig":                "/var/lib/kubelet/kubeconfig",
+		"--pod-infra-container-image": "mcr.microsoft.com/oss/kubernetes/pause:3.6",
+	},
+	KubeletNodeLabels: map[string]string{
+		"agentpool":                               "nodepool2",
+		"kubernetes.azure.com/agentpool":          "nodepool2",
+		"kubernetes.azure.com/cluster":            "test-cluster",
+		"kubernetes.azure.com/mode":               "system",
+		"kubernetes.azure.com/node-image-version": "AKSUbuntu-1804gen2containerd-2022.01.19",
+	},
+	KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+		Kind:              "KubeletConfiguration",
+		ApiVersion:        "kubelet.config.k8s.io/v1beta1",
+		StaticPodPath:     "/etc/kubernetes/manifests",
+		Address:           "0.0.0.0",
+		TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
+		TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
+		TlsCipherSuites: []string{
+			"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+			"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+			"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+			"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_256_GCM_SHA384",
+			"TLS_RSA_WITH_AES_128_GCM_SHA256",
+		},
+		RotateCertificates: true,
+		ServerTlsBootstrap: false,
+		Authentication: &aksnodeconfigv1.KubeletAuthentication{
+			X509: &aksnodeconfigv1.KubeletX509Authentication{
+				ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+			},
+			Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
+				Enabled: true,
+			},
+		},
+		Authorization: &aksnodeconfigv1.KubeletAuthorization{
+			Mode: "Webhook",
+		},
+		EventRecordQps: to.Ptr(int32(0)),
+		ClusterDomain:  "cluster.local",
+		ClusterDns: []string{
+			"10.0.0.10",
+		},
+		StreamingConnectionIdleTimeout: "4h",
+		NodeStatusUpdateFrequency:      "10s",
+		ImageGcHighThresholdPercent:    to.Ptr(int32(85)),
+		ImageGcLowThresholdPercent:     to.Ptr(int32(80)),
+		CgroupsPerQos:                  to.Ptr(true),
+		MaxPods:                        to.Ptr(int32(110)),
+		PodPidsLimit:                   to.Ptr(int32(-1)),
+		ResolvConf:                     "/run/systemd/resolve/resolv.conf",
+		EvictionHard: map[string]string{
+			"memory.available":  "750Mi",
+			"nodefs.available":  "10%",
+			"nodefs.inodesFree": "5%",
+		},
+		ProtectKernelDefaults: true,
+		FeatureGates:          map[string]bool{},
+		FailSwapOn:            to.Ptr(false),
+		KubeReserved: map[string]string{
+			"cpu":    "100m",
+			"memory": "1638Mi",
+		},
+		EnforceNodeAllocatable: []string{
+			"pods",
+		},
+		AllowedUnsafeSysctls: []string{
+			"kernel.msg*",
+			"net.ipv4.route.min_pmtu",
+		},
+	},
+}
+
 func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.NodeBootstrappingConfiguration {
 	var nbc *datamodel.NodeBootstrappingConfiguration
 
@@ -53,7 +134,6 @@ func getBaseNBC(t *testing.T, cluster *Cluster, vhd *config.Image) *datamodel.No
 // eventually we want to phase out usage of nbc
 func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnodeconfigv1.Configuration {
 	cs := nbc.ContainerService
-	agentPool := nbc.AgentPoolProfile
 	agent.ValidateAndSetLinuxNodeBootstrappingConfiguration(nbc)
 
 	config := &aksnodeconfigv1.Configuration{
@@ -99,13 +179,6 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			ContainerdDownloadUrlBase: nbc.CloudSpecConfig.KubernetesSpecConfig.ContainerdDownloadURLBase,
 		},
 		OutboundCommand: helpers.GetDefaultOutboundCommand(),
-		KubeletConfig: &aksnodeconfigv1.KubeletConfig{
-			KubeletClientKey:         base64.StdEncoding.EncodeToString([]byte(cs.Properties.CertificateProfile.ClientPrivateKey)),
-			KubeletConfigFileContent: base64.StdEncoding.EncodeToString([]byte(agent.GetKubeletConfigFileContent(nbc.KubeletConfig, nbc.AgentPoolProfile.CustomKubeletConfig))),
-			EnableKubeletConfigFile:  false,
-			KubeletFlags:             helpers.GetKubeletConfigFlag(nbc.KubeletConfig, cs, agentPool, false),
-			KubeletNodeLabels:        helpers.GetKubeletNodeLabels(agentPool),
-		},
 		BootstrappingConfig: &aksnodeconfigv1.BootstrappingConfig{
 			TlsBootstrappingToken: nbc.KubeletClientTLSBootstrapToken,
 		},
@@ -119,6 +192,10 @@ func nbcToAKSNodeConfigV1(nbc *datamodel.NodeBootstrappingConfiguration) *aksnod
 			NoProxyEntries: *nbc.HTTPProxyConfig.NoProxy,
 		},
 		NeedsCgroupv2: to.Ptr(true),
+		// Before scriptless, absvc combined kubelet configs from multiple sources such as nbc.AgentPoolProfile.CustomKubeletConfig, nbc.KubeletConfig and more.
+		// Now in scriptless, we don't have absvc to process nbc and nbc is no longer a dependency.
+		// Therefore, we require client (e.g. AKS-RP) to provide the final kubelet config that is ready to be written to the final kubelet config file on a node.
+		KubeletConfig: baseKubeletConfig,
 	}
 	return config
 }
@@ -282,6 +359,75 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 						MessageOfTheDay:         "",
 						NotRebootWindowsNode:    nil,
 						AgentPoolWindowsProfile: nil,
+						LocalDNSProfile: &datamodel.LocalDNSProfile{
+							EnableLocalDNS:       true,
+							CPULimitInMilliCores: to.Ptr(int32(2008)),
+							MemoryLimitInMB:      to.Ptr(int32(128)),
+							VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+								".": {
+									QueryLogging:                "Log",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "VnetDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Verify",
+								},
+								"cluster.local": {
+									QueryLogging:                "Error",
+									Protocol:                    "ForceTCP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Disable",
+								},
+								"testdomain456.com": {
+									QueryLogging:                "Log",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Verify",
+								},
+							},
+							KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+								".": {
+									QueryLogging:                "Error",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "Sequential",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Verify",
+								},
+								"cluster.local": {
+									QueryLogging:                "Log",
+									Protocol:                    "ForceTCP",
+									ForwardDestination:          "ClusterCoreDNS",
+									ForwardPolicy:               "RoundRobin",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Disable",
+								},
+								"testdomain567.com": {
+									QueryLogging:                "Error",
+									Protocol:                    "PreferUDP",
+									ForwardDestination:          "VnetDNS",
+									ForwardPolicy:               "Random",
+									MaxConcurrent:               to.Ptr(int32(1000)),
+									CacheDurationInSeconds:      to.Ptr(int32(3600)),
+									ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+									ServeStale:                  "Immediate",
+								},
+							},
+						},
 					},
 				},
 				LinuxProfile: &datamodel.LinuxProfile{
@@ -365,6 +511,75 @@ func baseTemplateLinux(t *testing.T, location string, k8sVersion string, arch st
 			PreprovisionExtension: nil,
 			KubernetesConfig: &datamodel.KubernetesConfig{
 				ContainerRuntime: "containerd",
+			},
+			LocalDNSProfile: &datamodel.LocalDNSProfile{
+				EnableLocalDNS:       true,
+				CPULimitInMilliCores: to.Ptr(int32(2008)),
+				MemoryLimitInMB:      to.Ptr(int32(128)),
+				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+					".": {
+						QueryLogging:                "Log",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "VnetDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Verify",
+					},
+					"cluster.local": {
+						QueryLogging:                "Error",
+						Protocol:                    "ForceTCP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Disable",
+					},
+					"testdomain456.com": {
+						QueryLogging:                "Log",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Verify",
+					},
+				},
+				KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{
+					".": {
+						QueryLogging:                "Error",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "Sequential",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Verify",
+					},
+					"cluster.local": {
+						QueryLogging:                "Log",
+						Protocol:                    "ForceTCP",
+						ForwardDestination:          "ClusterCoreDNS",
+						ForwardPolicy:               "RoundRobin",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Disable",
+					},
+					"testdomain567.com": {
+						QueryLogging:                "Error",
+						Protocol:                    "PreferUDP",
+						ForwardDestination:          "VnetDNS",
+						ForwardPolicy:               "Random",
+						MaxConcurrent:               to.Ptr(int32(1000)),
+						CacheDurationInSeconds:      to.Ptr(int32(3600)),
+						ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+						ServeStale:                  "Immediate",
+					},
+				},
 			},
 		},
 		ConfigGPUDriverIfNeeded: true,

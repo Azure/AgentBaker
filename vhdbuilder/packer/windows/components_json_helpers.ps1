@@ -1,3 +1,19 @@
+
+function SafeReplaceString {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $stringToReplace
+    )
+
+    $stringToReplace = &{
+        Clear-Variable -Name * -Exclude version,CPU_ARCH,stringToReplace -ErrorAction SilentlyContinue
+        $executionContext.InvokeCommand.ExpandString($stringToReplace)
+    }
+
+    return $stringToReplace
+}
+
+
 function GetComponentsFromComponentsJson
 {
     Param(
@@ -26,12 +42,16 @@ function GetComponentsFromComponentsJson
             $skuMatch = $windowsVersion.windowsSkuMatch
             if ($skuMatch -eq $null -or $windowsSku -eq $null -or $windowsSku -Like $skuMatch)
             {
-                $url = $downloadUrl.replace("*", $windowsVersion.latestVersion)
+                $version = $windowsVersion.latestVersion
+                $url = SafeReplaceString($downloadUrl)
+                $url = $url.replace("*", $windowsVersion.latestVersion)
                 $output += $url
 
                 if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
                 {
-                    $url = $downloadUrl.replace("*", $windowsVersion.previousLatestVersion)
+                    $version = $windowsVersion.previousLatestVersion
+                    $url = SafeReplaceString($downloadUrl)
+                    $url = $url.replace("*", $windowsVersion.previousLatestVersion)
                     $output += $url
                 }
             }
@@ -76,12 +96,19 @@ function GetPackagesFromComponentsJson
             {
                 "2019-containerd" {
                     $part = $downloadUrls.ws2019
+                    break
                 }
                 "2022-containerd*" {
                     $part = $downloadUrls.ws2022
+                    break
                 }
                 "23H2*" {
                     $part = $downloadUrls.ws32h2
+                    break
+                }
+                "2025*" {
+                    $part = $downloadUrls.ws2025
+                    break
                 }
             }
 
@@ -102,12 +129,14 @@ function GetPackagesFromComponentsJson
 
         foreach ($windowsVersion in $items)
         {
-            $url = $downloadUrl.replace("[version]", $windowsVersion.latestVersion)
+            $version = $windowsVersion.latestVersion
+            $url = SafeReplaceString($downloadUrl)
             $thisList += $url
 
             if (-not [string]::IsNullOrEmpty($windowsVersion.previousLatestVersion))
             {
-                $url = $downloadUrl.replace("[version]", $windowsVersion.previousLatestVersion)
+                $version = $windowsVersion.previousLatestVersion
+                $url = SafeReplaceString($downloadUrl)
                 $thisList += $url
             }
         }
@@ -202,4 +231,84 @@ function LogReleaseNotesForWindowsRegistryKeys
     }
 
     return $logLines
+}
+
+function GetPatchInfo
+{
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSku,
+
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $output = New-Object System.Collections.ArrayList
+
+    $baseVersionBlock = $windowsSettingsContent.WindowsBaseVersions."$windowsSku";
+
+    if ($baseVersionBlock -eq $null) {
+        return $output
+    }
+
+    $patchData = $baseVersionBlock.patches_to_apply
+
+    # I'd much rather have two functions here - one to return the ids and one to return the urls. But annoyingly
+    # powershell converts an array of strings of size 1 into a string. Which is super dumb. And means we can't trust
+    # the return value of the function to be an array. It's OK for some of the functions above as they'll always be
+    # returning lots of items. But there is usually only one patch to apply.
+    return $patchData
+}
+
+function GetWindowsBaseVersions {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    return $windowsSettingsContent.WindowsBaseVersions.PSObject.Properties.Name
+}
+
+function GetDefenderUpdateUrl {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    return $windowsSettingsContent.WindowsDefenderInfo.DefenderUpdateUrl
+}
+
+
+function GetDefenderUpdateInfoUrl {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    return $windowsSettingsContent.WindowsDefenderInfo.DefenderUpdateInfoUrl
+}
+
+function GetAllCachedThings {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent,
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $items = GetComponentsFromComponentsJson $componentsJsonContent
+    $packages = GetPackagesFromComponentsJson $componentsJsonContent
+    $regKeys = GetRegKeysToApply $windowsSettingsContent
+
+    foreach ($packageName in $packages.keys) {
+        foreach ($package in $packages[$packageName]) {
+            $items += $packageName + ": " + $package
+        }
+    }
+
+    foreach ($regKey in $regKeys) {
+        $items += $regKey.Path + "\" + $regKey.Name + "=" + $regKey.Value
+    }
+
+    return ($items | Sort-Object)
 }

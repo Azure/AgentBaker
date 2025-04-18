@@ -11,13 +11,32 @@ if [ -z "$PACKER_BUILD_LOCATION" ]; then
     exit 1
 fi
 
+CURRENT_TIME=$(date +%s)
+
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
 SCAN_RESOURCE_PREFIX="vhd-scanning"
-SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm-$(date +%s)-$RANDOM"
+SCAN_VM_NAME="$SCAN_RESOURCE_PREFIX-vm-$CURRENT_TIME-$RANDOM"
 VHD_IMAGE="$MANAGED_SIG_ID"
 
 SIG_CONTAINER_NAME="vhd-scans"
 SCAN_VM_ADMIN_USERNAME="azureuser"
+
+# shellcheck disable=SC3010
+if [ "${ENVIRONMENT,,}" = "tme" ]; then
+    ACCOUNT_NAME="$ACCOUNT_NAME_TME"
+    KUSTO_DATABASE="$KUSTO_DATABASE_TME"
+    KUSTO_TABLE="$KUSTO_TABLE_TME"
+    KUSTO_ENDPOINT="$KUSTO_ENDPOINT_TME"
+    UMSI_CLIENT_ID="$UMSI_CLIENT_ID_TME"
+    UMSI_PRINCIPAL_ID="$UMSI_PRINCIPAL_ID_TME"
+    UMSI_RESOURCE_ID="$UMSI_RESOURCE_ID_TME"
+fi
+
+RELEASE_NOTES_FILEPATH="$(pwd)/release-notes.txt"
+if [ ! -f "${RELEASE_NOTES_FILEPATH}" ]; then
+    echo "${RELEASE_NOTES_FILEPATH} does not exist"
+    exit 1
+fi
 
 # we must create VMs in a vnet subnet which has access to the storage account, otherwise they will not be able to access the VHD blobs
 SCANNING_SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${PACKER_VNET_RESOURCE_GROUP_NAME}/providers/Microsoft.Network/virtualNetworks/${PACKER_VNET_NAME}/subnets/scanning"
@@ -29,6 +48,7 @@ fi
 # Use the domain name from the classic blob URL to get the storage account name.
 # If the CLASSIC_BLOB var is not set create a new var called BLOB_STORAGE_NAME in the pipeline.
 BLOB_URL_REGEX="^https:\/\/.+\.blob\.core\.windows\.net\/vhd(s)?$"
+# shellcheck disable=SC3010
 if [[ $CLASSIC_BLOB =~ $BLOB_URL_REGEX ]]; then
     STORAGE_ACCOUNT_NAME=$(echo $CLASSIC_BLOB | sed -E 's|https://(.*)\.blob\.core\.windows\.net(:443)?/(.*)?|\1|')
 else
@@ -41,11 +61,11 @@ else
 fi
 
 set +x
-SCAN_VM_ADMIN_PASSWORD="ScanVM@$(date +%s)"
+SCAN_VM_ADMIN_PASSWORD="ScanVM@$CURRENT_TIME"
 set -x
 
-RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$(date +%s)-$RANDOM"
-az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "now=$(date +%s)" "branch=${GIT_BRANCH}"
+RESOURCE_GROUP_NAME="$SCAN_RESOURCE_PREFIX-$CURRENT_TIME-$RANDOM"
+az group create --name $RESOURCE_GROUP_NAME --location ${PACKER_BUILD_LOCATION} --tags "source=AgentBaker" "now=${CURRENT_TIME}" "branch=${GIT_BRANCH}"
 
 function cleanup() {
     echo "Deleting resource group ${RESOURCE_GROUP_NAME}"
@@ -55,20 +75,21 @@ trap cleanup EXIT
 capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_OPTIONS="--size Standard_D8ds_v5"
+# shellcheck disable=SC3010
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     VM_OPTIONS="--size Standard_D8pds_v5"
 fi
 
-if [[ "${OS_TYPE}" == "Linux" && "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
     VM_OPTIONS+=" --security-type TrustedLaunch --enable-secure-boot true --enable-vtpm true"
 fi
 
-if [ "${OS_TYPE}" == "Linux" ] && [[ "${IMG_SKU}" == "20_04-lts-cvm"  ||  "${IMG_SKU}" == "cvm" ]]; then
+if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
     # We completely re-assign the VM_OPTIONS string here to ensure that no artifacts from earlier conditionals are included
     VM_OPTIONS="--size Standard_DC8ads_v5 --security-type ConfidentialVM --enable-secure-boot true --enable-vtpm true --os-disk-security-encryption-type VMGuestStateOnly --specialized true"
 fi
 
-SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning$(date +%s)${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
+SCANNING_NIC_ID=$(az network nic create --resource-group $RESOURCE_GROUP_NAME --name "scanning${CURRENT_TIME}${RANDOM}" --subnet $SCANNING_SUBNET_ID | jq -r '.NewNIC.id')
 if [ -z "$SCANNING_NIC_ID" ]; then
     echo "unable to create new NIC for scanning VM"
     exit 1
@@ -97,6 +118,8 @@ TRIVY_SCRIPT_PATH="$CDIR/$TRIVY_SCRIPT_PATH"
 TIMESTAMP=$(date +%s%3N)
 TRIVY_UPLOAD_REPORT_NAME="trivy-report-${BUILD_ID}-${TIMESTAMP}.json"
 TRIVY_UPLOAD_TABLE_NAME="trivy-table-${BUILD_ID}-${TIMESTAMP}.txt"
+CVE_DIFF_UPLOAD_REPORT_NAME="cve-diff-${BUILD_ID}-${TIMESTAMP}.txt"
+CVE_LIST_UPLOAD_REPORT_NAME="cve-list-${BUILD_ID}-${TIMESTAMP}.txt"
 
 # Extract date, revision from build number
 BUILD_RUN_NUMBER=$(echo $BUILD_RUN_NUMBER | cut -d_ -f 1)
@@ -140,16 +163,33 @@ az vm run-command invoke \
         "SYSTEM_COLLECTIONURI"=${SYSTEM_COLLECTIONURI} \
         "SYSTEM_TEAMPROJECT"=${SYSTEM_TEAMPROJECT} \
         "BUILDID"=${BUILD_ID} \
-        "IMAGE_VERSION"=${IMAGE_VERSION}
+        "IMAGE_VERSION"=${IMAGE_VERSION} \
+        "CVE_DIFF_UPLOAD_REPORT_NAME"=${CVE_DIFF_UPLOAD_REPORT_NAME} \
+        "CVE_LIST_UPLOAD_REPORT_NAME"=${CVE_LIST_UPLOAD_REPORT_NAME} \
+        "SCAN_RESOURCE_PREFIX"=${SCAN_RESOURCE_PREFIX}
 
 capture_benchmark "${SCRIPT_NAME}_run_az_scan_command"
 
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_REPORT_NAME} --file trivy-report.json --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${TRIVY_UPLOAD_TABLE_NAME} --file  trivy-images-table.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_DIFF_UPLOAD_REPORT_NAME} --file  cve-diff.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+az storage blob download --container-name ${SIG_CONTAINER_NAME} --name  ${CVE_LIST_UPLOAD_REPORT_NAME} --file  cve-list.txt --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
 
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_REPORT_NAME} --auth-mode login
 az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${TRIVY_UPLOAD_TABLE_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_DIFF_UPLOAD_REPORT_NAME} --auth-mode login
+az storage blob delete --account-name ${STORAGE_ACCOUNT_NAME} --container-name ${SIG_CONTAINER_NAME} --name ${CVE_LIST_UPLOAD_REPORT_NAME} --auth-mode login
+
 capture_benchmark "${SCRIPT_NAME}_download_and_delete_blobs"
+
+echo "=== CVEs fixed in version: ${IMAGE_VERSION}" >> ${RELEASE_NOTES_FILEPATH}
+cat cve-diff.txt >> ${RELEASE_NOTES_FILEPATH}
+
+# error if cve-list.txt non-empty
+if [ -s cve-list.txt ]; then
+    printf "##vso[task.logissue type=error]Error: cve-list.txt is not empty. Please address the listed CVEs.\n%s\n" "$(cat cve-list.txt)"
+    echo "##vso[task.complete result=SucceededWithIssues;]"
+fi
 
 echo -e "Trivy Scan Script Completed\n\n\n"
 capture_benchmark "${SCRIPT_NAME}_overall" true

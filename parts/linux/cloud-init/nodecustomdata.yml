@@ -320,7 +320,7 @@ write_files:
     AZURE_ENVIRONMENT_FILEPATH=/etc/kubernetes/{{GetTargetEnvironment}}.json
 {{- end}}
 
-{{ if (or EnableSecureTLSBootstrapping EnableTLSBootstrapping) -}}
+{{ if (or EnableSecureTLSBootstrapping GetTLSBootstrapTokenForKubeConfig) -}}
 - path: /var/lib/kubelet/bootstrap-kubeconfig
   permissions: "0644"
   owner: root
@@ -409,6 +409,13 @@ write_files:
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "ensureIMDSRestrictionScript"}}
 
+- path: /opt/azure/containers/validate-kubelet-credentials.sh
+  permissions: "0755"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetVariableProperty "cloudInitData" "validateKubeletCredentialsScript"}}
+
 - path: /etc/kubernetes/certs/ca.crt
   permissions: "0600"
   encoding: base64
@@ -422,3 +429,27 @@ write_files:
   owner: root
   content: !!binary |
     {{GetVariableProperty "cloudInitData" "customSearchDomainsScript"}}
+
+{{if ShouldEnableLocalDNS}}
+- path: /opt/azure/containers/localdns/localdns.corefile
+  permissions: "0644"
+  encoding: gzip
+  owner: root
+  content: !!binary |
+    {{GetGeneratedLocalDNSCoreFile}}
+
+- path: /etc/systemd/system/localdns.slice
+  permissions: "0644"
+  owner: root
+  content: |
+    [Unit]
+    Description=localdns Slice
+    DefaultDependencies=no
+    Before=slices.target
+    Requires=system.slice
+    After=system.slice
+
+    [Slice]
+    MemoryMax={{GetLocalDNSMemoryLimitInMB}}
+    CPUQuota={{GetLocalDNSCPULimitInPercentage}}
+{{- end}}

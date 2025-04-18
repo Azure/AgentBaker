@@ -10,13 +10,13 @@ ifeq (${ARCHITECTURE},ARM64)
 	@echo "${MODE}: Building with Hyper-v generation 2 ARM64 VM"
 ifeq (${OS_SKU},Ubuntu)
 	@echo "Using packer template file vhd-image-builder-arm64-gen2.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-arm64-gen2.json
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else ifeq (${OS_SKU},AzureLinux)
 	@echo "Using packer template file vhd-image-builder-mariner-arm64.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-arm64.json
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -29,22 +29,24 @@ else
 	$(error HYPERV_GENERATION was invalid ${HYPERV_GENERATION})
 endif
 ifeq (${OS_SKU},Ubuntu)
-ifeq (${IMG_SKU},20_04-lts-cvm)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
 	@echo "Using packer template file vhd-image-builder-cvm.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
-else ifeq (${IMG_SKU},cvm)
-	@echo "Using packer template file vhd-image-builder-cvm.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-cvm.json
 else
 	@echo "Using packer template file vhd-image-builder-base.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-base.json
 endif
 else ifeq (${OS_SKU},CBLMariner)
 	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
 else ifeq (${OS_SKU},AzureLinux)
+ifeq ($(findstring cvm,$(FEATURE_FLAGS)),cvm)
+	@echo "Using packer template file vhd-image-builder-mariner-cvm.json"
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner-cvm.json
+else
 	@echo "Using packer template file vhd-image-builder-mariner.json"
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+	@packer build -timestamp-ui  -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/vhd-image-builder-mariner.json
+endif
 else
 	$(error OS_SKU was invalid ${OS_SKU})
 endif
@@ -65,7 +67,7 @@ else
 	@echo "${MODE}: Building with Hyper-v generation 2 VM and save to Shared Image Gallery"
 endif
 endif
-	@packer build -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+	@packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json
 endif
 
 az-login:
@@ -116,7 +118,7 @@ test-scan-and-cleanup: az-login
 	@./vhdbuilder/packer/test-scan-and-cleanup.sh
 
 evaluate-build-performance: az-login
-	@./vhdbuilder/packer/build-performance/evaluate-build-performance.sh
+	@./vhdbuilder/packer/buildperformance/evaluate-build-performance.sh
 
 generate-prefetch-scripts:
 #ifeq (${MODE},linuxVhdMode)

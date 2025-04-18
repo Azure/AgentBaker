@@ -38,8 +38,8 @@ type Kubeclient struct {
 }
 
 const (
-	hostNetworkDebugAppLabel = "debug-mariner"
-	podNetworkDebugAppLabel  = "debugnonhost-mariner"
+	hostNetworkDebugAppLabel = "debug-mariner-tolerated"
+	podNetworkDebugAppLabel  = "debugnonhost-mariner-tolerated"
 )
 
 func getClusterKubeClient(ctx context.Context, resourceGroupName, clusterName string) (*Kubeclient, error) {
@@ -164,10 +164,6 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 		node = castNode
 		nodeTaints, _ := json.Marshal(node.Spec.Taints)
 		nodeConditions, _ := json.Marshal(node.Status.Conditions)
-		if len(node.Spec.Taints) > 0 {
-			t.Logf("node %s is tainted. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
-			continue
-		}
 
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
@@ -417,6 +413,23 @@ func daemonsetDebug(t *testing.T, deploymentName, targetNodeLabel, privateACRNam
 							},
 						},
 					},
+					// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
+					// This is to ensure that the pod can be scheduled on the node with the taints.
+					// It won't affect other pods running on the same node.
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "testkey1",
+							Operator: corev1.TolerationOpEqual,
+							Value:    "value1",
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:      "testkey2",
+							Operator: corev1.TolerationOpEqual,
+							Value:    "value2",
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
 				},
 			},
 		},
@@ -466,6 +479,23 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 					Args: []string{
 						"mkdir -p /www && echo '<!DOCTYPE html><html><head><title></title></head><body></body></html>' > /www/index.html && httpd -f -p 80 -h /www",
 					},
+				},
+			},
+			// Set Tolerations to tolerate the node with test taints "testkey1=value1:NoSchedule,testkey2=value2:NoSchedule".
+			// This is to ensure that the pod can be scheduled on the node with the taints.
+			// It won't affect other pods running on the same node.
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "testkey1",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "value1",
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      "testkey2",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "value2",
+					Effect:   corev1.TaintEffectNoSchedule,
 				},
 			},
 			NodeSelector: map[string]string{

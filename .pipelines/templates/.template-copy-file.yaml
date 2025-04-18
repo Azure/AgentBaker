@@ -1,0 +1,33 @@
+parameters:
+  - name: sourceFile
+    type: string
+  - name: destinationFile
+    type: string
+  - name: enabled
+    displayName: Perform the copy
+    type: boolean
+    default: false
+
+steps:
+  - bash: |
+      set -euo pipefail
+      # we check for existence of both src and destination file because if neither of those exist then the override will fail.
+      
+      if [ ! -f "${destinationFile}" ]; then
+        echo "destination file file does not exist, not copying as it must have been moved in a refactor: ${destinationFile}"
+        exit 1
+      fi
+
+      if [ ! -f "${sourceFile}" ]; then
+        echo "src ${sourceFile} file does not exist, aborting: ${sourceFile}"
+        exit 1
+      fi
+      
+      echo "Found source to use for overrides: ${sourceFile}"
+      echo "Found file to overwrite: ${destinationFile}"
+
+      echo "Overwriting ${sourceFile} -> ${destinationFile}"
+      cp -af "${sourceFile}" "${destinationFile}"
+
+    condition: and(succeeded(), eq('${{ parameters.enabled }}', true))
+    displayName: Overwrite file ${{ parameters.destinationFile }}

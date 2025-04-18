@@ -12,6 +12,13 @@ param (
 
 Set-PSDebug -Trace 1
 
+# On a rare occasion, these functions aren't imported properly. So let's pre-define them.
+filter Timestamp { "$(Get-Date -Format o): $_" }
+function Write-Log ($message) {
+    $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+}
+
+
 # We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU = $windowsSKU
 
@@ -85,6 +92,26 @@ function Start-Job-To-Expected-State
     }
 }
 
+function Log-VHDFreeSize
+{
+    Write-Log "Get Disk info"
+    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach ($disk in $disksInfo)
+    {
+        if ($disk.DeviceID -eq "C:")
+        {
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
+            {
+                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
+            }
+            break
+        }
+
+        # the break above means we'll only print this where there is no error.
+        Write-Log "Disk $( $disk.DeviceID ) has free space $( $disk.FreeSpace )"
+    }
+}
+
 function DownloadFileWithRetry
 {
     param (
@@ -103,7 +130,12 @@ function DownloadFileWithRetry
         {
             $logURL = $logURL.Split("?")[0]
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        Log-VHDFreeSize
+        curl.exe --version
+        if ("$LASTEXITCODE" -eq "23") {
+            throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'. This often means VHD out of space."
+        }
+        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL' to '$Dest'"
     }
 }
 
@@ -679,6 +711,73 @@ function Test-SSHDConfig
     }
 }
 
+
+# Test-ValidateImageBinarySignature create a not-running container from the image to validate the signature of the binaries in the image
+function Test-ValidateImageBinarySignature {
+    # imageBinaryNotSigned is used to record binaries in image that are not signed
+    $imageBinaryNotSigned=@{}
+
+    # We skip the signature validation of following images so far to unblock the test.
+    $skipImageMapForSignature=@(
+        "containernetworking/azure-cns", # azure-cns.exe
+        "containernetworking/azure-npm", # npm.exe
+        "containernetworking/azure-cni" # dropgz.exe or dropgz
+    )
+
+    $images = crictl images -o json | ConvertFrom-Json
+    foreach ($image in $images.images) {
+        $imageTag = $image.repoTags[0]
+        $skipImageMatch = $skipImageMapForSignature | Where-Object { $imageTag -match $_ }
+        if ($skipImageMatch) {
+            Write-Host "Skip validating image: $imageTag"
+            continue
+        }
+        $imageName = ($imageTag -split "/")[-1] -split ":" | Select-Object -First 1
+        Write-Host "Validating binary signature for : $imageTag"
+        $containerName = $imageName
+        # create a not-running container from the image to validate the signature
+        ctr -n k8s.io container create --snapshotter windows $imageTag $containerName 2>$null
+        #  get mounted path of the container’s root filesystem.
+        $snapshotMount = ctr -n  k8s.io snapshot mounts c:\ $containerName 2>$null
+
+        $regex = '\[([^\]]+)\]'
+        $matches = [regex]::Match($snapshotMount, $regex)
+        if ($matches.Success) {
+            $listContent = $matches.Groups[1].Value  # Extract matched content inside brackets
+            $snapshotPaths = $listContent -split '","' | ForEach-Object { $_ -replace '^"|"$', '' }
+            $snapshotPathsWithFiles = $snapshotPaths | ForEach-Object { "$_\\Files" }
+            # normally the binary files under C:\, but we can treat them differently if there are exceptions
+            $snapshotPathsWithFiles | ForEach-Object {
+                $notSignedList=@()
+                Get-ChildItem -Path $_ -Filter "*.exe"| ForEach-object {
+                        $attributes = $_.Attributes
+                        # Skip processing for reparse points, which could be symlinks or junctions
+                        if ($attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+                            Write-Host "Skipping reparse point: $_"
+                            continue
+                        }
+                        $notSignedList += Get-AuthenticodeSignature $_.FullName | Where-Object {$_.status -ne "Valid"}
+                }
+                if ($notSignedList.Count -ne 0) {
+                    $fileNameNotSignedList = $notSignedList | ForEach-Object { [IO.Path]::GetFileName($_.Path) }
+                    $imageBinaryNotSigned[$imageTag]=$fileNameNotSignedList
+                }
+            }
+        } else {
+            Write-Output "Failed to extract snapshot mount path from the container created from $imageTag"
+        }
+        # remove the container
+        ctr -n k8s.io container delete $containerName 2>$null
+    }
+
+    if ($imageBinaryNotSigned.Count -ne 0) {
+        $imageBinaryNotSigned = (echo $imageBinaryNotSigned | ConvertTo-Json -Compress)
+        Write-Error "Binaries in images not signed are: $imageBinaryNotSigned"
+        exit 1
+    }
+}
+
+
 Write-OutputWithTimestamp "Starting Tests"
 
 Write-OutputWithTimestamp "Test: FilesToCacheOnVHD"
@@ -707,3 +806,6 @@ Test-ToolsToCacheOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask
+
+Write-OutputWithTimestamp "Test: ValidateImageBinarySignature"
+Test-ValidateImageBinarySignature

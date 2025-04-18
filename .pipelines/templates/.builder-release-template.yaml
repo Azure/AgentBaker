@@ -10,41 +10,10 @@ parameters:
     default: master
 
 steps:
-  - checkout: self
-    # s is the default path for repositories - if we don't set this when using multiple repsositories, then it is the repo name
-    # "s/AgentBaker", but most of the pipeline variables still refer to "s" and many of the scripts below fail.
-    path: s
-    fetchTags: false
-    fetchDepth: 1
-  - checkout: git://CloudNativeCompute/aks-rp@${{ parameters.overrideBranch }}
-    path: aks-rp
-    fetchDepth: 1
-    fetchTags: false
-    lfs: false
-    condition: eq('${{ parameters.useOverrides }}', true)
-
-  - bash: |
-      set -euo pipefail
-      # Just copy components.json. If anything else is needed, then someone can modify the pipeline in an emergency.
-      # we check for existence of both src and destination file because if neither of those exist then the override will fail.
-      COMPONENT_JSON_SRC=$(Pipeline.Workspace)/aks-rp/agentbakersvc/overrides/components.json
-      COMPONENT_JSON_DEST=./parts/common/components.json
-      if [ ! -f "${COMPONENT_JSON_DEST}" ]; then
-        echo "destination components.json file does not exist, not copying as it must have been moved in a refactor: ${COMPONENT_JSON_DEST}"
-        exit 1
-      fi
-      echo "Found file to overwrite: ${COMPONENT_JSON_DEST}"
-
-      if [ ! -f "${COMPONENT_JSON_SRC}" ]; then
-        echo "src components.json file does not exist, not copying: ${COMPONENT_JSON_SRC}"
-        exit 1
-      fi
-      echo "Found source components.json to use for overrides: ${COMPONENT_JSON_SRC}"
-
-      echo "Overwriting component.json from ${COMPONENT_JSON_SRC} -> ${COMPONENT_JSON_DEST}"
-      cp -af "${COMPONENT_JSON_SRC}" "${COMPONENT_JSON_DEST}"
-    condition: eq('${{ parameters.useOverrides }}', true)
-    displayName: Apply Overrides
+  - template: ./.template-override-components-json.yaml
+    parameters:
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
 
   - bash: |
       m="linuxVhdMode" && \
@@ -103,7 +72,7 @@ steps:
       if [[ "${HYPERV_GENERATION,,}" == "v2" ]]; then SKU_NAME="${SKU_NAME}gen2"; fi && \
       if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then SKU_NAME="${SKU_NAME}arm64"; fi && \
       if [[ "${ENABLE_FIPS,,}" == "true" ]]; then SKU_NAME="${SKU_NAME}fips"; fi && \
-      if [[ "${IMG_SKU}" == "20_04-lts-cvm" || "${IMG_SKU}" == "cvm" ]]; then SKU_NAME="${SKU_NAME}CVM"; fi && \
+      if grep -q "cvm" <<< "$FEATURE_FLAGS"; then SKU_NAME="${SKU_NAME}CVM"; fi && \
       if [[ "${IMG_SKU}" == *"minimal"* ]]; then SKU_NAME="${SKU_NAME}minimal"; fi && \
       if [[ "${ENABLE_TRUSTED_LAUNCH}" == "True" ]]; then SKU_NAME="${SKU_NAME}TL"; fi && \
       if [[ ${OS_SKU} != "CBLMariner" && ${OS_SKU} != "AzureLinux" && "${CONTAINER_RUNTIME}" == "containerd" ]]; then SKU_NAME="${SKU_NAME}containerd"; fi && \
@@ -130,6 +99,8 @@ steps:
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      ARTIFACT_ID=$(date +%s) && \
+      echo "##vso[task.setvariable variable=ARTIFACT_ID]${ARTIFACT_ID}" && \
       echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_NAME]${PACKER_VNET_NAME}" && \
@@ -177,13 +148,14 @@ steps:
     condition: always()
     displayName: Publish BCC Tools Installation Log
     inputs:
-      artifactName: 'bcc-tools-installation-log-${{ parameters.artifactName }}'
+      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
 
   - task: CopyFiles@2
     condition: always()
     displayName: Copy BCC Tools Installation Log
     inputs:
+      Overwrite: true
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
@@ -236,6 +208,17 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+  
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Build Performance Program
+    condition: and(succeeded(), eq(variables.ENVIRONMENT, 'test'))
+    inputs:
+      source: "specific"
+      downloadPath: "vhdbuilder/packer/buildperformance"
+      runVersion: "latest"
+      project: $(System.TeamProject)
+      pipeline: $(SOURCE_PIPELINE) 
+      artifactName: $(BUILD_PERFORMANCE_ARTIFACT_NAME)
 
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()

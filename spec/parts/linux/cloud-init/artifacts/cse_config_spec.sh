@@ -203,7 +203,7 @@ Describe 'cse_config.sh'
     End
 
     Describe 'configureContainerdRegistryHost'
-        It 'should configure registry host correctly'
+        It 'should configure registry host correctly if MCR_REPOSITORY_BASE is unset'
             mkdir() {
                 echo "mkdir $@"
             }
@@ -222,6 +222,164 @@ Describe 'cse_config.sh'
             The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
             The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
             The output should not include "tee"
+        End
+
+        It 'should configure registry host correctly if MCR_REPOSITORY_BASE is set'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            MCR_REPOSITORY_BASE="fake.test.com"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/fake.test.com/hosts.toml'
+            The output should include "mkdir -p /etc/containerd/certs.d/fake.test.com"
+            The output should include "touch /etc/containerd/certs.d/fake.test.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/fake.test.com/hosts.toml"
+            The output should not include "tee"
+        End
+
+        It 'should configure registry host correctly if MCR_REPOSITORY_BASE has the suffic "/"'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            MCR_REPOSITORY_BASE="fake.test.com/"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/fake.test.com/hosts.toml'
+            The output should include "mkdir -p /etc/containerd/certs.d/fake.test.com"
+            The output should include "touch /etc/containerd/certs.d/fake.test.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/fake.test.com/hosts.toml"
+            The output should not include "tee"
+        End
+
+        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should not include "tee"
+        End
+
+        It 'should configure registry host correctly if BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER is abc.azurecr.io/def'
+            mkdir() {
+                echo "mkdir $@"
+            }
+            touch() {
+                echo "touch $@"
+            }
+            chmod() {
+                echo "chmod $@"
+            }
+            tee() {
+                echo "tee $@"
+            }
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="abc.azurecr.io/def"
+            When call configureContainerdRegistryHost
+            The variable CONTAINERD_CONFIG_REGISTRY_HOST_MCR should equal '/etc/containerd/certs.d/mcr.microsoft.com/hosts.toml'
+            The variable CONTAINER_REGISTRY_URL should equal 'abc.azurecr.io/v2/def/'
+            The output should include "mkdir -p /etc/containerd/certs.d/mcr.microsoft.com"
+            The output should include "touch /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should include "chmod 0644 /etc/containerd/certs.d/mcr.microsoft.com/hosts.toml"
+            The output should not include "tee"
+        End
+    End
+
+    Describe 'configCredentialProvider'
+        Mock mkdir
+            echo "mkdir $@"
+        End
+
+        Mock touch
+            echo "touch $@"
+        End
+
+        Mock tee
+            echo "tee $@"
+        End
+
+        It 'should configure credential provider for network isolated cluster'
+            BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="test.azurecr.io"
+            When call configCredentialProvider
+            The variable CREDENTIAL_PROVIDER_CONFIG_FILE should equal '/var/lib/kubelet/credential-provider-config.yaml'
+            The output should include "mkdir -p /var/lib/kubelet"
+            The output should include "touch /var/lib/kubelet/credential-provider-config.yaml"
+            The output should include "configure credential provider for network isolated cluster"
+            The output should not include "tee"
+        End
+    End
+
+    Describe 'enableLocalDNS'
+        setup() {
+            TMP_DIR=$(mktemp -d)
+            LOCALDNS_CORE_FILE="$TMP_DIR/localdns.corefile"
+
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 0
+            }
+        }
+        cleanup() {
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should enable localdns successfully'
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            When call enableLocalDNS
+            The status should be success
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns succeeded."
+        End
+
+        It 'should skip enabling localdns if corefile is not created'
+            rm -rf "$LOCALDNS_CORE_FILE"
+            When call enableLocalDNS
+            The status should be success
+            The output should include "localdns should not be enabled."
+        End
+
+        It 'should return error when systemctl fails to start localdns'
+            echo 'localdns corefile' > "$LOCALDNS_CORE_FILE"
+            systemctlEnableAndStart() {
+                echo "systemctlEnableAndStart $@"
+                return 217
+            }
+            When call enableLocalDNS
+            The status should equal 217
+            The output should include "localdns should be enabled."
+            The output should include "Enable localdns failed due to error"
         End
     End
 End

@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/barkimedes/go-deepcopy"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -39,12 +40,13 @@ func setupSignalHandler() context.Context {
 	go func() {
 		// block until signal is received
 		<-ch
-		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit."))
+		fmt.Println(red("Received cancellation signal, gracefully shutting down the test suite. Cancel again to force exit. (Created Azure resources will not be deleted in this case)"))
 		cancel()
 
 		// block until second signal is received
 		<-ch
-		fmt.Println(red("Received second cancellation signal, forcing exit."))
+		msg := fmt.Sprintf("Received second cancellation signal, forcing exit.\nPlease check https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/overview and delete any resources created by the test suite", config.Config.SubscriptionID, config.ResourceGroupName)
+		fmt.Println(red(msg))
 		os.Exit(1)
 	}()
 	return ctx
@@ -114,13 +116,30 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	}
 
 	if s.BootstrapConfigMutator != nil {
-		s.BootstrapConfigMutator(nbc)
-		s.Runtime.NBC = nbc
+		// deep copy the nbc so that we can mutate it without affecting the original
+		clonedNbc, err := deepcopy.Anything(nbc)
+		if err != nil {
+			s.T.Fatalf("failed to deep copy node config: %v", err)
+		}
+
+		// Pass the cloned nbc to BootstrapConfigMutator so that it can mutate the properties but not affecting the original one.
+		// Without this, it will cause a race condition when running multiple tests in parallel.
+		s.BootstrapConfigMutator(clonedNbc.(*datamodel.NodeBootstrappingConfiguration))
+		s.Runtime.NBC = clonedNbc.(*datamodel.NodeBootstrappingConfiguration)
 	}
 	if s.AKSNodeConfigMutator != nil {
 		nodeconfig := nbcToAKSNodeConfigV1(nbc)
-		s.AKSNodeConfigMutator(nodeconfig)
-		s.Runtime.AKSNodeConfig = nodeconfig
+
+		// deep copy the node config so that we can mutate it without affecting the original
+		clonedNodeConfig, err := deepcopy.Anything(nodeconfig)
+		if err != nil {
+			s.T.Fatalf("failed to deep copy node config: %v", err)
+		}
+
+		// Pass the cloned clonedNodeConfig to AKSNodeConfigMutator so that it can mutate the properties but not affecting the original one.
+		// Without this, it will cause a race condition when running multiple tests in parallel.
+		s.AKSNodeConfigMutator(clonedNodeConfig.(*aksnodeconfigv1.Configuration))
+		s.Runtime.AKSNodeConfig = clonedNodeConfig.(*aksnodeconfigv1.Configuration)
 	}
 	var err error
 	s.Runtime.SSHKeyPrivate, s.Runtime.SSHKeyPublic, err = getNewRSAKeyPair()
@@ -149,9 +168,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 
 	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err, "failed to get VM private IP address")
-	hostPod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	require.NoError(s.T, err, "failed to get host network debug pod name")
-	s.Runtime.DebugHostPod = hostPod.Name
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -182,9 +198,9 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 	vhd, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
-			t.Skipf("skipping scenario %q: could not find image", t.Name())
+			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.String(), err)
 		} else {
-			t.Fatalf("could not find image for %q: %s", t.Name(), err)
+			t.Fatalf("could not find image for %q (VHD %s): %s", t.Name(), s.VHD.String(), err)
 		}
 	}
 	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)

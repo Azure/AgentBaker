@@ -50,7 +50,7 @@ curl_post_request() {
         "https://api.github.com/repos/Azure/AgentBaker/pulls?state=open&head=Azure:$branch_name" |\
         jq --arg title "$title" '.[] | select(.title == $title)')
 
-    if [[ -n $result ]]; then
+    if [ -n "$result" ]; then
         echo "Pull request at head '$branch_name' with title \"$title\" existed already"
         number=$(echo $result | jq '.number')
         echo "The existing pull request is at https://github.com/Azure/AgentBaker/pull/$number"
@@ -99,7 +99,7 @@ create_pull_request() {
     git remote set-url origin https://x-access-token:${github_access_token}@github.com/Azure/AgentBaker.git
     git add .
 
-    if [[ $pr_purpose == "ReleaseNotes" ]]; then
+    if [ $pr_purpose = "ReleaseNotes" ]; then
         post_purpose="update windows release notes"
         title="docs: $post_purpose for ${image_version}B"
         labels="\"windows\",\"documentation\""
@@ -117,7 +117,7 @@ create_pull_request() {
     git push -u origin $branch_name -f
 
     # modify .github/PULL_REQUEST_TEMPLATE.md after pushing the pervious changes in created branch
-    if [[ $pr_purpose == "ReleaseNotes" ]]; then
+    if [ $pr_purpose = "ReleaseNotes" ]; then
         sed -i "/What type of PR is this?/a\/kind documentation" .github/PULL_REQUEST_TEMPLATE.md
         sed -i "/What this PR does/a\Add windows image release notes for new AKS Windows images with ${image_version}B. Reference: #[xxxxx]." .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
@@ -125,7 +125,7 @@ create_pull_request() {
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     else
         sed -i "/What type of PR is this?/a\/kind feature" .github/PULL_REQUEST_TEMPLATE.md
-        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()\\n- Windows 23H2: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
+        sed -i "/What this PR does/a\Update Windows base images to ${image_version}B\\n- Windows 2019: [xxxxx]()\\n- Windows 2022: [xxxxx]()\\n- Windows 23H2: [xxxxx]()\\n- Windows 2025: [xxxxx]()" .github/PULL_REQUEST_TEMPLATE.md
         sed -i 's/\[ \] uses/\[x\] uses/g' .github/PULL_REQUEST_TEMPLATE.md
         body_content=$(sed 's/$/\\n/' .github/PULL_REQUEST_TEMPLATE.md | tr -d '\n')
     fi

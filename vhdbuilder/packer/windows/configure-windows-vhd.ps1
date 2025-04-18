@@ -14,16 +14,19 @@ param(
     [string]
     $customizedDiskSizeParam
 )
+
 if (![string]::IsNullOrEmpty($windowsSKUParam))
 {
     Write-Log "Setting Windows SKU to $windowsSKUParam"
     $env:WindowsSKU = $windowsSKUParam
 }
+
 if (![string]::IsNullOrEmpty($provisioningPhaseParam))
 {
     Write-Log "Setting Provisioning Phase to $provisioningPhaseParam"
     $env:ProvisioningPhase = $provisioningPhaseParam
 }
+
 if (![string]::IsNullOrEmpty($customizedDiskSizeParam))
 {
     Write-Log "Setting Customized Disk Size to $customizedDiskSizeParam"
@@ -45,6 +48,27 @@ function Write-Log($Message)
 
 . c:/k/windows-vhd-configuration.ps1
 
+
+function Log-VHDFreeSize
+{
+    Write-Log "Get Disk info"
+    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
+    foreach ($disk in $disksInfo)
+    {
+        if ($disk.DeviceID -eq "C:")
+        {
+            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
+            {
+                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
+            }
+            break
+        }
+
+        # the break above means we'll only print this where there is no error.
+        Write-Log "Disk $( $disk.DeviceID ) has free space $( $disk.FreeSpace )"
+    }
+}
+
 function Download-File
 {
     param (
@@ -55,15 +79,23 @@ function Download-File
         [Switch]$redactUrl = $false
     )
     curl.exe -f --retry $retryCount --retry-delay $retryDelay -L $URL -o $Dest
-    if ($LASTEXITCODE)
+    $curlExitCode = $LASTEXITCODE
+    if ($curlExitCode)
     {
         $logURL = $URL
         if ($redactUrl)
         {
             $logURL = $logURL.Split("?")[0]
         }
-        throw "Curl exited with '$LASTEXITCODE' while attemping to download '$logURL'"
+        Log-VHDFreeSize
+        curl.exe --version
+        if ("$curlExitCode" -eq "23") {
+            throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'. This often means VHD out of space."
+        }
+        throw "Curl exited with '$curlExitCode' while attempting to download '$logURL' to '$Dest'"
     }
+
+    dir "$Dest"
 }
 
 function Download-FileWithAzCopy
@@ -104,6 +136,8 @@ function Download-FileWithAzCopy
 
     Write-Log "Copying $URL to $Dest"
     .\azcopy.exe copy "$URL" "$Dest"
+
+    dir "$Dest"
 
     Write-Log "--- START AzCopy Log"
     Get-Content "$env:AZCOPY_LOG_LOCATION\*.log" | Write-Log
@@ -332,6 +366,25 @@ function Get-FilesToCacheOnVHD
             Download-File -URL $URL -Dest $dest
         }
     }
+
+
+    foreach ($dir in $map.Keys)
+    {
+        LogFilesInDirectory "$dir"
+    }
+}
+
+function LogFilesInDirectory
+{
+    Param(
+        [string]
+        $Directory
+    )
+
+    Get-ChildItem -Path "$Directory" | ForEach-Object {
+        $sizeKB = [math]::Round($_.Length / 1KB, 2)
+        Write-Output "$( $_.Name ) - $sizeKB KB"
+    }
 }
 
 function Get-ToolsToVHD
@@ -345,6 +398,8 @@ function Get-ToolsToVHD
     Download-File -URL "https://download.sysinternals.com/files/DU.zip" -Dest "$global:aksToolsDir\DU.zip"
     Expand-Archive -Path "$global:aksToolsDir\DU.zip" -DestinationPath "$global:aksToolsDir\DU" -Force
     Remove-Item -Path "$global:aksToolsDir\DU.zip" -Force
+
+    LogFilesInDirectory "$global:aksToolsDir\DU"
 }
 
 function Register-ExpandVolumeTask
@@ -448,6 +503,9 @@ function Install-ContainerD
     else
     {
         tar -xzf $containerdTmpDest -C $installDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract the '$containerdTmpDest' archive."
+        }
         mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force -Recurse
     }
@@ -471,13 +529,18 @@ function Install-ContainerD
 
 function Install-OpenSSH
 {
+    if ($env:INSTALL_OPEN_SSH_SERVER -eq 'False')
+    {
+        Write-Log "Not installing Windows OpenSSH Server as this is disabled in the pipeline"
+        return
+    }
+
     Write-Log "Installing OpenSSH Server"
 
     # Somehow openssh client got added to Windows 2019 base image.
     if ($env:WindowsSKU -Like '2019*')
     {
         Remove-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
-        Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
     }
 
     Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
@@ -631,7 +694,7 @@ function Update-Registry
             if (![string]::IsNullOrEmpty($currentValue))
             {
                 Write-Log "The current value of $keyName is $currentValue"
-                $keyValue = ([int]$currentValue.$keyName -bor $hnsControlFlag)
+                $keyValue = ([int]$currentValue.$keyName -bor $keyValue)
             }
             Enable-WindowsFixInPath -Path $keyPath -Name $keyName -Value $keyValue -Type $keyType
         }
@@ -701,24 +764,6 @@ function Get-SystemDriveDiskInfo
         if ($disk.DeviceID -eq "C:")
         {
             Write-Log "Disk C: Free space: $( $disk.FreeSpace ), Total size: $( $disk.Size )"
-        }
-    }
-}
-
-function Validate-VHDFreeSize
-{
-    Clear-TempFolder
-    Write-Log "Get Disk info"
-    $disksInfo = Get-CimInstance -ClassName Win32_LogicalDisk
-    foreach ($disk in $disksInfo)
-    {
-        if ($disk.DeviceID -eq "C:")
-        {
-            if ($disk.FreeSpace -lt $global:lowestFreeSpace)
-            {
-                Write-Log "Disk C: Free space $( $disk.FreeSpace ) is less than $( $global:lowestFreeSpace )"
-            }
-            break
         }
     }
 }
@@ -798,9 +843,9 @@ function Log-ReofferUpdate
 
 function Test-AzureExtensions
 {
-    if ($env:SKIP_EXTENSION_CHECK -eq "true")
+    if ($env:SKIP_EXTENSION_CHECK -eq "True")
     {
-        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to true"
+        Write-Log "Skipping extension check because SKIP_EXTENSION_CHECK is set to True"
         return
     }
 
@@ -858,7 +903,8 @@ try
             Register-ExpandVolumeTask
             Cleanup-TemporaryFiles
             (New-Guid).Guid | Out-File -FilePath 'c:\vhd-id.txt'
-            Validate-VHDFreeSize
+            Clear-TempFolder
+            Log-VHDFreeSize
             Test-AzureExtensions
         }
         default {

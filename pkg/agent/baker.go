@@ -355,17 +355,6 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 	}
 }
 
-func NeedsContainerd(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) bool {
-	if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
-		return profile.KubernetesConfig.NeedsContainerd()
-	}
-	return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
-}
-
-func NeedsContainerdV2(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) bool {
-	return NeedsContainerd(profile, cs) && IsKubernetesVersionGe(cs.Properties.OrchestratorProfile.OrchestratorVersion, "1.32.0")
-}
-
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
@@ -409,10 +398,6 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsKubeletConfigFileEnabled": func() bool {
 			return IsKubeletConfigFileEnabled(cs, profile, config.EnableKubeletConfigFile)
-		},
-		"EnableTLSBootstrapping": func() bool {
-			// this will be true when we get a hard-coded TLS bootstrap token in the NodeBootstrappingConfiguration to use for performing TLS bootstrapping.
-			return IsTLSBootstrappingEnabledWithHardCodedToken(config.KubeletClientTLSBootstrapToken)
 		},
 		"EnableSecureTLSBootstrapping": func() bool {
 			// this will be true when we can perform TLS bootstrapping without the use of a hard-coded bootstrap token.
@@ -659,10 +644,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.NetworkPlugin == NetworkPluginKubenet
 		},
 		"NeedsContainerd": func() bool {
-			return NeedsContainerd(profile, cs)
-		},
-		"NeedsContainerdV2": func() bool {
-			return NeedsContainerdV2(profile, cs)
+			if profile != nil && profile.KubernetesConfig != nil && profile.KubernetesConfig.ContainerRuntime != "" {
+				return profile.KubernetesConfig.NeedsContainerd()
+			}
+			return cs.Properties.OrchestratorProfile.KubernetesConfig.NeedsContainerd()
 		},
 		"UseRuncShimV2": func() bool {
 			return config.EnableRuncShimV2
@@ -708,24 +693,24 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return base64.StdEncoding.EncodeToString([]byte(kubenetCniTemplate))
 		},
 		"GetContainerdConfigContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
-				if NeedsContainerdV2(profile, cs) {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
+				if profile.Is2404VHDDistro() {
 					return containerdV2ConfigTemplate
 				}
 				return containerdV1ConfigTemplate
-			}(profile, cs))
+			}(profile))
 			if err != nil {
 				panic(err)
 			}
 			return output
 		},
 		"GetContainerdConfigNoGPUContent": func() string {
-			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile, cs *datamodel.ContainerService) ContainerdConfigTemplate {
-				if NeedsContainerdV2(profile, cs) {
+			output, err := containerdConfigFromTemplate(config, profile, func(profile *datamodel.AgentPoolProfile) ContainerdConfigTemplate {
+				if profile.Is2404VHDDistro() {
 					return containerdV2NoGPUConfigTemplate
 				}
 				return containerdV1NoGPUConfigTemplate
-			}(profile, cs))
+			}(profile))
 
 			if err != nil {
 				panic(err)
@@ -1005,6 +990,12 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetBootstrapProfileContainerRegistryServer": func() string {
 			return config.ContainerService.Properties.SecurityProfile.GetPrivateEgressContainerRegistryServer()
 		},
+		"GetMCRRepositoryBase": func() string {
+			if config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase == "" {
+				return "mcr.microsoft.com"
+			}
+			return config.CloudSpecConfig.KubernetesSpecConfig.MCRKubernetesImageBase
+		},
 		"IsArtifactStreamingEnabled": func() bool {
 			return config.EnableArtifactStreaming
 		},
@@ -1013,6 +1004,22 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
+		},
+		"ShouldEnableLocalDNS": func() bool {
+			return profile.ShouldEnableLocalDNS()
+		},
+		"GetGeneratedLocalDNSCoreFile": func() (string, error) {
+			output, err := GenerateLocalDNSCoreFile(config, profile, localDNSCoreFileTemplateString)
+			if err != nil {
+				return "", fmt.Errorf("failed generate corefile for localdns using template: %w", err)
+			}
+			return output, nil
+		},
+		"GetLocalDNSCPULimitInPercentage": func() string {
+			return profile.GetLocalDNSCPULimitInPercentage()
+		},
+		"GetLocalDNSMemoryLimitInMB": func() string {
+			return profile.GetLocalDNSMemoryLimitInMB()
 		},
 	}
 }
@@ -1410,10 +1417,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-{{- if IsKata }}
-  snapshotter = "tardev"
-  disable_snapshot_annotations = false
-{{- end}}
 
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
@@ -1425,75 +1428,51 @@ root = "{{GetDataDir}}"{{- end}}
   X-Meta-Source-Client = ["azure/aks"]
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
-{{- if IsNSeriesSKU }}
+  {{- if IsNSeriesSKU }}
   default_runtime_name = "nvidia-container-runtime"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
-      runtime_type = "io.containerd.runc.v2"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
-        BinaryName = "/usr/bin/nvidia-container-runtime"
-        SystemdCgroup = true
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia-container-runtime.options]
       BinaryName = "/usr/bin/nvidia-container-runtime"
+      SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+    runtime_type = "io.containerd.runc.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+    BinaryName = "/usr/bin/nvidia-container-runtime"
 {{- else}}
   default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-        BinaryName = "/usr/bin/runc"
-        SystemdCgroup = true
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-      runtime_type = "io.containerd.runc.v2"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-        BinaryName = "/usr/bin/runc"
-  {{- if IsKrustlet }}
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
-  {{- end}}
-  {{- if IsKata }}
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
-      runtime_type = "io.containerd.kata.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-      runtime_type = "io.containerd.runc.v1"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-        NoPivotRoot = false
-        NoNewKeyring = false
-        ShimCgroup = ""
-        IoUid = 0
-        IoGid = 0
-        BinaryName = "/usr/bin/kata-runtime"
-        Root = ""
-        SystemdCgroup = false
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
-      runtime_type = "io.containerd.kata-cc.v2"
-      privileged_without_host_devices = true
-      pod_annotations = ["io.katacontainers.*"]
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
-        ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
-  {{- end}}
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+      BinaryName = "/usr/bin/runc"
+      SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+    runtime_type = "io.containerd.runc.v2"
+    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+      BinaryName = "/usr/bin/runc"
 {{- end}}
-
+{{- if IsKrustlet }}
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
+    runtime_type = "io.containerd.spin.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
+    runtime_type = "io.containerd.slight-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
+    runtime_type = "io.containerd.spin-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
+    runtime_type = "io.containerd.slight-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
+    runtime_type = "io.containerd.spin-v0-5-1.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
+    runtime_type = "io.containerd.slight-v0-5-1.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
+    runtime_type = "io.containerd.spin-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
+    runtime_type = "io.containerd.slight-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
+    runtime_type = "io.containerd.wws-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
+    runtime_type = "io.containerd.spin.v2"
+{{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
@@ -1517,10 +1496,31 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+  runtime_type = "io.containerd.kata.v2"
+  snapshotter = "tardev"
+  disable_snapshot_annotations = false
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
+  runtime_type = "io.containerd.runc.v1"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
+  NoPivotRoot = false
+  NoNewKeyring = false
+  ShimCgroup = ""
+  IoUid = 0
+  IoGid = 0
+  BinaryName = "/usr/bin/kata-runtime"
+  Root = ""
+  SystemdCgroup = false
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}
 `
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -1536,10 +1536,6 @@ root = "{{GetDataDir}}"{{- end}}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
 {{- end}}
-{{- if IsKata }}
-  snapshotter = "tardev"
-  disable_snapshot_annotations = false
-{{- end}}
     
 [plugins."io.containerd.cri.v1.images".pinned_images]
   sandbox = "{{GetPodInfraContainerSpec}}"
@@ -1552,60 +1548,37 @@ root = "{{GetDataDir}}"{{- end}}
 
 [plugins."io.containerd.cri.v1.runtime".containerd]
   default_runtime_name = "runc"
-  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
-      BinaryName = "/usr/bin/runc"
-      SystemdCgroup = true
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
-      runtime_type = "io.containerd.runc.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
-      BinaryName = "/usr/bin/runc"
-  {{- if IsKrustlet }}
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
-      runtime_type = "io.containerd.spin.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
-      runtime_type = "io.containerd.spin-v0-3-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
-      runtime_type = "io.containerd.slight-v0-3-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
-      runtime_type = "io.containerd.spin-v0-5-1.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
-      runtime_type = "io.containerd.slight-v0-5-1.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
-      runtime_type = "io.containerd.spin-v0-8-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
-      runtime_type = "io.containerd.slight-v0-8-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
-      runtime_type = "io.containerd.wws-v0-8-0.v1"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
-      runtime_type = "io.containerd.spin.v2"
-  {{- end}}
-  {{- if IsKata }}
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
-      runtime_type = "io.containerd.kata.v2"
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
-      runtime_type = "io.containerd.runc.v1"
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
-        NoPivotRoot = false
-        NoNewKeyring = false
-        ShimCgroup = ""
-        IoUid = 0
-        IoGid = 0
-        BinaryName = "/usr/bin/kata-runtime"
-        Root = ""
-        SystemdCgroup = false
-    [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
-      runtime_type = "io.containerd.kata-cc.v2"
-      privileged_without_host_devices = true
-      pod_annotations = ["io.katacontainers.*"]
-      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
-        ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
-  {{- end}}
-
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+    BinaryName = "/usr/bin/runc"
+    SystemdCgroup = true
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted]
+    runtime_type = "io.containerd.runc.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.untrusted.options]
+    BinaryName = "/usr/bin/runc"
+{{- if IsKrustlet }}
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin]
+    runtime_type = "io.containerd.spin.v2"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight]
+    runtime_type = "io.containerd.slight-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-3-0]
+    runtime_type = "io.containerd.spin-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-3-0]
+    runtime_type = "io.containerd.slight-v0-3-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-5-1]
+    runtime_type = "io.containerd.spin-v0-5-1.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-5-1]
+    runtime_type = "io.containerd.slight-v0-5-1.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-8-0]
+    runtime_type = "io.containerd.spin-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.slight-v0-8-0]
+    runtime_type = "io.containerd.slight-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.wws-v0-8-0]
+    runtime_type = "io.containerd.wws-v0-8-0.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.spin-v0-15-1]
+    runtime_type = "io.containerd.spin.v2"
+{{- end}}
 {{- if and (IsKubenet) (not HasCalicoNetworkPolicy) }}
 [plugins."io.containerd.cri.v1.runtime".cni]
   bin_dir = "/opt/cni/bin"
@@ -1629,6 +1602,19 @@ root = "{{GetDataDir}}"{{- end}}
     address = "/run/overlaybd-snapshotter/overlaybd.sock"
 {{- end}}
 {{- if IsKata }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata]
+  runtime_type = "io.containerd.kata.v2"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli]
+  runtime_type = "io.containerd.runc.v1"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.katacli.options]
+  NoPivotRoot = false
+  NoNewKeyring = false
+  ShimCgroup = ""
+  IoUid = 0
+  IoGid = 0
+  BinaryName = "/usr/bin/kata-runtime"
+  Root = ""
+  SystemdCgroup = false
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -1758,3 +1744,168 @@ func containerdConfigFromTemplate(
 	}
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
+
+// ----------------------- Start of changes related to localdns ------------------------------------------.
+// Parse and generate localdns Corefile from template and LocalDNSProfile.
+func GenerateLocalDNSCoreFile(
+	config *datamodel.NodeBootstrappingConfiguration,
+	profile *datamodel.AgentPoolProfile,
+	tmpl string,
+) (string, error) {
+	parameters := getParameters(config)
+	variables := getCustomDataVariables(config)
+	bakerFuncMap := getBakerFuncMap(config, parameters, variables)
+
+	if profile.LocalDNSProfile == nil {
+		return "", fmt.Errorf("localdns profile is nil")
+	}
+	if !profile.ShouldEnableLocalDNS() {
+		return "", fmt.Errorf("EnableLocalDNS is set to false, corefile will not be generated")
+	}
+
+	funcMapForHasSuffix := template.FuncMap{
+		"hasSuffix": strings.HasSuffix,
+	}
+	localDNSCoreFileData := profile.GetLocalDNSCoreFileData()
+	localDNSCorefileTemplate := template.Must(template.New("localdnscorefile").Funcs(bakerFuncMap).Funcs(funcMapForHasSuffix).Parse(tmpl))
+
+	// Generate the Corefile content.
+	var corefileBuffer bytes.Buffer
+	if err := localDNSCorefileTemplate.Execute(&corefileBuffer, localDNSCoreFileData); err != nil {
+		return "", fmt.Errorf("failed to execute localdns corefile template: %w", err)
+	}
+
+	// Return gzipped base64 encoded Corefile. Used in nodecustomdata.
+	return getBase64EncodedGzippedCustomScriptFromStr(corefileBuffer.String()), nil
+}
+
+// Template to create corefile that will be used by localdns service.
+const localDNSCoreFileTemplateString = `
+# ***********************************************************************************
+# WARNING: Changes to this file will be overwritten and not persisted.
+# ***********************************************************************************
+# whoami (used for health check of DNS)
+health-check.localdns.local:53 {
+    bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    whoami
+}
+# VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
+{{- range $domain, $override := $.VnetDNSOverrides -}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
+{{- $forwardPolicy := "sequential" -}}
+{{- if eq $override.ForwardPolicy "RoundRobin" -}}
+    {{- $forwardPolicy = "round_robin" -}}
+{{- else if eq $override.ForwardPolicy "Random" -}}
+    {{- $forwardPolicy = "random" -}}
+{{- end }}
+{{$domain}}:53 {
+	{{- if eq $override.QueryLogging "Error" }}
+    errors
+    {{- else if eq $override.QueryLogging "Log" }}
+    log
+    {{- end }}
+    bind {{$.NodeListenerIP}}
+    {{- if $isRootDomain}}
+    forward . {{$.AzureDNSIP}} {
+    {{- else}}
+    {{- if $fwdToClusterCoreDNS}}
+    forward . {{$.CoreDNSServiceIP}} {
+    {{- else}}
+    forward . {{$.AzureDNSIP}} {
+    {{- end}}
+	{{- end}}
+        {{- if eq $override.Protocol "ForceTCP"}}
+        force_tcp
+        {{- end}}
+        policy {{$forwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.NodeListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disable"}}
+        {{- if eq $override.ServeStale "Verify"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
+        {{- else if eq $override.ServeStale "Immediate"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
+        {{- end }}
+        {{- end }}
+        servfail 0
+    }
+    loop
+    nsid localdns
+    prometheus :9253
+    {{- if $isRootDomain}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+# KubeDNS overrides apply to DNS traffic from pods with dnsPolicy:ClusterFirst (referred to as KubeDNS traffic).
+{{- range $domain, $override := $.KubeDNSOverrides}}
+{{- $isRootDomain := eq $domain "." -}}
+{{- $fwdToClusterCoreDNS := or (hasSuffix $domain "cluster.local") (eq $override.ForwardDestination "ClusterCoreDNS")}}
+{{- $forwardPolicy := "" }}
+{{- $forwardPolicy := "sequential" -}}
+{{- if eq $override.ForwardPolicy "RoundRobin" -}}
+    {{- $forwardPolicy = "round_robin" -}}
+{{- else if eq $override.ForwardPolicy "Random" -}}
+    {{- $forwardPolicy = "random" -}}
+{{- end }}
+{{$domain}}:53 {
+	{{- if eq $override.QueryLogging "Error" }}
+    errors
+    {{- else if eq $override.QueryLogging "Log" }}
+    log
+    {{- end }}
+    bind {{$.ClusterListenerIP}}
+    {{- if $fwdToClusterCoreDNS}}
+    forward . {{$.CoreDNSServiceIP}} {
+    {{- else}}
+    forward . {{$.AzureDNSIP}} {
+    {{- end}}
+        {{- if eq $override.Protocol "ForceTCP"}}
+        force_tcp
+        {{- end}}
+        policy {{$forwardPolicy}}
+        max_concurrent {{$override.MaxConcurrent}}
+    }
+    ready {{$.ClusterListenerIP}}:8181
+    cache {{$override.CacheDurationInSeconds}}s {
+        success 9984
+        denial 9984
+        {{- if ne $override.ServeStale "Disable"}}
+        {{- if eq $override.ServeStale "Verify"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s verify
+        {{- else if eq $override.ServeStale "Immediate"}}
+        serve_stale {{$override.ServeStaleDurationInSeconds}}s immediate
+        {{- end }}
+        {{- end }}
+        servfail 0
+    }
+    loop
+    nsid localdns-pod
+    prometheus :9253
+    {{- if $isRootDomain}}
+    template ANY ANY internal.cloudapp.net {
+        match "^(?:[^.]+\.){4,}internal\.cloudapp\.net\.$"
+        rcode NXDOMAIN
+        fallthrough
+    }
+    template ANY ANY reddog.microsoft.com {
+        rcode NXDOMAIN
+    }
+    {{- end}}
+}
+{{- end}}
+`
+
+// ----------------------- End of changes related to localdns ------------------------------------------.

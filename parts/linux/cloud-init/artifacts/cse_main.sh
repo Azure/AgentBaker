@@ -7,6 +7,20 @@ if [ -f /opt/azure/containers/provision.complete ]; then
       exit 0
 fi
 
+for i in $(seq 1 3600); do
+    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
+        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
+    fi
+    if [ $i -eq 3600 ]; then
+        exit $ERR_FILE_WATCH_TIMEOUT
+    else
+        sleep 1
+    fi
+done
+sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
+source "${CSE_HELPERS_FILEPATH}"
+source "${CSE_DISTRO_HELPERS_FILEPATH}"
+
 aptmarkWALinuxAgent hold &
 
 # Setup logs for upload to host
@@ -34,23 +48,14 @@ fi
 
 echo $(date),$(hostname), startcustomscript>>/opt/m
 
-for i in $(seq 1 3600); do
-    if [ -s "${CSE_HELPERS_FILEPATH}" ]; then
-        grep -Fq '#HELPERSEOF' "${CSE_HELPERS_FILEPATH}" && break
-    fi
-    if [ $i -eq 3600 ]; then
-        exit $ERR_FILE_WATCH_TIMEOUT
-    else
-        sleep 1
-    fi
-done
-sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
-source "${CSE_HELPERS_FILEPATH}"
-
-source "${CSE_DISTRO_HELPERS_FILEPATH}"
 source "${CSE_INSTALL_FILEPATH}"
 source "${CSE_DISTRO_INSTALL_FILEPATH}"
 source "${CSE_CONFIG_FILEPATH}"
+
+resolve_packages_source_url
+logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
+
+logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
 if [[ "${DISABLE_SSH}" == "true" ]]; then
     disableSSH || exit $ERR_DISABLE_SSH
@@ -72,17 +77,26 @@ if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
-domain_name="mcr.microsoft.com"
-if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
-    domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}"
+# Avoid DNS check when http proxy is configured since the DNS resolution will be done through the proxy
+if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]]; then
+    registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    registry_domain_name="${registry_domain_name%/}"
+
+    if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+        registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
+    fi
+    # Disabling DNS health check until better E2E are created.
+    # verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 fi
-verify_DNS_health $domain_name || exit $ERR_DNS_HEALTH_FAIL
 
 if [[ -n "${OUTBOUND_COMMAND}" ]]; then
     if [[ -n "${PROXY_VARS}" ]]; then
         eval $PROXY_VARS
     fi
-    retrycmd_if_failure 50 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+    retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
+else
+    # This file indicates the cluster doesn't have outbound connectivity and should be excluded in future external outbound checks
+    touch /var/run/outbound-check-skipped
 fi
 
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
@@ -94,7 +108,7 @@ if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
 fi
 
 if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
-    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
+    logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
 export -f should_skip_nvidia_drivers
@@ -114,15 +128,18 @@ logs_to_events "AKS.CSE.disableSystemdResolved" disableSystemdResolved
 logs_to_events "AKS.CSE.configureAdminUser" configureAdminUser
 
 export -f getInstallModeAndCleanupContainerImages
+export -f should_skip_binary_cleanup
+
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
-FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages $SKIP_BINARY_CLEANUP $IS_VHD)
+# this needs better fix to separate logs and return value;
+FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
 ret=$?
 if [[ "$ret" != "0" ]]; then
     echo "Failed to get the install mode and cleanup container images"
-    exit $ERR_CLEANUP_CONTAINER_IMAGES
+    exit "$ERR_CLEANUP_CONTAINER_IMAGES"
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+if [[ $OS == "$UBUNTU_OS_NAME"  && "$FULL_INSTALL_REQUIRED" == "true" ]]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
@@ -138,15 +155,15 @@ setupCNIDirs
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
 if [ "${IS_KRUSTLET}" == "true" ]; then
-    local versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
-    local downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
-    local downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
+    downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
     logs_to_events "AKS.CSE.installContainerdWasmShims" installContainerdWasmShims "$downloadLocationWasm" "$downloadURLWasm" "$versionsWasm"
 
-    local versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
-    local downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
-    local downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
-    logs_to_events "AKS.CSE.installSpinKube" installSpinKube "$downloadURSpinKube" "$downloadLocationSpinKube" "$versionsSpinKube"
+    versionsSpinKube=$(jq -r '.Packages[] | select(.name == spinkube") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
+    downloadLocationSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube) | .downloadLocation' "$COMPONENTS_FILEPATH")
+    downloadURLSpinKube=$(jq -r '.Packages[] | select(.name == "spinkube") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
+    logs_to_events "AKS.CSE.installSpinKube" installSpinKube  "$downloadLocationSpinKube" "$downloadURLSpinKube" "$versionsSpinKube"
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
@@ -169,7 +186,7 @@ ExecStart=
 ExecStart=/usr/local/nvidia/bin/nvidia-device-plugin $MIG_STRATEGY    
 EOF
         fi
-        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
+        logs_to_events "AKS.CSE.start.nvidia-device-plugin" "systemctlEnableAndStart nvidia-device-plugin 30" || exit $ERR_GPU_DEVICE_PLUGIN_START_FAIL
     else
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
@@ -185,7 +202,7 @@ EOF
         if isMarinerOrAzureLinux "$OS"; then
             logs_to_events "AKS.CSE.installNvidiaFabricManager" installNvidiaFabricManager
         fi
-        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.nvidia-fabricmanager" "systemctlEnableAndStart nvidia-fabricmanager 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 
     # This will only be true for multi-instance capable VM sizes
@@ -329,17 +346,16 @@ if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
-logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == $UBUNTU_OS_NAME ]] || isMarinerOrAzureLinux "$OS"; then
+if [[ $OS == "$UBUNTU_OS_NAME" ]] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
-if $FULL_INSTALL_REQUIRED; then
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+if [[ $FULL_INSTALL_REQUIRED == "true" ]]; then
+    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
@@ -393,6 +409,16 @@ else
     logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
 fi
 
+echo "API server connection check code: $VALIDATION_ERR"
+if [ $VALIDATION_ERR -ne 0 ]; then
+    exit $VALIDATION_ERR
+fi
+
+# Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
+logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS
+
+logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
 if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
@@ -402,12 +428,12 @@ fi
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
         # logs_to_events should not be run on & commands
         if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
             UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
@@ -443,17 +469,14 @@ else
                 # At 6:00:00 UTC (1 hour random fuzz) download and install package updates.
                 systemctl unmask dnf-automatic-install.service || exit $ERR_SYSTEMCTL_START_FAIL
                 systemctl unmask dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
-                systemctlEnableAndStart dnf-automatic-install.timer || exit $ERR_SYSTEMCTL_START_FAIL
+                systemctlEnableAndStart dnf-automatic-install.timer 30 || exit $ERR_SYSTEMCTL_START_FAIL
                 # The check-restart service which will inform kured of required restarts should already be running
             fi
         fi
     fi
 fi
 
-echo "Custom script finished. API server connection check code:" $VALIDATION_ERR
+echo "Custom script finished."
 echo $(date),$(hostname), endcustomscript>>/opt/m
-
-exit $VALIDATION_ERR
-
 
 #EOF

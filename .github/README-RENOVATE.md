@@ -288,7 +288,7 @@ If the raw content from your `transformTemplates` is not in plain text but other
 Now we figured out the inputs, we can start work on the JSONata query.
 
 JSONata Exerciser is a good playground for us to try and error the query. This is a good example which queries the package name from the inputs. You can start playing around with this. https://try.jsonata.org/Gjq6mkXmg. Attaching a screenshot for reference in case the link is no longer available in the future.
-![alt text](.\images\JSONata_exerciser_example.png)
+![alt text](./images/JSONata_exerciser_example.png)
 
 # Hands-on guide and FAQ
 > **Alert:** Before starting the hands-on guide, please take a moment to read [TL;DR](#tldr) section to ensure you are reading the correct doc.
@@ -364,7 +364,7 @@ As of 01/23/2025,
 - All the container images are onboarded to Renovate for auto-update.
 - PMC hosted packages, namely `runc` and `containerd`, are configured as auto-merge patch version.
 - OCI artifacts hosted on MAR(aka MCR) such as `kubernetes-binaries`, `azure-acr-credential-provider` and `containerd-wasm-shims` are onboarded for auto-update.
-- Acs-mirror hosted packages/binaries, namely `cni-plugins`, `azure-cni`, `cri-tools`, etc., are NOT onboarded for auto-update yet. There are plans to move the acs-mirror hosted packages to MCR OCI which will be downloaded by Oras. We will wait for this transition to be completed to understand the details how to manage them.
+- For Linux, the cni-plugins, azure-cni, cri-tools binaries are hosted at packages.aks.azure.com and are not onboarded for auto-update yet. The team has been working on this. cri-tools package will soon be available, then cni-plugins and azure-cni.
 
 For the most up-to-date information, please refer to the actual configuration file `components.json`.
 
