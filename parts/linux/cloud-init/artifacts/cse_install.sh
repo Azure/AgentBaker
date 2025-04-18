@@ -59,7 +59,7 @@ installContainerdWithComponentsJson() {
         os_version="${UBUNTU_RELEASE}"
     fi
     
-    containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
+    containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || return $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
     if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
@@ -87,7 +87,7 @@ installContainerdWithComponentsJson() {
     containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
-        exit $ERR_CONTAINERD_VERSION_INVALID
+        return $ERR_CONTAINERD_VERSION_INVALID
     fi
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
@@ -111,7 +111,7 @@ installContainerdWithManifestJson() {
     containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
     if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
         echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
@@ -131,7 +131,7 @@ installContainerRuntime() {
     echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
     # if the containerd package is not available in the components.json, use the manifest.json to install containerd
     # we don't support Kata case for this old route with manifest.json
-    installContainerdWithManifestJson
+    installContainerdWithManifestJson || return $?
 }
 
 installNetworkPlugin() {
@@ -206,7 +206,7 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     plugin_download_path="${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR}/tls-bootstrap-client"
 
     if [ ! -f "$plugin_download_path" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || return $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
         chown -R root:root "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
         chmod -R 755 "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
     fi
@@ -435,14 +435,14 @@ downloadTeleportdPlugin() {
 
     if [[ -z ${DOWNLOAD_URL} ]]; then
         echo "download url parameter for downloadTeleportdPlugin was not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+        return $ERR_TELEPORTD_DOWNLOAD_ERR
     fi
     if [[ -z ${TELEPORTD_VERSION} ]]; then
         echo "teleportd version not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+        return $ERR_TELEPORTD_DOWNLOAD_ERR
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || return ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
 installTeleportdPlugin() {
@@ -457,9 +457,9 @@ installTeleportdPlugin() {
     else
         logs_to_events "AKS.CSE.logDownloadURL" "echo $TELEPORTD_PLUGIN_DOWNLOAD_URL"
         TELEPORTD_PLUGIN_DOWNLOAD_URL=$(update_base_url $TELEPORTD_PLUGIN_DOWNLOAD_URL)
-        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION} || return ${ERR_TELEPORTD_DOWNLOAD_ERR}
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || return ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || return ${ERR_TELEPORTD_INSTALL_ERR}
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
@@ -807,6 +807,7 @@ getInstallModeAndCleanupContainerImages() {
 
     if [ ! -f $VHD_LOGS_FILEPATH ] && [ "${IS_VHD,,}" == "true" ]; then
         echo "Using VHD distro but file $VHD_LOGS_FILEPATH not found"
+        # this is only called in a subshell, so we can exit here instead of returning, but still could maybe change it?
         exit $ERR_VHD_FILE_NOT_FOUND
     fi
 

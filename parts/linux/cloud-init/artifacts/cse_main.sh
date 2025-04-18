@@ -140,14 +140,14 @@ if [[ "$ret" != "0" ]]; then
 fi
 
 if [[ $OS == "$UBUNTU_OS_NAME"  && "$FULL_INSTALL_REQUIRED" == "true" ]]; then
-    logs_to_events "AKS.CSE.installDeps" installDeps
+    logs_to_events "AKS.CSE.installDeps" installDeps || return $?
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime || exit $?
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
-    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin || exit $?
 fi
 
 setupCNIDirs
@@ -167,7 +167,7 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
 fi
 
 # By default, never reboot new nodes.

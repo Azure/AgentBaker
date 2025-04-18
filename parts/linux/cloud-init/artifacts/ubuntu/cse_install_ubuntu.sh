@@ -10,11 +10,11 @@ removeContainerd() {
 
 installDeps() {
     wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || return $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || return $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_update || return $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
@@ -53,7 +53,7 @@ installDeps() {
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
             journalctl --no-pager -u $apt_package
-            exit $ERR_APT_INSTALL_TIMEOUT
+            return $ERR_APT_INSTALL_TIMEOUT
         fi
     done
 }
@@ -111,8 +111,8 @@ installContainerdFromOverride() {
     # the one already installed on the node considering the source is built by the user for hotfix or test
     logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
     logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-    logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}"
-    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}" || return $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
     echo "Succeeded to install containerd from user input: ${containerdOverrideDownloadURL}"
     return 0
 }
@@ -169,7 +169,7 @@ installStandaloneContainerd() {
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
-        installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || return $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 
@@ -186,7 +186,7 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
@@ -208,7 +208,7 @@ downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$(update_base_url $CONTAINERD_DOWNLOAD_URL)
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || return $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
