@@ -360,7 +360,7 @@ EOF
         cat > "$MOCK_SCRIPT" <<EOF
 #!/bin/bash
 # Simulate a long-running process that doesn't create the PID file.
-sleep 3
+sleep 1
 EOF
             chmod +x "$MOCK_SCRIPT"
             COREDNS_COMMAND="$MOCK_SCRIPT"
