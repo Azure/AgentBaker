@@ -768,16 +768,16 @@ configGPUDrivers() {
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
+                echo "Failed to install GPU driver, returning error..."
+                return $ERR_GPU_DRIVERS_START_FAIL
             fi
             ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
             if [[ "$ret" != "0" ]]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
+                echo "Failed to install GPU driver, returning error..."
+                return $ERR_GPU_DRIVERS_START_FAIL
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
@@ -787,12 +787,12 @@ configGPUDrivers() {
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
-        exit 1
+        return 1
     fi
 
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || return $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || return $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || return $ERR_GPU_DRIVERS_START_FAIL
 
     # Fix the NVIDIA /dev/char link issue
     if isMarinerOrAzureLinux "$OS"; then
@@ -800,9 +800,9 @@ configGPUDrivers() {
     fi
     
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || return $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || return $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
 }
 
@@ -811,7 +811,7 @@ validateGPUDrivers() {
         return
     fi
 
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || return $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
@@ -821,9 +821,9 @@ validateGPUDrivers() {
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
-            exit $ERR_GPU_INFO_ROM_CORRUPTED
+            return $ERR_GPU_INFO_ROM_CORRUPTED
         else
-            exit $ERR_GPU_DRIVERS_START_FAIL
+            return $ERR_GPU_DRIVERS_START_FAIL
         fi
     else
         echo "gpu driver working fine"
@@ -836,17 +836,17 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers || return $?
     else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers || return $?
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || return $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
 
 disableSSH() {
-    systemctlDisableAndStop ssh ||  return $ERR_DISABLE_SSH
+    systemctlDisableAndStop ssh || return $ERR_DISABLE_SSH
 }
 
 configCredentialProvider() {

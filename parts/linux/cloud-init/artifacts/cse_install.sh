@@ -276,7 +276,7 @@ downloadContainerdWasmShims() {
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
 
-        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || return $ERR_ORAS_PULL_CONTAINERD_WASM
         tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
         mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
         rm -f "$wasm_shims_tgz_tmp"
@@ -333,7 +333,7 @@ downloadSpinKube(){
     if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp="${containerd_spinkube_filepath}/containerd-shim-spin-v2"
-        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || return $ERR_ORAS_PULL_CONTAINERD_WASM
         rm -f "$wasm_shims_tgz_tmp"
         return 
     fi
@@ -353,11 +353,11 @@ installOras() {
 
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
+    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || return $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
         echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
-        exit $ERR_ORAS_DOWNLOAD_ERROR
+        return $ERR_ORAS_DOWNLOAD_ERROR
     fi
 
     echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
@@ -391,7 +391,7 @@ downloadAzureCNI() {
     VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin ## to remove all chars ("*") up to the final "/"
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || return $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCrictl() {
@@ -402,7 +402,7 @@ downloadCrictl() {
     logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
     url=$(update_base_url $url)
     crictlTgzTmp=${url##*/}
-    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || return $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -485,13 +485,13 @@ installCNI() {
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
         # could we fail if not Ubuntu2204Gen2ContainerdPrivateKubePkg vhd? Are there others?
         # definitely not handling arm here.
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || return $ERR_CNI_DOWNLOAD_TIMEOUT
         tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
         return 
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
-    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || return $ERR_CNI_VERSION_INVALID
     
     #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
@@ -509,7 +509,7 @@ installCNI() {
     #should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        exit $ERR_CONTAINERD_VERSION_INVALID
+        return $ERR_CONTAINERD_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
@@ -525,7 +525,7 @@ installCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         echo "CNI tarball should already be unzipped by components.json"
-        exit $ERR_CNI_VERSION_INVALID
+        return $ERR_CNI_VERSION_INVALID
     fi
 
     chown -R root:root $CNI_BIN_DIR
@@ -555,9 +555,9 @@ extractKubeBinariesToUsrLocalBin() {
     local is_private_url=$3
 
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || return $ERR_K8S_INSTALL_ERR
     if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
-        exit $ERR_K8S_INSTALL_ERR
+        return $ERR_K8S_INSTALL_ERR
     fi
     if [[ $is_private_url == false ]]; then
         rm -f "${k8s_tgz_tmp}"
