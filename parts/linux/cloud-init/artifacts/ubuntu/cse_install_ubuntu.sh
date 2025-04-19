@@ -10,11 +10,11 @@ removeContainerd() {
 
 installDeps() {
     wait_for_apt_locks
-    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
-    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_PKG_ADD_FAIL
+    retrycmd_if_failure_no_stats 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || return $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 60 5 10 dpkg -i /tmp/packages-microsoft-prod.deb || return $ERR_MS_PROD_DEB_PKG_ADD_FAIL
 
     aptmarkWALinuxAgent hold
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    apt_get_update || return $ERR_APT_UPDATE_TIMEOUT
 
     pkg_list=(ca-certificates ceph-common cgroup-lite cifs-utils conntrack cracklib-runtime ebtables ethtool git glusterfs-client htop init-system-helpers inotify-tools iotop iproute2 ipset iptables nftables jq libpam-pwquality libpwquality-tools mount nfs-common pigz socat sysfsutils sysstat util-linux xz-utils netcat-openbsd zip rng-tools kmod gcc make dkms initramfs-tools linux-headers-$(uname -r) linux-modules-extra-$(uname -r))
 
@@ -53,14 +53,14 @@ installDeps() {
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
             journalctl --no-pager -u $apt_package
-            exit $ERR_APT_INSTALL_TIMEOUT
+            return $ERR_APT_INSTALL_TIMEOUT
         fi
     done
 }
 
 updateAptWithMicrosoftPkg() {
-    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || exit $ERR_MOBY_APT_LIST_TIMEOUT
-    retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || exit $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/prod.list > /tmp/microsoft-prod.list || return $ERR_MOBY_APT_LIST_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft-prod.list /etc/apt/sources.list.d/ || return $ERR_MOBY_APT_LIST_TIMEOUT
     if [[ ${UBUNTU_RELEASE} == "18.04" ]]; then {
         echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/ubuntu/18.04/multiarch/prod testing main" > /etc/apt/sources.list.d/microsoft-prod-testing.list
     }
@@ -69,9 +69,9 @@ updateAptWithMicrosoftPkg() {
     }
     fi
     
-    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-    retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || exit $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
-    apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
+    retrycmd_if_failure_no_stats 120 5 25 curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/microsoft.gpg || return $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    retrycmd_if_failure 10 5 10 cp /tmp/microsoft.gpg /etc/apt/trusted.gpg.d/ || return $ERR_MS_GPG_KEY_DOWNLOAD_TIMEOUT
+    apt_get_update || return $ERR_APT_UPDATE_TIMEOUT
 }
 
 cleanUpGPUDrivers() {
@@ -82,11 +82,11 @@ installCriCtlPackage() {
     version="${1:-}"
     packageName="kubernetes-cri-tools=${version}"
     if [[ -z $version ]]; then
-        echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
-        exit 1
+        echo "Error: No version specified for kubernetes-cri-tools package but it is required. Returning with error."
+        return 1
     fi
     echo "Installing ${packageName} with apt-get"
-    apt_get_install 20 30 120 ${packageName} || exit 1
+    apt_get_install 20 30 120 ${packageName} || return 1
 }
 
 installContainerd() {
@@ -98,10 +98,10 @@ installContainerd() {
 
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     if [[ ! -z ${containerdOverrideDownloadURL} ]]; then
-        installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        installContainerdFromOverride ${containerdOverrideDownloadURL} || return $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
-    installContainerdWithAptGet "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${containerdMajorMinorPatchVersion}" "${containerdHotFixVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installContainerdFromOverride() {
@@ -111,8 +111,8 @@ installContainerdFromOverride() {
     # the one already installed on the node considering the source is built by the user for hotfix or test
     logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
     logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
-    logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}"
-    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromURL" downloadContainerdFromURL "${containerdOverrideDownloadURL}" || return $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${CONTAINERD_DEB_FILE}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
     echo "Succeeded to install containerd from user input: ${containerdOverrideDownloadURL}"
     return 0
 }
@@ -144,16 +144,16 @@ installContainerdWithAptGet() {
         # if no files found then try fetching from packages.microsoft repo
         containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
         if [[ -f "${containerdDebFile}" ]]; then
-            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
         containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
         if [[ -z "${containerdDebFile}" ]]; then
             echo "Failed to locate cached containerd deb"
-            exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+            return $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
-        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 }
@@ -169,7 +169,7 @@ installStandaloneContainerd() {
     # the user-defined package URL is always picked first, and the other options won't be tried when this one fails
     CONTAINERD_PACKAGE_URL="${CONTAINERD_PACKAGE_URL:=}"
     if [[ ! -z ${CONTAINERD_PACKAGE_URL} ]]; then
-        installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        installContainerdFromOverride ${CONTAINERD_PACKAGE_URL} || return $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
 
@@ -186,7 +186,7 @@ installStandaloneContainerd() {
         echo "Using specified Containerd Version: ${CONTAINERD_VERSION}-${CONTAINERD_PATCH_VERSION}"
     fi
 
-    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${CONTAINERD_VERSION}" "${CONTAINERD_PATCH_VERSION}" || return $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 downloadContainerdFromVersion() {
@@ -196,9 +196,9 @@ downloadContainerdFromVersion() {
     # Adding updateAptWithMicrosoftPkg since AB e2e uses an older image version with uncached containerd 1.6 so it needs to download from testing repo.
     # And RP no image pull e2e has apt update restrictions that prevent calls to packages.microsoft.com in CSE
     # This won't be called for new VHDs as they have containerd 1.6 cached
-    updateAptWithMicrosoftPkg 
-    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
-    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    updateAptWithMicrosoftPkg || return $?
+    apt_get_download 20 30 moby-containerd=${CONTAINERD_VERSION}* || return $ERR_CONTAINERD_INSTALL_TIMEOUT
+    cp -al ${APT_CACHE_DIR}moby-containerd_${CONTAINERD_VERSION}* $CONTAINERD_DOWNLOADS_DIR/ || return $ERR_CONTAINERD_INSTALL_TIMEOUT
     echo "Succeeded to download containerd version ${CONTAINERD_VERSION}"
 }
 
@@ -208,7 +208,7 @@ downloadContainerdFromURL() {
     CONTAINERD_DOWNLOAD_URL=$(update_base_url $CONTAINERD_DOWNLOAD_URL)
     mkdir -p $CONTAINERD_DOWNLOADS_DIR
     CONTAINERD_DEB_TMP=${CONTAINERD_DOWNLOAD_URL##*/}
-    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || exit $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 120 5 60 "$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}" ${CONTAINERD_DOWNLOAD_URL} || return $ERR_CONTAINERD_DOWNLOAD_TIMEOUT
     CONTAINERD_DEB_FILE="$CONTAINERD_DOWNLOADS_DIR/${CONTAINERD_DEB_TMP}"
 }
 
@@ -221,12 +221,12 @@ installMoby() {
         echo "currently installed moby-docker version ${CURRENT_VERSION} is greater than (or equal to) target base version ${MOBY_VERSION}. skipping installMoby."
     else
         removeMoby
-        updateAptWithMicrosoftPkg
+        updateAptWithMicrosoftPkg || return $?
         MOBY_CLI=${MOBY_VERSION}
         if [[ "${MOBY_CLI}" == "3.0.4" ]]; then
             MOBY_CLI="3.0.3"
         fi
-        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || exit $ERR_MOBY_INSTALL_TIMEOUT
+        apt_get_install 20 30 120 moby-engine=${MOBY_VERSION}* moby-cli=${MOBY_CLI}* moby-containerd=${MOBY_CONTAINERD_VERSION}* --allow-downgrades || return $ERR_MOBY_INSTALL_TIMEOUT
     fi
 }
 
@@ -239,10 +239,10 @@ ensureRunc() {
         mkdir -p $RUNC_DOWNLOADS_DIR
         RUNC_DEB_TMP=${RUNC_PACKAGE_URL##*/}
         RUNC_DEB_FILE="$RUNC_DOWNLOADS_DIR/${RUNC_DEB_TMP}"
-        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || exit $ERR_RUNC_DOWNLOAD_TIMEOUT
+        retrycmd_curl_file 120 5 60 ${RUNC_DEB_FILE} ${RUNC_PACKAGE_URL} || return $ERR_RUNC_DOWNLOAD_TIMEOUT
         # we'll use a user-defined containerd package to install containerd even though it's the same version as
         # the one already installed on the node considering the source is built by the user for hotfix or test
-        installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+        installDebPackageFromFile ${RUNC_DEB_FILE} || return $ERR_RUNC_INSTALL_TIMEOUT
         echo "Succeeded to install runc from user input: ${RUNC_PACKAGE_URL}"
         return 0
     fi
@@ -274,11 +274,11 @@ ensureRunc() {
         RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
-            installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
+            installDebPackageFromFile ${RUNC_DEB_FILE} || return $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
-    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
+    apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || return $ERR_RUNC_INSTALL_TIMEOUT
 }
 
 #EOF
