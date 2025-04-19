@@ -231,7 +231,7 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
-logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy || exit $?
 
 createKubeManifestDir
 

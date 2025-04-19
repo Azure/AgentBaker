@@ -48,6 +48,7 @@ installDeps() {
     fi
 }
 
+# todo mumanski - change exits in this file to returns
 installKataDeps() {
     if [[ $OS_VERSION != "1.0" ]]; then
       if ! dnf_install 30 1 600 kata-packages-host; then

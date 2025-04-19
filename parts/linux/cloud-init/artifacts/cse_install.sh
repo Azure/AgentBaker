@@ -284,6 +284,7 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
+        # runs in background, can leave the exit as is
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
         WASMSHIMPIDS+=($!)
     done
@@ -338,6 +339,7 @@ downloadSpinKube(){
         return 
     fi
     
+    # runs in background, can leave the exit as is
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
     SPINKUBEPIDS+=($!)
 }
@@ -599,15 +601,15 @@ extractKubeBinaries() {
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             # download the kube package from registry as oras artifact
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || return $ERR_ORAS_PULL_K8S_FAIL
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
-                exit "$ERR_ORAS_PULL_K8S_FAIL"
+                return "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
             # download the kube package from the default URL
-            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || return $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
-                exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
+                return "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
     fi
@@ -629,11 +631,11 @@ installKubeletKubectlAndKubeProxy() {
         # NOTE(mainred): we expect kubelet binary to be under `kubernetes/node/bin`. This suits the current setting of
         # kube binaries used by AKS and Kubernetes upstream.
         # TODO(mainred): let's see if necessary to auto-detect the path of kubelet
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} false
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} false || return $?
         install_default_if_missing=false
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         # extract new binaries from the cached package if exists (cached at build-time)
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true || return $?
     fi
 
     # if the custom url is not specified and the required kubectl/kubelet-version via private url is not installed, install using the default url/package
@@ -645,13 +647,13 @@ installKubeletKubectlAndKubeProxy() {
                 updateKubeBinaryRegistryURL
                 
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" # /opt folder will return permission error
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY} || return $?
                 # no egress traffic, default install will fail
                 # will exit if the download fails
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false || return $?
             fi
         fi
     fi
@@ -662,6 +664,7 @@ installKubeletKubectlAndKubeProxy() {
     rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-* /home/hyperkube-downloads &
 }
 
+# only used during vhd build it seems, can leave as is?
 pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
@@ -725,6 +728,7 @@ removeContainerImage() {
     fi
 }
 
+# todo mumanski - change exits to returns here if can propagate to main?
 cleanUpImages() {
     local targetImage=$1
     export targetImage
