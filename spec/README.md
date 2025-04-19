@@ -26,8 +26,20 @@ For example, `AgentBaker/spec/parts/linux/cloud-init/artifacts/cse_install_spec.
 To run all tests, in AgentBaker folder, simply run `make shellspec` in root (/AgentBaker) directory. Another way is to run `docker run -v "$PWD:/src" shellspec-docker --shell bash --format d`.
 
 ### Useful commands for debugging
+Assuming you have run at least once `make shellspec` to build the dockerfile locally,
 
-- `bash ./hack/tools/bin/shellspec -x` => with `-x`, it will show verbose trace for debugging.
-- `bash ./hack/tools/bin/shellspec -E "<test name>"` => you can run a single test case by using `-E` and the test name. For example, `bash ./hack/tools/bin/shellspec -E "returns downloadURIs.ubuntu.\"r2004\".downloadURL of package runc for UBUNTU 20.04"`. You can also do `-xE` for verbose trace for a single test case.
-- `bash ./hack/tools/bin/shellspec "path to xxx_spec.sh"` => by providing a full path a particular spec file, you can run only that spec file instead of all spec files in AgentBaker project. 
-For example, `bash ./hack/tools/bin/shellspec "spec/parts/linux/cloud-init/artifacts/cse_install_spec.sh"`
+- ```
+  docker run -v "$PWD:/src" shellspec-docker --shell bash --xtrace
+  ```
+  With `--xtrace`, it will show verbose trace for debugging.
+
+- ```
+  docker run -v "$PWD:/src" shellspec-docker --shell bash --example <test name> -xtrace
+  ```
+  You can run a single test case by using `--example` followed by the test name. For example, `docker run -v "$PWD:/src" shellspec-docker --shell bash --example "sets PACKAGE_DOWNLOAD_BASE_URL to packages.aks.azure.com when run locally"`. You can also add `--xtrace` to display verbose trace for this single test case.
+
+- ```
+  docker run -v "$PWD:/src" shellspec-docker --shell bash <path to xxx_spec.sh>
+  ```
+  By providing a full path a particular spec file, you can run only that spec file instead of all spec files in AgentBaker project. 
+For example, `docker run -v "$PWD:/src" shellspec-docker --shell bash spec/parts/linux/cloud-init/artifacts/cse_helpers_spec.sh`
