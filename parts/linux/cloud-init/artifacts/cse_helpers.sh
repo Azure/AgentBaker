@@ -138,8 +138,8 @@ ERR_LOCALDNS_BINARY_ERR=219 # Localdns binary not found or not executable.
 # For unit tests, the OS and OS_VERSION will be set in the unit test script.
 # So whether it's if or else actually doesn't matter to our unit test.
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | awk -F= '/^ID_LIKE=|^ID=/ { gsub(/"/, "", $2); print toupper($2); exit }')
-    OS_VERSION=$(sort -r /etc/*-release | awk -F= '/^VERSION_ID=/ { gsub(/"/, "", $2); print toupper($2); exit }')
+    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
 else
 # This is only for unit test purpose. For example, a Mac OS dev box doesn't have /etc/*-release, then the unit test will continue.
     echo "/etc/*-release not found"
@@ -810,7 +810,6 @@ resolve_packages_source_url() {
     for i in $(seq 1 $retries); do
       # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
       response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
-
       if [ ${response_code} -eq 200 ]; then
         echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
         break
