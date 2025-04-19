@@ -14,7 +14,7 @@ configPrivateClusterHosts() {
 [Service]
 Environment="KUBE_API_SERVER_NAME=${API_SERVER_NAME}"
 EOF
-  systemctlEnableAndStart reconcile-private-hosts 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  systemctlEnableAndStart reconcile-private-hosts 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
@@ -129,8 +129,8 @@ configureHTTPProxyCA() {
         update_cmd="update-ca-certificates"
     fi
     HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
-    $update_cmd || exit $ERR_UPDATE_CA_CERTS
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || return $ERR_UPDATE_CA_CERTS
+    $update_cmd || return $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -140,7 +140,7 @@ configureCustomCaCertificate() {
         declare varname=CUSTOM_CA_CERT_${i} 
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
-    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs.service || return $ERR_UPDATE_CA_CERTS
     systemctl restart containerd
 }
 
@@ -262,7 +262,7 @@ EOF
 }
 
 configureCNI() {
-    retrycmd_if_failure 120 5 25 modprobe br_netfilter || exit $ERR_MODPROBE_FAIL
+    retrycmd_if_failure 120 5 25 modprobe br_netfilter || return $ERR_MODPROBE_FAIL
     echo -n "br_netfilter" > /etc/modules-load.d/br_netfilter.conf
     configureCNIIPTables
 }
@@ -295,7 +295,7 @@ disableSystemdResolved() {
 
 ensureContainerd() {
   if [ "${TELEPORT_ENABLED}" == "true" ]; then
-    ensureTeleportd
+    ensureTeleportd || return $ERR_SYSTEMCTL_START_FAIL
   fi
   mkdir -p "/etc/systemd/system/containerd.service.d" 
   tee "/etc/systemd/system/containerd.service.d/exec_start.conf" > /dev/null <<EOF
@@ -304,16 +304,16 @@ ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
 EOF
 
   if [ "${ARTIFACT_STREAMING_ENABLED}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || exit $ERR_ARTIFACT_STREAMING_INSTALL
+    logs_to_events "AKS.CSE.ensureContainerd.ensureArtifactStreaming" ensureArtifactStreaming || return $ERR_ARTIFACT_STREAMING_INSTALL
   fi
 
   mkdir -p /etc/containerd
   if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" == "true" ]]; then
     echo "Generating non-GPU containerd config for GPU node due to VM tags"
-    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${CONTAINERD_CONFIG_NO_GPU_CONTENT}" | base64 -d > /etc/containerd/config.toml || return $ERR_FILE_WATCH_TIMEOUT
   else
     echo "Generating containerd config..."
-    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
+    echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || return $ERR_FILE_WATCH_TIMEOUT
   fi
 
   if [[ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]]; then
@@ -326,9 +326,9 @@ net.ipv4.conf.all.forwarding = 1
 net.ipv6.conf.all.forwarding = 1
 net.bridge.bridge-nf-call-iptables = 1
 EOF
-  retrycmd_if_failure 120 5 25 sysctl --system || exit $ERR_SYSCTL_RELOAD
-  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || exit $ERR_SYSTEMD_DOCKER_STOP_FAIL)
-  systemctlEnableAndStart containerd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+  retrycmd_if_failure 120 5 25 sysctl --system || return $ERR_SYSCTL_RELOAD
+  systemctl is-active --quiet docker && (systemctl_disable 20 30 120 docker || return $ERR_SYSTEMD_DOCKER_STOP_FAIL)
+  systemctlEnableAndStart containerd 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
 configureContainerdRegistryHost() {
@@ -351,7 +351,7 @@ ensureNoDupOnPromiscuBridge() {
 }
 
 ensureTeleportd() {
-    systemctlEnableAndStart teleportd 30 || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart teleportd 30 || return $ERR_SYSTEMCTL_START_FAIL
 }
 
 ensureArtifactStreaming() {
@@ -383,19 +383,19 @@ ensureDocker() {
             jq '.' < $DOCKER_JSON_FILE && break
         fi
         if [ $i -eq 1200 ]; then
-            exit $ERR_FILE_WATCH_TIMEOUT
+            return $ERR_FILE_WATCH_TIMEOUT
         else
             sleep 1
         fi
     done
-    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || exit $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
-    systemctlEnableAndStart docker 30 || exit $ERR_DOCKER_START_FAIL
+    systemctl is-active --quiet containerd && (systemctl_disable 20 30 120 containerd || return $ERR_SYSTEMD_CONTAINERD_STOP_FAIL)
+    systemctlEnableAndStart docker 30 || return $ERR_DOCKER_START_FAIL
 
 }
 
 ensureDHCPv6() {
-    systemctlEnableAndStart dhcpv6 30 || exit $ERR_SYSTEMCTL_START_FAIL
-    retrycmd_if_failure 120 5 25 modprobe ip6_tables || exit $ERR_MODPROBE_FAIL
+    systemctlEnableAndStart dhcpv6 30 || return $ERR_SYSTEMCTL_START_FAIL
+    retrycmd_if_failure 120 5 25 modprobe ip6_tables || return $ERR_MODPROBE_FAIL
 }
 
 getPrimaryNicIP() {
@@ -440,7 +440,7 @@ configureKubeletServing() {
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
     if [ $? -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
-        exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
+        return $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
 
     if [ "${DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION}" == "true" ]; then
@@ -653,13 +653,6 @@ ensureSysctl() {
     retrycmd_if_failure 24 5 25 sysctl --system || return $ERR_SYSCTL_RELOAD
 }
 
-ensureK8sControlPlane() {
-    if $REBOOTREQUIRED || [ "$NO_OUTBOUND" = "true" ]; then
-        return
-    fi
-    retrycmd_if_failure 120 5 25 $KUBECTL 2>/dev/null cluster-info || exit $ERR_K8S_RUNNING_TIMEOUT
-}
-
 createKubeManifestDir() {
     KUBEMANIFESTDIR=/etc/kubernetes/manifests
     mkdir -p $KUBEMANIFESTDIR
@@ -735,16 +728,16 @@ configGPUDrivers() {
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
             if [[ "$ret" != "0" ]]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
+                echo "Failed to install GPU driver, returning error..."
+                return $ERR_GPU_DRIVERS_START_FAIL
             fi
             ctr -n k8s.io images rm --sync $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
             if [[ "$ret" != "0" ]]; then
-                echo "Failed to install GPU driver, exiting..."
-                exit $ERR_GPU_DRIVERS_START_FAIL
+                echo "Failed to install GPU driver, returning error..."
+                return $ERR_GPU_DRIVERS_START_FAIL
             fi
             docker rmi $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
         fi
@@ -754,21 +747,21 @@ configGPUDrivers() {
         enableNvidiaPersistenceMode
     else 
         echo "os $OS not supported at this time. skipping configGPUDrivers"
-        exit 1
+        return 1
     fi
 
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
-    retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || return $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 300 nvidia-smi || return $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 ldconfig || return $ERR_GPU_DRIVERS_START_FAIL
 
     if isMarinerOrAzureLinux "$OS"; then
         createNvidiaSymlinkToAllDeviceNodes
     fi
     
     if [[ "${CONTAINER_RUNTIME}" == "containerd" ]]; then
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP containerd || return $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     else
-        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
+        retrycmd_if_failure 120 5 25 pkill -SIGHUP dockerd || return $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
     fi
 }
 
@@ -777,7 +770,7 @@ validateGPUDrivers() {
         return
     fi
 
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || return $ERR_GPU_DRIVERS_START_FAIL
     which nvidia-smi
     if [[ $? == 0 ]]; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
@@ -787,9 +780,9 @@ validateGPUDrivers() {
     SMI_STATUS=$?
     if [[ $SMI_STATUS != 0 ]]; then
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
-            exit $ERR_GPU_INFO_ROM_CORRUPTED
+            return $ERR_GPU_INFO_ROM_CORRUPTED
         else
-            exit $ERR_GPU_DRIVERS_START_FAIL
+            return $ERR_GPU_DRIVERS_START_FAIL
         fi
     else
         echo "gpu driver working fine"
@@ -802,17 +795,17 @@ ensureGPUDrivers() {
     fi
 
     if [[ "${CONFIG_GPU_DRIVER_IF_NEEDED}" = true ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.configGPUDrivers" configGPUDrivers || return $?
     else
-        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
+        logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers || return $?
     fi
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
+        logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || return $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
 
 disableSSH() {
-    systemctlDisableAndStop ssh ||  return $ERR_DISABLE_SSH
+    systemctlDisableAndStop ssh || return $ERR_DISABLE_SSH
 }
 
 configCredentialProvider() {

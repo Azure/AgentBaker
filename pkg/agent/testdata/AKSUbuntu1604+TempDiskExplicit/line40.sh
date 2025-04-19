@@ -57,7 +57,7 @@ installContainerdWithComponentsJson() {
         os_version="${UBUNTU_RELEASE}"
     fi
     
-    containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || exit $ERR_CONTAINERD_VERSION_INVALID
+    containerdPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"containerd\")") || return $ERR_CONTAINERD_VERSION_INVALID
     PACKAGE_VERSIONS=()
     if isMarinerOrAzureLinux "${OS}" && [[ "${IS_KATA}" == "true" ]]; then
         os=${MARINER_KATA_OS_NAME}
@@ -82,7 +82,7 @@ installContainerdWithComponentsJson() {
     containerdHotFixVersion="$(echo "$packageVersion" | cut -d- -s -f2)"
     if [ -z "$containerdMajorMinorPatchVersion" ] || [ "$containerdMajorMinorPatchVersion" == "null" ] || [ "$containerdHotFixVersion" == "null" ]; then
         echo "invalid containerd version: $packageVersion"
-        exit $ERR_CONTAINERD_VERSION_INVALID
+        return $ERR_CONTAINERD_VERSION_INVALID
     fi
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${packageVersion}"
@@ -104,7 +104,7 @@ installContainerdWithManifestJson() {
     containerd_revision="$(echo "$containerd_version" | cut -d- -f2)"
     if [ -z "$containerd_patch_version" ] || [ "$containerd_patch_version" == "null" ] || [ "$containerd_revision" == "null" ]; then
         echo "invalid container version: $containerd_version"
-        exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+        return $ERR_CONTAINERD_INSTALL_TIMEOUT
     fi
     logs_to_events "AKS.CSE.installContainerRuntime.installStandaloneContainerd" "installStandaloneContainerd ${containerd_patch_version} ${containerd_revision}"
     echo "in installContainerRuntime - CONTAINERD_VERSION = ${containerd_patch_version}"
@@ -121,7 +121,7 @@ installContainerRuntime() {
 		return
     fi
     echo "Package \"containerd\" does not exist in $COMPONENTS_FILEPATH."
-    installContainerdWithManifestJson
+    installContainerdWithManifestJson || return $?
 }
 
 installNetworkPlugin() {
@@ -187,7 +187,7 @@ downloadSecureTLSBootstrapKubeletExecPlugin() {
     plugin_download_path="${SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR}/tls-bootstrap-client"
 
     if [ ! -f "$plugin_download_path" ]; then
-        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
+        retrycmd_if_failure 30 5 60 curl -fSL -o "$plugin_download_path" "$plugin_url" || return $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
         chown -R root:root "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
         chmod -R 755 "$SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR"
     fi
@@ -252,7 +252,7 @@ downloadContainerdWasmShims() {
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/deislabs/containerd-wasm-shims:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp=$containerd_wasm_filepath/containerd-wasm-shims-linux-${CPU_ARCH}.tar.gz
 
-        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        retrycmd_get_tarball_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" ${registry_url} || return $ERR_ORAS_PULL_CONTAINERD_WASM
         tar -zxf "$wasm_shims_tgz_tmp" -C $containerd_wasm_filepath
         mv "$containerd_wasm_filepath/containerd-shim-*-${shim_version}-v1" "$containerd_wasm_filepath/containerd-shim-*-${binary_version}-v1"
         rm -f "$wasm_shims_tgz_tmp"
@@ -309,7 +309,7 @@ downloadSpinKube(){
     if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
         local registry_url="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/oss/binaries/spinkube/containerd-shim-spin:${shim_version}-linux-${CPU_ARCH}"
         local wasm_shims_tgz_tmp="${containerd_spinkube_filepath}/containerd-shim-spin-v2"
-        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || exit $ERR_ORAS_PULL_CONTAINERD_WASM
+        retrycmd_get_binary_from_registry_with_oras 120 5 "${wasm_shims_tgz_tmp}" "${registry_url}" || return $ERR_ORAS_PULL_CONTAINERD_WASM
         rm -f "$wasm_shims_tgz_tmp"
         return 
     fi
@@ -328,11 +328,11 @@ installOras() {
 
     echo "Installing Oras version $ORAS_VERSION..."
     ORAS_TMP=${ORAS_DOWNLOAD_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || exit $ERR_ORAS_DOWNLOAD_ERROR
+    retrycmd_get_tarball 120 5 "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ${ORAS_DOWNLOAD_URL} || return $ERR_ORAS_DOWNLOAD_ERROR
 
     if [ ! -f "$ORAS_DOWNLOAD_DIR/${ORAS_TMP}" ]; then
         echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} does not exist."
-        exit $ERR_ORAS_DOWNLOAD_ERROR
+        return $ERR_ORAS_DOWNLOAD_ERROR
     fi
 
     echo "File $ORAS_DOWNLOAD_DIR/${ORAS_TMP} exists."
@@ -363,7 +363,7 @@ downloadAzureCNI() {
     VNET_CNI_PLUGINS_URL=$(update_base_url $VNET_CNI_PLUGINS_URL)
 
     CNI_TGZ_TMP=${VNET_CNI_PLUGINS_URL##*/} # Use bash builtin #
-    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || exit $ERR_CNI_DOWNLOAD_TIMEOUT
+    retrycmd_get_tarball 120 5 "$CNI_DOWNLOADS_DIR/${CNI_TGZ_TMP}" ${VNET_CNI_PLUGINS_URL} || return $ERR_CNI_DOWNLOAD_TIMEOUT
 }
 
 downloadCrictl() {
@@ -374,7 +374,7 @@ downloadCrictl() {
     logs_to_events "AKS.CSE.logDownloadURL" "echo $url"
     url=$(update_base_url $url)
     crictlTgzTmp=${url##*/}
-    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || exit $ERR_CRICTL_DOWNLOAD_TIMEOUT
+    retrycmd_curl_file 10 5 60 "$downloadDir/${crictlTgzTmp}" ${url} || return $ERR_CRICTL_DOWNLOAD_TIMEOUT
 }
 
 installCrictl() {
@@ -405,14 +405,14 @@ downloadTeleportdPlugin() {
 
     if [[ -z ${DOWNLOAD_URL} ]]; then
         echo "download url parameter for downloadTeleportdPlugin was not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+        return $ERR_TELEPORTD_DOWNLOAD_ERR
     fi
     if [[ -z ${TELEPORTD_VERSION} ]]; then
         echo "teleportd version not given"
-        exit $ERR_TELEPORTD_DOWNLOAD_ERR
+        return $ERR_TELEPORTD_DOWNLOAD_ERR
     fi
     mkdir -p $TELEPORTD_PLUGIN_DOWNLOAD_DIR
-    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || exit ${ERR_TELEPORTD_DOWNLOAD_ERR}
+    retrycmd_curl_file 10 5 60 "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${DOWNLOAD_URL}/v${TELEPORTD_VERSION}/teleportd" || return ${ERR_TELEPORTD_DOWNLOAD_ERR}
 }
 
 installTeleportdPlugin() {
@@ -427,9 +427,9 @@ installTeleportdPlugin() {
     else
         logs_to_events "AKS.CSE.logDownloadURL" "echo $TELEPORTD_PLUGIN_DOWNLOAD_URL"
         TELEPORTD_PLUGIN_DOWNLOAD_URL=$(update_base_url $TELEPORTD_PLUGIN_DOWNLOAD_URL)
-        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION}
-        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
-        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || exit ${ERR_TELEPORTD_INSTALL_ERR}
+        downloadTeleportdPlugin ${TELEPORTD_PLUGIN_DOWNLOAD_URL} ${TARGET_VERSION} || return ${ERR_TELEPORTD_DOWNLOAD_ERR}
+        mv "${TELEPORTD_PLUGIN_DOWNLOAD_DIR}/teleportd-v${TELEPORTD_VERSION}" "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || return ${ERR_TELEPORTD_INSTALL_ERR}
+        chmod 755 "${TELEPORTD_PLUGIN_BIN_DIR}/teleportd" || return ${ERR_TELEPORTD_INSTALL_ERR}
     fi
     rm -rf ${TELEPORTD_PLUGIN_DOWNLOAD_DIR}
 }
@@ -448,13 +448,13 @@ setupCNIDirs() {
 installCNI() {
     if [ ! -f "$COMPONENTS_FILEPATH" ] || ! jq '.Packages[] | select(.name == "cni-plugins")' < $COMPONENTS_FILEPATH > /dev/null; then
         echo "WARNING: no cni-plugins components present falling back to hard coded download of 1.4.1. This should error eventually" 
-        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || exit
+        retrycmd_get_tarball 120 5 "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" "https://${PACKAGE_DOWNLOAD_BASE_URL}/cni-plugins/v1.4.1/binaries/cni-plugins-linux-amd64-v1.4.1.tgz" || return $ERR_CNI_DOWNLOAD_TIMEOUT
         tar -xzf "${CNI_DOWNLOADS_DIR}/refcni.tar.gz" -C $CNI_BIN_DIR
         return 
     fi
 
     #always just use what is listed in components.json so we don't have to sync.
-    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || exit $ERR_CNI_VERSION_INVALID
+    cniPackage=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"cni-plugins\")") || return $ERR_CNI_VERSION_INVALID
     
     #CNI doesn't really care about this but wanted to reuse updatePackageVersions which requires it.
     os=${UBUNTU_OS_NAME} 
@@ -472,7 +472,7 @@ installCNI() {
     #should change to ne
     if [[ ${#PACKAGE_VERSIONS[@]} -gt 1 ]]; then
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
-        exit $ERR_CONTAINERD_VERSION_INVALID
+        return $ERR_CONTAINERD_VERSION_INVALID
     fi
     packageVersion=${PACKAGE_VERSIONS[0]}
 
@@ -487,7 +487,7 @@ installCNI() {
         mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
     else
         echo "CNI tarball should already be unzipped by components.json"
-        exit $ERR_CNI_VERSION_INVALID
+        return $ERR_CNI_VERSION_INVALID
     fi
 
     chown -R root:root $CNI_BIN_DIR
@@ -516,9 +516,9 @@ extractKubeBinariesToUsrLocalBin() {
     local is_private_url=$3
 
     tar --transform="s|.*|&-${k8s_version}|" --show-transformed-names -xzvf "${k8s_tgz_tmp}" \
-        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || exit $ERR_K8S_INSTALL_ERR
+        --strip-components=3 -C /usr/local/bin kubernetes/node/bin/kubelet kubernetes/node/bin/kubectl || return $ERR_K8S_INSTALL_ERR
     if [[ ! -f /usr/local/bin/kubectl-${k8s_version} ]] || [[ ! -f /usr/local/bin/kubelet-${k8s_version} ]]; then
-        exit $ERR_K8S_INSTALL_ERR
+        return $ERR_K8S_INSTALL_ERR
     fi
     if [[ $is_private_url == false ]]; then
         rm -f "${k8s_tgz_tmp}"
@@ -554,14 +554,14 @@ extractKubeBinaries() {
         if isRegistryUrl "${kube_binary_url}"; then
             echo "detect kube_binary_url, ${kube_binary_url}, as registry url, will use oras to pull artifact binary"
             k8s_tgz_tmp="${k8s_downloads_dir}/kubernetes-node-linux-${CPU_ARCH}.tar.gz"
-            retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_ORAS_PULL_K8S_FAIL
+            retrycmd_get_tarball_from_registry_with_oras 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || return $ERR_ORAS_PULL_K8S_FAIL
             if [[ ! -f "${k8s_tgz_tmp}" ]]; then
-                exit "$ERR_ORAS_PULL_K8S_FAIL"
+                return "$ERR_ORAS_PULL_K8S_FAIL"
             fi
         else
-            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || exit $ERR_K8S_DOWNLOAD_TIMEOUT
+            retrycmd_get_tarball 120 5 "${k8s_tgz_tmp}" ${kube_binary_url} || return $ERR_K8S_DOWNLOAD_TIMEOUT
             if [[ ! -f "${k8s_tgz_tmp}" ]] ; then
-                exit "$ERR_K8S_DOWNLOAD_TIMEOUT"
+                return "$ERR_K8S_DOWNLOAD_TIMEOUT"
             fi
         fi
     fi
@@ -578,10 +578,10 @@ installKubeletKubectlAndKubeProxy() {
     if [[ ! -z ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} ]]; then
         rm -rf /usr/local/bin/kubelet-* /usr/local/bin/kubectl-*
 
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} false
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${CUSTOM_KUBE_BINARY_DOWNLOAD_URL} false || return $?
         install_default_if_missing=false
     elif [[ ! -z ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} ]]; then
-        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true
+        logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${PRIVATE_KUBE_BINARY_DOWNLOAD_URL} true || return $?
     fi
 
     if [[ ! -f "/usr/local/bin/kubectl-${KUBERNETES_VERSION}" ]] || [[ ! -f "/usr/local/bin/kubelet-${KUBERNETES_VERSION}" ]]; then
@@ -591,11 +591,11 @@ installKubeletKubectlAndKubeProxy() {
                 updateKubeBinaryRegistryURL
                 
                 K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY="/tmp/kubernetes/downloads" 
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY}
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} "${KUBE_BINARY_REGISTRY_URL:-}" false ${K8S_DOWNLOADS_TEMP_DIR_FROM_REGISTRY} || return $?
 
             #TODO: remove the condition check on KUBE_BINARY_URL once RP change is released
             elif (($(echo ${KUBERNETES_VERSION} | cut -d"." -f2) >= 17)) && [ -n "${KUBE_BINARY_URL}" ]; then
-                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false
+                logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy.extractKubeBinaries" extractKubeBinaries ${KUBERNETES_VERSION} ${KUBE_BINARY_URL} false || return $?
             fi
         fi
     fi

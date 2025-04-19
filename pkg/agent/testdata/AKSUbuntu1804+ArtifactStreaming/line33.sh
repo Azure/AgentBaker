@@ -129,14 +129,14 @@ if [[ "$ret" != "0" ]]; then
 fi
 
 if [[ $OS == "$UBUNTU_OS_NAME"  && "$FULL_INSTALL_REQUIRED" == "true" ]]; then
-    logs_to_events "AKS.CSE.installDeps" installDeps
+    logs_to_events "AKS.CSE.installDeps" installDeps || return $?
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
-logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
+logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime || exit $?
 if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
-    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
+    logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin || exit $?
 fi
 
 setupCNIDirs
@@ -156,7 +156,7 @@ if [ "${IS_KRUSTLET}" == "true" ]; then
 fi
 
 if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" == "true" ]; then
-    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin
+    logs_to_events "AKS.CSE.downloadSecureTLSBootstrapKubeletExecPlugin" downloadSecureTLSBootstrapKubeletExecPlugin || exit $ERR_DOWNLOAD_SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_TIMEOUT
 fi
 
 REBOOTREQUIRED=false
@@ -201,7 +201,7 @@ if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
     set -x
 fi
 
-logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy
+logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectlAndKubeProxy || exit $?
 
 createKubeManifestDir
 
@@ -212,14 +212,14 @@ fi
 
 mkdir -p "/etc/systemd/system/kubelet.service.d"
 
-logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing
+logs_to_events "AKS.CSE.configureKubeletServing" configureKubeletServing || exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
 
 logs_to_events "AKS.CSE.configureK8s" configureK8s
 
-logs_to_events "AKS.CSE.configureCNI" configureCNI
+logs_to_events "AKS.CSE.configureCNI" configureCNI || exit $ERR_MODPROBE_FAIL
 
 if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
+    logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6 || exit $?
 fi
 
 if isMarinerOrAzureLinux "$OS"; then
@@ -227,9 +227,9 @@ if isMarinerOrAzureLinux "$OS"; then
 fi
 
 if [ "${NEEDS_CONTAINERD}" == "true" ]; then
-    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
+    logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd || exit $?
 else
-    logs_to_events "AKS.CSE.ensureDocker" ensureDocker
+    logs_to_events "AKS.CSE.ensureDocker" ensureDocker || exit $?
 fi
 
 if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
