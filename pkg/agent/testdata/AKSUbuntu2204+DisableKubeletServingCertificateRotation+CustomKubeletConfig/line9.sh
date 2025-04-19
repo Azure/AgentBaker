@@ -125,8 +125,8 @@ ERR_LOCALDNS_SLICEFILE_NOTFOUND=218
 ERR_LOCALDNS_BINARY_ERR=219 
 
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
-    OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
-    OS_VERSION=$(sort -r /etc/*-release | gawk 'match($0, /^(VERSION_ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }' | tr -d '"')
+    OS=$(sort -r /etc/*-release | awk -F= '/^ID_LIKE=|^ID=/ { gsub(/"/, "", $2); print toupper($2); exit }')
+    OS_VERSION=$(sort -r /etc/*-release | awk -F= '/^VERSION_ID=/ { gsub(/"/, "", $2); print toupper($2); exit }')
 else
     echo "/etc/*-release not found"
 fi
@@ -759,6 +759,7 @@ resolve_packages_source_url() {
     PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
     for i in $(seq 1 $retries); do
       response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
+
       if [ ${response_code} -eq 200 ]; then
         echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
         break

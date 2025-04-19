@@ -19,11 +19,6 @@ $(LOCALBIN)/golangci-lint:
 $(LOCALBIN)/cue:
 	GOBIN=$(LOCALBIN) $(GO) install cuelang.org/go/cmd/cue@v0.4.2
 
-$(LOCALBIN)/shellspec:
-	cd $(LOCALBIN) && \
-	git clone https://github.com/shellspec/shellspec.git ./shellspecsrc/ && \
-	ln -s $(LOCALBIN)/shellspecsrc/shellspec $(LOCALBIN)/
-
 .PHONY: reload
 reload: clean install
 

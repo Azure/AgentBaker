@@ -77,16 +77,8 @@ validate-go:
 validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
-.PHONY: shellspec
-shellspec:
-	@docker run --rm \
-		-v $(CURDIR):/workspace \
-		-w /workspace \
-		shellspec/shellspec:debian \
-		bash ./hack/tools/bin/shellspec --format d
-
 .PHONY: shellspec-docker
-shellspec-docker:
+shellspec-docker: bootstrap
 	docker build --platform $(shell uname -m) -t shellspec-docker - < ./spec/shellspec.Dockerfile
 	docker run --rm \
 		-v $(CURDIR):/workspace \

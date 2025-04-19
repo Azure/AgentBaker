@@ -345,7 +345,7 @@ EOF
 #!/bin/bash
 # Simulate a long-running process that creates the PID file.
 echo \$\$ > "${LOCALDNS_PID_FILE}"
-sleep 60
+sleep 3
 EOF
             chmod +x "$MOCK_SCRIPT"
             COREDNS_COMMAND="$MOCK_SCRIPT"
@@ -360,7 +360,7 @@ EOF
         cat > "$MOCK_SCRIPT" <<EOF
 #!/bin/bash
 # Simulate a long-running process that doesn't create the PID file.
-sleep 60
+sleep 3
 EOF
             chmod +x "$MOCK_SCRIPT"
             COREDNS_COMMAND="$MOCK_SCRIPT"
