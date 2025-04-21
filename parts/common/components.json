@@ -780,7 +780,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.51"
+                "latestVersion": "0.0.52"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
