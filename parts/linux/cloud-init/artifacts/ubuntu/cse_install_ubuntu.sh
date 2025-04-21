@@ -50,6 +50,8 @@ installDeps() {
         pkg_list+=(irqbalance)
     fi
 
+    pkg_list+=(aznfs=0.3.15)
+
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
             journalctl --no-pager -u $apt_package
