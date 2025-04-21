@@ -116,7 +116,7 @@ function validateKubeletCredentials {
         exit 0
     fi
 
-    if ! which curl >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1; then
         echo "curl is not available, unable to validate bootstrap credentials"
         exit 0
     fi

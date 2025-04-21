@@ -39,18 +39,18 @@ installDeps() {
     # blobfuse2 is installed for all ubuntu versions, it is included in pkg_list
     # for 22.04, fuse3 is installed. for all others, fuse is installed
     # for 16.04, installed blobfuse1.3.7, for all others except 22.04, installed blobfuse1.4.5
-    pkg_list+=(blobfuse2=${BLOBFUSE2_VERSION})
+    pkg_list+=("blobfuse2=${BLOBFUSE2_VERSION}")
     if [[ "${OSVERSION}" == "22.04" || "${OSVERSION}" == "24.04" ]]; then
         pkg_list+=(fuse3)
     else
-        pkg_list+=(blobfuse=${BLOBFUSE_VERSION} fuse)
+        pkg_list+=("blobfuse=${BLOBFUSE_VERSION}" fuse)
     fi
 
     if [ "${OSVERSION}" == "24.04" ]; then
         pkg_list+=(irqbalance)
     fi
 
-    pkg_list+=(aznfs=0.3.15)
+    pkg_list+=("aznfs=0.3.15")
 
     for apt_package in ${pkg_list[*]}; do
         if ! apt_get_install 30 1 600 $apt_package; then
