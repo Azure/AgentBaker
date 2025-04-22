@@ -78,7 +78,7 @@ validate-shell:
 	@./.pipelines/scripts/verify_shell.sh
 
 .PHONY: shellspec
-shellspec: bootstrap
+shellspec:
 	docker build --platform $(shell uname -m) -t shellspec-docker - < ./spec/shellspec.Dockerfile
 	docker run --rm \
 		-v $(CURDIR):/workspace \
