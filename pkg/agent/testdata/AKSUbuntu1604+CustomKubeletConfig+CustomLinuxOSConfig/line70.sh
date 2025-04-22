@@ -504,6 +504,8 @@ ensureKubelet() {
     set +x
 
     if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+        echo "using bootstrap token to generate a bootstrap-kubeconfig"
+
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -537,6 +539,8 @@ contexts:
 current-context: bootstrap-context
 EOF
     else
+        echo "generating kubeconfig referencing the provided kubelet client certificate"
+        
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
