@@ -257,7 +257,9 @@ ensureRunc() {
     fi
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    if command -v runc &> /dev/null; then
+        CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    fi    
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off

@@ -232,7 +232,9 @@ ensureRunc() {
     fi
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    if command -v runc &> /dev/null; then
+        CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    fi    
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
     CURRENT_VERSION=${CURRENT_VERSION%-*} 
