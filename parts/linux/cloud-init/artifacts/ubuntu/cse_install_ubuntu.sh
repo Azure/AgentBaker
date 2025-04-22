@@ -279,10 +279,13 @@ ensureRunc() {
         RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null | sort -V | tail -n1)
         if [ $? -ne 0 ] && [ -f "${RUNC_DEB_FILE}" ]; then
+            echo "Found cached runc deb file: ${RUNC_DEB_FILE}"
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
+        echo "Failed to locate cached runc deb file"
     fi
+    echo "Installing runc version ${CLEANED_TARGET_VERSION}"
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
