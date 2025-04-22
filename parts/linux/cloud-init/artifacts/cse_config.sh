@@ -128,15 +128,15 @@ EOF
 
 configureHTTPProxyCA() {
     if isMarinerOrAzureLinux "$OS"; then
-        cert_dest="/usr/share/pki/ca-trust-source/anchors"
+        cert_dest=${1:-/usr/share/pki/ca-trust-source/anchors}
         update_cmd="update-ca-trust"
     else
-        cert_dest="/usr/local/share/ca-certificates"
+        cert_dest=${1:-/usr/local/share/ca-certificates}
         update_cmd="update-ca-certificates"
     fi
     HTTP_PROXY_TRUSTED_CA=$(echo "${HTTP_PROXY_TRUSTED_CA}" | xargs)
-    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || exit $ERR_UPDATE_CA_CERTS
-    $update_cmd || exit $ERR_UPDATE_CA_CERTS
+    echo "${HTTP_PROXY_TRUSTED_CA}" | base64 -d > "${cert_dest}/proxyCA.crt" || return $ERR_UPDATE_CA_CERTS
+    $update_cmd || return $ERR_UPDATE_CA_CERTS
 }
 
 configureCustomCaCertificate() {
@@ -149,7 +149,7 @@ configureCustomCaCertificate() {
         echo "${!varname}" | base64 -d > /opt/certs/00000000000000cert${i}.crt
     done
     # blocks until svc is considered active, which will happen when ExecStart command terminates with code 0
-    systemctl restart update_certs.service || exit $ERR_UPDATE_CA_CERTS
+    systemctl restart update_certs.service || return $ERR_UPDATE_CA_CERTS
     # containerd has to be restarted after new certs are added to the trust store, otherwise they will not be used until restart happens
     systemctl restart containerd
 }

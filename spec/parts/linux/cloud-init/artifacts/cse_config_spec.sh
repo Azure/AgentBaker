@@ -21,6 +21,68 @@ Describe 'cse_config.sh'
         End
     End
 
+    Describe 'configureHTTPProxyCA_ErrorHandling'
+        # Mock isMarinerOrAzureLinux for consistent testing (assuming Ubuntu for these tests)
+        isMarinerOrAzureLinux() {
+            return 1
+        }
+
+        update-ca-certificates() {
+            return 0
+        }
+
+        setup() {
+            echo "setting up test dir for configureHTTPProxyCA"
+            TMP_DIR=$(mktemp -d)
+        }
+
+        cleanup() {
+            echo "cleaning up test dir for configureHTTPProxyCA"
+            rm -rf "$TMP_DIR"
+        }
+        BeforeEach 'setup'
+        AfterRun 'cleanup'
+
+
+        It 'should return 0 when correctly configures the HTTP proxy CA'
+            HTTP_PROXY_TRUSTED_CA="c29tZV9jZXJ0" # some base64 string
+            When run configureHTTPProxyCA "$TMP_DIR"
+            The status should be success # Asserts exit code 0
+        End
+
+        It 'should return 161 when it fails to base64 decode the HTTP Proxy CA'
+            HTTP_PROXY_TRUSTED_CA="incorrect_base64_string"
+            When run configureHTTPProxyCA "$TMP_DIR"
+            The status should equal $ERR_UPDATE_CA_CERTS
+            The stderr should include "base64: invalid input"
+        End
+
+        It 'should return 161 when the CA update cmd fails'
+            # simulate failure of update-ca-certificates
+            update-ca-certificates() {
+                echo "mock failed update-ca-certificates" >&2
+                return 1
+            }
+
+            HTTP_PROXY_TRUSTED_CA="c29tZV9jZXJ0"
+            When run configureHTTPProxyCA "$TMP_DIR"
+            The status should equal $ERR_UPDATE_CA_CERTS
+            # ensure that configureHTTPProxyCA didn't fail before reachign update-ca-certificates 
+            The stderr should include "mock failed update-ca-certificates"
+        End
+    End
+
+    Describe 'configureCustomCaCertificate_ErrorHandling'
+        CUSTOM_CA_TRUST_COUNT=1
+        CUSTOM_CA_CERT_1="c29tZV9jZXJ0" # some base64 string
+        It 'should return 0 when correctly configures the custom CA certificate'
+            When run configureCustomCaCertificate
+            The status should be success 
+        End
+        # It 'should return 161 when it fails to restart update_certs.service'
+        # End
+    End
+
     Describe 'configureKubeletServing'
         preserve_vars() { 
             %preserve KUBELET_FLAGS
@@ -140,8 +202,8 @@ Describe 'cse_config.sh'
             When run configureKubeletServing
             The stderr should not eq ''
             The stdout should include 'genrsa -out /etc/kubernetes/certs/kubeletserver.key 2048'
-            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The stdout should include 'req -new -x509 -days 7300 -key /etc/kubernetes/certs/kubeletserver.key -out /etc/kubernetes/certs/kubeletserver.crt'
+            The stdout should include 'mkdir -p /etc/kubernetes/certs'
             The variable KUBELET_CONFIG_FILE_CONTENT should satisfy kubelet_config_file
             The variable KUBELET_FLAGS should equal '--tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt,--tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key,--rotate-certificates=true,--rotate-server-certificates=false,--node-ip=10.0.0.1,anonymous-auth=false'
             The variable KUBELET_NODE_LABELS should equal 'kubernetes.azure.com/agentpool=wp0'
