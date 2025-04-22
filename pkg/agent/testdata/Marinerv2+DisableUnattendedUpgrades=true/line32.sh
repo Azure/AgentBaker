@@ -35,7 +35,7 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --cloud-config-path /var/lib/cloud/instance/cloud-config.txt \
     --output-path ${LOG_DIR}/cloud-config.txt
 
-UBUNTU_RELEASE=$(lsb_release -r -s)
+UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
     sudo apt-get -y autoremove chrony
     echo $?

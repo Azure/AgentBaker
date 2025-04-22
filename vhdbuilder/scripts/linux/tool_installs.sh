@@ -9,7 +9,7 @@ ERR_BPFTRACE_TOOLS_INSTALL_TIMEOUT=173 #{{/* Failed to install bpftrace default 
 ERR_AZCOPY_TOOLS_DOWNLOAD_FAIL=174 #{{/* Failed to download azcopy */}}
 
 BPFTRACE_DOWNLOADS_DIR="/opt/bpftrace/downloads"
-UBUNTU_CODENAME=$(lsb_release -c -s)
+UBUNTU_RELEASE=$(lsb_release -c -s 2>/dev/null || echo "")
 
 ensureGPUDrivers() {
     configGPUDrivers
