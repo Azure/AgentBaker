@@ -267,7 +267,6 @@ downloadAndInstallCriTools() {
 }
 
 echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
 capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 
 # check if COMPONENTS_FILEPATH exists
