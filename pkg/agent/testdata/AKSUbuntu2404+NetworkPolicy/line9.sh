@@ -503,9 +503,6 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    if [ ! -f "${EVENTS_LOGGING_DIR}${eventsFileName}.json" ]; then
-        touch ${EVENTS_LOGGING_DIR}${eventsFileName}.json
-    fi
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
     if [ "$ret" != "0" ]; then
