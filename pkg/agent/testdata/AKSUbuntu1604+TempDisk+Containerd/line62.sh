@@ -250,7 +250,7 @@ ensureRunc() {
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null | sort -V | tail -n1)
-        if [[ -f "${RUNC_DEB_FILE}" ]]; then
+        if [ $? -ne 0 ] && [ -f "${RUNC_DEB_FILE}" ]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
