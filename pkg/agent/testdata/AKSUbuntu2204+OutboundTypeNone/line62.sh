@@ -112,7 +112,9 @@ installContainerdWithAptGet() {
     local containerdMajorMinorPatchVersion="${1}"
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
-    currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    if command -v containerd &> /dev/null; then
+        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    fi
 
     if [ -z "$currentVersion" ]; then
         currentVersion="0.0.0"
@@ -247,7 +249,7 @@ ensureRunc() {
     fi
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0

@@ -122,7 +122,9 @@ installContainerdWithAptGet() {
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    if command -v containerd &> /dev/null; then
+        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    fi
     # v1.4.1 is our lowest supported version of containerd
 
     if [ -z "$currentVersion" ]; then
@@ -275,7 +277,7 @@ ensureRunc() {
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
+        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null | sort -V | tail -n1)
         if [[ -f "${RUNC_DEB_FILE}" ]]; then
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
