@@ -2,7 +2,7 @@
 set -x
 set -e
 
-source parts/linux/cloud-init/artifacts/cse_helpers.sh
+source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 
 echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
 wait_for_apt_locks
