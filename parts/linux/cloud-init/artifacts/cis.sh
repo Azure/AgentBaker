@@ -257,7 +257,7 @@ EOF
     chmod 0600 -R /etc/ssh/sshd_config.d/
     chmod 0755    /etc/ssh/sshd_config.d
     chmod 0600    /etc/ssh/sshd_config
-    systemctl restart sshd
+    systemctl restart ssh
 }
 
 configureSudo() {
