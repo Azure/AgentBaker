@@ -34,6 +34,16 @@ done
 
 echo "Present working directory: ${PWD}"
 
+echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
+AZ_VER=2.70.0
+if [ "${OS_SKU,,}" = "ubuntu"]; then
+  AZ_DIST=$(lsb_release -cs)
+  sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST}
+else
+  sudo tdnf install azure-cli-${AZ_VER}-1
+fi
+echo "Azure CLI version: $(az --version)"
+
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
   echo "##[group]$TARGET" >> ${TARGET}-output.txt

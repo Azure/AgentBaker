@@ -11,16 +11,6 @@ if [ -z "$PACKER_BUILD_LOCATION" ]; then
     exit 1
 fi
 
-echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
-AZ_VER=2.70.0
-if [ "${OS_SKU,,}" = "ubuntu"]; then
-  AZ_DIST=$(lsb_release -cs)
-  sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST}
-else
-  sudo tdnf install azure-cli-${AZ_VER}-1
-fi
-echo "Azure CLI version: $(az --version)"
-
 CURRENT_TIME=$(date +%s)
 
 TRIVY_SCRIPT_PATH="trivy-scan.sh"
