@@ -278,6 +278,7 @@ downloadContainerdWasmShims() {
 
             # Step 3: Check for errors in the curl output
             if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
+                echo "curl command failed with error: $(grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT)"
                 cat $CURL_OUTPUT
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
             fi
