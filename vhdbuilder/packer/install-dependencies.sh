@@ -521,7 +521,7 @@ while IFS= read -r imageToBePulled; do
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
       wait -n || { 
         echo "A background job pullContainerImage failed: $?. Exiting..." >&2
-        kill $(jobs -p) 2>/dev/null || echo "Failed to kill some background jobs"
+        kill -9 $(jobs -p) 2>/dev/null || echo "Failed to force kill some background jobs"
         exit $?
     }
     done
