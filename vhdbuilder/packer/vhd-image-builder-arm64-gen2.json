@@ -637,6 +637,12 @@
     },
     {
       "type": "shell",
+      "inline": [
+        "sudo rm /var/log/bcc_installation.log"
+      ]
+    },
+    {
+      "type": "shell",
       "inline": "sudo reboot",
       "expect_disconnect": true,
       "skip_clean": true,
