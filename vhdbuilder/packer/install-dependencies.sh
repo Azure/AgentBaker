@@ -522,7 +522,9 @@ while IFS= read -r imageToBePulled; do
       wait -n || { 
         ret=$?
         echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
-        kill -9 $(jobs -p) 2>/dev/null || echo "Failed to force kill some background jobs"
+        for pid in "${image_pids[@]}"; do
+          kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+        done
         exit ${ret}
     }
     done

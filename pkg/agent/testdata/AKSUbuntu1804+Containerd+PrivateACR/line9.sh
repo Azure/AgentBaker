@@ -502,11 +502,8 @@ logs_to_events() {
         --arg EventPid    "0" \
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
-    )
-    if [ ! -f "${EVENTS_LOGGING_DIR}${eventsFileName}.json" ]; then        
-        mkdir -p ${EVENTS_LOGGING_DIR}
-        touch ${EVENTS_LOGGING_DIR}${eventsFileName}.json
-    fi
+    )       
+    mkdir -p ${EVENTS_LOGGING_DIR}
 
     if [ "$ret" != "0" ]; then
       return $ret
