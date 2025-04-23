@@ -36,7 +36,7 @@ echo "Present working directory: ${PWD}"
 
 echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
 AZ_DIST=$(lsb_release -cs)
-AZ_VER=2.70.0
+AZ_VER=2.69.0
 sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST}
 
 retrycmd_if_failure() {
