@@ -284,7 +284,20 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+        # Step 1: Define the output file path and URL
+        output_file="$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
+        download_url="$containerd_wasm_url/containerd-shim-${shim}-v1"
+
+        # Step 2: Attempt to download the file using curl
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
+
+        # Step 3: Check for errors in the curl output
+        if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
+            # Step 4: Log the error and exit with the appropriate error code
+            cat $CURL_OUTPUT
+            exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        fi
+        
         WASMSHIMPIDS+=($!)
     done
 }
