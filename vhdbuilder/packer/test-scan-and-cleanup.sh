@@ -42,6 +42,7 @@ if [ "${OS_SKU,,}" = "ubuntu"]; then
 else
   sudo tdnf install azure-cli-${AZ_VER}-1
 fi
+echo "Azure CLI version: $(az --version)"
 
 retrycmd_if_failure() {
   RETRIES=${1}; WAIT_SLEEP=${2}; CMD=${3}; TARGET=$(basename ${3} .sh)
