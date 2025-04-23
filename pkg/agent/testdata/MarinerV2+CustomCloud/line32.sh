@@ -352,7 +352,7 @@ if [ $VALIDATION_ERR -ne 0 ]; then
     exit $VALIDATION_ERR
 fi
 
-logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS
+logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
