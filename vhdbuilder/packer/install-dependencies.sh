@@ -460,9 +460,9 @@ EOF
 
 fi
 
-if [ -d "/opt/gpu" ]; then
+if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
   ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
-fi  
+fi
 
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}

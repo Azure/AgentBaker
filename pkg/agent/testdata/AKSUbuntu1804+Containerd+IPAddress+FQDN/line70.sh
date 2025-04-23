@@ -282,7 +282,7 @@ configureCNIIPTables() {
 
 disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
-    cat /etc/resolv.conf    
+    cat /etc/resolv.conf
     UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
     if [[ "${UBUNTU_RELEASE}" == "18.04" || "${UBUNTU_RELEASE}" == "20.04" || "${UBUNTU_RELEASE}" == "22.04" || "${UBUNTU_RELEASE}" == "24.04" ]]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"

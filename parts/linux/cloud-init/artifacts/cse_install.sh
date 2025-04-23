@@ -284,20 +284,13 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        # Step 1: Define the output file path and URL
         output_file="$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
         download_url="$containerd_wasm_url/containerd-shim-${shim}-v1"
-
-        # Step 2: Attempt to download the file using curl
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT &
-
-        # Step 3: Check for errors in the curl output
         if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
-            # Step 4: Log the error and exit with the appropriate error code
             cat $CURL_OUTPUT
             exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         fi
-        
         WASMSHIMPIDS+=($!)
     done
 }
@@ -351,21 +344,13 @@ downloadSpinKube(){
         return 
     fi
     
-    # Step 1: Define the output file path and URL
     output_file="$containerd_spinkube_filepath/containerd-shim-spin-v2"
     download_url="$containerd_spinkube_url/containerd-shim-spin-v2"
-
-    # Step 2: Attempt to download the file using curl
     retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT &
-
-    # Step 3: Check for errors in the curl output
     if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
-        # Step 4: Log the error and exit with the appropriate error code
         cat $CURL_OUTPUT
         exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
     fi
-
-    # Step 5: Add the process ID to the SPINKUBEPIDS array if running in the background
     SPINKUBEPIDS+=($!)
 }
 
