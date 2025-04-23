@@ -163,7 +163,7 @@ installStandaloneContainerd() {
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${desiredVersion}"
-        removeContainerd
+        removeContainerd || exit $ERR_CONTAINERD_INSTALL_TIMEOUT 
         containerdPackageName="containerd-${desiredVersion}"
         if [[ $OS_VERSION == "2.0" ]]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
