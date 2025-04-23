@@ -226,7 +226,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
     tar_folder=$(dirname "$tarball")
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        [ -f $tarball ] && tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else

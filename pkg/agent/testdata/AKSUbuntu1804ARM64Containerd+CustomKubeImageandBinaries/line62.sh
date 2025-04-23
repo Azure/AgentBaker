@@ -249,8 +249,20 @@ ensureRunc() {
     fi
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null | sort -V | tail -n1)
-        if [ $? -ne 0 ] && [ -f "${RUNC_DEB_FILE}" ]; then
+
+        RUNC_DEB_FILES=$(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null)
+        if [ -z "${RUNC_DEB_FILES}" ]; then
+            echo "No matching files found in ${RUNC_DOWNLOADS_DIR} for pattern ${RUNC_DEB_PATTERN}"
+            RUNC_DEB_FILE=""
+        else
+            RUNC_DEB_FILE=$(echo "${RUNC_DEB_FILES}" | sort -V | tail -n1)
+            if [ -z "${RUNC_DEB_FILE}" ]; then
+                echo "Failed to determine the latest file from the sorted list"
+            else
+                echo "Found latest runc deb file: ${RUNC_DEB_FILE}"
+            fi
+        fi
+        if [ -n "${RUNC_DEB_FILE}" ] && [ -f "${RUNC_DEB_FILE}" ]; then
             echo "Found cached runc deb file: ${RUNC_DEB_FILE}"
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
