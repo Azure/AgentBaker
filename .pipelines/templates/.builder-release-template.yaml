@@ -200,6 +200,13 @@ steps:
       artifactName: 'cis-report-${{ parameters.artifactName }}'
 
   - task: PublishPipelineArtifact@0
+    condition: eq(variables.OS_SKU, 'Ubuntu')
+    displayName: Publish CIS report
+    inputs:
+      targetPath: 'cis-report.html'
+      artifactName: 'cis-report-${{ parameters.artifactName }}'
+
+  - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes
     inputs:
       artifactName: 'vhd-release-notes-${{ parameters.artifactName }}'

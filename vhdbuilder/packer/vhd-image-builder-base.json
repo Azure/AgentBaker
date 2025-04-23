@@ -729,6 +729,12 @@
       "destination": "cis-report.txt"
     },
     {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/cis-report.html",
+      "destination": "cis-report.html"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
