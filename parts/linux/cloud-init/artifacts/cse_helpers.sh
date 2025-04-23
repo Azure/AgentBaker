@@ -595,10 +595,7 @@ evalPackageDownloadURL() {
 installJq() {
   # jq is not available until downloaded in install-dependencies.sh with the installDeps function
   # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
-  # check if jq is already installed
-  if command -v jq &> /dev/null; then
-    output=$(jq --version)
-  fi
+  output=$(command -v jq &> /dev/null && jq --version || echo "")
   if [ -n "$output" ]; then
     echo "$output"
   else
