@@ -520,13 +520,14 @@ while IFS= read -r imageToBePulled; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
       wait -n || { 
-        echo "A background job pullContainerImage failed: $!. Exiting..." >&2
+        echo "A background job pullContainerImage failed: $?. Exiting..." >&2
         kill $(jobs -p) 2>/dev/null || echo "Failed to kill some background jobs"
-        exit $!
+        exit $?
     }
     done
   done
 done <<< "$ContainerImages"
+echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
 wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
