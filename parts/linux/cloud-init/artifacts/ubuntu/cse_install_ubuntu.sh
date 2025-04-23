@@ -279,7 +279,7 @@ ensureRunc() {
         RUNC_DEB_PATTERN="moby-runc_*.deb"
 
         # Step 1: Find all matching files
-        RUNC_DEB_FILES=$(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null)
+        RUNC_DEB_FILES=$(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null || true)
         if [ -z "${RUNC_DEB_FILES}" ]; then
             echo "No matching files found in ${RUNC_DOWNLOADS_DIR} for pattern ${RUNC_DEB_PATTERN}"
             RUNC_DEB_FILE=""

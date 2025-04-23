@@ -565,7 +565,9 @@ evalPackageDownloadURL() {
 }
 
 installJq() {
-  output=$(jq --version)
+  if command -v jq &> /dev/null; then
+    output=$(jq --version)
+  fi
   if [ -n "$output" ]; then
     echo "$output"
   else
