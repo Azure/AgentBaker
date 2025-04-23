@@ -336,7 +336,7 @@ After=bind-mount.service
 EOF
 fi
 
-logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
 if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
