@@ -10,8 +10,8 @@
     "SSUs improve the reliability of the update process to mitigate potential issues while installing the LCU."
   ],
   "WindowsDefenderInfo": {
-    "DefenderUpdateUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64",
-    "DefenderUpdateInfoUrl": "https://go.microsoft.com/fwlink/?linkid=870379&arch=x64&action=info"
+    "DefenderUpdateUrl": "https://go.microsoft.com/fwlink/?linkid=870379\u0026arch=x64",
+    "DefenderUpdateInfoUrl": "https://go.microsoft.com/fwlink/?linkid=870379\u0026arch=x64\u0026action=info"
   },
   "WindowsBaseVersions": {
     "2019-containerd": {
@@ -22,45 +22,45 @@
       "patches_to_apply": []
     },
     "2022-containerd": {
-      "os_disk_size": "35",
       "base_image_sku": "2022-Datacenter-Core-smalldisk",
       "windows_image_name": "windows-2022-containerd",
       "base_image_version": "20348.3561.250409",
+      "os_disk_size": "35",
       "patches_to_apply": []
     },
     "2022-containerd-gen2": {
-      "os_disk_size": "35",
       "base_image_sku": "2022-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2022-containerd",
       "base_image_version": "20348.3561.250409",
-      "patches_to_apply": []
-    },
-    "23H2": {
       "os_disk_size": "35",
-      "base_image_sku": "23h2-datacenter-core",
-      "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1551.250406",
-      "patches_to_apply": []
-    },
-    "23H2-gen2": {
-      "os_disk_size": "35",
-      "base_image_sku": "23h2-datacenter-core-g2",
-      "windows_image_name": "windows-23H2",
-      "base_image_version": "25398.1551.250406",
       "patches_to_apply": []
     },
     "2025": {
-      "os_disk_size": "45",
       "base_image_sku": "2025-datacenter-core-smalldisk",
       "windows_image_name": "windows-2025",
       "base_image_version": "26100.3775.250406",
+      "os_disk_size": "45",
       "patches_to_apply": []
     },
     "2025-gen2": {
-      "os_disk_size": "45",
       "base_image_sku": "2025-datacenter-core-smalldisk-g2",
       "windows_image_name": "windows-2025",
       "base_image_version": "26100.3775.250406",
+      "os_disk_size": "45",
+      "patches_to_apply": []
+    },
+    "23H2": {
+      "base_image_sku": "23h2-datacenter-core",
+      "windows_image_name": "windows-23H2",
+      "base_image_version": "25398.1551.250406",
+      "os_disk_size": "35",
+      "patches_to_apply": []
+    },
+    "23H2-gen2": {
+      "base_image_sku": "23h2-datacenter-core-g2",
+      "windows_image_name": "windows-23H2",
+      "base_image_version": "25398.1551.250406",
+      "os_disk_size": "35",
       "patches_to_apply": []
     }
   },
@@ -71,7 +71,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "EnableCompartmentNamespace",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900 - even tho this is turned on by default, we keep the fix in case windows wants to use it in future",
@@ -79,8 +80,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HNSControlFlag",
       "Value": "0x10",
-      "Operation": "bor",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": "bor"
     },
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
@@ -88,7 +89,8 @@
       "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
       "Name": "EnableCertPaddingCheck",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
@@ -96,7 +98,8 @@
       "Path": "HKLM:\\Software\\Wow6432Node\\Microsoft\\Cryptography\\Wintrust\\Config",
       "Name": "EnableCertPaddingCheck",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
@@ -104,7 +107,8 @@
       "Path": "HKLM:\\Software\\Microsoft\\Cryptography\\Wintrust\\Config",
       "Name": "EnableCertPaddingCheck",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900",
@@ -112,7 +116,8 @@
       "Path": "HKLM:\\Software\\Wow6432Node\\Microsoft\\Cryptography\\Wintrust\\Config",
       "Name": "EnableCertPaddingCheck",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable a WCIFS fix in 2022-10B",
@@ -120,7 +125,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\wcifs",
       "Name": "WcifsSOPCountDisabled",
       "Value": "0",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable HnsPolicyUpdateChange fix in 2023-04B",
@@ -128,7 +134,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsPolicyUpdateChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable HnsNatAllowRuleUpdateChange fix in 2023-04B",
@@ -136,7 +143,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsNatAllowRuleUpdateChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 3105872524 fix in 2023-04B",
@@ -144,7 +152,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3105872524",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2023-05B",
@@ -152,7 +161,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
       "Name": "VfpEvenPodDistributionIsEnabled",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2023-06B",
@@ -160,7 +170,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3230913164",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2023-10B",
@@ -168,7 +179,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
       "Name": "VfpNotReuseTcpOneWayFlowIsEnabled",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -176,7 +188,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "CleanupReservedPorts",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -184,7 +197,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "652313229",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -192,7 +206,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2059235981",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -200,7 +215,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3767762061",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-01B",
@@ -208,7 +224,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1102009996",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -216,7 +233,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2290715789",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -224,7 +242,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3152880268",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-06B",
@@ -232,7 +251,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1605443213",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Disable port exclusion change in 23H2",
@@ -240,7 +260,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "PortExclusionChange",
       "Value": "0",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2024-08B",
@@ -248,7 +269,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1800977551",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2024-08B",
@@ -256,7 +278,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3197800078",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2024-08B",
@@ -264,7 +287,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "340036751",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable 1 fix in 2024-08B",
@@ -272,7 +296,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2020509326",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "Enable a WCIFS fix in 2022-10B",
@@ -280,7 +305,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2629306509",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-04B",
@@ -288,7 +314,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsPolicyUpdateChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-04B",
@@ -296,7 +323,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsNatAllowRuleUpdateChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-04B",
@@ -304,7 +332,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsAclUpdateChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-04B",
@@ -312,7 +341,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3508525708",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-05B",
@@ -320,7 +350,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsNpmRefresh",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-05B",
@@ -328,7 +359,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
       "Name": "VfpEvenPodDistributionIsEnabled",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-05B",
@@ -336,7 +368,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1995963020",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-05B",
@@ -344,7 +377,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "189519500",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-06B",
@@ -352,7 +386,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3398685324",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-07B",
@@ -360,7 +395,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsNodeToClusterIpv6",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-07B",
@@ -368,7 +404,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HNSNpmIpsetLimitChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-07B",
@@ -376,7 +413,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HNSLbNatDupRuleChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-07B",
@@ -384,7 +422,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
       "Name": "VfpIpv6DipsPrintingIsEnabled",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-08B",
@@ -392,7 +431,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HNSUpdatePolicyForEndpointChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-08B",
@@ -400,7 +440,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HNSFixExtensionUponRehydration",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-08B",
@@ -408,7 +449,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "87798413",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-09B",
@@ -416,7 +458,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "RemoveSourcePortPreservationForRest",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-09B",
@@ -424,7 +467,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "4289201804",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-09B",
@@ -432,7 +476,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1355135117",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-09B",
@@ -440,7 +485,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2214038156",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-10B",
@@ -448,7 +494,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "FwPerfImprovementChange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-10B",
@@ -456,7 +503,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\VfpExt\\Parameters",
       "Name": "VfpNotReuseTcpOneWayFlowIsEnabled",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-10B",
@@ -464,7 +512,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1673770637",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -472,7 +521,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "CleanupReservedPorts",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -480,7 +530,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "527922829",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B - then based on 527922829 to set DeltaHivePolicy=2: use delta hives, and stop generating rollups",
@@ -488,7 +539,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Windows Containers",
       "Name": "DeltaHivePolicy",
       "Value": "2",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -496,7 +548,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2193453709",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2023-11B",
@@ -504,7 +557,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3331554445",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-02B",
@@ -512,7 +566,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1327590028",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-03B",
@@ -520,7 +575,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\hns\\State",
       "Name": "HnsPreallocatePortRange",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-03B",
@@ -528,7 +584,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1114842764",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-03B",
@@ -536,7 +593,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "4154935436",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-03B",
@@ -544,7 +602,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "124082829",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -552,7 +611,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3744292492",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -560,7 +620,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3838270605",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -568,7 +629,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "851795084",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -576,7 +638,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "26691724",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -584,7 +647,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3834988172",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -592,7 +656,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1535854221",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -600,7 +665,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3632636556",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -608,7 +674,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1552261773",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -616,7 +683,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "4186914956",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -624,7 +692,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3173070476",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-04B",
@@ -632,7 +701,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3958450316",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-06B",
@@ -640,7 +710,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2540111500",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-06B",
@@ -648,7 +719,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "50261647",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-06B",
@@ -656,7 +728,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1475968140",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-07B",
@@ -664,7 +737,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "747051149",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-08B",
@@ -672,7 +746,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "260097166",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-09B",
@@ -680,7 +755,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "4288867982",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-11B",
@@ -688,7 +764,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1825620622",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-11B",
@@ -696,7 +773,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "684111502",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2024-11B",
@@ -704,7 +782,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1455863438",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-2B",
@@ -712,7 +791,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1971481230",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-4B",
@@ -720,7 +800,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "569665166",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-4B",
@@ -728,7 +809,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "3785507983",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-4B",
@@ -736,7 +818,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "2263771791",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-2B",
@@ -744,7 +827,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "1155685006",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-4B",
@@ -752,7 +836,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "502826639",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     },
     {
       "Comment": "2025-4B",
@@ -760,7 +845,8 @@
       "Path": "HKLM:\\SYSTEM\\CurrentControlSet\\Policies\\Microsoft\\FeatureManagement\\Overrides",
       "Name": "677922958",
       "Value": "1",
-      "Type": "DWORD"
+      "Type": "DWORD",
+      "Operation": ""
     }
   ]
 }
