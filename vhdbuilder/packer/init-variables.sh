@@ -2,7 +2,10 @@
 set -x
 set -e
 
+source parts/linux/cloud-init/artifacts/cse_helpers.sh
+
 echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
+wait_for_apt_locks
 AZ_VER=2.70.0
 AZ_DIST=$(lsb_release -cs)
 sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST} -y --allow-downgrades
