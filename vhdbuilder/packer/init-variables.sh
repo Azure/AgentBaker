@@ -2,6 +2,12 @@
 set -x
 set -e
 
+AZ_VER=2.70.0
+if [ "${OS_SKU,,}" = "ubuntu" ]; then
+  AZ_DIST=$(lsb_release -cs)
+  sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST} -y --allow-downgrades
+fi
+
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
