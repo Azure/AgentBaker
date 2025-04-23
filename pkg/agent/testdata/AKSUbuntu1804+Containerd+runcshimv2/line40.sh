@@ -323,7 +323,16 @@ downloadSpinKube(){
         return 
     fi
     
-    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
+    output_file="$containerd_spinkube_filepath/containerd-shim-spin-v2"
+    download_url="$containerd_spinkube_url/containerd-shim-spin-v2"
+
+    retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT &
+
+    if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
+        cat $CURL_OUTPUT
+        exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+    fi
+
     SPINKUBEPIDS+=($!)
 }
 
