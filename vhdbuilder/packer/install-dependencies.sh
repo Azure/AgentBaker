@@ -601,7 +601,7 @@ capture_benchmark "${SCRIPT_NAME}_purge_and_update_ubuntu"
 
 wait $BCC_PID
 BCC_EXIT_CODE=$?
-chmod 755 /var/log/bcc_installation.log
+chmod 640 /var/log/bcc_installation.log
 
 if [ "$BCC_EXIT_CODE" -eq 0 ]; then
   echo "Bcc tools successfully installed."
