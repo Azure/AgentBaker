@@ -197,14 +197,14 @@ steps:
     displayName: Publish CIS report
     inputs:
       targetPath: 'cis-report.txt'
-      artifactName: 'cis-report-${{ parameters.artifactName }}'
+      artifactName: 'cis-report-txt-${{ parameters.artifactName }}'
 
   - task: PublishPipelineArtifact@0
     condition: eq(variables.OS_SKU, 'Ubuntu')
     displayName: Publish CIS report
     inputs:
       targetPath: 'cis-report.html'
-      artifactName: 'cis-report-${{ parameters.artifactName }}'
+      artifactName: 'cis-report-html-${{ parameters.artifactName }}'
 
   - task: PublishPipelineArtifact@0
     displayName: Publish Release Notes
