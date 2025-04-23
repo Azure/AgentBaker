@@ -6,15 +6,15 @@ echo "Installing previous version of azcli in order to mitigate az compute bug" 
 source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
 
 wait_for_apt_locks
-AZ_VER=2.70.0
+AZ_VER_REQUIRED=2.70.0
 AZ_DIST=$(lsb_release -cs)
-sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST} -y --allow-downgrades
-az_version=$(az --version | head -n 1 | awk '{print $2}')
-if [ "$az_version" != "2.70.0" ]; then
+sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
+AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
+if [ "$AZ_VER_ACTUAL" != "2.70.0" ]; then
 	echo "Azure CLI version is incorrect, exiting..."
 	exit 1
 fi
-echo "Azure CLI version: $(az --version)"
+echo "Azure CLI version: $AZ_VER_ACTUAL"
 
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
