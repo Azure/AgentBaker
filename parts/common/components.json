@@ -312,16 +312,23 @@
       "windowsVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
+          "latestVersion": "v0.30.3-hotfix.20240819"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
           "latestVersion": "v0.30.3"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.30.3-hotfix.20240819"
         }
       ],
       "windowsVersions": []
@@ -647,8 +654,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/open-policy-agent/gatekeeper",
-          "latestVersion": "v3.18.2-1",
-          "previousLatestVersion": "v3.17.1-5"
+          "latestVersion": "v3.19.0-1",
+          "previousLatestVersion": "v3.18.2-1"
         }
       ],
       "windowsVersions": []
@@ -671,8 +678,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.10.1",
-          "previousLatestVersion": "1.10.0"
+          "latestVersion": "1.11.0",
+          "previousLatestVersion": "1.10.1"
         }
       ],
       "windowsVersions": []
@@ -683,8 +690,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.10.1",
-          "previousLatestVersion": "1.10.0"
+          "latestVersion": "1.11.0",
+          "previousLatestVersion": "1.10.1"
         }
       ],
       "windowsVersions": []
@@ -780,7 +787,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "0.0.51"
+                "latestVersion": "0.0.52"
               }
             ],
             "downloadURL": "https://acs-mirror.azureedge.net/aks/windows/cse/aks-windows-cse-scripts-v${version}.zip"
