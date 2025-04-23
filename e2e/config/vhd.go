@@ -65,6 +65,15 @@ var (
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
 		Gallery: linuxGallery,
 	}
+
+	VHDUbuntuFIPS2004Gen2Containerd = &Image{
+		Name:    "aks-ubuntu-fips-containerd-20.04-gen2",
+		OS:      OSUbuntu,
+		Arch:    "amd64",
+		Distro:  datamodel.AKSUbuntuFipsContainerd2004Gen2,
+		Gallery: linuxGallery,
+	}
+
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
 		Name:    "AzureLinuxV2gen2arm64",
 		OS:      OSAzureLinux,
