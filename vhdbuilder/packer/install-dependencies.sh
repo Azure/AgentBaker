@@ -520,8 +520,8 @@ while IFS= read -r imageToBePulled; do
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
       wait -n || { 
-        echo "A background job pullContainerImage failed. Exiting..." >&2
-        exit 1
+        echo "A background job pullContainerImage failed: $!. Exiting..." >&2
+        exit $!
     }
     done
   done
