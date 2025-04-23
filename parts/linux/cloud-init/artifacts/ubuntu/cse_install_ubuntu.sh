@@ -278,20 +278,11 @@ ensureRunc() {
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-
-        # Step 1: Find all matching files
         RUNC_DEB_FILES=$(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null || true)
         if [ -z "${RUNC_DEB_FILES}" ]; then
-            echo "No matching files found in ${RUNC_DOWNLOADS_DIR} for pattern ${RUNC_DEB_PATTERN}"
             RUNC_DEB_FILE=""
         else
-            # Step 2: Sort the files by version
             RUNC_DEB_FILE=$(echo "${RUNC_DEB_FILES}" | sort -V | tail -n1)
-            if [ -z "${RUNC_DEB_FILE}" ]; then
-                echo "Failed to determine the latest file from the sorted list"
-            else
-                echo "Found latest runc deb file: ${RUNC_DEB_FILE}"
-            fi
         fi
         if [ -n "${RUNC_DEB_FILE}" ] && [ -f "${RUNC_DEB_FILE}" ]; then
             echo "Found cached runc deb file: ${RUNC_DEB_FILE}"
@@ -300,7 +291,6 @@ ensureRunc() {
         fi
         echo "Failed to locate cached runc deb file"
     fi
-    echo "Installing runc version ${CLEANED_TARGET_VERSION}"
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
