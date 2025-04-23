@@ -289,7 +289,7 @@ downloadContainerdWasmShims() {
         download_url="$containerd_wasm_url/containerd-shim-${shim}-v1"
 
         # Step 2: Attempt to download the file using curl
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT &
 
         # Step 3: Check for errors in the curl output
         if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
