@@ -122,6 +122,7 @@ installContainerdWithAptGet() {
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
+    currentVersion=""
     if command -v containerd &> /dev/null; then
         currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
     fi
