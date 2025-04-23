@@ -64,6 +64,7 @@
       "security_type": "ConfidentialVM",
       "security_encryption_type": "VMGuestStateOnly",
       "shared_image_gallery_destination": {
+        "use_shallow_replication": true,
         "specialized": true,
         "confidential_vm_image_encryption_type": "EncryptedVMGuestStateOnlyWithPmk",
         "resource_group": "{{user `resource_group_name`}}",
