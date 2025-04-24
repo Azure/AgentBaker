@@ -18,6 +18,9 @@ assignRootPW() {
         echo 'root:'$HASH | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
     fi
     set -x
+    if grep '^root:\*LOCK\*' /etc/shadow; then
+        echo 'root:*' | /usr/sbin/chpasswd -e || exit $ERR_CIS_ASSIGN_ROOT_PW
+    fi
 }
 
 assignFilePermissions() {
