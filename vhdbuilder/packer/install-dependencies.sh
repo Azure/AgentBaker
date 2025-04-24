@@ -569,8 +569,10 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
   systemctl restart cgroup-pressure-telemetry.service
 fi
 
-cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
+if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
+  cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
+  rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
+fi
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
