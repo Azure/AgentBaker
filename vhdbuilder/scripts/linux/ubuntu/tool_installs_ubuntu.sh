@@ -22,7 +22,7 @@ echo "Sourcing tool_installs_ubuntu.sh"
 installAscBaseline() {
    echo "Installing ASC Baseline tools..."
    ASC_BASELINE_TMP=/home/packer/asc-baseline.deb
-   retrycmd_if_failure_no_stats 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
+   retrycmd_silent 120 5 25 dpkg -i $ASC_BASELINE_TMP || exit $ERR_APT_INSTALL_TIMEOUT
    cd /opt/microsoft/asc-baseline
    sudo ./ascbaseline -d baselines
    sudo ./ascremediate -d baselines -m all
@@ -239,10 +239,10 @@ listInstalledPackages() {
 
 attachUA() {
     echo "attaching ua..."
-    retrycmd_if_failure_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
+    retrycmd_silent 5 10 120 ua attach $UA_TOKEN || exit $ERR_UA_ATTACH
 
     echo "disabling ua livepatch..."
-    retrycmd_if_failure 5 10 300 echo y | ua disable livepatch
+    retrycmd 5 10 300 echo y | ua disable livepatch
 }
 
 detachAndCleanUpUA() {
