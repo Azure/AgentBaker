@@ -228,7 +228,7 @@ retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        [ -f $tarball ] && tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
@@ -245,7 +245,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
     tar_folder=$(dirname "$tarball")
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        [ -f $tarball ] && tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
@@ -530,7 +530,10 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    mkdir -p ${EVENTS_LOGGING_DIR}
+    if [ -f ${EVENTS_LOGGING_DIR}${eventsFileName}.json ]; then
+        echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    fi
 
     # this allows an error from the command at ${@} to be returned and correct code assigned in cse_main
     if [ "$ret" != "0" ]; then
@@ -590,18 +593,16 @@ evalPackageDownloadURL() {
 }
 
 installJq() {
-  # jq is not available until downloaded in install-dependencies.sh with the installDeps function
-  # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
-  output=$(jq --version)
-  if [ -n "$output" ]; then
-    echo "$output"
-  else
-    if isMarinerOrAzureLinux "$OS"; then
-      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    # jq is not available until downloaded in install-dependencies.sh with the installDeps function
+    # but it is needed earlier to call the capture_benchmarks function in pre-install-dependencies.sh
+    if command -v jq &> /dev/null; then
+        return 0
     fi
-  fi
+    if isMarinerOrAzureLinux "$OS"; then
+        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
 }
 
 # sets RELEASE to proper release metadata for the package based on the os and osVersion
