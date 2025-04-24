@@ -320,7 +320,7 @@ copyPackerFiles() {
   cpAndMode $AKS_CHECK_NETWORK_SCRIPT_SRC $AKS_CHECK_NETWORK_SCRIPT_DEST 755
   cpAndMode $AKS_CHECK_NETWORK_SERVICE_SRC $AKS_CHECK_NETWORK_SERVICE_DEST 644
 
-  if [ ${UBUNTU_RELEASE} = "22.04" ]; then
+  if [ ${UBUNTU_RELEASE} = "22.04" ] || [ ${UBUNTU_RELEASE} = "24.04" ]; then
     PAM_D_COMMON_AUTH_SRC=/home/packer/pam-d-common-auth-2204
   fi
 
