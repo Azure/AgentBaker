@@ -324,6 +324,8 @@ applyCIS() {
     configureRootPath
     configureLimits
     configureAzureAgent
+    # Apply system configuration to running system
+    sysctl --write --system
 }
 
 applyCIS
