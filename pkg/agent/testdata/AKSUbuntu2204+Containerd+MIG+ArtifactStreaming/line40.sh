@@ -259,7 +259,7 @@ downloadContainerdWasmShims() {
                 cat $CURL_OUTPUT
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
             fi
-            if [ $curl_exit_status -ne 0 ]; then
+            if [ "$curl_exit_status" -ne 0 ]; then
                 echo "curl command failed with exit status $curl_exit_status"
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
             fi
@@ -328,7 +328,7 @@ downloadSpinKube(){
             cat $CURL_OUTPUT
             exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         fi
-        if [ $curl_exit_status -ne 0 ]; then
+        if [ "$curl_exit_status" -ne 0 ]; then
             echo "curl command failed with exit status $curl_exit_status"
             exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         fi
@@ -398,7 +398,7 @@ downloadCrictl() {
 installCrictl() {
     CPU_ARCH=$(getCPUArch)
     currentVersion=$(crictl --version 2>/dev/null | sed 's/crictl version //g')
-    if [ "${currentVersion}" != "" ]; then
+    if [ -n "${currentVersion}" ]; then
         echo "version ${currentVersion} of crictl already installed. skipping installCrictl of target version ${KUBERNETES_VERSION%.*}.0"
     else
         CRICTL_TGZ_TEMP="crictl-v${CRICTL_VERSION}-linux-${CPU_ARCH}.tar.gz"
@@ -538,7 +538,7 @@ extractKubeBinariesToUsrLocalBin() {
     if [ ! -f "/usr/local/bin/kubectl-${k8s_version}" ] || [ ! -f "/usr/local/bin/kubelet-${k8s_version}" ]; then
         exit $ERR_K8S_INSTALL_ERR
     fi
-    if [ $is_private_url = "false" ]; then
+    if [ "$is_private_url" = "false" ]; then
         rm -f "${k8s_tgz_tmp}"
     fi
 }
@@ -555,7 +555,7 @@ extractKubeBinaries() {
 
     local k8s_tgz_tmp_filename=${kube_binary_url##*/}
 
-    if [ $is_private_url = "true" ]; then
+    if [ "$is_private_url" = "true" ]; then
         k8s_tgz_tmp="${K8S_PRIVATE_PACKAGES_CACHE_DIR}/${k8s_tgz_tmp_filename}"
 
         if [ ! -f "${k8s_tgz_tmp}" ]; then
@@ -628,9 +628,9 @@ pullContainerImage() {
     CLI_TOOL=$1
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
-    if [ ${CLI_TOOL} = "ctr" ]; then
+    if [ "${CLI_TOOL}" = "ctr" ]; then
         logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
-    elif [ ${CLI_TOOL} = "crictl" ]; then
+    elif [ "${CLI_TOOL}" = "crictl" ]; then
         logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
         logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && return $ERR_DOCKER_IMG_PULL_TIMEOUT)
@@ -642,9 +642,9 @@ retagContainerImage() {
     CONTAINER_IMAGE_URL=$2
     RETAG_IMAGE_URL=$3
     echo "retagging from ${CONTAINER_IMAGE_URL} to ${RETAG_IMAGE_URL} using ${CLI_TOOL}"
-    if [ ${CLI_TOOL} = "ctr" ]; then
+    if [ "${CLI_TOOL}" = "ctr" ]; then
         ctr --namespace k8s.io image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
-    elif [ ${CLI_TOOL} = "crictl" ]; then
+    elif [ "${CLI_TOOL}" = "crictl" ]; then
         crictl image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
     else
         docker image tag $CONTAINER_IMAGE_URL $RETAG_IMAGE_URL
@@ -657,7 +657,7 @@ retagMCRImagesForChina() {
     else
         allMCRImages=($(docker images | grep '^mcr.microsoft.com/' | awk '{str = sprintf("%s:%s", $1, $2)} {print str}'))
     fi
-    if [ "${allMCRImages}" = "" ]; then
+    if [ -z "${allMCRImages}" ]; then
         echo "failed to find mcr images for retag"
         return
     fi
@@ -695,9 +695,9 @@ cleanUpImages() {
             images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -vE "${KUBERNETES_VERSION}$|${KUBERNETES_VERSION}.[0-9]+$|${KUBERNETES_VERSION}-|${KUBERNETES_VERSION}_" | grep ${targetImage} | tr ' ' '\n')
         fi
         local exit_code=$?
-        if [ $exit_code != 0 ]; then
+        if [ "$exit_code" -ne 0 ]; then
             exit $exit_code
-        elif [ "${images_to_delete}" != "" ]; then
+        elif [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
                 if [ "${NEEDS_CONTAINERD}" = "true" ]; then
                     removeContainerImage ${CLI_TOOL} ${image}
@@ -728,7 +728,7 @@ cleanupRetaggedImages() {
         else
             images_to_delete=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^mcr.azk8s.cn/' | tr ' ' '\n')
         fi
-        if [ "${images_to_delete}" != "" ]; then
+        if [ -n "${images_to_delete}" ]; then
             echo "${images_to_delete}" | while read -r image; do
                 if [ "${NEEDS_CONTAINERD}" = "true" ]; then
                     removeContainerImage "ctr" ${image}

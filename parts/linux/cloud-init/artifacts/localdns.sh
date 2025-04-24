@@ -291,7 +291,7 @@ EOF
     chmod -R ugo+rX "${NETWORK_DROPIN_DIR}"
 
     eval "$NETWORKCTL_RELOAD_CMD"
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "Failed to reload networkctl."
         return 1
     fi
@@ -308,7 +308,7 @@ cleanup_localdns_configs() {
     for RULE in "${IPTABLES_RULES[@]}"; do
         if eval "${IPTABLES}" -C "${RULE}" 2>/dev/null; then
             eval "${IPTABLES}" -D "${RULE}"
-            if [ $? -eq 0 ]; then
+            if [ "$?" -eq 0 ]; then
                 echo "Successfully removed iptables rule: ${RULE}."
             else
                 echo "Failed to remove iptables rule: ${RULE}."
@@ -321,12 +321,12 @@ cleanup_localdns_configs() {
     if [ -f "${NETWORK_DROPIN_FILE}" ]; then
         echo "Reverting DNS configuration by removing ${NETWORK_DROPIN_FILE}."
         rm -f "$NETWORK_DROPIN_FILE"
-        if [ $? -ne 0 ]; then
+        if [ "$?" -ne 0 ]; then
             echo "Failed to remove network drop-in file ${NETWORK_DROPIN_FILE}."
             return 1
         fi        
         eval "$NETWORKCTL_RELOAD_CMD"
-        if [ $? -ne 0 ]; then
+        if [ "$?" -ne 0 ]; then
             echo "Failed to reload network after removing the DNS configuration."
             return 1
         fi
@@ -346,7 +346,7 @@ cleanup_localdns_configs() {
             # Send SIGINT to localdns to trigger a graceful shutdown.
             kill -SIGINT "${COREDNS_PID}"
             kill_status=$?
-            if [ $kill_status -eq 0 ]; then
+            if [ "$kill_status" -eq 0 ]; then
                 echo "Successfully sent SIGINT to localdns."
             else
                 echo "Failed to send SIGINT to localdns. Exit status: $kill_status."
@@ -367,7 +367,7 @@ cleanup_localdns_configs() {
     if ip link show dev localdns >/dev/null 2>&1; then
         echo "Removing localdns dummy interface."
         ip link del name localdns
-        if [ $? -eq 0 ]; then
+        if [ "$?" -eq 0 ]; then
             echo "Successfully removed localdns dummy interface."
         else
             echo "Failed to remove localdns dummy interface."

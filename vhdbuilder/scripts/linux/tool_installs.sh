@@ -57,7 +57,7 @@ getAzCopyCurrentPath() {
     # Download and extract
     local azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_amd64_10.22.1.tar.gz"
     local azcopySha256="7549424d56ab2d8b4033c84c2a9bb167dc2dcbb23998acd7fffb37bc1a71a267"
-    if [ $(isARM64) -eq 1 ]; then
+    if [ "$(isARM64)" -eq 1 ]; then
       azcopyDownloadURL="https://azcopyvnext.azureedge.net/releases/release-10.22.1-20231220/azcopy_linux_arm64_10.22.1.tar.gz"
       azcopySha256="4db9a4b48abc7775f1a5d6d928afc42361dcc57bbfcde23ac82e4c419a0dc8fc"
     fi

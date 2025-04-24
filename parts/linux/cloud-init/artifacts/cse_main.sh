@@ -114,7 +114,7 @@ fi
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
 
-if [ $? != 0 ]; then
+if [ "$?" != 0 ]; then
     echo "Failed to determine if nvidia driver install should be skipped"
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
@@ -133,7 +133,7 @@ export -f should_skip_binary_cleanup
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
 # this needs better fix to separate logs and return value;
 FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
-if [ $? != 0 ]; then
+if [ "$?" != 0 ]; then
     echo "Failed to get the install mode and cleanup container images"
     exit "$ERR_CLEANUP_CONTAINER_IMAGES"
 fi
@@ -264,7 +264,7 @@ else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
-if [ "${MESSAGE_OF_THE_DAY}" != "" ]; then
+if [ -n "${MESSAGE_OF_THE_DAY}" ]; then
     if isMarinerOrAzureLinux "$OS" && [ -f /etc/dnf/automatic.conf ]; then
       sed -i "s/emit_via = motd/emit_via = stdio/g" /etc/dnf/automatic.conf
     elif [ "$OS" = "$UBUNTU_OS_NAME" ] && [ -d "/etc/update-motd.d" ]; then

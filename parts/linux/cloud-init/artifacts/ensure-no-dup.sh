@@ -7,7 +7,7 @@
 # https://github.com/kubernetes/kubernetes/pull/28717
 
 ebtables -t filter -L AKS-DEDUP-PROMISC 2>/dev/null
-if [ $? = 0 ]; then
+if [ "$?" -eq 0 ]; then
     echo "AKS-DEDUP-PROMISC rule already set"
     exit 0
 fi

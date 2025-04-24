@@ -137,10 +137,10 @@ installStandaloneContainerd() {
         echo "installing containerd version ${desiredVersion}"
         removeContainerd
         containerdPackageName="containerd-${desiredVersion}"
-        if [ $OS_VERSION = "2.0" ]; then
+        if [ "$OS_VERSION" = "2.0" ]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
         fi
-        if [ $OS_VERSION = "3.0" ]; then
+        if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
         

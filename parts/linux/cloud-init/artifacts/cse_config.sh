@@ -18,11 +18,11 @@ EOF
 }
 configureTransparentHugePage() {
     ETC_SYSFS_CONF="/etc/sysfs.conf"
-    if [ "${THP_ENABLED}" != "" ]; then
+    if [ -n "${THP_ENABLED}" ]; then
         echo "${THP_ENABLED}" > /sys/kernel/mm/transparent_hugepage/enabled
         echo "kernel/mm/transparent_hugepage/enabled=${THP_ENABLED}" >> ${ETC_SYSFS_CONF}
     fi
-    if [ "${THP_DEFRAG}" != "" ]; then
+    if [ -n "${THP_DEFRAG}" ]; then
         echo "${THP_DEFRAG}" > /sys/kernel/mm/transparent_hugepage/defrag
         echo "kernel/mm/transparent_hugepage/defrag=${THP_DEFRAG}" >> ${ETC_SYSFS_CONF}
     fi
@@ -98,21 +98,21 @@ configureEtcEnvironment() {
     chmod 0644 /etc/apt/apt.conf.d/95proxy
 
     echo "[Manager]" >> /etc/systemd/system.conf.d/proxy.conf
-    if [ "${HTTP_PROXY_URLS}" != "" ]; then
+    if [ -n "${HTTP_PROXY_URLS}" ]; then
         echo "HTTP_PROXY=${HTTP_PROXY_URLS}" >> /etc/environment
         echo "http_proxy=${HTTP_PROXY_URLS}" >> /etc/environment
         echo "Acquire::http::proxy \"${HTTP_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
         echo "DefaultEnvironment=\"HTTP_PROXY=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
         echo "DefaultEnvironment=\"http_proxy=${HTTP_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
-    if [ "${HTTPS_PROXY_URLS}" != "" ]; then
+    if [ -n "${HTTPS_PROXY_URLS}" ]; then
         echo "HTTPS_PROXY=${HTTPS_PROXY_URLS}" >> /etc/environment
         echo "https_proxy=${HTTPS_PROXY_URLS}" >> /etc/environment
         echo "Acquire::https::proxy \"${HTTPS_PROXY_URLS}\";" >> /etc/apt/apt.conf.d/95proxy
         echo "DefaultEnvironment=\"HTTPS_PROXY=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
         echo "DefaultEnvironment=\"https_proxy=${HTTPS_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
     fi
-    if [ "${NO_PROXY_URLS}" != "" ]; then
+    if [ -n "${NO_PROXY_URLS}" ]; then
         echo "NO_PROXY=${NO_PROXY_URLS}" >> /etc/environment
         echo "no_proxy=${NO_PROXY_URLS}" >> /etc/environment
         echo "DefaultEnvironment=\"NO_PROXY=${NO_PROXY_URLS}\"" >> /etc/systemd/system.conf.d/proxy.conf
@@ -284,7 +284,7 @@ configureCNIIPTables() {
         chmod 600 $CNI_CONFIG_DIR/10-azure.conflist
         if [ "${NETWORK_POLICY}" = "calico" ]; then
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
-        elif [ "${NETWORK_POLICY}" = "" ] || [ "${NETWORK_POLICY}" = "none" ] && [ "${NETWORK_MODE}" = "transparent" ]; then
+        elif [ -n "${NETWORK_POLICY}" ] || [ "${NETWORK_POLICY}" = "none" ] && [ "${NETWORK_MODE}" = "transparent" ]; then
           sed -i 's#"mode":"bridge"#"mode":"transparent"#g' $CNI_CONFIG_DIR/10-azure.conflist
         fi
         /sbin/ebtables -t nat --list
@@ -417,10 +417,10 @@ getPrimaryNicIP() {
 
     while [ "$i" -lt "$maxRetries" ]; do
         ip=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01")
-        if [ $? -eq 0 ]; then
+        if [ "$?" -eq 0 ]; then
             ip=$(echo "$ip" | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress')
             if [ -n "$ip" ]; then
-            break
+                break
             fi
         fi
         sleep $sleepTime
@@ -453,7 +453,7 @@ configureKubeletServing() {
     # check if kubelet serving certificate rotation is disabled by customer-specified nodepool tags
     export -f should_disable_kubelet_serving_certificate_rotation
     DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
     fi
@@ -781,7 +781,7 @@ configAzurePolicyAddon() {
 }
 
 configGPUDrivers() {
-    if [ $OS = $UBUNTU_OS_NAME ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         mkdir -p /opt/{actions,gpu}
         if [ "${CONTAINER_RUNTIME}" = "containerd" ]; then
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
@@ -832,8 +832,8 @@ validateGPUDrivers() {
     fi
 
     retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
-    which nvidia-smi
-    if [ $? = 0 ]; then
+    
+    if which nvidia-smi; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
     else
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
@@ -861,7 +861,7 @@ ensureGPUDrivers() {
     else
         logs_to_events "AKS.CSE.ensureGPUDrivers.validateGPUDrivers" validateGPUDrivers
     fi
-    if [ $OS = $UBUNTU_OS_NAME ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         logs_to_events "AKS.CSE.ensureGPUDrivers.nvidia-modprobe" "systemctlEnableAndStart nvidia-modprobe 30" || exit $ERR_GPU_DRIVERS_START_FAIL
     fi
 }
@@ -933,7 +933,7 @@ EOF
 
 setKubeletNodeIPFlag() {
     imdsOutput=$(curl -s -H Metadata:true --noproxy "*" --max-time 5 "http://169.254.169.254/metadata/instance/network/interface?api-version=2021-02-01" 2> /dev/null)
-    if [ $? -eq 0 ]; then
+    if [ "$?" -eq 0 ]; then
         nodeIPAddrs=()
         ipv4Addr=$(echo $imdsOutput | jq -r '.[0].ipv4.ipAddress[0].privateIpAddress // ""')
         [ -n "$ipv4Addr" ] && nodeIPAddrs+=("$ipv4Addr")

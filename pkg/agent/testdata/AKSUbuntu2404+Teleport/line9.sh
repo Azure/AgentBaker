@@ -214,7 +214,7 @@ retrycmd_get_tarball() {
             return 1
         else
             timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
-            if [ $? != 0 ]; then
+            if [ "$?" != 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
@@ -231,7 +231,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
             return 1
         else
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [ $? != 0 ]; then
+            if [ "$?" != 0 ]; then
                 cat $ORAS_OUTPUT
             fi
             sleep $wait_sleep
@@ -297,7 +297,7 @@ retrycmd_get_binary_from_registry_with_oras() {
                 return 1
             else
                 timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [ $? != 0 ]; then
+                if [ "$?" != 0 ]; then
                     cat $ORAS_OUTPUT
                 fi
                 sleep $wait_sleep
@@ -309,7 +309,7 @@ retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
-        if [ $? -eq 0 ]; then
+        if [ "$?" -eq 0 ]; then
             echo "acr is reachable"
             return 0
         fi
@@ -330,7 +330,7 @@ retrycmd_curl_file() {
             return 1
         else
             timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [ $? != 0 ]; then
+            if [ "$?" != 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
@@ -740,14 +740,14 @@ verify_DNS_health(){
     fi
 
     dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "Failed to resolve root domain '.'"
         return $ERR_DNS_HEALTH_FAIL
     fi
 
     dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
     ret_code=$?
-    if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+    if [ "$ret_code" -ne 0 ] || [ -z "$dig_check_domain" ]; then
         echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
     fi
@@ -761,7 +761,7 @@ resolve_packages_source_url() {
     PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
     for i in $(seq 1 $retries); do
       response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
-      if [ ${response_code} -eq 200 ]; then
+      if [ "${response_code}" -eq 200 ]; then
         echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
         break
       else
@@ -812,7 +812,7 @@ oras_login_with_kubelet_identity() {
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
     ret_code=$? 
-    if [ $ret_code -ne 0 ]; then
+    if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
     fi
@@ -824,7 +824,7 @@ oras_login_with_kubelet_identity() {
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
     ret_code=$? 
-    if [ $ret_code -ne 0 ]; then
+    if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
     fi
@@ -839,7 +839,7 @@ oras_login_with_kubelet_identity() {
     fi
 
     retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -847,7 +847,7 @@ oras_login_with_kubelet_identity() {
     set -x
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi

@@ -25,7 +25,7 @@ capture_benchmark() {
 
   local current_time
   current_time=$(date +%s)
-  if [ "$is_final_section" = true ]; then
+  if [ "$is_final_section" = "true" ]; then
     local start_time=$script_start_stopwatch
   else
     local start_time=$section_start_stopwatch

@@ -287,7 +287,7 @@ for file in ${GLOBS[*]}; do
     # The API for the log bundle has a max file size (defined above, usually 100MB), so if
     # adding this last file made the zip go over that size, remove that file and stop processing.
     FILE_SIZE=$(stat --printf "%s" ${ZIP})
-    if [ $FILE_SIZE -ge $MAX_SIZE ]; then
+    if [ "$FILE_SIZE" -ge "$MAX_SIZE" ]; then
       echo "WARNING: ZIP file size $FILE_SIZE >= $MAX_SIZE; removing last log file and terminating adding more files."
       zip -d "${ZIP}" $file
       break
