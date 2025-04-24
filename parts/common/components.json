@@ -666,6 +666,13 @@
       "multiArchVersionsV2": [],
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
+      "windowsVersions": []
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/virtual-kubelet/virtual-kubelet:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": []
     },
     {
       "downloadURL": "mcr.microsoft.com/azure-policy/policy-kubernetes-addon-prod:*",
