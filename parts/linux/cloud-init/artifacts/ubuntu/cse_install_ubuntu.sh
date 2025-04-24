@@ -143,9 +143,10 @@ installContainerdWithAptGet() {
         echo "installing containerd version ${containerdMajorMinorPatchVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+      
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
+        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)" 2>/dev/null || ""
         if [[ -f "${containerdDebFile}" ]]; then
             logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0

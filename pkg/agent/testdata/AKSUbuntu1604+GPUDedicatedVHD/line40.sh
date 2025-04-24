@@ -198,6 +198,7 @@ installContainerdWasmShims(){
     PACKAGE_DOWNLOAD_URL=${2} 
     local package_versions=("${@:3}") 
     
+    WASMSHIMPIDS=()
     for version in "${package_versions[@]}"; do
         local shims_to_download=("spin" "slight")
         if [[ "$version" == "0.8.0" ]]; then
@@ -282,13 +283,16 @@ installSpinKube(){
     PACKAGE_DOWNLOAD_URL=${2}
     local package_versions=("${@:3}") 
 
+    SPINKUBEPIDS=()
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         logs_to_events "AKS.CSE.logDownloadURL" "echo $containerd_spinkube_url"
         containerd_spinkube_url=$(update_base_url $containerd_spinkube_url)
         downloadSpinKube $download_location $containerd_spinkube_url "$version"
     done
+    echo "Waiting for all downloads to complete. PIDs: ${SPINKUBEPIDS[@]}"
     wait ${SPINKUBEPIDS[@]}
+
     for version in "${package_versions[@]}"; do
         chmod 755 "$download_location/containerd-shim-spin-v2"
     done
