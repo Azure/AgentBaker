@@ -118,6 +118,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	commandList := map[string]string{
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
+		"aks-log-collector.log":            "sudo journalctl -u aks-log-collector",
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
