@@ -327,6 +327,7 @@ scanCIS() {
 
     pushd /home/packer
     tar xzf cisassessor.tar.gz
+    chown packer:packer -R cisassessor
     local versionid=$(. /etc/os-release; echo ${VERSION_ID})
     local benchmark=$(find -name "*${versionid}*xccdf.xml")
     cisassessor/bin/cisassessor -b "${benchmark}" -txt -json -html
