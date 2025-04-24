@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
 MARINER_KATA_OS_NAME="MARINERKATA"
@@ -266,8 +267,10 @@ downloadAndInstallCriTools() {
 }
 
 echo "VHD will be built with containerd as the container runtime"
-updateAptWithMicrosoftPkg
-capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
+if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+  updateAptWithMicrosoftPkg
+  capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
+fi
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f "$COMPONENTS_FILEPATH" ]; then
@@ -457,7 +460,9 @@ EOF
 
 fi
 
-ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+if [ -d "/opt/gpu" ] && [ "$(ls -A /opt/gpu)" ]; then
+  ls -ltr /opt/gpu/* >> ${VHD_LOGS_FILEPATH}
+fi
 
 installBpftrace
 echo "  - $(bpftrace --version)" >> ${VHD_LOGS_FILEPATH}
@@ -514,10 +519,18 @@ while IFS= read -r imageToBePulled; do
     image_pids+=($!)
     echo "  - ${CONTAINER_IMAGE}" >> ${VHD_LOGS_FILEPATH}
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
-      wait -n
+      wait -n || { 
+        ret=$?
+        echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+        for pid in "${image_pids[@]}"; do
+          kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
+        done
+        exit ${ret}
+    }
     done
   done
 done <<< "$ContainerImages"
+echo "Waiting for container image pulls to finish. PID: ${image_pids[@]}"
 wait ${image_pids[@]}
 
 watcher=$(jq '.ContainerImages[] | select(.downloadURL | contains("aks-node-ca-watcher"))' $COMPONENTS_FILEPATH)
@@ -556,8 +569,10 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
   systemctl restart cgroup-pressure-telemetry.service
 fi
 
-cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
-rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
+if [ -d "/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/" ] && [ "$(ls -A /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/)" ]; then
+  cat /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/*
+  rm -r /var/log/azure/Microsoft.Azure.Extensions.CustomScript || exit 1
+fi
 capture_benchmark "${SCRIPT_NAME}_configure_telemetry"
 
 # download kubernetes package from the given URL using MSI for auth for azcopy
