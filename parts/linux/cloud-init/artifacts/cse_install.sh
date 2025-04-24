@@ -352,7 +352,7 @@ downloadSpinKube(){
         download_url="$containerd_spinkube_url/containerd-shim-spin-v2"
 
         # Step 2: Run the curl command in the background and log output
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT &
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
         curl_exit_status=$?
 
         # Step 3: Check for errors in the curl output
