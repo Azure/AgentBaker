@@ -504,6 +504,9 @@ logs_to_events() {
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
     mkdir -p ${EVENTS_LOGGING_DIR}
+    if [ -f ${EVENTS_LOGGING_DIR}${eventsFileName}.json ]; then
+        echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    fi
 
     if [ "$ret" != "0" ]; then
       return $ret
@@ -562,16 +565,14 @@ evalPackageDownloadURL() {
 }
 
 installJq() {
-  output=$(command -v jq &> /dev/null && jq --version || echo "")
-  if [ -n "$output" ]; then
-    echo "$output"
-  else
-    if isMarinerOrAzureLinux "$OS"; then
-      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    if command -v jq &> /dev/null; then
+        return 0
     fi
-  fi
+    if isMarinerOrAzureLinux "$OS"; then
+        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
 }
 
 updateRelease() {

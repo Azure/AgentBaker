@@ -269,8 +269,8 @@ downloadAndInstallCriTools() {
 echo "VHD will be built with containerd as the container runtime"
 if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
   updateAptWithMicrosoftPkg
+  capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 fi
-capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f "$COMPONENTS_FILEPATH" ]; then
