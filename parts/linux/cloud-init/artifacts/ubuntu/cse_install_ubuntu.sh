@@ -122,7 +122,10 @@ installContainerdWithAptGet() {
     local containerdHotFixVersion="${2}"
     CONTAINERD_DOWNLOADS_DIR="${3:-$CONTAINERD_DOWNLOADS_DIR}"
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    currentVersion=""
+    if command -v containerd &> /dev/null; then
+        currentVersion=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
+    fi
     # v1.4.1 is our lowest supported version of containerd
 
     if [ -z "$currentVersion" ]; then
@@ -140,15 +143,16 @@ installContainerdWithAptGet() {
         echo "installing containerd version ${containerdMajorMinorPatchVersion}"
         logs_to_events "AKS.CSE.installContainerRuntime.removeMoby" removeMoby
         logs_to_events "AKS.CSE.installContainerRuntime.removeContainerd" removeContainerd
+      
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
-        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
-        if [ -f "${containerdDebFile}" ]; then
+        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
+        if [ -n "${containerdDebFile}" ]; then
             logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
-        containerdDebFile="$(ls ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_${containerdMajorMinorPatchVersion}*)"
+        containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
         if [ -z "${containerdDebFile}" ]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
@@ -257,7 +261,10 @@ ensureRunc() {
     fi
 
     CPU_ARCH=$(getCPUArch)  #amd64 or arm64
-    CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    CURRENT_VERSION=""
+    if command -v runc &> /dev/null; then
+        CURRENT_VERSION=$(runc --version | head -n1 | sed 's/runc version //')
+    fi    
     CLEANED_TARGET_VERSION=${TARGET_VERSION}
 
     # after upgrading to 1.1.9, CURRENT_VERSION will also include the patch version (such as 1.1.9-1), so we trim it off
@@ -272,12 +279,21 @@ ensureRunc() {
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f "$VHD_LOGS_FILEPATH" ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILE=$(find ${RUNC_DOWNLOADS_DIR} -type f -iname "${RUNC_DEB_PATTERN}" | sort -V | tail -n1)
-        if [ -f "${RUNC_DEB_FILE}" ]; then
+        RUNC_DEB_FILES=()
+        RUNC_DEB_FILE=""
+        while IFS= read -r file; do
+            RUNC_DEB_FILES+=("$file")
+        done < <(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null)
+        if [ ${#RUNC_DEB_FILES[@]} -gt 0 ]; then
+            RUNC_DEB_FILE=$(printf "%s\n" "${RUNC_DEB_FILES[@]}" | sort -V | tail -n1)
+        fi
+        if [ -n "${RUNC_DEB_FILE}" ] && [ -f "${RUNC_DEB_FILE}" ]; then
+            echo "Found cached runc deb file: ${RUNC_DEB_FILE}"
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
     fi
+    echo "No cached runc deb file is found. Using apt-get to install runc."
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 

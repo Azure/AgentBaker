@@ -283,7 +283,7 @@ configureCNIIPTables() {
 disableSystemdResolved() {
     ls -ltr /etc/resolv.conf
     cat /etc/resolv.conf
-    UBUNTU_RELEASE=$(lsb_release -r -s)
+    UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
     if [ "${UBUNTU_RELEASE}" = "18.04" ] || [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${UBUNTU_RELEASE}" = "22.04" ] || [ "${UBUNTU_RELEASE}" = "24.04" ]; then
         echo "Ingoring systemd-resolved query service but using its resolv.conf file"
         echo "This is the simplest approach to workaround resolved issues without completely uninstall it"
@@ -504,7 +504,11 @@ ensureKubelet() {
     fi
     chmod 0600 "${KUBELET_DEFAULT_FILE}"
 
-    if [ "${ENABLE_SECURE_TLS_BOOTSTRAPPING}" = "true" ] || [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+    set +x
+
+    if [ -n "${TLS_BOOTSTRAP_TOKEN}" ]; then
+        echo "using bootstrap token to generate a bootstrap-kubeconfig"
+
         KUBELET_TLS_DROP_IN="/etc/systemd/system/kubelet.service.d/10-tlsbootstrap.conf"
         mkdir -p "$(dirname "${KUBELET_TLS_DROP_IN}")"
         touch "${KUBELET_TLS_DROP_IN}"
@@ -576,6 +580,8 @@ contexts:
 current-context: bootstrap-context
 EOF
     else
+        echo "generating kubeconfig referencing the provided kubelet client certificate"
+        
         KUBECONFIG_FILE=/var/lib/kubelet/kubeconfig
         mkdir -p "$(dirname "${KUBECONFIG_FILE}")"
         touch "${KUBECONFIG_FILE}"
@@ -601,6 +607,8 @@ contexts:
 current-context: localclustercontext
 EOF
     fi
+
+    set -x
     
     KUBELET_RUNTIME_CONFIG_SCRIPT_FILE=/opt/azure/containers/kubelet.sh
     tee "${KUBELET_RUNTIME_CONFIG_SCRIPT_FILE}" > /dev/null <<EOF
