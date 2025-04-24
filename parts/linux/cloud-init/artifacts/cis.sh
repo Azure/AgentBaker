@@ -299,6 +299,10 @@ configureLimits() {
 EOF
 }
 
+configureAzureAgent() {
+    sed -i -e 's/\(Provisioning.DeleteRootPassword\).*/\1=n/' /etc/waagent.conf
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -317,6 +321,7 @@ applyCIS() {
     configureSudo
     configureRootPath
     configureLimits
+    configureAzureAgent
 }
 
 applyCIS
