@@ -98,66 +98,65 @@ func run(ctx context.Context, cancel context.CancelFunc, fl *flags) []error {
 	enforceInclude := len(include) > 0
 
 	artifactsToDownload := map[string]string{}
+	fmt.Printf("\n")
 	for key, value := range artifactToPath {
-		fmt.Printf("%s - %s\n", key, value)
 		if ignore[key] {
+			fmt.Printf("Ignoring as artifact explicitly excluded \"%s\" with path \"%s\"\n", key, value)
 			continue
 		}
 
 		if enforceInclude && !include[key] {
+			fmt.Printf("Ignoring as not artifact not explicitly included \"%s\" with path \"%s\"\n", key, value)
 			continue
 		}
 
 		artifactsToDownload[key] = value
 	}
 
-	var errc = make(chan error)
-	var done = make(chan struct{})
-
+	fmt.Printf("\n")
 	for sku, path := range artifactsToDownload {
-
-		if strings.Contains(path, "AKSWindows") {
-			go getReleaseNotesWindows(sku, path, fl, errc, done)
-		} else {
-			go getReleaseNotes(sku, path, fl, errc, done)
-		}
+		fmt.Printf("Including artifact \"%s\" with path \"%s\"\n", sku, path)
 	}
 
 	var errs []error
 
-	for i := 0; i < len(artifactsToDownload); i++ {
-		select {
-		case err := <-errc:
-			errs = append(errs, err)
-		case <-done:
-			continue
+	// In theory, this could be done in parallel using a goroutine.
+	// In practice, the "az" command breaks if you call it in parallel.
+	for sku, path := range artifactsToDownload {
+		if strings.Contains(path, "AKSWindows") {
+			err := getReleaseNotesWindows(sku, path, fl)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		} else {
+			err := getReleaseNotes(sku, path, fl)
+			if err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 
 	return errs
 }
 
-func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
-	defer func() { done <- struct{}{} }()
+func getReleaseNotes(sku, path string, fl *flags) error {
 
 	// working directory, need one per sku because the file name is
 	// always "release-notes.txt" so they all overwrite each other.
 	tmpdir, err := os.MkdirTemp("", "releasenotes")
 	if err != nil {
-		errc <- fmt.Errorf("failed to create temp working directory: %w", err)
+		return fmt.Errorf("failed to create temp working directory: %w", err)
 	}
 	defer os.RemoveAll(tmpdir)
 
 	artifactsDirOut := filepath.Join(fl.path, path)
 
 	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
 	artifacts := []buildArtifact{
@@ -178,48 +177,47 @@ func getReleaseNotes(sku, path string, fl *flags, errc chan<- error, done chan<-
 	for _, artifact := range artifacts {
 		if err := artifact.process(fl, artifactsDirOut, tmpdir); err != nil {
 			fmt.Printf("processing artifact %s for sku %s", artifact.name, sku)
-			errc <- fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
-			return
+			return fmt.Errorf("failed to process VHD build artifact %s: %w", artifact.name, err)
 		}
 	}
+
+	return nil
 }
 
-func getReleaseNotesWindows(sku, path string, fl *flags, errc chan<- error, done chan<- struct{}) {
-	defer func() { done <- struct{}{} }()
-
+func getReleaseNotesWindows(sku, path string, fl *flags) error {
 	releaseNotesName := fmt.Sprintf("vhd-release-notes-%s", sku)
 	imageListName := fmt.Sprintf("vhd-image-list-%s", sku)
 
 	artifactsDirOut := filepath.Join(fl.path, path)
-	if err := os.MkdirAll(filepath.Dir(artifactsDirOut), 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+	parentDirectory := filepath.Dir(artifactsDirOut)
+	fmt.Printf("\n")
+	fmt.Printf("Creating parent directory for sku'%s': '%s'\n", sku, parentDirectory)
+	if err := os.MkdirAll(parentDirectory, 0644); err != nil {
+		return fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
 	}
 
+	fmt.Printf("Creating directory for sku '%s': '%s'\n", sku, artifactsDirOut)
 	if err := os.MkdirAll(artifactsDirOut, 0644); err != nil {
-		errc <- fmt.Errorf("failed to create parent directory %s with error: %s", artifactsDirOut, err)
-		return
+		return fmt.Errorf("failed to create directory %s with error: %s", artifactsDirOut, err)
 	}
 
-	fmt.Printf("downloading releaseNotes '%s' from build '%s'\n", releaseNotesName, fl.build)
+	fmt.Printf("downloading releaseNotes '%s' from windows build '%s'\n", releaseNotesName, fl.build)
 
 	cmd := exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", releaseNotesName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
-		return
+		fmt.Printf("Failed downloading releaseNotes '%s' from windows build '%s'\n", releaseNotesName, fl.build)
+		return fmt.Errorf("failed to download az devops releaseNotes for sku %s, err: %s, output: %s", sku, err, string(stdout))
 	}
 
 	fmt.Printf("downloading imageList '%s' from build '%s'\n", imageListName, fl.build)
 
 	cmd = exec.Command("az", "pipelines", "runs", "artifact", "download", "--run-id", fl.build, "--path", artifactsDirOut, "--artifact-name", imageListName)
 	if stdout, err := cmd.CombinedOutput(); err != nil {
-		if err != nil {
-			errc <- fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
-		}
-		return
+		fmt.Printf("failed downloading imageList '%s' from windows build '%s'\n", imageListName, fl.build)
+		return fmt.Errorf("failed to download az devops imageList for sku %s, err: %s, output: %s", sku, err, string(stdout))
 	}
+
+	return nil
 }
 
 func stripWhitespace(str string) string {
@@ -314,11 +312,14 @@ var artifactToPath = map[string]string{
 	"2404-containerd":                      filepath.Join("AKSUbuntu", "gen1", "2404containerd"),
 	"2404-gen2-containerd":                 filepath.Join("AKSUbuntu", "gen2", "2404containerd"),
 	"2404-arm64-gen2-containerd":           filepath.Join("AKSUbuntu", "gen2", "2404arm64containerd"),
+	"2404-tl-gen2-containerd":              filepath.Join("AKSUbuntu", "gen2", "2404tlcontainerd"),
 	"2019-containerd":                      filepath.Join("AKSWindows", "2019-containerd"),
 	"2022-containerd":                      filepath.Join("AKSWindows", "2022-containerd"),
 	"2022-containerd-gen2":                 filepath.Join("AKSWindows", "2022-containerd-gen2"),
 	"23H2":                                 filepath.Join("AKSWindows", "23H2"),
 	"23H2-gen2":                            filepath.Join("AKSWindows", "23H2-gen2"),
+	"2025":                                 filepath.Join("AKSWindows", "2025"),
+	"2025-gen2":                            filepath.Join("AKSWindows", "2025-gen2"),
 	"azurelinuxv2-gen1":                    filepath.Join("AKSAzureLinux", "gen1"),
 	"azurelinuxv2-gen2":                    filepath.Join("AKSAzureLinux", "gen2"),
 	"azurelinuxv2-gen1-fips":               filepath.Join("AKSAzureLinux", "gen1fips"),

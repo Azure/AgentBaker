@@ -13,7 +13,7 @@ UBUNTU_CODENAME=$(lsb_release -c -s)
 
 ensureGPUDrivers() {
     configGPUDrivers
-    systemctlEnableAndStart nvidia-modprobe || exit $ERR_GPU_DRIVERS_START_FAIL
+    systemctlEnableAndStart nvidia-modprobe 30 || exit $ERR_GPU_DRIVERS_START_FAIL
 }
 
 disableSystemdResolvedCache() {
@@ -33,7 +33,7 @@ RemainAfterExit=no
 RequiredBy=network-online.target kubelet.service
 EOF
 
-    systemctlEnableAndStart resolv-uplink-override || exit $ERR_SYSTEMCTL_START_FAIL
+    systemctlEnableAndStart resolv-uplink-override 30 || exit $ERR_SYSTEMCTL_START_FAIL
 
 }
 

@@ -143,8 +143,10 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 			lock.Unlock()
 		}(file, sourceCmd)
 	}
-	wg.Wait()
-	err := dumpFileMapToDir(s.T, logFiles)
+	err = dumpFileMapToDir(s.T, logFiles)
+	if err != nil {
+		s.T.Logf("error dumping file to directory  %d: %s", len(logFiles), err)
+	}
 	require.NoError(s.T, err)
 }
 

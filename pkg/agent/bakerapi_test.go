@@ -306,6 +306,11 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSUbuntuContainerd2004CVMGen2,
 				datamodel.AKSUbuntuArm64Containerd2204Gen2,
 				datamodel.AKSUbuntuContainerd2204TLGen2,
+				datamodel.AKSUbuntuContainerd2404CVMGen2,
+				datamodel.AKSUbuntuContainerd2404Gen2,
+				datamodel.AKSUbuntuArm64Containerd2404Gen2,
+				datamodel.AKSUbuntuContainerd2404,
+				datamodel.AKSUbuntuContainerd2404TLGen2,
 			}
 
 			marinerDistros = []datamodel.Distro{
@@ -332,6 +337,7 @@ var _ = Describe("AgentBaker API implementation tests", func() {
 				datamodel.AKSAzureLinuxV3Arm64Gen2,
 				datamodel.AKSAzureLinuxV2Gen2TL,
 				datamodel.AKSAzureLinuxV3Arm64Gen2FIPS,
+				datamodel.AKSAzureLinuxV3CVMGen2,
 			}
 
 			allLinuxDistros = append(allLinuxDistros, ubuntuDistros...)

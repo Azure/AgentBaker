@@ -17,13 +17,129 @@ limitations under the License.
 package parser
 
 import (
+	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/google/go-cmp/cmp"
 )
+
+var expectedKubeletConfigFlags = "--address=0.0.0.0" +
+	" --anonymous-auth=false" +
+	" --authentication-token-webhook=true" +
+	" --authorization-mode=Webhook" +
+	" --cgroups-per-qos=true" +
+	" --client-ca-file=/etc/kubernetes/certs/ca.crt" +
+	" --cluster-dns=10.0.0.10" +
+	" --cluster-domain=cluster.local" +
+	" --enforce-node-allocatable=pods" +
+	" --event-qps=0" +
+	" --eviction-hard=memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%" +
+	" --feature-gates=RotateKubeletServerCertificate=true,DynamicKubeletConfig=false" +
+	" --image-gc-high-threshold=85" +
+	" --image-gc-low-threshold=80" +
+	" --kube-reserved=cpu=100m,memory=1638Mi" +
+	" --max-pods=110" +
+	" --node-status-update-frequency=10s" +
+	" --pod-manifest-path=/etc/kubernetes/manifests" +
+	" --pod-max-pids=-1" +
+	" --protect-kernel-defaults=true" +
+	" --read-only-port=10255" +
+	" --resolv-conf=/etc/resolv.conf" +
+	" --rotate-certificates=true" +
+	" --rotate-server-certificates=true" +
+	" --streaming-connection-idle-timeout=4h0m0s" +
+	" --system-reserved=cpu=2,memory=1Gi" +
+	" --tls-cert-file=/etc/kubernetes/certs/kubeletserver.crt" +
+	" --tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256," +
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305," +
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256" +
+	" --tls-private-key-file=/etc/kubernetes/certs/kubeletserver.key"
+
+var expectedKubeletJSON = `{
+    "kind": "KubeletConfiguration",
+    "apiVersion": "kubelet.config.k8s.io/v1beta1",
+    "staticPodPath": "/etc/kubernetes/manifests",
+    "address": "0.0.0.0",
+    "readOnlyPort": 10255,
+    "tlsCertFile": "/etc/kubernetes/certs/kubeletserver.crt",
+    "tlsPrivateKeyFile": "/etc/kubernetes/certs/kubeletserver.key",
+    "tlsCipherSuites": [
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_RSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "rotateCertificates": true,
+    "serverTLSBootstrap": true,
+    "authentication": {
+        "x509": {
+            "clientCAFile": "/etc/kubernetes/certs/ca.crt"
+        },
+        "webhook": {
+            "enabled": true
+        }
+    },
+    "authorization": {
+        "mode": "Webhook"
+    },
+    "eventRecordQPS": 0,
+    "clusterDomain": "cluster.local",
+    "clusterDNS": [
+        "10.0.0.10"
+    ],
+    "streamingConnectionIdleTimeout": "4h0m0s",
+    "nodeStatusUpdateFrequency": "10s",
+    "imageGCHighThresholdPercent": 90,
+    "imageGCLowThresholdPercent": 70,
+    "cgroupsPerQOS": true,
+    "cpuManagerPolicy": "static",
+    "topologyManagerPolicy": "best-effort",
+    "maxPods": 110,
+    "podPidsLimit": 12345,
+    "resolvConf": "/etc/resolv.conf",
+    "cpuCFSQuota": false,
+    "cpuCFSQuotaPeriod": "200ms",
+    "evictionHard": {
+        "memory.available": "750Mi",
+        "nodefs.available": "10%",
+        "nodefs.inodesFree": "5%"
+    },
+    "protectKernelDefaults": true,
+    "featureGates": {
+        "CustomCPUCFSQuotaPeriod": true,
+        "DynamicKubeletConfig": false,
+        "RotateKubeletServerCertificate": true
+    },
+    "failSwapOn": false,
+    "containerLogMaxSize": "1000M",
+    "containerLogMaxFiles": 99,
+    "systemReserved": {
+        "cpu": "2",
+        "memory": "1Gi"
+    },
+    "kubeReserved": {
+        "cpu": "100m",
+        "memory": "1638Mi"
+    },
+    "enforceNodeAllocatable": [
+        "pods"
+    ],
+    "allowedUnsafeSysctls": [
+        "kernel.msg*",
+        "net.ipv4.route.min_pmtu"
+    ],
+    "seccompDefault": true
+}`
 
 func Test_getSysctlContent(t *testing.T) {
 	// Test_getSysctlContent tests the getSysctlContent function.
@@ -54,9 +170,9 @@ net.ipv4.tcp_retries2=8`)),
 			name: "SysctlConfig with custom values",
 			args: args{
 				s: &aksnodeconfigv1.SysctlConfig{
-					NetIpv4TcpMaxSynBacklog: ToPtr(int32(9999)),
-					NetCoreRmemDefault:      ToPtr(int32(9999)),
-					NetIpv4IpLocalPortRange: ToPtr("32768 62535"),
+					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
+					NetCoreRmemDefault:      to.Ptr(int32(9999)),
+					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString(
@@ -260,7 +376,7 @@ func Test_getContainerdConfig(t *testing.T) {
 			name: "Default Containerd Configurations",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: ToPtr(true),
+					NeedsCgroupv2: to.Ptr(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
@@ -288,9 +404,9 @@ oom_score = -999
 			name: "Containerd Configurations with bool noGpu set to false",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: ToPtr(true),
+					NeedsCgroupv2: to.Ptr(true),
 					GpuConfig: &aksnodeconfigv1.GpuConfig{
-						EnableNvidia: ToPtr(true),
+						EnableNvidia: to.Ptr(true),
 					},
 				},
 				noGpu: false,
@@ -320,7 +436,7 @@ oom_score = -999
 			name: "Containerd Configurations with bool noGpu set to true",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: ToPtr(true),
+					NeedsCgroupv2: to.Ptr(true),
 				},
 				noGpu: true,
 			},
@@ -1104,6 +1220,182 @@ func Test_getIsSgxEnabledSKU(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getIsSgxEnabledSKU(tt.args.vmSize); got != tt.want {
 				t.Errorf("getIsSgxEnabledSKU() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getKubeletConfigFileContent(t *testing.T) {
+	type args struct {
+		kubeletConfig *aksnodeconfigv1.KubeletConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Default KubeletConfig",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					KubeletConfigFileConfig: &aksnodeconfigv1.KubeletConfigFileConfig{
+						Kind:              "KubeletConfiguration",
+						ApiVersion:        "kubelet.config.k8s.io/v1beta1",
+						StaticPodPath:     "/etc/kubernetes/manifests",
+						Address:           "0.0.0.0",
+						ReadOnlyPort:      10255,
+						TlsCertFile:       "/etc/kubernetes/certs/kubeletserver.crt",
+						TlsPrivateKeyFile: "/etc/kubernetes/certs/kubeletserver.key",
+						TlsCipherSuites: []string{
+							"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+							"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+							"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+							"TLS_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_RSA_WITH_AES_128_GCM_SHA256",
+						},
+						RotateCertificates: true,
+						ServerTlsBootstrap: true,
+						Authentication: &aksnodeconfigv1.KubeletAuthentication{
+							X509: &aksnodeconfigv1.KubeletX509Authentication{
+								ClientCaFile: "/etc/kubernetes/certs/ca.crt",
+							},
+							Webhook: &aksnodeconfigv1.KubeletWebhookAuthentication{
+								Enabled: true,
+							},
+						},
+						Authorization: &aksnodeconfigv1.KubeletAuthorization{
+							Mode: "Webhook",
+						},
+						EventRecordQps: to.Ptr(int32(0)),
+						ClusterDomain:  "cluster.local",
+						ClusterDns: []string{
+							"10.0.0.10",
+						},
+						StreamingConnectionIdleTimeout: "4h0m0s",
+						NodeStatusUpdateFrequency:      "10s",
+						ImageGcHighThresholdPercent:    to.Ptr(int32(90)),
+						ImageGcLowThresholdPercent:     to.Ptr(int32(70)),
+						CgroupsPerQos:                  to.Ptr(true),
+						CpuManagerPolicy:               "static",
+						TopologyManagerPolicy:          "best-effort",
+						MaxPods:                        to.Ptr(int32(110)),
+						PodPidsLimit:                   to.Ptr(int32(12345)),
+						ResolvConf:                     "/etc/resolv.conf",
+						CpuCfsQuota:                    to.Ptr(false),
+						CpuCfsQuotaPeriod:              "200ms",
+						EvictionHard: map[string]string{
+							"memory.available":  "750Mi",
+							"nodefs.available":  "10%",
+							"nodefs.inodesFree": "5%",
+						},
+						ProtectKernelDefaults: true,
+						FeatureGates: map[string]bool{
+							"CustomCPUCFSQuotaPeriod":        true,
+							"RotateKubeletServerCertificate": true,
+							"DynamicKubeletConfig":           false,
+						},
+						FailSwapOn:           to.Ptr(false),
+						ContainerLogMaxSize:  "1000M",
+						ContainerLogMaxFiles: to.Ptr(int32(99)),
+						SystemReserved: map[string]string{
+							"cpu":    "2",
+							"memory": "1Gi",
+						},
+						KubeReserved: map[string]string{
+							"cpu":    "100m",
+							"memory": "1638Mi",
+						},
+						EnforceNodeAllocatable: []string{
+							"pods",
+						},
+						AllowedUnsafeSysctls: []string{
+							"kernel.msg*",
+							"net.ipv4.route.min_pmtu",
+						},
+						SeccompDefault: true,
+					},
+				},
+			},
+			want: expectedKubeletJSON,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getKubeletConfigFileContent(tt.args.kubeletConfig); got != tt.want {
+				// Normalize JSON strings to avoid any formatting differences such as space, indent, line breaking
+				var gotJSON, wantJSON map[string]any
+				if err := json.Unmarshal([]byte(got), &gotJSON); err != nil {
+					t.Fatalf("Failed to unmarshal generated JSON: %v", err)
+				}
+				if err := json.Unmarshal([]byte(tt.want), &wantJSON); err != nil {
+					t.Fatalf("Failed to unmarshal expected JSON: %v", err)
+				}
+				if diff := cmp.Diff(wantJSON, gotJSON); diff != "" {
+					t.Errorf("Generated JSON does not match expected JSON (-want +got):\n%s", diff)
+					t.Errorf("Generated config file: %s", got)
+					t.Errorf("Expected config file: %s", tt.want)
+				}
+			}
+		})
+	}
+}
+
+func Test_getKubeletFlags(t *testing.T) {
+	type args struct {
+		kubeletConfig *aksnodeconfigv1.KubeletConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Default KubeletFlags",
+			args: args{
+				kubeletConfig: &aksnodeconfigv1.KubeletConfig{
+					KubeletFlags: map[string]string{
+						"--address":                           "0.0.0.0",
+						"--pod-manifest-path":                 "/etc/kubernetes/manifests",
+						"--cluster-domain":                    "cluster.local",
+						"--cluster-dns":                       "10.0.0.10",
+						"--cgroups-per-qos":                   "true",
+						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
+						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
+						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--max-pods":                          "110",
+						"--node-status-update-frequency":      "10s",
+						"--image-gc-high-threshold":           "85",
+						"--image-gc-low-threshold":            "80",
+						"--event-qps":                         "0",
+						"--pod-max-pids":                      "-1",
+						"--enforce-node-allocatable":          "pods",
+						"--streaming-connection-idle-timeout": "4h0m0s",
+						"--rotate-certificates":               "true",
+						"--rotate-server-certificates":        "true",
+						"--read-only-port":                    "10255",
+						"--protect-kernel-defaults":           "true",
+						"--resolv-conf":                       "/etc/resolv.conf",
+						"--anonymous-auth":                    "false",
+						"--client-ca-file":                    "/etc/kubernetes/certs/ca.crt",
+						"--authentication-token-webhook":      "true",
+						"--authorization-mode":                "Webhook",
+						"--eviction-hard":                     "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
+						"--feature-gates":                     "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+						"--system-reserved":                   "cpu=2,memory=1Gi",
+						"--kube-reserved":                     "cpu=100m,memory=1638Mi",
+					},
+				},
+			},
+			want: expectedKubeletConfigFlags,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getKubeletFlags(tt.args.kubeletConfig); got != tt.want {
+				t.Errorf("getKubeletFlags() = %v, want %v", got, tt.want)
 			}
 		})
 	}

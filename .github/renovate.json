@@ -14,7 +14,7 @@
   "labels": [
     "renovate"
   ],
-  "rebaseWhen": "behind-base-branch",
+  "rebaseWhen": "automerging",
   "schedule": [
     "after 10pm and before 5am every weekday",
     "every weekend"
@@ -52,8 +52,6 @@
         "azure-policy/policy-kubernetes-addon-prod",
         "azure-policy/policy-kubernetes-webhook",
         "oss/kubernetes/kube-proxy",
-        "moby-runc",
-        "moby-containerd",
         "oss/binaries/kubernetes/kubernetes-node",
         "oss/binaries/kubernetes/azure-acr-credential-provider",
         "oss/binaries/deislabs/containerd-wasm-shims",
@@ -76,36 +74,9 @@
     },
     {
       "matchDatasources": [
-        "custom.deb1804"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
-      "matchDatasources": [
-        "custom.deb2004"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
-      "matchDatasources": [
-        "custom.deb2204"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "automerge": false,
-      "enabled": true
-    },
-    {
-      "matchDatasources": [
+        "custom.deb1804",
+        "custom.deb2004",
+        "custom.deb2204",
         "custom.deb2404"
       ],
       "matchUpdateTypes": [
@@ -153,12 +124,64 @@
     },
     {
       "matchPackageNames": [
+        "moby-runc",
+        "moby-containerd"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "automerge": false,
+      "enabled": true,
+      "groupName": "runc-containerd-minor",
+      "assignees": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ],
+      "reviewers": [
+        "devinwong",
+        "anujmaheshwari1",
+        "cameronmeissner",
+        "AlisonB319",
+        "lilypan26",
+        "djsly",
+        "jason1028kr",
+        "UtheMan",
+        "zachary-bailey",
+        "ganeshkumarashok"
+      ]
+    },
+    {
+      "matchPackageNames": [
         "azure-cni",
         "containernetworking/azure-cni",
-        "containernetworking/cilium/cilium",
         "containernetworking/azure-ipam"
       ],
       "groupName": "azure-cni-cilium-ipam",
+      "reviewers": [
+        "team:acn-cni-reviewers"
+      ],
+      "assignees": [
+        "rbtr",
+        "behzad-mir",
+        "jpayne3506",
+        "QxBytes"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "containernetworking/cilium/cilium"
+      ],
+      "groupName": "azure-cni-cilium-ipam",
+      "versioning": "regex:^v(?<major>\\d+)(\\.(?<minor>\\d+))?(\\.(?<patch>\\d+))?(-(?<prerelease>.*))?$",
+      "ignoreUnstable": false,
       "reviewers": [
         "team:acn-cni-reviewers"
       ],
@@ -322,15 +345,7 @@
     },
     {
       "matchPackageNames": [
-        "moby-runc",
-        "moby-containerd"
-      ],
-      "extractVersion": "^v?(?<version>.+)$"
-    },
-    {
-      "matchPackageNames": [
-        "aks/aks-gpu-cuda",
-        "aks/aks-gpu-grid"
+        "aks/aks-gpu-cuda"
       ],
       "groupName": "nvidia-gpu",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
@@ -436,31 +451,31 @@
   ],
   "customDatasources": {
     "deb1804": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/18.04/prod/dists/bionic/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
     "deb2004": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
     "deb2204": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     },
     "deb2404": {
-      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
+      "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $replace(releases[$i + 1].version, /^Version:\\s*/, \"v\") })), function($v) { {\"version\": $v} })}"
+        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
       ]
     }
   }

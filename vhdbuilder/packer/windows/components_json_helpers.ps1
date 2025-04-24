@@ -96,12 +96,19 @@ function GetPackagesFromComponentsJson
             {
                 "2019-containerd" {
                     $part = $downloadUrls.ws2019
+                    break
                 }
                 "2022-containerd*" {
                     $part = $downloadUrls.ws2022
+                    break
                 }
                 "23H2*" {
                     $part = $downloadUrls.ws32h2
+                    break
+                }
+                "2025*" {
+                    $part = $downloadUrls.ws2025
+                    break
                 }
             }
 
@@ -279,4 +286,29 @@ function GetDefenderUpdateInfoUrl {
     )
 
     return $windowsSettingsContent.WindowsDefenderInfo.DefenderUpdateInfoUrl
+}
+
+function GetAllCachedThings {
+    Param(
+        [Parameter(Mandatory = $true)][Object]
+        $componentsJsonContent,
+        [Parameter(Mandatory = $true)][Object]
+        $windowsSettingsContent
+    )
+
+    $items = GetComponentsFromComponentsJson $componentsJsonContent
+    $packages = GetPackagesFromComponentsJson $componentsJsonContent
+    $regKeys = GetRegKeysToApply $windowsSettingsContent
+
+    foreach ($packageName in $packages.keys) {
+        foreach ($package in $packages[$packageName]) {
+            $items += $packageName + ": " + $package
+        }
+    }
+
+    foreach ($regKey in $regKeys) {
+        $items += $regKey.Path + "\" + $regKey.Name + "=" + $regKey.Value
+    }
+
+    return ($items | Sort-Object)
 }

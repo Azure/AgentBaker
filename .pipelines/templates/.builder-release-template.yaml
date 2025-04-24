@@ -99,6 +99,8 @@ steps:
       CAPTURED_SIG_VERSION="$(cat vhdbuilder/packer/settings.json | grep "captured_sig_version" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       SIG_IMAGE_NAME="$(cat vhdbuilder/packer/settings.json | grep "sig_image_name" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
       BUILD_LOCATION="$(cat vhdbuilder/packer/settings.json | grep "location" | awk -F':' '{print $2}' | awk -F'"' '{print $2}')" && \
+      ARTIFACT_ID=$(date +%s) && \
+      echo "##vso[task.setvariable variable=ARTIFACT_ID]${ARTIFACT_ID}" && \
       echo "##vso[task.setvariable variable=PACKER_BUILD_LOCATION]${BUILD_LOCATION}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_RESOURCE_GROUP_NAME]${PACKER_VNET_RESOURCE_GROUP_NAME}" && \
       echo "##vso[task.setvariable variable=PACKER_VNET_NAME]${PACKER_VNET_NAME}" && \
@@ -146,13 +148,14 @@ steps:
     condition: always()
     displayName: Publish BCC Tools Installation Log
     inputs:
-      artifactName: 'bcc-tools-installation-log-${{ parameters.artifactName }}'
+      artifactName: 'bcc-tools-installation-log-$(ARTIFACT_ID)-${{ parameters.artifactName }}'
       targetPath: 'bcc-tools-installation.log'
 
   - task: CopyFiles@2
     condition: always()
     displayName: Copy BCC Tools Installation Log
     inputs:
+      Overwrite: true
       SourceFolder: '$(System.DefaultWorkingDirectory)'
       Contents: 'bcc-tools-installation.log'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
@@ -205,6 +208,17 @@ steps:
     displayName: Convert Shared Image Gallery To VHD Blob In Classic Storage Account
     env:
       RESOURCE_GROUP_NAME: $(AZURE_RESOURCE_GROUP_NAME)
+  
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Build Performance Program
+    condition: and(succeeded(), eq(variables.ENVIRONMENT, 'test'))
+    inputs:
+      source: "specific"
+      downloadPath: "vhdbuilder/packer/buildperformance"
+      runVersion: "latest"
+      project: $(System.TeamProject)
+      pipeline: $(SOURCE_PIPELINE) 
+      artifactName: $(BUILD_PERFORMANCE_ARTIFACT_NAME)
 
   - bash: make -f packer.mk evaluate-build-performance
     condition: always()

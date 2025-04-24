@@ -11,13 +11,18 @@ required_env_vars=(
   "SIG_GALLERY_NAME"
   "OS_VERSION"
   "SIG_IMAGE_NAME"
-  "UMSI_RESOURCE_ID"
-  "UMSI_PRINCIPAL_ID"
   "AZURE_MSI_RESOURCE_STRING"
-  "UMSI_CLIENT_ID"
   "BUILD_RUN_NUMBER"
   "VHD_ARTIFACT_NAME"
   "DRY_RUN"
+  "ACCOUNT_NAME"
+  "UMSI_RESOURCE_ID"
+  "UMSI_PRINCIPAL_ID"
+  "UMSI_CLIENT_ID"
+  "ACCOUNT_NAME_TME"
+  "UMSI_RESOURCE_ID_TME"
+  "UMSI_PRINCIPAL_ID_TME"
+  "UMSI_CLIENT_ID_TME"
 )
 
 for v in "${required_env_vars[@]}"; do
@@ -98,7 +103,7 @@ for SCRIPT in "${!SCRIPT_PIDS[@]}"; do
   echo -e "${SCRIPT} exited with code ${EXIT_CODE}"
 done
 
-if [[ "${STEP_FAILED}" == true ]]; then
+if [ "${STEP_FAILED}" = "true" ]; then
   echo -e "\nOne or more scripts failed. Exiting with exit code 1.\n"
   exit 1
 fi

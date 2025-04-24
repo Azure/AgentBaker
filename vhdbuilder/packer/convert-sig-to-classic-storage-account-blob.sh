@@ -21,14 +21,14 @@ do
     fi
 done
 
-if [ "${OS_TYPE,,}" == "windows" ]; then
+if [ "${OS_TYPE,,}" = "windows" ]; then
   if [ -z "$LOCATION" ]; then
     echo "LOCATION must be set for windows builds"
     exit 1
   fi
 fi
 
-if [ "${OS_TYPE,,}" == "linux" ]; then
+if [ "${OS_TYPE,,}" = "linux" ]; then
   if [ -z "$PACKER_BUILD_LOCATION" ]; then
     echo "PACKER_BUILD_LOCATION must be set for linux builds"
     exit 1
@@ -37,14 +37,14 @@ if [ "${OS_TYPE,,}" == "linux" ]; then
 fi
 
 # Default to this hard-coded value for Linux does not pass this environment variable into here
-if [[ -z "$SIG_GALLERY_NAME" ]]; then
+if [ -z "$SIG_GALLERY_NAME" ]; then
   SIG_GALLERY_NAME="PackerSigGalleryEastUS"
 fi
 
 echo "SIG_IMAGE_VERSION before checking and assigning is $SIG_IMAGE_VERSION"
 # Windows Gen 2: use the passed environment variable $SIG_IMAGE_VERSION
 # Linux Gen 2: assign $CAPTURED_SIG_VERSION to $SIG_IMAGE_VERSION
-if [[ -z "$SIG_IMAGE_VERSION" ]]; then
+if [ -z "$SIG_IMAGE_VERSION" ]; then
   SIG_IMAGE_VERSION=${CAPTURED_SIG_VERSION}
 fi
 
@@ -54,7 +54,7 @@ disk_resource_id="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GR
 capture_benchmark "${SCRIPT_NAME}_set_variables_for_converting_to_disk"
 
 echo "Converting $sig_resource_id to $disk_resource_id"
-if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
+if [ "${OS_TYPE}" = "Linux" ] && [ "${ENABLE_TRUSTED_LAUNCH}" = "True" ]; then
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
@@ -69,7 +69,7 @@ if [[ ${OS_TYPE} == "Linux" && ${ENABLE_TRUSTED_LAUNCH} == "True" ]]; then
       } \
     } \
   }"
-elif [ "${OS_TYPE}" == "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
+elif [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
   az resource create --id $disk_resource_id  --is-full-object --location $LOCATION --properties "{\"location\": \"$LOCATION\", \
     \"properties\": { \
       \"osType\": \"$OS_TYPE\", \
@@ -103,32 +103,26 @@ capture_benchmark "${SCRIPT_NAME}_convert_image_version_to_disk"
 echo "Granting access to $disk_resource_id for 1 hour"
 # shellcheck disable=SC2102
 sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSas] -o tsv)
-if [[ "$sas" == "None" ]]; then
+if [ "$sas" = "None" ]; then
  echo "sas token empty. Trying alternative query string"
 # shellcheck disable=SC2102
  sas=$(az disk grant-access --ids $disk_resource_id --duration-in-seconds 3600 --query [accessSAS] -o tsv)
 fi
 
-if [[ "$sas" == "None" ]]; then
+if [ "$sas" = "None" ]; then
  echo "sas token empty after trying both queries. Can't continue"
  exit 1
 fi
-
 capture_benchmark "${SCRIPT_NAME}_grant_access_to_disk"
 
 echo "Uploading $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 
 echo "Setting azcopy environment variables with pool identity: $AZURE_MSI_RESOURCE_STRING"
-# TBD: Need to investigate why `azcopy-preview login --login-type=MSI` does not work for Windows
 export AZCOPY_AUTO_LOGIN_TYPE="MSI"
 export AZCOPY_MSI_RESOURCE_STRING="$AZURE_MSI_RESOURCE_STRING"
 
-if [[ "${OS_TYPE}" == "Linux" ]]; then
-  export AZCOPY_CONCURRENCY_VALUE="AUTO"
-  azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
-else
-  azcopy-preview copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
-fi
+export AZCOPY_CONCURRENCY_VALUE="AUTO"
+azcopy copy "${sas}" "${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true || exit $?
 
 echo "Uploaded $disk_resource_id to ${CLASSIC_BLOB}/${CAPTURED_SIG_VERSION}.vhd"
 capture_benchmark "${SCRIPT_NAME}_upload_disk_to_blob"

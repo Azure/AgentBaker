@@ -109,7 +109,7 @@ ERR_CNI_VERSION_INVALID=206
 ERR_ORAS_PULL_K8S_FAIL=207 
 ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208 
 ERR_ORAS_PULL_CONTAINERD_WASM=209 
-ERR_ORAS_PULL_FAIL_RESERVE_2=210 
+ERR_ORAS_IMDS_TIMEOUT=210 
 ERR_ORAS_PULL_NETWORK_TIMEOUT=211 
 ERR_ORAS_PULL_UNAUTHORIZED=212 
 
@@ -118,6 +118,11 @@ ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG=213
 ERR_CLEANUP_CONTAINER_IMAGES=214
 
 ERR_DNS_HEALTH_FAIL=215 
+
+ERR_LOCALDNS_FAIL=216 
+ERR_LOCALDNS_COREFILE_NOTFOUND=217 
+ERR_LOCALDNS_SLICEFILE_NOTFOUND=218 
+ERR_LOCALDNS_BINARY_ERR=219 
 
 if find /etc -type f,l -name "*-release" -print -quit 2>/dev/null | grep -q '.'; then
     OS=$(sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }')
@@ -236,14 +241,21 @@ retrycmd_get_tarball_from_registry_with_oras() {
 retrycmd_get_access_token_for_oras() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
-        ACCESS_TOKEN_OUTPUT=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url")
-        if [ -n "$ACCESS_TOKEN_OUTPUT" ]; then 
+        response=$(timeout 60 curl -v -s -H "Metadata:true" --noproxy "*" "$url" -w "\n%{http_code}")
+        ACCESS_TOKEN_OUTPUT=$(echo "$response" | sed '$d')
+        http_code=$(echo "$response" | tail -n1)
+        if [ -n "$ACCESS_TOKEN_OUTPUT" ] && [ "$http_code" -eq 200 ]; then 
             echo "$ACCESS_TOKEN_OUTPUT"
             return 0
         fi
         sleep $wait_sleep
     done
-    return $ERR_ORAS_PULL_NETWORK_TIMEOUT
+    if [ -n "$http_code" ]; then
+        echo "failed to retrieve kubelet identity token from IMDS, http code: $http_code, msg: $ACCESS_TOKEN_OUTPUT"
+        return $ERR_ORAS_PULL_UNAUTHORIZED
+    fi
+    echo "timeout waiting for IMDS response to retrieve kubelet identity token"
+    return $ERR_ORAS_IMDS_TIMEOUT
 }
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
@@ -394,7 +406,8 @@ version_gte() {
 }
 
 systemctlEnableAndStart() {
-    systemctl_restart 100 5 30 $1
+    service=$1; timeout=$2    
+    systemctl_restart 100 5 $2 $1
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
@@ -686,6 +699,26 @@ removeKubeletNodeLabel() {
     fi
 }
 
+updateKubeBinaryRegistryURL() {
+    if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+        echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
+        KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
+    else
+        url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
+        if [[ -n ${KUBE_BINARY_URL} ]]; then
+            binary_version="v${KUBERNETES_VERSION}" 
+            if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
+                version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
+                binary_version="${version_with_prefix%%/*}"
+                echo "Extracted version: $binary_version from KUBE_BINARY_URL: ${KUBE_BINARY_URL}"
+            else
+                echo "KUBE_BINARY_URL is formatted unexpectedly, will use the kubernetes version as binary version: $binary_version"
+            fi
+        fi
+        KUBE_BINARY_REGISTRY_URL="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}/${K8S_REGISTRY_REPO}/kubernetes-node:${binary_version}-linux-${CPU_ARCH}"
+    fi
+}
+
 removeKubeletFlag() {
     local FLAG_STRING=$1
     if grep -e ",${FLAG_STRING}" <<< "$KUBELET_FLAGS" > /dev/null 2>&1; then
@@ -712,11 +745,45 @@ verify_DNS_health(){
 
     dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
     ret_code=$?
-    if [ ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+    if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
         echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
     fi
     echo "DNS health check passed"
+}
+
+resolve_packages_source_url() {
+    local retries=5
+    local wait_sleep=1
+
+    PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
+    for i in $(seq 1 $retries); do
+      response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
+      if [ ${response_code} -eq 200 ]; then
+        echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
+        break
+      else
+        if [ $i -eq $retries ]; then
+          PACKAGE_DOWNLOAD_BASE_URL="acs-mirror.azureedge.net"
+          echo "Setting PACKAGE_DOWNLOAD_BASE_URL to $PACKAGE_DOWNLOAD_BASE_URL. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
+          break
+        else
+          sleep $wait_sleep
+        fi
+      fi
+    done
+}
+
+update_base_url() {
+  initial_url=$1
+  
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" == "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
+    initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
+  elif [ "$PACKAGE_DOWNLOAD_BASE_URL" == "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
+    initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
+  fi
+  
+  echo "$initial_url"
 }
 
 oras_login_with_kubelet_identity() {
@@ -741,15 +808,11 @@ oras_login_with_kubelet_identity() {
 
     set +x 
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
-    raw_access_token=$(retrycmd_get_access_token_for_oras 10 5 $access_url)
+    raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
     ret_code=$? 
     if [ $ret_code -ne 0 ]; then
-        echo "failed to retrieve access token: $ret_code"
+        echo $raw_access_token
         return $ret_code
-    fi
-    if [[ "$raw_access_token" == *"error"* ]]; then
-        echo "failed to retrieve access token"
-        return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
     ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
     if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then

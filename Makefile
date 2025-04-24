@@ -79,7 +79,7 @@ validate-shell:
 
 .PHONY: shellspec # TODO: have this run in a container with a stable bash installation
 shellspec: bootstrap
-	@bash ./hack/tools/bin/shellspec
+	@bash ./hack/tools/bin/shellspec --format d
 
 .PHONY: validate-image-version
 validate-image-version:
@@ -177,10 +177,10 @@ ginkgoBuild: generate
 	make -C ./test/e2e ginkgo-build
 
 test: test-aks-node-controller
-	go test ./...
+	go build -mod=readonly ./... && go test ./...
 
 test-aks-node-controller:
-	pushd aks-node-controller && go test ./... && popd
+	pushd aks-node-controller && go build -mod=readonly ./... && go test ./... && popd
 
 .PHONY: test-style
 test-style: validate-go validate-shell validate-copyright-headers
