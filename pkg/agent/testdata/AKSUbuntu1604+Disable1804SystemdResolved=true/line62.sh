@@ -251,7 +251,10 @@ ensureRunc() {
     fi
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILES=($(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null))
+        RUNC_DEB_FILES=()
+        while IFS= read -r file; do
+            RUNC_DEB_FILES+=("$file")
+        done < <(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null)
         if [ ${#RUNC_DEB_FILES[@]} -gt 0 ]; then
             RUNC_DEB_FILE=$(printf "%s\n" "${RUNC_DEB_FILES[@]}" | sort -V | tail -n1)
         fi
