@@ -13,7 +13,7 @@ RUNC_DOWNLOADS_DIR="/opt/runc/downloads"
 K8S_DOWNLOADS_DIR="/opt/kubernetes/downloads"
 K8S_PRIVATE_PACKAGES_CACHE_DIR="/opt/kubernetes/downloads/private-packages"
 K8S_REGISTRY_REPO="oss/binaries/kubernetes"
-UBUNTU_RELEASE=$(lsb_release -r -s)
+UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
 # For Mariner 2.0, this returns "MARINER" and for AzureLinux 3.0, this returns "AZURELINUX"
 OS=$(if ls /etc/*-release 1> /dev/null 2>&1; then sort -r /etc/*-release | gawk 'match($0, /^(ID_LIKE=(coreos)|ID=(.*))$/, a) { print toupper(a[2] a[3]); exit }'; fi)
 SECURE_TLS_BOOTSTRAP_KUBELET_EXEC_PLUGIN_DOWNLOAD_DIR="/opt/azure/tlsbootstrap"
@@ -220,6 +220,7 @@ installContainerdWasmShims(){
     PACKAGE_DOWNLOAD_URL=${2} # global URL that is set from the components.json
     local package_versions=("${@:3}") # Capture all arguments starting from the third indx
     
+    WASMSHIMPIDS=()
     for version in "${package_versions[@]}"; do
         local shims_to_download=("spin" "slight")
         if [[ "$version" == "0.8.0" ]]; then
@@ -268,8 +269,22 @@ downloadContainerdWasmShims() {
     fi
 
     for shim in "${shims_to_download[@]}"; do
-        retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1" "$containerd_wasm_url/containerd-shim-${shim}-v1" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-        WASMSHIMPIDS+=($!)
+        {
+            output_file="$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
+            download_url="$containerd_wasm_url/containerd-shim-${shim}-v1"
+            retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
+            curl_exit_status=$?
+            if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
+                echo "curl command failed with error: $(grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT)"
+                cat $CURL_OUTPUT
+                exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            fi
+            if [ $curl_exit_status -ne 0 ]; then
+                echo "curl command failed with exit status $curl_exit_status"
+                exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+            fi
+        } &
+        WASMSHIMPIDS+=($!)  # Add the PID of the monitoring subshell to the array
     done
 }
 
@@ -290,12 +305,14 @@ installSpinKube(){
     PACKAGE_DOWNLOAD_URL=${2}
     local package_versions=("${@:3}") # Capture all arguments starting from the third indx
 
+    SPINKUBEPIDS=()
     for version in "${package_versions[@]}"; do
         containerd_spinkube_url=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         logs_to_events "AKS.CSE.logDownloadURL" "echo $containerd_spinkube_url"
         containerd_spinkube_url=$(update_base_url $containerd_spinkube_url)
         downloadSpinKube $download_location $containerd_spinkube_url "$version"
     done
+    echo "Waiting for all downloads to complete. PIDs: ${SPINKUBEPIDS[@]}"
     wait ${SPINKUBEPIDS[@]}
     for version in "${package_versions[@]}"; do
         chmod 755 "$download_location/containerd-shim-spin-v2"
@@ -321,9 +338,22 @@ downloadSpinKube(){
         rm -f "$wasm_shims_tgz_tmp"
         return 
     fi
-    
-    retrycmd_if_failure 30 5 60 curl -fSLv -o "$containerd_spinkube_filepath/containerd-shim-spin-v2" "$containerd_spinkube_url/containerd-shim-spin-v2" 2>&1 | tee $CURL_OUTPUT | grep -E "^(curl:.*)|([eE]rr.*)$" && (cat $CURL_OUTPUT && exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT) &
-    SPINKUBEPIDS+=($!)
+
+    {
+        output_file="$containerd_spinkube_filepath/containerd-shim-spin-v2"
+        download_url="$containerd_spinkube_url/containerd-shim-spin-v2"
+        retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
+        curl_exit_status=$?
+        if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
+            cat $CURL_OUTPUT
+            exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        fi
+        if [ $curl_exit_status -ne 0 ]; then
+            echo "curl command failed with exit status $curl_exit_status"
+            exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
+        fi
+    } &
+    SPINKUBEPIDS+=($!)  # Add the PID of the monitoring subshell to the array
 }
 
 # TODO (alburgess) have oras version managed by dependant or Renovate
@@ -651,11 +681,11 @@ pullContainerImage() {
     CONTAINER_IMAGE_URL=$2
     echo "pulling the image ${CONTAINER_IMAGE_URL} using ${CLI_TOOL}"
     if [[ ${CLI_TOOL} == "ctr" ]]; then
-        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && exit $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepullctr.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 ctr --namespace k8s.io image pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via ctr" && return $ERR_CONTAINERD_CTR_IMG_PULL_TIMEOUT)
     elif [[ ${CLI_TOOL} == "crictl" ]]; then
-        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && exit $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepullcrictl.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 crictl pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via crictl" && return $ERR_CONTAINERD_CRICTL_IMG_PULL_TIMEOUT)
     else
-        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && exit $ERR_DOCKER_IMG_PULL_TIMEOUT)
+        logs_to_events "AKS.CSE.imagepull.${CONTAINER_IMAGE_URL}" "retrycmd_if_failure 2 1 120 docker pull $CONTAINER_IMAGE_URL" || (echo "timed out pulling image ${CONTAINER_IMAGE_URL} via docker" && return $ERR_DOCKER_IMG_PULL_TIMEOUT)
     fi
 }
 
