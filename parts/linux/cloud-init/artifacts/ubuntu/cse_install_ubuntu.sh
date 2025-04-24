@@ -280,6 +280,7 @@ ensureRunc() {
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
         RUNC_DEB_FILES=()
+        RUNC_DEB_FILE=""
         while IFS= read -r file; do
             RUNC_DEB_FILES+=("$file")
         done < <(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null)
@@ -291,8 +292,8 @@ ensureRunc() {
             installDebPackageFromFile ${RUNC_DEB_FILE} || exit $ERR_RUNC_INSTALL_TIMEOUT
             return 0
         fi
-        echo "Failed to locate cached runc deb file"
     fi
+    echo "No cached runc deb file is found. Using apt-get to install runc."
     apt_get_install 20 30 120 moby-runc=${TARGET_VERSION}* --allow-downgrades || exit $ERR_RUNC_INSTALL_TIMEOUT
 }
 
