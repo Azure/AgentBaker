@@ -288,6 +288,13 @@ configureRootPath() {
     sed -i -e 's|:/snap/bin||' /etc/sudoers /etc/environment
 }
 
+configureLimits() {
+    mkdir -p /etc/security/limits.d/
+    cat <<EOF >/etc/security/limits.d/99-aks-cis.conf
+* hard core 0
+EOF
+}
+
 applyCIS() {
     setPWExpiration
     assignRootPW
@@ -306,6 +313,7 @@ applyCIS() {
     configureSudo
     configurePam
     configureRootPath
+    configureLimits
 }
 
 scanCIS() {
