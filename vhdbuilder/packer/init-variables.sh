@@ -11,7 +11,8 @@ AZ_DIST=$(lsb_release -cs)
 sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
 AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
 if [ "$AZ_VER_ACTUAL" != "$AZ_VER_REQUIRED" ]; then
-	echo -e "Actual Azure CLI Version: $AZ_VER_ACTUAL\nRequired Azure CLI Version"
+	echo -e "Required Azure CLI Version: $AZ_VER_REQUIRED\nActual Azure CLI Version: $AZ_VER_ACTUAL"
+  echo "Exiting due to incorrect Azure CLI version..."
 	exit 1
 fi
 echo "Azure CLI version: $AZ_VER_ACTUAL"
