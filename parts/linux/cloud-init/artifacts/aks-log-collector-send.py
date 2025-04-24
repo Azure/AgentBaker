@@ -4,14 +4,16 @@ import urllib3
 import uuid
 import xml.etree.ElementTree as ET
 
-def upload_logs():  
+def upload_logs():
+    print("Creating connection pool manager...")
     retries = urllib3.util.Retry(
-        total=5,
+        total=10,
         backoff_factor=0.5,
         backoff_max=10,
         status_forcelist=[429, 500, 502, 503, 504],
     )
     http = urllib3.PoolManager(retries=retries)
+    print("Created connection pool manager")
 
     # Get the container_id and deployment_id from the Goal State
     goal_state_xml = http.request(

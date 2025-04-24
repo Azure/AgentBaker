@@ -115,6 +115,11 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 	privateIP, err := getVMPrivateIPAddress(ctx, s)
 	require.NoError(s.T, err)
 
+	syslogHandle := "syslog"
+	if s.VHD.OS == config.OSMariner || s.VHD.OS == config.OSAzureLinux {
+		syslogHandle = "messages"
+	}
+
 	commandList := map[string]string{
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
@@ -122,6 +127,7 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"cluster-provision-cse-output.log": "sudo cat /var/log/azure/cluster-provision-cse-output.log",
 		"sysctl-out.log":                   "sudo sysctl -a",
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
+		"syslog":                           "sudo cat /var/log/" + syslogHandle,
 	}
 
 	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
