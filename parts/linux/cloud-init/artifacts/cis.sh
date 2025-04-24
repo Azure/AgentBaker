@@ -235,6 +235,7 @@ password_pbkdf2 root ${hash}
 EOF
     fi
     update-grub2 || exit 1
+    chmod 0600 /boot/grub/grub.cfg
 }
 
 prepareTmp() {
