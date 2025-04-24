@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eux
-exit 0
+
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 PERFORMANCE_DATA_FILE=vhd-build-performance-data.json
