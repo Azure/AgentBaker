@@ -314,7 +314,6 @@ installSpinKube(){
     done
     echo "Waiting for all downloads to complete. PIDs: ${SPINKUBEPIDS[@]}"
     wait ${SPINKUBEPIDS[@]}
-
     for version in "${package_versions[@]}"; do
         chmod 755 "$download_location/containerd-shim-spin-v2"
     done
