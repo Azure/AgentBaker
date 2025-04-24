@@ -2,15 +2,6 @@
 set -x
 set -e
 
-echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
-source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
-
-wait_for_apt_locks
-AZ_VER=2.70.0
-AZ_DIST=$(lsb_release -cs)
-sudo apt-get install azure-cli=${AZ_VER}-1~${AZ_DIST} -y --allow-downgrades
-echo "Azure CLI version: $(az --version)"
-
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
