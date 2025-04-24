@@ -279,10 +279,8 @@ ensureRunc() {
     # if on a vhd-built image, first check if we've cached the deb file
     if [ -f $VHD_LOGS_FILEPATH ]; then
         RUNC_DEB_PATTERN="moby-runc_*.deb"
-        RUNC_DEB_FILES=$(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null || true)
-        if [ -z "${RUNC_DEB_FILES}" ]; then
-            RUNC_DEB_FILE=""
-        else
+        RUNC_DEB_FILES=$(find "${RUNC_DOWNLOADS_DIR}" -type f -iname "${RUNC_DEB_PATTERN}" 2>/dev/null || "")
+        if [ -n "${RUNC_DEB_FILES}" ]; then
             RUNC_DEB_FILE=$(echo "${RUNC_DEB_FILES}" | sort -V | tail -n1)
         fi
         if [ -n "${RUNC_DEB_FILE}" ] && [ -f "${RUNC_DEB_FILE}" ]; then

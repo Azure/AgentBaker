@@ -270,21 +270,15 @@ downloadContainerdWasmShims() {
 
     for shim in "${shims_to_download[@]}"; do
         {
-            # Step 1: Define variables for the output file and download URL
             output_file="$containerd_wasm_filepath/containerd-shim-${shim}-${binary_version}-v1"
             download_url="$containerd_wasm_url/containerd-shim-${shim}-v1"
-            # Step 2: Run the curl command in the background and log output
             retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
             curl_exit_status=$?
-
-            # Step 3: Check for errors in the curl output
             if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
                 echo "curl command failed with error: $(grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT)"
                 cat $CURL_OUTPUT
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
             fi
-
-            # Step 4: Handle curl exit status
             if [ $curl_exit_status -ne 0 ]; then
                 echo "curl command failed with exit status $curl_exit_status"
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
@@ -347,21 +341,14 @@ downloadSpinKube(){
     fi
 
     {
-        # Step 1: Define variables for the output file and download URL
         output_file="$containerd_spinkube_filepath/containerd-shim-spin-v2"
         download_url="$containerd_spinkube_url/containerd-shim-spin-v2"
-
-        # Step 2: Run the curl command in the background and log output
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
         curl_exit_status=$?
-
-        # Step 3: Check for errors in the curl output
         if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
             cat $CURL_OUTPUT
             exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         fi
-
-        # Step 4: Handle curl exit status
         if [ $curl_exit_status -ne 0 ]; then
             echo "curl command failed with exit status $curl_exit_status"
             exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
