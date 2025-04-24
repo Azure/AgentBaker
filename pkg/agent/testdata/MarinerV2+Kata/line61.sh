@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Mariner"
-
 removeContainerd() {
     containerdPackageName="containerd"
     if [[ $OS_VERSION == "2.0" ]]; then
@@ -13,6 +11,14 @@ removeContainerd() {
 installDeps() {
     if [[ $OS_VERSION == "2.0" ]]; then
       systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+
+    if [[ $OS_VERSION == "3.0" ]]; then
+      echo "Installing azurelinux-repos-cloud-native"
+      dnf_install 30 1 600 azurelinux-repos-cloud-native
+    else
+      echo "Installing mariner-repos-cloud-native"
+      dnf_install 30 1 600 mariner-repos-cloud-native
     fi
     
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
@@ -38,6 +44,16 @@ installKataDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi
+}
+
+installCriCtlPackage() {
+  version="${1:-}"
+  packageName="kubernetes-cri-tools-${version}"
+  if [[ -z $version ]]; then
+    echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+  fi
+  echo "Installing ${packageName} with dnf"
+  dnf_install 30 1 600 ${packageName} || exit 1
 }
 
 downloadGPUDrivers() {
@@ -112,8 +128,9 @@ EOF
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    
+    if command -v containerd &> /dev/null; then
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+    fi
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else

@@ -209,7 +209,7 @@ retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        [ -f $tarball ] && tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
@@ -226,7 +226,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
     tar_folder=$(dirname "$tarball")
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
+        [ -f $tarball ] && tar -tzf $tarball && break || \
         if [ $i -eq $tar_retries ]; then
             return 1
         else
@@ -503,7 +503,10 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    mkdir -p ${EVENTS_LOGGING_DIR}
+    if [ -f ${EVENTS_LOGGING_DIR}${eventsFileName}.json ]; then
+        echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    fi
 
     if [ "$ret" != "0" ]; then
       return $ret
@@ -562,16 +565,14 @@ evalPackageDownloadURL() {
 }
 
 installJq() {
-  output=$(jq --version)
-  if [ -n "$output" ]; then
-    echo "$output"
-  else
-    if isMarinerOrAzureLinux "$OS"; then
-      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    if command -v jq &> /dev/null; then
+        return 0
     fi
-  fi
+    if isMarinerOrAzureLinux "$OS"; then
+        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
 }
 
 updateRelease() {

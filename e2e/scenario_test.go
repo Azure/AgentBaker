@@ -754,6 +754,7 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
 					},
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 				// intentionally using private acr url to get kube binaries
 				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
 					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
@@ -1210,6 +1211,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 		},
 	})
@@ -1393,6 +1395,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			ServerTLSBootstrapping: true,
+			Scriptless:             true,
 		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{

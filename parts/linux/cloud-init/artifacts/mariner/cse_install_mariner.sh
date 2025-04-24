@@ -1,7 +1,5 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Mariner"
-
 removeContainerd() {
     containerdPackageName="containerd"
     if [[ $OS_VERSION == "2.0" ]]; then
@@ -18,6 +16,17 @@ installDeps() {
     # this in 2.0.
     if [[ $OS_VERSION == "2.0" ]]; then
       systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+
+    # Install the package repo for the specific OS version.
+    # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
+    # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
+    if [[ $OS_VERSION == "3.0" ]]; then
+      echo "Installing azurelinux-repos-cloud-native"
+      dnf_install 30 1 600 azurelinux-repos-cloud-native
+    else
+      echo "Installing mariner-repos-cloud-native"
+      dnf_install 30 1 600 mariner-repos-cloud-native
     fi
     
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
@@ -45,6 +54,16 @@ installKataDeps() {
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi
+}
+
+installCriCtlPackage() {
+  version="${1:-}"
+  packageName="kubernetes-cri-tools-${version}"
+  if [[ -z $version ]]; then
+    echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+  fi
+  echo "Installing ${packageName} with dnf"
+  dnf_install 30 1 600 ${packageName} || exit 1
 }
 
 downloadGPUDrivers() {
@@ -135,9 +154,11 @@ installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    # v1.4.1 is our lowest supported version of containerd
-    
+    # check if containerd command is available before running it
+    if command -v containerd &> /dev/null; then
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+    fi
+    # v1.4.1 is our lowest supported version of containerd    
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else

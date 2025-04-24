@@ -78,20 +78,20 @@ systemctl enable aks-node-controller.service
 if isMarinerOrAzureLinux "$OS"; then
   dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
   dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-  if [[ "${ENABLE_FIPS,,}" == "true" && "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]]; then
+  if [ "${ENABLE_FIPS,,}" = "true" ] && [ "${IMG_SKU,,}" != "azure-linux-3-arm64-gen2-fips" ]; then
     # This is FIPS install for Mariner and has nothing to do with Ubuntu Advantage
     echo "Install FIPS for Mariner SKU"
     installFIPS
   fi
 else
   # Enable ESM only for 18.04, 20.04, and FIPS
-  if [[ "${UBUNTU_RELEASE}" == "18.04" ]] || [[ "${UBUNTU_RELEASE}" == "20.04" ]] || [[ "${ENABLE_FIPS,,}" == "true" ]]; then
+  if [ "${UBUNTU_RELEASE}" = "18.04" ] || [ "${UBUNTU_RELEASE}" = "20.04" ] || [ "${ENABLE_FIPS,,}" = "true" ]; then
     set +x
     attachUA
     set -x
   fi
 
-  if [[ -n "${VHD_BUILD_TIMESTAMP}" && "${OS_VERSION}" == "22.04" ]]; then
+  if [ -n "${VHD_BUILD_TIMESTAMP}" ] && [ "${OS_VERSION}" = "22.04" ]; then
     sed -i "s#http://azure.archive.ubuntu.com/ubuntu/#https://snapshot.ubuntu.com/ubuntu/${VHD_BUILD_TIMESTAMP}#g" /etc/apt/sources.list
   fi
 
@@ -100,6 +100,7 @@ else
   apt_get_update || exit $ERR_APT_UPDATE_TIMEOUT
   apt_get_dist_upgrade || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
 
+  # shellcheck disable=SC3010
   if [[ "${ENABLE_FIPS,,}" == "true" ]]; then
     # This is FIPS Install for Ubuntu, it purges non FIPS Kernel and attaches UA FIPS Updates
     echo "Install FIPS for Ubuntu SKU"
@@ -110,11 +111,13 @@ capture_benchmark "${SCRIPT_NAME}_upgrade_distro_and_resolve_fips_requirements"
 
 # Handle Azure Linux + CgroupV2
 # CgroupV2 is enabled by default in the AzureLinux 3.0 marketplace image
+# shellcheck disable=SC3010
 if [[ ${OS} == ${MARINER_OS_NAME} ]] && [[ "${ENABLE_CGROUPV2,,}" == "true" ]]; then
   enableCgroupV2forAzureLinux
 fi
 capture_benchmark "${SCRIPT_NAME}_enable_cgroupv2_for_azurelinux"
 
+# shellcheck disable=SC3010
 if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   LTS_KERNEL="linux-image-azure-lts-${UBUNTU_RELEASE}"
   LTS_TOOLS="linux-tools-azure-lts-${UBUNTU_RELEASE}"
