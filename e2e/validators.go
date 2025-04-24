@@ -184,7 +184,6 @@ func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName 
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
 	command := []string{
 		"set -ex",
-		// Print the service status for logging purposes
 		fmt.Sprintf("systemctl --no-pager -n 5 status %s || true", serviceName),
 		fmt.Sprintf("systemctl is-failed %s", serviceName),
 	}
