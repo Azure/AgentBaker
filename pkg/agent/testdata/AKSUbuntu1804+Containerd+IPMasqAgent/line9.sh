@@ -337,21 +337,6 @@ retrycmd_curl_file() {
         fi
     done
 }
-wait_for_file() {
-    retries=$1; wait_sleep=$2; filepath=$3
-    paved=/opt/azure/cloud-init-files.paved
-    grep -Fq "${filepath}" $paved && return 0
-    for i in $(seq 1 $retries); do
-        grep -Fq '#EOF' $filepath && break
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-    sed -i "/#EOF/d" $filepath
-    echo $filepath >> $paved
-}
 systemctl_restart() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
     for i in $(seq 1 $retries); do
@@ -435,15 +420,6 @@ semverCompare() {
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
     [[ "${VERSION_A}" == ${highestVersion} ]] && return 0
     return 1
-}
-downloadDebPkgToFile() {
-    PKG_NAME=$1
-    PKG_VERSION=$2
-    PKG_DIRECTORY=$3
-    mkdir -p $PKG_DIRECTORY
-    pushd ${PKG_DIRECTORY}
-    retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
-    popd
 }
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;

@@ -336,7 +336,7 @@ After=bind-mount.service
 EOF
 fi
 
-logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
 if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
@@ -411,7 +411,7 @@ if [ $VALIDATION_ERR -ne 0 ]; then
 fi
 
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS
+logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
