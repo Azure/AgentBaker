@@ -147,13 +147,13 @@ installContainerdWithAptGet() {
         # if containerd version has been overriden then there should exist a local .deb file for it on aks VHDs (best-effort)
         # if no files found then try fetching from packages.microsoft repo
         containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
-        if [[ -z "${containerdDebFile}" ]]; then
+        if [ -n "${containerdDebFile}" ]; then
             logs_to_events "AKS.CSE.installContainerRuntime.installDebPackageFromFile" "installDebPackageFromFile ${containerdDebFile}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
             return 0
         fi
         logs_to_events "AKS.CSE.installContainerRuntime.downloadContainerdFromVersion" "downloadContainerdFromVersion ${containerdMajorMinorPatchVersion} ${containerdHotFixVersion}"
         containerdDebFile=$(find "${CONTAINERD_DOWNLOADS_DIR}" -maxdepth 1 -name "moby-containerd_${containerdMajorMinorPatchVersion}*" -print -quit 2>/dev/null) || containerdDebFile=""
-        if [[ -z "${containerdDebFile}" ]]; then
+        if [ -z "${containerdDebFile}" ]; then
             echo "Failed to locate cached containerd deb"
             exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         fi
