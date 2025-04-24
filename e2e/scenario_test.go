@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"k8s.io/api/core/v1"
 )
 
 func Test_AzureLinuxV2_AirGap(t *testing.T) {
@@ -518,7 +519,6 @@ func Test_MarinerV2_WASM(t *testing.T) {
 	})
 }
 
-// Returns config for the 'base' E2E scenario
 func Test_Ubuntu1804(t *testing.T) {
 	// for ubuntu1804 containerd version is frozen and its using outdated versioning style, hence this modification
 	expected1804ContainredVersion := strings.Replace(getExpectedPackageVersions("containerd", "ubuntu", "r1804")[0], "-", "+azure-ubuntu18.04u", 1)
@@ -1402,7 +1402,6 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 			Cluster: ClusterKubenet,
 			VHD:     config.VHDUbuntu2204Gen2Containerd,
 			AKSNodeConfigMutator: func(config *aksnodeconfigv1.Configuration) {
-				config.KubeletConfig.EnableKubeletConfigFile = true
 				config.KubeletConfig.KubeletConfigFileConfig.FailSwapOn = to.Ptr(true)
 				config.KubeletConfig.KubeletConfigFileConfig.AllowedUnsafeSysctls = []string{"kernel.msg*", "net.ipv4.route.min_pmtu"}
 				config.KubeletConfig.KubeletConfigFileConfig.ServerTlsBootstrap = true
@@ -1791,6 +1790,19 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 				runcVersions := getExpectedPackageVersions("runc", "ubuntu", "r2404")
 				ValidateContainerd2Properties(ctx, s, containerdVersions)
 				ValidateRunc12Properties(ctx, s, runcVersions)
+			},
+		},
+	})
+}
+
+func Test_Ubuntu2204_DiskPressureCondition(t *testing.T) {
+	RunScenario(t, &Scenario{
+		Description: "Validates that DiskPressure condition is false on a newly created Ubuntu 2204 node",
+		Config: Config{
+			Cluster: ClusterKubenet,
+			VHD:     config.VHDUbuntu2204Gen2Containerd,
+			Validator: func(ctx context.Context, s *Scenario) {
+				ValidateNodeConditionStatus(ctx, s, v1.NodeDiskPressure, v1.ConditionFalse)
 			},
 		},
 	})
