@@ -322,7 +322,7 @@ while IFS= read -r p; do
         {
           downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
           unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
-          echo "  - Azure CNI version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+          echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
         } &
         jobPID+=($!)
       done
@@ -334,7 +334,7 @@ while IFS= read -r p; do
         {
           downloadCNI "${downloadDir}" "${evaluatedURL}"
           unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
-          echo "  - CNI plugin version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+          echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
         } &
         jobPID+=($!)
       done
@@ -371,7 +371,7 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         {
           downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
-          echo "  - azure-acr-credential-provider version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+          echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
         } &
         jobPID+=($!)
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
@@ -397,7 +397,7 @@ while IFS= read -r p; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         {
           extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
-          echo "  - kubernetes-binaries version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+          echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
         } &
         jobPID+=($!)
       done
@@ -550,7 +550,7 @@ while IFS= read -r imageToBePulled; do
     while [ "$(jobs -p | wc -l)" -ge "$parallel_container_image_pull_limit" ]; do
       wait -n || { 
         ret=$?
-        echo "A background job pullContainerImage failed: ${ret}. Exiting..." >&2
+        echo "A background job pullContainerImage failed: ${ret}, ${downloadURL} , version: ${version}. Exiting..." >&2
         for pid in "${image_pids[@]}"; do
           kill -9 "$pid" 2>/dev/null || echo "Failed to kill process $pid"
         done
