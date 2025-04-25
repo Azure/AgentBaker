@@ -299,6 +299,9 @@ while IFS= read -r p; do
     continue
   fi
   downloadDir=$(echo "${p}" | jq .downloadLocation -r)
+  if [ ! -f "$VHD_LOGS_FILEPATH" ]; then
+    touch "$VHD_LOGS_FILEPATH"
+  fi
 
   #download the package
   case $name in
