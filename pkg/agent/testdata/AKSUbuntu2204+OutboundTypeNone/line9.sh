@@ -155,22 +155,13 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
 
 retrycmd_if_failure() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 "$retries"); do
-        echo "Attempt $i: Executing command with timeout $timeout seconds..."
-        stderr_output=$(timeout "$timeout" "${@}" 2>&1 >/dev/null)
-        exit_code=$?
-        if [ "$exit_code" -eq 0 ]; then
-            echo "Command succeeded on attempt $i."
-            break
+    for i in $(seq 1 $retries); do
+        timeout $timeout "${@}" && break || \
+        if [ $i -eq $retries ]; then
+            echo Executed \"$@\" $i times;
+            return 1
         else
-            echo "Command failed on attempt $i with exit code $exit_code. Command: \"${@}\". Error: $stderr_output" >&2
-            if [ "$i" -eq "$retries" ]; then
-                echo "Executed \"$@\" $i times; all attempts failed. Last error: $stderr_output" >&2
-                return 1
-            else
-                echo "Retrying in $wait_sleep seconds..."
-                sleep "$wait_sleep"
-            fi
+            sleep $wait_sleep
         fi
     done
     echo Executed \"$@\" $i times;
