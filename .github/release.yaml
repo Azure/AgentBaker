@@ -6,6 +6,7 @@ changelog:
       exclude:
         labels:
           - renovate
+          - components
           - dependabot
           - ignore-for-release
     - title: Dependabot Updates
