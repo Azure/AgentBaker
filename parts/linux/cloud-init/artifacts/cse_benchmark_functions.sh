@@ -10,7 +10,7 @@ declare -a benchmarks_order=()
 check_array_size() {
   declare -n array_name=$1
   local array_size=${#array_name[@]}
-  if [ ${array_size} -gt 0 ]; then
+  if [ "${array_size}" -gt 0 ]; then
     last_index=$(( ${#array_name[@]} - 1 ))
   else
     return 1
