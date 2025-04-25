@@ -384,7 +384,7 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "6.16.0-main-04-15-2025-d78050c6-targetallocator"
+          "latestVersion": "6.16.0-main-04-15-2025-d78050c6-targetallocatorr"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
