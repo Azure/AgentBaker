@@ -21,13 +21,15 @@ func Test_Windows2019Containerd(t *testing.T) {
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2019 Datacenter")
-				// TODO: currently the command used to get the display name returns an empty string on WS2019. Need to find a better command.
-				//ValidateWindowsDisplayVersion(ctx, s, "???")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
+				if config.Config.SSHEnabled {
+					ValidateWindowsVersionFromWindowsSettings(ctx, s, "2019-containerd")
+					ValidateWindowsProductName(ctx, s, "Windows Server 2019 Datacenter")
+					// TODO: currently the command used to get the display name returns an empty string on WS2019. Need to find a better command.
+					//ValidateWindowsDisplayVersion(ctx, s, "???")
+					ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+					ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+					ValidateCiliumIsNotRunningWindows(ctx, s)
+				}
 			},
 		},
 	})
@@ -42,12 +44,14 @@ func Test_Windows2022Containerd(t *testing.T) {
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "21H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
+				if config.Config.SSHEnabled {
+					ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd")
+					ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+					ValidateWindowsDisplayVersion(ctx, s, "21H2")
+					ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+					ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+					ValidateCiliumIsNotRunningWindows(ctx, s)
+				}
 			},
 		},
 	})
@@ -62,12 +66,14 @@ func Test_Windows2022ContainerdGen2(t *testing.T) {
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "21H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
+				if config.Config.SSHEnabled {
+					ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2")
+					ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+					ValidateWindowsDisplayVersion(ctx, s, "21H2")
+					ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+					ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+					ValidateCiliumIsNotRunningWindows(ctx, s)
+				}
 			},
 		},
 	})
@@ -82,12 +88,14 @@ func Test_Windows23H2(t *testing.T) {
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
+				if config.Config.SSHEnabled {
+					ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2")
+					ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+					ValidateWindowsDisplayVersion(ctx, s, "23H2")
+					ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+					ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+					ValidateCiliumIsNotRunningWindows(ctx, s)
+				}
 			},
 		},
 	})
@@ -102,12 +110,14 @@ func Test_Windows23H2Gen2(t *testing.T) {
 			VMConfigMutator:        EmptyVMConfigMutator,
 			BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 			Validator: func(ctx context.Context, s *Scenario) {
-				ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
-				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
-				ValidateWindowsDisplayVersion(ctx, s, "23H2")
-				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
-				ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
-				ValidateCiliumIsNotRunningWindows(ctx, s)
+				if config.Config.SSHEnabled {
+					ValidateWindowsVersionFromWindowsSettings(ctx, s, "23H2-gen2")
+					ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter")
+					ValidateWindowsDisplayVersion(ctx, s, "23H2")
+					ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote")
+					ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt"})
+					ValidateCiliumIsNotRunningWindows(ctx, s)
+				}
 			},
 		},
 	})
