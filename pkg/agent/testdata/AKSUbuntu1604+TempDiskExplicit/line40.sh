@@ -256,7 +256,7 @@ downloadContainerdWasmShims() {
             curl_exit_status=$?
             if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
                 echo "curl command failed with error: $(grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT)"
-                cat $CURL_OUTPUT
+                flock /tmp/curl_output.lock cat $CURL_OUTPUT
                 exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
             fi
             if [ "$curl_exit_status" -ne 0 ]; then
@@ -325,7 +325,7 @@ downloadSpinKube(){
         retrycmd_if_failure 30 5 60 curl -fSLv -o "$output_file" "$download_url" 2>&1 | tee $CURL_OUTPUT
         curl_exit_status=$?
         if grep -E "^(curl:.*)|([eE]rr.*)$" $CURL_OUTPUT; then
-            cat $CURL_OUTPUT
+            flock /tmp/curl_output.lock cat $CURL_OUTPUT
             exit $ERR_KRUSTLET_DOWNLOAD_TIMEOUT
         fi
         if [ "$curl_exit_status" -ne 0 ]; then
