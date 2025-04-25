@@ -1,0 +1,4 @@
+# Add the "components" label to PRs that modify parts/common/components.json.
+components:
+- changed-files:
+  - any-glob-to-any-file: 'parts/common/components.json'

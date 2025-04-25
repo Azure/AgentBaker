@@ -128,8 +128,9 @@ EOF
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    
+    if command -v containerd &> /dev/null; then
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+    fi
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else

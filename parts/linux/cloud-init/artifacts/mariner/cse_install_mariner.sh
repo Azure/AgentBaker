@@ -154,9 +154,11 @@ installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    # v1.4.1 is our lowest supported version of containerd
-    
+    # check if containerd command is available before running it
+    if command -v containerd &> /dev/null; then
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+    fi
+    # v1.4.1 is our lowest supported version of containerd    
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
