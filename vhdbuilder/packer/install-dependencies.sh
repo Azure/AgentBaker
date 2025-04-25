@@ -299,31 +299,45 @@ while IFS= read -r p; do
     continue
   fi
   downloadDir=$(echo "${p}" | jq .downloadLocation -r)
+
   #download the package
   case $name in
     "kubernetes-cri-tools")
+      jobPID=()
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"
+        {
+          downloadAndInstallCriTools "${downloadDir}" "${evaluatedURL}" "${version}"
+        } &
+        jobPID+=($!)
       done
       ;;
     "azure-cni")
+      jobPID=()
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
-        echo "  - Azure CNI version ${version}" >> ${VHD_LOGS_FILEPATH}
+        {
+          downloadAzureCNI "${downloadDir}" "${evaluatedURL}"
+          unpackTgzToCNIDownloadsDIR "${evaluatedURL}" #alternatively we could put thus directly in CNI_BIN_DIR to avoid provisioing time move
+          echo "  - Azure CNI version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+        } &
+        jobPID+=($!)
       done
       ;;
     "cni-plugins")
+      jobPID=()
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCNI "${downloadDir}" "${evaluatedURL}"
-        unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
-        echo "  - CNI plugin version ${version}" >> ${VHD_LOGS_FILEPATH}
+        {
+          downloadCNI "${downloadDir}" "${evaluatedURL}"
+          unpackTgzToCNIDownloadsDIR "${evaluatedURL}"
+          echo "  - CNI plugin version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+        } &
+        jobPID+=($!)
       done
       ;;
     "runc")
+      jobPID=()
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
         ensureRunc "${version}" "${evaluatedURL}" "${downloadDir}"
@@ -349,10 +363,14 @@ while IFS= read -r p; do
       done
       ;;
     "azure-acr-credential-provider")
+      jobPID=()
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
-        echo "  - azure-acr-credential-provider version ${version}" >> ${VHD_LOGS_FILEPATH}
+        {
+          downloadCredentialProvider "${downloadDir}" "${evaluatedURL}" "${version}"
+          echo "  - azure-acr-credential-provider version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+        } &
+        jobPID+=($!)
         # ORAS will be used to install other packages for network isolated clusters, it must go first.
       done
       ;;
@@ -371,10 +389,14 @@ while IFS= read -r p; do
       # NOTE that we only keep the latest one per k8s patch version as kubelet/kubectl is decided by VHD version
       # Please do not use the .1 suffix, because that's only for the base image patches
       # regular version >= v1.17.0 or hotfixes >= 20211009 has arm64 binaries.
+      jobPID=()
       for version in ${PACKAGE_VERSIONS[@]}; do
         evaluatedURL=$(evalPackageDownloadURL ${PACKAGE_DOWNLOAD_URL})
-        extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
-        echo "  - kubernetes-binaries version ${version}" >> ${VHD_LOGS_FILEPATH}
+        {
+          extractKubeBinaries "${version}" "${evaluatedURL}" false "${downloadDir}"
+          echo "  - kubernetes-binaries version ${version}" | flock -x ${VHD_LOGS_FILEPATH}
+        } &
+        jobPID+=($!)
       done
       ;;
     *)
@@ -383,6 +405,10 @@ while IFS= read -r p; do
       # However, installation could be different for different packages.
       ;;
   esac
+  # Wait for all background jobs to finish
+  for pid in ${jobPID[@]}; do
+    wait "$pid" || exit 1
+  done
   capture_benchmark "${SCRIPT_NAME}_download_${name}"
 done <<< "$packages"
 
