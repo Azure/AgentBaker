@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 )
@@ -35,8 +37,8 @@ const (
 )
 
 func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScaleSet {
+
 	cluster := s.Runtime.Cluster
-	s.T.Logf("creating VMSS %q in resource group %q", s.Runtime.VMSSName, *cluster.Model.Properties.NodeResourceGroup)
 	var nodeBootstrapping *datamodel.NodeBootstrapping
 	ab, err := agent.NewAgentBaker()
 	require.NoError(s.T, err)
@@ -73,11 +75,15 @@ func createVMSS(ctx context.Context, s *Scenario) *armcompute.VirtualMachineScal
 	}
 
 	s.PrepareVMSSModel(ctx, s.T, &model)
-
 	vmss, err := config.Azure.CreateVMSSWithRetry(ctx, s.T, *cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, model)
 	s.T.Cleanup(func() {
 		cleanupVMSS(ctx, s)
 	})
+	var ipErr error
+	s.Runtime.VMPrivateIP, ipErr = getVMPrivateIPAddress(ctx, s)
+	assert.NoError(s.T, ipErr, "failed to get VM private IP address")
+	uploadSSHKey(ctx, s)
+	logSSHInstructions(s)
 	skipTestIfSKUNotAvailableErr(s.T, err)
 	// fail test, but continue to extract debug information
 	require.NoError(s.T, err, "create vmss %q, check %s for vm logs", s.Runtime.VMSSName, testDir(s.T))
@@ -112,9 +118,6 @@ func extractLogsFromVM(ctx context.Context, s *Scenario) {
 }
 
 func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
-	privateIP, err := getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err)
-
 	commandList := map[string]string{
 		"cluster-provision.log":            "sudo cat /var/log/azure/cluster-provision.log",
 		"kubelet.log":                      "sudo journalctl -u kubelet",
@@ -123,33 +126,36 @@ func extractLogsFromVMLinux(ctx context.Context, s *Scenario) {
 		"aks-node-controller.log":          "sudo cat /var/log/azure/aks-node-controller.log",
 	}
 
-	pod, err := s.Runtime.Cluster.Kube.GetHostNetworkDebugPod(ctx, s.T)
-	if err != nil {
-		require.NoError(s.T, err)
-	}
-
 	var logFiles = map[string]string{}
+	wg := sync.WaitGroup{}
+	lock := sync.Mutex{}
 	for file, sourceCmd := range commandList {
-		execResult, err := execBashCommandOnVM(ctx, s, privateIP, pod.Name, string(s.Runtime.SSHKeyPrivate), sourceCmd)
-		if err != nil {
-			s.T.Logf("error executing %s: %s", sourceCmd, err)
-			continue
-		}
-		logFiles[file] = execResult.String()
+		wg.Add(1)
+		go func(file, sourceCmd string) {
+			defer wg.Done()
+			execResult, err := execBashCommandOnVM(ctx, s, sourceCmd)
+			if err != nil {
+				s.T.Logf("error executing %s: %s", sourceCmd, err)
+				return
+			}
+			lock.Lock()
+			logFiles[file] = execResult.String()
+			lock.Unlock()
+		}(file, sourceCmd)
 	}
-	err = dumpFileMapToDir(s.T, logFiles)
+	err := dumpFileMapToDir(s.T, logFiles)
 	if err != nil {
 		s.T.Logf("error dumping file to directory  %d: %s", len(logFiles), err)
 	}
 	require.NoError(s.T, err)
 }
 
-func execBashCommandOnVM(ctx context.Context, s *Scenario, vmPrivateIP, jumpboxPodName, sshPrivateKey, command string) (*podExecResult, error) {
+func execBashCommandOnVM(ctx context.Context, s *Scenario, command string) (*podExecResult, error) {
 	script := Script{
 		interpreter: Bash,
 		script:      command,
 	}
-	return execScriptOnVm(ctx, s, vmPrivateIP, jumpboxPodName, sshPrivateKey, script)
+	return execScriptOnVm(ctx, s, script)
 }
 
 const uploadLogsPowershellScript = `
@@ -244,7 +250,6 @@ func extractLogsFromVMWindows(ctx context.Context, s *Scenario) {
 		return
 	}
 	s.T.Logf("run command executed successfully: %v", runCommandResp)
-
 	s.T.Logf("uploaded logs to %s", blobUrl)
 
 	downloadBlob := func(blobSuffix string) {
@@ -430,7 +435,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 	model := armcompute.VirtualMachineScaleSet{
 		Location: to.Ptr(config.Config.Location),
 		SKU: &armcompute.SKU{
-			Name:     to.Ptr("Standard_D2ds_v5"),
+			Name:     to.Ptr(config.Config.DefaultVMSKU),
 			Capacity: to.Ptr[int64](1),
 		},
 		Properties: &armcompute.VirtualMachineScaleSetProperties{
@@ -509,7 +514,7 @@ func getBaseVMSSModel(s *Scenario, customData, cseCmd string) armcompute.Virtual
 					Properties: &armcompute.VirtualMachineScaleSetExtensionProperties{
 						Publisher:               to.Ptr("Microsoft.Azure.Extensions"),
 						Type:                    to.Ptr("CustomScript"),
-						TypeHandlerVersion:      to.Ptr("2.0"),
+						TypeHandlerVersion:      to.Ptr("2.1"),
 						AutoUpgradeMinorVersion: to.Ptr(true),
 						Settings:                map[string]interface{}{},
 						ProtectedSettings: map[string]interface{}{

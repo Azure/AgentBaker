@@ -99,8 +99,8 @@ func RunScenario(t *testing.T, s *Scenario) {
 	ctx, cancel := context.WithTimeout(ctx, config.Config.TestTimeoutVMSS)
 	defer cancel()
 	prepareAKSNode(ctx, s)
-
 	t.Logf("Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+
 	validateVM(ctx, s)
 }
 
@@ -164,10 +164,6 @@ func prepareAKSNode(ctx context.Context, s *Scenario) {
 	s.T.Logf("vmss %s creation succeeded", s.Runtime.VMSSName)
 
 	s.Runtime.KubeNodeName = s.Runtime.Cluster.Kube.WaitUntilNodeReady(ctx, s.T, s.Runtime.VMSSName)
-	s.T.Logf("node %s is ready", s.Runtime.VMSSName)
-
-	s.Runtime.VMPrivateIP, err = getVMPrivateIPAddress(ctx, s)
-	require.NoError(s.T, err, "failed to get VM private IP address")
 }
 
 func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
@@ -195,7 +191,7 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 		}
 	}
 
-	vhd, err := s.VHD.VHDResourceID(ctx, t)
+	_, err := s.VHD.VHDResourceID(ctx, t)
 	if err != nil {
 		if config.Config.IgnoreScenariosWithMissingVHD && errors.Is(err, config.ErrNotFound) {
 			t.Skipf("skipping scenario %q: could not find image for VHD %s due to %s", t.Name(), s.VHD.String(), err)
@@ -203,7 +199,6 @@ func maybeSkipScenario(ctx context.Context, t *testing.T, s *Scenario) {
 			t.Fatalf("could not find image for %q (VHD %s): %s", t.Name(), s.VHD.String(), err)
 		}
 	}
-	t.Logf("VHD: %q, TAGS %+v", vhd, s.Tags)
 }
 
 func validateVM(ctx context.Context, s *Scenario) {

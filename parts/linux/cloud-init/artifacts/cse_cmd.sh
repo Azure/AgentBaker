@@ -60,6 +60,7 @@ USER_ASSIGNED_IDENTITY_ID={{GetVariable "userAssignedIdentityID"}}
 API_SERVER_NAME={{GetKubernetesEndpoint}}
 IS_VHD={{GetVariable "isVHD"}}
 GPU_NODE={{GetVariable "gpuNode"}}
+AMD_GPU_NODE={{GetVariable "amdGpuNode"}}
 SGX_NODE={{GetVariable "sgxNode"}}
 MIG_NODE={{GetVariable "migNode"}}
 CONFIG_GPU_DRIVER_IF_NEEDED={{GetVariable "configGPUDriverIfNeeded"}}

@@ -171,8 +171,6 @@ func (k *Kubeclient) WaitUntilNodeReady(ctx context.Context, t *testing.T, vmssN
 				return node.Name
 			}
 		}
-
-		t.Logf("node %s is not ready. Taints: %s Conditions: %s", node.Name, string(nodeTaints), string(nodeConditions))
 	}
 
 	if node == nil {
@@ -454,13 +452,7 @@ func getClusterSubnetID(ctx context.Context, mcResourceGroupName string, t *test
 }
 
 func podHTTPServerLinux(s *Scenario) *corev1.Pod {
-	image := "mcr.microsoft.com/cbl-mariner/busybox:2.0"
-	secretName := ""
-	if s.Tags.Airgap {
-		image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
-		secretName = config.Config.ACRSecretName
-	}
-	return &corev1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-test-pod", s.Runtime.KubeNodeName),
 			Namespace: "default",
@@ -469,7 +461,7 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			Containers: []corev1.Container{
 				{
 					Name:  "mariner",
-					Image: image,
+					Image: "mcr.microsoft.com/cbl-mariner/busybox:2.0",
 					Ports: []corev1.ContainerPort{
 						{
 							ContainerPort: 80,
@@ -501,13 +493,13 @@ func podHTTPServerLinux(s *Scenario) *corev1.Pod {
 			NodeSelector: map[string]string{
 				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
 			},
-			ImagePullSecrets: []corev1.LocalObjectReference{
-				{
-					Name: secretName,
-				},
-			},
 		},
 	}
+	if s.Tags.Airgap {
+		pod.Spec.Containers[0].Image = fmt.Sprintf("%s.azurecr.io/cbl-mariner/busybox:2.0", config.GetPrivateACRName(s.Tags.NonAnonymousACR))
+		pod.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: config.Config.ACRSecretName}}
+	}
+	return pod
 }
 
 func podHTTPServerWindows(s *Scenario) *corev1.Pod {
@@ -660,6 +652,55 @@ func nvidiaDevicePluginDaemonSet() *appsv1.DaemonSet {
 									Path: "/var/lib/kubelet/device-plugins",
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func podEnableAMDGPUResource(s *Scenario) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-amdgpu-device-plugin", s.Runtime.KubeNodeName),
+			Namespace: defaultNamespace,
+		},
+		Spec: corev1.PodSpec{
+			PriorityClassName: "system-node-critical",
+			NodeSelector: map[string]string{
+				"kubernetes.io/hostname": s.Runtime.KubeNodeName,
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "amdgpu-device-plugin-container",
+					Image: "rocm/k8s-device-plugin",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "device-plugin",
+							MountPath: "/var/lib/kubelet/device-plugins",
+						},
+						{
+							Name:      "sys",
+							MountPath: "/sys",
+						},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "device-plugin",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/lib/kubelet/device-plugins",
+						},
+					},
+				},
+				{
+					Name: "sys",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/sys",
 						},
 					},
 				},

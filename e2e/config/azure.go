@@ -291,25 +291,27 @@ func (a *AzureClient) UploadAndGetSignedLink(ctx context.Context, blobName strin
 }
 
 func (a *AzureClient) CreateVMManagedIdentity(ctx context.Context) (string, error) {
-	identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
-		Location: to.Ptr(Config.Location),
-	}, nil)
-	if err != nil {
-		return "", fmt.Errorf("create managed identity: %w", err)
-	}
-	err = a.createBlobStorageAccount(ctx)
-	if err != nil {
-		return "", err
-	}
-	err = a.createBlobStorageContainer(ctx)
-	if err != nil {
-		return "", err
-	}
+	// HACK: temporary disable to allow running test in different subscription, without enough permissions
+	return "", nil
+	// identity, err := a.UserAssignedIdentities.CreateOrUpdate(ctx, ResourceGroupName, VMIdentityName, armmsi.Identity{
+	// 	Location: to.Ptr(Config.Location),
+	// }, nil)
+	// if err != nil {
+	// 	return "", fmt.Errorf("create managed identity: %w", err)
+	// }
+	// err = a.createBlobStorageAccount(ctx)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// err = a.createBlobStorageContainer(ctx)
+	// if err != nil {
+	// 	return "", err
+	// }
 
-	if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
-		return "", err
-	}
-	return *identity.Properties.ClientID, nil
+	// if err := a.assignRolesToVMIdentity(ctx, identity.Properties.PrincipalID); err != nil {
+	// 	return "", err
+	// }
+	// return *identity.Properties.ClientID, nil
 }
 
 func (a *AzureClient) createBlobStorageAccount(ctx context.Context) error {

@@ -823,6 +823,29 @@ ensureGPUDrivers() {
     fi
 }
 
+ensureAMDGPUDrivers() {
+    if [[ $OS == $UBUNTU_OS_NAME ]]; then
+        ensureAMDGPUDriversUbuntu
+    else
+        echo "os $OS not supported at this time. skipping ensureAMDGPUDrivers"
+        return
+    fi
+}
+
+ensureAMDGPUDriversUbuntu() {
+    # for some reason the amdgpu module is in blacklist and won't be loaded without this, I don't know why it's ended up there
+    sudo sed -i '/blacklist amdgpu/d' /etc/modprobe.d/blacklist-radeon-instinct.conf
+    # Note, next command may crash non-AMDGPU machines
+    # Caused by an installation of amdgpu-dkms module inside the installer
+    # Takes about 6m to finish
+    sudo /root/rocm-offline-install.run
+    echo "AMD GPU drivers installed"
+}
+
+cleanAMDGPUDriver() {
+    sudo rm /root/rocm-offline-install.run
+}
+
 disableSSH() {
     systemctlDisableAndStop ssh || exit $ERR_DISABLE_SSH
 }

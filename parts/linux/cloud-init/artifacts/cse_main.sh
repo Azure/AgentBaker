@@ -111,15 +111,15 @@ if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
     logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
-export -f should_skip_nvidia_drivers
-skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
+export -f should_skip_gpu_drivers
+skip_gpu_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_gpu_drivers)
 ret=$?
 if [[ "$ret" != "0" ]]; then
     echo "Failed to determine if nvidia driver install should be skipped"
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
 
-if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_gpu_driver_install}" == "true" ]]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -170,7 +170,7 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
+if [[ "${GPU_NODE}" = true ]] && [[ "${skip_gpu_driver_install}" != "true" ]]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
     if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
         if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
@@ -218,6 +218,11 @@ EOF
         logs_to_events "AKS.CSE.ensureMigPartition" ensureMigPartition
     fi
 fi
+
+if [[ "${AMD_GPU_NODE}" = true ]] && [[ "${skip_gpu_driver_install}" != "true" ]]; then
+    logs_to_events "AKS.CSE.ensureAMDGPUDrivers" ensureAMDGPUDrivers
+fi
+cleanAMDGPUDrivers
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 

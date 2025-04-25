@@ -226,6 +226,7 @@ func (i *Image) String() string {
 
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
+		t.Logf("finding the latest image version for %s, %s", i.Name, i.Version)
 		switch {
 		case i.Latest:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, "", "")
@@ -238,6 +239,7 @@ func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID,
 			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 			t.Logf("failed to find the latest image version for %s", i.vhdErr)
 		}
+		t.Logf("found the latest image version for %s, %s", i.Name, i.vhd)
 	})
 	return i.vhd, i.vhdErr
 }

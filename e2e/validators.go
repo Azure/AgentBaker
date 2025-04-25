@@ -212,7 +212,7 @@ func execScriptOnVMForScenario(ctx context.Context, s *Scenario, cmd string) *po
 		script.interpreter = Bash
 	}
 
-	result, err := execScriptOnVm(ctx, s, s.Runtime.VMPrivateIP, s.Runtime.Cluster.DebugPod.Name, string(s.Runtime.SSHKeyPrivate), script)
+	result, err := execScriptOnVm(ctx, s, script)
 	require.NoError(s.T, err, "failed to execute command on VM")
 	return result
 }
@@ -372,7 +372,7 @@ func waitUntilResourceAvailable(ctx context.Context, s *Scenario, resourceName s
 	nodeName := s.Runtime.KubeNodeName
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-
+	s.T.Logf("waiting for resource %q to be available on node %q", resourceName, nodeName)
 	for {
 		select {
 		case <-ctx.Done():
@@ -551,4 +551,17 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
 	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
 	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
+}
+
+func ValidateAMDGPU(ctx context.Context, s *Scenario) {
+	s.T.Logf("validating pod using AMD GPU")
+
+	execResult := execScriptOnVMForScenario(ctx, s, "lspci -k")
+	require.Equal(s.T, "0", execResult.exitCode, "expected to find lspci command, but did not")
+	assert.Contains(s.T, execResult.stdout.String(), "amdgpu", "expected to see amdgpu kernel module managing a PCI device, but did not")
+
+	ensurePod(ctx, s, podEnableAMDGPUResource(s))
+	s.T.Logf("waiting for AMD GPU to be available")
+	waitUntilResourceAvailable(ctx, s, "amd.com/gpu")
+	//ensureJob(ctx, s, jobAMDGPUWorkload(s))
 }

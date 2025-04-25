@@ -752,3 +752,63 @@ rm -f ./azcopy # cleanup immediately after usage will return in two downloads
 echo "install-dependencies step completed successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
+
+
+downloadAMDGPUDriversUbuntu() {
+  echo "Downloading AMD GPU drivers for Ubuntu ${UBUNTU_RELEASE}"
+  # Determine the appropriate Ubuntu release
+  if [ "${UBUNTU_RELEASE}" == "22.04" ]; then
+    wget https://repo.radeon.com/rocm/installer/rocm-linux-install-offline/rocm-rel-6.3.3/ubuntu/22.04/rocm-offline-creator_1.0.7.60303-1~22.04.run -O rocm-offline-creator.run
+  elif [ "${UBUNTU_RELEASE}" == "24.04" ]; then
+    wget https://repo.radeon.com/rocm/installer/rocm-linux-install-offline/rocm-rel-6.3.3/ubuntu/24.04/rocm-offline-creator_1.0.7.60303-1~24.04.run -O rocm-offline-creator.run
+  else
+    echo "Skipping AMD GPU driver setup: Unsupported Ubuntu release (${UBUNTU_RELEASE})"
+    return 1
+  fi
+  cat << EOL | sudo tee /etc/amdgpu.config
+# Creator/Build Options
+###############################
+INSTALL_PACKAGE_TYPE=0
+INSTALL_PACKAGE_NAME="rocm-offline-install.run"
+INSTALL_PACKAGE_DIR=/root
+
+INSTALL_PACKAGE_REPO=0
+
+DOWNLOAD_PKG_CONFIG_NUM=0
+
+# ROCm Options
+###############################
+ROCM_USECASES=dkms
+ROCM_VERSIONS=6.3.3
+
+# Driver/amdgpu Options
+###############################
+AMDGPU_INSTALL_DRIVER=yes
+AMDGPU_POST_INSTALL_BLACKLIST=no
+AMDGPU_POST_INSTALL_START=yes
+
+# Post-Install Options
+###############################
+AMDGPU_POST_GPU_ACCESS_CURRENT_USER=no
+AMDGPU_POST_GPU_ACCESS_ALL_USERS=no
+
+# Extra Package Options
+###############################
+EXTRA_PACKAGES_ONLY=no
+EXTRA_PACKAGES=""
+EOL
+  # This takes time and potentially can be built and cached outside of VHD build to improve performance
+  # Th output file /root/rocm-offline-install.run is about 200 MB
+  sudo bash ./rocm-offline-creator.run config=/etc/amdgpu.config
+}
+
+downloadAMDGPUDrivers() {
+  if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    downloadAMDGPUDriversUbuntu
+  else
+    echo "os $OS not supported at this time. skipping ensureAMDGPUDrivers"
+    return
+  fi
+}
+
+downloadAMDGPUDrivers
