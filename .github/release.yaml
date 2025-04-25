@@ -14,3 +14,4 @@ changelog:
     - title: VHD Component Updates
       labels:
         - renovate
+        - components
