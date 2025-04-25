@@ -189,6 +189,10 @@ function maskNfsServer() {
     if systemctl list-unit-files nfs-server.service >/dev/null; then
         systemctl --now mask nfs-server || exit $ERR_SYSTEMCTL_MASK_FAIL
     fi
+    if systemctl list-unit-files rpcbind.service >/dev/null; then
+        systemctl disable --now rpcbind.socket
+        systemctl disable --now rpcbind.service
+    fi
 }
 
 function addFailLockDir() {
