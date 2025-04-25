@@ -9,14 +9,17 @@ MAX_RETRIES = 10
 
 def upload_logs():
     print('Uploading logs via Wireserver...')
+
+    # retry policy for each request made via the pool manager
+    retries = urllib3.util.Retry(
+        total=MAX_RETRIES,
+        backoff_factor=0.5,
+        backoff_max=10,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+    
     for retry in range(MAX_RETRIES):
         try:
-            retries = urllib3.util.Retry(
-                total=10,
-                backoff_factor=0.5,
-                backoff_max=10,
-                status_forcelist=[429, 500, 502, 503, 504],
-            )
             http = urllib3.PoolManager(retries=retries)
 
             # Get the container_id and deployment_id from the Goal State
