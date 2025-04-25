@@ -24,12 +24,12 @@ def upload_logs():
 
             # Get the container_id and deployment_id from the Goal State
             goal_state_xml = http.request(
-                    'GET',
-                    'http://168.63.129.16/machine/?comp=goalstate',
-                    headers={
-                        'x-ms-version': '2012-11-30'
-                    }
-                )
+                'GET',
+                'http://168.63.129.16/machine/?comp=goalstate',
+                headers={
+                    'x-ms-version': '2012-11-30'
+                }
+            )
             goal_state = ET.fromstring(goal_state_xml.data.decode('utf-8'))
             container_id = goal_state.findall('./Container/ContainerId')[0].text
             role_config_name = goal_state.findall('./Container/RoleInstanceList/RoleInstance/Configuration/ConfigName')[0].text
