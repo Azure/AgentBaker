@@ -83,7 +83,7 @@ function check_and_curl {
 
     # check DNS 
     nslookup "$url" > /dev/null
-    if [ $? -eq 0 ]; then
+    if [ "$?" -eq 0 ]; then
         logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $url'"
     else
         logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to test DNS resolution to $url. $error_msg'"
@@ -97,17 +97,17 @@ function check_and_curl {
         # curl the url and capture the response code
         response=$(curl -s -m $MAX_TIME -o /dev/null -w "%{http_code}" "https://${url}" -L)
 
-        if [ $response -ge 200 ] && [ $response -lt 400 ]; then
+        if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response'"
             break
-        elif [ $response -eq 400 ] && { [ "$url" == "packages.aks.azure.com" ] || [ "$url" == "acs-mirror.azureedge.net" ] || [ "$url" == "eastus.data.mcr.microsoft.com" ]; }; then
+        elif [ "$response" -eq 400 ] && { [ "$url" = "packages.aks.azure.com" ] || [ "$url" = "acs-mirror.azureedge.net" ] || [ "$url" = "eastus.data.mcr.microsoft.com" ]; }; then
             logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested $url with returned status code $response. This is expected since $url is a repository endpoint which requires a full package path to get 200 status code.'"
             break
         else
             # if the response code is not within successful range, increment the error count
             i=$(( $i + 1 ))
             # if we have reached the maximum number of retries, log an error
-            if [[ $i -eq $MAX_RETRY ]]; then
+            if [ "$i" -eq "$MAX_RETRY" ]; then
                 logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - ERROR: Failed to curl $url after $MAX_RETRY attempts with returned status code $response. $error_msg'" 
                 break
             fi
@@ -126,7 +126,7 @@ fi
 
 # check DNS resolution to ARM endpoint
 nslookup $ARM_ENDPOINT > $NSLOOKUP_FILE
-if [ $? -eq 0 ]; then
+if [ "$?" -eq 0 ]; then
     logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $ARM_ENDPOINT'"
 else
     error_log=$(cat $NSLOOKUP_FILE)
@@ -136,11 +136,11 @@ else
     nameserver=$(cat $NSLOOKUP_FILE | grep "Server" | awk '{print $2}')
     echo "Checking resolv.conf for nameserver $nameserver"
     cat $RESOLV_CONFIG_PATH | grep $nameserver 
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in $RESOLV_CONFIG_PATH'"
     fi
     cat $SYSTEMD_RESOLV_CONFIG_PATH | grep $nameserver 
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         logs_to_events "AKS.testingTraffic.failure" "echo '$(date) - FAILURE: Nameserver $nameserver wasn't found in $SYSTEMD_RESOLV_CONFIG_PATH'"
     fi
 
@@ -172,7 +172,7 @@ else
     APISERVER_FQDN=$(grep server $AKS_KUBECONFIG_PATH | awk -F"server: https://" '{print $2}' | cut -d : -f 1)
     APISERVER_ENDPOINT="https://${APISERVER_FQDN}/healthz"
     nslookup $APISERVER_FQDN > /dev/null
-    if [ $? -eq 0 ]; then
+    if [ "$?" -eq 0 ]; then
         logs_to_events "AKS.testingTraffic.success" "echo '$(date) - SUCCESS: Successfully tested DNS resolution to $APISERVER_FQDN'"
         res=$(curl -m $MAX_TIME -s -o /dev/null -w "%{http_code}" --cacert $AKS_CA_CERT_PATH --cert $AKS_CERT_PATH --key $AKS_KEY_PATH $APISERVER_ENDPOINT)
         if [ $res -ge 200 ] && [ $res -lt 400 ]; then

@@ -85,10 +85,10 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-if [ $EXIT_CODE -ne 0 ]; then
+if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
 else
     upload_logs &
 fi
 
-exit $EXIT_CODE
+exit "$EXIT_CODE"

@@ -1,7 +1,7 @@
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if not .GetDisableCustomData}}
 cloud-init status --wait > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
+[ "$?" -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
 echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
 {{end}}
 {{if getIsAksCustomCloud .CustomCloudConfig}}
