@@ -15,6 +15,16 @@ IFS=$IFS_backup
 cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 /usr/bin/update-ca-trust
 
+# This section creates a cron job to poll for refreshed CA certs daily
+# It can be removed if not needed or desired
+action=${1:-init}
+if [ $action == "ca-refresh" ]
+then
+    exit
+fi
+
+(crontab -l ; echo "0 19 * * * $0 ca-refresh") | crontab -
+
 cloud-init status --wait
 
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
