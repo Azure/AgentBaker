@@ -17,7 +17,7 @@ cp /root/AzureCACertificates/*.crt /usr/local/share/ca-certificates/
 cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
 
 action=${1:-init}
-if [ $action == "ca-refresh" ]
+if [ "$action" = "ca-refresh" ]
 then
     exit
 fi

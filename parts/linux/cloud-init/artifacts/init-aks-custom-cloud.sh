@@ -21,7 +21,7 @@ cp /etc/ssl/certs/ca-certificates.crt /usr/lib/ssl/cert.pem
 # This section creates a cron job to poll for refreshed CA certs daily
 # It can be removed if not needed or desired
 action=${1:-init}
-if [ $action == "ca-refresh" ]
+if [ "$action" = "ca-refresh" ]
 then
     exit
 fi
