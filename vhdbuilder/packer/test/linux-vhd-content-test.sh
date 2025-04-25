@@ -224,7 +224,7 @@ testPackagesInstalled() {
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
       validateDownloadPackage "$downloadURL" $downloadedPackage
-      if [ "$?" -eq 0 ]; then
+      if [ "$?" -ne 0 ]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
