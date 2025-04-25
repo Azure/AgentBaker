@@ -246,13 +246,19 @@ EOF
 prepareTmp() {
     local changed=0
     if ! grep -q /tmp /etc/fstab; then
-        echo 'tmpfs /tmp tmpfs nodev,nosuid,noexec,size=50%,mode=1777' >>/etc/fstab
+        #echo 'tmpfs /tmp tmpfs nodev,nosuid,noexec,size=50%,mode=1777' >>/etc/fstab
+        #changed=1
+	:
+    fi
+    if ! grep -q /dev/shm /etc/fstab; then
+        echo 'tmpfs /dev/shm tmpfs nodev,nosuid,noexec' >>/etc/fstab
         changed=1
     fi
+
     if [[ "${changed}" = 1 ]]; then
-        # Interferes with packer
-        #mount /tmp
-        :
+        systemctl daemon-reload
+        mount -o remount /dev/shm
+        # A noexec /tmp interferes with packer operations
     fi
 }
 
