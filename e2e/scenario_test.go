@@ -1797,6 +1797,7 @@ func Test_Ubuntu2404ARM(t *testing.T) {
 }
 
 func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
+	// TODO: Remove when there is quota for this SKU in E2E test subscription
 	t.Skip("Provisioning of Standard_ND96isr_MI300X_v5 isn't reliable yet")
 	//E2E_LOCATION=eastus2euap
 	//SUBSCRIPTION_ID=4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef
@@ -1827,10 +1828,11 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_MI300(t *testing.T) {
 }
 
 func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
-	// the SKU isn't available in subscriptrion/region we run tests
+	// the SKU isn't available in subscription/region we run tests
+	// TODO: Remove when there is quota for this SKU in E2E test subscription
 	t.Skip("Provisioning of NV4ads_V710_v5 isn't reliable yet")
-	//E2E_LOCATION=southcentralus
-	//SUBSCRIPTION_ID=4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef
+	// E2E_LOCATION=southcentralus
+	// SUBSCRIPTION_ID=4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef
 	RunScenario(t, &Scenario{
 		Description: "Tests that a GPU-enabled node using a MarinerV2 VHD can be properly bootstrapped",
 		Tags: Tags{
@@ -1860,7 +1862,7 @@ func Test_Ubuntu2204Gen2Containerd_AMDGPU_V710(t *testing.T) {
 
 func Test_Ubuntu2404Gen2_AMDGPU_V710(t *testing.T) {
 	// the SKU isn't available in subscriptrion/region we run tests
-	// TODO: enable once the SKU is available
+	// TODO: enable once the SKU is available and timeout failure is resolved
 	t.Skip("Provisioning of NV4ads_V710_v5 isn't reliable yet")
 	//E2E_LOCATION=southcentralus
 	//SUBSCRIPTION_ID=4f3dc0e4-0c77-40ff-bf9a-6ade1e3048ef

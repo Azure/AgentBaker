@@ -843,7 +843,7 @@ ensureAMDGPUDriversUbuntu() {
 }
 
 cleanAMDGPUDriver() {
-    sudo rm /root/rocm-offline-instal.run
+    sudo rm /root/rocm-offline-install.run
 }
 
 disableSSH() {
