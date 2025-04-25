@@ -115,7 +115,7 @@ testAcrCredentialProviderInstalled() {
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
-    if [ "$?" -eq 0 ]; then
+    if [ "$?" -ne 0 ]; then
       err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
