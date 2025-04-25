@@ -6,6 +6,7 @@ import time
 import xml.etree.ElementTree as ET
 
 MAX_RETRIES = 10
+SLEEP_SECONDS = 3
 
 def upload_logs():
     print('Uploading logs via Wireserver...')
@@ -14,7 +15,6 @@ def upload_logs():
     retries = urllib3.util.Retry(
         total=MAX_RETRIES,
         backoff_factor=0.5,
-        backoff_max=10,
         status_forcelist=[429, 500, 502, 503, 504],
     )
     
@@ -63,8 +63,8 @@ def upload_logs():
         except Exception as e:
             print(f'(retry={retry}) Failed to upload logs, encountered exception: {e}')
             if retry < MAX_RETRIES - 1:
-                print(f'will attempt upload again in 3 seconds')
-                time.Sleep(3)
+                print(f'will attempt upload again in {SLEEP_SECONDS} seconds')
+                time.Sleep(SLEEP_SECONDS)
     
     print(f'Failed to upload logs after {MAX_RETRIES} retries')
     exit(1)
