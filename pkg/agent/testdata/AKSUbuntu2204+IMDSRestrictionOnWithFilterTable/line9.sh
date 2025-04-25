@@ -153,30 +153,45 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
-retrycmd_if_failure() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
+_retrycmd_internal() {
+    local retries=$1; shift
+    local wait_sleep=$1; shift
+    local timeout_val=$1; shift 
+    local shouldLog=$1; shift
+    local cmdToRun=("$@") 
+    local exit_status=0
+
+    for i in $(seq 1 "$retries"); do
+        timeout "$timeout_val" "${@}"
+        exit_status=$?
+
+        if [ $exit_status -eq 0 ]; then
+            break 
         fi
+
+        if [ "$i" -eq "$retries" ]; then
+            if [ "$shouldLog" == "true" ]; then
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
+            fi
+            return 1
+        fi
+
+        sleep "$wait_sleep"
     done
-    echo Executed \"$@\" $i times;
+
+    if [ "$shouldLog" == "true" ] && [ $exit_status -eq 0 ]; then
+        echo "Executed \"${cmdToRun[*]}\" $i times."
+    fi
+
+    return $exit_status
 }
 
-retrycmd_if_failure_silent() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+retrycmd_if_failure() {
+    _retrycmd_internal "$1" "$2" "$3" "true" "${@:4}"
+}
+
+retrycmd_silent() {
+    _retrycmd_internal "$1" "$2" "$3" "false" "${@:4}"
 }
 
 retrycmd_nslookup() {
@@ -193,17 +208,6 @@ retrycmd_nslookup() {
     done
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
-}
-retrycmd_if_failure_no_stats() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
 }
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
@@ -337,43 +341,30 @@ retrycmd_curl_file() {
         fi
     done
 }
-systemctl_restart() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
+systemctl_retry_svc_operation() {
+    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4 operation=$5 shouldLogRetryInfo=${6:-false}
     for i in $(seq 1 $retries); do
         timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl restart $svcname && break || \
+        timeout $timeout systemctl $operation $svcname && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
-            systemctl status $svcname --no-pager -l
-            journalctl -u $svcname
+          if [[ "$shouldLogRetryInfo" == "true"  ]]; then
+              systemctl status $svcname --no-pager -l
+              journalctl -u $svcname
+          fi
             sleep $wait_sleep
         fi
     done
+}
+systemctl_restart() {
+    systemctl_retry_svc_operation "$1" "$2" "$3" "$4" "restart" true
 }
 systemctl_stop() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl stop $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    systemctl_retry_svc_operation "$1" "$2" "$3" "$4" "stop"
 }
 systemctl_disable() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl disable $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    systemctl_retry_svc_operation "$1" "$2" "$3" "$4" "disable"
 }
 sysctl_reload() {
     retries=$1; wait_sleep=$2; timeout=$3
@@ -399,7 +390,7 @@ systemctlEnableAndStart() {
         echo "$1 could not be started"
         return 1
     fi
-    if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
+    if ! retrycmd 120 5 25 systemctl enable $1; then
         echo "$1 could not be enabled by systemctl"
         return 1
     fi
