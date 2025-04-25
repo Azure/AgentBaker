@@ -233,7 +233,7 @@ retrycmd_get_tarball() {
             return 1
         else
             timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
-            if [ "$?" != 0 ]; then
+            if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
@@ -250,7 +250,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
             return 1
         else
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [ "$?" != 0 ]; then
+            if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             fi
             sleep $wait_sleep
@@ -317,7 +317,7 @@ retrycmd_get_binary_from_registry_with_oras() {
             else
                 # TODO: support private acr via kubelet identity
                 timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [ "$?" != 0 ]; then
+                if [ "$?" -ne 0 ]; then
                     cat $ORAS_OUTPUT
                 fi
                 sleep $wait_sleep
@@ -351,7 +351,7 @@ retrycmd_curl_file() {
             return 1
         else
             timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [ "$?" != 0 ]; then
+            if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
