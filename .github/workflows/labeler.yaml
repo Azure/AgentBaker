@@ -1,0 +1,41 @@
+name: labeler
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+    id-token: write
+    contents: read
+jobs:
+  label-components:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_KV_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_KV_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_KV_SUBSCRIPTION_ID }}
+      
+      - uses: azure/cli@v2
+        id: app-private-key
+        with:
+          azcliversion: latest
+          inlineScript: |
+              # https://github.com/actions/create-github-app-token?tab=readme-ov-file#inputs
+              private_key=$(az keyvault secret show --vault-name ${{ secrets.AZURE_KV_NAME }} -n ${{ secrets.APP_PRIVATE_KEY_SECRET_NAME }} --query value -o tsv | sed 's/$/\\n/g' | tr -d '\n' | head -c -2) &> /dev/null
+              echo "::add-mask::$private_key"
+              echo "private-key=$private_key" >> $GITHUB_OUTPUT
+
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ steps.app-private-key.outputs.private-key }}
+          repositories: AgentBaker
+
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ steps.app-token.outputs.token }}
