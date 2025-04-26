@@ -35,7 +35,7 @@ logs_to_events() {
     )
     echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
 
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
 }
