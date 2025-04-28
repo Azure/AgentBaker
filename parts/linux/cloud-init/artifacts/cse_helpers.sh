@@ -175,11 +175,11 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file
 # Default value is based on the global CSE timeout of 15 minutes.
 # functions that use this should handle exit code 1 from this function to gracefully handle a "global" cse timeout (mean to avoid random 124 exit codes with no context)
 check_cse_timeout() {
-    shouldLog=${1:-true}
+    shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
 
-    if [[ -z "$CSE_STARTTIME_FORMATTED" ]]; then
-        if [[ $shouldLog == "true" ]]; then
+    if [ -z "$CSE_STARTTIME_FORMATTED" ]; then
+        if [ $shouldLog = "true" ]; then
             echo "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
         fi
         # Return 0 to avoid CSE errors in case something went wrong when setting the start time in cse_start.sh
@@ -188,8 +188,8 @@ check_cse_timeout() {
     fi
 
     cse_start_seconds=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
-    if [[ $? -ne 0 ]]; then
-        if [[ $shouldLog == "true" ]]; then
+    if [ "$?" -ne 0 ]; then
+        if [ "$shouldLog" = "true" ]; then
             echo "Error: Could not parse CSE_STARTTIME_FORMATTED date string: $CSE_STARTTIME_FORMATTED" >&2
         fi
         return 0
@@ -199,8 +199,8 @@ check_cse_timeout() {
     elapsed_seconds=$(($(date +%s) - cse_start_seconds))
 
     # Check if elapsed time exceeds the maximum duration
-    if [[ $elapsed_seconds -gt $maxDurationSeconds ]]; then
-        if [[ $shouldLog == "true" ]]; then
+    if [ "$elapsed_seconds" -gt "$maxDurationSeconds" ]; then
+        if [ "$shouldLog" = "true" ]; then
             echo "Error: CSE has been running for $elapsed_seconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
         fi
         return 1
@@ -233,7 +233,7 @@ _retrycmd_internal() {
         # TODO mumanski - handle this in different places/modify error messages?
         # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
         check_cse_timeout $shouldLog
-        if [[ $? -ne 0 ]]; then
+        if [ "$?" -ne 0 ]; then
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
