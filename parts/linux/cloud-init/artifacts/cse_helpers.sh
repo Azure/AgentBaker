@@ -187,7 +187,7 @@ _retrycmd_internal() {
         exit_status=$?
 
         # Check if successful
-        if [ $exit_status -eq 0 ]; then
+        if [ "$exit_status" -eq 0 ]; then
             break # Success, exit loop
         fi
 
@@ -205,7 +205,7 @@ _retrycmd_internal() {
     done
 
     # Log success if not silent and command succeeded
-    if [ "$shouldLog" = "true" ] && [ $exit_status -eq 0 ]; then
+    if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
 
