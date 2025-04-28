@@ -1298,7 +1298,6 @@
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
                 "latestVersion": "v1.30.10"
               },
-
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",

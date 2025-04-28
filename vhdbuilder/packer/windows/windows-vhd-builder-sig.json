@@ -40,7 +40,6 @@
               "subscription": "{{user `windows_sigmode_source_subscription_id`}}",
               "resource_group": "{{user `windows_sigmode_source_resource_group_name`}}",
               "gallery_name": "{{user `windows_sigmode_source_gallery_name`}}",
-
               "image_name": "{{user `windows_sigmode_source_image_name`}}",
               "image_version": "{{user `windows_sigmode_source_image_version`}}"
             },
