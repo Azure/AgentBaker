@@ -106,9 +106,11 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	if s.VHD.OS == config.OSWindows {
 		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
 			fmt.Sprintf("dir %[1]s", fileName),
 			fmt.Sprintf("Get-Content %[1]s", fileName),
-			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
 
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
@@ -127,14 +129,26 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	require.NotEqual(s.T, "", contents, "Test setup failure: Can't validate that a file excludes an empty string. Filename: %s", fileName)
 
-	steps := []string{
-		"set -ex",
-		fmt.Sprintf("test -f %[1]s || exit 0", fileName),
-		fmt.Sprintf("ls -la %[1]s", fileName),
-		fmt.Sprintf("sudo cat %[1]s", fileName),
-		fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
+	if s.VHD.OS == config.OSWindows {
+		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("dir %[1]s", fileName),
+			fmt.Sprintf("Get-Content %[1]s", fileName),
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 1 } else { exit 0 }", fileName, contents),
+		}
+
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
+	} else {
+		steps := []string{
+			"set -ex",
+			fmt.Sprintf("test -f %[1]s || exit 0", fileName),
+			fmt.Sprintf("ls -la %[1]s", fileName),
+			fmt.Sprintf("sudo cat %[1]s", fileName),
+			fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
+		}
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {

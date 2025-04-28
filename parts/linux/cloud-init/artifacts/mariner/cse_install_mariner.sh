@@ -2,7 +2,7 @@
 
 removeContainerd() {
     containerdPackageName="containerd"
-    if [[ $OS_VERSION == "2.0" ]]; then
+    if [ "$OS_VERSION" = "2.0" ]; then
         containerdPackageName="moby-containerd"
     fi
     retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
@@ -14,14 +14,14 @@ installDeps() {
     # fail to start. Masking it as it's not used, and the stop action of "flush tables" can
     # result in rules getting cleared unexpectedly. Azure Linux 3 fixes this, so we only need
     # this in 2.0.
-    if [[ $OS_VERSION == "2.0" ]]; then
+    if [ "$OS_VERSION" = "2.0" ]; then
       systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
     fi
 
     # Install the package repo for the specific OS version.
     # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
     # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
-    if [[ $OS_VERSION == "3.0" ]]; then
+    if [ "$OS_VERSION" = "3.0" ]; then
       echo "Installing azurelinux-repos-cloud-native"
       dnf_install 30 1 600 azurelinux-repos-cloud-native
     else
@@ -39,7 +39,7 @@ installDeps() {
 
     # install 2.0 specific packages
     # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
-    if [[ $OS_VERSION == "2.0" ]]; then
+    if [ "$OS_VERSION" = "2.0" ]; then
       for dnf_package in apparmor-parser libapparmor blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -49,7 +49,7 @@ installDeps() {
 }
 
 installKataDeps() {
-    if [[ $OS_VERSION != "1.0" ]]; then
+    if [ "$OS_VERSION" != "1.0" ]; then
       if ! dnf_install 30 1 600 kata-packages-host; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -59,7 +59,7 @@ installKataDeps() {
 installCriCtlPackage() {
   version="${1:-}"
   packageName="kubernetes-cri-tools-${version}"
-  if [[ -z $version ]]; then
+  if [ -z "$version" ]; then
     echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
   fi
   echo "Installing ${packageName} with dnf"
@@ -165,10 +165,10 @@ installStandaloneContainerd() {
         echo "installing containerd version ${desiredVersion}"
         removeContainerd
         containerdPackageName="containerd-${desiredVersion}"
-        if [[ $OS_VERSION == "2.0" ]]; then
+        if [ "$OS_VERSION" = "2.0" ]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
         fi
-        if [[ $OS_VERSION == "3.0" ]]; then
+        if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
         
@@ -179,7 +179,7 @@ installStandaloneContainerd() {
     fi
 
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.
-    if [[ -f /etc/containerd/config.toml.rpmsave ]]; then
+    if [ -f /etc/containerd/config.toml.rpmsave ]; then
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
 

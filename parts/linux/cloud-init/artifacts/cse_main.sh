@@ -40,7 +40,7 @@ python3 /opt/azure/containers/provision_redact_cloud_config.py \
     --output-path ${LOG_DIR}/cloud-config.txt
 
 UBUNTU_RELEASE=$(lsb_release -r -s 2>/dev/null || echo "")
-if [[ ${UBUNTU_RELEASE} == "16.04" ]]; then
+if [ "${UBUNTU_RELEASE}" = "16.04" ]; then
     sudo apt-get -y autoremove chrony
     echo $?
     sudo systemctl restart systemd-timesyncd
@@ -57,7 +57,7 @@ logs_to_events "AKS.CSE.setPackagesBaseURL" "echo $PACKAGE_DOWNLOAD_BASE_URL"
 
 logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
-if [[ "${DISABLE_SSH}" == "true" ]]; then
+if [ "${DISABLE_SSH}" = "true" ]; then
     disableSSH || exit $ERR_DISABLE_SSH
 fi
 
@@ -65,32 +65,32 @@ fi
 echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
 # TODO update to use proxy
 
-if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" == "true" ]]; then
-    if [[ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" == "true" ]]; then
+if [ "${SHOULD_CONFIGURE_HTTP_PROXY}" = "true" ]; then
+    if [ "${SHOULD_CONFIGURE_HTTP_PROXY_CA}" = "true" ]; then
         configureHTTPProxyCA || exit $ERR_UPDATE_CA_CERTS
     fi
     configureEtcEnvironment
 fi
 
 
-if [[ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" == "true" ]]; then
+if [ "${SHOULD_CONFIGURE_CUSTOM_CA_TRUST}" = "true" ]; then
     logs_to_events "AKS.CSE.configureCustomCaCertificate" configureCustomCaCertificate || exit $ERR_UPDATE_CA_CERTS
 fi
 
 # Avoid DNS check when http proxy is configured since the DNS resolution will be done through the proxy
-if [[ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]]; then
+if [ "${SHOULD_CONFIGURE_HTTP_PROXY}" != "true" ]; then
     registry_domain_name="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
     registry_domain_name="${registry_domain_name%/}"
 
-    if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then
         registry_domain_name="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}"
     fi
     # Disabling DNS health check until better E2E are created.
     # verify_DNS_health $registry_domain_name || exit $ERR_DNS_HEALTH_FAIL
 fi
 
-if [[ -n "${OUTBOUND_COMMAND}" ]]; then
-    if [[ -n "${PROXY_VARS}" ]]; then
+if [ -n "${OUTBOUND_COMMAND}" ]; then
+    if [ -n "${PROXY_VARS}" ]; then
         eval $PROXY_VARS
     fi
     retrycmd_if_failure 60 1 5 $OUTBOUND_COMMAND >> /var/log/azure/cluster-provision-cse-output.log 2>&1 || exit $ERR_OUTBOUND_CONN_FAIL;
@@ -102,24 +102,24 @@ fi
 logs_to_events "AKS.CSE.setCPUArch" setCPUArch
 source /etc/os-release
 
-if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
+if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     echo "Removing man-db auto-update flag file..."
     logs_to_events "AKS.CSE.removeManDbAutoUpdateFlagFile" removeManDbAutoUpdateFlagFile
 fi
 
-if [[ -n ${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER} ]]; then 
+if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER}" ]; then 
     logs_to_events "AKS.CSE.orasLogin.oras_login_with_kubelet_identity" oras_login_with_kubelet_identity "${registry_domain_name}" $USER_ASSIGNED_IDENTITY_ID $TENANT_ID || exit $?
 fi
 
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
-ret=$?
-if [[ "$ret" != "0" ]]; then
+
+if [ "$?" != 0 ]; then
     echo "Failed to determine if nvidia driver install should be skipped"
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
 
-if [[ "${GPU_NODE}" != "true" ]] || [[ "${skip_nvidia_driver_install}" == "true" ]]; then
+if [ "${GPU_NODE}" != "true" ] || [ "${skip_nvidia_driver_install}" = "true" ]; then
     logs_to_events "AKS.CSE.cleanUpGPUDrivers" cleanUpGPUDrivers
 fi
 
@@ -133,20 +133,19 @@ export -f should_skip_binary_cleanup
 SKIP_BINARY_CLEANUP=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_binary_cleanup)
 # this needs better fix to separate logs and return value;
 FULL_INSTALL_REQUIRED=$(getInstallModeAndCleanupContainerImages "$SKIP_BINARY_CLEANUP" "$IS_VHD" | tail -1)
-ret=$?
-if [[ "$ret" != "0" ]]; then
+if [ "$?" -ne 0 ]; then
     echo "Failed to get the install mode and cleanup container images"
     exit "$ERR_CLEANUP_CONTAINER_IMAGES"
 fi
 
-if [[ $OS == "$UBUNTU_OS_NAME"  && "$FULL_INSTALL_REQUIRED" == "true" ]]; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] && [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
     logs_to_events "AKS.CSE.installDeps" installDeps
 else
     echo "Golden image; skipping dependencies installation"
 fi
 
 logs_to_events "AKS.CSE.installContainerRuntime" installContainerRuntime
-if [ "${NEEDS_CONTAINERD}" == "true" ] && [ "${TELEPORT_ENABLED}" == "true" ]; then 
+if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${TELEPORT_ENABLED}" = "true" ]; then 
     logs_to_events "AKS.CSE.installTeleportdPlugin" installTeleportdPlugin
 fi
 
@@ -154,7 +153,7 @@ setupCNIDirs
 
 logs_to_events "AKS.CSE.installNetworkPlugin" installNetworkPlugin
 
-if [ "${IS_KRUSTLET}" == "true" ]; then
+if [ "${IS_KRUSTLET}" = "true" ]; then
     versionsWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.versionsV2[].latestVersion' "$COMPONENTS_FILEPATH")
     downloadLocationWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadLocation' "$COMPONENTS_FILEPATH")
     downloadURLWasm=$(jq -r '.Packages[] | select(.name == "containerd-wasm-shims") | .downloadURIs.default.current.downloadURL' "$COMPONENTS_FILEPATH")
@@ -170,10 +169,10 @@ fi
 REBOOTREQUIRED=false
 
 echo $(date),$(hostname), "Start configuring GPU drivers"
-if [[ "${GPU_NODE}" = true ]] && [[ "${skip_nvidia_driver_install}" != "true" ]]; then
+if [ "${GPU_NODE}" = "true" ] && [ "${skip_nvidia_driver_install}" != "true" ]; then
     logs_to_events "AKS.CSE.ensureGPUDrivers" ensureGPUDrivers
-    if [[ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = true ]]; then
-        if [[ "${MIG_NODE}" == "true" ]] && [[ -f "/etc/systemd/system/nvidia-device-plugin.service" ]]; then
+    if [ "${ENABLE_GPU_DEVICE_PLUGIN_IF_NEEDED}" = "true" ]; then
+        if [ "${MIG_NODE}" = "true" ] && [ -f "/etc/systemd/system/nvidia-device-plugin.service" ]; then
             mkdir -p "/etc/systemd/system/nvidia-device-plugin.service.d"
             tee "/etc/systemd/system/nvidia-device-plugin.service.d/10-mig_strategy.conf" > /dev/null <<'EOF'
 [Service]
@@ -187,7 +186,7 @@ EOF
         logs_to_events "AKS.CSE.stop.nvidia-device-plugin" "systemctlDisableAndStop nvidia-device-plugin"
     fi
 
-    if [[ "${GPU_NEEDS_FABRIC_MANAGER}" == "true" ]]; then
+    if [ "${GPU_NEEDS_FABRIC_MANAGER}" = "true" ]; then
         # fabric manager trains nvlink connections between multi instance gpus.
         # it appears this is only necessary for systems with *multiple cards*.
         # i.e., an A100 can be partitioned a maximum of 7 ways.
@@ -204,7 +203,7 @@ EOF
     # This will only be true for multi-instance capable VM sizes
     # for which the user has specified a partitioning profile.
     # it is valid to use mig-capable gpus without a partitioning profile.
-    if [[ "${MIG_NODE}" == "true" ]]; then
+    if [ "${MIG_NODE}" = "true" ]; then
         # A100 GPU has a bit in the physical card (infoROM) to enable mig mode.
         # Changing this bit in either direction requires a VM reboot on Azure (hypervisor/plaform stuff).
         # Commands such as `nvidia-smi --gpu-reset` may succeed,
@@ -221,7 +220,7 @@ fi
 
 echo $(date),$(hostname), "End configuring GPU drivers"
 
-if [ "${NEEDS_DOCKER_LOGIN}" == "true" ]; then
+if [ "${NEEDS_DOCKER_LOGIN}" = "true" ]; then
     set +x
     docker login -u $SERVICE_PRINCIPAL_CLIENT_ID -p $SERVICE_PRINCIPAL_CLIENT_SECRET "${AZURE_PRIVATE_REGISTRY_SERVER}"
     set -x
@@ -231,7 +230,7 @@ logs_to_events "AKS.CSE.installKubeletKubectlAndKubeProxy" installKubeletKubectl
 
 createKubeManifestDir
 
-if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" == "true" ]; then
+if [ "${HAS_CUSTOM_SEARCH_DOMAIN}" = "true" ]; then
     "${CUSTOM_SEARCH_DOMAIN_FILEPATH}" > /opt/azure/containers/setup-custom-search-domain.log 2>&1 || exit $ERR_CUSTOM_SEARCH_DOMAINS_FAIL
 fi
 
@@ -248,7 +247,7 @@ logs_to_events "AKS.CSE.configureK8s" configureK8s
 logs_to_events "AKS.CSE.configureCNI" configureCNI
 
 # configure and enable dhcpv6 for dual stack feature
-if [ "${IPV6_DUAL_STACK_ENABLED}" == "true" ]; then
+if [ "${IPV6_DUAL_STACK_ENABLED}" = "true" ]; then
     logs_to_events "AKS.CSE.ensureDHCPv6" ensureDHCPv6
 fi
 
@@ -258,17 +257,17 @@ if isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.configureSystemdUseDomains" configureSystemdUseDomains
 fi
 
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+if [ "${NEEDS_CONTAINERD}" = "true" ]; then
     # containerd should not be configured until cni has been configured first
     logs_to_events "AKS.CSE.ensureContainerd" ensureContainerd 
 else
     logs_to_events "AKS.CSE.ensureDocker" ensureDocker
 fi
 
-if [[ "${MESSAGE_OF_THE_DAY}" != "" ]]; then
+if [ -n "${MESSAGE_OF_THE_DAY}" ]; then
     if isMarinerOrAzureLinux "$OS" && [ -f /etc/dnf/automatic.conf ]; then
       sed -i "s/emit_via = motd/emit_via = stdio/g" /etc/dnf/automatic.conf
-    elif [[ $OS == "$UBUNTU_OS_NAME" ]] && [[ -d "/etc/update-motd.d" ]]; then
+    elif [ "$OS" = "$UBUNTU_OS_NAME" ] && [ -d "/etc/update-motd.d" ]; then
           aksCustomMotdUpdatePath=/etc/update-motd.d/99-aks-custom-motd
           touch "${aksCustomMotdUpdatePath}"
           chmod 0755 "${aksCustomMotdUpdatePath}"
@@ -280,30 +279,30 @@ fi
 # must run before kubelet starts to avoid race in container status using wrong image
 # https://github.com/kubernetes/kubernetes/issues/51017
 # can remove when fixed
-if [[ "${TARGET_CLOUD}" == "AzureChinaCloud" ]]; then
+if [ "${TARGET_CLOUD}" = "AzureChinaCloud" ]; then
     retagMCRImagesForChina
 fi
 
-if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" == "true" ]]; then
+if [ "${ENABLE_HOSTS_CONFIG_AGENT}" = "true" ]; then
     logs_to_events "AKS.CSE.configPrivateClusterHosts" configPrivateClusterHosts
 fi
 
-if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" == "true" ]; then
+if [ "${SHOULD_CONFIG_TRANSPARENT_HUGE_PAGE}" = "true" ]; then
     logs_to_events "AKS.CSE.configureTransparentHugePage" configureTransparentHugePage
 fi
 
-if [ "${SHOULD_CONFIG_SWAP_FILE}" == "true" ]; then
+if [ "${SHOULD_CONFIG_SWAP_FILE}" = "true" ]; then
     logs_to_events "AKS.CSE.configureSwapFile" configureSwapFile
 fi
 
-if [ "${NEEDS_CGROUPV2}" == "true" ]; then
+if [ "${NEEDS_CGROUPV2}" = "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-cgroupv2.conf" > /dev/null <<EOF
 [Service]
 Environment="KUBELET_CGROUP_FLAGS=--cgroup-driver=systemd"
 EOF
 fi
 
-if [ "${NEEDS_CONTAINERD}" == "true" ]; then
+if [ "${NEEDS_CONTAINERD}" = "true" ]; then
     # gross, but the backticks make it very hard to do in Go
     # TODO: move entirely into vhd.
     # alternatively, can we verify this is safe with docker?
@@ -328,7 +327,7 @@ EOF
     fi
 fi
 
-if [ "${HAS_KUBELET_DISK_TYPE}" == "true" ]; then
+if [ "${HAS_KUBELET_DISK_TYPE}" = "true" ]; then
     tee "/etc/systemd/system/kubelet.service.d/10-bindmount.conf" > /dev/null <<EOF
 [Unit]
 Requires=bind-mount.service
@@ -336,22 +335,22 @@ After=bind-mount.service
 EOF
 fi
 
-logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl
+logs_to_events "AKS.CSE.ensureSysctl" ensureSysctl || exit $ERR_SYSCTL_RELOAD
 
-if [ "${NEEDS_CONTAINERD}" == "true" ] &&  [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" == "true" ]; then
+if [ "${NEEDS_CONTAINERD}" = "true" ] && [ "${SHOULD_CONFIG_CONTAINERD_ULIMITS}" = "true" ]; then
   logs_to_events "AKS.CSE.setContainerdUlimits" configureContainerdUlimits
 fi
 
-if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" == "true" ]; then
+if [ "${ENSURE_NO_DUPE_PROMISCUOUS_BRIDGE}" = "true" ]; then
     logs_to_events "AKS.CSE.ensureNoDupOnPromiscuBridge" ensureNoDupOnPromiscuBridge
 fi
 
-if [[ $OS == "$UBUNTU_OS_NAME" ]] || isMarinerOrAzureLinux "$OS"; then
+if [ "$OS" = "$UBUNTU_OS_NAME" ] || isMarinerOrAzureLinux "$OS"; then
     logs_to_events "AKS.CSE.ubuntuSnapshotUpdate" ensureSnapshotUpdate
 fi
 
-if [[ $FULL_INSTALL_REQUIRED == "true" ]]; then
-    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
+if [ "$FULL_INSTALL_REQUIRED" = "true" ]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635 
         echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
         sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
@@ -367,29 +366,32 @@ VALIDATION_ERR=0
 # high timeout to address high latency for private dns server to forward request to Azure DNS
 # dns check will be done only if we use FQDN for API_SERVER_NAME
 API_SERVER_CONN_RETRIES=50
+# shellcheck disable=SC3010
 if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
     API_SERVER_CONN_RETRIES=100
 fi
+# shellcheck disable=SC3010
 if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     API_SERVER_DNS_RETRY_TIMEOUT=300
     if [[ $API_SERVER_NAME == *.privatelink.* ]]; then
        API_SERVER_DNS_RETRY_TIMEOUT=600
     fi
-    if [[ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]]; then
+    if [ "${ENABLE_HOSTS_CONFIG_AGENT}" != "true" ]; then
         RES=$(logs_to_events "AKS.CSE.apiserverNslookup" "retrycmd_nslookup 1 15 ${API_SERVER_DNS_RETRY_TIMEOUT} ${API_SERVER_NAME}")
         STS=$?
     else
         STS=0
     fi
-    if [[ $STS != 0 ]]; then
+    if [ "$STS" != 0 ]; then
         time nslookup ${API_SERVER_NAME}
+        # shellcheck disable=SC3010
         if [[ $RES == *"168.63.129.16"*  ]]; then
             VALIDATION_ERR=$ERR_K8S_API_SERVER_AZURE_DNS_LOOKUP_FAIL
         else
             VALIDATION_ERR=$ERR_K8S_API_SERVER_DNS_LOOKUP_FAIL
         fi
     else
-        if [ "${UBUNTU_RELEASE}" == "18.04" ]; then
+        if [ "${UBUNTU_RELEASE}" = "18.04" ]; then
             #TODO (djsly): remove this once 18.04 isn't supported anymore
             logs_to_events "AKS.CSE.apiserverNC" "retrycmd_if_failure ${API_SERVER_CONN_RETRIES} 1 10 nc -vz ${API_SERVER_NAME} 443" || time nc -vz ${API_SERVER_NAME} 443 || VALIDATION_ERR=$ERR_K8S_API_SERVER_CONN_FAIL
         else
@@ -406,16 +408,16 @@ else
 fi
 
 echo "API server connection check code: $VALIDATION_ERR"
-if [ $VALIDATION_ERR -ne 0 ]; then
+if [ "$VALIDATION_ERR" -ne 0 ]; then
     exit $VALIDATION_ERR
 fi
 
 # Call enableLocalDNS to enable localdns if localdns profile has EnableLocalDNS set to true.
-logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS
+logs_to_events "AKS.CSE.enableLocalDNS" enableLocalDNS || exit $?
 
 logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
 
-if [[ ${ID} != "mariner" ]] && [[ ${ID} != "azurelinux" ]]; then
+if [ "${ID}" != "mariner" ] && [ "${ID}" != "azurelinux" ]; then
     echo "Recreating man-db auto-update flag file and kicking off man-db update process at $(date)"
     createManDbAutoUpdateFlagFile
     /usr/bin/mandb && echo "man-db finished updates at $(date)" &
@@ -424,14 +426,14 @@ fi
 if $REBOOTREQUIRED; then
     echo 'reboot required, rebooting node in 1 minute'
     /bin/bash -c "shutdown -r 1 &"
-    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         # logs_to_events should not be run on & commands
         aptmarkWALinuxAgent unhold &
     fi
 else
-    if [[ $OS == "$UBUNTU_OS_NAME" ]]; then
+    if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
         # logs_to_events should not be run on & commands
-        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
             UU_CONFIG_DIR="/etc/apt/apt.conf.d/99periodic"
             mkdir -p "$(dirname "${UU_CONFIG_DIR}")"
             touch "${UU_CONFIG_DIR}"
@@ -450,8 +452,8 @@ else
         fi
         aptmarkWALinuxAgent unhold &
     elif isMarinerOrAzureLinux "$OS"; then
-        if [ "${ENABLE_UNATTENDED_UPGRADES}" == "true" ]; then
-            if [ "${IS_KATA}" == "true" ]; then
+        if [ "${ENABLE_UNATTENDED_UPGRADES}" = "true" ]; then
+            if [ "${IS_KATA}" = "true" ]; then
                 # Currently kata packages must be updated as a unit (including the kernel which requires a reboot). This can
                 # only be done reliably via image updates as of now so never enable automatic updates.
                 echo 'EnableUnattendedUpgrade is not supported by kata images, will not be enabled'

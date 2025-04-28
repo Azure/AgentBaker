@@ -906,6 +906,9 @@ try
             Clear-TempFolder
             Log-VHDFreeSize
             Test-AzureExtensions
+
+            Write-Output "creating test.txt file"
+            Write-Output "this is a test file" > "c:\k\test.txt"
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"
