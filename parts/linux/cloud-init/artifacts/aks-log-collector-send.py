@@ -3,14 +3,13 @@
 import urllib3
 import uuid
 import time
+from http import HTTPStatus
 import xml.etree.ElementTree as ET
 
 MAX_RETRIES = 10
 SLEEP_SECONDS = 3
 
 def upload_logs():
-    print('Uploading logs via Wireserver...')
-
     # retry policy for each request made via the pool manager
     retries = urllib3.util.Retry(
         total=MAX_RETRIES,
@@ -52,22 +51,23 @@ def upload_logs():
                     body=logs_data,
                 )
 
-            if upload_logs.status == 200:
-                print(f'(retry={retry}) Successfully uploaded logs')
+            if upload_logs.status == HTTPStatus.OK:
+                print(f'(retry={retry}) Successfully uploaded guest agent logs')
                 exit(0)
-            else:
-                print(f'(retry={retry}) Failed to upload logs')
-                print(f'(retry={retry}) Response status: {upload_logs.status}')
-                print(f'(retry={retry}) Response body:\n{upload_logs.data.decode("utf-8")}')
+                
+            print(f'(retry={retry}) Failed to upload guest agent logs')
+            print(f'(retry={retry}) Response status: {upload_logs.status}')
+            print(f'(retry={retry}) Response body:\n{upload_logs.data.decode("utf-8")}')
 
         except Exception as e:
-            print(f'(retry={retry}) Failed to upload logs, encountered exception: {e}')
+            print(f'(retry={retry}) Failed to upload guest agent logs, encountered exception: {e}')
             if retry < MAX_RETRIES - 1:
                 print(f'will attempt upload again in {SLEEP_SECONDS} seconds')
-                time.Sleep(SLEEP_SECONDS)
+                time.sleep(SLEEP_SECONDS)
     
-    print(f'Failed to upload logs after {MAX_RETRIES} retries')
+    print(f'Failed to upload guest agent logs after {MAX_RETRIES} retries')
     exit(1)
 
 if __name__ == "__main__":
+    print('Uploading guest agent VM logs to Wireserver via the vmAgentLog endpoint...')
     upload_logs()
