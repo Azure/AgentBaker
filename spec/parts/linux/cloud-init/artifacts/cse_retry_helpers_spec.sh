@@ -122,6 +122,7 @@ Describe 'long running cse helper functions'
                 The status should eq 2
                 The stdout should eq ""
                 The stderr should include "Error: CSE has been running for"
+                The stderr should include "CSE timeout approaching, exiting early."
             End
             It "returns 0 and does not time out when retrycmd_internal is within the CSE timeout"
                 timeout() {

@@ -171,19 +171,18 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
-# Checks if the elapsed time since CSEStartTime exceeds a specified maximum duration or the default 13 minutes.
-# Default value is based on the global CSE timeout of 15 minutes.
-# functions that use this should handle exit code 1 from this function to gracefully handle a "global" cse timeout (mean to avoid random 124 exit codes with no context)
+# Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
+# That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
 
     if [ -z "$CSE_STARTTIME_FORMATTED" ]; then
-        if [ $shouldLog = "true" ]; then
+        if [ "$shouldLog" = "true" ]; then
             echo "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
         fi
         # Return 0 to avoid CSE errors in case something went wrong when setting the start time in cse_start.sh
-        # TODO mumanski - or should we actually error here?
         return 0
     fi
 
@@ -197,8 +196,6 @@ check_cse_timeout() {
 
     # Calculate elapsed time based on seconds since epoch
     elapsed_seconds=$(($(date +%s) - cse_start_seconds))
-
-    # Check if elapsed time exceeds the maximum duration
     if [ "$elapsed_seconds" -gt "$maxDurationSeconds" ]; then
         if [ "$shouldLog" = "true" ]; then
             echo "Error: CSE has been running for $elapsed_seconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
@@ -215,43 +212,35 @@ check_cse_timeout() {
 _retrycmd_internal() {
     local retries=$1; shift
     local wait_sleep=$1; shift
-    local timeout_val=$1; shift # Renamed to avoid conflict with timeout command
+    local timeout_val=$1; shift
     local shouldLog=$1; shift
-    local cmdToRun=("$@") # Capture command for logging/reporting
+    local cmdToRun=("$@")
     local exit_status=0
 
     for i in $(seq 1 "$retries"); do
-        # Execute the command with timeout
         timeout "$timeout_val" "${@}"
         exit_status=$?
 
-        # Check if successful
         if [ "$exit_status" -eq 0 ]; then
-            break # Success, exit loop
+            break 
         fi
 
-        # TODO mumanski - handle this in different places/modify error messages?
         # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
-        check_cse_timeout $shouldLog
-        if [ "$?" -ne 0 ]; then
+        if ! check_cse_timeout "$shouldLog"; then 
             echo "CSE timeout approaching, exiting early." >&2
             return 2
         fi
 
-        # Check if it's the last retry
         if [ "$i" -eq "$retries" ]; then
             if [ "$shouldLog" = "true" ]; then
-                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: "$exit_status")." >&2
             fi
-            # Return the last exit status on final failure
             return 1
         fi
 
-        # Wait before next retry
         sleep "$wait_sleep"
     done
 
-    # Log success if not silent and command succeeded
     if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
