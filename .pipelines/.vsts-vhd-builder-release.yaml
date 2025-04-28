@@ -1365,4 +1365,5 @@ stages:
       - template: ./templates/e2e-template.yaml
         parameters:
           name: All Linux
+          IgnoreScenariosWithMissingVhd: true
 

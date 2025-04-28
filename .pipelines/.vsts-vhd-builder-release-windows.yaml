@@ -6,9 +6,24 @@ pool:
 
 # Some templates use POOL_NAME instead of AZURE_POOL_NAME, so set POOL_NAME here just in case.
 variables:
-  VHD_BUILD_ID: $(Build.BuildId)
-  LOCATION: $(PACKER_BUILD_LOCATION)
-  POOL_NAME: $(AZURE_POOL_NAME)
+  - name: VHD_BUILD_ID
+    value: $(Build.BuildId)
+  - name: LOCATION
+    value: $(PACKER_BUILD_LOCATION)
+  - name: POOL_NAME
+    value: $(AZURE_POOL_NAME)
+  - name: SUBSCRIPTION_ID
+    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
+    # if SIG_FOR_PRODUCTION is true, then the VHDs are deleted from the gallery before the e2e tests are run.
+  - name: SIG_FOR_PRODUCTION
+    value: False
+    # These next vars are used for the e2e tests
+  - name: AZURE_RESOURCE_GROUP_NAME
+    value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+  - name: GALLERY_RESOURCE_GROUP
+    value: $(AZURE_BUILD_RESOURCE_GROUP_NAME)
+  - name: GALLERY_SUBSCRIPTION_ID
+    value: $(AZURE_BUILD_SUBSCRIPTION_ID)
 
 parameters:
   - name: build2019containerd
