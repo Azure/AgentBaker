@@ -171,30 +171,57 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
-retrycmd_if_failure() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
-            echo Executed \"$@\" $i times;
-            return 1
-        else
-            sleep $wait_sleep
+# Internal helper function for retry logic
+# Not intended for direct use. Use retrycmd or retrycmd_silent based on your needs
+_retrycmd_internal() {
+    local retries=$1; shift
+    local wait_sleep=$1; shift
+    local timeout_val=$1; shift # Renamed to avoid conflict with timeout command
+    local shouldLog=$1; shift
+    local cmdToRun=("$@") # Capture command for logging/reporting
+    local exit_status=0
+
+    for i in $(seq 1 "$retries"); do
+        # Execute the command with timeout
+        timeout "$timeout_val" "${@}"
+        exit_status=$?
+
+        # Check if successful
+        if [ "$exit_status" -eq 0 ]; then
+            break # Success, exit loop
         fi
+
+        # Check if it's the last retry
+        if [ "$i" -eq "$retries" ]; then
+            if [ "$shouldLog" = "true" ]; then
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
+            fi
+            # Return the last exit status on final failure
+            return 1
+        fi
+
+        # Wait before next retry
+        sleep "$wait_sleep"
     done
-    echo Executed \"$@\" $i times;
+
+    # Log success if not silent and command succeeded
+    if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
+        echo "Executed \"${cmdToRun[*]}\" $i times."
+    fi
+
+    return $exit_status
 }
 
-retrycmd_if_failure_silent() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout "${@}" && break || \
-        if [ "$i" -eq "$retries" ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+# Retry a command with logging.
+# Usage: retrycmd_if_failure <retries> <wait_sleep> <timeout> <command...>
+retrycmd_if_failure() {
+    _retrycmd_internal "$1" "$2" "$3" "true" "${@:4}"
+}
+
+# Retry a command without logging information during retrying.
+# Usage: retrycmd_silent <retries> <wait_sleep> <timeout> <command...>
+retrycmd_silent() {
+    _retrycmd_internal "$1" "$2" "$3" "false" "${@:4}"
 }
 
 retrycmd_nslookup() {
@@ -212,17 +239,6 @@ retrycmd_nslookup() {
     done
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
-}
-retrycmd_if_failure_no_stats() {
-    retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
-    for i in $(seq 1 $retries); do
-        timeout $timeout ${@} && break || \
-        if [ "$i" -eq "$retries" ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
 }
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
@@ -358,54 +374,34 @@ retrycmd_curl_file() {
         fi
     done
 }
-systemctl_restart() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
+# base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
+_systemctl_retry_svc_operation() {
+    retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
     for i in $(seq 1 $retries); do
         timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl restart $svcname && break || \
+        timeout $timeout systemctl $operation $svcname && break || \
         if [ $i -eq $retries ]; then
             return 1
         else
-            systemctl status $svcname --no-pager -l
-            journalctl -u $svcname
+          if [ "$shouldLogRetryInfo" = "true" ]; then
+              systemctl status $svcname --no-pager -l
+              journalctl -u $svcname
+          fi
             sleep $wait_sleep
         fi
     done
+}
+systemctl_restart() {
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
 }
 systemctl_stop() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl stop $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4" 
 }
 systemctl_disable() {
-    retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
-    for i in $(seq 1 $retries); do
-        timeout $timeout systemctl daemon-reload
-        timeout $timeout systemctl disable $svcname && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4" 
 }
 sysctl_reload() {
-    retries=$1; wait_sleep=$2; timeout=$3
-    for i in $(seq 1 $retries); do
-        timeout $timeout sysctl --system && break || \
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
+    retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 version_gte() {
   test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
