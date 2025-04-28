@@ -12,7 +12,7 @@ KUBECTL="/usr/local/bin/kubectl --kubeconfig /var/lib/kubelet/kubeconfig"
 n=0
 while [ ! -f /var/lib/kubelet/kubeconfig ]; do
     echo 'Waiting for TLS bootstrapping'
-    if [[ $n -lt 100 ]]; then
+    if [ "$n" -lt 100 ]; then
         n=$((n+1))
         sleep 3
     else
@@ -42,11 +42,55 @@ current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annot
 if [ -n "${current_timestamp}" ]; then
     echo "current timestamp is: ${current_timestamp}"
 
-    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+    if [ "${golden_timestamp}" = "${current_timestamp}" ]; then
         echo "golden and current timestamp is the same, nothing to patch"
         exit 0
     fi
 fi
+
+# Network isolated cluster can't access the internet, so we deploy a live patching repo service in the cluster
+# The node will use the live patching repo service to download the repo metadata and packages
+# If the annotation is not set, we will use the ubuntu snapshot repo
+live_patching_repo_service=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}")
+# Limit the live patching repo service to private IPs in the range of 10.x.x.x, 172.16.x.x - 172.31.x.x, and 192.168.x.x
+private_ip_regex="^((10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|(172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})|(192\.168\.[0-9]{1,3}\.[0-9]{1,3}))$"
+# shellcheck disable=SC3010
+if [ -n "${live_patching_repo_service}" ] && [[ ! "${live_patching_repo_service}" =~ $private_ip_regex ]]; then
+    echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
+    live_patching_repo_service=""
+fi
+for repo in mariner-official-base.repo \
+            mariner-microsoft.repo \
+            mariner-extras.repo \
+            mariner-nvidia.repo \
+            azurelinux-official-base.repo \
+            azurelinux-ms-non-oss.repo \
+            azurelinux-ms-oss.repo \
+            azurelinux-nvidia.repo; do
+    repo_path="/etc/yum.repos.d/${repo}"
+    if [ -f ${repo_path} ]; then
+        old_repo=$(cat ${repo_path})
+        if [ -z "${live_patching_repo_service}" ]; then
+            echo "live patching repo service is not set, use PMC repo"
+            # upgrade from live patching repo service to PMC repo
+            # e.g. replace http://10.224.0.5 with https://packages.microsoft.com
+            sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/https:\/\/packages.microsoft.com/g' ${repo_path}
+        else
+            echo "live patching repo service is: ${live_patching_repo_service}, use it to replace PMC repo" 
+            # upgrade from PMC to live patching repo service
+            # e.g. replace https://packages.microsoft.com with http://10.224.0.5
+            sed -i 's/https:\/\/packages.microsoft.com/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+            # upgrade the old live patching repo service to the new one
+            # e.g. replace http://10.224.0.5 with http://10.224.0.6
+            sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+/http:\/\/'"${live_patching_repo_service}"'/g' ${repo_path}
+        fi
+        new_repo=$(cat ${repo_path})
+        if [ "${old_repo}" != "${new_repo}" ]; then
+            # No diff command in mariner, so just log if the repo is changed 
+            echo "${repo_path} is updated"
+        fi
+    fi
+done
 
 if ! dnf_update; then
     echo "dnf_update failed"

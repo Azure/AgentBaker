@@ -65,21 +65,38 @@ current_timestamp=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annot
 if [ -n "${current_timestamp}" ]; then
     echo "current timestamp is: ${current_timestamp}"
 
-    if [[ "${golden_timestamp}" == "${current_timestamp}" ]]; then
+    if [ "${golden_timestamp}" = "${current_timestamp}" ]; then
         echo "golden and current timestamp is the same, nothing to patch"
         exit 0
     fi
 fi
 
 old_source_list=$(cat ${source_list_path})
-sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
-sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+
+live_patching_repo_service=$($KUBECTL get node ${node_name} -o jsonpath="{.metadata.annotations['kubernetes\.azure\.com/live-patching-repo-service']}")
+private_ip_regex="^((10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})|(172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3})|(192\.168\.[0-9]{1,3}\.[0-9]{1,3}))$"
+if [ -n "${live_patching_repo_service}" ] && [[ ! "${live_patching_repo_service}" =~ $private_ip_regex ]]; then
+    echo "Ignore invalid live patching repo service: ${live_patching_repo_service}"
+    live_patching_repo_service=""
+fi
+if [ -z "${live_patching_repo_service}" ]; then
+    echo "live patching repo service is not set, use ubuntu snapshot repo"
+    sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+    sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+    sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//https:\/\/snapshot.ubuntu.com\/ubuntu\/'"${golden_timestamp}"'/g' ${source_list_path}
+else
+    echo "live patching repo service is: ${live_patching_repo_service}"
+    sed -i 's/http:\/\/azure.archive.ubuntu.com\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    sed -i 's/https:\/\/snapshot.ubuntu.com\/ubuntu\/\([0-9]\{8\}T[0-9]\{6\}Z\)/http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+    sed -i 's/http:\/\/[0-9]\+.[0-9]\+.[0-9]\+.[0-9]\+\/ubuntu\//http:\/\/'"${live_patching_repo_service}"'\/ubuntu\//g' ${source_list_path}
+fi
+
 option=apt_preserve_sources_list
 option_value=true
 cfg_set_option ${cloud_cfg_path} ${option} ${option_value}
 
 new_source_list=$(cat ${source_list_path})
-if [[ "${old_source_list}" != "${new_source_list}" ]]; then
+if [ "${old_source_list}" != "${new_source_list}" ]; then
     echo "$old_source_list" > ${source_list_backup_path}
     echo "/etc/apt/sources.list is updated:"
     diff ${source_list_backup_path} ${source_list_path} || true

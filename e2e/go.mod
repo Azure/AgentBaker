@@ -35,6 +35,9 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
+	github.com/go-logr/zapr v1.3.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
@@ -76,7 +79,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
