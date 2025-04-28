@@ -153,6 +153,37 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
+check_cse_timeout() {
+    shouldLog="${1:-true}"
+    maxDurationSeconds=780 
+
+    if [ -z "$CSE_STARTTIME_FORMATTED" ]; then
+        if [ $shouldLog = "true" ]; then
+            echo "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
+        fi
+        return 0
+    fi
+
+    cse_start_seconds=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
+    if [ "$?" -ne 0 ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Error: Could not parse CSE_STARTTIME_FORMATTED date string: $CSE_STARTTIME_FORMATTED" >&2
+        fi
+        return 0
+    fi
+
+    elapsed_seconds=$(($(date +%s) - cse_start_seconds))
+
+    if [ "$elapsed_seconds" -gt "$maxDurationSeconds" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Error: CSE has been running for $elapsed_seconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
+        fi
+        return 1
+    fi
+
+    return 0
+}
+
 _retrycmd_internal() {
     local retries=$1; shift
     local wait_sleep=$1; shift
@@ -167,6 +198,12 @@ _retrycmd_internal() {
 
         if [ $exit_status -eq 0 ]; then
             break 
+        fi
+
+        check_cse_timeout $shouldLog
+        if [ "$?" -ne 0 ]; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         fi
 
         if [ "$i" -eq "$retries" ]; then
