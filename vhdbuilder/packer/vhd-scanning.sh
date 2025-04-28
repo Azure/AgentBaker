@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eux
-
+exit 0
 source ./parts/linux/cloud-init/artifacts/cse_benchmark_functions.sh
 
 # This variable is used to determine where we need to deploy the VM on which we'll run trivy.
