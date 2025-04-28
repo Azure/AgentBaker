@@ -165,7 +165,7 @@ _retrycmd_internal() {
         timeout "$timeout_val" "${@}"
         exit_status=$?
 
-        if [ $exit_status -eq 0 ]; then
+        if [ "$exit_status" -eq 0 ]; then
             break 
         fi
 
@@ -179,7 +179,7 @@ _retrycmd_internal() {
         sleep "$wait_sleep"
     done
 
-    if [ "$shouldLog" = "true" ] && [ $exit_status -eq 0 ]; then
+    if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
 
