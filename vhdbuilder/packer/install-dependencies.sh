@@ -65,7 +65,9 @@ fi
 if [[ "$IMG_SKU" != *"minimal"* ]]; then
   installDeps
 else
-  updateAptWithMicrosoftPkg
+  if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
+    updateAptWithMicrosoftPkg
+  fi
   # The following packages are required for an Ubuntu Minimal Image to build and successfully run CSE
   # blobfuse2 and fuse3 - ubuntu 22.04 supports blobfuse2 and is fuse3 compatible
   BLOBFUSE2_VERSION="2.4.1"
@@ -267,10 +269,6 @@ downloadAndInstallCriTools() {
 }
 
 echo "VHD will be built with containerd as the container runtime"
-if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
-  updateAptWithMicrosoftPkg
-  capture_benchmark "${SCRIPT_NAME}_update_apt_with_msft_pkg"
-fi
 
 # check if COMPONENTS_FILEPATH exists
 if [ ! -f "$COMPONENTS_FILEPATH" ]; then
