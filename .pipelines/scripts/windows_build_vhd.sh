@@ -29,8 +29,8 @@ set -e
 # SIG_FOR_PRODUCTION has the side effect of deleting the generated VHD.
 
 echo "Checking SourceBranch: ${BRANCH}"
-if [[ -n "${IS_RELEASE_PIPELINE}" ]]; then
-  if [[ "${DRY_RUN}" = "True" ]]; then
+if [ -n "${IS_RELEASE_PIPELINE}" ]; then
+  if [ "${DRY_RUN}" = "True" ]; then
     echo "This is a test build triggered from the release pipeline"
   else
     echo "This is a release build triggered from the release pipeline. DRY_RUN=${DRY_RUN}"
@@ -58,8 +58,9 @@ echo "##vso[task.setvariable variable=MODE]$MODE"
 echo "Original SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "Original SIG_IMAGE_NAME_PREFIX: ${SIG_IMAGE_NAME_PREFIX}"
 echo "Original SIG_IMAGE_VERSION: ${SIG_IMAGE_VERSION}"
+
 # -n is "not empty"
-if [[ -n ${SIG_GALLERY_NAME} && -n ${SIG_IMAGE_NAME_PREFIX} && -n ${SIG_IMAGE_VERSION} ]]; then
+if [ -n "${SIG_GALLERY_NAME}" ] && [ -n "${SIG_IMAGE_NAME_PREFIX}" ] && [ -n "${SIG_IMAGE_VERSION}" ]; then
     echo "All of Name, Prefix, and Version have been set"
     export SIG_IMAGE_NAME="${SIG_IMAGE_NAME_PREFIX}-${WINDOWS_SKU}"
 else
@@ -72,7 +73,7 @@ else
     export WS_SKU=$(echo $WINDOWS_SKU | tr '-' '_')
 fi
 
-if [[ "${USE_RELEASE_DATE}" = "False" ]]; then
+if [ "${USE_RELEASE_DATE}" = "False" ]; then
   echo "use current date as build date";  BUILD_DATE=$(date +"%y%m%d")
 else
   echo "use release date as build date"
@@ -84,7 +85,7 @@ else
   export BUILD_DATE=${RELEASE_DATE}
 fi
 echo "Default BUILD_DATE is $BUILD_DATE"
-if [[ -n "${CUSTOM_BUILD_DATE}" ]]; then
+if [ -n "${CUSTOM_BUILD_DATE}" ]; then
   echo "set BUILD_DATE to ${CUSTOM_BUILD_DATE}"
   export BUILD_DATE=${CUSTOM_BUILD_DATE}
 fi
