@@ -171,8 +171,47 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
+# Checks if the elapsed time since CSEStartTime exceeds a specified maximum duration or the default 13 minutes.
+# Default value is based on the global CSE timeout of 15 minutes.
+# functions that use this should handle exit code 1 from this function to gracefully handle a "global" cse timeout (mean to avoid random 124 exit codes with no context)
+check_cse_timeout() {
+    shouldLog=${1:-true}
+    maxDurationSeconds=780 # 780 seconds = 13 minutes
+
+    if [[ -z "$CSE_STARTTIME_FORMATTED" ]]; then
+        if [[ $shouldLog == "true" ]]; then
+            echo "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
+        fi
+        # Return 0 to avoid CSE errors in case something went wrong when setting the start time in cse_start.sh
+        # TODO mumanski - or should we actually error here?
+        return 0
+    fi
+
+    cse_start_seconds=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
+    if [[ $? -ne 0 ]]; then
+        if [[ $shouldLog == "true" ]]; then
+            echo "Error: Could not parse CSE_STARTTIME_FORMATTED date string: $CSE_STARTTIME_FORMATTED" >&2
+        fi
+        return 0
+    fi
+
+    # Calculate elapsed time based on seconds since epoch
+    elapsed_seconds=$(($(date +%s) - cse_start_seconds))
+
+    # Check if elapsed time exceeds the maximum duration
+    if [[ $elapsed_seconds -gt $maxDurationSeconds ]]; then
+        if [[ $shouldLog == "true" ]]; then
+            echo "Error: CSE has been running for $elapsed_seconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
+        fi
+        return 1
+    fi
+
+    return 0
+}
+
 # Internal helper function for retry logic
 # Not intended for direct use. Use retrycmd or retrycmd_silent based on your needs
+# returns 0 if successful, 1 if failed, 2 if CSE timeout is approaching and global timeout needs to be handled
 _retrycmd_internal() {
     local retries=$1; shift
     local wait_sleep=$1; shift
@@ -189,6 +228,14 @@ _retrycmd_internal() {
         # Check if successful
         if [ "$exit_status" -eq 0 ]; then
             break # Success, exit loop
+        fi
+
+        # TODO mumanski - handle this in different places/modify error messages?
+        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
+        check_cse_timeout $shouldLog
+        if [[ $? -ne 0 ]]; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         fi
 
         # Check if it's the last retry
