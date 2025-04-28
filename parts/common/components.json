@@ -75,7 +75,18 @@
       "downloadURL": "mcr.microsoft.com/windows/servercore/iis:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
-      "windowsVersions": []
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
+          "latestVersion": "windowsservercore-ltsc2022",
+          "windowsSkuMatch": "2022-containerd*"
+        },
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
+          "latestVersion": "windowsservercore-ltsc2022",
+          "windowsSkuMatch": "23H2*"
+        }
+      ]
     },
     {
       "downloadURL": "mcr.microsoft.com/oss/kubernetes/pause:*",
@@ -1287,7 +1298,6 @@
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
                 "latestVersion": "v1.30.10"
               },
-
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
