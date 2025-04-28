@@ -193,7 +193,7 @@ _retrycmd_internal() {
 
         # Check if it's the last retry
         if [ "$i" -eq "$retries" ]; then
-            if [ "$shouldLog" == "true" ]; then
+            if [ "$shouldLog" = "true" ]; then
                 echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
             fi
             # Return the last exit status on final failure
@@ -205,7 +205,7 @@ _retrycmd_internal() {
     done
 
     # Log success if not silent and command succeeded
-    if [ "$shouldLog" == "true" ] && [ $exit_status -eq 0 ]; then
+    if [ "$shouldLog" = "true" ] && [ $exit_status -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
 
@@ -383,7 +383,7 @@ _systemctl_retry_svc_operation() {
         if [ $i -eq $retries ]; then
             return 1
         else
-          if [ "$shouldLogRetryInfo" == "true" ]; then
+          if [ "$shouldLogRetryInfo" = "true" ]; then
               systemctl status $svcname --no-pager -l
               journalctl -u $svcname
           fi

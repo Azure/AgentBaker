@@ -440,7 +440,7 @@ configureKubeletServing() {
     KUBELET_SERVER_CERT_PATH="/etc/kubernetes/certs/kubeletserver.crt"
 
     export -f should_disable_kubelet_serving_certificate_rotation
-    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
+    DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION=$(retrycmd_silent 10 1 10 bash -cx should_disable_kubelet_serving_certificate_rotation)
     if [ "$?" -ne 0 ]; then
         echo "failed to determine if kubelet serving certificate rotation should be disabled by nodepool tags"
         exit $ERR_LOOKUP_DISABLE_KUBELET_SERVING_CERTIFICATE_ROTATION_TAG
