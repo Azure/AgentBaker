@@ -706,7 +706,7 @@ configGPUDrivers() {
             ctr -n k8s.io image pull $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG
             retrycmd_if_failure 5 10 600 bash -c "$CTR_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG gpuinstall /entrypoint.sh install"
             ret=$?
-            if [ "$ret" != "0" ]; then
+            if [ "$ret" -ne 0 ]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
@@ -714,7 +714,7 @@ configGPUDrivers() {
         else
             bash -c "$DOCKER_GPU_INSTALL_CMD $NVIDIA_DRIVER_IMAGE:$NVIDIA_DRIVER_IMAGE_TAG install" 
             ret=$?
-            if [ "$ret" != "0" ]; then
+            if [ "$ret" -ne 0 ]; then
                 echo "Failed to install GPU driver, exiting..."
                 exit $ERR_GPU_DRIVERS_START_FAIL
             fi
@@ -757,7 +757,7 @@ validateGPUDrivers() {
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 $GPU_DEST/bin/nvidia-smi)
     fi
     SMI_STATUS=$?
-    if [ "$SMI_STATUS" != 0 ]; then
+    if [ "$SMI_STATUS" -ne 0 ]; then
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
             exit $ERR_GPU_INFO_ROM_CORRUPTED
         else

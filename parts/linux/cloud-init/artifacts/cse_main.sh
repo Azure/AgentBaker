@@ -114,7 +114,7 @@ fi
 export -f should_skip_nvidia_drivers
 skip_nvidia_driver_install=$(retrycmd_if_failure_no_stats 10 1 10 bash -cx should_skip_nvidia_drivers)
 
-if [ "$?" != 0 ]; then
+if [ "$?" -ne 0 ]; then
     echo "Failed to determine if nvidia driver install should be skipped"
     exit $ERR_NVIDIA_DRIVER_INSTALL
 fi
@@ -382,7 +382,7 @@ if ! [[ ${API_SERVER_NAME} =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     else
         STS=0
     fi
-    if [ "$STS" != 0 ]; then
+    if [ "$STS" -ne 0 ]; then
         time nslookup ${API_SERVER_NAME}
         # shellcheck disable=SC3010
         if [[ $RES == *"168.63.129.16"*  ]]; then

@@ -101,7 +101,7 @@ installBpftrace() {
     local bpftrace_url="https://upstreamartifacts.azureedge.net/$bpftrace_bin/$version"
     local bpftrace_filepath="/usr/local/bin/$bpftrace_bin"
     local tools_filepath="/usr/local/share/$bpftrace_bin"
-    if [ "$(isARM64)" = 1 ]; then
+    if [ "$(isARM64)" -eq 1 ]; then
         # install bpftrace tool using default bpftrace apt package
         # the binary at "$bpftrace_url/$bpftrace_bin" is not for arm64
         if [ ! -f "/usr/sbin/bpftrace" ]; then
