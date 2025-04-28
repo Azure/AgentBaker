@@ -2,6 +2,21 @@
 set -x
 set -e
 
+echo "Installing previous version of azcli in order to mitigate az compute bug" # TODO: (zachary-bailey) remove this code once new image picks up bug fix in azcli
+source parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh
+
+wait_for_apt_locks
+AZ_VER_REQUIRED=2.70.0
+AZ_DIST=$(lsb_release -cs)
+sudo apt-get install azure-cli=${AZ_VER_REQUIRED}-1~${AZ_DIST} -y --allow-downgrades
+AZ_VER_ACTUAL=$(az --version | head -n 1 | awk '{print $2}')
+if [ "$AZ_VER_ACTUAL" != "$AZ_VER_REQUIRED" ]; then
+	echo -e "Required Azure CLI Version: $AZ_VER_REQUIRED\nActual Azure CLI Version: $AZ_VER_ACTUAL"
+  echo "Exiting due to incorrect Azure CLI version..."
+	exit 1
+fi
+echo "Azure CLI version: $AZ_VER_ACTUAL"
+
 CDIR=$(dirname "${BASH_SOURCE}")
 SETTINGS_JSON="${SETTINGS_JSON:-./packer/settings.json}"
 PUBLISHER_BASE_IMAGE_VERSION_JSON="${PUBLISHER_BASE_IMAGE_VERSION_JSON:-./vhdbuilder/publisher_base_image_version.json}"
@@ -136,10 +151,10 @@ if [ -z "$rg_id" ]; then
 fi
 
 if [ "$MODE" != "linuxVhdMode" ]; then
-	avail=$(az storage account check-name -n ${STORAGE_ACCOUNT_NAME} -o json | jq -r .nameAvailable)
+	avail=$(az storage account check-name -n "${STORAGE_ACCOUNT_NAME}" -o json | jq -r .nameAvailable)
 	if $avail ; then
 		echo "creating new storage account ${STORAGE_ACCOUNT_NAME}"
-		az storage account create -n $STORAGE_ACCOUNT_NAME -g $AZURE_RESOURCE_GROUP_NAME --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
+		az storage account create -n "$STORAGE_ACCOUNT_NAME" -g "$AZURE_RESOURCE_GROUP_NAME" --sku "Standard_RAGRS" --tags "now=${CREATE_TIME}" --location ${AZURE_LOCATION}
 		echo "creating new container system"
 		az storage container create --name system --account-name=$STORAGE_ACCOUNT_NAME --auth-mode login
 	else
@@ -200,7 +215,7 @@ if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
 	echo "SIG existence checking for $MODE"
 
 	is_need_create=true
-	state=$(az sig show --resource-group ${AZURE_RESOURCE_GROUP_NAME} --gallery-name ${SIG_GALLERY_NAME} | jq -r '.provisioningState') || state=""
+	state=$(az sig show --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" | jq -r '.provisioningState') || state=""
 
 	# {
 	#   "description": null,
@@ -502,7 +517,7 @@ fi
 # windows_image_version refers to the version from azure gallery
 cat <<EOF > vhdbuilder/packer/settings.json
 { 
-  "subscription_id":  "${SUBSCRIPTION_ID}",
+  "subscription_id": "${SUBSCRIPTION_ID}",
   "resource_group_name": "${AZURE_RESOURCE_GROUP_NAME}",
   "location": "${PACKER_BUILD_LOCATION}",
   "storage_account_name": "${STORAGE_ACCOUNT_NAME}",

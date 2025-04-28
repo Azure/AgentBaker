@@ -198,11 +198,11 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.44"
+          "latestVersion": "v1.5.45"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.23"
+          "latestVersion": "v1.6.24"
         }
       ],
       "multiArchVersionsV2": [
@@ -219,8 +219,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.5.44",
-          "previousLatestVersion": "v1.5.42",
+          "latestVersion": "v1.5.45",
+          "previousLatestVersion": "v1.5.44",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -236,8 +236,8 @@
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=containernetworking/azure-cns",
-          "latestVersion": "v1.6.23",
-          "previousLatestVersion": "v1.6.22",
+          "latestVersion": "v1.6.24",
+          "previousLatestVersion": "v1.6.23",
           "containerImagePrefetch": {
             "latestVersion": {
               "binaries": [
@@ -312,16 +312,23 @@
       "windowsVersions": []
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/apiserver-network-proxy/agent:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
+          "latestVersion": "v0.30.3-hotfix.20240819"
+        }
+      ],
+      "windowsVersions": []
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/apiserver-network-proxy/agent:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes/apiserver-network-proxy/agent",
           "latestVersion": "v0.30.3"
-        },
-        {
-          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/apiserver-network-proxy/agent",
-          "latestVersion": "v0.30.3-hotfix.20240819"
         }
       ],
       "windowsVersions": []
@@ -700,8 +707,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-addon-prod",
-          "latestVersion": "1.11.0",
-          "previousLatestVersion": "1.10.1"
+          "latestVersion": "1.11.1",
+          "previousLatestVersion": "1.11.0"
         }
       ],
       "windowsVersions": []
@@ -712,8 +719,8 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azure-policy/policy-kubernetes-webhook",
-          "latestVersion": "1.11.0",
-          "previousLatestVersion": "1.10.1"
+          "latestVersion": "1.11.1",
+          "previousLatestVersion": "1.11.0"
         }
       ],
       "windowsVersions": []
@@ -1320,7 +1327,6 @@
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",
                 "latestVersion": "v1.30.10"
               },
-
               {
                 "k8sVersion": "1.31",
                 "renovateTag": "OCI_registry=https://mcr.microsoft.com, name=oss/binaries/kubernetes/azure-acr-credential-provider",

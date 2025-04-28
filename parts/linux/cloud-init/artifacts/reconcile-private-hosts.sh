@@ -5,7 +5,7 @@ set -o pipefail
 
 get-apiserver-ip-from-tags() {
   tags=$(curl -sSL -H "Metadata: true" "http://169.254.169.254/metadata/instance/compute/tags?api-version=2019-03-11&format=text")
-  if [ "$?" == "0" ]; then
+  if [ "$?" -eq 0 ]; then
     IFS=";" read -ra tagList <<< "$tags"
     for i in "${tagList[@]}"; do
       tagKey=$(cut -d":" -f1 <<<$i)
@@ -21,6 +21,7 @@ get-apiserver-ip-from-tags() {
 
 SLEEP_SECONDS=15
 clusterFQDN="${KUBE_API_SERVER_NAME}"
+# shellcheck disable=SC3010
 if [[ $clusterFQDN != *.privatelink.* ]]; then
   echo "skip reconcile hosts for $clusterFQDN since it's not AKS private cluster"
   exit 0

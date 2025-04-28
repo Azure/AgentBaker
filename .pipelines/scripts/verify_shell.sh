@@ -6,16 +6,16 @@ installed=$(command -v shellcheck 2>&1 >/dev/null; echo $?)
 
 # must be set after above, or else `command -v` failure exits whole script.
 set -e
-if [[ "${installed}" -ne 0 ]]; then
+if [ "${installed}" -ne 0 ]; then
     echo "shellcheck not installed...trying to install."
     DISTRO="$(uname | tr "[:upper:]" "[:lower:]")"
     # override for custom kernels, wsl, etc.
-    if [[ "${DISTRO}" == "Linux" || "${DISTRO}" == "linux" ]]; then
+    if [ "${DISTRO}" = "Linux" ] || [ "${DISTRO}" = "linux" ]; then
         DISTRO="$(grep ^ID= < /etc/os-release | cut -d= -f2)"
     fi
-    if [[ "${DISTRO}" == "ubuntu" ]]; then
+    if [ "${DISTRO}" = "ubuntu" ]; then
         sudo apt-get install shellcheck -y
-    elif [[ "${DISTRO}" == "darwin" ]]; then
+    elif [ "${DISTRO}" = "darwin" ]; then
         brew install cabal-install shellcheck
     else 
         echo "distro ${DISTRO} not supported at this time. skipping shellcheck"
@@ -31,10 +31,19 @@ filesToCheck=$(find . -type f -name "*.sh" -not -path './pkg/agent/testdata/*' -
 generatedTestData=$(find ./pkg/agent/testdata -type f -name "*.sh" )
 for file in $generatedTestData; do
     firstLine=$(awk 'NR==1 {print; exit}' ${file})
-    if [[ ${firstLine} =~ "#!/bin/bash" ]]; then
+    # shellcheck disable=SC3010
+    if [[ "${firstLine}" =~ "#!/bin/bash" || "${firstLine}" =~ "#!/usr/bin/env bash" ]]; then
         filesToCheck+=(${file})
+    else
+         echo "Skipping file as wrong shell $file : firstLine: $firstLine"
     fi
 done
+
+# couple of blank lines between the skipped files and the shellchecked files.
+echo
+echo
+echo "Will run shellcheck on:"
+echo "$filesToCheck"
 
 echo "Running shellcheck..."
 
@@ -78,4 +87,16 @@ SC2027
 SC2010
 SC2317
 "
+
+# Checking generic shell scripts regardless of the shell variant
 shellcheck $(printf -- "-e %s " $IGNORED) $filesToCheck
+
+# POSIX-Compliant checks
+# Checking SC3010 using [ ] instead of [[ ]] for POSIX compliance.
+# Checking SC3014 that == in place of = is undefined in POSIX.
+# We can add more checks if needed.
+POSIX_CHECKS="
+SC3010
+SC3014
+"
+shellcheck "--shell=sh" $(printf -- "-i %s " $POSIX_CHECKS) $filesToCheck

@@ -171,7 +171,7 @@ retrycmd_if_failure_silent() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         timeout $timeout "${@}" && break || \
-        if [ $i -eq $retries ]; then
+        if [ "$i" -eq "$retries" ]; then
             return 1
         else
             sleep $wait_sleep
@@ -185,7 +185,7 @@ retrycmd_nslookup() {
     while true; do
         nslookup -timeout=$timeout -retry=0 $record && break || \
         current_time=$(date +%s)
-        if [ $((current_time - start_time)) -ge $total_timeout ]; then
+        if [ "$((current_time - start_time))" -ge "$total_timeout" ]; then
             echo "Total timeout $total_timeout reached, nslookup -timeout=$timeout -retry=0 $record failed"
             return 1
         fi
@@ -198,7 +198,7 @@ retrycmd_if_failure_no_stats() {
     retries=$1; wait_sleep=$2; timeout=$3; shift && shift && shift
     for i in $(seq 1 $retries); do
         timeout $timeout ${@} && break || \
-        if [ $i -eq $retries ]; then
+        if [ "$i" -eq "$retries" ]; then
             return 1
         else
             sleep $wait_sleep
@@ -209,12 +209,12 @@ retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
-        if [ $i -eq $tar_retries ]; then
+        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
+        if [ "$i" -eq "$tar_retries" ]; then
             return 1
         else
             timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
+            if [ "$?" != 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
@@ -226,12 +226,12 @@ retrycmd_get_tarball_from_registry_with_oras() {
     tar_folder=$(dirname "$tarball")
     echo "${tar_retries} retries"
     for i in $(seq 1 $tar_retries); do
-        tar -tzf $tarball && break || \
-        if [ $i -eq $tar_retries ]; then
+        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
+        if [ "$i" -eq "$tar_retries" ]; then
             return 1
         else
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
+            if [ "$?" != 0 ]; then
                 cat $ORAS_OUTPUT
             fi
             sleep $wait_sleep
@@ -276,7 +276,7 @@ retrycmd_oras_login() {
     for i in $(seq 1 $retries); do
         ORAS_LOGIN_OUTPUT=$(oras login "$acr_url" --identity-token-stdin --registry-config "${ORAS_REGISTRY_CONFIG_FILE}" <<< "$REFRESH_TOKEN" 2>&1)
         exit_code=$?
-        if [[ $exit_code -eq 0 ]]; then
+        if [ "$exit_code" -eq 0 ]; then
             echo "$ORAS_LOGIN_OUTPUT"
             return 0
         fi
@@ -297,7 +297,7 @@ retrycmd_get_binary_from_registry_with_oras() {
                 return 1
             else
                 timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [[ $? != 0 ]]; then
+                if [ "$?" != 0 ]; then
                     cat $ORAS_OUTPUT
                 fi
                 sleep $wait_sleep
@@ -309,7 +309,7 @@ retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
         output=$(timeout 60 oras repo ls "$url" --registry-config "$ORAS_REGISTRY_CONFIG_FILE" 2>&1)
-        if [ $? -eq 0 ]; then
+        if [ "$?" -eq 0 ]; then
             echo "acr is reachable"
             return 0
         fi
@@ -325,32 +325,17 @@ retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
     for i in $(seq 1 $curl_retries); do
-        [[ -f $filepath ]] && break
-        if [ $i -eq $curl_retries ]; then
+        [ -f "$filepath" ] && break
+        if [ "$i" -eq "$curl_retries" ]; then
             return 1
         else
             timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [[ $? != 0 ]]; then
+            if [ "$?" != 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
         fi
     done
-}
-wait_for_file() {
-    retries=$1; wait_sleep=$2; filepath=$3
-    paved=/opt/azure/cloud-init-files.paved
-    grep -Fq "${filepath}" $paved && return 0
-    for i in $(seq 1 $retries); do
-        grep -Fq '#EOF' $filepath && break
-        if [ $i -eq $retries ]; then
-            return 1
-        else
-            sleep $wait_sleep
-        fi
-    done
-    sed -i "/#EOF/d" $filepath
-    echo $filepath >> $paved
 }
 systemctl_restart() {
     retries=$1; wait_sleep=$2; timeout=$3 svcname=$4
@@ -430,20 +415,11 @@ systemctlDisableAndStop() {
 semverCompare() {
     VERSION_A=$(echo $1 | cut -d "+" -f 1)
     VERSION_B=$(echo $2 | cut -d "+" -f 1)
-    [[ "${VERSION_A}" == "${VERSION_B}" ]] && return 0
+    [ "${VERSION_A}" = "${VERSION_B}" ] && return 0
     sorted=$(echo ${VERSION_A} ${VERSION_B} | tr ' ' '\n' | sort -V )
     highestVersion=$(IFS= echo "${sorted}" | cut -d$'\n' -f2)
-    [[ "${VERSION_A}" == ${highestVersion} ]] && return 0
+    [ "${VERSION_A}" = ${highestVersion} ] && return 0
     return 1
-}
-downloadDebPkgToFile() {
-    PKG_NAME=$1
-    PKG_VERSION=$2
-    PKG_DIRECTORY=$3
-    mkdir -p $PKG_DIRECTORY
-    pushd ${PKG_DIRECTORY}
-    retrycmd_if_failure 10 5 600 apt-get download ${PKG_NAME}=${PKG_VERSION}*
-    popd
 }
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
@@ -467,7 +443,7 @@ getCPUArch() {
     fi
 }
 isARM64() {
-    if [[ $(getCPUArch) == "arm64" ]]; then
+    if [ "$(getCPUArch)" = "arm64" ]; then
         echo 1
     else
         echo 0
@@ -503,7 +479,10 @@ logs_to_events() {
         --arg EventTid    "0" \
         '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
     )
-    echo ${json_string} > ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    mkdir -p ${EVENTS_LOGGING_DIR}
+    if [ -f ${EVENTS_LOGGING_DIR}${eventsFileName}.json ]; then
+        echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
+    fi
 
     if [ "$ret" != "0" ]; then
       return $ret
@@ -545,7 +524,7 @@ should_skip_binary_cleanup() {
 
 isMarinerOrAzureLinux() {
     local os=$1
-    if [[ $os == $MARINER_OS_NAME ]] || [[ $os == $MARINER_KATA_OS_NAME ]] || [[ $os == $AZURELINUX_OS_NAME ]]; then
+    if [ "$os" = "$MARINER_OS_NAME" ] || [ "$os" = "$MARINER_KATA_OS_NAME" ] || [ "$os" = "$AZURELINUX_OS_NAME" ]; then
         return 0
     fi
     return 1
@@ -553,7 +532,7 @@ isMarinerOrAzureLinux() {
 
 evalPackageDownloadURL() {
     local url=${1:-}
-    if [[ -n "$url" ]]; then
+    if [ -n "$url" ]; then
          eval "result=${url}"
          echo $result
          return
@@ -562,16 +541,14 @@ evalPackageDownloadURL() {
 }
 
 installJq() {
-  output=$(jq --version)
-  if [ -n "$output" ]; then
-    echo "$output"
-  else
-    if isMarinerOrAzureLinux "$OS"; then
-      sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
-    else
-      apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    if command -v jq &> /dev/null; then
+        return 0
     fi
-  fi
+    if isMarinerOrAzureLinux "$OS"; then
+        sudo tdnf install -y jq && echo "jq was installed: $(jq --version)"
+    else
+        apt_get_install 5 1 60 jq && echo "jq was installed: $(jq --version)"
+    fi
 }
 
 updateRelease() {
@@ -585,13 +562,13 @@ updateRelease() {
     #For MARINER, the release is always set to "current" now.
     #For AZURELINUX, if $osVersion is 3.0 and "v3.0" is also defined in components.json, then $RELEASE is set to "v3.0"
     if isMarinerOrAzureLinux "${os}"; then
-        if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.\"v${osVersion}\"") != "null" ]]; then
+        if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.\"v${osVersion}\"" 2>/dev/null)" != "null" ]; then
             RELEASE="\"v${osVersion}\""
         fi
         return 0
     fi
     local osVersionWithoutDot=$(echo "${osVersion}" | sed 's/\.//g')
-    if [[ $(echo "${package}" | jq ".downloadURIs.ubuntu.r${osVersionWithoutDot}") != "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.ubuntu.r${osVersionWithoutDot}" 2>/dev/null)" != "null" ]; then
         RELEASE="\"r${osVersionWithoutDot}\""
     fi
 }
@@ -605,11 +582,11 @@ updatePackageVersions() {
     local osLowerCase=$(echo "${os}" | tr '[:upper:]' '[:lower:]')
     PACKAGE_VERSIONS=()
 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") == "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}" 2>/dev/null)" = "null" ]; then
         osLowerCase="default"
     fi
 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2") != "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2")" != "null" ]; then
         local latestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.latestVersion != null) | .latestVersion"))
         local previousLatestVersions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
         for version in "${latestVersions[@]}"; do
@@ -621,7 +598,7 @@ updatePackageVersions() {
         return 0
     fi
 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.versions") == "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions")" = "null" ]; then
         return 0
     fi
     local versions=($(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}.${RELEASE}.versions[]"))
@@ -635,7 +612,7 @@ updateMultiArchVersions() {
   local imageToBePulled="$1"
 
   #jq the MultiArchVersions from the containerImages. If ContainerImages[i].multiArchVersionsV2 is not null, return that, else return ContainerImages[i].multiArchVersions
-  if [[ $(echo "${imageToBePulled}" | jq .multiArchVersionsV2) != "null" ]]; then
+  if [ "$(echo "${imageToBePulled}" | jq .multiArchVersionsV2)" != "null" ]; then
     local latestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.latestVersion != null) | .latestVersion"))
     local previousLatestVersions=($(echo "${imageToBePulled}" | jq -r ".multiArchVersionsV2[] | select(.previousLatestVersion != null) | .previousLatestVersion"))
     for version in "${latestVersions[@]}"; do
@@ -663,7 +640,7 @@ updatePackageDownloadURL() {
     
     #if .downloadURIs.${osLowerCase} exist, then get the downloadURL from there.
     #otherwise get the downloadURL from .downloadURIs.default 
-    if [[ $(echo "${package}" | jq ".downloadURIs.${osLowerCase}") != "null" ]]; then
+    if [ "$(echo "${package}" | jq -r ".downloadURIs.${osLowerCase}")" != "null" ]; then
         downloadURL=$(echo "${package}" | jq ".downloadURIs.${osLowerCase}.${RELEASE}.downloadURL" -r)
         [ "${downloadURL}" = "null" ] && PACKAGE_DOWNLOAD_URL="" || PACKAGE_DOWNLOAD_URL="${downloadURL}"
         return
@@ -700,12 +677,13 @@ removeKubeletNodeLabel() {
 }
 
 updateKubeBinaryRegistryURL() {
-    if [[ -n "${KUBE_BINARY_URL}" ]] && isRegistryUrl "${KUBE_BINARY_URL}"; then
+    if [ -n "${KUBE_BINARY_URL}" ] && isRegistryUrl "${KUBE_BINARY_URL}"; then
         echo "KUBE_BINARY_URL is a registry url, will use it to pull the kube binary"
         KUBE_BINARY_REGISTRY_URL="${KUBE_BINARY_URL}"
     else
         url_regex='https://[^/]+/kubernetes/v[0-9]+\.[0-9]+\..+/binaries/.+'
-        if [[ -n ${KUBE_BINARY_URL} ]]; then
+
+        if [ -n "${KUBE_BINARY_URL}" ]; then
             binary_version="v${KUBERNETES_VERSION}" 
             if [[ ${KUBE_BINARY_URL} =~ $url_regex ]]; then
                 version_with_prefix="${KUBE_BINARY_URL#*kubernetes/}"
@@ -738,14 +716,14 @@ verify_DNS_health(){
     fi
 
     dig_check_no_domain=$(dig +norec +short +tries=5 +timeout=5 .)
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "Failed to resolve root domain '.'"
         return $ERR_DNS_HEALTH_FAIL
     fi
 
     dig_check_domain=$(dig +tries=5 +timeout=5 +short $domain_name)
     ret_code=$?
-    if [ $ret_code -ne 0 ] || [ -z "$dig_check_domain" ]; then
+    if [ "$ret_code" -ne 0 ] || [ -z "$dig_check_domain" ]; then
         echo "Failed to resolve domain $domain_name return code: $ret_code"
         return $ERR_DNS_HEALTH_FAIL
     fi
@@ -759,7 +737,7 @@ resolve_packages_source_url() {
     PACKAGE_DOWNLOAD_BASE_URL="packages.aks.azure.com"
     for i in $(seq 1 $retries); do
       response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --noproxy "*" https://packages.aks.azure.com/acs-mirror/healthz)
-      if [ ${response_code} -eq 200 ]; then
+      if [ "${response_code}" -eq 200 ]; then
         echo "Established connectivity to $PACKAGE_DOWNLOAD_BASE_URL."
         break
       else
@@ -777,9 +755,9 @@ resolve_packages_source_url() {
 update_base_url() {
   initial_url=$1
   
-  if [ "$PACKAGE_DOWNLOAD_BASE_URL" == "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
+  if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
-  elif [ "$PACKAGE_DOWNLOAD_BASE_URL" == "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
+  elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
     initial_url="${initial_url//"packages.aks.azure.com"/$PACKAGE_DOWNLOAD_BASE_URL}"
   fi
   
@@ -798,10 +776,10 @@ oras_login_with_kubelet_identity() {
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url
     ret_code=$? 
-    if [[ $ret_code -eq 0 ]]; then
+    if [ "$ret_code" -eq 0 ]; then
         echo "anonymous pull is allowed for acr '$acr_url', proceeding with anonymous pull"
         return
-    elif [[ $ret_code -ne 1 ]]; then
+    elif [ "$ret_code" -ne 1 ]; then
         echo "failed with an error other than unauthorized, exiting.."
         return $ret_code
     fi
@@ -810,19 +788,19 @@ oras_login_with_kubelet_identity() {
     access_url="http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/&client_id=$client_id"
     raw_access_token=$(retrycmd_get_access_token_for_oras 5 15 $access_url)
     ret_code=$? 
-    if [ $ret_code -ne 0 ]; then
+    if [ "$ret_code" -ne 0 ]; then
         echo $raw_access_token
         return $ret_code
     fi
     ACCESS_TOKEN=$(echo "$raw_access_token" | jq -r .access_token)
-    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
+    if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
         echo "failed to parse access token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
     raw_refresh_token=$(retrycmd_get_refresh_token_for_oras 10 5 $acr_url $tenant_id $ACCESS_TOKEN)
     ret_code=$? 
-    if [ $ret_code -ne 0 ]; then
+    if [ "$ret_code" -ne 0 ]; then
         echo "failed to retrieve refresh token: $ret_code"
         return $ret_code
     fi
@@ -831,13 +809,13 @@ oras_login_with_kubelet_identity() {
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
     REFRESH_TOKEN=$(echo "$raw_refresh_token" | jq -r .refresh_token)
-    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" == "null" ]; then
+    if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "null" ]; then
         echo "failed to parse refresh token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
 
     retrycmd_oras_login 3 5 $acr_url "$REFRESH_TOKEN"
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url' with identity token"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi
@@ -845,7 +823,7 @@ oras_login_with_kubelet_identity() {
     set -x
 
     retrycmd_can_oras_ls_acr 10 5 $acr_url$test_image
-    if [[ $? -ne 0 ]]; then
+    if [ "$?" -ne 0 ]; then
         echo "failed to login to acr '$acr_url', pull is still unauthorized"
         return $ERR_ORAS_PULL_UNAUTHORIZED
     fi

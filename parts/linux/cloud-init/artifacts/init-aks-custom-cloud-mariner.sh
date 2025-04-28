@@ -18,7 +18,7 @@ cp /root/AzureCACertificates/*.crt /etc/pki/ca-trust/source/anchors/
 cloud-init status --wait
 
 marinerRepoDepotEndpoint="$(echo "${REPO_DEPOT_ENDPOINT}" | sed 's/\/ubuntu//')"
-if [[ "$marinerRepoDepotEndpoint" == "" ]]; then
+if [ -z "$marinerRepoDepotEndpoint" ]; then
   >&2 echo "repo depot endpoint empty while running custom-cloud init script"
 else
   for f in /etc/yum.repos.d/*.repo
