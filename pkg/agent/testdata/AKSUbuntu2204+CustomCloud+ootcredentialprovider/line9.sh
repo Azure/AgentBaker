@@ -214,7 +214,7 @@ retrycmd_get_tarball() {
             return 1
         else
             timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
-            if [ "$?" != 0 ]; then
+            if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
@@ -231,7 +231,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
             return 1
         else
             timeout 60 oras pull $url -o $tar_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-            if [ "$?" != 0 ]; then
+            if [ "$?" -ne 0 ]; then
                 cat $ORAS_OUTPUT
             fi
             sleep $wait_sleep
@@ -297,7 +297,7 @@ retrycmd_get_binary_from_registry_with_oras() {
                 return 1
             else
                 timeout 60 oras pull $url -o $binary_folder --registry-config ${ORAS_REGISTRY_CONFIG_FILE} > $ORAS_OUTPUT 2>&1
-                if [ "$?" != 0 ]; then
+                if [ "$?" -ne 0 ]; then
                     cat $ORAS_OUTPUT
                 fi
                 sleep $wait_sleep
@@ -330,7 +330,7 @@ retrycmd_curl_file() {
             return 1
         else
             timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [ "$?" != 0 ]; then
+            if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
             sleep $wait_sleep
@@ -484,7 +484,7 @@ logs_to_events() {
         echo ${json_string} >> ${EVENTS_LOGGING_DIR}${eventsFileName}.json
     fi
 
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
 }
@@ -493,7 +493,7 @@ should_skip_nvidia_drivers() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
     should_skip=$(echo "$body" | jq -e '.compute.tagsList | map(select(.name | test("SkipGpuDriverInstall"; "i")))[0].value // "false" | test("true"; "i")')
@@ -504,7 +504,7 @@ should_disable_kubelet_serving_certificate_rotation() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
     should_disable=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "aks-disable-kubelet-serving-certificate-rotation") | .value')
@@ -515,7 +515,7 @@ should_skip_binary_cleanup() {
     set -x
     body=$(curl -fsSL -H "Metadata: true" --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2021-02-01")
     ret=$?
-    if [ "$ret" != "0" ]; then
+    if [ "$ret" -ne 0 ]; then
       return $ret
     fi
     should_skip=$(echo "$body" | jq -r '.compute.tagsList[] | select(.name == "SkipBinaryCleanup") | .value')
