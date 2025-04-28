@@ -38,3 +38,4 @@ jobs:
   - template: ./templates/e2e-template.yaml
     parameters:
       name: Windows Tests
+      IgnoreScenariosWithMissingVhd: false
