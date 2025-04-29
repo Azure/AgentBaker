@@ -771,7 +771,7 @@ configGPUDrivers() {
         exit 1
     fi
 
-    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 120 5 25 nvidia-modprobe -u -c0 && modprobe nvidia-peermem || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 300 nvidia-smi || exit $ERR_GPU_DRIVERS_START_FAIL
     retrycmd_if_failure 120 5 25 ldconfig || exit $ERR_GPU_DRIVERS_START_FAIL
 
@@ -792,7 +792,7 @@ validateGPUDrivers() {
         return
     fi
 
-    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
+    retrycmd_if_failure 24 5 25 nvidia-modprobe -u -c0 && modprobe nvidia-peermem && echo "gpu driver loaded" || configGPUDrivers || exit $ERR_GPU_DRIVERS_START_FAIL
     
     if which nvidia-smi; then
         SMI_RESULT=$(retrycmd_if_failure 24 5 300 nvidia-smi)
