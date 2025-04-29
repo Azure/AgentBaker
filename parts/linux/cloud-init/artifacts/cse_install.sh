@@ -545,11 +545,8 @@ installCNI() {
         apt_get_install 20 30 120 ${packageName} || exit 1
     fi
     
-    if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
-        #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
-        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR 
-    fi
-   
+    #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
+    mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR 
 
     chown -R root:root $CNI_BIN_DIR
 }
