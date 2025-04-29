@@ -153,37 +153,62 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml 
 
+check_cse_timeout() {
+    shouldLog="${1:-true}"
+    maxDurationSeconds=780 
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+        fi
+        return 0
+    fi
+    elapsedSeconds=$(($(date +%s) - "$CSE_STARTTIME_SECONDS"))
+    if [ "$elapsedSeconds" -gt "$maxDurationSeconds" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Error: CSE has been running for $elapsedSeconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
+        fi
+        return 1
+    fi
+
+    return 0
+}
+
 _retrycmd_internal() {
     local retries=$1; shift
-    local wait_sleep=$1; shift
-    local timeout_val=$1; shift 
+    local waitSleep=$1; shift
+    local timeoutVal=$1; shift
     local shouldLog=$1; shift
-    local cmdToRun=("$@") 
-    local exit_status=0
+    local cmdToRun=("$@")
+    local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
-        timeout "$timeout_val" "${@}"
-        exit_status=$?
+        timeout "$timeoutVal" "${@}"
+        exitStatus=$?
 
-        if [ "$exit_status" -eq 0 ]; then
+        if [ "$exitStatus" -eq 0 ]; then
             break 
+        fi
+
+        if ! check_cse_timeout "$shouldLog"; then 
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         fi
 
         if [ "$i" -eq "$retries" ]; then
             if [ "$shouldLog" = "true" ]; then
-                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: "$exitStatus")." >&2
             fi
             return 1
         fi
 
-        sleep "$wait_sleep"
+        sleep "$waitSleep"
     done
 
-    if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
+    if [ "$shouldLog" = "true" ] && [ "$exitStatus" -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
 
-    return $exit_status
+    return "$exitStatus"
 }
 
 retrycmd_if_failure() {

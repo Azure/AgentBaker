@@ -171,45 +171,72 @@ CURL_OUTPUT=/tmp/curl_verbose.out
 ORAS_OUTPUT=/tmp/oras_verbose.out
 ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file, not used, but have to define to avoid error "Error: failed to get user home directory: $HOME is not defined" 
 
+# Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
+# That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
+# Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
+# Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
+check_cse_timeout() {
+    shouldLog="${1:-true}"
+    maxDurationSeconds=780 # 780 seconds = 13 minutes
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+        fi
+        # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
+        return 0
+    fi
+    # Calculate elapsed time based on seconds since epoch
+    elapsedSeconds=$(($(date +%s) - "$CSE_STARTTIME_SECONDS"))
+    if [ "$elapsedSeconds" -gt "$maxDurationSeconds" ]; then
+        if [ "$shouldLog" = "true" ]; then
+            echo "Error: CSE has been running for $elapsedSeconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
+        fi
+        return 1
+    fi
+
+    return 0
+}
+
 # Internal helper function for retry logic
 # Not intended for direct use. Use retrycmd or retrycmd_silent based on your needs
+# returns 0 if successful, 1 if failed, 2 if CSE timeout is approaching and global timeout needs to be handled
 _retrycmd_internal() {
     local retries=$1; shift
-    local wait_sleep=$1; shift
-    local timeout_val=$1; shift # Renamed to avoid conflict with timeout command
+    local waitSleep=$1; shift
+    local timeoutVal=$1; shift
     local shouldLog=$1; shift
-    local cmdToRun=("$@") # Capture command for logging/reporting
-    local exit_status=0
+    local cmdToRun=("$@")
+    local exitStatus=0
 
     for i in $(seq 1 "$retries"); do
-        # Execute the command with timeout
-        timeout "$timeout_val" "${@}"
-        exit_status=$?
+        timeout "$timeoutVal" "${@}"
+        exitStatus=$?
 
-        # Check if successful
-        if [ "$exit_status" -eq 0 ]; then
-            break # Success, exit loop
+        if [ "$exitStatus" -eq 0 ]; then
+            break 
         fi
 
-        # Check if it's the last retry
+        # Check if CSE timeout is approaching - exit early to avoid 124 exit code from the global timeout
+        if ! check_cse_timeout "$shouldLog"; then 
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
+        fi
+
         if [ "$i" -eq "$retries" ]; then
             if [ "$shouldLog" = "true" ]; then
-                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: $exit_status)." >&2
+                echo "Executed \"${cmdToRun[*]}\" $i times; giving up (last exit status: "$exitStatus")." >&2
             fi
-            # Return the last exit status on final failure
             return 1
         fi
 
-        # Wait before next retry
-        sleep "$wait_sleep"
+        sleep "$waitSleep"
     done
 
-    # Log success if not silent and command succeeded
-    if [ "$shouldLog" = "true" ] && [ "$exit_status" -eq 0 ]; then
+    if [ "$shouldLog" = "true" ] && [ "$exitStatus" -eq 0 ]; then
         echo "Executed \"${cmdToRun[*]}\" $i times."
     fi
 
-    return $exit_status
+    return "$exitStatus"
 }
 
 # Retry a command with logging.
