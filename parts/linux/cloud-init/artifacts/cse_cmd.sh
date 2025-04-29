@@ -2,7 +2,7 @@ PROVISION_OUTPUT="/var/log/azure/cluster-provision-cse-output.log";
 echo $(date),$(hostname) > ${PROVISION_OUTPUT};
 {{if ShouldEnableCustomData}}
 cloud-init status --wait > /dev/null 2>&1;
-[ $? -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
+[ "$?" -ne 0 ] && echo 'cloud-init failed' >> ${PROVISION_OUTPUT} && exit 1;
 echo "cloud-init succeeded" >> ${PROVISION_OUTPUT};
 {{end}}
 {{if IsAKSCustomCloud}}

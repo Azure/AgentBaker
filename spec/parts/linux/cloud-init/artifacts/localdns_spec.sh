@@ -137,7 +137,7 @@ EOF
         It 'should replace 168.63.129.16 with UpstreamDNSIP if it is not same as AzureDNSIP'
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
         End
 
@@ -154,7 +154,7 @@ invalid
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
@@ -165,7 +165,7 @@ nameserver ""
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
@@ -176,7 +176,7 @@ nameserver
 EOF
             When run replace_azurednsip_in_corefile
             The status should be failure
-            The file "${LOCALDNS_CORE_FILE}" should exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
@@ -187,7 +187,7 @@ nameserver 168.63.129.16
 EOF
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${LOCALDNS_CORE_FILE}" should exist
+            The file "${LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
         End
 
@@ -345,13 +345,13 @@ EOF
 #!/bin/bash
 # Simulate a long-running process that creates the PID file.
 echo \$\$ > "${LOCALDNS_PID_FILE}"
-sleep 60
+sleep 10
 EOF
             chmod +x "$MOCK_SCRIPT"
             COREDNS_COMMAND="$MOCK_SCRIPT"
             When call start_localdns
             The status should be success
-            The file "${LOCALDNS_PID_FILE}" should exist
+            The file "${LOCALDNS_PID_FILE}" should be exist
             The output should include "Localdns PID is"
         End
 
@@ -360,7 +360,7 @@ EOF
         cat > "$MOCK_SCRIPT" <<EOF
 #!/bin/bash
 # Simulate a long-running process that doesn't create the PID file.
-sleep 60
+sleep 10
 EOF
             chmod +x "$MOCK_SCRIPT"
             COREDNS_COMMAND="$MOCK_SCRIPT"
@@ -495,7 +495,7 @@ EOF
                 NETWORKCTL_RELOAD_CMD="true"
                 When call disable_dhcp_use_clusterlistener
                 The status should be success
-                The file "${NETWORK_DROPIN_FILE}" should exist
+                The file "${NETWORK_DROPIN_FILE}" should be exist
                 The contents of file "${NETWORK_DROPIN_FILE}" should include "UseDNS=false"
                 The contents of file "${NETWORK_DROPIN_FILE}" should include "DNS=169.254.10.10"
             End
@@ -506,7 +506,7 @@ EOF
                 The status should be failure
                 The output should include "Failed to reload networkctl."
             End
-        End
+
     End
 
 
@@ -576,7 +576,7 @@ EOF
             The status should be success
             The output should include "Reverting DNS configuration by removing"
             The output should include "Successfully cleanup localdns related configurations."
-            The file "${NETWORK_DROPIN_FILE}" should not exist
+            The file "${NETWORK_DROPIN_FILE}" should not be exist
         End
 
         It 'should return failure if network reload fails'
@@ -655,6 +655,7 @@ EOF
             The status should be success
             The output should include "Successfully cleanup localdns related configurations."
         End
+    End
 
 
 # This section tests - start_localdns_watchdog

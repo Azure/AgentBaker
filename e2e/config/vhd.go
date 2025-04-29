@@ -15,16 +15,10 @@ const (
 )
 
 var (
-	linuxGallery = &Gallery{
+	imageGallery = &Gallery{
 		SubscriptionID:    Config.GallerySubscriptionIDLinux,
 		ResourceGroupName: Config.GalleryResourceGroupNameLinux,
 		Name:              Config.GalleryNameLinux,
-	}
-
-	windowsGallery = &Gallery{
-		SubscriptionID:    Config.GallerySubscriptionIDWindows,
-		ResourceGroupName: Config.GalleryResourceGroupNameWindows,
-		Name:              Config.GalleryNameWindows,
 	}
 )
 
@@ -49,49 +43,49 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd1804Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDUbuntu2204Gen2Arm64Containerd = &Image{
 		Name:    "2204gen2arm64containerd",
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDUbuntu2204Gen2Containerd = &Image{
 		Name:    "2204gen2containerd",
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDAzureLinuxV2Gen2Arm64 = &Image{
 		Name:    "AzureLinuxV2gen2arm64",
 		OS:      OSAzureLinux,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSAzureLinuxV2Arm64Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDAzureLinuxV2Gen2 = &Image{
 		Name:    "AzureLinuxV2gen2",
 		OS:      OSAzureLinux,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSAzureLinuxV2Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDCBLMarinerV2Gen2Arm64 = &Image{
 		Name:    "CBLMarinerV2gen2arm64",
 		OS:      OSMariner,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSCBLMarinerV2Arm64Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	VHDCBLMarinerV2Gen2 = &Image{
 		Name:    "CBLMarinerV2gen2",
 		OS:      OSMariner,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSCBLMarinerV2Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 	// this is a particular 2204gen2containerd image originally built with private packages,
 	// if we ever want to update this then we'd need to run a new VHD build using private package overrides
@@ -102,7 +96,7 @@ var (
 		Arch:    "amd64",
 		Version: "1.1704411049.2812",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	// without kubelet, kubectl, credential-provider and wasm
@@ -112,7 +106,7 @@ var (
 		Arch:    "amd64",
 		Version: "1.1725612526.29638",
 		Distro:  datamodel.AKSUbuntuContainerd2204Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDUbuntu2404Gen1Containerd = &Image{
@@ -120,7 +114,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDUbuntu2404Gen2Containerd = &Image{
@@ -128,7 +122,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSUbuntuContainerd2404Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDUbuntu2404ArmContainerd = &Image{
@@ -136,7 +130,7 @@ var (
 		OS:      OSUbuntu,
 		Arch:    "arm64",
 		Distro:  datamodel.AKSUbuntuArm64Containerd2404Gen2,
-		Gallery: linuxGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2019Containerd = &Image{
@@ -144,8 +138,7 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2019Containerd,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2022Containerd = &Image{
@@ -153,8 +146,7 @@ var (
 		OS:      "windows",
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022Containerd,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2022ContainerdGen2 = &Image{
@@ -162,8 +154,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2022ContainerdGen2,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows23H2 = &Image{
@@ -171,8 +162,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows23H2Gen2 = &Image{
@@ -180,8 +170,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows23H2Gen2,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2025 = &Image{
@@ -189,8 +178,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 
 	VHDWindows2025Gen2 = &Image{
@@ -198,8 +186,7 @@ var (
 		OS:      OSWindows,
 		Arch:    "amd64",
 		Distro:  datamodel.AKSWindows2025Gen2,
-		Latest:  true,
-		Gallery: windowsGallery,
+		Gallery: imageGallery,
 	}
 )
 
@@ -212,7 +199,6 @@ type Image struct {
 	OS      OS
 	Version string
 	Gallery *Gallery
-	Latest  bool // a hack to get the latest version of the image for windows, currently windows images are not tagged
 
 	vhd     VHDResourceID
 	vhdOnce sync.Once
@@ -227,19 +213,43 @@ func (i *Image) String() string {
 func (i *Image) VHDResourceID(ctx context.Context, t *testing.T) (VHDResourceID, error) {
 	i.vhdOnce.Do(func() {
 		switch {
-		case i.Latest:
-			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, "", "")
 		case i.Version != "":
 			i.vhd, i.vhdErr = Azure.EnsureSIGImageVersion(ctx, t, i)
+			if i.vhd != "" {
+				t.Logf("Got image by version: %s", i.azurePortalImageVersionUrl())
+			}
 		default:
 			i.vhd, i.vhdErr = Azure.LatestSIGImageVersionByTag(ctx, t, i, Config.SIGVersionTagName, Config.SIGVersionTagValue)
+			if i.vhd != "" {
+				t.Logf("got version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageVersionUrl())
+			} else {
+				t.Logf("Could not find version by tag %s=%s: %s", Config.SIGVersionTagName, Config.SIGVersionTagValue, i.azurePortalImageUrl())
+			}
 		}
 		if i.vhdErr != nil {
-			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.Name, Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
-			t.Logf("failed to find the latest image version for %s", i.vhdErr)
+			i.vhdErr = fmt.Errorf("img: %s, tag %s=%s, err %w", i.azurePortalImageUrl(), Config.SIGVersionTagName, Config.SIGVersionTagValue, i.vhdErr)
 		}
 	})
 	return i.vhd, i.vhdErr
+}
+
+func (i *Image) azurePortalImageUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+	)
+}
+
+func (i *Image) azurePortalImageVersionUrl() string {
+	return fmt.Sprintf("https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/galleries/%s/images/%s/versions/%s/overview",
+		i.Gallery.SubscriptionID,
+		i.Gallery.ResourceGroupName,
+		i.Gallery.Name,
+		i.Distro,
+		i.Version,
+	)
 }
 
 // VHDResourceID represents a resource ID pointing to a VHD in Azure. This could be theoretically
