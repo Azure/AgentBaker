@@ -522,6 +522,7 @@ installCNI() {
     os_version="${UBUNTU_RELEASE}"
     if isMarinerOrAzureLinux "${OS}" && [ "${IS_KATA}" = "true" ]; then
         os=${MARINER_KATA_OS_NAME}
+        DNF = 1
     fi
     PACKAGE_VERSIONS=()
     updatePackageVersions "${cniPackage}" "${os}" "${os_version}"
@@ -532,22 +533,23 @@ installCNI() {
         echo "WARNING: containerd package versions array has more than one element. Installing the last element in the array."
         exit $ERR_CONTAINERD_VERSION_INVALID
     fi
-    packageVersion=${PACKAGE_VERSIONS[0]}
-
-    # Is there a ${arch} variable I can use instead of the iff
-    if [ "$(isARM64)" -eq 1 ]; then 
-        CNI_DIR_TMP="cni-plugins-linux-arm64-v${packageVersion}"
+    packageVersion=${PACKAGE_VERSIONS[0]}   
+    
+    if [ "$(isDNF)" -eq 1 ]; then 
+        packageName="containernetworking-plugins-${version}"
+         echo "Installing ${packageName} with dnf"
+        dnf_install 30 1 600 ${packageName} || exit 1
     else 
-        CNI_DIR_TMP="cni-plugins-linux-amd64-v${packageVersion}"
+        packageName="containernetworking-plugins=${version}"
+        echo "Installing ${packageName} with apt-get"
+        apt_get_install 20 30 120 ${packageName} || exit 1
     fi
     
     if [ -d "$CNI_DOWNLOADS_DIR/${CNI_DIR_TMP}" ]; then
         #not clear to me when this would ever happen. assume its related to the line above Latest VHD should have the untar, older should have the tgz. 
-        mv ${CNI_DOWNLOADS_DIR}/${CNI_DIR_TMP}/* $CNI_BIN_DIR 
-    else
-        echo "CNI tarball should already be unzipped by components.json"
-        exit $ERR_CNI_VERSION_INVALID
+        mv /usr/bin/containernetworking-plugins/* $CNI_BIN_DIR 
     fi
+   
 
     chown -R root:root $CNI_BIN_DIR
 }
