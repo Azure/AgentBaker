@@ -248,6 +248,12 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 				// return empty string so we don't get <no value> from go template
 				return ""
 			}
+			val := reflect.ValueOf(param)
+			if val.Kind() == reflect.Ptr {
+				if val.IsNil() {
+					return ""
+				}
+			}
 			return param
 		}
 		return ""
