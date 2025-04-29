@@ -4,7 +4,7 @@
 
 # unsetting this to test the behavior of check_cse_timeout
 cse_retry_helpers_precheck() {
-    unsetenv CSE_STARTTIME_FORMATTED
+    unsetenv CSE_STARTTIME_SECONDS
 }
 
 Describe 'long running cse helper functions'
@@ -117,7 +117,8 @@ Describe 'long running cse helper functions'
                 timeout() {
                     return 124
                 }
-                CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                 When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
                 The status should eq 2
                 The stdout should eq ""
@@ -129,6 +130,7 @@ Describe 'long running cse helper functions'
                     return 124
                 }
                 CSE_STARTTIME_FORMATTED=$(date -d "-5 minutes" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                 When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
                 The status should eq 1
                 The stdout should eq ""
@@ -138,31 +140,26 @@ Describe 'long running cse helper functions'
     End
 
     Describe 'check_cse_timeout'
-        Describe 'when CSE_STARTTIME_FORMATTED is incorrect'
-            It 'returns 0 and prints error to stderr when CSE_STARTTIME_FORMATTED is not set'
+        Describe 'when CSE_STARTTIME_SECONDS is incorrect'
+            It 'returns 0 and prints error to stderr when CSE_STARTTIME_SECONDS is not set'
                 When call check_cse_timeout
                 The status should eq 0
-                The stdout should include "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
+                The stdout should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
                 The stderr should eq ""
-            End
-            It 'returns 0 and prints error to stderr when CSE_STARTTIME_FORMATTED is not a valid date'
-                CSE_STARTTIME_FORMATTED="invalid_date"
-                When call check_cse_timeout
-                The status should eq 0
-                The stderr should include "Error: Could not parse CSE_STARTTIME_FORMATTED date string"
-                The stdout should eq ""
             End
         End
-        Describe 'when CSE_STARTTIME_FORMATTED is set'
-            It 'returns 0 and prints no output when CSE_STARTTIME_FORMATTED is less than the timeout'
+        Describe 'when CSE_STARTTIME_SECONDS is set'
+            It 'returns 0 and prints no output when CSE_STARTTIME_SECONDS is less than the timeout'
                 CSE_STARTTIME_FORMATTED=$(date -d "-5 minutes" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                 When call check_cse_timeout
                 The status should eq 0
                 The stderr should eq ""
                 The stdout should eq ""
             End
-            It 'returns 1 and prints error to stderr when CSE_STARTTIME_FORMATTED is past the timeout'
+            It 'returns 1 and prints error to stderr when CSE_STARTTIME_SECONDS is past the timeout'
                 CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
                 When call check_cse_timeout
                 The status should eq 1
                 The stderr should include "Error: CSE has been running for 781 seconds"

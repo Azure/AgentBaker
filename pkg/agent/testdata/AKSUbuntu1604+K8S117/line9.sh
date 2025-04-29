@@ -156,23 +156,13 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 
-
-    if [ -z "$CSE_STARTTIME_FORMATTED" ]; then
+    if [ -z "$CSE_STARTTIME_SECONDS" ]; then
         if [ "$shouldLog" = "true" ]; then
-            echo "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         fi
         return 0
     fi
-
-    cseStartSeconds=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
-    if [ "$?" -ne 0 ]; then
-        if [ "$shouldLog" = "true" ]; then
-            echo "Error: Could not parse CSE_STARTTIME_FORMATTED date string: $CSE_STARTTIME_FORMATTED" >&2
-        fi
-        return 0
-    fi
-
-    elapsedSeconds=$(($(date +%s) - cseStartSeconds))
+    elapsedSeconds=$(($(date +%s) - "$CSE_STARTTIME_SECONDS"))
     if [ "$elapsedSeconds" -gt "$maxDurationSeconds" ]; then
         if [ "$shouldLog" = "true" ]; then
             echo "Error: CSE has been running for $elapsedSeconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2

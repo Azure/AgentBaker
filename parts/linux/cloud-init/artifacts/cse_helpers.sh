@@ -173,29 +173,20 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file
 
 # Checks if the elapsed time since CSEStartTime exceeds 13 minutes.
 # That value is based on the global CSE timeout which is set to 15 minutes - majority of CSE executions succeed or fail very fast, meaning we can exit slightly before the global timeout without affecting the overall CSE execution.
+# Global cse timeout is set in cse_start.sh: `timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh`
 # Long running functions can use this helper to gracefully handle global CSE timeout, avoiding exiting with 124 error code without extra context. 
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
-
-    if [ -z "$CSE_STARTTIME_FORMATTED" ]; then
+    if [ -z "$CSE_STARTTIME_SECONDS" ]; then
         if [ "$shouldLog" = "true" ]; then
-            echo "Warning: CSE_STARTTIME_FORMATTED environment variable is not set."
+            echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         fi
         # Return 0 to avoid CSE errors in case something went wrong when setting the start time in cse_start.sh
         return 0
     fi
-
-    cseStartSeconds=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
-    if [ "$?" -ne 0 ]; then
-        if [ "$shouldLog" = "true" ]; then
-            echo "Error: Could not parse CSE_STARTTIME_FORMATTED date string: $CSE_STARTTIME_FORMATTED" >&2
-        fi
-        return 0
-    fi
-
     # Calculate elapsed time based on seconds since epoch
-    elapsedSeconds=$(($(date +%s) - cseStartSeconds))
+    elapsedSeconds=$(($(date +%s) - "$CSE_STARTTIME_SECONDS"))
     if [ "$elapsedSeconds" -gt "$maxDurationSeconds" ]; then
         if [ "$shouldLog" = "true" ]; then
             echo "Error: CSE has been running for $elapsedSeconds seconds, exceeding the limit of $maxDurationSeconds seconds." >&2
