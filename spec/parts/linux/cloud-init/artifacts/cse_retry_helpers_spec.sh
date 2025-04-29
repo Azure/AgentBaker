@@ -73,6 +73,79 @@ Describe 'long running cse helper functions'
         End
     End
 
+    Describe 'file curl'
+        Describe 'retrycmd_get_tarball'
+            It "returns 1 if tar curl fails and retries are exhausted"  
+                curl() {
+                    echo "curl mock failure"
+                    return 3
+                }
+                # Create a temporary file and tarball for testing
+                mkdir -p /tmp/test_tarball
+                echo "test content" > /tmp/test_tarball/testfile
+                tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball .
+                When call retrycmd_get_tarball 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                rm -r /tmp/test_tarball
+                The status should eq 1
+                The stdout should eq "1 file curl retries"
+            End
+            It "returns 0 if curl tar succeeds"
+            # Create a temporary file and tarball for testing
+                mkdir -p /tmp/test_tarball
+                echo "test content" > /tmp/test_tarball/testfile
+                tar -czf /tmp/test_tarball/test_tarball.tar.gz -C /tmp/test_tarball .
+                When call retrycmd_get_tarball 1 1 "/tmp/test_tarball/test_tarball.tar.gz" "https://dummy.url/file.tar"
+                rm -r /tmp/test_tarball
+                The status should eq 0
+                The stdout should include "1 file curl retries"
+            End
+        End
+        Describe 'retrycmd_curl_file'
+            It "returns 1 if curl fails and retries are exhausted"
+                When call retrycmd_curl_file 1 1 1 "/tmp/nonexistent" "https://dummy.url/file"
+                The status should eq 1
+                The stdout should eq "1 file curl retries"
+            End
+            It "returns 0 if curl succeeds"
+                touch /tmp/testFile
+                When call retrycmd_curl_file 1 1 1 "/tmp/testFile" "https://dummy.url/file"
+                rm /tmp/testFile
+                The status should eq 0
+                The stdout should eq "1 file curl retries"
+            End
+        End
+        Describe 'retry_file_curl_internal'
+            It "returns 1 if checksToRun fail and retries are exhausted"
+                When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
+                The status should eq 1
+                The stdout should eq "1 file curl retries"
+            End
+            It "returns 0 if checksToRun succeed"
+                When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 0 && echo working"
+                The status should eq 0
+                The stdout should eq "1 file curl retries"
+            End
+            It "returns 2 if checksToRun fail and global cse timeout is reached"
+                CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 3"
+                The status should eq 2
+                The stdout should be defined
+                The stderr should include "Error: CSE has been running for"
+                The stderr should include "CSE timeout approaching, exiting early."
+            End
+            It "prints curl output if curl operation times out"
+                CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+                timeout() {
+                    echo "curl mock timeout"
+                    return 124
+                }
+                When call _retry_file_curl_internal 2 1 1 "/tmp/nonexistent" "https://dummy.url/file" "return 2"
+                The status should eq 1
+                The stdout should include "curl mock timeout"
+            End 
+        End
+    End 
+
     Describe 'retrycmd_internal'
         Describe 'retrycmd_internal logging'
             It "logs output when shouldLog is true and command succeeds"

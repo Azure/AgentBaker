@@ -276,22 +276,40 @@ retrycmd_nslookup() {
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
-retrycmd_get_tarball() {
-    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
-    echo "${tar_retries} retries"
-    for i in $(seq 1 $tar_retries); do
-        [ -f "$tarball" ] && tar -tzf "$tarball" && break || \
-        if [ "$i" -eq "$tar_retries" ]; then
+
+_retry_file_curl_internal() {
+    retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun="${@:6}"
+    echo "${retries} file curl retries"
+    for i in $(seq 1 $retries); do 
+        # Use eval to execute the checksToRun string as a command
+        ( eval "$checksToRun" ) && break || if [ "$i" -eq "$retries" ]; then
             return 1
+        # check if global cse timeout is approaching
+        elif ! check_cse_timeout; then
+            echo "CSE timeout approaching, exiting early." >&2
+            return 2
         else
-            timeout 60 curl -fsSLv $url -o $tarball > $CURL_OUTPUT 2>&1
+            timeout $timeout curl -fsSLv $url -o $filePath > $CURL_OUTPUT 2>&1
             if [ "$?" -ne 0 ]; then
                 cat $CURL_OUTPUT
             fi
-            sleep $wait_sleep
+            sleep $waitSleep
         fi
     done
 }
+
+retrycmd_get_tarball() {
+    tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
+    check_tarball_valid="[ -f \"$tarball\" ] && tar -tzf \"$tarball\""
+    _retry_file_curl_internal "$tar_retries" "$wait_sleep" 60 "$tarball" "$url" "$check_tarball_valid"
+}
+
+retrycmd_curl_file() {
+    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
+    check_file_exists="[ -f \"$filepath\" ]"
+    _retry_file_curl_internal "$curl_retries" "$wait_sleep" "$timeout" "$filepath" "$url" "$check_file_exists"
+}
+
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
@@ -394,22 +412,7 @@ retrycmd_can_oras_ls_acr() {
     echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
-retrycmd_curl_file() {
-    curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
-    echo "${curl_retries} retries"
-    for i in $(seq 1 $curl_retries); do
-        [ -f "$filepath" ] && break
-        if [ "$i" -eq "$curl_retries" ]; then
-            return 1
-        else
-            timeout $timeout curl -fsSLv $url -o $filepath > $CURL_OUTPUT 2>&1
-            if [ "$?" -ne 0 ]; then
-                cat $CURL_OUTPUT
-            fi
-            sleep $wait_sleep
-        fi
-    done
-}
+
 # base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
 _systemctl_retry_svc_operation() {
     retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
