@@ -178,11 +178,11 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml # oras registry auth config file
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 # 780 seconds = 13 minutes
-    if [ -z "$CSE_STARTTIME_SECONDS" ]; then
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
         if [ "$shouldLog" = "true" ]; then
             echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         fi
-        # Return 0 to avoid CSE errors in case something went wrong when setting the start time in cse_start.sh
+        # Return 0 to avoid in case CSE_STARTTIME_SECONDS is not set - for example during image build or if something went wrong in cse_start.sh
         return 0
     fi
     # Calculate elapsed time based on seconds since epoch

@@ -2,12 +2,13 @@
 
 # this spec is meant to ensure that the behavior of helper functions that are used in long running operations keeps returning the expected exit codes
 
-# unsetting this to test the behavior of check_cse_timeout
-cse_retry_helpers_precheck() {
-    unsetenv CSE_STARTTIME_SECONDS
-}
-
 Describe 'long running cse helper functions'
+    # unsetting this to test the behavior of check_cse_timeout
+    cse_retry_helpers_precheck() {
+        unset CSE_STARTTIME_SECONDS
+    }   
+    BeforeEach cse_retry_helpers_precheck
+    
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
     Describe 'timeout behavior of helper functions'

@@ -156,7 +156,7 @@ ORAS_REGISTRY_CONFIG_FILE=/etc/oras/config.yaml
 check_cse_timeout() {
     shouldLog="${1:-true}"
     maxDurationSeconds=780 
-    if [ -z "$CSE_STARTTIME_SECONDS" ]; then
+    if [ -z "${CSE_STARTTIME_SECONDS:-}" ]; then
         if [ "$shouldLog" = "true" ]; then
             echo "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
         fi
