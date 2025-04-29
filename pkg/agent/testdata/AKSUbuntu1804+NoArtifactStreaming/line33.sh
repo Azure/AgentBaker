@@ -20,7 +20,9 @@ sed -i "/#HELPERSEOF/d" "${CSE_HELPERS_FILEPATH}"
 source "${CSE_HELPERS_FILEPATH}"
 source "${CSE_DISTRO_HELPERS_FILEPATH}"
 
-aptmarkWALinuxAgent hold &
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  aptmarkWALinuxAgent hold &
+fi
 
 LOG_DIR=/var/log/azure/aks
 mkdir -p ${LOG_DIR}
