@@ -46,6 +46,9 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 	)
 
+	// ensure aks-log-collector hasn't entered a failed state
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
 	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
 	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
