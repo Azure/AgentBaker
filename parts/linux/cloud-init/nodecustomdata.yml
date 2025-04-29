@@ -297,7 +297,7 @@ write_files:
     Type=oneshot
     RemainAfterExit=true
     ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
-    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
+    ExecStart=/bin/sh -c "nvidia-modprobe -u -c0 && modprobe nvidia-peermem"
     [Install]
     WantedBy=multi-user.target kubelet.service
 
