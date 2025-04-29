@@ -113,7 +113,7 @@ Describe 'long running cse helper functions'
         End
 
         Describe 'retrycmd_internal cse global timeout'
-            It "returns 1 and times out when retrycmd_internal exceeds the CSE timeout"
+            It "returns 2 and times out when retrycmd_internal exceeds the CSE timeout"
                 timeout() {
                     return 124
                 }
