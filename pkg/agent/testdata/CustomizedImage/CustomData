@@ -71,13 +71,6 @@ write_files:
   content: !!binary |
     H4sIAAAAAAAC/6xSy26jMBTd8xXIk91M7GE0o6nYUeIqkVKISOimqpABp7Xk2Ajspi3i3ytIQx6CpK2yvfdcH59HaZimaYJECkWYoHkKbHMza+ZLxqlHVhTYJljJ+HW4A0aD0vW9hTPxcDCK7nAwn/he9ZO86ZwOD3YzZ+GOWwRMaQx+7ShSuRZcknQqE6KYFDUVkplCOyq0xRRdh2EwrW+elMoKG6H6mzDmMoaJzClcM5HKdQEFVc0KHclAJ2SgQRleh94ijFx/hD3nFleIM6Ffau2zMHICd1yhr/iiYy2Ubp8N8BQ7c1zpE37tcx1790zzgklRANu8f9ibZ0wIehhlM7eufv+tvbLgf2gNLdBuq71jmj7SFvRvi/pAgFyL5ExHakg0KIPQc/v0N7vP6+ztSE11+XY0r3YKQDGTgiV9Lbi88u8nbEHrT3fATBSKcN51ntIl0Vx1vnBQg0jRVcaJov1dOBfgibR6Hdj8waiMH9i/Md4DAAD//9IDydm9BAAA
 
-- path: /opt/azure/containers/init-aks-custom-cloud.sh
-  permissions: "0744"
-  encoding: gzip
-  owner: root
-  content: !!binary |
-    
-
 - path: /opt/azure/containers/reconcilePrivateHosts.sh
   permissions: "0744"
   encoding: gzip
@@ -321,4 +314,5 @@ write_files:
   owner: root
   content: !!binary |
     H4sIAAAAAAAC/5yRQYsaQRCF7/MrKsZDcmhbBck1g05Q0FVmlEAuTdlTox17uqWrZNes/vew616y8bSXhn6893h89fmT3rqgt8j7jElAPWUcT8kSdLrP46ow02K+KsrK/JjNi1W+nl477wyTWbUul/d8Gdl9hA5AHVgxYbJ76D6PN9V6uTBVkZfjqZksF/nswTzki+LagQsIESgETWJ1IHmM6aBdEEoNWuJerUd9ZX081coFJz3b7DI+s1BrxZtELJgEhn0YwaAPbwUu7LJHdGKamAwexfhoD5wlknS2bW1cYxp0/pToJTSCwbAPeBS1e+FxBhdY0HtIhL6tgZlvj5IYPQNju0VlY9vGcPv8Kx3Pso9h2Pv2Jnu3ZTiiPeCODk7gcgF6cgKDextvBN9DK4t8vjCrvKp+LsvJK7fXcfA7ugBqA/cDm6oor9+7X+6X/neJBBrVHw06V7/0V/hgLvsbAAD//zNI+TpiAgAA
+
 

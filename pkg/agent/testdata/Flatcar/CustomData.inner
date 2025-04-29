@@ -174,19 +174,6 @@
       },
       {
         "group": {},
-        "path": "/opt/azure/containers/init-aks-custom-cloud.sh",
-        "user": {
-          "name": "root"
-        },
-        "contents": {
-          "compression": "",
-          "source": "data:,",
-          "verification": {}
-        },
-        "mode": 484
-      },
-      {
-        "group": {},
         "path": "/opt/azure/containers/reconcilePrivateHosts.sh",
         "user": {
           "name": "root"

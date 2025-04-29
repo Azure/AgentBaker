@@ -1,15 +1,10 @@
 [Unit]
-Description=teleportd teleport runtime
-After=network.target
+Description=Installs and loads Nvidia GPU kernel module
+Before=kubelet.service
 [Service]
-ExecStart=/usr/local/bin/teleportd --metrics --aksConfig /etc/kubernetes/azure.json
-Delegate=yes
-KillMode=process
-Restart=always
-LimitNPROC=infinity
-LimitCORE=infinity
-LimitNOFILE=1048576
-TasksMax=infinity
+Type=oneshot
+RemainAfterExit=true
+ExecStartPre=/bin/sh -c "dkms autoinstall --verbose"
+ExecStart=/bin/sh -c "nvidia-modprobe -u -c0"
 [Install]
-WantedBy=multi-user.target
-#EOF
+WantedBy=multi-user.target kubelet.service

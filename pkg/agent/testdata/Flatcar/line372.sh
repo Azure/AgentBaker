@@ -1,3 +1,2 @@
-[Service]
-ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+runtime-endpoint: unix:///run/containerd/containerd.sock
 #EOF
