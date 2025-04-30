@@ -664,8 +664,6 @@
       "downloadURL": "mcr.microsoft.com/aks/aks-app-routing-operator:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [],
-      "amd64OnlyVersions": [],
-      "multiArchVersionsV2": [],
       "windowsVersions": []
     },
     {
