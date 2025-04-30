@@ -71,7 +71,20 @@ jobs:
             popd
           done
         name: Remove toolchain lines
-
-      - uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: auto-tidy"
+        
+      - run: |
+          set -e
+          echo "committing changes..."
+          for file in $(git status --porcelain | awk '{print $2}'); do
+            CONTENT=$(base64 -w 0 $file)
+            FILENAME=$(basename $file)
+            SHA=$(curl -s -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" https://api.github.com/repos/${{ github.repository }}/contents/$file?ref=$GITHUB_HEAD_REF | jq -r .sha)
+            if [ "$SHA" == "null" ]; then
+              echo "unable to get SHA of file $file on branch $GITHUB_HEAD_REF"
+              exit 1
+            fi
+            curl -s -X PUT -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
+              -d "{\"message\":\"Update $FILENAME\", \"content\":\"$CONTENT\", \"branch\":\"$GITHUB_HEAD_REF\", \"sha\":\"$SHA\"}" \
+              https://api.github.com/repos/${{ github.repository }}/contents/$file
+          done
+        name: Commit changes
