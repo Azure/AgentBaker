@@ -599,7 +599,7 @@ EOF
         logs_to_events "AKS.CSE.ensureKubelet.installCredentialProvider" installCredentialProvider
     fi
 
-    systemctlEnableAndStart kubelet 240 || exit $ERR_KUBELET_START_FAIL
+    systemctlEnableAndStartNoBlock kubelet 240 1 || exit $ERR_KUBELET_START_FAIL
 }
 
 ensureSnapshotUpdate() {

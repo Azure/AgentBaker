@@ -240,6 +240,7 @@ retrycmd_nslookup() {
     current_time=$(date +%s)
     echo "Executed nslookup -timeout=$timeout -retry=0 $record for $((current_time - start_time)) seconds";
 }
+
 retrycmd_get_tarball() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     echo "${tar_retries} retries"
@@ -256,6 +257,7 @@ retrycmd_get_tarball() {
         fi
     done
 }
+
 retrycmd_get_tarball_from_registry_with_oras() {
     tar_retries=$1; wait_sleep=$2; tarball=$3; url=$4
     tar_folder=$(dirname "$tarball")
@@ -273,6 +275,7 @@ retrycmd_get_tarball_from_registry_with_oras() {
         fi
     done
 }
+
 retrycmd_get_access_token_for_oras() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
@@ -292,6 +295,7 @@ retrycmd_get_access_token_for_oras() {
     echo "timeout waiting for IMDS response to retrieve kubelet identity token"
     return $ERR_ORAS_IMDS_TIMEOUT
 }
+
 retrycmd_get_refresh_token_for_oras() {
     retries=$1; wait_sleep=$2; acr_url=$3; tenant_id=$4; ACCESS_TOKEN=$5
     for i in $(seq 1 $retries); do
@@ -306,6 +310,7 @@ retrycmd_get_refresh_token_for_oras() {
     done
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
+
 retrycmd_oras_login() {
     retries=$1; wait_sleep=$2; acr_url=$3; REFRESH_TOKEN=$4
     for i in $(seq 1 $retries); do
@@ -319,6 +324,7 @@ retrycmd_oras_login() {
     done
     return $exit_code
 }
+
 retrycmd_get_binary_from_registry_with_oras() {
     binary_retries=$1; wait_sleep=$2; binary_path=$3; url=$4
     binary_folder=$(dirname "$binary_path")
@@ -341,6 +347,7 @@ retrycmd_get_binary_from_registry_with_oras() {
         fi
     done
 }
+
 retrycmd_can_oras_ls_acr() {
     retries=$1; wait_sleep=$2; url=$3
     for i in $(seq 1 $retries); do
@@ -358,6 +365,7 @@ retrycmd_can_oras_ls_acr() {
     echo "unexpected response from acr: $output"
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
+
 retrycmd_curl_file() {
     curl_retries=$1; wait_sleep=$2; timeout=$3; filepath=$4; url=$5
     echo "${curl_retries} retries"
@@ -374,6 +382,7 @@ retrycmd_curl_file() {
         fi
     done
 }
+
 # base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
 _systemctl_retry_svc_operation() {
     retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
@@ -391,33 +400,67 @@ _systemctl_retry_svc_operation() {
         fi
     done
 }
+
 systemctl_restart() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "restart" "$4" true
 }
+
+systemctl_restart_no_block() {
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "restart --no-block" "$4" true
+}
+
 systemctl_stop() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "stop" "$4" 
 }
+
 systemctl_disable() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4" 
 }
+
 sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
+
 version_gte() {
   test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
 }
 
 systemctlEnableAndStart() {
     service=$1; timeout=$2    
-    systemctl_restart 100 5 $2 $1
+    systemctl_restart 100 5 $timeout $service
+    RESTART_STATUS=$?
+    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
+    if [ $RESTART_STATUS -ne 0 ]; then
+        echo "$service could not be started"
+        return 1
+    fi
+    if ! retrycmd_if_failure 120 5 25 systemctl enable $service; then
+        echo "$service could not be enabled by systemctl"
+        return 1
+    fi
+}
+
+systemctlEnableAndStartNoBlock() {
+    service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
+    systemctl_restart_no_block 100 5 $timeout $service
     RESTART_STATUS=$?
     systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$1 could not be started"
+        echo "$service could not be enqueued for start"
         return 1
     fi
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
         echo "$1 could not be enabled by systemctl"
+        return 1
+    fi
+
+    # wait for the specified delay seconds before checking the service status to make sure
+    # it hasn't gone into a failed state
+    sleep $status_check_delay_seconds
+
+    status=$(systemctl is-active $service)
+    if [ "${status,,}" != "active" ] && [ "${status,,}" != "activating" ]; then
+        echo "$service is not activating or active"
         return 1
     fi
 }
@@ -439,6 +482,7 @@ semverCompare() {
     [ "${VERSION_A}" = ${highestVersion} ] && return 0
     return 1
 }
+
 apt_get_download() {
   retries=$1; wait_sleep=$2; shift && shift;
   local ret=0
@@ -452,6 +496,7 @@ apt_get_download() {
   popd || return 1
   return $ret
 }
+
 getCPUArch() {
     arch=$(uname -m)
     # shellcheck disable=SC3010
@@ -461,6 +506,7 @@ getCPUArch() {
         echo "amd64"
     fi
 }
+
 isARM64() {
     if [ "$(getCPUArch)" = "arm64" ]; then
         echo 1
