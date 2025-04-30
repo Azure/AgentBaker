@@ -1,7 +1,14 @@
 #!/bin/bash
 
 # this spec is meant to ensure that the behavior of helper functions that are used in long running operations keeps returning the expected exit codes
+
 Describe 'long running cse helper functions'
+    # unsetting this to test the behavior of check_cse_timeout
+    cse_retry_helpers_precheck() {
+        unset CSE_STARTTIME_SECONDS
+    }   
+    BeforeEach cse_retry_helpers_precheck
+    
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
 
     Describe 'timeout behavior of helper functions'
@@ -81,6 +88,7 @@ Describe 'long running cse helper functions'
                 }
                 When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
                 The status should eq 1
+                The stdout should be defined
                 The stderr should include "Executed \"echo Failing Command\" 2 times; giving up (last exit status: 124)."
             End
 
@@ -102,6 +110,61 @@ Describe 'long running cse helper functions'
                 # Ensure stdout/stderr are empty
                 The stdout should eq ""
                 The stderr should eq ""
+            End
+        End
+
+        Describe 'retrycmd_internal cse global timeout'
+            It "returns 2 and times out when retrycmd_internal exceeds the CSE timeout"
+                timeout() {
+                    return 124
+                }
+                CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
+                When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
+                The status should eq 2
+                The stdout should eq ""
+                The stderr should include "Error: CSE has been running for"
+                The stderr should include "CSE timeout approaching, exiting early."
+            End
+            It "returns 0 and does not time out when retrycmd_internal is within the CSE timeout"
+                timeout() {
+                    return 124
+                }
+                CSE_STARTTIME_FORMATTED=$(date -d "-5 minutes" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
+                When call _retrycmd_internal 2 1 5 "true" echo "Failing Command"
+                The status should eq 1
+                The stdout should eq ""
+                The stderr should include "Executed \"echo Failing Command\" 2 times; giving up (last exit status: 124)." 
+            End
+        End
+    End
+
+    Describe 'check_cse_timeout'
+        Describe 'when CSE_STARTTIME_SECONDS is incorrect'
+            It 'returns 0 and prints error to stderr when CSE_STARTTIME_SECONDS is not set'
+                When call check_cse_timeout
+                The status should eq 0
+                The stdout should include "Warning: CSE_STARTTIME_SECONDS environment variable is not set."
+                The stderr should eq ""
+            End
+        End
+        Describe 'when CSE_STARTTIME_SECONDS is set'
+            It 'returns 0 and prints no output when CSE_STARTTIME_SECONDS is less than the timeout'
+                CSE_STARTTIME_FORMATTED=$(date -d "-5 minutes" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
+                When call check_cse_timeout
+                The status should eq 0
+                The stderr should eq ""
+                The stdout should eq ""
+            End
+            It 'returns 1 and prints error to stderr when CSE_STARTTIME_SECONDS is past the timeout'
+                CSE_STARTTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
+                CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)
+                When call check_cse_timeout
+                The status should eq 1
+                The stderr should include "Error: CSE has been running for 781 seconds"
+                The stdout should eq ""
             End
         End
     End
