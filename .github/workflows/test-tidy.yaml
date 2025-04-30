@@ -97,6 +97,6 @@ jobs:
             fi
             curl -s -X PUT \
               -H "Authorization: Bearer ${{ steps.app-token.outputs.token }}" \
-              -d "{\"message\":\"chore: tidy $FILENAME\", \"content\":\"$CONTENT\", \"branch\":\"$GITHUB_HEAD_REF\", \"sha\":\"$SHA\"}" \
+              -d "{\"message\":\"chore: tidy $file\", \"content\":\"$CONTENT\", \"branch\":\"$GITHUB_HEAD_REF\", \"sha\":\"$SHA\"}" \
               https://api.github.com/repos/${{ github.repository }}/contents/$file
           done
