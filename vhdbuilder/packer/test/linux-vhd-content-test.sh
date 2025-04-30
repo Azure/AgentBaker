@@ -115,7 +115,7 @@ testAcrCredentialProviderInstalled() {
     # then downloadLocation should be /opt/credentialprovider/downloads/azure-acr-credential-provider-linux-amd64-v1.30.0.tar.gz
     downloadLocation="/opt/credentialprovider/downloads/azure-acr-credential-provider-linux-${CPU_ARCH}-${version}.tar.gz"
     validateOrasOCIArtifact $currentDownloadURL $downloadLocation
-    if [ $? -ne 0 ]; then
+    if [ "$?" -ne 0 ]; then
       err $test "File size of ${downloadLocation} from ${currentDownloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
       continue
     fi
@@ -224,7 +224,7 @@ testPackagesInstalled() {
       # -L since some urls are redirects (i.e github)
       # shellcheck disable=SC2086
       validateDownloadPackage "$downloadURL" $downloadedPackage
-      if [ $? -ne 0 ]; then
+      if [ "$?" -ne 0 ]; then
         err $test "File size of ${downloadedPackage} from ${downloadURL} is invalid. Expected file size: ${fileSizeInRepo} - downloaded file size: ${fileSizeDownloaded}"
         continue
       fi
@@ -708,7 +708,7 @@ testUserAdd() {
   echo "$test: Checking that INACTIVE is used by useradd"
   useradd -D | grep -E -v "^INACTIVE=30$" >/dev/null
   # shellcheck disable=SC2181
-  if [ $? -ne 0 ]; then
+  if [ "$?" -ne 0 ]; then
     err $test "useradd is not using INACTIVE=30 from $settings_file"
   fi
   echo "$test: useradd is using INACTIVE=30 from $settings_file"
@@ -1306,7 +1306,7 @@ testCorednsBinaryExtractedAndCached() {
 
   local builtInPlugins
   builtInPlugins=$("$binaryPath" --plugins)
-  if [ $? -eq 0 ]; then
+  if [ "$?" -eq 0 ]; then
     echo "$test: Succeeded to execute coredns --plugins command from $binaryPath"
   else
     echo "$test: Failed to execute coredns --plugins command from $binaryPath"

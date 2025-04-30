@@ -2,8 +2,11 @@
 
 CSE_STARTTIME=$(date)
 CSE_STARTTIME_FORMATTED=$(date +"%F %T.%3N")
+export CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s) # Export for child processes, used in early retry loop exits
+
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 mkdir -p $EVENTS_LOGGING_DIR
+# this is the "global" CSE execution timeout - we allow CSE to run for 15 minutes before timeout will attempt to kill the script. We exit early from some of the retry loops using `check_cse_timeout` in `cse_helpers.sh`.`
 timeout -k5s 15m /bin/bash /opt/azure/containers/provision.sh >> /var/log/azure/cluster-provision.log 2>&1
 EXIT_CODE=$?
 systemctl --no-pager -l status kubelet >> /var/log/azure/cluster-provision-cse-output.log 2>&1
@@ -99,10 +102,10 @@ upload_logs() {
         python3 /opt/azure/containers/provision_send_logs.py >/dev/null 2>&1
     fi
 }
-if [ $EXIT_CODE -ne 0 ]; then
+if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs
 else
     upload_logs &
 fi
 
-exit $EXIT_CODE
+exit "$EXIT_CODE"

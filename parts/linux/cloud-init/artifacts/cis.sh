@@ -9,7 +9,7 @@ assignRootPW() {
         SALT=$(openssl rand -base64 5)
         SECRET=$(openssl rand -base64 37)
         CMD="import crypt, getpass, pwd; print(crypt.crypt('$SECRET', '\$6\$$SALT\$'))"
-        if [[ "${VERSION}" == "22.04" || "${VERSION}" == "24.04" ]]; then
+        if [ "${VERSION}" = "22.04" ] || [ "${VERSION}" = "24.04" ]; then
             HASH=$(python3 -c "$CMD")
         else
             HASH=$(python -c "$CMD")
@@ -55,15 +55,15 @@ assignFilePermissions() {
     chmod 600 /etc/shadow- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     chmod 600 /etc/group- || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
 
-    if [[ -f /etc/default/grub ]]; then
+    if [ -f /etc/default/grub ]; then
         chmod 644 /etc/default/grub || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
 
-    if [[ -f /etc/crontab ]]; then
+    if [ -f /etc/crontab ]; then
         chmod 0600 /etc/crontab || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
     fi
     for filepath in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly /etc/cron.d; do
-        if [[ -e $filepath ]]; then
+        if [ -e "$filepath" ]; then
             chmod 0600 $filepath || exit $ERR_CIS_ASSIGN_FILE_PERMISSION
         fi
     done
@@ -98,7 +98,7 @@ replaceOrAppendSetting() {
     # After replacement/append, there should be exactly one line that sets the setting,
     # and it must have the value we want.
     # If not, then there's something wrong with this script.
-    if [[ $(grep -E "$SEARCH_PATTERN" "$FILE") != "$SETTING_LINE" ]]; then
+    if [ "$(grep -E "$SEARCH_PATTERN" "$FILE" 2>/dev/null)" != "$SETTING_LINE" ]; then
         echo "replacement was wrong"
         exit $ERR_CIS_APPLY_PASSWORD_CONFIG
     fi
@@ -174,7 +174,7 @@ fixUmaskSettings() {
     # Note that we use printf to avoid a trailing newline.
     local umask_sh="/etc/profile.d/umask.sh"
     if isMarinerOrAzureLinux "$OS"; then
-        if [[ -f "${umask_sh}" ]]; then
+        if [ -f "${umask_sh}" ]; then
             printf "umask 027" >${umask_sh}
         fi
     fi

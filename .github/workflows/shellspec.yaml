@@ -12,3 +12,8 @@ jobs:
     - run: |
         make shellspec
       name: Run shell/bash script unit tests with shellspec
+    - run: echo "Shell/Bash script unit tests failed. Please check the logs for details. To run the shellspec unit tests locally, please refer to ./spec/README.md"
+      if: failure()
+      name: Print failure message
+    - run: echo "Shell/Bash script unit tests completed successfully!"
+      name: Print completion message
