@@ -561,26 +561,6 @@
     },
     {
       "type": "file",
-      "source": "kata-containers-igvm-debug.img",
-      "destination": "/home/packer/kata-containers-igvm-debug.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-igvm.img",
-      "destination": "/home/packer/kata-containers-igvm.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers-initrd-base.img",
-      "destination": "/home/packer/kata-containers-initrd-base.img"
-    },
-    {
-      "type": "file",
-      "source": "kata-containers.img",
-      "destination": "/home/packer/kata-containers.img"
-    },
-    {
-      "type": "file",
       "source": "reference-info-base64",
       "destination": "/home/packer/reference-info-base64"
     },
@@ -588,6 +568,21 @@
       "type": "file",
       "source": "vhdbuilder/notice.txt",
       "destination": "/home/packer/NOTICE.txt"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.sh",
+      "destination": "/home/packer/localdns.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns.service",
+      "destination": "/home/packer/localdns.service"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/localdns-delegate.conf",
+      "destination": "/home/packer/localdns-delegate.conf"
     },
     {
       "type": "shell",
@@ -613,6 +608,12 @@
       "direction": "download",
       "source": "/var/log/bcc_installation.log",
       "destination": "bcc-tools-installation.log"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo rm /var/log/bcc_installation.log"
+      ]
     },
     {
       "type": "shell",

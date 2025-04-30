@@ -106,9 +106,11 @@ func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string)
 func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	if s.VHD.OS == config.OSWindows {
 		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
 			fmt.Sprintf("dir %[1]s", fileName),
 			fmt.Sprintf("Get-Content %[1]s", fileName),
-			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { return 1 } else { return 0 }", fileName, contents),
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 0 } else { exit 1 }", fileName, contents),
 		}
 
 		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
@@ -127,14 +129,26 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 func ValidateFileExcludesContent(ctx context.Context, s *Scenario, fileName string, contents string) {
 	require.NotEqual(s.T, "", contents, "Test setup failure: Can't validate that a file excludes an empty string. Filename: %s", fileName)
 
-	steps := []string{
-		"set -ex",
-		fmt.Sprintf("test -f %[1]s || exit 0", fileName),
-		fmt.Sprintf("ls -la %[1]s", fileName),
-		fmt.Sprintf("sudo cat %[1]s", fileName),
-		fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
+	if s.VHD.OS == config.OSWindows {
+		steps := []string{
+			"$ErrorActionPreference = \"Stop\"",
+			fmt.Sprintf("dir %[1]s", fileName),
+			fmt.Sprintf("Get-Content %[1]s", fileName),
+			fmt.Sprintf("if ( -not ( Test-Path -Path %s ) ) { exit 2 }", fileName),
+			fmt.Sprintf("if (Select-String -Path %s -Pattern \"%s\" -SimpleMatch -Quiet) { exit 1 } else { exit 0 }", fileName, contents),
+		}
+
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file has contents - might mean file does not have contents, might mean something went wrong")
+	} else {
+		steps := []string{
+			"set -ex",
+			fmt.Sprintf("test -f %[1]s || exit 0", fileName),
+			fmt.Sprintf("ls -la %[1]s", fileName),
+			fmt.Sprintf("sudo cat %[1]s", fileName),
+			fmt.Sprintf("(sudo cat %[1]s | grep -q -v -F -e %[2]q)", fileName, contents),
+		}
+		execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 	}
-	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "could not validate file excludes contents - might mean file does have contents, might mean something went wrong")
 }
 
 func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName string, restartTimeoutInSeconds int) {
@@ -167,6 +181,33 @@ func ServiceCanRestartValidator(ctx context.Context, s *Scenario, serviceName st
 	}
 
 	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "command to restart service failed")
+}
+
+func ValidateSystemdUnitIsRunning(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"set -ex",
+		// Print the service status for logging purposes
+		fmt.Sprintf("systemctl -n 5 status %s || true", serviceName),
+		// Verify the service is active
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("service %s is not running", serviceName))
+}
+
+func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) {
+	command := []string{
+		"set -ex",
+		fmt.Sprintf("systemctl --no-pager -n 5 status %s || true", serviceName),
+		fmt.Sprintf("systemctl is-failed %s", serviceName),
+	}
+	require.NotEqual(
+		s.T,
+		"0",
+		execScriptOnVMForScenario(ctx, s, strings.Join(command, "\n")).exitCode,
+		`expected "systemctl is-failed" to exit with a non-zero exit code for unit %q, unit is in a failed state`,
+		serviceName,
+	)
 }
 
 func ValidateUlimitSettings(ctx context.Context, s *Scenario, ulimits map[string]string) {
@@ -210,7 +251,13 @@ func execScriptOnVMForScenarioValidateExitCode(ctx context.Context, s *Scenario,
 	execResult := execScriptOnVMForScenario(ctx, s, cmd)
 
 	expectedExitCodeStr := fmt.Sprint(expectedExitCode)
-	require.Equal(s.T, expectedExitCodeStr, execResult.exitCode, "exec command failed with exit code %q, expected exit code %s\nCommand: %s\nAdditional detail: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s", execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage, execResult.stdout, execResult.stderr)
+	require.Equal(
+		s.T,
+		expectedExitCodeStr,
+		execResult.exitCode,
+		"exec command failed with exit code %q, expected exit code %s\nCommand: %s\nAdditional detail: %s\nSTDOUT:\n%s\n\nSTDERR:\n%s",
+		execResult.exitCode, expectedExitCodeStr, cmd, additionalErrorMessage, execResult.stdout, execResult.stderr,
+	)
 
 	return execResult
 }
@@ -342,13 +389,6 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
 	configFileFlags := fmt.Sprintf("FLAG: --config=\"%s\"", filePath)
 	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s, but not found", "config")
-}
-
-// ValidateKubeletHasCLIFlag checks kubelet is started with the right flags and configs.
-func ValidateKubeletHasCLIFlag(ctx context.Context, s *Scenario, flagName, flagValue string) {
-	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl -u kubelet", 0, "could not retrieve kubelet logs with journalctl")
-	configFileFlags := fmt.Sprintf("FLAG: --%s=\"%s", flagName, flagValue)
-	require.Containsf(s.T, execResult.stdout.String(), configFileFlags, "expected to find flag %s=%s, but not found", flagName, flagValue)
 }
 
 func ValidatePodUsingNVidiaGPU(ctx context.Context, s *Scenario) {
@@ -525,4 +565,26 @@ func ValidateTaints(ctx context.Context, s *Scenario, expectedTaints string) {
 		}
 	}
 	require.Equal(s.T, expectedTaints, actualTaints, "expected node %q to have taint %q, but got %q", s.Runtime.KubeNodeName, expectedTaints, actualTaints)
+}
+
+// ValidateLocalDNSService checks if the localdns service is running and active.
+func ValidateLocalDNSService(ctx context.Context, s *Scenario) {
+	serviceName := "localdns"
+	steps := []string{
+		"set -ex",
+		// Verify the localdns service is running and active.
+		fmt.Sprintf("(systemctl -n 5 status %s || true)", serviceName),
+		fmt.Sprintf("systemctl is-active %s", serviceName),
+	}
+	execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(steps, "\n"), 0, "localdns service is not up and running")
+}
+
+// ValidateLocalDNSResolution checks if the DNS resolution for an external domain is successful from localdns clusterlistenerIP.
+// It uses the 'dig' command to check the DNS resolution and expects a successful response.
+func ValidateLocalDNSResolution(ctx context.Context, s *Scenario) {
+	testdomain := "bing.com"
+	command := fmt.Sprintf("dig %s +timeout=1 +tries=1", testdomain)
+	execResult := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "dns resolution failed")
+	assert.Contains(s.T, execResult.stdout.String(), "status: NOERROR")
+	assert.Contains(s.T, execResult.stdout.String(), "SERVER: 169.254.10.10")
 }

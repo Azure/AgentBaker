@@ -503,6 +503,9 @@ function Install-ContainerD
     else
     {
         tar -xzf $containerdTmpDest -C $installDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to extract the '$containerdTmpDest' archive."
+        }
         mv -Force $installDir\bin\* $installDir
         Remove-Item -Path $installDir\bin -Force -Recurse
     }
@@ -903,6 +906,9 @@ try
             Clear-TempFolder
             Log-VHDFreeSize
             Test-AzureExtensions
+
+            Write-Output "creating test.txt file"
+            Write-Output "this is a test file" > "c:\k\test.txt"
         }
         default {
             Write-Log "Unable to determine provisiong phase... exiting"

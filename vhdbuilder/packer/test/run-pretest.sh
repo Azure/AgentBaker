@@ -8,7 +8,7 @@ while IFS= read -r component; do
 	downloadURL=$(echo ${downloadURL//\*/} | jq 'sub(".com/" ; ".com/v2/") | sub(":" ; "/tags/list")' -r)
 	amd64OnlyVersionsStr=$(echo "${component}" | jq .amd64OnlyVersions -r)
 	amd64OnlyVersions=""
-	if [[ ${amd64OnlyVersionsStr} != null ]]; then
+	if [ "${amd64OnlyVersionsStr}" != "null" ]; then
 		amd64OnlyVersions=$(echo "${amd64OnlyVersionsStr}" | jq -r ".[]")
 	fi
 	multiArchVersionsV2=()
@@ -21,11 +21,12 @@ while IFS= read -r component; do
         multiArchVersionsV2+=("${version}")
     done
 	multiArchVersionsV2String=""
-	if [[ ${#multiArchVersionsV2[@]} -gt 0 ]]; then
+	if [ -n "${multiArchVersionsV2[*]}" ]; then
 		IFS=' ' read -r -a multiArchVersionsV2String <<< "${multiArchVersionsV2[*]}"
 	fi
 	
 	arch=$(uname -m)
+	# shellcheck disable=SC3010
 	if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
 		versionsToBeDownloaded="${multiArchVersionsV2String}"
 	else
@@ -35,6 +36,7 @@ while IFS= read -r component; do
 	validVersions=$(curl -sL https://$downloadURL | jq .tags[])
 	
 	for versionToBeDownloaded in ${versionsToBeDownloaded[*]}; do
+	    # shellcheck disable=SC3010
 		[[ ${validVersions[*]}  =~  ${versionToBeDownloaded} ]] || (echo "${versionToBeDownloaded} does not exist in ${downloadURL}" && exit 1)
 	done
 done <<< "$components"

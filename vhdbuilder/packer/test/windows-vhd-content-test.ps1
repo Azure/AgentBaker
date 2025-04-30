@@ -12,6 +12,13 @@ param (
 
 Set-PSDebug -Trace 1
 
+# On a rare occasion, these functions aren't imported properly. So let's pre-define them.
+filter Timestamp { "$(Get-Date -Format o): $_" }
+function Write-Log ($message) {
+    $message | Timestamp | Tee-Object -FilePath $LogPath -Append
+}
+
+
 # We use parameters for test script so we set environment variables before importing c:\k\windows-vhd-configuration.ps1 to reuse it
 $env:WindowsSKU = $windowsSKU
 

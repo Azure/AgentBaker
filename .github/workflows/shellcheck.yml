@@ -3,12 +3,12 @@ on: pull_request
 
 jobs:
   shellcheck:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v3
       with:
-        go-version: '1.22'
+        go-version: '1.24'
     - run: |
         make validate-shell
       name: Lint shell/bash scripts with ShellCheck

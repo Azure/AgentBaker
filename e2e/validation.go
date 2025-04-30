@@ -46,6 +46,9 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 		"expected to have successfully validated bootstrap token credential before kubelet startup, but did not",
 	)
 
+	// ensure aks-log-collector hasn't entered a failed state
+	ValidateSystemdUnitIsNotFailed(ctx, s, "aks-log-collector")
+
 	// the instructions belows expects the SSH key to be uploaded to the user pool VM.
 	// which happens as a side-effect of execCommandOnVMForScenario, it's ugly but works.
 	// maybe we should use a single ssh key per cluster, but need to be careful with parallel test runs.
@@ -83,6 +86,12 @@ func ValidateCommonLinux(ctx context.Context, s *Scenario) {
 	// kubeletNodeIPValidator cannot be run on older VHDs with kubelet < 1.29
 	if s.VHD.Version != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg.Version {
 		ValidateKubeletNodeIP(ctx, s)
+	}
+
+	// localdns is not supported on 1804, scriptless, privatekube and VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached.
+	if s.Tags.Scriptless != true && s.VHD != config.VHDUbuntu1804Gen2Containerd && s.VHD != config.VHDUbuntu2204Gen2ContainerdPrivateKubePkg && s.VHD != config.VHDUbuntu2204Gen2ContainerdAirgappedK8sNotCached {
+		ValidateLocalDNSService(ctx, s)
+		ValidateLocalDNSResolution(ctx, s)
 	}
 }
 

@@ -116,6 +116,10 @@ var FabricManagerGPUSizes = map[string]bool{
 	"standard_nd92isr_h100_v5":  true,
 	"standard_nd96isr_h100_v5":  true,
 	"standard_nd100isr_h100_v5": true,
+	// H200
+	"standard_nd96is_h200_v5":   true,
+	"standard_nd96isr_h200_v5":  true,
+	"standard_nd96isrf_h200_v5": true,
 	// A100 oddballs.
 	"standard_nc24ads_a100_v4": false, // NCads_v4 will fail to start fabricmanager.
 	"standard_nc48ads_a100_v4": false,

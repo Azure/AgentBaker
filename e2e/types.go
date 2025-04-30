@@ -133,7 +133,7 @@ type Config struct {
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, t *testing.T) (*Cluster, error)
 
-	// VHD is the function called by the e2e suite on the given scenario to get its VHD selection
+	// VHD is the node image used by the scenario.
 	VHD *config.Image
 
 	// BootstrapConfigMutator is a function which mutates the base NodeBootstrappingConfig according to the scenario's requirements
@@ -161,6 +161,8 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, t *testing.T, vmss *arm
 	require.NotEmpty(t, resourceID, "VHDSelector.ResourceID")
 	require.NotNil(t, vmss, "input VirtualMachineScaleSet")
 	require.NotNil(t, vmss.Properties, "input VirtualMachineScaleSet.Properties")
+
+	s.T.Logf("got vhd resource id %s", resourceID)
 
 	if s.VMConfigMutator != nil {
 		s.VMConfigMutator(vmss)

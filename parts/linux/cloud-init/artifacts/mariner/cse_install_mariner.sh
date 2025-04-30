@@ -1,10 +1,8 @@
 #!/bin/bash
 
-echo "Sourcing cse_install_distro.sh for Mariner"
-
 removeContainerd() {
     containerdPackageName="containerd"
-    if [[ $OS_VERSION == "2.0" ]]; then
+    if [ "$OS_VERSION" = "2.0" ]; then
         containerdPackageName="moby-containerd"
     fi
     retrycmd_if_failure 10 5 60 dnf remove -y $containerdPackageName
@@ -16,13 +14,24 @@ installDeps() {
     # fail to start. Masking it as it's not used, and the stop action of "flush tables" can
     # result in rules getting cleared unexpectedly. Azure Linux 3 fixes this, so we only need
     # this in 2.0.
-    if [[ $OS_VERSION == "2.0" ]]; then
+    if [ "$OS_VERSION" = "2.0" ]; then
       systemctl --now mask nftables.service || exit $ERR_SYSTEMCTL_MASK_FAIL
+    fi
+
+    # Install the package repo for the specific OS version.
+    # AzureLinux 3.0 uses the azurelinux-repos-cloud-native repo
+    # Other OS, e.g., Mariner 2.0 uses the mariner-repos-cloud-native repo
+    if [ "$OS_VERSION" = "3.0" ]; then
+      echo "Installing azurelinux-repos-cloud-native"
+      dnf_install 30 1 600 azurelinux-repos-cloud-native
+    else
+      echo "Installing mariner-repos-cloud-native"
+      dnf_install 30 1 600 mariner-repos-cloud-native
     fi
     
     dnf_makecache || exit $ERR_APT_UPDATE_TIMEOUT
     dnf_update || exit $ERR_APT_DIST_UPGRADE_TIMEOUT
-    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils; do
+    for dnf_package in ca-certificates check-restart cifs-utils cloud-init-azure-kvp conntrack-tools cracklib dnf-automatic ebtables ethtool fuse git inotify-tools iotop iproute ipset iptables jq kernel-devel logrotate lsof nmap-ncat nfs-utils pam pigz psmisc rsyslog socat sysstat traceroute util-linux xz zip blobfuse2 nftables iscsi-initiator-utils device-mapper-multipath; do
       if ! dnf_install 30 1 600 $dnf_package; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
@@ -30,7 +39,7 @@ installDeps() {
 
     # install 2.0 specific packages
     # apparmor related packages and the blobfuse package are not available in AzureLinux 3.0
-    if [[ $OS_VERSION == "2.0" ]]; then
+    if [ "$OS_VERSION" = "2.0" ]; then
       for dnf_package in apparmor-parser libapparmor blobfuse; do
         if ! dnf_install 30 1 600 $dnf_package; then
           exit $ERR_APT_INSTALL_TIMEOUT
@@ -40,11 +49,21 @@ installDeps() {
 }
 
 installKataDeps() {
-    if [[ $OS_VERSION != "1.0" ]]; then
+    if [ "$OS_VERSION" != "1.0" ]; then
       if ! dnf_install 30 1 600 kata-packages-host; then
         exit $ERR_APT_INSTALL_TIMEOUT
       fi
     fi
+}
+
+installCriCtlPackage() {
+  version="${1:-}"
+  packageName="kubernetes-cri-tools-${version}"
+  if [ -z "$version" ]; then
+    echo "Error: No version specified for kubernetes-cri-tools package but it is required. Exiting with error."
+  fi
+  echo "Installing ${packageName} with dnf"
+  dnf_install 30 1 600 ${packageName} || exit 1
 }
 
 downloadGPUDrivers() {
@@ -135,19 +154,21 @@ installStandaloneContainerd() {
     local desiredVersion="${1:-}"
     #e.g., desiredVersion will look like this 1.6.26-5.cm2
     # azure-built runtimes have a "+azure" suffix in their version strings (i.e 1.4.1+azure). remove that here.
-    CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)
-    # v1.4.1 is our lowest supported version of containerd
-    
+    # check if containerd command is available before running it
+    if command -v containerd &> /dev/null; then
+        CURRENT_VERSION=$(containerd -version | cut -d " " -f 3 | sed 's|v||' | cut -d "+" -f 1)    
+    fi
+    # v1.4.1 is our lowest supported version of containerd    
     if semverCompare ${CURRENT_VERSION:-"0.0.0"} ${desiredVersion}; then
         echo "currently installed containerd version ${CURRENT_VERSION} is greater than (or equal to) target base version ${desiredVersion}. skipping installStandaloneContainerd."
     else
         echo "installing containerd version ${desiredVersion}"
         removeContainerd
         containerdPackageName="containerd-${desiredVersion}"
-        if [[ $OS_VERSION == "2.0" ]]; then
+        if [ "$OS_VERSION" = "2.0" ]; then
             containerdPackageName="moby-containerd-${desiredVersion}"
         fi
-        if [[ $OS_VERSION == "3.0" ]]; then
+        if [ "$OS_VERSION" = "3.0" ]; then
             containerdPackageName="containerd2-${desiredVersion}"
         fi
         
@@ -158,7 +179,7 @@ installStandaloneContainerd() {
     fi
 
     # Workaround to restore the CSE configuration after containerd has been installed from the package server.
-    if [[ -f /etc/containerd/config.toml.rpmsave ]]; then
+    if [ -f /etc/containerd/config.toml.rpmsave ]; then
         mv /etc/containerd/config.toml.rpmsave /etc/containerd/config.toml
     fi
 

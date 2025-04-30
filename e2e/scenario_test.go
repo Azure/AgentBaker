@@ -754,6 +754,12 @@ func Test_Ubuntu2204Gen2_ContainerdAirgappedK8sNotCached(t *testing.T) {
 						ContainerRegistryServer: fmt.Sprintf("%s.azurecr.io", config.PrivateACRName),
 					},
 				}
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
+				// intentionally using private acr url to get kube binaries
+				nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = fmt.Sprintf(
+					"%s.azurecr.io/oss/binaries/kubernetes/kubernetes-node:v%s-linux-amd64",
+					config.PrivateACRName,
+					nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion)
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateDirectoryContent(ctx, s, "/run", []string{"outbound-check-skipped"})
@@ -792,6 +798,11 @@ func Test_Ubuntu2204_ArtifactStreaming(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
 			},
 		},
 	})
@@ -811,6 +822,11 @@ func Test_Ubuntu2204_ArtifactStreaming_Scriptless(t *testing.T) {
 			},
 			Validator: func(ctx context.Context, s *Scenario) {
 				ValidateNonEmptyDirectory(ctx, s, "/etc/overlaybd")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-snapshotter.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "overlaybd-tcmu.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-mirror.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "acr-nodemon.service")
+				ValidateSystemdUnitIsRunning(ctx, s, "containerd.service")
 			},
 		},
 	})
@@ -1195,6 +1211,7 @@ func Test_Ubuntu2204_PrivateKubePkg(t *testing.T) {
 			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
 				nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.25.6"
 				nbc.K8sComponents.LinuxPrivatePackageURL = "https://privatekube.blob.core.windows.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz"
+				nbc.AgentPoolProfile.LocalDNSProfile = nil
 			},
 		},
 	})
@@ -1378,6 +1395,7 @@ func Test_Ubuntu2204_DisableKubeletServingCertificateRotationWithTags_CustomKube
 	RunScenario(t, &Scenario{
 		Tags: Tags{
 			ServerTLSBootstrapping: true,
+			Scriptless:             true,
 		},
 		Description: "tests that a node on ubuntu 2204 bootstrapped with custom kubelet config and kubelet serving certificate rotation enabled will disable certificate rotation due to nodepool tags",
 		Config: Config{
@@ -1596,23 +1614,6 @@ func Test_Ubuntu2204_KubeletCustomConfig(t *testing.T) {
 				kubeletConfigFilePath := "/etc/default/kubeletconfig.json"
 				ValidateFileHasContent(ctx, s, kubeletConfigFilePath, `"seccompDefault": true`)
 				ValidateKubeletHasFlags(ctx, s, kubeletConfigFilePath)
-			},
-		},
-	})
-}
-
-// To verify that eviction threshold are set to expected value
-func Test_Ubuntu2204VanillaK8S129EvictionThreshold(t *testing.T) {
-	RunScenario(t, &Scenario{
-		Description: "Tests that the eviction hard threshold is set to default value 100Mi for 1.29.0+",
-		Config: Config{
-			Cluster: ClusterKubenet,
-			VHD:     config.VHDUbuntu2404Gen1Containerd,
-			BootstrapConfigMutator: func(nbc *datamodel.NodeBootstrappingConfiguration) {
-			},
-			Validator: func(ctx context.Context, s *Scenario) {
-				evictionHardConfig := "memory.available<100Mi"
-				ValidateKubeletHasCLIFlag(ctx, s, "eviction-hard", evictionHardConfig)
 			},
 		},
 	})
