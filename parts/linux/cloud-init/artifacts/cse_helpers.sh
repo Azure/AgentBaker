@@ -470,13 +470,16 @@ systemctlEnableAndStart() {
 systemctlEnableAndStartNoBlock() {
     service=$1; timeout=$2; status_check_delay_seconds=${3:-"0"}
     systemctl_restart_no_block 100 5 $timeout $service
+
     RESTART_STATUS=$?
-    systemctl status $1 --no-pager -l > /var/log/azure/$1-status.log
     if [ $RESTART_STATUS -ne 0 ]; then
-        echo "$service could not be enqueued for start"
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
+        echo "$service could not be enqueued for startup"
         return 1
     fi
+
     if ! retrycmd_if_failure 120 5 25 systemctl enable $1; then
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         echo "$1 could not be enabled by systemctl"
         return 1
     fi
@@ -487,9 +490,12 @@ systemctlEnableAndStartNoBlock() {
 
     status=$(systemctl is-active $service)
     if [ "${status,,}" != "active" ] && [ "${status,,}" != "activating" ]; then
+        systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
         echo "$service is not activating or active"
         return 1
     fi
+
+    systemctl status $service --no-pager -l > /var/log/azure/$service-status.log
 }
 
 systemctlDisableAndStop() {
