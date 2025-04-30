@@ -1,9 +1,9 @@
-name: auto-tidy
+name: new-tidy
 
 on:
   # to support dependabot need to use pull_request_target
   # https://github.blog/changelog/2021-02-19-github-actions-workflows-triggered-by-dependabot-prs-will-run-with-read-only-permissions/
-  pull_request_target:
+  pull_request:
     branches:
       - master
     paths:
@@ -16,7 +16,7 @@ permissions:
     id-token: write
     contents: read
 jobs:
-  auto-tidy:
+  new-tidy:
     runs-on: ubuntu-latest
     # prevent actors that aren't dependabot from triggering from forks
     if: github.actor == 'dependabot[bot]' || github.event.pull_request.head.repo.full_name == 'Azure/AgentBaker'
