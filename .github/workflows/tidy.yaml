@@ -67,7 +67,7 @@ jobs:
             echo "changes_detected=false" >> $GITHUB_ENV
           fi
 
-      - if: env.changes_detected == 'true'
+      - if: env.changes_detected == 'true' 
         name: Remove toolchain lines
         run: |
           set -e
