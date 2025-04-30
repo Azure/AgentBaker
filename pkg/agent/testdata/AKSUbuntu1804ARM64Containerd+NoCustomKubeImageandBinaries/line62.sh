@@ -81,6 +81,9 @@ installCriCtlPackage() {
     fi
     echo "Installing ${packageName} with apt-get"
     apt_get_install 20 30 120 ${packageName} || exit 1
+    if [ -f "$VHD_LOGS_FILEPATH" ]; then
+        echo "cri-tools installed to $(which cri-tools)" >> $VHD_LOGS_FILEPATH
+    fi
 }
 
 installContainerd() {

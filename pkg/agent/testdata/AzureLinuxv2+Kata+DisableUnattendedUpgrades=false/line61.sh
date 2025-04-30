@@ -54,6 +54,9 @@ installCriCtlPackage() {
   fi
   echo "Installing ${packageName} with dnf"
   dnf_install 30 1 600 ${packageName} || exit 1
+  if [ -f "$VHD_LOGS_FILEPATH" ]; then
+    echo "cri-tools installed to $(which cri-tools)" >> $VHD_LOGS_FILEPATH
+  fi
 }
 
 downloadGPUDrivers() {
