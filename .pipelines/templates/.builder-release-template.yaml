@@ -143,7 +143,7 @@ steps:
       PACKER_VNET_NAME: $(PACKER_VNET_NAME)
       SKIP_SCANNING: $(SKIP_SCANNING)
       DRY_RUN: $(DRY_RUN)
-      VHD_DEBUG: ${{ VHD_DEBUG }}
+      VHD_DEBUG: $(VHD_DEBUG)
 
   - task: PublishPipelineArtifact@0
     condition: always()
