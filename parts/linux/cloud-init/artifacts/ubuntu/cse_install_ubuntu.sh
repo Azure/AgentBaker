@@ -87,6 +87,9 @@ installCriCtlPackage() {
     fi
     echo "Installing ${packageName} with apt-get"
     apt_get_install 20 30 120 ${packageName} || exit 1
+    # create a symlink at the old location /usr/local/bin/crictl for backward compatibility
+    # it points to the new location /usr/bin/crictl after apt-get install
+    ln -sf /usr/bin/crictl /usr/local/bin/crictl
 }
 
 installContainerd() {
