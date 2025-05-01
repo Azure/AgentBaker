@@ -436,7 +436,7 @@ sysctl_reload() {
     retrycmd_silent $1 $2 $3 "false" sysctl --system
 }
 version_gte() {
-  test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" == "$1"
+    test "$(printf '%s\n' "$@" | sort -rV | head -n 1)" = "$1"
 }
 
 systemctlEnableAndStart() {
