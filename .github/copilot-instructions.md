@@ -8,7 +8,7 @@ AgentBaker builds VHDs using Packer for various base OS: Windows, Azure Linux an
 
 ## AgentBaker Service
 
-[apiserver](../apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned.
+[apiserver](../apiserver/) is `go` based webserver. It receives request from external client and generates CSE and CustomData to be used on the VHD when a new node is created / provisioned. The webserver is also used to determine the latest version of Linux VHDs available for provisioning within AKS clusters.
 
 ## VHD Builder
 
