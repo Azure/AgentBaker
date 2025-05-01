@@ -320,6 +320,7 @@ testImagesPulled() {
   imagesToBePulled=$(echo "${componentsJsonContent}" | jq .ContainerImages[] --monochrome-output --compact-output)
 
   while IFS= read -r imageToBePulled; do
+    echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
     MULTI_ARCH_VERSIONS=()
