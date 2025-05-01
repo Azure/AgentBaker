@@ -692,6 +692,7 @@ updateMultiArchVersions() {
   for version in "${versions[@]}"; do
     MULTI_ARCH_VERSIONS+=("${version}")
   done
+  echo "inside updateMultiArchVersions(), MULTI_ARCH_VERSIONS: ${MULTI_ARCH_VERSIONS[@]}"
 }
 
 updatePackageDownloadURL() {
