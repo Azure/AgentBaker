@@ -151,6 +151,13 @@ $global:ErrorCodeNames = @(
     "WINDOWS_CSE_ERROR_LOOKUP_INSTANCE_DATA_TAG"
 )
 
+# The package domain to be used
+$global:PackageDownloadFqdn = "packages.aks.azure.com"
+# The preferred package FQDN
+$global:PreferredPackageDownloadFqdn = "packages.aks.azure.com"
+# Fallback FQDN if preferred cannot be contacted
+$global:FallbackPackageDownloadFqdn = "acs-mirror.azureedge.net"
+
 # NOTE: KubernetesVersion does not contain "v"
 $global:MinimalKubernetesVersionWithLatestContainerd = "1.28.0" # Will change it to the correct version when we support new Windows containerd version
 # Although the contianerd package url is set in AKS RP code now, we still need to update the following variables for AgentBaker Windows E2E tests.
@@ -205,6 +212,10 @@ function DownloadFileOverHttp {
             }
         }
         [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
+
+        $OriginalUrl = $Url
+        $Url = Update-BaseUrl -InitialUrl $OriginalUrl
+        Write-Log "Updated URL $OriginalUrl -> $Url to download $fileName to $DestinationPath"
 
         $oldProgressPreference = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
@@ -472,4 +483,65 @@ function Logs-To-Event {
     }
 "@
     echo $jsonString | Set-Content ${global:EventsLoggingDir}${eventsFileName}.json
+}
+
+function Resolve-PackagesDownloadFqdn {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $PreferredFqdn,
+        [Parameter(Mandatory = $true)][string]
+        $FallbackFqdn,
+        [Parameter(Mandatory = $false)][int]
+        $Retries = 5,
+        [Parameter(Mandatory = $false)][int]
+        $WaitSleepSeconds = 1
+    )
+
+    $packageDownloadBaseUrl = $PreferredFqdn
+
+    for ($i = 1; $i -le $Retries; $i++) {
+        # Confirm that we can establish connectivity to packages.aks.azure.com before node provisioning starts
+        try {
+            $response = Invoke-WebRequest -Uri "https://${PreferredFqdn}/acs-mirror/healthz" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
+            $responseCode = [int]$response.StatusCode
+
+            if ($responseCode -eq 200) {
+                Write-Log "Established connectivity to $PreferredFqdn."
+                break
+            }
+        } catch {
+            $responseCode = 0
+            if ($_.Exception.Response) {
+                $responseCode = [int]$_.Exception.Response.StatusCode
+            }
+        }
+
+        if ($i -eq $Retries) {
+            # If we cannot establish connectivity to packages.aks.azure.com, fallback to old CDN URL
+            $packageDownloadBaseUrl = $FallbackFqdn
+            Write-Log "Setting packageDownloadBaseUrl to $packageDownloadBaseUrl. Please check to ensure cluster firewall has packages.aks.azure.com on its allowlist"
+            break
+        } else {
+            Start-Sleep -Seconds $WaitSleepSeconds
+        }
+    }
+
+    # Use Write-Output explicitly to ensure only this value is returned
+    $global:PackageDownloadFqdn = $packageDownloadBaseUrl
+}
+
+function Update-BaseUrl {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $InitialUrl
+    )
+
+    # Replace domain based on the current package download FQDN
+    if (($global:PackageDownloadFqdn -eq "packages.aks.azure.com") -and ($InitialUrl -like "https://acs-mirror.azureedge.net/*")) {
+        $InitialUrl = $InitialUrl -replace "acs-mirror.azureedge.net", $global:PackageDownloadFqdn
+    } elseif (($global:PackageDownloadFqdn -eq "acs-mirror.azureedge.net") -and ($InitialUrl -like "https://packages.aks.azure.com/*")) {
+        $InitialUrl = $InitialUrl -replace "packages.aks.azure.com", $global:PackageDownloadFqdn
+    }
+
+    return $InitialUrl
 }
