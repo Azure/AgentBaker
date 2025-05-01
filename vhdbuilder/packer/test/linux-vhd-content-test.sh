@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 COMPONENTS_FILEPATH=/opt/azure/components.json
 MANIFEST_FILEPATH=/opt/azure/manifest.json
 VHD_LOGS_FILEPATH=/opt/azure/vhd-install.complete
@@ -1225,13 +1226,13 @@ testCriCtl() {
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
     return 1
   fi
-  # check if the symlink /usr/bin/crictl points to /usr/local/bin/crictl
-  if [ ! -L "/usr/bin/crictl" ]; then
-    err "$test: /usr/bin/crictl is not a symlink"
+  # check if the symlink /usr/local/bin/crictl points to /usr/bin/crictl
+  if [ ! -L "/usr/local/bin/crictl" ]; then
+    err "$test: /usr/local/bin/crictl should be a symlink"
     return 1
   fi
-  if [ "$(readlink /usr/bin/crictl)" != "/usr/local/bin/crictl" ]; then
-    err "$test: /usr/bin/crictl does not point to /usr/local/bin/crictl"
+  if [ "$(readlink -f /usr/local/bin/crictl)" != "/usr/bin/crictl" ]; then
+    err "$test: /usr/local/bin/crictl should point to /usr/bin/crictl"
     return 1
   fi
   echo "$test: Test finished successfully."
