@@ -21,7 +21,7 @@ Windows uses a different folder [cse](../staging/cse/windows/) for almost the sa
 
 ## Release
 
-AgentBaker follows a weekky release. All VHDs are built and tagged. New versions of AgentBaker service is deployed. Older versions (up to 6 months) of AgentBaker service are kept for the coupling reason discussed above.
+Tags of AgentBaker and corresponding Linux VHDs are released every week. Linux VHDs are built with a particular image version in the YYYYMM.DD.PATCH format. All Linux VHD versions correspond to a particular tag of the AgentBaker go module. AgentBaker go module tags follow the format v0.YYYYMMDD.PATCH. The mapping between AgentBaker tag and Linux VHD version is defined within [linux_sig_version.json](../pkg/agent/datamodel/linux_sig_version.json).
 
 Windows VHD are released separately, following windows patch tuesday schedule.
 
