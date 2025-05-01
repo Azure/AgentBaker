@@ -5,6 +5,7 @@ Wants=network-online.target containerd.service
 After=network-online.target containerd.service
 
 [Service]
+SyslogIdentifier=kubelet
 Restart=always
 RestartSec=2
 EnvironmentFile=/etc/default/kubelet
