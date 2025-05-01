@@ -323,7 +323,7 @@ testImagesPulled() {
     echo "checking imageToBePulled: $imageToBePulled ..."
     downloadURL=$(echo "${imageToBePulled}" | jq .downloadURL -r)
     amd64OnlyVersionsStr=$(echo "${imageToBePulled}" | jq .amd64OnlyVersions -r)
-    MULTI_ARCH_VERSIONS=()
+    declare -a MULTI_ARCH_VERSIONS=()
     updateMultiArchVersions "${imageToBePulled}"
 
     amd64OnlyVersions=""
