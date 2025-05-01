@@ -184,6 +184,12 @@ Describe 'long running cse helper functions'
                     The status should eq 0
                     The stdout should eq "1 file curl retries"
                 End
+                It "returns 0 if checksToRun is unset"
+                    # checksToRun arg is unset 
+                    When call _retry_file_curl_internal 1 1 1 "/tmp/nonexistent" "https://dummy.url/file" 
+                    The status should eq 0
+                    The stdout should eq "1 file curl retries"
+                End
                 It "returns 2 if checksToRun fail and global cse timeout is reached"
                     CSE_STARTIME_FORMATTED=$(date -d "-781 seconds" +"%F %T.%3N")
                     CSE_STARTTIME_SECONDS=$(date -d "$CSE_STARTTIME_FORMATTED" +%s)

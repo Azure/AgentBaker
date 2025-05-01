@@ -269,6 +269,7 @@ retrycmd_nslookup() {
 }
 
 _retry_file_curl_internal() {
+    # checksToRun are conditions that need to pass to stop the retry loop. If not passed, eval command will return 0, because checksToRun will be interpreted as an empty string.
     retries=$1; waitSleep=$2; timeout=$3; filePath=$4; url=$5; checksToRun=( "${@:6}" )
     echo "${retries} file curl retries"
     for i in $(seq 1 $retries); do 
