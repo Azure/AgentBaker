@@ -4,11 +4,10 @@ set -uo pipefail
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
 
 KUBECONFIG_PATH="${KUBECONFIG_PATH:-/var/lib/kubelet/kubeconfig}"
-BOOTSTRAP_KUBECONFIG_PATH="${BOOTSTRAP_KUBECONFIG_PATH:-/var/lib/kubelet/bootstrap-kubeconfig}"
 
-MAX_RETRIES=${VALIDATE_KUBELET_CREDENTIALS_MAX_RETRIES:-30}
-RETRY_DELAY_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_DELAY_SECONDS:-2}
-RETRY_TIMEOUT_SECONDS=${VALIDATE_KUBELET_CREDENTIALS_RETRY_TIMEOUT_SECONDS:-5}
+MAX_RETRIES=${CREDENTIAL_VALIDATION_MAX_RETRIES:-30}
+RETRY_DELAY_SECONDS=${CREDENTIAL_VALIDATION_RETRY_DELAY_SECONDS:-2}
+RETRY_TIMEOUT_SECONDS=${CREDENTIAL_VALIDATION_RETRY_TIMEOUT_SECONDS:-5}
 
 # NOTE: this is available if we source /opt/azure/containers/provision_source.sh, though sourcing that file also runs other unrelated commands
 # which can have unintended consequences and increase latency. As a result, we simply duplicate the implementation of logs_to_events here directly.
@@ -40,27 +39,9 @@ logs_to_events() {
     fi
 }
 
-validateBootstrapKubeconfig() {
-    local kubeconfig_path=$1
-
-    cacert=$(grep -Po "(?<=certificate-authority: ).*$" < "$kubeconfig_path")
-    apiserver_url=$(grep -Po "(?<=server: ).*$" < "$kubeconfig_path")
-    bootstrap_token=$(grep -Po "(?<=token: ).*$" < "$kubeconfig_path")
-
-    if [ -z "$cacert" ]; then
-        echo "could not read cluster CA file path from $kubeconfig_path, unable to validate bootstrap credentials"
-        exit 0
-    fi
-    if [ -z "$apiserver_url" ]; then
-        echo "could not read apiserver URL from $kubeconfig_path, unable to validate bootstrap credentials"
-        exit 0
-    fi
-    if [ -z "$bootstrap_token" ]; then
-        echo "could not read bootstrap token from $kubeconfig_path, unable to validate bootstrap credentials"
-        exit 0
-    fi
-
-    echo "will check credential validity against apiserver url: $apiserver_url"
+validate() {
+    echo "will check credential validity against apiserver url: $CREDENTIAL_VALIDATION_APISERVER_URL"
+    token="${CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN//\"/}"
 
     local retry_count=0
     while true; do
@@ -69,9 +50,9 @@ validateBootstrapKubeconfig() {
             -o /dev/null \
             -w "%{http_code}" \
             -H "Accept: application/json, */*" \
-            -H "Authorization: Bearer ${bootstrap_token//\"/}" \
-            --cacert "$cacert" \
-            "${apiserver_url}/version?timeout=${RETRY_TIMEOUT_SECONDS}s")
+            -H "Authorization: Bearer $token" \
+            --cacert "$CREDENTIAL_VALIDATION_KUBE_CA_FILE" \
+            "${CREDENTIAL_VALIDATION_APISERVER_URL}/version?timeout=${RETRY_TIMEOUT_SECONDS}s")
 
         curl_code=$?
 
@@ -87,9 +68,9 @@ validateBootstrapKubeconfig() {
             curl -L \
                 -m $RETRY_TIMEOUT_SECONDS \
                 -H "Accept: application/json, */*" \
-                -H "Authorization: Bearer ${bootstrap_token//\"/}" \
-                --cacert "$cacert" \
-                "${apiserver_url}/version?timeout=${RETRY_TIMEOUT_SECONDS}s"
+                -H "Authorization: Bearer $token" \
+                --cacert "$CREDENTIAL_VALIDATION_KUBE_CA_FILE" \
+                "${CREDENTIAL_VALIDATION_APISERVER_URL}/version?timeout=${RETRY_TIMEOUT_SECONDS}s"
 
             echo "proceeding to start kubelet..."
             exit 0
@@ -108,24 +89,30 @@ validateBootstrapKubeconfig() {
     done
 }
 
-function validateKubeletCredentials {
+validateKubeletCredentials() {
+    if [ -z "${CREDENTIAL_VALIDATION_KUBE_CA_FILE:-}" ]; then
+        echo "CREDENTIAL_VALIDATION_KUBE_CA_FILE is not set, skipping kubelet credential validation"
+        exit 0
+    fi
+    if [ -z "${CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN:-}" ]; then
+        echo "CREDENTIAL_VALIDATION_TLS_BOOTSTRAP_TOKEN is not set, skipping kubelet credential validation"
+        exit 0
+    fi
+    if [ -z "${CREDENTIAL_VALIDATION_APISERVER_URL:-}" ]; then
+        echo "CREDENTIAL_VALIDATION_APISERVER_URL is not set, skipping kubelet credential validation"
+        exit 0
+    fi
     if [ -f "$KUBECONFIG_PATH" ]; then
         echo "client credential already exists within kubeconfig: $KUBECONFIG_PATH, no need to validate bootstrap credentials"
         exit 0
     fi
-
-    if [ ! -f "$BOOTSTRAP_KUBECONFIG_PATH" ]; then
-        echo "no bootstrap-kubeconfig found at $BOOTSTRAP_KUBECONFIG_PATH, no bootstrap credentials to validate"
-        exit 0
-    fi
-
-    if ! which curl >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1; then
         echo "curl is not available, unable to validate bootstrap credentials"
         exit 0
     fi
 
-    echo "will validate bootstrap-kubeconfig: $BOOTSTRAP_KUBECONFIG_PATH"
-    validateBootstrapKubeconfig "$BOOTSTRAP_KUBECONFIG_PATH"
+    echo "will validate kubelet bootstrap credentials"
+    validate
     echo "kubelet bootstrap token credential is valid"
 }
 
