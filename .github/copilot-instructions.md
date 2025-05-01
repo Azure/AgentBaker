@@ -1,10 +1,16 @@
 # Overview
 
-AgentBaker builds VHDs using Packer for various base OS: Windows, Azure Linux and Ubuntu. For each OS there are various versions (windows 2019, 2022, ubuntu 2004, 2204 etc). The goal is to
+AgentBaker repo has 2 main responsibilities:
 
-- achieve consistency among all builds as much as possible
+- builds VHDs using Packer for base OS: Windows, Azure Linux/Mariner and Ubuntu. For each OS there are multiple supported versions (windows 2019, 2022, ubuntu 2004, 2204 etc). THe VHDs are base images for a node in an aks cluster.
+- generates CSE and CustomData through AgentBaker service at runtime. The artifacts are to be used during node provision time, on a particular VHD.
+
+The goal of this project is to:
+
+- achieve consistency across different OS as much as possible
 - avoid functional regression when introducing new features (component updates, new drivers, new binaries), ensure that all supported OS / versions are tested
-- avoid performance regression when making changes
+- avoid VHD build performance regressions when making any changes
+- avoid node provisioning performance regression when making any changes
 
 ## AgentBaker Service
 
@@ -25,7 +31,7 @@ Tags of AgentBaker and corresponding Linux VHDs are released every week. Linux V
 
 Windows VHD are released separately, following windows patch tuesday schedule.
 
-## Coding standing
+## Coding standard
 
 ### Golang Guidelines
 
@@ -43,4 +49,4 @@ Windows VHD are released separately, following windows patch tuesday schedule.
 - the shell scripts are used on both azure linux/mariner and ubuntu and cross platform portability is critical.
 - when using functions defined in other files, ensure it is sourced properly.
 - use local variables rather than constants when their scoping allows for it.
-- prefer to avoid using variables declared inside another function, even they are visible. It is hard to reason and might introduce subtle bugs.
+- avoid using variables declared inside another function, even they are visible. It is hard to reason and might introduce subtle bugs.
