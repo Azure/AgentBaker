@@ -1225,6 +1225,15 @@ testCriCtl() {
     err "$test: crictl version is not $expectedVersion, instead it is $crictl_version"
     return 1
   fi
+  # check if the symlink /usr/bin/crictl points to /usr/local/bin/crictl
+  if [ ! -L "/usr/bin/crictl" ]; then
+    err "$test: /usr/bin/crictl is not a symlink"
+    return 1
+  fi
+  if [ "$(readlink /usr/bin/crictl)" != "/usr/local/bin/crictl" ]; then
+    err "$test: /usr/bin/crictl does not point to /usr/local/bin/crictl"
+    return 1
+  fi
   echo "$test: Test finished successfully."
   return 0
 }
